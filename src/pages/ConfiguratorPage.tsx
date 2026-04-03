@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useConfigurator } from '@/hooks/useConfigurator';
-import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY } from '@/data/machines';
+import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT } from '@/data/machines';
 import { t } from '@/data/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
 
@@ -16,6 +16,8 @@ const MACHINE_KEYS = ['RC-1000S', 'RC-751', 'Timan 3330', 'LOOSE_TOOL'];
 
 const REQUIRED_GROUPS_3330 = ['aircon', 'doors', 'seats', 'roof'];
 const REQUIRED_GROUPS_RC1000 = ['oil_1000'];
+const DANISH_ONLY_ITEM_IDS = new Set(['712527', '712528', 'S900205', 'S900025']);
+const EUR_ONLY_ITEM_IDS = new Set(['712188']);
 
 function getYoutubeThumbnail(url: string | undefined | null, quality: 'hqdefault' | 'maxresdefault' = 'hqdefault'): string | null {
   if (!url) return null;
@@ -34,7 +36,6 @@ function getVideoUrl(item: { videoUrl?: string; videos?: { url: string | null }[
   return item.videoUrl || item.videos?.[0]?.url || null;
 }
 
-// Check if an accessory has sub-options (subItems or dependents)
 function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
   if (acc.subItems && acc.subItems.length > 0) return true;
   return allAccs.some(a => a.requires === acc.id);
@@ -50,15 +51,17 @@ export default function ConfiguratorPage() {
   const lang = state.language;
   const T = (key: string) => t(key, lang);
 
-  const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
+  const totalQty = state.machineConfigs.reduce((sum, c) => sum + (c.type !== LOOSE_TOOL_KEY ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
 
-  // Modal state
+  // Modal states
   const [infoModal, setInfoModal] = useState<{ title: string; content: string } | null>(null);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
-
-  // Wire harness auto-add tracking
-  const [wireHarnessJustAdded, setWireHarnessJustAdded] = useState(false);
+  const [oilModalOpen, setOilModalOpen] = useState(false);
+  const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
+  const [oilError, setOilError] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const confirmContentRef = useRef<HTMLDivElement>(null);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
@@ -66,34 +69,39 @@ export default function ConfiguratorPage() {
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `Varenr: ${item.varenr}`;
-    const price = isEURCurrency()
-      ? `${item.priceEUR} €`
-      : `${item.priceDKK} kr.`;
-
-    let msg = '';
-    if (lang === 'da') {
-      msg = `Bemærk: <strong>${itemName}</strong> er automatisk lagt i kurven, da det er påkrævet ved kombination af lys og redskab.<br><br>${itemVarenr}<br>Pris: ${price}`;
-    } else if (lang === 'en') {
-      msg = `Note: <strong>${itemName}</strong> has been automatically added to the cart as it is required when combining lights and attachment.<br><br>${itemVarenr}<br>Price: ${price}`;
-    } else if (lang === 'de') {
-      msg = `Hinweis: <strong>${itemName}</strong> wurde automatisch in den Warenkorb gelegt, da es bei der Kombination von Licht und Anbaugerät erforderlich ist.<br><br>${itemVarenr}<br>Preis: ${price}`;
-    } else if (lang === 'it') {
-      msg = `Nota: <strong>${itemName}</strong> è stato aggiunto automaticamente al carrello in quanto richiesto in combinazione con luci e attrezzi.<br><br>${itemVarenr}<br>Prezzo: ${price}`;
-    } else if (lang === 'hu') {
-      msg = `Megjegyzés: <strong>${itemName}</strong> automatikusan hozzáadásra került a kosárhoz, mivel a lámpák és a tartozékok kombinációjához szükséges.<br><br>${itemVarenr}<br>Ár: ${price}`;
-    } else {
-      msg = `Note: <strong>${itemName}</strong> has been automatically added.<br><br>${itemVarenr}<br>Price: ${price}`;
-    }
-
-    setInfoModal({ title: lang === 'da' ? 'Tekniske Specifikationer' : 'Technical Specifications', content: msg });
+    const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
+    const msg = lang === 'da'
+      ? `Bemærk: <strong>${itemName}</strong> er automatisk lagt i kurven, da det er påkrævet ved kombination af lys og redskab.<br><br>${itemVarenr}<br>Pris: ${price}`
+      : `Note: <strong>${itemName}</strong> has been automatically added to the cart as it is required when combining lights and attachment.<br><br>${itemVarenr}<br>Price: ${price}`;
+    setInfoModal({ title: lang === 'da' ? 'Automatisk tilføjet' : 'Automatically added', content: msg });
   }, [lang, isEURCurrency]);
 
-  // Wrapped toggleAcc that detects wire harness addition
+  // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
-    // Get current state to check before
     const allUnits = getGlobalMachineUnits();
     const currentUnit = allUnits[state.currentMachineIndex];
     if (!currentUnit) return;
+
+    // RC-1000S oil parent special-case: open oil modal
+    if (currentUnit.modelType === 'RC-1000S' && accId === ACC_ID_OIL_1000_PARENT) {
+      let currentAccIds: string[] = [];
+      if (currentUnit.isSharedUnit) {
+        const mc = state.machineConfigs.find(c => c.id === currentUnit.modelId);
+        currentAccIds = mc?.acc || [];
+      } else {
+        currentAccIds = state.individualUnitConfigs[currentUnit.configKey]?.acc || [];
+      }
+      // If already selected, deselect parent + both oils
+      if (currentAccIds.includes(ACC_ID_OIL_1000_PARENT)) {
+        toggleAcc(ACC_ID_OIL_1000_PARENT);
+        return;
+      }
+      // Open oil modal
+      setOilChoice(null);
+      setOilError(false);
+      setOilModalOpen(true);
+      return;
+    }
 
     let currentAccIds: string[] = [];
     if (currentUnit.isSharedUnit) {
@@ -107,31 +115,34 @@ export default function ConfiguratorPage() {
 
     toggleAcc(accId);
 
-    // Check after toggle (use timeout to let state update)
     setTimeout(() => {
-      // We need to check the updated state - since toggleAcc uses setState, 
-      // we detect via the wire harness logic conditions
       if (currentUnit.modelType === 'RC-1000S' && !hadWireHarness) {
         const newAccIds = [...currentAccIds];
-        // Simulate the toggle
         const idx = newAccIds.indexOf(accId);
         if (idx === -1) newAccIds.push(accId);
         else newAccIds.splice(idx, 1);
-
         const hasLight = newAccIds.includes(ACC_ID_FLASH_LIGHT) || newAccIds.includes(ACC_ID_WORK_LIGHT);
         const hasAttach = newAccIds.includes(ACC_ID_VPLOW) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
-        const needWire = hasLight && hasAttach;
-
-        if (needWire && !hadWireHarness) {
+        if (hasLight && hasAttach && !hadWireHarness) {
           const flatAccs = getAccessoriesFlat(currentUnit.modelType);
           const wireItem = flatAccs.find(a => a.id === ACC_ID_WIRE_HARNESS);
-          if (wireItem) {
-            showAutoAddModal(wireItem as Accessory);
-          }
+          if (wireItem) showAutoAddModal(wireItem as Accessory);
         }
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
+
+  // Apply oil choice from modal
+  const applyOilChoice = () => {
+    if (!oilChoice) { setOilError(true); return; }
+    // Add parent
+    toggleAcc(ACC_ID_OIL_1000_PARENT);
+    // Add chosen oil
+    setTimeout(() => {
+      toggleAcc(oilChoice === 'normal' ? ACC_ID_OIL_NORMAL : ACC_ID_OIL_BIO);
+    }, 30);
+    setOilModalOpen(false);
+  };
 
   const showMachineDetails = (key: string) => {
     const p = PRODUCTS[key];
@@ -153,9 +164,7 @@ export default function ConfiguratorPage() {
           html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${d.label}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) {
-            html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${d.label}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
-          }
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${d.label}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
@@ -185,15 +194,10 @@ export default function ConfiguratorPage() {
     setInfoModal({ title: getLocalizedName(acc.name, lang), content: html });
   };
 
-  // Requisition number handler
   const setReqNumber = (unitNumber: number, value: string) => {
-    setState(s => ({
-      ...s,
-      reqNumbers: { ...s.reqNumbers, [`machine_${unitNumber}`]: value.slice(0, 20) }
-    }));
+    setState(s => ({ ...s, reqNumbers: { ...s.reqNumbers, [`machine_${unitNumber}`]: value.slice(0, 20) } }));
   };
 
-  // Demo machine logic
   const getDemoFee = () => isEURCurrency() ? DEMO_FEE_EUR : DEMO_FEE_DKK;
   const getDemoKey = (varenr: string, unitNumber: number) => `${varenr}_${unitNumber}`;
   const isDemoSelected = (varenr: string, unitNumber: number) => !!state.demoMachines[getDemoKey(varenr, unitNumber)];
@@ -202,44 +206,36 @@ export default function ConfiguratorPage() {
     const key = getDemoKey(varenr, unitNumber);
     const next = !state.demoMachines[key];
     setState(s => ({ ...s, demoMachines: { ...s.demoMachines, [key]: next } }));
-
     if (next) {
       const fee = getDemoFee();
       const feeText = isEURCurrency() ? `${fee.toFixed(2)} €` : `${fee.toFixed(2)} kr.`;
       const title = lang === 'da' ? 'Demo maskine valgt' : 'Demo machine selected';
       const msg = lang === 'da'
-        ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong> (varenr. ${varenr}).<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br><br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br><br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`
-        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong> (item no. ${varenr}).<br><br>An extra cost of <strong>${feeText}</strong> has been added.<br><br><strong>Terms:</strong><br>The dealer may purchase 1 unit of each machine per year for demonstration use.<br>- Demo machines may not be resold before 9 months after delivery from Timan A/S.<br><br>- If not complied with, Timan will charge the difference to the standard machine discount.`;
+        ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong>.<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`
+        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong>.<br><br>An extra cost of <strong>${feeText}</strong> has been added.`;
       setInfoModal({ title, content: msg });
     }
   };
 
-  // Render action links for an item
   const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string }, machineType: string) => {
     const videoUrl = getVideoUrl(item);
     const imageUrl = getImageUrlForItem(item);
     const hasSpecs = !!(item.specs && item.specs.length > 0);
     const showVideoIcon = !!(item.videoUrl || (item.videos && item.videos.length > 0));
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
-
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
-
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">
-        {showVideoIcon && (
-          videoUrl ? (
-            <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
-          ) : (
-            <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
-          )
-        )}
-        {showImageIcon && (
-          imageUrl ? (
-            <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>📸 {T('imageLink')}</a>
-          ) : (
-            <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
-          )
-        )}
+        {showVideoIcon && (videoUrl ? (
+          <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
+        ) : (
+          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
+        ))}
+        {showImageIcon && (imageUrl ? (
+          <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>📸 {T('imageLink')}</a>
+        ) : (
+          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
+        ))}
         {hasSpecs && (
           <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
         )}
@@ -247,28 +243,20 @@ export default function ConfiguratorPage() {
     );
   };
 
-  // Render a sub-item card (level 2 or 3)
   const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1) => {
     const isSelected = selectedIds.includes(sub.id);
     const hasNestedSubs = sub.subItems && sub.subItems.length > 0;
-
     return (
       <div key={sub.id}>
-        <div
-          onClick={e => { e.stopPropagation(); handleToggleAcc(sub.id); }}
-          className={`p-2 border rounded-lg cursor-pointer transition flex items-start gap-3 ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
-        >
-          {/* Checkbox indicator with sub-option arrow */}
+        <div onClick={e => { e.stopPropagation(); handleToggleAcc(sub.id); }}
+          className={`p-2 border rounded-lg cursor-pointer transition flex items-start gap-3 ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
           <div className="selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 rounded border-2"
             style={{ backgroundColor: isSelected ? '#059669' : 'white', borderColor: isSelected ? '#059669' : '#9ca3af' }}>
             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            {hasNestedSubs && (
-              <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>
-            )}
+            {hasNestedSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
           </div>
-
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
               <div className="text-sm text-gray-800">{getLocalizedName(sub.name, lang)}</div>
@@ -278,8 +266,6 @@ export default function ConfiguratorPage() {
             <div className="font-bold text-emerald-700 whitespace-nowrap">{formatMoney(getPrice(sub, lang), lang)}</div>
           </div>
         </div>
-
-        {/* Nested sub-items (level 3) */}
         {isSelected && hasNestedSubs && (
           <div className="ml-8 mt-2 space-y-2">
             {sub.subItems!.map(sub2 => renderSubItem(sub2 as SubItem, selectedIds, machineType, level + 1))}
@@ -288,6 +274,138 @@ export default function ConfiguratorPage() {
       </div>
     );
   };
+
+  // ======== Confirmation modal builder ========
+  const buildConfirmationHtml = () => {
+    if (!calcResult) return '';
+    const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
+    const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
+    const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
+    const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
+    const pdfTitle = state.flowType === 'quote' ? (lang === 'da' ? 'TILBUDSFORESPØRGSEL' : 'QUOTE REQUEST') : T('confirmTitle');
+
+    let html = `<div class="max-w-4xl mx-auto text-[15px] leading-relaxed">
+      <div class="text-center pb-6 border-b border-emerald-600">
+        <h1 class="text-3xl font-bold text-gray-900">${pdfTitle}</h1>
+        <p class="mt-3 text-xl">
+          <span class="block text-lg">${T('confirmDate')} ${today}</span>
+          <span class="block text-base">${T('confirmDelivery')} ${delDate}</span>
+          <span class="block text-base">${T('deliveryMethod')}: ${deliveryMethodText}</span>
+        </p>
+      </div>
+      <div class="mt-6 text-sm text-gray-700">
+        <h2 class="font-bold text-base mb-2">${T('confirmCustInfo')}</h2>
+        <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <span class="font-medium">${T('confirmFirm')}</span><span>${state.firmanavn || '-'}</span>
+          <span class="font-medium">${T('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
+          <span class="font-medium">${T('confirmPhone')}</span><span>${state.telefon || '-'}</span>
+          <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
+          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${state.emailRecipient || '-'}</span>
+          ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
+        </div>
+      </div>
+      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${T('confirmDescription')}</h2>`;
+
+    // Line items
+    calcResult.lineItems.forEach(i => {
+      if (i.subtotal) {
+        html += `<div class="flex justify-between items-end text-sm font-semibold text-gray-800 pt-4 border-t border-dashed border-gray-300 mt-4 mb-6">
+          <span>${i.txt}</span><span class="price-col">${formatMoney(i.price, lang)}</span></div>`;
+        return;
+      }
+      if (i.isSectionHeader) {
+        html += `<div class="text-sm font-bold text-gray-800 pt-3 pb-1 border-t border-gray-200 mt-2">${i.txt}</div>`;
+        return;
+      }
+      const varenr = i.varenr || '';
+      let paddingClass = 'pl-0';
+      if (i.isDependentAccessory) paddingClass = 'pl-10';
+      else if (i.sub) paddingClass = 'pl-6';
+
+      if (i.bold) {
+        html += `<div class="text-sm font-bold text-gray-800 pt-3 pb-1 border-t border-gray-200 mt-2">${i.txt}</div>`;
+      } else {
+        html += `<div class="flex items-start text-sm py-1 text-gray-600">
+          <div class="w-16 shrink-0 opacity-80">${varenr}</div>
+          <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}</div>
+          <div class="w-28 shrink-0 text-right price-col">${formatMoney(i.price, lang)}</div>
+        </div>`;
+      }
+    });
+
+    // Totals
+    html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
+      <div class="flex justify-between w-full text-xs">
+        <span>${T('confirmSubtotal')}</span>
+        <span class="price-col">${formatMoney(calcResult.subtotal, lang)}</span>
+      </div>`;
+    calcResult.discountDetails.filter(d => d.amount > 0).forEach(d => {
+      html += `<div class="flex justify-between w-full text-xs text-red-600">
+        <span>${d.txt}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
+    });
+    html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
+        <span>${T('confirmTotalDiscount')} (${calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
+        <span class="price-col">-${formatMoney(calcResult.totalDiscount, lang)}</span>
+      </div>
+      <div class="flex justify-between w-full text-base font-bold mt-2">
+        <span>${T('confirmTotal')}</span>
+        <span class="price-col">${formatMoney(calcResult.currentPrice, lang)}</span>
+      </div>
+      <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
+    </div></div></div>`;
+    return html;
+  };
+
+  // Open confirmation modal
+  const openConfirmation = () => {
+    if (!state.firmanavn || !state.kontaktperson || !state.email) {
+      setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
+      return;
+    }
+    setConfirmModalOpen(true);
+  };
+
+  // PDF download
+  const downloadPdf = async () => {
+    const el = confirmContentRef.current;
+    if (!el) return;
+    // Use browser print as fallback
+    const printWin = window.open('', '_blank');
+    if (!printWin) return;
+    printWin.document.write(`<!DOCTYPE html><html><head><title>${T('confirmTitle')}</title>
+      <style>body{font-family:Arial,sans-serif;margin:20px;font-size:14px;color:#333}
+      .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}
+      .font-bold{font-weight:700}.text-xs{font-size:12px}.text-sm{font-size:14px}
+      .text-base{font-size:16px}.text-lg{font-size:18px}.text-xl{font-size:20px}.text-3xl{font-size:30px}
+      .mt-1{margin-top:4px}.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-6{margin-top:24px}.mt-8{margin-top:32px}
+      .mb-1{margin-bottom:4px}.mb-2{margin-bottom:8px}.mb-6{margin-bottom:24px}
+      .pt-1{padding-top:4px}.pt-2{padding-top:8px}.pt-3{padding-top:12px}.pt-4{padding-top:16px}.pb-1{padding-bottom:4px}.pb-6{padding-bottom:24px}
+      .px-2{padding-left:8px;padding-right:8px}
+      .pl-6{padding-left:24px}.pl-10{padding-left:40px}
+      .border-t{border-top:1px solid #e5e7eb}.border-t-2{border-top:2px solid #e5e7eb}.border-b{border-bottom:1px solid #e5e7eb}
+      .border-dashed{border-style:dashed}.border-gray-200{border-color:#e5e7eb}.border-gray-300{border-color:#d1d5db}
+      .border-emerald-600{border-color:#059669}
+      .text-center{text-align:center}.text-right{text-align:right}
+      .flex{display:flex}.justify-between{justify-content:space-between}.items-start{align-items:flex-start}.items-end{align-items:flex-end}
+      .flex-col{flex-direction:column}.w-full{width:100%}.w-16{width:64px}.w-28{width:112px}
+      .shrink-0{flex-shrink:0}.flex-grow{flex-grow:1}.gap-x-4{column-gap:16px}.gap-y-1{row-gap:4px}
+      .grid{display:grid}[class*="grid-cols-"]{grid-template-columns:auto 1fr}
+      .leading-snug{line-height:1.375}.break-words{word-break:break-word}.opacity-80{opacity:0.8}
+      .font-medium{font-weight:500}.font-semibold{font-weight:600}
+      .text-gray-500{color:#6b7280}.text-gray-600{color:#4b5563}.text-gray-700{color:#374151}.text-gray-800{color:#1f2937}.text-gray-900{color:#111827}
+      .text-emerald-600{color:#059669}
+      @media print{body{margin:10mm}}
+      </style></head><body>${el.innerHTML}</body></html>`);
+    printWin.document.close();
+    setTimeout(() => { printWin.print(); }, 500);
+  };
+
+  // ======== Delivery startup required check ========
+  const needsStartup = lang === 'da' && state.deliveryMethod === 'deliver';
+  const canProceedStep2 = !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
+
+  // ======== Startup pricing in calc ========
+  // (handled in useConfigurator via deliveryDeliverStartup state)
 
   return (
     <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
@@ -299,6 +417,53 @@ export default function ConfiguratorPage() {
             <div dangerouslySetInnerHTML={{ __html: infoModal.content }} />
             <div className="mt-6 text-center">
               <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Oil Modal */}
+      {oilModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setOilModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4 text-center text-gray-900">{T('oilTitle')}</h3>
+            {oilError && <p className="text-red-600 font-bold text-center mb-3">{T('oilError')}</p>}
+            <div className="space-y-3">
+              {/* Normal oil */}
+              <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'normal' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input type="radio" name="oil-choice" value="normal" checked={oilChoice === 'normal'} onChange={() => { setOilChoice('normal'); setOilError(false); }} className="accent-emerald-600" />
+                <div className="flex-grow">
+                  <div className="font-medium text-gray-900">{T('oilNormal')} - Texaco HDZ46</div>
+                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_NORMAL}</div>
+                </div>
+                <div className="font-bold text-emerald-700">
+                  {(() => {
+                    const flatAccs = getAccessoriesFlat('RC-1000S');
+                    const oil = flatAccs.find(a => a.id === ACC_ID_OIL_NORMAL);
+                    return oil ? formatMoney(getPrice(oil, lang), lang) : '';
+                  })()}
+                </div>
+              </label>
+              {/* Bio oil */}
+              <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'bio' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input type="radio" name="oil-choice" value="bio" checked={oilChoice === 'bio'} onChange={() => { setOilChoice('bio'); setOilError(false); }} className="accent-emerald-600" />
+                <div className="flex-grow">
+                  <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
+                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_BIO}</div>
+                  <div className="text-xs text-gray-500">{lang === 'da' ? 'Pris incl. afgift og emb. afgift (20L)' : 'Price incl. tax and packaging tax (20L)'}</div>
+                </div>
+                <div className="font-bold text-emerald-700">
+                  {(() => {
+                    const flatAccs = getAccessoriesFlat('RC-1000S');
+                    const oil = flatAccs.find(a => a.id === ACC_ID_OIL_BIO);
+                    return oil ? formatMoney(getPrice(oil, lang), lang) : '';
+                  })()}
+                </div>
+              </label>
+            </div>
+            <div className="flex justify-between mt-6">
+              <button onClick={() => setOilModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('oilCancel')}</button>
+              <button onClick={applyOilChoice} className="px-4 py-2 bg-emerald-600 rounded-lg text-white font-medium hover:bg-emerald-700">{T('oilChoose')}</button>
             </div>
           </div>
         </div>
@@ -317,6 +482,19 @@ export default function ConfiguratorPage() {
             </div>
             <div className="mt-6 text-center">
               <button onClick={() => setDeliveryInfoOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('delivery_info_close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-[95%] max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <div ref={confirmContentRef} dangerouslySetInnerHTML={{ __html: buildConfirmationHtml() }} />
+            <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
+              <button onClick={() => setConfirmModalOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
+              <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">{T('downloadPdfBtn')}</button>
             </div>
           </div>
         </div>
@@ -346,7 +524,7 @@ export default function ConfiguratorPage() {
             <button key={step}
               onClick={() => { if (step <= state.step) setStep(step); }}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
-              {T(`step${step}Tab`) !== `step${step}Tab` ? T(`step${step}Tab`) : `${lang === 'da' ? 'Trin' : 'Step'} ${step}`}
+              {T(`step${step}Tab`)}
             </button>
           ))}
         </div>
@@ -362,7 +540,6 @@ export default function ConfiguratorPage() {
                 <h2 className="text-xl font-bold mb-4 text-center">{T('step1Title')}</h2>
                 <p className="text-gray-600 font-medium mb-6 text-center">{T('step1Desc')}</p>
 
-                {/* Flow type selector */}
                 <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 max-w-3xl mx-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(['quote', 'order'] as const).map(ft => (
@@ -399,29 +576,18 @@ export default function ConfiguratorPage() {
                           </div>
                         )}
 
-                        {/* Machine action links */}
                         <div className="mt-1 mb-1 flex flex-wrap justify-center gap-3 items-center">
                           {getVideoUrl(p) && (
-                            <a href={getVideoUrl(p)!} target="_blank" rel="noopener noreferrer"
-                              className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">
-                              🎥 {T('videoLink')}
-                            </a>
+                            <a href={getVideoUrl(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
                           )}
                           {getImageUrlForItem(p) && (
-                            <a href={getImageUrlForItem(p)!} target="_blank" rel="noopener noreferrer"
-                              className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">
-                              📸 {T('imageLink')}
-                            </a>
+                            <a href={getImageUrlForItem(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
                           )}
                           {p.machineDetails && (
-                            <button onClick={(e) => { e.stopPropagation(); showMachineDetails(key); }}
-                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">
-                              📄 {T('infoSpecs')}
-                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); showMachineDetails(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>
                           )}
                         </div>
 
-                        {/* Qty controls */}
                         <div className={`mt-auto pt-4 flex justify-between items-center w-full py-2 px-3 rounded-lg border-t ${isSelected ? 'border-emerald-200 bg-white' : 'border-gray-200 bg-gray-100'}`}>
                           <span className={`font-medium ${isSelected ? 'text-emerald-700' : 'text-gray-700'}`}>{T('quantity')}</span>
                           <div className="flex items-center qty-selector">
@@ -435,6 +601,12 @@ export default function ConfiguratorPage() {
                               style={{ width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
                           </div>
                         </div>
+
+                        {/* Qty discount status per card */}
+                        {currentQty >= 1 && key !== LOOSE_TOOL_KEY && (
+                          <div className={`text-xs text-center mt-1 ${totalQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}
+                            dangerouslySetInnerHTML={{ __html: totalQty >= 4 ? `✅ ${T('qtyStatus4')}` : totalQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
+                        )}
 
                         {currentQty > 1 && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
@@ -457,13 +629,6 @@ export default function ConfiguratorPage() {
                     );
                   })}
                 </div>
-
-                {/* Qty discount status */}
-                {totalQty >= 1 && (
-                  <div className={`mt-4 text-center text-sm ${totalQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}>
-                    {totalQty >= 4 ? `✅ ${T('qtyStatus4')}` : totalQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1')}
-                  </div>
-                )}
 
                 <div className="flex justify-center pt-6 border-t mt-8">
                   <button onClick={() => setStep(2)} disabled={!flowSelected || totalQty === 0}
@@ -489,26 +654,58 @@ export default function ConfiguratorPage() {
                   {(['pickup', 'send', 'deliver'] as const).map(method => (
                     <label key={method} className="w-full max-w-2xl cursor-pointer">
                       <input type="radio" name="delivery-method" value={method} className="sr-only peer"
-                        checked={state.deliveryMethod === method} onChange={() => setDeliveryMethod(method)} />
+                        checked={state.deliveryMethod === method} onChange={() => {
+                          setDeliveryMethod(method);
+                          if (method !== 'deliver') setState(s => ({ ...s, deliveryDeliverStartup: null }));
+                        }} />
                       <div className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 transition peer-checked:bg-emerald-50 peer-checked:border-emerald-500 peer-checked:shadow-sm">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex-1 min-w-0 text-[13px] md:text-sm whitespace-nowrap">{T(method)}</span>
                           <button type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeliveryInfoOpen(true); }}
                             className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-[11px] font-bold text-gray-600 hover:bg-gray-100 flex-shrink-0"
-                            title={T('delivery_info_link')}>
-                            i
-                          </button>
+                            title={T('delivery_info_link')}>i</button>
                         </div>
                       </div>
                     </label>
                   ))}
                 </div>
 
+                {/* Delivery startup sub-options (Danish only, deliver method) */}
+                {needsStartup && (
+                  <div className="mt-6 max-w-2xl mx-auto text-left">
+                    <h3 className="text-sm font-bold text-gray-800 mb-2">{T('startupTitle')}</h3>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'no_bridge', label: T('startupNoBridge') },
+                        { value: 'with_bridge', label: T('startupWithBridge') },
+                        { value: 'other', label: T('startupOther') },
+                      ].map(opt => (
+                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
+                          <input type="radio" name="deliver-startup" value={opt.value} className="accent-emerald-600"
+                            checked={state.deliveryDeliverStartup === opt.value}
+                            onChange={() => setState(s => ({ ...s, deliveryDeliverStartup: opt.value }))} />
+                          <span className="text-sm text-gray-700">{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {!state.deliveryDeliverStartup && (
+                      <p className="text-red-500 text-xs mt-2">{T('startupRequired')}</p>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-between max-w-md mx-auto mt-8">
                   <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
-                  <button onClick={() => { setState(s => ({ ...s, currentMachineIndex: 0 })); setStep(3); }}
-                    className="px-4 py-2 bg-emerald-600 rounded-lg font-medium text-white shadow-lg text-sm">{T('goToEquipment')}</button>
+                  <button onClick={() => {
+                    if (!canProceedStep2) return;
+                    setState(s => ({ ...s, currentMachineIndex: 0 }));
+                    setStep(3);
+                  }}
+                    disabled={!canProceedStep2}
+                    className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep2 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                    {T('goToEquipment')}
+                  </button>
                 </div>
               </div>
             )}
@@ -532,7 +729,6 @@ export default function ConfiguratorPage() {
 
               const currentDisplayIdx = displayUnits.findIndex(u => u.globalIndex === state.currentMachineIndex);
 
-              // Determine required groups
               const mandatoryGroups = machineType === 'Timan 3330' ? REQUIRED_GROUPS_3330
                 : machineType === 'RC-1000S' ? REQUIRED_GROUPS_RC1000 : [];
 
@@ -550,15 +746,12 @@ export default function ConfiguratorPage() {
                 const flushMandatoryGroup = () => {
                   if (openMandatoryGroup && mandatoryGroupItems.length > 0) {
                     const ok = groupHasSelection[openMandatoryGroup];
-                    if (!ok) {
-                      elements.push(
-                        <div key={`mg-${openMandatoryGroup}`} className="mandatory-group-error space-y-2 mb-4" style={{ border: '2px solid #ef4444', borderRadius: 8, padding: 8 }}>
-                          {mandatoryGroupItems}
-                        </div>
-                      );
-                    } else {
-                      mandatoryGroupItems.forEach(el => elements.push(el));
-                    }
+                    elements.push(
+                      <div key={`mg-${openMandatoryGroup}`}
+                        className={`space-y-2 mb-4 ${!ok ? 'border-2 border-red-500 rounded-lg p-3' : ''}`}>
+                        {mandatoryGroupItems}
+                      </div>
+                    );
                     mandatoryGroupItems = [];
                     openMandatoryGroup = null;
                   }
@@ -566,6 +759,10 @@ export default function ConfiguratorPage() {
 
                 accs.forEach((a, idx) => {
                   if (a.hidden || (a.requires && !selectedIds.includes(a.requires))) return;
+                  // Danish-only / EUR-only filtering
+                  const aId = String(a.id); const aVarenr = String(a.varenr);
+                  if ((DANISH_ONLY_ITEM_IDS.has(aId) || DANISH_ONLY_ITEM_IDS.has(aVarenr)) && lang !== 'da') return;
+                  if ((EUR_ONLY_ITEM_IDS.has(aId) || EUR_ONLY_ITEM_IDS.has(aVarenr)) && !isEURCurrency()) return;
 
                   const isMandatoryGroupItem = !!(a.group && mandatoryGroups.includes(a.group));
 
@@ -573,14 +770,11 @@ export default function ConfiguratorPage() {
                     flushMandatoryGroup();
                   }
 
-                  // Section header (from sectionStart)
                   if (a.sectionStart) {
                     const prev = accs.slice(0, idx).reverse().find(x => x && !x.hidden);
                     if (!prev || prev.sectionStart !== a.sectionStart) {
                       let headerClass = 'text-gray-800';
-                      if (isMandatoryGroupItem && !groupHasSelection[a.group!]) {
-                        headerClass = 'text-red-600';
-                      }
+                      if (isMandatoryGroupItem && !groupHasSelection[a.group!]) headerClass = 'text-red-600';
                       const sectionTitle = T(a.sectionStart) !== a.sectionStart ? T(a.sectionStart) : a.sectionStart;
                       elements.push(
                         <h3 key={`section-${idx}`} className={`font-bold ${headerClass} mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10`}>
@@ -590,7 +784,6 @@ export default function ConfiguratorPage() {
                     }
                   }
 
-                  // isHeader items
                   if (a.isHeader) {
                     elements.push(
                       <h3 key={`header-${idx}`} className="font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10">
@@ -600,7 +793,6 @@ export default function ConfiguratorPage() {
                     return;
                   }
 
-                  // Start mandatory group wrapper
                   if (isMandatoryGroupItem && openMandatoryGroup !== a.group) {
                     flushMandatoryGroup();
                     openMandatoryGroup = a.group!;
@@ -614,7 +806,6 @@ export default function ConfiguratorPage() {
                   if (a.isQtyInput) {
                     const qtyKey = `${currentUnit.configKey}_${a.id}`;
                     const currentQtyVal = state.accQty[qtyKey] ?? 0;
-
                     const card = (
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
@@ -628,15 +819,11 @@ export default function ConfiguratorPage() {
                               const val = Math.max(0, parseInt(e.target.value) || 0);
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
-                            onClick={e => e.stopPropagation()}
-                            className="w-16 p-1.5 border rounded-md text-center" />
-                          <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">
-                            {formatMoney(getPrice(a, lang), lang)}
-                          </div>
+                            onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
+                          <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{formatMoney(getPrice(a, lang), lang)}</div>
                         </div>
                       </div>
                     );
-
                     if (isMandatoryGroupItem) mandatoryGroupItems.push(card);
                     else elements.push(card);
                     return;
@@ -666,17 +853,13 @@ export default function ConfiguratorPage() {
                     <div key={a.id} onClick={() => handleToggleAcc(a.id)}
                       className={`p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50 accessory-card ${isSelected ? 'btn-active border-emerald-500' : ''} ${indentClass}`}>
                       <div className="flex items-start w-full min-w-0">
-                        {/* Checkbox indicator with sub-option arrow */}
                         <div className="selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 mr-3 rounded border-2"
                           style={{ backgroundColor: isSelected ? '#059669' : 'white', borderColor: isSelected ? '#059669' : '#9ca3af' }}>
                           <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          {hasSubs && (
-                            <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>
-                          )}
+                          {hasSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
                         </div>
-
                         <div className="flex-grow min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
@@ -688,15 +871,12 @@ export default function ConfiguratorPage() {
                               <span className="font-bold text-base text-emerald-700 price-col">{formatMoney(getPrice(a, lang), lang)}</span>
                             </div>
                           </div>
-
                           {ralInput}
                         </div>
                       </div>
-
-                      {/* Sub items with full rendering */}
                       {isSelected && a.subItems && a.subItems.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-emerald-200 space-y-2">
-                          <div className="text-xs font-semibold text-gray-600">{T('tilvalg') || 'Tilvalg:'}</div>
+                          <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>
                           {a.subItems.map(sub => renderSubItem(sub, selectedIds, machineType))}
                         </div>
                       )}
@@ -714,7 +894,6 @@ export default function ConfiguratorPage() {
               return (
                 <div className="bg-white rounded-2xl shadow p-6">
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
-
                   {displayUnits.length > 1 && (
                     <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto mb-4">
                       {displayUnits.map(du => (
@@ -726,11 +905,9 @@ export default function ConfiguratorPage() {
                       ))}
                     </div>
                   )}
-
                   <div className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
                     {renderAccessories()}
                   </div>
-
                   <div className="flex justify-between pt-4 border-t">
                     <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
                     <button onClick={() => {
@@ -754,11 +931,11 @@ export default function ConfiguratorPage() {
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')} *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
                     <input type="text" value={state.firmanavn} onChange={e => setCustomerField('firmanavn', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('contactPerson')} *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('contactPerson')}</label>
                     <input type="text" value={state.kontaktperson} onChange={e => setCustomerField('kontaktperson', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
@@ -766,7 +943,7 @@ export default function ConfiguratorPage() {
                     <input type="text" value={state.telefon} onChange={e => setCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('emailSender')} *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')}</label>
                     <input type="email" value={state.email} onChange={e => setCustomerField('email', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailSenderPlaceholder')} />
                   </div>
                   <div>
@@ -778,8 +955,6 @@ export default function ConfiguratorPage() {
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={3} />
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
-
-                  {/* Manual dealer discount */}
                   <div className="border-t pt-4 mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
@@ -790,13 +965,12 @@ export default function ConfiguratorPage() {
                         const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                         setState(s => ({ ...s, manualDealerDiscountPct: v }));
                       }}
-                      placeholder="0"
-                      className="w-24 p-2 border rounded-lg text-center" />
+                      placeholder="0" className="w-24 p-2 border rounded-lg text-center" />
                   </div>
                 </div>
                 <div className="flex justify-between mt-8 pt-4 border-t">
                   <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
-                  <button onClick={() => alert('PDF download — integration kommer snart')}
+                  <button onClick={openConfirmation}
                     className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
                 </div>
               </div>
@@ -823,24 +997,18 @@ export default function ConfiguratorPage() {
                         </div>
                       );
                     }
-
                     if (item.isSectionHeader) {
                       return (
-                        <div key={idx} className="pt-3 pb-1 text-sm font-semibold text-gray-800 border-t border-gray-200 mt-2">
-                          {item.txt}
-                        </div>
+                        <div key={idx} className="pt-3 pb-1 text-sm font-semibold text-gray-800 border-t border-gray-200 mt-2">{item.txt}</div>
                       );
                     }
-
                     const lineClasses = item.bold ? 'font-bold text-gray-900 mt-4' : 'text-gray-600 text-xs';
-                    // Indentation matching original HTML
                     let indent = 'pl-0';
                     if (item.sub) {
                       if (item.isDependentAccessory) indent = 'pl-10';
                       else if (item.isPrimaryAccessory) indent = 'pl-6';
                       else indent = 'pl-4';
                     }
-
                     return (
                       <div key={idx}>
                         <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
@@ -850,7 +1018,6 @@ export default function ConfiguratorPage() {
                           </div>
                           <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>
                         </div>
-                        {/* Requisition number field after machine line */}
                         {item.isMachine && item.index && (
                           <div className="mt-2 mb-3 pl-2">
                             <input type="text" maxLength={20}
@@ -860,7 +1027,6 @@ export default function ConfiguratorPage() {
                               className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
                           </div>
                         )}
-                        {/* Demo machine checkbox (Step 4 only) */}
                         {state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
                             <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">

@@ -16,7 +16,9 @@ export const DEMO_ELIGIBLE_VARENR = new Set(['411000', '410040', '712000']);
 export const DEMO_FEE_DKK = 75;
 export const DEMO_FEE_EUR = 10;
 export const LOOSE_TOOL_KEY = 'LOOSE_TOOL';
-export const PACKAGING_COST_ID = 'PACK-LOOSE';
+export const PACKAGING_COST_ID = '725789';
+export const PACKAGING_TRIGGER_IDS = ['720125', '720130', '720132', '720133'];
+export const ACC_ID_OIL_1000_PARENT = '445566778899';
 
 // ===== SUB-ITEMS FACTORY =====
 const SWEEPER_SUB_ITEMS_TEMPLATE = [
