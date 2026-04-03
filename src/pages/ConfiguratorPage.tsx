@@ -122,12 +122,23 @@ export default function ConfiguratorPage() {
         if (idx === -1) newAccIds.push(accId);
         else newAccIds.splice(idx, 1);
         const hasLight = newAccIds.includes(ACC_ID_FLASH_LIGHT) || newAccIds.includes(ACC_ID_WORK_LIGHT);
-        const hasAttach = newAccIds.includes(ACC_ID_VPLOW) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
+        const hasAttach = newAccIds.includes(ACC_ID_VPLOV) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
         if (hasLight && hasAttach && !hadWireHarness) {
           const flatAccs = getAccessoriesFlat(currentUnit.modelType);
           const wireItem = flatAccs.find(a => a.id === ACC_ID_WIRE_HARNESS);
           if (wireItem) showAutoAddModal(wireItem as Accessory);
         }
+      }
+      // Packaging popup for loose tool
+      if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
+        const packMsg: Record<string, string> = {
+          da: 'Du har valgt et løst redskab med særlige pakkeomkostninger i form af specialbygget palle og arbejdstid.',
+          en: 'You have selected an attachment with special packaging costs in the form of a custom-built pallet and labor time.',
+          de: 'Sie haben ein Anbaugerät mit besonderen Verpackungskosten in Form einer maßgefertigten Palette und Arbeitszeit ausgewählt.',
+          it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
+          hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
+        };
+        setInfoModal({ title: lang === 'da' ? 'Pakkeomkostning' : 'Packaging cost', content: packMsg[lang] || packMsg.en });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
