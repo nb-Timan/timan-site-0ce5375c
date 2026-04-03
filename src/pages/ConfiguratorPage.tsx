@@ -716,7 +716,7 @@ export default function ConfiguratorPage() {
               const currentUnit = allUnits[state.currentMachineIndex];
               if (!currentUnit) return <div>No machine selected</div>;
               const machineType = currentUnit.modelType;
-              const accs = ACCESSORIES[machineType] || [];
+              const accs = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : (ACCESSORIES[machineType] || []);
               const displayUnits = getDisplayMachineUnits();
 
               let selectedIds: string[] = [];
