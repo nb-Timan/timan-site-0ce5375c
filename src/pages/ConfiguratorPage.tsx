@@ -16,6 +16,8 @@ const MACHINE_KEYS = ['RC-1000S', 'RC-751', 'Timan 3330', 'LOOSE_TOOL'];
 
 const REQUIRED_GROUPS_3330 = ['aircon', 'doors', 'seats', 'roof'];
 const REQUIRED_GROUPS_RC1000 = ['oil_1000'];
+const DANISH_ONLY_ITEM_IDS = new Set(['712527', '712528', 'S900205', 'S900025']);
+const EUR_ONLY_ITEM_IDS = new Set(['712188']);
 
 function getYoutubeThumbnail(url: string | undefined | null, quality: 'hqdefault' | 'maxresdefault' = 'hqdefault'): string | null {
   if (!url) return null;
