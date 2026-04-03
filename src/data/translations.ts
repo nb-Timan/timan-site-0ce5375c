@@ -1,119 +1,161 @@
-// i18n preparation — all UI strings centralized here
-// For v1, only Danish. Structure allows easy addition of more languages.
-
 import { Language } from '@/types/configurator';
 
-type TranslationKeys = {
-  // Steps
-  step1Title: string;
-  step2Title: string;
-  step3Title: string;
-  step4Title: string;
-  summaryTitle: string;
-  // Document type
-  quote: string;
-  order: string;
-  documentTypeLabel: string;
-  // Machine selection
-  selectMachines: string;
-  quantity: string;
-  sharedConfig: string;
-  individualConfig: string;
-  specs: string;
-  moreInfo: string;
-  basePrice: string;
-  // Delivery
-  deliveryDate: string;
-  deliveryMethod: string;
-  pickup: string;
-  send: string;
-  deliver: string;
-  startupOption: string;
-  deliveryInfo: string;
-  // Accessories
-  requiredChoice: string;
-  optional: string;
-  ralColorLabel: string;
-  dependsOnLabel: string;
-  // Customer
-  companyName: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
-  comment: string;
-  // Summary
-  subtotal: string;
-  baseDiscount: string;
-  quantityDiscount: string;
-  deliveryDiscount: string;
-  totalDiscount: string;
-  finalPrice: string;
-  exVat: string;
-  downloadPdf: string;
-  // Actions
-  next: string;
-  previous: string;
-  addToQuote: string;
-  unit: string;
-  demoMachine: string;
-  demoFee: string;
-  looseToolPackaging: string;
+const translations: Record<Language, Record<string, string>> = {
+  da: {
+    step1Title: 'Trin 1: Vælg Maskiner & Antal',
+    step2Title: 'Trin 2: Leveringsdato & Start Konfiguration',
+    step3Title: 'Trin 3: Tilvælg Udstyr',
+    step4Title: 'Trin 4: Kundeoplysninger & Afslutning',
+    summaryTitle: 'Kurv & Prisoversigt',
+    subtitle: 'Byg din Timan',
+    quote: 'Tilbud',
+    order: 'Ordre',
+    next: 'Næste',
+    previous: 'Tilbage',
+    subtotal: 'Samlet pris (ekskl. rabat):',
+    totalDiscount: 'Samlet rabat',
+    finalPrice: 'Totalpris (inkl. rabat):',
+    exVat: 'Alle priser er ekskl. moms',
+    baseDiscount: 'Grund rabat',
+    quantityDiscount: 'Stk. rabat',
+    deliveryDiscount: 'Leveringsrabat over 3 mdr.',
+    downloadPdf: 'Download PDF',
+    cartEmpty: 'Vælg maskine for at starte...',
+    quantity: 'Antal:',
+    configShared: 'Konfigurer alle maskiner ens',
+    configIndividual: 'Konfigurer maskinerne forskelligt',
+    configMethod: 'Konfigurationsmetode',
+    goToDelivery: 'Gå til Leveringsdato →',
+    goToEquipment: 'Start Udstyrskonfiguration →',
+    goToContact: 'Gå til Kontaktinformation →',
+    nextMachine: 'Næste Maskine →',
+    back: '← Tilbage',
+    infoSpecs: 'Information og Specifikationer',
+    deliveryDate: 'Ønsket Leveringsdato',
+    deliveryMethod: 'Leveringsmetode',
+    pickup: 'Afhentning på fabrik (AB Fabrik)',
+    send: 'Standard forsendelse – Timan booker (FCA)',
+    deliver: 'Timan leverer ordren (Særaftale)',
+    companyName: 'Firmanavn *',
+    contactPerson: 'Kontaktperson *',
+    phone: 'Tlf. (Valgfri)',
+    email: 'E-mail på udfylder *',
+    comment: 'Kommentar / Rekvisitionsnr.',
+    sendOrder: 'Næste',
+  },
+  en: {
+    step1Title: 'Step 1: Select Machines & Quantity',
+    step2Title: 'Step 2: Delivery Date & Start Configuration',
+    step3Title: 'Step 3: Select Equipment',
+    step4Title: 'Step 4: Customer Info & Finish',
+    summaryTitle: 'Cart & Price Summary',
+    subtitle: 'Build your Timan',
+    quote: 'Quote',
+    order: 'Order',
+    next: 'Next',
+    previous: 'Back',
+    subtotal: 'Total Price (excl. discount):',
+    totalDiscount: 'Total discount',
+    finalPrice: 'Total Price (incl. discount):',
+    exVat: 'All prices exclude VAT',
+    baseDiscount: 'Base Discount',
+    quantityDiscount: 'Qty Discount',
+    deliveryDiscount: 'Delivery Discount over 3 months',
+    downloadPdf: 'Download PDF',
+    cartEmpty: 'Select a machine to start...',
+    quantity: 'Quantity:',
+    configShared: 'Configure all machines identically',
+    configIndividual: 'Configure machines individually',
+    configMethod: 'Configuration Method',
+    goToDelivery: 'Go to Delivery Date →',
+    goToEquipment: 'Start Equipment Configuration →',
+    goToContact: 'Go to Contact Information →',
+    nextMachine: 'Next Machine →',
+    back: '← Back',
+    infoSpecs: 'Information & Specifications',
+    deliveryDate: 'Desired Delivery Date',
+    deliveryMethod: 'Delivery Method',
+    pickup: 'Factory pickup (Ex Works)',
+    send: 'Standard shipping – Timan books (FCA)',
+    deliver: 'Timan delivers the order (Special agreement)',
+    companyName: 'Company Name *',
+    contactPerson: 'Contact Person *',
+    phone: 'Phone (Optional)',
+    email: 'Your E-mail *',
+    comment: 'Comment / Reference No.',
+    sendOrder: 'Next',
+  },
+  de: {
+    step1Title: 'Schritt 1: Maschinen & Anzahl wählen',
+    step2Title: 'Schritt 2: Lieferdatum & Konfiguration starten',
+    step3Title: 'Schritt 3: Ausstattung wählen',
+    step4Title: 'Schritt 4: Kundeninfo & Abschluss',
+    summaryTitle: 'Warenkorb & Preisübersicht',
+    subtitle: 'Bauen Sie Ihren Timan',
+    quote: 'Angebot', order: 'Bestellung', next: 'Weiter', previous: 'Zurück',
+    subtotal: 'Gesamtpreis (exkl. Rabatt):', totalDiscount: 'Gesamtrabatt',
+    finalPrice: 'Gesamtpreis (inkl. Rabatt):', exVat: 'Alle Preise zzgl. MwSt.',
+    baseDiscount: 'Grundrabatt', quantityDiscount: 'Mengenrabatt',
+    deliveryDiscount: 'Lieferrabatt über 3 Monate', downloadPdf: 'PDF herunterladen',
+    cartEmpty: 'Maschine wählen...', quantity: 'Anzahl:',
+    configShared: 'Alle Maschinen gleich konfigurieren', configIndividual: 'Maschinen einzeln konfigurieren',
+    configMethod: 'Konfigurationsmethode', goToDelivery: 'Zum Lieferdatum →',
+    goToEquipment: 'Ausstattung konfigurieren →', goToContact: 'Zu Kontaktinformationen →',
+    nextMachine: 'Nächste Maschine →', back: '← Zurück', infoSpecs: 'Information & Spezifikationen',
+    deliveryDate: 'Gewünschtes Lieferdatum', deliveryMethod: 'Liefermethode',
+    pickup: 'Abholung ab Werk', send: 'Standardversand – Timan bucht (FCA)',
+    deliver: 'Timan liefert (Sondervereinbarung)',
+    companyName: 'Firmenname *', contactPerson: 'Ansprechpartner *', phone: 'Tel. (Optional)',
+    email: 'Ihre E-Mail *', comment: 'Kommentar', sendOrder: 'Weiter',
+  },
+  it: {
+    step1Title: 'Passo 1: Seleziona Macchine e Quantità',
+    step2Title: 'Passo 2: Data di Consegna',
+    step3Title: 'Passo 3: Seleziona Attrezzatura',
+    step4Title: 'Passo 4: Info Cliente',
+    summaryTitle: 'Carrello e Riepilogo Prezzi',
+    subtitle: 'Configura il tuo Timan',
+    quote: 'Preventivo', order: 'Ordine', next: 'Avanti', previous: 'Indietro',
+    subtotal: 'Prezzo totale (escl. sconto):', totalDiscount: 'Sconto totale',
+    finalPrice: 'Prezzo totale (incl. sconto):', exVat: 'Tutti i prezzi sono IVA esclusa',
+    baseDiscount: 'Sconto base', quantityDiscount: 'Sconto quantità',
+    deliveryDiscount: 'Sconto consegna', downloadPdf: 'Scarica PDF',
+    cartEmpty: 'Seleziona una macchina...', quantity: 'Quantità:',
+    configShared: 'Configura tutte identiche', configIndividual: 'Configura singolarmente',
+    configMethod: 'Metodo di Configurazione', goToDelivery: 'Vai alla Data di Consegna →',
+    goToEquipment: 'Avvia Configurazione →', goToContact: 'Vai a Info Cliente →',
+    nextMachine: 'Macchina Successiva →', back: '← Indietro', infoSpecs: 'Informazioni e Specifiche',
+    deliveryDate: 'Data di Consegna', deliveryMethod: 'Metodo di consegna',
+    pickup: 'Ritiro in fabbrica', send: 'Spedizione standard (FCA)',
+    deliver: 'Timan consegna (Accordo speciale)',
+    companyName: 'Nome Azienda *', contactPerson: 'Persona di Contatto *', phone: 'Tel. (Opzionale)',
+    email: 'La tua E-mail *', comment: 'Commento', sendOrder: 'Avanti',
+  },
+  hu: {
+    step1Title: '1. lépés: Gép és Mennyiség',
+    step2Title: '2. lépés: Szállítási Dátum',
+    step3Title: '3. lépés: Felszerelés',
+    step4Title: '4. lépés: Ügyfél adatok',
+    summaryTitle: 'Kosár és Áttekintés',
+    subtitle: 'Építsd meg a Timanod',
+    quote: 'Árajánlat', order: 'Rendelés', next: 'Tovább', previous: 'Vissza',
+    subtotal: 'Teljes ár (kedvezmény nélkül):', totalDiscount: 'Teljes kedvezmény',
+    finalPrice: 'Teljes ár (kedvezménnyel):', exVat: 'Az árak ÁFA nélkül értendők',
+    baseDiscount: 'Alap kedvezmény', quantityDiscount: 'Mennyiségi kedvezmény',
+    deliveryDiscount: 'Szállítási kedvezmény', downloadPdf: 'PDF letöltése',
+    cartEmpty: 'Válassz gépet...', quantity: 'Mennyiség:',
+    configShared: 'Minden gép azonos', configIndividual: 'Gépek egyedileg',
+    configMethod: 'Konfigurációs módszer', goToDelivery: 'Szállítási Dátumhoz →',
+    goToEquipment: 'Felszerelés konfiguráció →', goToContact: 'Ügyfél adatok →',
+    nextMachine: 'Következő Gép →', back: '← Vissza', infoSpecs: 'Információ és Specifikáció',
+    deliveryDate: 'Szállítási Dátum', deliveryMethod: 'Szállítási mód',
+    pickup: 'Átvétel a gyárban (EXW)', send: 'Normál szállítás (FCA)',
+    deliver: 'Timan szállítja (Külön megállapodás)',
+    companyName: 'Cégnév *', contactPerson: 'Kapcsolattartó *', phone: 'Tel. (Opcionális)',
+    email: 'E-mail *', comment: 'Megjegyzés', sendOrder: 'Tovább',
+  },
 };
 
-const da: TranslationKeys = {
-  step1Title: 'Maskinevalg',
-  step2Title: 'Levering',
-  step3Title: 'Tilbehør',
-  step4Title: 'Kundeinfo',
-  summaryTitle: 'Oversigt',
-  quote: 'Tilbud',
-  order: 'Ordre',
-  documentTypeLabel: 'Dokumenttype',
-  selectMachines: 'Vælg maskiner',
-  quantity: 'Antal',
-  sharedConfig: 'Ens konfiguration',
-  individualConfig: 'Individuel konfiguration',
-  specs: 'Specifikationer',
-  moreInfo: 'Mere info',
-  basePrice: 'Grundpris',
-  deliveryDate: 'Leveringsdato',
-  deliveryMethod: 'Leveringsmetode',
-  pickup: 'Afhentning',
-  send: 'Fragt',
-  deliver: 'Levering med opstart',
-  startupOption: 'Opstartsvalg',
-  deliveryInfo: 'Leveringsinformation',
-  requiredChoice: 'Påkrævet valg',
-  optional: 'Valgfrit',
-  ralColorLabel: 'RAL farvenummer',
-  dependsOnLabel: 'Kræver',
-  companyName: 'Firmanavn',
-  contactPerson: 'Kontaktperson',
-  phone: 'Telefon',
-  email: 'E-mail',
-  comment: 'Kommentar',
-  subtotal: 'Subtotal',
-  baseDiscount: 'Grundrabat (25%)',
-  quantityDiscount: 'Mængderabat',
-  deliveryDiscount: 'Leveringsrabat',
-  totalDiscount: 'Samlet rabat',
-  finalPrice: 'Total',
-  exVat: 'ekskl. moms',
-  downloadPdf: 'Download PDF',
-  next: 'Næste',
-  previous: 'Tilbage',
-  addToQuote: 'Tilføj',
-  unit: 'Enhed',
-  demoMachine: 'Demo maskine',
-  demoFee: 'Demo gebyr',
-  looseToolPackaging: 'Emballering',
-};
-
-const translations: Record<Language, TranslationKeys> = {
-  da,
-  en: da, // Placeholder — will be filled with English translations later
-};
-
-export function t(key: keyof TranslationKeys, lang: Language = 'da'): string {
-  return translations[lang]?.[key] ?? key;
+export function t(key: string, lang: Language = 'da'): string {
+  return translations[lang]?.[key] ?? translations.da?.[key] ?? key;
 }
