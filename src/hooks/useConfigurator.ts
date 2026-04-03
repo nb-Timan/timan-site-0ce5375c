@@ -1,202 +1,301 @@
 import { useState, useCallback, useMemo } from 'react';
-import {
-  ConfiguratorState, DocumentType, Language, MachineSelection,
-  UnitConfig, DeliveryInfo, CustomerInfo, DeliveryMethod,
-  PriceSummary, DiscountBreakdown, LineItem, ConfigMode,
-} from '@/types/configurator';
-import { getMachineById } from '@/data/machines';
+import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
+import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 
-const initialDelivery: DeliveryInfo = { method: 'pickup', date: null };
-const initialCustomer: CustomerInfo = { companyName: '', contactPerson: '', phone: '', email: '', comment: '' };
+const initialState: ConfiguratorState = {
+  step: 1,
+  flowType: 'quote',
+  language: 'da',
+  machineConfigs: [],
+  individualUnitConfigs: {},
+  ralCodes: {},
+  accQty: {},
+  date: '',
+  deliveryMethod: '',
+  deliveryDeliverStartup: null,
+  manualDealerDiscountPct: 0,
+  demoMachines: {},
+  reqNumbers: {},
+  currentMachineIndex: 0,
+  firmanavn: '',
+  kontaktperson: '',
+  telefon: '',
+  email: '',
+  emailRecipient: '',
+  comment: '',
+};
 
 export function useConfigurator() {
-  const [state, setState] = useState<ConfiguratorState>({
-    currentStep: 0,
-    documentType: 'quote',
-    language: 'da',
-    machineSelections: [],
-    unitConfigs: [],
-    deliveryInfo: initialDelivery,
-    customerInfo: initialCustomer,
-  });
+  const [state, setState] = useState<ConfiguratorState>(initialState);
 
-  const setStep = useCallback((step: number) => setState((s) => ({ ...s, currentStep: step })), []);
-  const setDocumentType = useCallback((dt: DocumentType) => setState((s) => ({ ...s, documentType: dt })), []);
-  const setLanguage = useCallback((lang: Language) => setState((s) => ({ ...s, language: lang })), []);
+  const setStep = useCallback((step: number) => setState(s => ({ ...s, step })), []);
+  const setLanguage = useCallback((language: Language) => setState(s => ({ ...s, language })), []);
+  const setFlowType = useCallback((flowType: FlowType) => setState(s => ({ ...s, flowType })), []);
+  const setDeliveryMethod = useCallback((deliveryMethod: DeliveryMethod | '') => setState(s => ({ ...s, deliveryMethod })), []);
+  const setDate = useCallback((date: string) => setState(s => ({ ...s, date })), []);
 
-  const setMachineSelections = useCallback((selections: MachineSelection[]) => {
-    setState((s) => {
-      // Build unit configs for all units
-      const configs: UnitConfig[] = [];
-      for (const sel of selections) {
-        const machine = getMachineById(sel.machineId);
-        if (!machine) continue;
-        const count = sel.configMode === 'shared' ? 1 : sel.quantity;
-        for (let i = 0; i < count; i++) {
-          // Preserve existing config if available
-          const existing = s.unitConfigs.find(
-            (c) => c.machineId === sel.machineId && c.unitIndex === i
-          );
-          configs.push(
-            existing ?? {
-              machineId: sel.machineId,
-              unitIndex: i,
-              selectedAccessories: {},
-              accessoryQuantities: {},
-              ralColors: {},
-              subItemSelections: {},
-            }
-          );
-        }
+  const setCustomerField = useCallback((field: string, value: string) => {
+    setState(s => ({ ...s, [field]: value }));
+  }, []);
+
+  // Machine qty from step 1
+  const setMachineQty = useCallback((machineType: string, delta: number) => {
+    setState(s => {
+      const configs = [...s.machineConfigs];
+      let config = configs.find(c => c.type === machineType);
+      if (!config) {
+        config = { id: `m${configs.length}`, type: machineType, qty: 0, configMode: 'individual', acc: [] };
+        configs.push(config);
       }
-      return { ...s, machineSelections: selections, unitConfigs: configs };
+      const newQty = Math.max(0, config.qty + delta);
+      if (newQty === 0) {
+        return { ...s, machineConfigs: configs.filter(c => c.type !== machineType), currentMachineIndex: 0 };
+      }
+      config.qty = newQty;
+      return { ...s, machineConfigs: configs, currentMachineIndex: 0 };
     });
   }, []);
 
-  const updateUnitConfig = useCallback((machineId: string, unitIndex: number, updates: Partial<UnitConfig>) => {
-    setState((s) => ({
-      ...s,
-      unitConfigs: s.unitConfigs.map((c) =>
-        c.machineId === machineId && c.unitIndex === unitIndex ? { ...c, ...updates } : c
-      ),
-    }));
+  const setConfigMode = useCallback((machineType: string, mode: 'shared' | 'individual') => {
+    setState(s => {
+      const configs = s.machineConfigs.map(c => c.type === machineType ? { ...c, configMode: mode } : c);
+      return { ...s, machineConfigs: configs };
+    });
   }, []);
 
-  const setDeliveryInfo = useCallback((info: Partial<DeliveryInfo>) => {
-    setState((s) => ({ ...s, deliveryInfo: { ...s.deliveryInfo, ...info } }));
-  }, []);
+  // Get all machine units
+  const getGlobalMachineUnits = useCallback(() => {
+    const units: Array<{ globalIndex: number; modelId: string; modelType: string; configKey: string; isSharedUnit: boolean; isBaseUnit: boolean; unitNumber: number }> = [];
+    let globalIndex = 0;
+    state.machineConfigs.forEach(mc => {
+      const isShared = mc.configMode === 'shared';
+      for (let i = 1; i <= mc.qty; i++) {
+        units.push({
+          globalIndex,
+          modelId: mc.id,
+          modelType: mc.type,
+          configKey: isShared ? mc.id : `${mc.id}_${i}`,
+          isSharedUnit: isShared,
+          isBaseUnit: isShared ? (i === 1) : true,
+          unitNumber: globalIndex + 1,
+        });
+        globalIndex++;
+      }
+    });
+    return units;
+  }, [state.machineConfigs]);
 
-  const setCustomerInfo = useCallback((info: Partial<CustomerInfo>) => {
-    setState((s) => ({ ...s, customerInfo: { ...s.customerInfo, ...info } }));
-  }, []);
+  const getDisplayMachineUnits = useCallback(() => {
+    return getGlobalMachineUnits().filter(u => u.isBaseUnit);
+  }, [getGlobalMachineUnits]);
 
-  // Pricing calculations
-  const priceSummary = useMemo((): PriceSummary => {
-    let subtotal = 0;
-    const totalMachineCount = state.machineSelections.reduce((sum, s) => {
-      const m = getMachineById(s.machineId);
-      return m?.isLooseTool ? sum : sum + s.quantity;
-    }, 0);
-    const hasOnlyLooseTools = totalMachineCount === 0;
-
-    for (const sel of state.machineSelections) {
-      const machine = getMachineById(sel.machineId);
-      if (!machine) continue;
-      const unitConfigs = state.unitConfigs.filter((c) => c.machineId === sel.machineId);
-      const isShared = sel.configMode === 'shared';
-
-      for (let i = 0; i < sel.quantity; i++) {
-        subtotal += machine.basePrice;
-        const cfg = isShared ? unitConfigs[0] : unitConfigs[i];
-        if (!cfg) continue;
-
-        for (const acc of machine.accessories) {
-          if (cfg.selectedAccessories[acc.id]) {
-            const qty = cfg.accessoryQuantities[acc.id] ?? 1;
-            subtotal += acc.price * qty;
-
-            if (acc.subItems) {
-              for (const si of acc.subItems) {
-                if (cfg.subItemSelections[acc.id]?.[si.id]) {
-                  subtotal += si.price;
-                }
-              }
-            }
+  // Toggle accessory
+  const toggleAcc = useCallback((accId: string) => {
+    setState(s => {
+      const allUnits = (() => {
+        const units: Array<{ globalIndex: number; modelId: string; modelType: string; configKey: string; isSharedUnit: boolean; isBaseUnit: boolean; unitNumber: number }> = [];
+        let gi = 0;
+        s.machineConfigs.forEach(mc => {
+          const isShared = mc.configMode === 'shared';
+          for (let i = 1; i <= mc.qty; i++) {
+            units.push({ globalIndex: gi, modelId: mc.id, modelType: mc.type, configKey: isShared ? mc.id : `${mc.id}_${i}`, isSharedUnit: isShared, isBaseUnit: isShared ? (i === 1) : true, unitNumber: gi + 1 });
+            gi++;
           }
-        }
-      }
-    }
+        });
+        return units;
+      })();
 
-    // Discount chain: base 25% → qty → delivery
-    const baseDiscountPercent = 25;
-    const baseDiscount = subtotal * (baseDiscountPercent / 100);
-    let afterBase = subtotal - baseDiscount;
+      const unit = allUnits[s.currentMachineIndex];
+      if (!unit) return s;
 
-    let qtyDiscountPercent = 0;
-    if (!hasOnlyLooseTools) {
-      if (totalMachineCount >= 4) qtyDiscountPercent = 4;
-      else if (totalMachineCount >= 2) qtyDiscountPercent = 2;
-    }
-    const qtyDiscount = afterBase * (qtyDiscountPercent / 100);
-    let afterQty = afterBase - qtyDiscount;
+      const newState = { ...s, machineConfigs: [...s.machineConfigs], individualUnitConfigs: { ...s.individualUnitConfigs } };
 
-    let deliveryDiscountPercent = 0;
-    if (state.deliveryInfo.date) {
-      const threeMonths = new Date();
-      threeMonths.setMonth(threeMonths.getMonth() + 3);
-      if (state.deliveryInfo.date > threeMonths) {
-        deliveryDiscountPercent = 2;
-      }
-    }
-    const deliveryDiscount = afterQty * (deliveryDiscountPercent / 100);
-    const finalPrice = afterQty - deliveryDiscount;
+      let accList: string[];
+      if (unit.isSharedUnit) {
+        const mc = newState.machineConfigs.find(c => c.id === unit.modelId);
+        if (!mc) return s;
+        accList = [...mc.acc];
+        const idx = accList.indexOf(accId);
 
-    const totalDiscount = baseDiscount + qtyDiscount + deliveryDiscount;
-
-    return {
-      subtotal,
-      discounts: {
-        baseDiscount,
-        baseDiscountPercent,
-        quantityDiscount: qtyDiscount,
-        quantityDiscountPercent: qtyDiscountPercent,
-        deliveryDiscount,
-        deliveryDiscountPercent,
-        manualDiscount: 0,
-        manualDiscountPercent: 0,
-      },
-      totalDiscount,
-      finalPrice,
-    };
-  }, [state.machineSelections, state.unitConfigs, state.deliveryInfo]);
-
-  // Generate line items for summary/PDF
-  const lineItems = useMemo((): LineItem[] => {
-    const items: LineItem[] = [];
-    for (const sel of state.machineSelections) {
-      const machine = getMachineById(sel.machineId);
-      if (!machine) continue;
-      items.push({
-        name: machine.name,
-        itemNumber: machine.itemNumber,
-        quantity: sel.quantity,
-        unitPrice: machine.basePrice,
-        totalPrice: machine.basePrice * sel.quantity,
-      });
-      const unitConfigs = state.unitConfigs.filter((c) => c.machineId === sel.machineId);
-      const isShared = sel.configMode === 'shared';
-      const cfg = unitConfigs[0];
-      if (!cfg) continue;
-
-      for (const acc of machine.accessories) {
-        if (acc.hidden) continue;
-        if (cfg.selectedAccessories[acc.id]) {
-          const qty = cfg.accessoryQuantities[acc.id] ?? 1;
-          const multiplier = isShared ? sel.quantity : 1;
-          items.push({
-            name: acc.name,
-            itemNumber: acc.itemNumber,
-            quantity: qty * multiplier,
-            unitPrice: acc.price,
-            totalPrice: acc.price * qty * multiplier,
-            indent: true,
+        // Group logic
+        const flatAccs = getAccessoriesFlat(unit.modelType);
+        const clickedItem = flatAccs.find(a => a.id === accId);
+        if (clickedItem?.group) {
+          // Remove other items in same group
+          flatAccs.filter(a => a.group === clickedItem.group).forEach(a => {
+            const gi = accList.indexOf(a.id);
+            if (gi !== -1) accList.splice(gi, 1);
           });
         }
+
+        if (idx === -1) {
+          accList.push(accId);
+        } else {
+          accList.splice(idx, 1);
+          // Remove dependents
+          flatAccs.filter(a => a.requires === accId).forEach(dep => {
+            const di = accList.indexOf(dep.id);
+            if (di !== -1) accList.splice(di, 1);
+          });
+        }
+
+        // Wire harness auto-add logic for RC-1000S
+        if (unit.modelType === 'RC-1000S') {
+          const hasLight = accList.includes(ACC_ID_FLASH_LIGHT) || accList.includes(ACC_ID_WORK_LIGHT);
+          const hasAttach = accList.includes(ACC_ID_VPLOW) || accList.includes(ACC_ID_WEEDBRUSH) || accList.includes('418000');
+          const needWire = hasLight && hasAttach;
+          const hasWire = accList.includes(ACC_ID_WIRE_HARNESS);
+          if (needWire && !hasWire) accList.push(ACC_ID_WIRE_HARNESS);
+          if (!needWire && hasWire) {
+            const wi = accList.indexOf(ACC_ID_WIRE_HARNESS);
+            if (wi !== -1) accList.splice(wi, 1);
+          }
+        }
+
+        mc.acc = accList;
+      } else {
+        const configKey = unit.configKey;
+        if (!newState.individualUnitConfigs[configKey]) {
+          newState.individualUnitConfigs[configKey] = { acc: [] };
+        }
+        accList = [...newState.individualUnitConfigs[configKey].acc];
+        const idx = accList.indexOf(accId);
+
+        const flatAccs = getAccessoriesFlat(unit.modelType);
+        const clickedItem = flatAccs.find(a => a.id === accId);
+        if (clickedItem?.group) {
+          flatAccs.filter(a => a.group === clickedItem.group).forEach(a => {
+            const gi = accList.indexOf(a.id);
+            if (gi !== -1) accList.splice(gi, 1);
+          });
+        }
+
+        if (idx === -1) accList.push(accId);
+        else {
+          accList.splice(idx, 1);
+          flatAccs.filter(a => a.requires === accId).forEach(dep => {
+            const di = accList.indexOf(dep.id);
+            if (di !== -1) accList.splice(di, 1);
+          });
+        }
+
+        if (unit.modelType === 'RC-1000S') {
+          const hasLight = accList.includes(ACC_ID_FLASH_LIGHT) || accList.includes(ACC_ID_WORK_LIGHT);
+          const hasAttach = accList.includes(ACC_ID_VPLOW) || accList.includes(ACC_ID_WEEDBRUSH) || accList.includes('418000');
+          const needWire = hasLight && hasAttach;
+          const hasWire = accList.includes(ACC_ID_WIRE_HARNESS);
+          if (needWire && !hasWire) accList.push(ACC_ID_WIRE_HARNESS);
+          if (!needWire && hasWire) {
+            const wi = accList.indexOf(ACC_ID_WIRE_HARNESS);
+            if (wi !== -1) accList.splice(wi, 1);
+          }
+        }
+
+        newState.individualUnitConfigs[configKey] = { acc: accList };
       }
+      return newState;
+    });
+  }, []);
+
+  // Calculate prices
+  const calcResult = useMemo((): CalcResult | null => {
+    const allUnits = getGlobalMachineUnits();
+    if (allUnits.length === 0) return null;
+
+    let subtotal = 0;
+    const lineItems: LineItem[] = [];
+    const totalMachineQty = allUnits.filter(u => u.modelType !== LOOSE_TOOL_KEY).length;
+
+    allUnits.forEach(unit => {
+      const mach = PRODUCTS[unit.modelType];
+      if (!mach) return;
+      const machPrice = getPrice(mach, state.language);
+      lineItems.push({ txt: `Maskine ${unit.unitNumber} (${getLocalizedName(mach.name, state.language)})`, price: machPrice, varenr: mach.varenr, bold: true, isMachine: true, index: unit.unitNumber });
+      let unitTotal = machPrice;
+
+      // Get selected accessories
+      let accIds: string[] = [];
+      if (unit.isSharedUnit) {
+        const mc = state.machineConfigs.find(c => c.id === unit.modelId);
+        accIds = mc?.acc || [];
+      } else {
+        accIds = state.individualUnitConfigs[unit.configKey]?.acc || [];
+      }
+
+      const flatAccs = getAccessoriesFlat(unit.modelType);
+      const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
+
+      selectedAccs.forEach(a => {
+        const qty = state.accQty[`${unit.configKey}_${a.id}`] || 1;
+        const accPrice = getPrice(a, state.language) * qty;
+        unitTotal += accPrice;
+        if (!a.hidden) {
+          lineItems.push({ txt: `- ${getLocalizedName(a.name, state.language)}${qty > 1 ? ` x${qty}` : ''}`, price: accPrice, varenr: a.varenr, sub: true });
+        }
+      });
+
+      subtotal += unitTotal;
+      lineItems.push({ txt: `Subtotal Maskine ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
+    });
+
+    // Discount chain
+    let disc = 0;
+    const details: DiscountDetail[] = [];
+    let price = subtotal;
+
+    // 1. Base discount 25%
+    const d1 = subtotal * 0.25;
+    price -= d1; disc += d1;
+    details.push({ txt: `Grund rabat (25%)`, amount: d1 });
+
+    // 2. Qty discount
+    let qtyPct = totalMachineQty >= 4 ? 0.04 : (totalMachineQty >= 2 ? 0.02 : 0);
+    if (qtyPct > 0) {
+      const d2 = (subtotal - d1) * qtyPct;
+      price -= d2; disc += d2;
+      details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2 });
     }
-    return items;
-  }, [state.machineSelections, state.unitConfigs]);
+
+    // 3. Delivery discount
+    let delActive = false;
+    if (state.date) {
+      const threeMonths = new Date();
+      threeMonths.setMonth(threeMonths.getMonth() + 3);
+      const deliveryDate = new Date(state.date);
+      if (deliveryDate > threeMonths) delActive = true;
+    }
+    if (delActive) {
+      const d3 = (subtotal - disc) * 0.02;
+      price -= d3; disc += d3;
+      details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3 });
+    }
+
+    // 4. Manual dealer discount
+    if (state.step === 4 && state.manualDealerDiscountPct > 0) {
+      const d4 = (subtotal - disc) * (state.manualDealerDiscountPct / 100);
+      price -= d4; disc += d4;
+      details.push({ txt: `Ekstra forhandlerrabat (${state.manualDealerDiscountPct}%)`, amount: d4 });
+    }
+
+    const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;
+
+    return { lineItems, subtotal, discountDetails: details, totalDiscount: disc, currentPrice: price, totalPct, qtyPct };
+  }, [state, getGlobalMachineUnits]);
 
   return {
     state,
+    setState,
     setStep,
-    setDocumentType,
     setLanguage,
-    setMachineSelections,
-    updateUnitConfig,
-    setDeliveryInfo,
-    setCustomerInfo,
-    priceSummary,
-    lineItems,
+    setFlowType,
+    setDeliveryMethod,
+    setDate,
+    setCustomerField,
+    setMachineQty,
+    setConfigMode,
+    toggleAcc,
+    calcResult,
+    getGlobalMachineUnits,
+    getDisplayMachineUnits,
   };
 }

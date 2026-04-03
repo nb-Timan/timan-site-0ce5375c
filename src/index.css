@@ -1,76 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: 79%;
+}
+
+html, body {
+  overflow-x: hidden !important;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    --background: 210 17% 97%;
+    --foreground: 220 14% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 14% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
-    --primary: 210 70% 38%;
+    --popover-foreground: 220 14% 10%;
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 90% 50%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 220 14% 10%;
     --muted: 210 15% 93%;
     --muted-foreground: 220 10% 45%;
-    --accent: 210 30% 90%;
-    --accent-foreground: 210 70% 30%;
+    --accent: 160 84% 97%;
+    --accent-foreground: 160 84% 25%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 210 15% 88%;
-    --input: 210 15% 88%;
-    --ring: 210 70% 38%;
-    --radius: 0.5rem;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 160 84% 39%;
+    --radius: 1rem;
 
-    --success: 145 60% 40%;
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
-    --step-active: 210 70% 38%;
-    --step-done: 145 60% 40%;
-    --step-pending: 210 15% 80%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 210 70% 38%;
+    --sidebar-foreground: 220 14% 10%;
+    --sidebar-primary: 160 84% 39%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 30% 90%;
-    --sidebar-accent-foreground: 210 70% 30%;
-    --sidebar-border: 210 15% 88%;
-    --sidebar-ring: 210 70% 38%;
-  }
-
-  .dark {
-    --background: 220 20% 8%;
-    --foreground: 210 20% 95%;
-    --card: 220 18% 12%;
-    --card-foreground: 210 20% 95%;
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 210 70% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 38 90% 50%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 15% 18%;
-    --muted-foreground: 210 10% 60%;
-    --accent: 220 15% 22%;
-    --accent-foreground: 210 70% 70%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 210 70% 50%;
-    --sidebar-background: 220 18% 10%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-primary: 210 70% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 210 70% 70%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 210 70% 50%;
+    --sidebar-accent: 160 84% 97%;
+    --sidebar-accent-foreground: 160 84% 25%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 160 84% 39%;
   }
 }
 
@@ -83,29 +61,236 @@
   }
 }
 
-@layer components {
-  .step-indicator {
-    @apply flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold;
+/* Active card state - emerald highlight */
+.btn-active {
+  background-color: #ecfdf5 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+/* Tab styles */
+.tab-active {
+  border-bottom: 3px solid #10b981;
+  color: #10b981;
+  font-weight: 600;
+}
+.tab-inactive {
+  color: #6b72f0;
+}
+
+/* Price column */
+.price-col {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Quantity selector */
+.qty-selector button {
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  transition: background-color 0.1s;
+}
+.qty-display {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  background-color: #fff;
+  border: 2px solid #ccc;
+  border-radius: 0.375rem;
+  margin: 0 4px;
+}
+
+/* Radio tile group */
+.radio-tile-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.radio-tile-label {
+  display: block;
+  padding: 0.75rem 0.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.8rem;
+}
+.radio-tile-input:checked + .radio-tile-label {
+  border-color: #10b981;
+  background-color: #ecfdf5;
+  color: #065f46;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+}
+.radio-tile-input {
+  display: none;
+}
+
+/* RAL input */
+.ral-input-wrapper {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.ral-input {
+  width: 6rem;
+  max-width: 100%;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
+}
+.ral-input:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+/* Group card */
+.group-card {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+}
+.group-card:hover {
+  border-color: #10b981;
+}
+.group-card.selected {
+  border: 2px solid #10b981;
+  background-color: #f0fdf4;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1), 0 2px 4px -1px rgba(16, 185, 129, 0.06);
+}
+.group-card.unselected {
+  border: 1px solid #e5e7eb;
+  background-color: white;
+}
+
+/* Mandatory group error */
+.mandatory-group-error {
+  border: 2px solid #ef4444;
+  background-color: #fef2f2;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+}
+
+/* Accessory card checkmark */
+.accessory-card {
+  position: relative;
+}
+.checkmark-icon {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #10b981;
+  color: white;
+  display: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  align-items: center;
+  justify-content: center;
+}
+.accessory-card.btn-active .checkmark-icon {
+  display: flex;
+}
+
+/* Selection indicator */
+.selection-indicator {
+  border: 2px solid;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease-in-out;
+}
+.accessory-card:hover .selection-indicator {
+  border-color: #10b981;
+}
+
+/* Flag button */
+.flag-button {
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+.flag-button:hover {
+  background-color: #e5e7eb;
+}
+.flag-button.active {
+  border: 2px solid #10b981;
+  background-color: #ecfdf5;
+}
+
+/* Qty status */
+.qty-status-container {
+  min-height: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+/* Notification */
+.notification-box {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile header */
+@media (max-width: 1023px) {
+  .header-title-container {
+    width: 100%;
+    text-align: center;
   }
-  .step-active {
-    @apply bg-primary text-primary-foreground;
+}
+@media (min-width: 1024px) {
+  .header-title-container {
+    text-align: center;
+    flex-grow: 1;
   }
-  .step-done {
-    @apply bg-success text-success-foreground;
-  }
-  .step-pending {
-    @apply bg-muted text-muted-foreground;
-  }
-  .machine-card {
-    @apply border rounded-lg p-4 cursor-pointer transition-all duration-200 hover:shadow-md;
-  }
-  .machine-card-selected {
-    @apply border-primary ring-2 ring-primary/20 shadow-md;
-  }
-  .accessory-card {
-    @apply border rounded-lg p-3 cursor-pointer transition-all duration-200 hover:border-primary/50;
-  }
-  .accessory-card-selected {
-    @apply border-primary bg-primary/5;
-  }
+}
+
+@media print {
+  body { background-color: white; padding: 0; }
+  .no-print { display: none !important; }
 }
