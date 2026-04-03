@@ -238,6 +238,24 @@ export function useConfigurator() {
       lineItems.push({ txt: `Subtotal Maskine ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
     });
 
+    // DK: Startup pricing for "Timan leverer"
+    if (state.language === 'da' && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
+      let startupPrice = 0;
+      let startupTxt = '';
+      if (state.deliveryDeliverStartup === 'no_bridge') {
+        startupPrice = 1500;
+        startupTxt = 'Vare nr 795050 – Opstart af maskine / uden bro';
+      } else if (state.deliveryDeliverStartup === 'with_bridge') {
+        startupPrice = 2500;
+        startupTxt = 'Vare nr 795050 – Opstart af maskine / med bro';
+      } else {
+        startupPrice = 0;
+        startupTxt = 'Vare nr 795050 – Opstart af maskine / Anden aftale (se kommentar)';
+      }
+      lineItems.push({ txt: `- ${startupTxt}`, price: startupPrice, varenr: '795050', sub: true });
+      subtotal += startupPrice;
+    }
+
     // Discount chain
     let disc = 0;
     const details: DiscountDetail[] = [];
