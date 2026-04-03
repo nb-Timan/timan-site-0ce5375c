@@ -17,7 +17,7 @@ export interface LocalizedString {
 
 export interface TechSpec {
   label: string;
-  value: string | LocalizedString;
+  value?: string | LocalizedString;
   isHeader?: boolean;
 }
 

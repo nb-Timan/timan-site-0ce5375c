@@ -65,10 +65,14 @@ export default function ConfiguratorPage() {
       html += '</ul>';
     }
     if (dims.length > 0) {
-      html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
+      html += '<div class="p-3 bg-gray-50 rounded-lg text-sm">';
       dims.forEach(d => {
-        const val = typeof d.value === 'string' ? d.value : ((d.value as any)[lang] || (d.value as any).da);
-        html += `<div class="font-medium text-gray-700">${d.label}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        if (d.isHeader) {
+          html += `<div class="col-span-2 font-bold text-gray-900 mt-3 mb-1 pt-2 border-t border-gray-200 first:mt-0 first:pt-0 first:border-0">${d.label}</div>`;
+        } else {
+          const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
+          html += `<div class="grid grid-cols-2 gap-x-4 py-0.5"><div class="font-medium text-gray-700">${d.label}:</div><div class="font-semibold text-gray-900">${val}</div></div>`;
+        }
       });
       html += '</div>';
     }
