@@ -759,6 +759,10 @@ export default function ConfiguratorPage() {
 
                 accs.forEach((a, idx) => {
                   if (a.hidden || (a.requires && !selectedIds.includes(a.requires))) return;
+                  // Danish-only / EUR-only filtering
+                  const aId = String(a.id); const aVarenr = String(a.varenr);
+                  if ((DANISH_ONLY_ITEM_IDS.has(aId) || DANISH_ONLY_ITEM_IDS.has(aVarenr)) && lang !== 'da') return;
+                  if ((EUR_ONLY_ITEM_IDS.has(aId) || EUR_ONLY_ITEM_IDS.has(aVarenr)) && !isEURCurrency()) return;
 
                   const isMandatoryGroupItem = !!(a.group && mandatoryGroups.includes(a.group));
 
