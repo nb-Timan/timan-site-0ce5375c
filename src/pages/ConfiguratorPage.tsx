@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useConfigurator } from '@/hooks/useConfigurator';
-import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT } from '@/data/machines';
+import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
 
@@ -128,6 +128,17 @@ export default function ConfiguratorPage() {
           const wireItem = flatAccs.find(a => a.id === ACC_ID_WIRE_HARNESS);
           if (wireItem) showAutoAddModal(wireItem as Accessory);
         }
+      }
+      // Packaging popup for loose tool
+      if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
+        const packMsg: Record<string, string> = {
+          da: 'Du har valgt et løst redskab med særlige pakkeomkostninger i form af specialbygget palle og arbejdstid.',
+          en: 'You have selected an attachment with special packaging costs in the form of a custom-built pallet and labor time.',
+          de: 'Sie haben ein Anbaugerät mit besonderen Verpackungskosten in Form einer maßgefertigten Palette und Arbeitszeit ausgewählt.',
+          it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
+          hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
+        };
+        setInfoModal({ title: lang === 'da' ? 'Pakkeomkostning' : 'Packaging cost', content: packMsg[lang] || packMsg.en });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
@@ -365,39 +376,80 @@ export default function ConfiguratorPage() {
     setConfirmModalOpen(true);
   };
 
-  // PDF download
+  // PDF download using jsPDF + html2canvas
   const downloadPdf = async () => {
     const el = confirmContentRef.current;
     if (!el) return;
-    // Use browser print as fallback
-    const printWin = window.open('', '_blank');
-    if (!printWin) return;
-    printWin.document.write(`<!DOCTYPE html><html><head><title>${T('confirmTitle')}</title>
-      <style>body{font-family:Arial,sans-serif;margin:20px;font-size:14px;color:#333}
-      .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}
-      .font-bold{font-weight:700}.text-xs{font-size:12px}.text-sm{font-size:14px}
-      .text-base{font-size:16px}.text-lg{font-size:18px}.text-xl{font-size:20px}.text-3xl{font-size:30px}
-      .mt-1{margin-top:4px}.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-6{margin-top:24px}.mt-8{margin-top:32px}
-      .mb-1{margin-bottom:4px}.mb-2{margin-bottom:8px}.mb-6{margin-bottom:24px}
-      .pt-1{padding-top:4px}.pt-2{padding-top:8px}.pt-3{padding-top:12px}.pt-4{padding-top:16px}.pb-1{padding-bottom:4px}.pb-6{padding-bottom:24px}
-      .px-2{padding-left:8px;padding-right:8px}
-      .pl-6{padding-left:24px}.pl-10{padding-left:40px}
-      .border-t{border-top:1px solid #e5e7eb}.border-t-2{border-top:2px solid #e5e7eb}.border-b{border-bottom:1px solid #e5e7eb}
-      .border-dashed{border-style:dashed}.border-gray-200{border-color:#e5e7eb}.border-gray-300{border-color:#d1d5db}
-      .border-emerald-600{border-color:#059669}
-      .text-center{text-align:center}.text-right{text-align:right}
-      .flex{display:flex}.justify-between{justify-content:space-between}.items-start{align-items:flex-start}.items-end{align-items:flex-end}
-      .flex-col{flex-direction:column}.w-full{width:100%}.w-16{width:64px}.w-28{width:112px}
-      .shrink-0{flex-shrink:0}.flex-grow{flex-grow:1}.gap-x-4{column-gap:16px}.gap-y-1{row-gap:4px}
-      .grid{display:grid}[class*="grid-cols-"]{grid-template-columns:auto 1fr}
-      .leading-snug{line-height:1.375}.break-words{word-break:break-word}.opacity-80{opacity:0.8}
-      .font-medium{font-weight:500}.font-semibold{font-weight:600}
-      .text-gray-500{color:#6b7280}.text-gray-600{color:#4b5563}.text-gray-700{color:#374151}.text-gray-800{color:#1f2937}.text-gray-900{color:#111827}
-      .text-emerald-600{color:#059669}
-      @media print{body{margin:10mm}}
-      </style></head><body>${el.innerHTML}</body></html>`);
-    printWin.document.close();
-    setTimeout(() => { printWin.print(); }, 500);
+
+    try {
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+      const jsPDFModule = await import('jspdf');
+      const { jsPDF } = jsPDFModule;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentW = pageW - margin * 2;
+      const contentH = pageH - margin * 2;
+      const pxPerMm = 96 / 25.4;
+      const renderW = Math.round(contentW * pxPerMm);
+
+      // Clone into offscreen container
+      const renderRoot = document.createElement('div');
+      renderRoot.style.cssText = `position:fixed;left:-99999px;top:0;width:${renderW}px;background:#fff;overflow:visible;`;
+      document.body.appendChild(renderRoot);
+
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.style.cssText = 'width:100%;max-width:none;margin:0;padding:0;background:#fff;overflow:visible;';
+      renderRoot.appendChild(clone);
+
+      await new Promise(r => requestAnimationFrame(r));
+
+      const canvas = await html2canvas(renderRoot, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      document.body.removeChild(renderRoot);
+
+      const canvasW = canvas.width;
+      const canvasH = canvas.height;
+      const canvasPxPerMm = canvasW / contentW;
+      const maxSliceH = Math.floor(contentH * canvasPxPerMm);
+
+      let yOffset = 0;
+      let pageNum = 0;
+      while (yOffset < canvasH) {
+        if (pageNum > 0) pdf.addPage();
+        const sliceH = Math.min(maxSliceH, canvasH - yOffset);
+
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvasW;
+        sliceCanvas.height = sliceH;
+        const ctx = sliceCanvas.getContext('2d')!;
+        ctx.drawImage(canvas, 0, yOffset, canvasW, sliceH, 0, 0, canvasW, sliceH);
+
+        const imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+        const imgH = (sliceH / canvasPxPerMm);
+        pdf.addImage(imgData, 'JPEG', margin, margin, contentW, imgH);
+
+        yOffset += sliceH;
+        pageNum++;
+      }
+
+      const pdfTitle = state.flowType === 'quote'
+        ? (lang === 'da' ? 'Tilbud' : 'Quote')
+        : (lang === 'da' ? 'Ordre' : 'Order');
+      pdf.save(`Timan_${pdfTitle}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      // Fallback to browser print
+      const printWin = window.open('', '_blank');
+      if (!printWin) return;
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${T('confirmTitle')}</title>
+        <style>body{font-family:Arial,sans-serif;margin:20mm;font-size:14px;color:#333}
+        .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}.font-bold{font-weight:700}
+        @media print{body{margin:10mm}}</style></head><body>${el.innerHTML}</body></html>`);
+      printWin.document.close();
+      setTimeout(() => { printWin.print(); }, 500);
+    }
   };
 
   // ======== Delivery startup required check ========
@@ -716,7 +768,7 @@ export default function ConfiguratorPage() {
               const currentUnit = allUnits[state.currentMachineIndex];
               if (!currentUnit) return <div>No machine selected</div>;
               const machineType = currentUnit.modelType;
-              const accs = ACCESSORIES[machineType] || [];
+              const accs = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : (ACCESSORIES[machineType] || []);
               const displayUnits = getDisplayMachineUnits();
 
               let selectedIds: string[] = [];

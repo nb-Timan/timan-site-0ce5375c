@@ -636,9 +636,105 @@ export function formatMoney(amount: number, lang: Language = 'da', negative = fa
   return sign + formatted + currencySuffix;
 }
 
+// ===== LOOSE TOOL ACCESSORY MERGE =====
+const LOOSE_TERMIT_ITEMS: Accessory[] = [
+  { id:'LOES-HGM-20083', varenr:'HGM-20083',
+    name:{ da:'Løs - Fingerklipper for Termit-arm', en:'Loose - Finger mower for Termit arm', de:'Lose - Fingerbalkenmäher für Termit-Arm', it:'Sciolto - Barra falciante a dita per braccio Termit', hu:'Különálló - Ujjas kasza Termit karhoz' },
+    priceDKK:19400, priceEUR:2615,
+    videoUrl:'https://www.youtube.com/watch?v=o3XLURc8qiU',
+    imageUrl:'https://img.youtube.com/vi/o3XLURc8qiU/maxresdefault.jpg'
+  },
+  { id:'LOES-HGM-20082', varenr:'HGM-20082',
+    name:{ da:'Løs - Multitrimmer for Termit-arm', en:'Loose - Multi trimmer for Termit arm', de:'Lose - Multitrimmer für Termit-Arm', it:'Sciolto - Multitrimmer per braccio Termit', hu:'Különálló - Multitrimmer Termit karhoz' },
+    priceDKK:56835, priceEUR:7650,
+    videoUrl:'https://www.youtube.com/watch?v=9Fvwy_rJ_oQ',
+    imageUrl:'https://img.youtube.com/vi/9Fvwy_rJ_oQ/maxresdefault.jpg'
+  },
+  { id:'LOES-730033', varenr:'730033',
+    name:{ da:'Løs - Termit-arm for 3330 inkl. hydraulisk sving', en:'Loose - Termit arm for 3330 incl. hydraulic swing', de:'Lose - Termit-Arm für 3330 inkl. hydraulischem Schwenk', it:'Sciolto - Braccio Termit per 3330 incl. brandeggio idraulico', hu:'Különálló - Termit kar 3330-hoz hidraulikus forgással' },
+    priceDKK:72800, priceEUR:9800
+  },
+  { id:'LOES-730034', varenr:'730034',
+    name:{ da:'Løs - Termit-arm for 3330 ekskl. hydraulisk sving', en:'Loose - Termit arm for 3330 excl. hydraulic swing', de:'Lose - Termit-Arm für 3330 exkl. hydraulischem Schwenk', it:'Sciolto - Braccio Termit per 3330 escl. brandeggio idraulico', hu:'Különálló - Termit kar 3330-hoz hidraulikus forgás nélkül' },
+    priceDKK:59000, priceEUR:7945
+  }
+];
+
+const ALLOWED_EXTRA_VARENR = new Set(['411891', '411908']);
+const LOOSE_3330_WEEDBRUSH_VARENR = new Set(['730600', '730601', '50101017', '50101018', '50101019', '50101020']);
+
+export function getLooseToolAccessories(): Accessory[] {
+  const rcAll = ACCESSORIES['RC-1000S'] || [];
+  const timanAll = ACCESSORIES['Timan 3330'] || [];
+
+  function findRedskabHeaderIndex(list: Accessory[]) {
+    return list.findIndex(a => {
+      if (!a?.isHeader) return false;
+      const name = typeof a.name === 'string' ? a.name : (a.name as any)?.da || '';
+      return name.toLowerCase().includes('redskab');
+    });
+  }
+
+  const rcStartIdx = findRedskabHeaderIndex(rcAll);
+  const rcRedskaber = rcStartIdx === -1 ? [] : rcAll.slice(rcStartIdx);
+
+  const timanStartIdx = findRedskabHeaderIndex(timanAll);
+  const timanRedskaber = timanStartIdx === -1 ? [] : timanAll.slice(timanStartIdx);
+
+  // Remap 3330 weed brush items for loose tool context
+  const timanRedskaberForLoose = timanRedskaber.map(item => {
+    if (!item || item.isHeader) return item;
+    const varenr = String(item.varenr || '');
+    if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return item;
+    const cloned = { ...item, id: `LT3330_${item.id || varenr}` };
+    if (varenr !== '730600') cloned.requires = 'LT3330_730600';
+    return cloned;
+  });
+
+  // Insert termit items before 730107
+  const timanWithTermit: Accessory[] = [];
+  let termitInserted = false;
+  timanRedskaberForLoose.forEach(item => {
+    if (!termitInserted && String(item?.varenr || '') === '730107') {
+      timanWithTermit.push(...LOOSE_TERMIT_ITEMS);
+      termitInserted = true;
+    }
+    timanWithTermit.push(item);
+  });
+  if (!termitInserted) timanWithTermit.push(...LOOSE_TERMIT_ITEMS);
+
+  // Extra items from both lists
+  const extras = [...rcAll, ...timanAll].filter(item =>
+    item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
+  );
+
+  const merged = [...rcRedskaber, ...timanWithTermit, ...extras];
+
+  // Add packaging cost item (hidden)
+  merged.push({
+    id: PACKAGING_COST_ID,
+    varenr: PACKAGING_COST_ID,
+    name: { da: 'Specialpalle for løse T2 eller T3 enheder', en: 'Special pallet for loose T2 or T3 units', de: 'Spezialpalette für lose T2- oder T3-Einheiten', it: 'Pallet speciale per unità T2 o T3 sciolte', hu: 'Speciális raklap laza T2 vagy T3 egységekhez' },
+    priceDKK: 840,
+    priceEUR: 112,
+    hidden: true
+  });
+
+  // Deduplicate
+  const seen = new Set<string>();
+  return merged.filter(item => {
+    if (!item) return false;
+    const key = item.id ? `id:${item.id}` : item.varenr ? `v:${item.varenr}` : null;
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // Flatten accessories including sub-items
 export function getAccessoriesFlat(machineType: string): Accessory[] {
-  const base = ACCESSORIES[machineType] || [];
+  const base = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : (ACCESSORIES[machineType] || []);
   const out: Accessory[] = [];
   const seen = new Set<string>();
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
-import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
+import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 
 const initialState: ConfiguratorState = {
   step: 1,
@@ -152,6 +152,17 @@ export function useConfigurator() {
           }
         }
 
+        // Packaging cost logic for loose tool
+        if (unit.modelType === LOOSE_TOOL_KEY) {
+          const triggerCount = accList.filter(x => PACKAGING_TRIGGER_IDS.includes(String(x))).length;
+          // Remove existing packaging items
+          for (let i = accList.length - 1; i >= 0; i--) {
+            if (String(accList[i]) === String(PACKAGING_COST_ID)) accList.splice(i, 1);
+          }
+          // Add one per trigger
+          for (let i = 0; i < triggerCount; i++) accList.push(String(PACKAGING_COST_ID));
+        }
+
         mc.acc = accList;
       } else {
         const configKey = unit.configKey;
@@ -189,6 +200,15 @@ export function useConfigurator() {
             const wi = accList.indexOf(ACC_ID_WIRE_HARNESS);
             if (wi !== -1) accList.splice(wi, 1);
           }
+        }
+
+        // Packaging cost logic for loose tool
+        if (unit.modelType === LOOSE_TOOL_KEY) {
+          const triggerCount = accList.filter(x => PACKAGING_TRIGGER_IDS.includes(String(x))).length;
+          for (let i = accList.length - 1; i >= 0; i--) {
+            if (String(accList[i]) === String(PACKAGING_COST_ID)) accList.splice(i, 1);
+          }
+          for (let i = 0; i < triggerCount; i++) accList.push(String(PACKAGING_COST_ID));
         }
 
         newState.individualUnitConfigs[configKey] = { acc: accList };
