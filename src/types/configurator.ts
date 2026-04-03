@@ -12,6 +12,7 @@ export interface LocalizedString {
   de?: string;
   it?: string;
   hu?: string;
+  [key: string]: string | undefined;
 }
 
 export interface TechSpec {
