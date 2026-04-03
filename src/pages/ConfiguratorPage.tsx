@@ -122,7 +122,7 @@ export default function ConfiguratorPage() {
         if (idx === -1) newAccIds.push(accId);
         else newAccIds.splice(idx, 1);
         const hasLight = newAccIds.includes(ACC_ID_FLASH_LIGHT) || newAccIds.includes(ACC_ID_WORK_LIGHT);
-        const hasAttach = newAccIds.includes(ACC_ID_VPLOV) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
+        const hasAttach = newAccIds.includes(ACC_ID_VPLOW) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
         if (hasLight && hasAttach && !hadWireHarness) {
           const flatAccs = getAccessoriesFlat(currentUnit.modelType);
           const wireItem = flatAccs.find(a => a.id === ACC_ID_WIRE_HARNESS);
