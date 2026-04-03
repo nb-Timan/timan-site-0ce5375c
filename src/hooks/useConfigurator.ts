@@ -202,6 +202,15 @@ export function useConfigurator() {
           }
         }
 
+        // Packaging cost logic for loose tool
+        if (unit.modelType === LOOSE_TOOL_KEY) {
+          const triggerCount = accList.filter(x => PACKAGING_TRIGGER_IDS.includes(String(x))).length;
+          for (let i = accList.length - 1; i >= 0; i--) {
+            if (String(accList[i]) === String(PACKAGING_COST_ID)) accList.splice(i, 1);
+          }
+          for (let i = 0; i < triggerCount; i++) accList.push(String(PACKAGING_COST_ID));
+        }
+
         newState.individualUnitConfigs[configKey] = { acc: accList };
       }
       return newState;
