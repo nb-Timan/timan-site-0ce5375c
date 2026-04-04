@@ -278,7 +278,7 @@ export default function ConfiguratorPage() {
               <div className="text-xs text-gray-500">Varenr: {sub.varenr}</div>
               {renderActionLinks(sub as any, machineType)}
             </div>
-            <div className="font-bold text-emerald-700 whitespace-nowrap">{formatMoney(getPrice(sub, lang), lang)}</div>
+            <div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>
           </div>
         </div>
         {isSelected && hasNestedSubs && (
