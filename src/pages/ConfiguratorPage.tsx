@@ -616,11 +616,16 @@ export default function ConfiguratorPage() {
       {/* Step Tabs */}
       <div className="max-w-6xl mx-auto mb-4">
         <div className="flex space-x-1 border-b border-gray-200">
-          {[1, 2, 3, 4].map(step => (
+          {[1, 2, 3, 4].map(step => {
+            const maxStep = appUser?.max_step ?? 4;
+            const allowed = step <= maxStep;
+            return (
             <button key={step}
-              onClick={() => { if (step <= state.step) setStep(step); }}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
+              onClick={() => { if (step <= state.step && allowed) setStep(step); }}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step && allowed ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
               {T(`step${step}Tab`)}
+            </button>
+          );})
             </button>
           ))}
         </div>
