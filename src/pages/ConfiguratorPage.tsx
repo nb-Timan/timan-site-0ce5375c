@@ -683,8 +683,8 @@ export default function ConfiguratorPage() {
                 </div>
 
                 <div className="flex justify-center pt-6 border-t mt-8">
-                  <button onClick={() => setStep(2)} disabled={!flowSelected || totalQty === 0}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                  <button onClick={() => setStep(2)} disabled={!flowSelected || (totalQty === 0 && !state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0))}
+                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && (totalQty > 0 || state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0)) ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
                     {T('goToDelivery')}
                   </button>
                 </div>
@@ -700,6 +700,29 @@ export default function ConfiguratorPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
                   <input type="date" value={state.date} onChange={e => setDate(e.target.value)}
                     className="mt-1 w-40 p-1 border rounded-lg text-base text-center mx-auto block" />
+                  {(() => {
+                    const hasDeliveryDiscount = state.date && (() => {
+                      const d = new Date(state.date);
+                      const threshold = new Date();
+                      threshold.setMonth(threshold.getMonth() + 3);
+                      return d > threshold;
+                    })();
+                    return (
+                      <div className="mt-2 text-center">
+                        {hasDeliveryDiscount ? (
+                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                            ✅ {lang === 'da' ? '2% leveringsrabat aktiveret' : '2% delivery discount activated'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-500">
+                            {lang === 'da'
+                              ? 'Leveringsdato mere end 3 måneder frem giver 2% ekstra rabat'
+                              : 'Delivery date more than 3 months ahead gives 2% extra discount'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-3 space-y-3 w-full flex flex-col items-center max-w-2xl mx-auto">
@@ -1007,18 +1030,6 @@ export default function ConfiguratorPage() {
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={3} />
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
-                  <div className="border-t pt-4 mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
-                    </label>
-                    <input type="number" min="0" max="100" step="0.1"
-                      value={state.manualDealerDiscountPct || ''}
-                      onChange={e => {
-                        const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                        setState(s => ({ ...s, manualDealerDiscountPct: v }));
-                      }}
-                      placeholder="0" className="w-24 p-2 border rounded-lg text-center" />
-                  </div>
                 </div>
                 <div className="flex justify-between mt-8 pt-4 border-t">
                   <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
@@ -1110,6 +1121,18 @@ export default function ConfiguratorPage() {
                       <span>{T('totalDiscount')} ({calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
                       <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
                     </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
+                    </label>
+                    <input type="number" min="0" max="100" step="0.1"
+                      value={state.manualDealerDiscountPct || ''}
+                      onChange={e => {
+                        const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setState(s => ({ ...s, manualDealerDiscountPct: v }));
+                      }}
+                      placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
                   </div>
                   <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                     <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
