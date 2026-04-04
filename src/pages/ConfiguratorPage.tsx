@@ -1122,6 +1122,18 @@ export default function ConfiguratorPage() {
                       <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
                     </div>
                   </div>
+                  <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
+                    </label>
+                    <input type="number" min="0" max="100" step="0.1"
+                      value={state.manualDealerDiscountPct || ''}
+                      onChange={e => {
+                        const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setState(s => ({ ...s, manualDealerDiscountPct: v }));
+                      }}
+                      placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
+                  </div>
                   <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                     <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
                     <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
