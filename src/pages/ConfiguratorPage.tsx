@@ -1030,18 +1030,6 @@ export default function ConfiguratorPage() {
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={3} />
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
-                  <div className="border-t pt-4 mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
-                    </label>
-                    <input type="number" min="0" max="100" step="0.1"
-                      value={state.manualDealerDiscountPct || ''}
-                      onChange={e => {
-                        const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                        setState(s => ({ ...s, manualDealerDiscountPct: v }));
-                      }}
-                      placeholder="0" className="w-24 p-2 border rounded-lg text-center" />
-                  </div>
                 </div>
                 <div className="flex justify-between mt-8 pt-4 border-t">
                   <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
