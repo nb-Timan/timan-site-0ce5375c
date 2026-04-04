@@ -6,6 +6,42 @@ export type DeliveryMethod = 'pickup' | 'send' | 'deliver';
 export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
 
+// Role system
+export type UserRole = 'slutkunde' | 'forhandler_servicepartner' | 'timan_saelger';
+export type TimanWorkingFor = 'slutkunde' | 'forhandler_servicepartner';
+
+export interface RolePermissions {
+  canSeePrices: boolean;
+  canSubmitOrder: boolean;
+  canSubmitQuote: boolean;
+  canDownloadPdf: boolean;
+  canSetDiscount: boolean;
+  canChooseDiscountForQuotes: boolean;
+  usesFixedDiscountForOrders: boolean;
+  canChooseWorkingFor: boolean;
+}
+
+export interface AuthState {
+  role: UserRole | null;
+  workingFor: TimanWorkingFor | null; // only for timan_saelger
+  isAuthenticated: boolean;
+  email?: string;
+}
+
+export function getRolePermissions(role: UserRole | null, workingFor?: TimanWorkingFor | null): RolePermissions {
+  if (!role) return { canSeePrices: false, canSubmitOrder: false, canSubmitQuote: false, canDownloadPdf: false, canSetDiscount: false, canChooseDiscountForQuotes: false, usesFixedDiscountForOrders: false, canChooseWorkingFor: false };
+  switch (role) {
+    case 'slutkunde':
+      return { canSeePrices: false, canSubmitOrder: false, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: false, canChooseDiscountForQuotes: false, usesFixedDiscountForOrders: false, canChooseWorkingFor: false };
+    case 'forhandler_servicepartner':
+      return { canSeePrices: true, canSubmitOrder: true, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: false, canChooseDiscountForQuotes: true, usesFixedDiscountForOrders: true, canChooseWorkingFor: false };
+    case 'timan_saelger':
+      return { canSeePrices: true, canSubmitOrder: true, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: true, canChooseDiscountForQuotes: true, usesFixedDiscountForOrders: false, canChooseWorkingFor: true };
+    default:
+      return { canSeePrices: false, canSubmitOrder: false, canSubmitQuote: false, canDownloadPdf: false, canSetDiscount: false, canChooseDiscountForQuotes: false, usesFixedDiscountForOrders: false, canChooseWorkingFor: false };
+  }
+}
+
 export interface LocalizedString {
   da: string;
   en: string;
