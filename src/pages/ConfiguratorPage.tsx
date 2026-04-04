@@ -1077,6 +1077,24 @@ export default function ConfiguratorPage() {
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
 
+            {/* Role indicator */}
+            <div className="mb-3 text-xs text-gray-500 flex items-center gap-2">
+              <span className="inline-block px-2 py-0.5 rounded bg-gray-200 font-semibold text-gray-700">
+                {authState.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
+                  : authState.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
+                  : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
+              </span>
+              {authState.workingFor && (
+                <span className="text-gray-400">
+                  → {authState.workingFor === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer') : (lang === 'da' ? 'Forhandler' : 'Dealer')}
+                </span>
+              )}
+              <button onClick={() => setAuthState({ role: null, workingFor: null, isAuthenticated: false })}
+                className="ml-auto text-[10px] text-gray-400 hover:text-red-500 underline">
+                {lang === 'da' ? 'Skift rolle' : 'Change role'}
+              </button>
+            </div>
+
             {!calcResult ? (
               <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
             ) : (
@@ -1087,7 +1105,7 @@ export default function ConfiguratorPage() {
                       return (
                         <div key={idx} className="flex justify-between items-end text-sm font-semibold text-gray-800 pt-3 border-t border-dashed border-emerald-200 mt-2 mb-2">
                           <span>{item.txt}</span>
-                          <span className="price-col">{formatMoney(item.price, lang)}</span>
+                          {permissions.canSeePrices && <span className="price-col">{formatMoney(item.price, lang)}</span>}
                         </div>
                       );
                     }
@@ -1110,7 +1128,7 @@ export default function ConfiguratorPage() {
                             <div>{item.txt}</div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
                           </div>
-                          <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>
+                          {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
                         </div>
                         {item.isMachine && item.index && (
                           <div className="mt-2 mb-3 pl-2">
@@ -1121,7 +1139,7 @@ export default function ConfiguratorPage() {
                               className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
                           </div>
                         )}
-                        {state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && (
+                        {state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
                             <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">
                               <input type="checkbox"
@@ -1136,40 +1154,45 @@ export default function ConfiguratorPage() {
                   })}
                 </div>
 
-                <div className="pt-4 border-t border-emerald-200 space-y-2">
-                  <div className="flex justify-between text-gray-600">
-                    <span>{T('subtotal')}</span>
-                    <span className="font-medium price-col">{formatMoney(calcResult.subtotal, lang)}</span>
-                  </div>
-                  <div className="text-red-600 text-sm space-y-1">
-                    {calcResult.discountDetails.filter(d => d.amount > 0).map((d, i) => (
-                      <div key={i} className="flex justify-between">
-                        <span className="text-red-500">{d.txt}</span>
-                        <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                {permissions.canSeePrices && (
+                  <div className="pt-4 border-t border-emerald-200 space-y-2">
+                    <div className="flex justify-between text-gray-600">
+                      <span>{T('subtotal')}</span>
+                      <span className="font-medium price-col">{formatMoney(calcResult.subtotal, lang)}</span>
+                    </div>
+                    <div className="text-red-600 text-sm space-y-1">
+                      {calcResult.discountDetails.filter(d => d.amount > 0).map((d, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="text-red-500">{d.txt}</span>
+                          <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between font-bold">
+                        <span>{T('totalDiscount')} ({calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
+                        <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
                       </div>
-                    ))}
-                    <div className="flex justify-between font-bold">
-                      <span>{T('totalDiscount')} ({calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
-                      <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
+                    </div>
+                    {/* Dealer discount - only for permitted roles */}
+                    {(permissions.canSetDiscount || (permissions.canChooseDiscountForQuotes && state.flowType === 'quote')) && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
+                        </label>
+                        <input type="number" min="0" max="100" step="0.1"
+                          value={state.manualDealerDiscountPct || ''}
+                          onChange={e => {
+                            const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                            setState(s => ({ ...s, manualDealerDiscountPct: v }));
+                          }}
+                          placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
+                      </div>
+                    )}
+                    <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
+                      <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
+                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
-                    </label>
-                    <input type="number" min="0" max="100" step="0.1"
-                      value={state.manualDealerDiscountPct || ''}
-                      onChange={e => {
-                        const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                        setState(s => ({ ...s, manualDealerDiscountPct: v }));
-                      }}
-                      placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
-                  </div>
-                  <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
-                    <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
-                    <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
-                  </div>
-                </div>
+                )}
               </>
             )}
           </div>
