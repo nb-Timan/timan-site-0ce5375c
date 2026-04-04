@@ -469,8 +469,8 @@ export default function ConfiguratorPage() {
   // ======== Startup pricing in calc ========
   // (handled in useConfigurator via deliveryDeliverStartup state)
 
-  // Role gate: show role selection before configurator
-  if (!authState.role) {
+  // Email gate: show email lookup before configurator
+  if (!appUser) {
     return (
       <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
         <header className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
@@ -488,7 +488,14 @@ export default function ConfiguratorPage() {
           </div>
           <div className="hidden lg:block w-[116px]" />
         </header>
-        <RoleSelectionStep onRoleSelected={setAuthState} language={lang} />
+        <EmailGateStep
+          language={lang}
+          onResolved={(user) => {
+            setAppUser(user);
+            // Jump to user's start_step if > 1
+            if (user.start_step > 1) setStep(user.start_step);
+          }}
+        />
       </div>
     );
   }
