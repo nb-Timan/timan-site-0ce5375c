@@ -3,8 +3,8 @@ import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
-import EmailGateStep from '@/components/configurator/EmailGateStep';
-import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
+import LoginStep from '@/components/configurator/LoginStep';
+import { AppUser } from '@/data/appUsers';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
