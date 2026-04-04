@@ -49,6 +49,9 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState,
   } = useConfigurator();
 
+  const [authState, setAuthState] = useState<AuthState>({ role: null, workingFor: null, isAuthenticated: false });
+  const permissions = getRolePermissions(authState.role, authState.workingFor);
+
   const lang = state.language;
   const T = (key: string) => t(key, lang);
 
