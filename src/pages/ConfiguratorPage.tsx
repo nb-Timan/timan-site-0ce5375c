@@ -488,12 +488,11 @@ export default function ConfiguratorPage() {
           </div>
           <div className="hidden lg:block w-[116px]" />
         </header>
-        <EmailGateStep
+        <LoginStep
           language={lang}
           onResolved={(user) => {
             setAppUser(user);
-            // Jump to user's start_step if > 1
-            if (user.start_step > 1) setStep(user.start_step);
+            setStep(1);
           }}
         />
       </div>
