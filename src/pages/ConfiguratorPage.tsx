@@ -683,8 +683,8 @@ export default function ConfiguratorPage() {
                 </div>
 
                 <div className="flex justify-center pt-6 border-t mt-8">
-                  <button onClick={() => setStep(2)} disabled={!flowSelected || totalQty === 0}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                  <button onClick={() => setStep(2)} disabled={!flowSelected || (totalQty === 0 && !state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0))}
+                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && (totalQty > 0 || state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0)) ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
                     {T('goToDelivery')}
                   </button>
                 </div>
