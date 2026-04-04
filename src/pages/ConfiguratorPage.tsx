@@ -1100,20 +1100,27 @@ export default function ConfiguratorPage() {
             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
 
             {/* User indicator */}
-            <div className="mb-3 text-xs text-gray-500 flex items-center gap-2">
-              <span className="inline-block px-2 py-0.5 rounded bg-gray-200 font-semibold text-gray-700">
-                {appUser.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
-                  : appUser.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
-                  : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
-              </span>
-              <span className="text-gray-400 truncate max-w-[120px]" title={appUser.email}>{appUser.email}</span>
-              <button onClick={() => {
-                  import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
-                  setAppUser(null);
-                }}
-                className="ml-auto text-[10px] text-gray-400 hover:text-red-500 underline">
-                {lang === 'da' ? 'Log ud' : 'Log out'}
-              </button>
+            <div className="mb-4 p-3 rounded-xl bg-white border border-gray-200">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  {appUser.display_name && (
+                    <div className="text-sm font-bold text-gray-900 truncate">{appUser.display_name}</div>
+                  )}
+                  <div className="text-xs text-gray-500 truncate" title={appUser.email}>{appUser.email || '—'}</div>
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                    {appUser.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
+                      : appUser.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
+                      : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
+                  </span>
+                </div>
+                <button onClick={() => {
+                    import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
+                    setAppUser(null);
+                  }}
+                  className="text-[10px] text-gray-400 hover:text-red-500 underline whitespace-nowrap mt-0.5">
+                  {lang === 'da' ? 'Log ud' : 'Log out'}
+                </button>
+              </div>
             </div>
 
             {!calcResult ? (
