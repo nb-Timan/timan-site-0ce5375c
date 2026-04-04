@@ -1188,7 +1188,7 @@ export default function ConfiguratorPage() {
                       </div>
                     </div>
                     {/* Dealer discount - only for permitted roles */}
-                    {(permissions.canSetDiscount || (permissions.canChooseDiscountForQuotes && state.flowType === 'quote')) && (
+                    {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
                           {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
