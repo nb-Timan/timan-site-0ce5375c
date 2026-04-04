@@ -2,8 +2,9 @@ import { useState, useCallback, useRef } from 'react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
-import { Language, Accessory, SubItem, AuthState, getRolePermissions } from '@/types/configurator';
-import RoleSelectionStep from '@/components/configurator/RoleSelectionStep';
+import { Language, Accessory, SubItem } from '@/types/configurator';
+import EmailGateStep from '@/components/configurator/EmailGateStep';
+import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -49,8 +50,13 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState,
   } = useConfigurator();
 
-  const [authState, setAuthState] = useState<AuthState>({ role: null, workingFor: null, isAuthenticated: false });
-  const permissions = getRolePermissions(authState.role, authState.workingFor);
+  const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
+  const permissions = {
+    canSeePrices: appUser?.can_view_prices ?? false,
+    canSubmitOrder: appUser?.can_submit_order ?? false,
+    canSetDiscount: appUser?.can_edit_discount ?? false,
+    canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
+  };
 
   const lang = state.language;
   const T = (key: string) => t(key, lang);
@@ -463,8 +469,8 @@ export default function ConfiguratorPage() {
   // ======== Startup pricing in calc ========
   // (handled in useConfigurator via deliveryDeliverStartup state)
 
-  // Role gate: show role selection before configurator
-  if (!authState.role) {
+  // Email gate: show email lookup before configurator
+  if (!appUser) {
     return (
       <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
         <header className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
@@ -482,7 +488,14 @@ export default function ConfiguratorPage() {
           </div>
           <div className="hidden lg:block w-[116px]" />
         </header>
-        <RoleSelectionStep onRoleSelected={setAuthState} language={lang} />
+        <EmailGateStep
+          language={lang}
+          onResolved={(user) => {
+            setAppUser(user);
+            // Jump to user's start_step if > 1
+            if (user.start_step > 1) setStep(user.start_step);
+          }}
+        />
       </div>
     );
   }
@@ -603,13 +616,17 @@ export default function ConfiguratorPage() {
       {/* Step Tabs */}
       <div className="max-w-6xl mx-auto mb-4">
         <div className="flex space-x-1 border-b border-gray-200">
-          {[1, 2, 3, 4].map(step => (
+          {[1, 2, 3, 4].map(step => {
+            const maxStep = appUser?.max_step ?? 4;
+            const allowed = step <= maxStep;
+            return (
             <button key={step}
-              onClick={() => { if (step <= state.step) setStep(step); }}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
+              onClick={() => { if (step <= state.step && allowed) setStep(step); }}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step && allowed ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
               {T(`step${step}Tab`)}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -1083,21 +1100,17 @@ export default function ConfiguratorPage() {
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
 
-            {/* Role indicator */}
+            {/* User indicator */}
             <div className="mb-3 text-xs text-gray-500 flex items-center gap-2">
               <span className="inline-block px-2 py-0.5 rounded bg-gray-200 font-semibold text-gray-700">
-                {authState.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
-                  : authState.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
+                {appUser.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
+                  : appUser.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
                   : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
               </span>
-              {authState.workingFor && (
-                <span className="text-gray-400">
-                  → {authState.workingFor === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer') : (lang === 'da' ? 'Forhandler' : 'Dealer')}
-                </span>
-              )}
-              <button onClick={() => setAuthState({ role: null, workingFor: null, isAuthenticated: false })}
+              <span className="text-gray-400 truncate max-w-[120px]" title={appUser.email}>{appUser.email}</span>
+              <button onClick={() => setAppUser(null)}
                 className="ml-auto text-[10px] text-gray-400 hover:text-red-500 underline">
-                {lang === 'da' ? 'Skift rolle' : 'Change role'}
+                {lang === 'da' ? 'Log ud' : 'Log out'}
               </button>
             </div>
 
@@ -1179,7 +1192,7 @@ export default function ConfiguratorPage() {
                       </div>
                     </div>
                     {/* Dealer discount - only for permitted roles */}
-                    {(permissions.canSetDiscount || (permissions.canChooseDiscountForQuotes && state.flowType === 'quote')) && (
+                    {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
                           {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
