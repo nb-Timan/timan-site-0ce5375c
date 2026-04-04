@@ -1107,7 +1107,10 @@ export default function ConfiguratorPage() {
                   : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
               </span>
               <span className="text-gray-400 truncate max-w-[120px]" title={appUser.email}>{appUser.email}</span>
-              <button onClick={() => setAppUser(null)}
+              <button onClick={() => {
+                  import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
+                  setAppUser(null);
+                }}
                 className="ml-auto text-[10px] text-gray-400 hover:text-red-500 underline">
                 {lang === 'da' ? 'Log ud' : 'Log out'}
               </button>
