@@ -463,6 +463,33 @@ export default function ConfiguratorPage() {
   // ======== Startup pricing in calc ========
   // (handled in useConfigurator via deliveryDeliverStartup state)
 
+  // Role gate: show role selection before configurator
+  if (!authState.role) {
+    return (
+      <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
+        <header className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
+          <div className="flex space-x-1 p-1 rounded-lg bg-white shadow-md border">
+            {LANGUAGES.map(l => (
+              <button key={l.code} onClick={() => setLanguage(l.code)}
+                className={`flag-button ${state.language === l.code ? 'active' : ''}`}>
+                <span className="text-lg">{l.flag}</span>
+              </button>
+            ))}
+          </div>
+          <div className="header-title-container">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Timan Maskinkonfigurator</h1>
+            <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
+          </div>
+          <div className="hidden lg:block w-[116px]" />
+        </header>
+        <RoleSelectionStep onRoleSelected={setAuthState} language={lang} />
+      </div>
+    );
+  }
+
+  // Helper: conditionally hide price text
+  const showPrice = (price: number) => permissions.canSeePrices ? formatMoney(price, lang) : '—';
+
   return (
     <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
       {/* Info Modal */}
