@@ -31,7 +31,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const supabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  const supabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) || true;
 
   const handleLogin = async () => {
     setError('');
