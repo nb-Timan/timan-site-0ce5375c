@@ -50,8 +50,13 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState,
   } = useConfigurator();
 
-  const [authState, setAuthState] = useState<AuthState>({ role: null, workingFor: null, isAuthenticated: false });
-  const permissions = getRolePermissions(authState.role, authState.workingFor);
+  const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
+  const permissions = {
+    canSeePrices: appUser?.can_view_prices ?? false,
+    canSubmitOrder: appUser?.can_submit_order ?? false,
+    canSetDiscount: appUser?.can_edit_discount ?? false,
+    canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
+  };
 
   const lang = state.language;
   const T = (key: string) => t(key, lang);
