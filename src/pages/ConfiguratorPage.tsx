@@ -700,6 +700,29 @@ export default function ConfiguratorPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
                   <input type="date" value={state.date} onChange={e => setDate(e.target.value)}
                     className="mt-1 w-40 p-1 border rounded-lg text-base text-center mx-auto block" />
+                  {(() => {
+                    const hasDeliveryDiscount = state.date && (() => {
+                      const d = new Date(state.date);
+                      const threshold = new Date();
+                      threshold.setMonth(threshold.getMonth() + 3);
+                      return d > threshold;
+                    })();
+                    return (
+                      <div className="mt-2 text-center">
+                        {hasDeliveryDiscount ? (
+                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                            ✅ {lang === 'da' ? '2% leveringsrabat aktiveret' : '2% delivery discount activated'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-500">
+                            {lang === 'da'
+                              ? 'Leveringsdato mere end 3 måneder frem giver 2% ekstra rabat'
+                              : 'Delivery date more than 3 months ahead gives 2% extra discount'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-3 space-y-3 w-full flex flex-col items-center max-w-2xl mx-auto">
