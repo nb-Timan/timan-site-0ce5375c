@@ -926,7 +926,7 @@ export default function ConfiguratorPage() {
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
-                          <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{formatMoney(getPrice(a, lang), lang)}</div>
+                          <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</div>
                         </div>
                       </div>
                     );
