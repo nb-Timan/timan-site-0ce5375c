@@ -625,7 +625,8 @@ export default function ConfiguratorPage() {
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step && allowed ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
               {T(`step${step}Tab`)}
             </button>
-          )})
+            );
+          })}
         </div>
       </div>
 
