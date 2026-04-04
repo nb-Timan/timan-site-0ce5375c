@@ -96,7 +96,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           can_edit_discount: appUserRow.can_edit_discount ?? false,
           can_switch_customer_mode: appUserRow.can_switch_customer_mode ?? false,
           working_for: appUserRow.working_for ?? null,
-          display_name: appUserRow.display_name,
+          display_name: appUserRow.display_name || appUserRow.full_name,
         });
       } else {
         // Fallback: local lookup (no Supabase configured)
