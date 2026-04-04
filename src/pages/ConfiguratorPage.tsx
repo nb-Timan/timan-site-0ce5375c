@@ -1096,21 +1096,17 @@ export default function ConfiguratorPage() {
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
 
-            {/* Role indicator */}
+            {/* User indicator */}
             <div className="mb-3 text-xs text-gray-500 flex items-center gap-2">
               <span className="inline-block px-2 py-0.5 rounded bg-gray-200 font-semibold text-gray-700">
-                {authState.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
-                  : authState.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
+                {appUser.role === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer')
+                  : appUser.role === 'forhandler_servicepartner' ? (lang === 'da' ? 'Forhandler' : 'Dealer')
                   : (lang === 'da' ? 'Timan Sælger' : 'Timan Sales')}
               </span>
-              {authState.workingFor && (
-                <span className="text-gray-400">
-                  → {authState.workingFor === 'slutkunde' ? (lang === 'da' ? 'Slutkunde' : 'End Customer') : (lang === 'da' ? 'Forhandler' : 'Dealer')}
-                </span>
-              )}
-              <button onClick={() => setAuthState({ role: null, workingFor: null, isAuthenticated: false })}
+              <span className="text-gray-400 truncate max-w-[120px]" title={appUser.email}>{appUser.email}</span>
+              <button onClick={() => setAppUser(null)}
                 className="ml-auto text-[10px] text-gray-400 hover:text-red-500 underline">
-                {lang === 'da' ? 'Skift rolle' : 'Change role'}
+                {lang === 'da' ? 'Log ud' : 'Log out'}
               </button>
             </div>
 
