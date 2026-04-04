@@ -1064,8 +1064,14 @@ export default function ConfiguratorPage() {
                 </div>
                 <div className="flex justify-between mt-8 pt-4 border-t">
                   <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
-                  <button onClick={openConfirmation}
-                    className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
+                  {state.flowType === 'order' && !permissions.canSubmitOrder ? (
+                    <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
+                      {lang === 'da' ? 'Kun forhandler/Timan kan afsende ordre' : 'Only dealer/Timan can submit orders'}
+                    </button>
+                  ) : (
+                    <button onClick={openConfirmation}
+                      className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
+                  )}
                 </div>
               </div>
             )}
