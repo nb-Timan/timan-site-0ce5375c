@@ -645,7 +645,7 @@ export default function ConfiguratorPage() {
                     return (
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
                         <h3 className="font-bold text-lg text-gray-900">{getLocalizedName(p.name, lang)}</h3>
-                        <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>
+                        {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>}
                         <p className="text-sm text-gray-500">Varenr: {p.varenr}</p>
 
                         {p.techSpecs.length > 0 && (
