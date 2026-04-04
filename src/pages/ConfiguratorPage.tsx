@@ -974,7 +974,7 @@ export default function ConfiguratorPage() {
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex-shrink-0 text-right">
-                              <span className="font-bold text-base text-emerald-700 price-col">{formatMoney(getPrice(a, lang), lang)}</span>
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</span>
                             </div>
                           </div>
                           {ralInput}
