@@ -463,6 +463,13 @@ export default function ConfiguratorPage() {
         ? (lang === 'da' ? 'Tilbud' : 'Quote')
         : (lang === 'da' ? 'Ordre' : 'Order');
       pdf.save(`Timan_${pdfTitle}_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+      // Mark PDF as downloaded in Supabase if configuration was saved
+      if (savedConfigurationId) {
+        markPdfDownloaded(savedConfigurationId).catch(err =>
+          console.error('Failed to mark PDF downloaded:', err)
+        );
+      }
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
