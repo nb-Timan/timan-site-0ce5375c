@@ -98,8 +98,6 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState('');
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -138,15 +136,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setOpen(false);
   };
 
-  const handleSaveNote = (id: string) => {
+  const handleNoteChange = (id: string, text: string) => {
     const items = loadSavedItems();
     const item = items.find(i => i.id === id);
     if (item) {
-      item.state = { ...item.state, internalNote: noteText };
+      item.state = { ...item.state, internalNote: text };
       persistItems(items);
       setSavedItems(items);
     }
-    setEditingNoteId(null);
   };
 
   const tx = (da: string, en: string) => language === 'da' ? da : en;
@@ -242,7 +239,6 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
                 {savedItems.map(item => {
                   const note = item.state?.internalNote || '';
-                  const isEditing = editingNoteId === item.id;
                   return (
                     <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
                       <div className="flex gap-4">
@@ -269,32 +265,13 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         {/* Right: internal note */}
                         <div className="w-48 flex-shrink-0">
                           <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
-                          {isEditing ? (
-                            <div className="space-y-1">
-                              <textarea
-                                rows={2}
-                                value={noteText}
-                                onChange={e => setNoteText(e.target.value)}
-                                className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 resize-none"
-                                autoFocus
-                              />
-                              <div className="flex gap-1">
-                                <button onClick={() => handleSaveNote(item.id)} className="text-xs px-2 py-0.5 bg-emerald-600 text-white rounded font-medium">
-                                  {tx('Gem', 'Save')}
-                                </button>
-                                <button onClick={() => setEditingNoteId(null)} className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded font-medium">
-                                  {tx('Annuller', 'Cancel')}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              onClick={() => { setEditingNoteId(item.id); setNoteText(note); }}
-                              className="text-xs text-gray-500 bg-white border border-dashed border-gray-200 rounded-md px-2 py-1.5 min-h-[2.5rem] cursor-pointer hover:border-gray-400 transition"
-                            >
-                              {note || <span className="italic text-gray-300">{tx('Klik for at skrive...', 'Click to write...')}</span>}
-                            </div>
-                          )}
+                          <textarea
+                            rows={2}
+                            value={note}
+                            onChange={e => handleNoteChange(item.id, e.target.value)}
+                            placeholder={tx('Skriv en huskenote...', 'Write a reminder...')}
+                            className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
+                          />
                         </div>
                       </div>
                       {/* Action buttons */}
