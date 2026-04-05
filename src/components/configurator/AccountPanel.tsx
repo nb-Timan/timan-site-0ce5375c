@@ -65,7 +65,7 @@ interface Props {
 
 function getRoleBadge(role: string, lang: Language) {
   const map: Record<string, Record<string, string>> = {
-    slutkunde: { da: 'Slutkunde', en: 'End Customer' },
+    slutkunde: { da: 'Default bruger', en: 'Default user' },
     partner: { da: 'Partner', en: 'Partner' },
     timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales' },
   };
