@@ -6,7 +6,7 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
-import { saveConfiguration } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
