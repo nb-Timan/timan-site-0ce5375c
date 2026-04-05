@@ -1155,6 +1155,7 @@ export default function ConfiguratorPage() {
                         if (isSavedCurrent) {
                           resetState();
                           setIsSavedCurrent(false);
+                          setSavedConfigurationId(null);
                         } else {
                           setNewConfigModalOpen(true);
                         }
