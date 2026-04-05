@@ -6,6 +6,9 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import { saveConfiguration } from '@/lib/configurationsService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -48,7 +51,7 @@ export default function ConfiguratorPage() {
   const {
     state, setStep, setLanguage, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
-    getGlobalMachineUnits, getDisplayMachineUnits, setState,
+    getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
 
   const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
@@ -72,6 +75,9 @@ export default function ConfiguratorPage() {
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
+  const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
@@ -1133,8 +1139,23 @@ export default function ConfiguratorPage() {
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
                 </div>
-                <div className="flex justify-between mt-8 pt-4 border-t">
-                  <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                <div className="flex justify-between items-center mt-8 pt-4 border-t">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                    <button
+                      onClick={() => {
+                        if (isSavedCurrent) {
+                          resetState();
+                          setIsSavedCurrent(false);
+                        } else {
+                          setNewConfigModalOpen(true);
+                        }
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
+                    >
+                      {lang === 'da' ? 'Start ny konfiguration' : 'Start new configuration'}
+                    </button>
+                  </div>
                   {state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
                       {lang === 'da' ? 'Kun forhandler/Timan kan afsende ordre' : 'Only dealer/Timan can submit orders'}
@@ -1269,6 +1290,59 @@ export default function ConfiguratorPage() {
           </div>
         </aside>
       </div>
+
+      {/* New configuration confirmation modal */}
+      <Dialog open={newConfigModalOpen} onOpenChange={setNewConfigModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start ny konfiguration</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 mt-2">
+            Denne sag er ikke gemt endnu. Vil du gemme den til senere?
+          </p>
+          <div className="flex gap-3 mt-6 justify-end">
+            <button
+              onClick={() => setNewConfigModalOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+            >
+              Annuller
+            </button>
+            <button
+              onClick={() => {
+                setNewConfigModalOpen(false);
+                resetState();
+                setIsSavedCurrent(false);
+              }}
+              className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+            >
+              Nej, kassér
+            </button>
+            <button
+              disabled={savingBeforeReset}
+              onClick={async () => {
+                if (!appUser) return;
+                setSavingBeforeReset(true);
+                const label = state.firmanavn
+                  ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+                  : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+                setSavingBeforeReset(false);
+                setNewConfigModalOpen(false);
+                if (result.error) {
+                  toast.error('Kunne ikke gemme sag', { description: result.error });
+                } else {
+                  toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
+                  resetState();
+                  setIsSavedCurrent(false);
+                }
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
+            >
+              {savingBeforeReset ? '...' : 'Ja, gem'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

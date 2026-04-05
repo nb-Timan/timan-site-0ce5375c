@@ -350,6 +350,10 @@ export function useConfigurator() {
     return { lineItems, subtotal, discountDetails: details, totalDiscount: disc, currentPrice: price, totalPct, qtyPct };
   }, [state, getGlobalMachineUnits]);
 
+  const resetState = useCallback(() => {
+    setState({ ...initialState, language: state.language });
+  }, [state.language]);
+
   return {
     state,
     setState,
@@ -365,5 +369,6 @@ export function useConfigurator() {
     calcResult,
     getGlobalMachineUnits,
     getDisplayMachineUnits,
+    resetState,
   };
 }
