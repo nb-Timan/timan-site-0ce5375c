@@ -207,9 +207,16 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
-              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
-                {getRoleBadge(appUser.role, language)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
+                  {getRoleBadge(appUser.role, language)}
+                </span>
+                {appUser.partner_sub_role && (
+                  <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
+                    {getSubRoleLabel(appUser.partner_sub_role, language)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

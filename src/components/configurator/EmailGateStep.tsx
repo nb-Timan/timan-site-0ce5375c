@@ -106,10 +106,22 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
                   {tx('recognized', language)}, {lookedUp.display_name}!
                 </p>
               )}
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${isSlut ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'}`}>
                   {roleLabel[lookedUp.role]?.[language] || roleLabel[lookedUp.role]?.en}
                 </span>
+                {lookedUp.partner_sub_role && (
+                  <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-teal-200 text-teal-800">
+                    {(() => {
+                      const subMap: Record<string, Record<string, string>> = {
+                        service_partner: { da: 'Servicepartner', en: 'Service Partner' },
+                        forhandler: { da: 'Forhandler', en: 'Dealer' },
+                        importoer: { da: 'Importør', en: 'Importer' },
+                      };
+                      return subMap[lookedUp.partner_sub_role]?.[language] || subMap[lookedUp.partner_sub_role]?.en || lookedUp.partner_sub_role;
+                    })()}
+                  </span>
+                )}
                 {!isSlut && (
                   <span className="text-xs text-gray-500">
                     {language === 'da' ? `Start trin ${lookedUp.start_step}` : `Start step ${lookedUp.start_step}`}
