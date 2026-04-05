@@ -149,6 +149,7 @@ export interface ConfiguratorState {
   email: string;
   emailRecipient: string;
   comment: string;
+  internalNote: string;
 }
 
 export interface LineItem {
