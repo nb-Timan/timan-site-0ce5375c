@@ -6,7 +6,7 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
-import { saveConfiguration } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -77,6 +77,7 @@ export default function ConfiguratorPage() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
 
@@ -462,6 +463,13 @@ export default function ConfiguratorPage() {
         ? (lang === 'da' ? 'Tilbud' : 'Quote')
         : (lang === 'da' ? 'Ordre' : 'Order');
       pdf.save(`Timan_${pdfTitle}_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+      // Mark PDF as downloaded in Supabase if configuration was saved
+      if (savedConfigurationId) {
+        markPdfDownloaded(savedConfigurationId).catch(err =>
+          console.error('Failed to mark PDF downloaded:', err)
+        );
+      }
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
@@ -1147,6 +1155,7 @@ export default function ConfiguratorPage() {
                         if (isSavedCurrent) {
                           resetState();
                           setIsSavedCurrent(false);
+                          setSavedConfigurationId(null);
                         } else {
                           setNewConfigModalOpen(true);
                         }
@@ -1312,6 +1321,7 @@ export default function ConfiguratorPage() {
                 setNewConfigModalOpen(false);
                 resetState();
                 setIsSavedCurrent(false);
+                setSavedConfigurationId(null);
               }}
               className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
@@ -1332,8 +1342,10 @@ export default function ConfiguratorPage() {
                   toast.error('Kunne ikke gemme sag', { description: result.error });
                 } else {
                   toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
+                  setSavedConfigurationId(result.id);
                   resetState();
                   setIsSavedCurrent(false);
+                  setSavedConfigurationId(null);
                 }
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
