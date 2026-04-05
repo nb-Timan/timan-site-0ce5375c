@@ -406,13 +406,20 @@ export default function ConfiguratorPage() {
     return html;
   };
 
-  // Open confirmation modal
+  // Open confirmation — but first ask about sales arguments
   const openConfirmation = () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
       return;
     }
-    setConfirmModalOpen(true);
+    // Show sales args prompt for quotes
+    if (state.flowType === 'quote') {
+      const text = generateSalesArguments(state);
+      setSalesArgsText(text);
+      setSalesArgsModalOpen(true);
+    } else {
+      setConfirmModalOpen(true);
+    }
   };
 
   // PDF download using jsPDF + html2canvas
