@@ -136,15 +136,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setOpen(false);
   };
 
-  const handleSaveNote = (id: string) => {
+  const handleNoteChange = (id: string, text: string) => {
     const items = loadSavedItems();
     const item = items.find(i => i.id === id);
     if (item) {
-      item.state = { ...item.state, internalNote: noteText };
+      item.state = { ...item.state, internalNote: text };
       persistItems(items);
       setSavedItems(items);
     }
-    setEditingNoteId(null);
   };
 
   const tx = (da: string, en: string) => language === 'da' ? da : en;
