@@ -1342,8 +1342,10 @@ export default function ConfiguratorPage() {
                   toast.error('Kunne ikke gemme sag', { description: result.error });
                 } else {
                   toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
+                  setSavedConfigurationId(result.id);
                   resetState();
                   setIsSavedCurrent(false);
+                  setSavedConfigurationId(null);
                 }
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
