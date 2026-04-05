@@ -99,6 +99,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
 
+  const canSave = currentState.step === 4
+    && currentState.firmanavn.trim() !== ''
+    && currentState.kontaktperson.trim() !== ''
+    && currentState.email.trim() !== '';
+
   useEffect(() => {
     if (open) setSavedItems(loadSavedItems());
   }, [open]);
