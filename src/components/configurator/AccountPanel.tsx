@@ -99,6 +99,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
 
+  const canSave = currentState.step === 4
+    && currentState.firmanavn.trim() !== ''
+    && currentState.kontaktperson.trim() !== ''
+    && currentState.email.trim() !== '';
+
   useEffect(() => {
     if (open) setSavedItems(loadSavedItems());
   }, [open]);
@@ -160,7 +165,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{tx('Min konto', 'My account')}</DialogTitle>
           </DialogHeader>
@@ -187,12 +192,18 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           <div className="pt-2">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
-              <button
-                onClick={() => setShowSaveInput(v => !v)}
-                className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
-              >
-                {tx('+ Gem nuværende', '+ Save current')}
-              </button>
+              {canSave ? (
+                <button
+                  onClick={() => setShowSaveInput(v => !v)}
+                  className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+                >
+                  {tx('+ Gem nuværende', '+ Save current')}
+                </button>
+              ) : (
+                <span className="text-[10px] text-gray-400 italic max-w-[200px] text-right">
+                  {tx('Udfyld firma, kontaktperson og email i trin 4 for at gemme', 'Fill in company, contact and email in step 4 to save')}
+                </span>
+              )}
             </div>
 
             {showSaveInput && (
