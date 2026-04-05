@@ -23,6 +23,7 @@ const initialState: ConfiguratorState = {
   email: '',
   emailRecipient: '',
   comment: '',
+  internalNote: '',
 };
 
 export function useConfigurator() {
