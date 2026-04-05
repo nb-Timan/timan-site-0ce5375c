@@ -1266,19 +1266,8 @@ export default function ConfiguratorPage() {
               </>
             )}
 
-            {/* Internal note */}
-            <div className="mt-4 pt-3 border-t border-emerald-200">
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                {lang === 'da' ? '📝 Intern note' : '📝 Internal note'}
-              </label>
-              <textarea
-                rows={2}
-                value={state.internalNote || ''}
-                onChange={e => setState(s => ({ ...s, internalNote: e.target.value }))}
-                placeholder={lang === 'da' ? 'Skriv en huskenote...' : 'Write a reminder...'}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none placeholder-gray-400"
-              />
-            </div>
+
+
           </div>
         </aside>
       </div>

@@ -98,6 +98,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -125,7 +127,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const handleToggleStatus = (id: string) => {
     const items = loadSavedItems();
     const item = items.find(i => i.id === id);
-    if (!item || item.status === 'ordre_afgivet') return; // can't toggle completed orders
+    if (!item || item.status === 'ordre_afgivet') return;
     item.status = item.status === 'aktiv' ? 'pause' : 'aktiv';
     persistItems(items);
     setSavedItems(items);
@@ -134,6 +136,17 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const handleOpen = (item: SavedItem) => {
     onRestoreState(item.state);
     setOpen(false);
+  };
+
+  const handleSaveNote = (id: string) => {
+    const items = loadSavedItems();
+    const item = items.find(i => i.id === id);
+    if (item) {
+      item.state = { ...item.state, internalNote: noteText };
+      persistItems(items);
+      setSavedItems(items);
+    }
+    setEditingNoteId(null);
   };
 
   const tx = (da: string, en: string) => language === 'da' ? da : en;
@@ -165,13 +178,13 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{tx('Min konto', 'My account')}</DialogTitle>
+            <DialogTitle className="text-xl">{tx('Min konto', 'My account')}</DialogTitle>
           </DialogHeader>
 
           {/* User details */}
-          <div className="space-y-2 text-sm border-b pb-4">
+          <div className="space-y-3 text-base border-b pb-5">
             <div className="flex justify-between">
               <span className="text-gray-500">{tx('Navn', 'Name')}</span>
               <span className="font-medium text-gray-900">{appUser.display_name || '—'}</span>
@@ -182,107 +195,145 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
-              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${roleBadgeColor(appUser.role)}`}>
+              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
                 {getRoleBadge(appUser.role, language)}
               </span>
             </div>
           </div>
 
           {/* Saved items */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
+          <div className="pt-3">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
               {canSave ? (
                 <button
                   onClick={() => setShowSaveInput(v => !v)}
-                  className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+                  className="text-sm text-emerald-700 hover:text-emerald-900 font-medium"
                 >
                   {tx('+ Gem nuværende', '+ Save current')}
                 </button>
               ) : (
-                <span className="text-[10px] text-gray-400 italic max-w-[200px] text-right">
+                <span className="text-xs text-gray-400 italic max-w-[240px] text-right">
                   {tx('Udfyld firma, kontaktperson og email i trin 4 for at gemme', 'Fill in company, contact and email in step 4 to save')}
                 </span>
               )}
             </div>
 
             {showSaveInput && (
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2 mb-4">
                 <input
                   type="text"
                   value={saveLabel}
                   onChange={e => setSaveLabel(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSave()}
                   placeholder={tx('Navngiv sag...', 'Name case...')}
-                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5"
+                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
                   autoFocus
                 />
-                <button onClick={handleSave} className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium">
+                <button onClick={handleSave} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium">
                   {tx('Gem', 'Save')}
                 </button>
               </div>
             )}
 
             {savedItems.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
+              <p className="text-sm text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
             ) : (
-              <div className="space-y-2.5 max-h-72 overflow-y-auto">
-                {savedItems.map(item => (
-                  <div key={item.id} className="p-3 border rounded-lg bg-gray-50 space-y-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-gray-900 truncate">{item.label}</div>
-                      {item.state?.firmanavn && (
-                        <div className="text-xs text-gray-500 truncate mt-0.5">{item.state.firmanavn}</div>
-                      )}
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-xs text-gray-400">
-                          {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
-                        </span>
-                        <span className="text-xs text-gray-300">·</span>
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${statusColor(item.status)}`}>
-                          {statusLabel(item.status, language)}
-                        </span>
-                        <span className="text-xs text-gray-300">·</span>
-                        <span className="text-xs text-gray-400">
-                          {new Date(item.savedAt).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
-                        </span>
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                {savedItems.map(item => {
+                  const note = item.state?.internalNote || '';
+                  const isEditing = editingNoteId === item.id;
+                  return (
+                    <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
+                      <div className="flex gap-4">
+                        {/* Left: case info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-base font-semibold text-gray-900 truncate">{item.label}</div>
+                          {item.state?.firmanavn && (
+                            <div className="text-sm text-gray-500 truncate mt-0.5">{item.state.firmanavn}</div>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span className="text-sm text-gray-400">
+                              {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                            </span>
+                            <span className="text-sm text-gray-300">·</span>
+                            <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.status)}`}>
+                              {statusLabel(item.status, language)}
+                            </span>
+                            <span className="text-sm text-gray-300">·</span>
+                            <span className="text-sm text-gray-400">
+                              {new Date(item.savedAt).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Right: internal note */}
+                        <div className="w-48 flex-shrink-0">
+                          <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
+                          {isEditing ? (
+                            <div className="space-y-1">
+                              <textarea
+                                rows={2}
+                                value={noteText}
+                                onChange={e => setNoteText(e.target.value)}
+                                className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 resize-none"
+                                autoFocus
+                              />
+                              <div className="flex gap-1">
+                                <button onClick={() => handleSaveNote(item.id)} className="text-xs px-2 py-0.5 bg-emerald-600 text-white rounded font-medium">
+                                  {tx('Gem', 'Save')}
+                                </button>
+                                <button onClick={() => setEditingNoteId(null)} className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded font-medium">
+                                  {tx('Annuller', 'Cancel')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => { setEditingNoteId(item.id); setNoteText(note); }}
+                              className="text-xs text-gray-500 bg-white border border-dashed border-gray-200 rounded-md px-2 py-1.5 min-h-[2.5rem] cursor-pointer hover:border-gray-400 transition"
+                            >
+                              {note || <span className="italic text-gray-300">{tx('Klik for at skrive...', 'Click to write...')}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Action buttons */}
+                      <div className="flex gap-2">
+                        {item.status !== 'ordre_afgivet' && (
+                          <button
+                            onClick={() => handleOpen(item)}
+                            className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                          >
+                            {tx('Åbn', 'Open')}
+                          </button>
+                        )}
+                        {item.status !== 'ordre_afgivet' && (
+                          <button
+                            onClick={() => handleToggleStatus(item.id)}
+                            className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                          >
+                            {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
+                        >
+                          {tx('Slet', 'Delete')}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-1.5">
-                      {item.status !== 'ordre_afgivet' && (
-                        <button
-                          onClick={() => handleOpen(item)}
-                          className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium"
-                        >
-                          {tx('Åbn', 'Open')}
-                        </button>
-                      )}
-                      {item.status !== 'ordre_afgivet' && (
-                        <button
-                          onClick={() => handleToggleStatus(item.id)}
-                          className="text-xs px-2.5 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
-                        >
-                          {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-xs px-2.5 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 font-medium"
-                      >
-                        {tx('Slet', 'Delete')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Logout */}
-          <div className="pt-4 border-t mt-2">
+          <div className="pt-5 border-t mt-3">
             <button
               onClick={() => { onLogout(); setOpen(false); }}
-              className="w-full py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+              className="w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
               {tx('Log ud', 'Log out')}
             </button>
