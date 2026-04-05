@@ -1197,9 +1197,13 @@ export default function ConfiguratorPage() {
                 setAppUser(null);
               }}
               onRestoreState={(restored, configId) => {
-                setState(restored);
+                const restoredWithStep1 = { ...restored, step: 1 };
+                setState(restoredWithStep1);
                 setSavedConfigurationId(configId);
                 setIsSavedCurrent(true);
+                toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
+                  description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
+                });
               }}
             />
 
