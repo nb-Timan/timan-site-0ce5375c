@@ -466,9 +466,15 @@ export default function ConfiguratorPage() {
 
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
-        markPdfDownloaded(savedConfigurationId).catch(err =>
-          console.error('Failed to mark PDF downloaded:', err)
-        );
+        try {
+          await markPdfDownloaded(savedConfigurationId);
+          toast.success(lang === 'da' ? 'PDF-download registreret' : 'PDF download tracked');
+        } catch (err) {
+          console.error('Failed to mark PDF downloaded:', err);
+          toast.error(lang === 'da' ? 'Kunne ikke registrere PDF-download i databasen' : 'Failed to track PDF download', {
+            description: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     } catch (e) {
       // Fallback to browser print
