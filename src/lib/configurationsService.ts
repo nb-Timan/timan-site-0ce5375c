@@ -325,5 +325,8 @@ export async function markPdfDownloaded(id: string) {
     })
     .eq('id', id);
 
-  if (error) console.error('Failed to mark PDF downloaded:', error);
+  if (error) {
+    console.error('Failed to mark PDF downloaded:', error);
+    throw new Error(formatSupabaseError(error));
+  }
 }

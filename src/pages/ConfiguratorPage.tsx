@@ -466,9 +466,15 @@ export default function ConfiguratorPage() {
 
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
-        markPdfDownloaded(savedConfigurationId).catch(err =>
-          console.error('Failed to mark PDF downloaded:', err)
-        );
+        try {
+          await markPdfDownloaded(savedConfigurationId);
+          toast.success(lang === 'da' ? 'PDF-download registreret' : 'PDF download tracked');
+        } catch (err) {
+          console.error('Failed to mark PDF downloaded:', err);
+          toast.error(lang === 'da' ? 'Kunne ikke registrere PDF-download i databasen' : 'Failed to track PDF download', {
+            description: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     } catch (e) {
       // Fallback to browser print
@@ -1191,9 +1197,13 @@ export default function ConfiguratorPage() {
                 setAppUser(null);
               }}
               onRestoreState={(restored, configId) => {
-                setState(restored);
+                const restoredWithStep1 = { ...restored, step: 1 };
+                setState(restoredWithStep1);
                 setSavedConfigurationId(configId);
                 setIsSavedCurrent(true);
+                toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
+                  description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
+                });
               }}
             />
 
