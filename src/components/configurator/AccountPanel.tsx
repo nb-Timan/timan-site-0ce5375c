@@ -143,7 +143,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleOpen = (item: SavedConfiguration) => {
-    onRestoreState(item.state_json);
+    onRestoreState(item.state_json, item.id);
     setOpen(false);
   };
 

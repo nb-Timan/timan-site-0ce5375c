@@ -137,9 +137,14 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
       }
     }
 
+    const title = mc.type
+      ? `${mc.type} x${mc.qty}`
+      : `Machine x${mc.qty}`;
+
     items.push({
       configuration_id: configurationId,
       item_type: 'machine',
+      title,
       machine_type: mc.type,
       machine_qty: mc.qty,
       config_mode: mc.configMode,
