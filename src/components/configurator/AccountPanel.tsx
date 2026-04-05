@@ -115,30 +115,32 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     && currentState.kontaktperson.trim() !== ''
     && currentState.email.trim() !== '';
 
+  const userEmail = appUser.email.toLowerCase();
+
   useEffect(() => {
-    if (open) setSavedItems(loadSavedItems());
-  }, [open]);
+    if (open) setSavedItems(loadSavedItems(userEmail));
+  }, [open, userEmail]);
 
   const handleSave = () => {
     if (!saveLabel.trim()) return;
-    saveCurrentConfig(currentState, saveLabel.trim());
-    setSavedItems(loadSavedItems());
+    saveCurrentConfig(currentState, saveLabel.trim(), userEmail);
+    setSavedItems(loadSavedItems(userEmail));
     setSaveLabel('');
     setShowSaveInput(false);
   };
 
   const handleDelete = (id: string) => {
-    const items = loadSavedItems().filter(i => i.id !== id);
-    persistItems(items);
+    const items = loadSavedItems(userEmail).filter(i => i.id !== id);
+    persistItems(userEmail, items);
     setSavedItems(items);
   };
 
   const handleToggleStatus = (id: string) => {
-    const items = loadSavedItems();
+    const items = loadSavedItems(userEmail);
     const item = items.find(i => i.id === id);
     if (!item || item.status === 'ordre_afgivet') return;
     item.status = item.status === 'aktiv' ? 'pause' : 'aktiv';
-    persistItems(items);
+    persistItems(userEmail, items);
     setSavedItems(items);
   };
 
@@ -148,11 +150,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleNoteChange = (id: string, text: string) => {
-    const items = loadSavedItems();
+    const items = loadSavedItems(userEmail);
     const item = items.find(i => i.id === id);
     if (item) {
       item.state = { ...item.state, internalNote: text };
-      persistItems(items);
+      persistItems(userEmail, items);
       setSavedItems(items);
     }
   };
