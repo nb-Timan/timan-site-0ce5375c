@@ -48,7 +48,7 @@ export default function ConfiguratorPage() {
   const {
     state, setStep, setLanguage, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
-    getGlobalMachineUnits, getDisplayMachineUnits, setState,
+    getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
 
   const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
