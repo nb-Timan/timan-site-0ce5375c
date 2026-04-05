@@ -24,6 +24,7 @@ export interface RolePermissions {
 
 export interface AuthState {
   role: UserRole | null;
+  partnerSubRole: PartnerSubRole | null; // only for partner role
   workingFor: TimanWorkingFor | null; // only for timan_saelger
   isAuthenticated: boolean;
   email?: string;
