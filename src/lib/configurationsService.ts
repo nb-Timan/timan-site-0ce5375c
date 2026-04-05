@@ -54,12 +54,14 @@ export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
-  userId?: string | null,
 ): Promise<SavedConfiguration | null> {
+  // Get current auth user id
+  const { data: { user } } = await supabase.auth.getUser();
+
   const now = new Date().toISOString();
   const row = {
     created_by_email: ownerEmail.toLowerCase(),
-    created_by_user_id: userId || null,
+    created_by_user_id: user?.id || null,
     title: label,
     case_type: state.flowType || 'quote',
     case_status: 'aktiv' as SavedStatus,
