@@ -14,19 +14,20 @@ export interface SavedItem {
   state: ConfiguratorState;
 }
 
-const STORAGE_KEY = 'timan_saved_configs';
+function storageKey(email: string) {
+  return `timan_saved_configs_${email.toLowerCase()}`;
+}
 
-function loadSavedItems(): SavedItem[] {
+function loadSavedItems(email: string): SavedItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(email));
     const items: SavedItem[] = raw ? JSON.parse(raw) : [];
-    // Migrate old items without status
     return items.map(i => ({ ...i, status: i.status || 'aktiv' }));
   } catch { return []; }
 }
 
-function persistItems(items: SavedItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+function persistItems(email: string, items: SavedItem[]) {
+  localStorage.setItem(storageKey(email), JSON.stringify(items));
 }
 
 export function saveCurrentConfig(state: ConfiguratorState, label: string): SavedItem {
