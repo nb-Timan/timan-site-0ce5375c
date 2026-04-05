@@ -30,8 +30,8 @@ function persistItems(email: string, items: SavedItem[]) {
   localStorage.setItem(storageKey(email), JSON.stringify(items));
 }
 
-export function saveCurrentConfig(state: ConfiguratorState, label: string): SavedItem {
-  const items = loadSavedItems();
+export function saveCurrentConfig(state: ConfiguratorState, label: string, ownerEmail: string): SavedItem {
+  const items = loadSavedItems(ownerEmail);
   const item: SavedItem = {
     id: `cfg_${Date.now()}`,
     label,
@@ -41,18 +41,18 @@ export function saveCurrentConfig(state: ConfiguratorState, label: string): Save
     state,
   };
   items.unshift(item);
-  persistItems(items);
+  persistItems(ownerEmail, items);
   return item;
 }
 
 /** Mark a saved item as "Ordre afgivet" by id, also sets type to 'order' */
-export function markAsOrderSubmitted(id: string) {
-  const items = loadSavedItems();
+export function markAsOrderSubmitted(id: string, ownerEmail: string) {
+  const items = loadSavedItems(ownerEmail);
   const idx = items.findIndex(i => i.id === id);
   if (idx >= 0) {
     items[idx].type = 'order';
     items[idx].status = 'ordre_afgivet';
-    persistItems(items);
+    persistItems(ownerEmail, items);
   }
 }
 
