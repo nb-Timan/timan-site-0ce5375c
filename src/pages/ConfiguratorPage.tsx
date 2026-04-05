@@ -1397,6 +1397,43 @@ export default function ConfiguratorPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Sales arguments modal */}
+      <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</DialogTitle>
+          </DialogHeader>
+          <div className="whitespace-pre-line text-sm text-foreground leading-relaxed border rounded-lg p-4 bg-muted/30">
+            {salesArgsText}
+          </div>
+          {includeSalesArgs && (
+            <p className="text-xs text-emerald-600 font-medium">{lang === 'da' ? '✓ Medtages i tilbud / PDF' : '✓ Included in quote / PDF'}</p>
+          )}
+          <div className="flex gap-3 justify-end mt-2">
+            <button
+              onClick={() => {
+                setIncludeSalesArgs(false);
+                setSalesArgsModalOpen(false);
+                toast.info(lang === 'da' ? 'Salgsargumenter medtages ikke' : 'Sales arguments not included');
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition"
+            >
+              {lang === 'da' ? 'Medtag ikke' : 'Do not include'}
+            </button>
+            <button
+              onClick={() => {
+                setIncludeSalesArgs(true);
+                setSalesArgsModalOpen(false);
+                toast.success(lang === 'da' ? 'Salgsargumenter medtages i tilbud / PDF' : 'Sales arguments included in quote / PDF');
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+            >
+              {lang === 'da' ? 'Medtag i tilbud / PDF' : 'Include in quote / PDF'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
