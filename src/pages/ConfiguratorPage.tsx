@@ -72,6 +72,9 @@ export default function ConfiguratorPage() {
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
+  const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
