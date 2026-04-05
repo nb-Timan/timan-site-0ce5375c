@@ -209,15 +209,17 @@ export async function saveConfiguration(
     };
   }
 
+  const documentType = state.flowType === 'order' ? 'order' : 'quote';
+
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {
     created_by_email: user.email?.toLowerCase() || ownerEmail.toLowerCase(),
     created_by_user_id: user.id,
     title: label,
-    case_type: state.flowType || 'quote',
+    document_type: documentType,
+    case_type: documentType,
     case_status: 'aktiv' as SavedStatus,
     state_json: state,
-    internal_note: state.internalNote || '',
     pdf_downloaded: false,
     pdf_downloaded_at: null,
     submitted_at: null,
