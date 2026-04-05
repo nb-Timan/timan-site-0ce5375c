@@ -126,9 +126,14 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   };
 
   const handleGuestContinue = () => {
+    const trimmed = guestEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setGuestError(tx('guestEmailRequired', language));
+      return;
+    }
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
-      email: '',
+      email: trimmed.toLowerCase(),
       display_name: undefined,
     });
   };
