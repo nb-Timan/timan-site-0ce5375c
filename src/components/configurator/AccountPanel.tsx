@@ -11,6 +11,7 @@ import {
   deleteConfiguration,
   SavedStatus,
 } from '@/lib/configurationsService';
+import { toast } from 'sonner';
 
 // Re-export for external use
 export type { SavedStatus } from '@/lib/configurationsService';
@@ -89,12 +90,43 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
   const handleSave = async () => {
     if (!saveLabel.trim() || saving) return;
+
     setSaving(true);
-    await saveConfiguration(currentState, saveLabel.trim(), userEmail);
-    await refreshItems();
-    setSaveLabel('');
-    setShowSaveInput(false);
-    setSaving(false);
+
+    try {
+      const result = await saveConfiguration(currentState, saveLabel.trim(), userEmail);
+
+      if (result.error) {
+        console.error('handleSave failed:', result.error);
+        toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+          description: result.error,
+        });
+        return;
+      }
+
+      await refreshItems();
+
+      if (result.itemsError) {
+        toast.error(tx('Sag gemt, men linjer fejlede', 'Case saved, but line items failed'), {
+          description: `${tx('Sag ID', 'Case ID')}: ${result.id} — ${result.itemsError}`,
+        });
+      } else {
+        toast.success(tx('Sag gemt', 'Case saved'), {
+          description: `${tx('Sag ID', 'Case ID')}: ${result.id}`,
+        });
+      }
+
+      setSaveLabel('');
+      setShowSaveInput(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Unexpected save error:', error);
+      toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+        description: message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
