@@ -139,6 +139,7 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
 
     items.push({
       configuration_id: configurationId,
+      item_type: 'machine',
       machine_type: mc.type,
       machine_qty: mc.qty,
       config_mode: mc.configMode,
