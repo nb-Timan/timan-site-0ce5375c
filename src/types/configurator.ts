@@ -7,8 +7,9 @@ export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
 
 // Role system
-export type UserRole = 'slutkunde' | 'forhandler_servicepartner' | 'timan_saelger';
-export type TimanWorkingFor = 'slutkunde' | 'forhandler_servicepartner';
+export type UserRole = 'slutkunde' | 'partner' | 'timan_saelger';
+export type PartnerSubRole = 'service_partner' | 'forhandler' | 'importoer';
+export type TimanWorkingFor = 'slutkunde' | 'partner';
 
 export interface RolePermissions {
   canSeePrices: boolean;
