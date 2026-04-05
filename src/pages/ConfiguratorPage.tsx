@@ -366,9 +366,10 @@ export default function ConfiguratorPage() {
           }
         }
       } else {
+        const autoTag = i.isAutoAdded ? ' <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">Automatisk tilføjet</span>' : '';
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
-          <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}</div>
+          <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
           <div class="w-28 shrink-0 text-right price-col">${formatMoney(i.price, lang)}</div>
         </div>`;
       }
@@ -1271,7 +1272,12 @@ export default function ConfiguratorPage() {
                       <div key={idx}>
                         <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
                           <div className="min-w-0 flex-1">
-                            <div>{item.txt}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.txt}</span>
+                              {item.isAutoAdded && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Automatisk tilføjet</span>
+                              )}
+                            </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
                           </div>
                           {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
