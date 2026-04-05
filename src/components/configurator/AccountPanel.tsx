@@ -4,6 +4,7 @@ import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   SavedConfiguration,
+  loadConfigurationById,
   loadConfigurations,
   saveConfiguration,
   updateConfigurationStatus,
@@ -23,6 +24,7 @@ interface Props {
   currentState: ConfiguratorState;
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string) => void;
+  onSavedConfiguration: (configId: string) => void;
 }
 
 function getRoleBadge(role: string, lang: Language) {
@@ -66,7 +68,7 @@ function statusColor(status: SavedStatus): string {
   return 'bg-blue-100 text-blue-700';
 }
 
-export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState }: Props) {
+export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration }: Props) {
   const [open, setOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
@@ -107,6 +109,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       await refreshItems();
 
+      if (result.id) {
+        onSavedConfiguration(result.id);
+      }
+
       if (result.itemsError) {
         toast.error(tx('Sag gemt, men linjer fejlede', 'Case saved, but line items failed'), {
           description: `${tx('Sag ID', 'Case ID')}: ${result.id} — ${result.itemsError}`,
@@ -143,8 +149,20 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setSavedItems(prev => prev.map(i => i.id === id ? { ...i, case_status: newStatus } : i));
   };
 
-  const handleOpen = (item: SavedConfiguration) => {
-    onRestoreState(item.state_json, item.id);
+  const handleOpen = async (item: SavedConfiguration) => {
+    const saved = await loadConfigurationById(item.id, userEmail);
+
+    if (!saved) {
+      toast.error(tx('Kunne ikke åbne sag', 'Failed to open case'));
+      return;
+    }
+
+    if (!saved.has_full_state) {
+      toast.error(tx('Sagen mangler komplet gemt konfigurationsdata', 'The case is missing the full saved configurator state'));
+      return;
+    }
+
+    onRestoreState(saved.state_json, saved.id);
     setOpen(false);
   };
 
@@ -308,7 +326,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     <div className="flex gap-2">
                       {item.case_status !== 'ordre_afgivet' && (
                         <button
-                          onClick={() => handleOpen(item)}
+                          onClick={() => void handleOpen(item)}
                           className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
                         >
                           {tx('Åbn', 'Open')}
