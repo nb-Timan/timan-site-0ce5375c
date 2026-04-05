@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppUser } from '@/data/appUsers';
-import { Language, ConfiguratorState } from '@/types/configurator';
+import { Language, ConfiguratorState, PartnerSubRole } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
@@ -66,15 +66,25 @@ interface Props {
 function getRoleBadge(role: string, lang: Language) {
   const map: Record<string, Record<string, string>> = {
     slutkunde: { da: 'Slutkunde', en: 'End Customer' },
-    forhandler_servicepartner: { da: 'Forhandler', en: 'Dealer' },
+    partner: { da: 'Partner', en: 'Partner' },
     timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales' },
   };
   return map[role]?.[lang] || map[role]?.en || role;
 }
 
+function getSubRoleLabel(subRole: PartnerSubRole | null | undefined, lang: Language): string | null {
+  if (!subRole) return null;
+  const map: Record<PartnerSubRole, Record<string, string>> = {
+    service_partner: { da: 'Servicepartner', en: 'Service Partner' },
+    forhandler: { da: 'Forhandler', en: 'Dealer' },
+    importoer: { da: 'Importør', en: 'Importer' },
+  };
+  return map[subRole]?.[lang] || map[subRole]?.en || subRole;
+}
+
 function roleBadgeColor(role: string) {
   if (role === 'timan_saelger') return 'bg-blue-100 text-blue-800';
-  if (role === 'forhandler_servicepartner') return 'bg-emerald-100 text-emerald-800';
+  if (role === 'partner') return 'bg-emerald-100 text-emerald-800';
   return 'bg-gray-100 text-gray-700';
 }
 
@@ -163,6 +173,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[10px] font-semibold ${roleBadgeColor(appUser.role)}`}>
               {getRoleBadge(appUser.role, language)}
             </span>
+            {appUser.partner_sub_role && (
+              <span className="inline-block mt-0.5 ml-1 px-1.5 py-px rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
+                {getSubRoleLabel(appUser.partner_sub_role, language)}
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -192,9 +207,16 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
-              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
-                {getRoleBadge(appUser.role, language)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
+                  {getRoleBadge(appUser.role, language)}
+                </span>
+                {appUser.partner_sub_role && (
+                  <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
+                    {getSubRoleLabel(appUser.partner_sub_role, language)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

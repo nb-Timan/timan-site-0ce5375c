@@ -91,6 +91,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         onResolved({
           email: appUserRow.email,
           role: appUserRow.role,
+          partner_sub_role: appUserRow.partner_sub_role ?? null,
           approved: appUserRow.approved,
           is_active: appUserRow.is_active,
           start_step: appUserRow.start_step ?? 1,
