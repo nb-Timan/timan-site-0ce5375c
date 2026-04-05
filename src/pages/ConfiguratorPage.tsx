@@ -464,7 +464,7 @@ export default function ConfiguratorPage() {
 
   // ======== Delivery startup required check ========
   const needsStartup = lang === 'da' && state.deliveryMethod === 'deliver';
-  const canProceedStep2 = !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
+  const canProceedStep2 = !!state.date && !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
 
   // ======== Startup pricing in calc ========
   // (handled in useConfigurator via deliveryDeliverStartup state)
