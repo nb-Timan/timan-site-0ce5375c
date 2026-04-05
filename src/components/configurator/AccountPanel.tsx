@@ -75,7 +75,7 @@ function getRoleBadge(role: string, lang: Language) {
 function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
   if (!subRole) return null;
   const map: Record<PartnerType, Record<string, string>> = {
-    service_partner: { da: 'Servicepartner', en: 'Service Partner' },
+    service_partner: { da: 'Service partner', en: 'Service Partner' },
     forhandler: { da: 'Forhandler', en: 'Dealer' },
     importoer: { da: 'Importør', en: 'Importer' },
   };
