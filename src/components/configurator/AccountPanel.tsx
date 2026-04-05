@@ -14,23 +14,24 @@ export interface SavedItem {
   state: ConfiguratorState;
 }
 
-const STORAGE_KEY = 'timan_saved_configs';
+function storageKey(email: string) {
+  return `timan_saved_configs_${email.toLowerCase()}`;
+}
 
-function loadSavedItems(): SavedItem[] {
+function loadSavedItems(email: string): SavedItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(email));
     const items: SavedItem[] = raw ? JSON.parse(raw) : [];
-    // Migrate old items without status
     return items.map(i => ({ ...i, status: i.status || 'aktiv' }));
   } catch { return []; }
 }
 
-function persistItems(items: SavedItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+function persistItems(email: string, items: SavedItem[]) {
+  localStorage.setItem(storageKey(email), JSON.stringify(items));
 }
 
-export function saveCurrentConfig(state: ConfiguratorState, label: string): SavedItem {
-  const items = loadSavedItems();
+export function saveCurrentConfig(state: ConfiguratorState, label: string, ownerEmail: string): SavedItem {
+  const items = loadSavedItems(ownerEmail);
   const item: SavedItem = {
     id: `cfg_${Date.now()}`,
     label,
@@ -40,18 +41,18 @@ export function saveCurrentConfig(state: ConfiguratorState, label: string): Save
     state,
   };
   items.unshift(item);
-  persistItems(items);
+  persistItems(ownerEmail, items);
   return item;
 }
 
 /** Mark a saved item as "Ordre afgivet" by id, also sets type to 'order' */
-export function markAsOrderSubmitted(id: string) {
-  const items = loadSavedItems();
+export function markAsOrderSubmitted(id: string, ownerEmail: string) {
+  const items = loadSavedItems(ownerEmail);
   const idx = items.findIndex(i => i.id === id);
   if (idx >= 0) {
     items[idx].type = 'order';
     items[idx].status = 'ordre_afgivet';
-    persistItems(items);
+    persistItems(ownerEmail, items);
   }
 }
 
@@ -114,30 +115,32 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     && currentState.kontaktperson.trim() !== ''
     && currentState.email.trim() !== '';
 
+  const userEmail = appUser.email.toLowerCase();
+
   useEffect(() => {
-    if (open) setSavedItems(loadSavedItems());
-  }, [open]);
+    if (open) setSavedItems(loadSavedItems(userEmail));
+  }, [open, userEmail]);
 
   const handleSave = () => {
     if (!saveLabel.trim()) return;
-    saveCurrentConfig(currentState, saveLabel.trim());
-    setSavedItems(loadSavedItems());
+    saveCurrentConfig(currentState, saveLabel.trim(), userEmail);
+    setSavedItems(loadSavedItems(userEmail));
     setSaveLabel('');
     setShowSaveInput(false);
   };
 
   const handleDelete = (id: string) => {
-    const items = loadSavedItems().filter(i => i.id !== id);
-    persistItems(items);
+    const items = loadSavedItems(userEmail).filter(i => i.id !== id);
+    persistItems(userEmail, items);
     setSavedItems(items);
   };
 
   const handleToggleStatus = (id: string) => {
-    const items = loadSavedItems();
+    const items = loadSavedItems(userEmail);
     const item = items.find(i => i.id === id);
     if (!item || item.status === 'ordre_afgivet') return;
     item.status = item.status === 'aktiv' ? 'pause' : 'aktiv';
-    persistItems(items);
+    persistItems(userEmail, items);
     setSavedItems(items);
   };
 
@@ -147,11 +150,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleNoteChange = (id: string, text: string) => {
-    const items = loadSavedItems();
+    const items = loadSavedItems(userEmail);
     const item = items.find(i => i.id === id);
     if (item) {
       item.state = { ...item.state, internalNote: text };
-      persistItems(items);
+      persistItems(userEmail, items);
       setSavedItems(items);
     }
   };
