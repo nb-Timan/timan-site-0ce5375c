@@ -81,6 +81,9 @@ export default function ConfiguratorPage() {
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
+  const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
+  const [salesArgsText, setSalesArgsText] = useState('');
+  const [includeSalesArgs, setIncludeSalesArgs] = useState(false);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
@@ -332,6 +335,12 @@ export default function ConfiguratorPage() {
           <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
           <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${state.emailRecipient || '-'}</span>
           ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
+        </div>
+      </div>
+      ${includeSalesArgs && salesArgsText ? `<div class="mt-6 text-sm text-gray-700 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+        <h2 class="font-bold text-base mb-2 text-emerald-800">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
+        <div class="whitespace-pre-line text-gray-700">${salesArgsText}</div>
+      </div>` : ''}
         </div>
       </div>
       <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${T('confirmDescription')}</h2>`;
@@ -1156,9 +1165,8 @@ export default function ConfiguratorPage() {
                           type="button"
                           onClick={() => {
                             const text = generateSalesArguments(state);
-                            const current = state.comment.trim();
-                            setCustomerField('comment', current ? `${current}\n\n${text}` : text);
-                            toast.success(lang === 'da' ? 'Salgsargumenter tilføjet' : 'Sales arguments added');
+                            setSalesArgsText(text);
+                            setSalesArgsModalOpen(true);
                           }}
                           className="text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition"
                         >
@@ -1385,6 +1393,43 @@ export default function ConfiguratorPage() {
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
             >
               {savingBeforeReset ? '...' : 'Ja, gem'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sales arguments modal */}
+      <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</DialogTitle>
+          </DialogHeader>
+          <div className="whitespace-pre-line text-sm text-foreground leading-relaxed border rounded-lg p-4 bg-muted/30">
+            {salesArgsText}
+          </div>
+          {includeSalesArgs && (
+            <p className="text-xs text-emerald-600 font-medium">{lang === 'da' ? '✓ Medtages i tilbud / PDF' : '✓ Included in quote / PDF'}</p>
+          )}
+          <div className="flex gap-3 justify-end mt-2">
+            <button
+              onClick={() => {
+                setIncludeSalesArgs(false);
+                setSalesArgsModalOpen(false);
+                toast.info(lang === 'da' ? 'Salgsargumenter medtages ikke' : 'Sales arguments not included');
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition"
+            >
+              {lang === 'da' ? 'Medtag ikke' : 'Do not include'}
+            </button>
+            <button
+              onClick={() => {
+                setIncludeSalesArgs(true);
+                setSalesArgsModalOpen(false);
+                toast.success(lang === 'da' ? 'Salgsargumenter medtages i tilbud / PDF' : 'Sales arguments included in quote / PDF');
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+            >
+              {lang === 'da' ? 'Medtag i tilbud / PDF' : 'Include in quote / PDF'}
             </button>
           </div>
         </DialogContent>
