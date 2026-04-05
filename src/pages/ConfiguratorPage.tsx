@@ -394,6 +394,14 @@ export default function ConfiguratorPage() {
       </div>
       <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
     </div></div></div>`;
+
+    if (includeSalesArgs && salesArgsText) {
+      html += `<div style="margin-top:24px;padding:16px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;">
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
+        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesArgsText}</div>
+      </div>`;
+    }
+
     return html;
   };
 
