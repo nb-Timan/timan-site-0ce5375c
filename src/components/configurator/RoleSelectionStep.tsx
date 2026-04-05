@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserRole, PartnerSubRole, TimanWorkingFor, AuthState } from '@/types/configurator';
+import { UserRole, PartnerType, TimanWorkingFor, AuthState } from '@/types/configurator';
 
 interface RoleSelectionStepProps {
   onRoleSelected: (auth: AuthState) => void;
@@ -34,7 +34,7 @@ const ROLE_LABELS: Record<string, Record<UserRole, { title: string; desc: string
   },
 };
 
-const PARTNER_SUB_LABELS: Record<string, Record<PartnerSubRole, string>> = {
+const PARTNER_SUB_LABELS: Record<string, Record<PartnerType, string>> = {
   da: { service_partner: 'Servicepartner', forhandler: 'Forhandler', importoer: 'Importør' },
   en: { service_partner: 'Service Partner', forhandler: 'Dealer', importoer: 'Importer' },
   de: { service_partner: 'Servicepartner', forhandler: 'Händler', importoer: 'Importeur' },
@@ -44,7 +44,7 @@ const PARTNER_SUB_LABELS: Record<string, Record<PartnerSubRole, string>> = {
 
 export default function RoleSelectionStep({ onRoleSelected, language }: RoleSelectionStepProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [partnerSubRole, setPartnerSubRole] = useState<PartnerSubRole | null>(null);
+  const [partnerSubRole, setPartnerType] = useState<PartnerType | null>(null);
   const [workingFor, setWorkingFor] = useState<TimanWorkingFor | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -108,7 +108,7 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
   };
 
   const roles: UserRole[] = ['slutkunde', 'partner', 'timan_saelger'];
-  const subRoles: PartnerSubRole[] = ['service_partner', 'forhandler', 'importoer'];
+  const subRoles: PartnerType[] = ['service_partner', 'forhandler', 'importoer'];
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -123,7 +123,7 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
             return (
               <div
                 key={role}
-                onClick={() => { setSelectedRole(role); setLoginError(''); setWorkingFor(null); setPartnerSubRole(null); }}
+                onClick={() => { setSelectedRole(role); setLoginError(''); setWorkingFor(null); setPartnerType(null); }}
                 className={`p-4 border-2 rounded-xl cursor-pointer transition ${isActive ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
               >
                 <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
                   className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm transition ${partnerSubRole === sr ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                   <input type="radio" name="partner-sub-role" className="sr-only"
                     checked={partnerSubRole === sr}
-                    onChange={() => { setPartnerSubRole(sr); setLoginError(''); }} />
+                    onChange={() => { setPartnerType(sr); setLoginError(''); }} />
                   {subLabels[sr]}
                 </label>
               ))}

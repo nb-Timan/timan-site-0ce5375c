@@ -8,7 +8,7 @@ export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
 
 // Role system
 export type UserRole = 'slutkunde' | 'partner' | 'timan_saelger';
-export type PartnerSubRole = 'service_partner' | 'forhandler' | 'importoer';
+export type PartnerType = 'service_partner' | 'forhandler' | 'importoer';
 export type TimanWorkingFor = 'slutkunde' | 'partner';
 
 export interface RolePermissions {
@@ -24,7 +24,7 @@ export interface RolePermissions {
 
 export interface AuthState {
   role: UserRole | null;
-  partnerSubRole: PartnerSubRole | null; // only for partner role
+  partnerSubRole: PartnerType | null; // only for partner role
   workingFor: TimanWorkingFor | null; // only for timan_saelger
   isAuthenticated: boolean;
   email?: string;
