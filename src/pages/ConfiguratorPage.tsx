@@ -1190,7 +1190,11 @@ export default function ConfiguratorPage() {
                 import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
                 setAppUser(null);
               }}
-              onRestoreState={(restored) => setState(restored)}
+              onRestoreState={(restored, configId) => {
+                setState(restored);
+                setSavedConfigurationId(configId);
+                setIsSavedCurrent(true);
+              }}
             />
 
             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>

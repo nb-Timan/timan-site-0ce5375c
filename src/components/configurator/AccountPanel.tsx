@@ -22,7 +22,7 @@ interface Props {
   language: Language;
   currentState: ConfiguratorState;
   onLogout: () => void;
-  onRestoreState: (state: ConfiguratorState) => void;
+  onRestoreState: (state: ConfiguratorState, configId: string) => void;
 }
 
 function getRoleBadge(role: string, lang: Language) {
