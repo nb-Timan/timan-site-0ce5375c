@@ -235,7 +235,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     <div className="flex gap-4">
                       {/* Left: case info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-base font-semibold text-gray-900 truncate">{item.label}</div>
+                        <div className="text-base font-semibold text-gray-900 truncate">{item.title}</div>
                         {item.state_json?.firmanavn && (
                           <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
                         )}
