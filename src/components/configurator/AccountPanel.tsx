@@ -160,7 +160,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{tx('Min konto', 'My account')}</DialogTitle>
           </DialogHeader>
