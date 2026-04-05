@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppUser } from '@/data/appUsers';
-import { Language, ConfiguratorState } from '@/types/configurator';
+import { Language, ConfiguratorState, PartnerSubRole } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
