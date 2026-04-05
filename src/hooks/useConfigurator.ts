@@ -248,9 +248,14 @@ export function useConfigurator() {
         const qty = state.accQty[`${unit.configKey}_${a.id}`] || 1;
         const accPrice = getPrice(a, state.language) * qty;
         unitTotal += accPrice;
-        if (!a.hidden) {
-          lineItems.push({ txt: `- ${getLocalizedName(a.name, state.language)}${qty > 1 ? ` x${qty}` : ''}`, price: accPrice, varenr: a.varenr, sub: true });
-        }
+        const label = getLocalizedName(a.name, state.language);
+        lineItems.push({
+          txt: `- ${label}${qty > 1 ? ` x${qty}` : ''}`,
+          price: accPrice,
+          varenr: a.varenr,
+          sub: true,
+          isAutoAdded: !!a.hidden,
+        });
       });
 
       subtotal += unitTotal;

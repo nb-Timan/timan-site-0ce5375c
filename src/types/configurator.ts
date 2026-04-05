@@ -165,6 +165,7 @@ export interface LineItem {
   isSectionHeader?: boolean;
   isDependentAccessory?: boolean;
   isPrimaryAccessory?: boolean;
+  isAutoAdded?: boolean;
   index?: number;
   isLastSubtotal?: boolean;
   subText?: string;
