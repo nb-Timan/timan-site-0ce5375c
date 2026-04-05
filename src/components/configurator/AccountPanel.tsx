@@ -1,60 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  SavedConfiguration,
+  loadConfigurations,
+  saveConfiguration,
+  updateConfigurationStatus,
+  updateConfigurationNote,
+  deleteConfiguration,
+  SavedStatus,
+} from '@/lib/configurationsService';
 
-export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
-
-export interface SavedItem {
-  id: string;
-  label: string;
-  type: 'quote' | 'order';
-  status: SavedStatus;
-  savedAt: string;
-  state: ConfiguratorState;
-}
-
-function storageKey(email: string) {
-  return `timan_saved_configs_${email.toLowerCase()}`;
-}
-
-function loadSavedItems(email: string): SavedItem[] {
-  try {
-    const raw = localStorage.getItem(storageKey(email));
-    const items: SavedItem[] = raw ? JSON.parse(raw) : [];
-    return items.map(i => ({ ...i, status: i.status || 'aktiv' }));
-  } catch { return []; }
-}
-
-function persistItems(email: string, items: SavedItem[]) {
-  localStorage.setItem(storageKey(email), JSON.stringify(items));
-}
-
-export function saveCurrentConfig(state: ConfiguratorState, label: string, ownerEmail: string): SavedItem {
-  const items = loadSavedItems(ownerEmail);
-  const item: SavedItem = {
-    id: `cfg_${Date.now()}`,
-    label,
-    type: state.flowType || 'quote',
-    status: 'aktiv',
-    savedAt: new Date().toISOString(),
-    state,
-  };
-  items.unshift(item);
-  persistItems(ownerEmail, items);
-  return item;
-}
-
-/** Mark a saved item as "Ordre afgivet" by id, also sets type to 'order' */
-export function markAsOrderSubmitted(id: string, ownerEmail: string) {
-  const items = loadSavedItems(ownerEmail);
-  const idx = items.findIndex(i => i.id === id);
-  if (idx >= 0) {
-    items[idx].type = 'order';
-    items[idx].status = 'ordre_afgivet';
-    persistItems(ownerEmail, items);
-  }
-}
+// Re-export for external use
+export type { SavedStatus } from '@/lib/configurationsService';
+export { markAsOrderSubmitted, markPdfDownloaded } from '@/lib/configurationsService';
 
 interface Props {
   appUser: AppUser & { email: string };
@@ -106,9 +66,10 @@ function statusColor(status: SavedStatus): string {
 
 export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState }: Props) {
   const [open, setOpen] = useState(false);
-  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -117,46 +78,46 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
   const userEmail = appUser.email.toLowerCase();
 
-  useEffect(() => {
-    if (open) setSavedItems(loadSavedItems(userEmail));
-  }, [open, userEmail]);
+  const refreshItems = useCallback(async () => {
+    const items = await loadConfigurations(userEmail);
+    setSavedItems(items);
+  }, [userEmail]);
 
-  const handleSave = () => {
-    if (!saveLabel.trim()) return;
-    saveCurrentConfig(currentState, saveLabel.trim(), userEmail);
-    setSavedItems(loadSavedItems(userEmail));
+  useEffect(() => {
+    if (open) refreshItems();
+  }, [open, refreshItems]);
+
+  const handleSave = async () => {
+    if (!saveLabel.trim() || saving) return;
+    setSaving(true);
+    await saveConfiguration(currentState, saveLabel.trim(), userEmail);
+    await refreshItems();
     setSaveLabel('');
     setShowSaveInput(false);
+    setSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    const items = loadSavedItems(userEmail).filter(i => i.id !== id);
-    persistItems(userEmail, items);
-    setSavedItems(items);
+  const handleDelete = async (id: string) => {
+    await deleteConfiguration(id);
+    setSavedItems(prev => prev.filter(i => i.id !== id));
   };
 
-  const handleToggleStatus = (id: string) => {
-    const items = loadSavedItems(userEmail);
-    const item = items.find(i => i.id === id);
+  const handleToggleStatus = async (id: string) => {
+    const item = savedItems.find(i => i.id === id);
     if (!item || item.status === 'ordre_afgivet') return;
-    item.status = item.status === 'aktiv' ? 'pause' : 'aktiv';
-    persistItems(userEmail, items);
-    setSavedItems(items);
+    const newStatus: SavedStatus = item.status === 'aktiv' ? 'pause' : 'aktiv';
+    await updateConfigurationStatus(id, newStatus);
+    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
   };
 
-  const handleOpen = (item: SavedItem) => {
-    onRestoreState(item.state);
+  const handleOpen = (item: SavedConfiguration) => {
+    onRestoreState(item.state_json);
     setOpen(false);
   };
 
-  const handleNoteChange = (id: string, text: string) => {
-    const items = loadSavedItems(userEmail);
-    const item = items.find(i => i.id === id);
-    if (item) {
-      item.state = { ...item.state, internalNote: text };
-      persistItems(userEmail, items);
-      setSavedItems(items);
-    }
+  const handleNoteChange = async (id: string, text: string) => {
+    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, internal_note: text } : i));
+    await updateConfigurationNote(id, text);
   };
 
   const tx = (da: string, en: string) => language === 'da' ? da : en;
@@ -255,8 +216,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
                   autoFocus
                 />
-                <button onClick={handleSave} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium">
-                  {tx('Gem', 'Save')}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
+                >
+                  {saving ? '...' : tx('Gem', 'Save')}
                 </button>
               </div>
             )}
@@ -265,71 +230,74 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <p className="text-sm text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
             ) : (
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                {savedItems.map(item => {
-                  const note = item.state?.internalNote || '';
-                  return (
-                    <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
-                      <div className="flex gap-4">
-                        {/* Left: case info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-base font-semibold text-gray-900 truncate">{item.label}</div>
-                          {item.state?.firmanavn && (
-                            <div className="text-sm text-gray-500 truncate mt-0.5">{item.state.firmanavn}</div>
+                {savedItems.map(item => (
+                  <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
+                    <div className="flex gap-4">
+                      {/* Left: case info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-base font-semibold text-gray-900 truncate">{item.label}</div>
+                        {item.state_json?.firmanavn && (
+                          <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span className="text-sm text-gray-400">
+                            {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                          </span>
+                          <span className="text-sm text-gray-300">·</span>
+                          <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.status)}`}>
+                            {statusLabel(item.status, language)}
+                          </span>
+                          <span className="text-sm text-gray-300">·</span>
+                          <span className="text-sm text-gray-400">
+                            {new Date(item.created_at).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
+                          </span>
+                          {item.pdf_downloaded && (
+                            <>
+                              <span className="text-sm text-gray-300">·</span>
+                              <span className="text-xs text-blue-500 font-medium">📄 PDF</span>
+                            </>
                           )}
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            <span className="text-sm text-gray-400">
-                              {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
-                            </span>
-                            <span className="text-sm text-gray-300">·</span>
-                            <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.status)}`}>
-                              {statusLabel(item.status, language)}
-                            </span>
-                            <span className="text-sm text-gray-300">·</span>
-                            <span className="text-sm text-gray-400">
-                              {new Date(item.savedAt).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Right: internal note */}
-                        <div className="w-48 flex-shrink-0">
-                          <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
-                          <textarea
-                            rows={2}
-                            value={note}
-                            onChange={e => handleNoteChange(item.id, e.target.value)}
-                            placeholder={tx('Skriv en huskenote...', 'Write a reminder...')}
-                            className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
-                          />
                         </div>
                       </div>
-                      {/* Action buttons */}
-                      <div className="flex gap-2">
-                        {item.status !== 'ordre_afgivet' && (
-                          <button
-                            onClick={() => handleOpen(item)}
-                            className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
-                          >
-                            {tx('Åbn', 'Open')}
-                          </button>
-                        )}
-                        {item.status !== 'ordre_afgivet' && (
-                          <button
-                            onClick={() => handleToggleStatus(item.id)}
-                            className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
-                          >
-                            {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
-                        >
-                          {tx('Slet', 'Delete')}
-                        </button>
+                      {/* Right: internal note */}
+                      <div className="w-48 flex-shrink-0">
+                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
+                        <textarea
+                          rows={2}
+                          value={item.internal_note || ''}
+                          onChange={e => handleNoteChange(item.id, e.target.value)}
+                          placeholder={tx('Skriv en huskenote...', 'Write a reminder...')}
+                          className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
+                        />
                       </div>
                     </div>
-                  );
-                })}
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      {item.status !== 'ordre_afgivet' && (
+                        <button
+                          onClick={() => handleOpen(item)}
+                          className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                        >
+                          {tx('Åbn', 'Open')}
+                        </button>
+                      )}
+                      {item.status !== 'ordre_afgivet' && (
+                        <button
+                          onClick={() => handleToggleStatus(item.id)}
+                          className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                        >
+                          {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
+                      >
+                        {tx('Slet', 'Delete')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
