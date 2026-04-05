@@ -35,7 +35,7 @@ export function getRolePermissions(role: UserRole | null, workingFor?: TimanWork
   switch (role) {
     case 'slutkunde':
       return { canSeePrices: false, canSubmitOrder: false, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: false, canChooseDiscountForQuotes: false, usesFixedDiscountForOrders: false, canChooseWorkingFor: false };
-    case 'forhandler_servicepartner':
+    case 'partner':
       return { canSeePrices: true, canSubmitOrder: true, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: false, canChooseDiscountForQuotes: true, usesFixedDiscountForOrders: true, canChooseWorkingFor: false };
     case 'timan_saelger':
       return { canSeePrices: true, canSubmitOrder: true, canSubmitQuote: true, canDownloadPdf: true, canSetDiscount: true, canChooseDiscountForQuotes: true, usesFixedDiscountForOrders: false, canChooseWorkingFor: true };
