@@ -1165,9 +1165,8 @@ export default function ConfiguratorPage() {
                           type="button"
                           onClick={() => {
                             const text = generateSalesArguments(state);
-                            const current = state.comment.trim();
-                            setCustomerField('comment', current ? `${current}\n\n${text}` : text);
-                            toast.success(lang === 'da' ? 'Salgsargumenter tilføjet' : 'Sales arguments added');
+                            setSalesArgsText(text);
+                            setSalesArgsModalOpen(true);
                           }}
                           className="text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition"
                         >
