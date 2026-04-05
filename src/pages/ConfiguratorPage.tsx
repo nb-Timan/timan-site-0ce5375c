@@ -1264,7 +1264,7 @@ export default function ConfiguratorPage() {
                   </div>
                 )}
               </>
-            )
+            )}
 
           </div>
         </aside>
