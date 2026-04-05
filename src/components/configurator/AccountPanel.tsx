@@ -104,10 +104,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
   const handleToggleStatus = async (id: string) => {
     const item = savedItems.find(i => i.id === id);
-    if (!item || item.status === 'ordre_afgivet') return;
-    const newStatus: SavedStatus = item.status === 'aktiv' ? 'pause' : 'aktiv';
+    if (!item || item.case_status === 'ordre_afgivet') return;
+    const newStatus: SavedStatus = item.case_status === 'aktiv' ? 'pause' : 'aktiv';
     await updateConfigurationStatus(id, newStatus);
-    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
+    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, case_status: newStatus } : i));
   };
 
   const handleOpen = (item: SavedConfiguration) => {
