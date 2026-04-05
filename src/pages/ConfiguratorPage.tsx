@@ -406,13 +406,20 @@ export default function ConfiguratorPage() {
     return html;
   };
 
-  // Open confirmation modal
+  // Open confirmation — but first ask about sales arguments
   const openConfirmation = () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
       return;
     }
-    setConfirmModalOpen(true);
+    // Show sales args prompt for quotes
+    if (state.flowType === 'quote') {
+      const text = generateSalesArguments(state);
+      setSalesArgsText(text);
+      setSalesArgsModalOpen(true);
+    } else {
+      setConfirmModalOpen(true);
+    }
   };
 
   // PDF download using jsPDF + html2canvas
@@ -1163,22 +1170,7 @@ export default function ConfiguratorPage() {
                     <input type="email" value={state.emailRecipient} onChange={e => setCustomerField('emailRecipient', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailRecipientPlaceholder')} />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-gray-700">{T('comment')}</label>
-                      {state.flowType === 'quote' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const text = generateSalesArguments(state);
-                            setSalesArgsText(text);
-                            setSalesArgsModalOpen(true);
-                          }}
-                          className="text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition"
-                        >
-                          {lang === 'da' ? '✨ Tilføj salgsargumenter' : '✨ Add sales arguments'}
-                        </button>
-                      )}
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={5} />
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
@@ -1408,15 +1400,14 @@ export default function ConfiguratorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Sales arguments modal */}
+      {/* Sales arguments prompt modal */}
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</DialogTitle>
+            <DialogTitle>{lang === 'da' ? 'Ønsker du at tilføje salgsargumenter?' : 'Add sales arguments?'}</DialogTitle>
           </DialogHeader>
           {(() => {
             const sections = salesArgsText.split('\n\n');
-            // sections[0] = **heading**, sections[1] = paragraph, sections[2] = bullets
             const headingRaw = sections[0] || '';
             const heading = headingRaw.replace(/\*\*/g, '');
             const paragraph = sections[1] || '';
@@ -1439,29 +1430,34 @@ export default function ConfiguratorPage() {
               </div>
             );
           })()}
-          {includeSalesArgs && (
-            <p className="text-xs text-emerald-600 font-medium">{lang === 'da' ? '✓ Medtages i tilbud / PDF' : '✓ Included in quote / PDF'}</p>
-          )}
           <div className="flex gap-3 justify-end mt-2">
+            <button
+              onClick={() => {
+                setSalesArgsModalOpen(false);
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition"
+            >
+              {lang === 'da' ? 'Annuller' : 'Cancel'}
+            </button>
             <button
               onClick={() => {
                 setIncludeSalesArgs(false);
                 setSalesArgsModalOpen(false);
-                toast.info(lang === 'da' ? 'Salgsargumenter medtages ikke' : 'Sales arguments not included');
+                setConfirmModalOpen(true);
               }}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition"
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
-              {lang === 'da' ? 'Medtag ikke' : 'Do not include'}
+              {lang === 'da' ? 'Nej, fortsæt uden' : 'No, continue without'}
             </button>
             <button
               onClick={() => {
                 setIncludeSalesArgs(true);
                 setSalesArgsModalOpen(false);
-                toast.success(lang === 'da' ? 'Salgsargumenter medtages i tilbud / PDF' : 'Sales arguments included in quote / PDF');
+                setConfirmModalOpen(true);
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
             >
-              {lang === 'da' ? 'Medtag i tilbud / PDF' : 'Include in quote / PDF'}
+              {lang === 'da' ? 'Ja, tilføj' : 'Yes, include'}
             </button>
           </div>
         </DialogContent>
