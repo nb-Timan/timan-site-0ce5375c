@@ -98,8 +98,6 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState('');
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
