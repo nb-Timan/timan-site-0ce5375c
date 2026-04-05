@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState } from '@/types/configurator';
 
-export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
+export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
 export interface SavedConfiguration {
   id: string;
