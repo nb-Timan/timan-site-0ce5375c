@@ -138,7 +138,26 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         return;
       }
 
-      setSignupEmail(data.user?.email || email.trim().toLowerCase());
+      const newEmail = (data.user?.email || email.trim()).toLowerCase();
+
+      // Auto-create app_users row with default limited access
+      await supabase.from('app_users').upsert({
+        email: newEmail,
+        role: 'slutkunde',
+        partner_type: null,
+        approved: false,
+        is_active: true,
+        start_step: 1,
+        max_step: 1,
+        can_view_prices: false,
+        can_submit_order: false,
+        can_edit_discount: false,
+        can_switch_customer_mode: false,
+        working_for: null,
+        display_name: null,
+      }, { onConflict: 'email' });
+
+      setSignupEmail(newEmail);
       setView('signup-done');
     } catch (err) {
       setError(tx('signupError', language));
