@@ -55,6 +55,7 @@ function statusLabel(status: SavedStatus, lang: Language): string {
     aktiv: { da: 'Aktiv', en: 'Active' },
     pause: { da: 'Pause', en: 'Paused' },
     ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted' },
+    deleted: { da: 'Slettet', en: 'Deleted' },
   };
   return labels[status]?.[lang] || labels[status]?.en || status;
 }
