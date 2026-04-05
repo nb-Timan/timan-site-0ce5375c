@@ -19,13 +19,24 @@ export interface SavedConfiguration {
   created_at: string;
 }
 
-/** Load all saved configurations for a specific user email */
+/** Load all saved configurations for the current auth user */
 export async function loadConfigurations(ownerEmail: string): Promise<SavedConfiguration[]> {
-  const { data, error } = await supabase
+  // Get auth user for RLS-compatible query
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const query = supabase
     .from('configurations')
     .select('*')
-    .eq('created_by_email', ownerEmail.toLowerCase())
     .order('created_at', { ascending: false });
+
+  // Filter by user_id if authenticated, otherwise by email
+  if (user) {
+    query.eq('created_by_user_id', user.id);
+  } else {
+    query.eq('created_by_email', ownerEmail.toLowerCase());
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Failed to load configurations:', error);
