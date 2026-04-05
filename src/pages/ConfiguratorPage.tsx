@@ -1264,6 +1264,7 @@ export default function ConfiguratorPage() {
               </>
             )}
 
+            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
 
 
           </div>
