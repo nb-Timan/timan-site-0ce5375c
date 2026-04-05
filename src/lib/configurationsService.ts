@@ -69,6 +69,7 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     .from('configurations')
     .select('*')
     .eq('created_by_user_id', user.id)
+    .neq('case_status', 'deleted')
     .order('created_at', { ascending: false });
 
   if (error) {
