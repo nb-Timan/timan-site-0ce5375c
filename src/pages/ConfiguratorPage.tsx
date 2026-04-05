@@ -1170,22 +1170,7 @@ export default function ConfiguratorPage() {
                     <input type="email" value={state.emailRecipient} onChange={e => setCustomerField('emailRecipient', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailRecipientPlaceholder')} />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-gray-700">{T('comment')}</label>
-                      {state.flowType === 'quote' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const text = generateSalesArguments(state);
-                            setSalesArgsText(text);
-                            setSalesArgsModalOpen(true);
-                          }}
-                          className="text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition"
-                        >
-                          {lang === 'da' ? '✨ Tilføj salgsargumenter' : '✨ Add sales arguments'}
-                        </button>
-                      )}
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={5} />
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
