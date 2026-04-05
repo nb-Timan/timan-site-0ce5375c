@@ -13,7 +13,9 @@ const T: Record<string, Record<string, string>> = {
   email: { da: 'Email', en: 'Email', de: 'E-Mail', it: 'Email', hu: 'E-mail' },
   password: { da: 'Adgangskode', en: 'Password', de: 'Passwort', it: 'Password', hu: 'Jelszó' },
   login: { da: 'Log ind', en: 'Log in', de: 'Anmelden', it: 'Accedi', hu: 'Bejelentkezés' },
-  noAccount: { da: 'Fortsæt uden login (slutkunde)', en: 'Continue without login (end customer)', de: 'Ohne Login fortfahren (Endkunde)', it: 'Continua senza login (cliente finale)', hu: 'Folytatás bejelentkezés nélkül (végfelhasználó)' },
+  guestContinue: { da: 'Fortsæt uden login', en: 'Continue without login', de: 'Ohne Login fortfahren', it: 'Continua senza login', hu: 'Folytatás bejelentkezés nélkül' },
+  guestTitle: { da: 'Eller fortsæt som gæst', en: 'Or continue as guest', de: 'Oder als Gast fortfahren', it: 'Oppure continua come ospite', hu: 'Vagy folytatás vendégként' },
+  guestEmailRequired: { da: 'Indtast venligst din email', en: 'Please enter your email', de: 'Bitte geben Sie Ihre E-Mail ein', it: 'Inserisci la tua email', hu: 'Kérjük, adja meg az e-mail címét' },
   loginError: { da: 'Forkert email eller adgangskode', en: 'Incorrect email or password', de: 'Falsche E-Mail oder Passwort', it: 'Email o password errati', hu: 'Hibás e-mail vagy jelszó' },
   notApproved: { da: 'Din konto er ikke godkendt endnu. Kontakt Timan.', en: 'Your account is not approved yet. Contact Timan.', de: 'Ihr Konto ist noch nicht genehmigt. Kontaktieren Sie Timan.', it: 'Il tuo account non è ancora approvato. Contatta Timan.', hu: 'Fiókja még nincs jóváhagyva. Lépjen kapcsolatba a Timan-nal.' },
   notActive: { da: 'Din konto er deaktiveret. Kontakt Timan.', en: 'Your account is deactivated. Contact Timan.', de: 'Ihr Konto ist deaktiviert. Kontaktieren Sie Timan.', it: 'Il tuo account è disattivato. Contatta Timan.', hu: 'Fiókja inaktív. Lépjen kapcsolatba a Timan-nal.' },
@@ -28,6 +30,8 @@ function tx(key: string, lang: string): string {
 export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestError, setGuestError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -122,9 +126,14 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   };
 
   const handleGuestContinue = () => {
+    const trimmed = guestEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setGuestError(tx('guestEmailRequired', language));
+      return;
+    }
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
-      email: '',
+      email: trimmed.toLowerCase(),
       display_name: undefined,
     });
   };
@@ -180,11 +189,28 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             {loading ? tx('loading', language) : tx('login', language)}
           </button>
 
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-gray-400">{tx('guestTitle', language)}</span></div>
+          </div>
+
+          <div>
+            <input
+              type="email"
+              value={guestEmail}
+              onChange={e => { setGuestEmail(e.target.value); setGuestError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleGuestContinue(); }}
+              className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-gray-400 focus:outline-none transition"
+              placeholder={language === 'da' ? 'din@email.dk' : 'your@email.com'}
+            />
+            {guestError && <p className="text-red-500 text-xs mt-1">{guestError}</p>}
+          </div>
+
           <button
             onClick={handleGuestContinue}
-            className="w-full py-2 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition"
+            className="w-full py-3 rounded-xl text-sm font-medium text-gray-600 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition"
           >
-            {tx('noAccount', language)}
+            {tx('guestContinue', language)}
           </button>
         </div>
       </div>
