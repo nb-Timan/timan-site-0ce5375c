@@ -5,16 +5,18 @@ export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
 
 export interface SavedConfiguration {
   id: string;
-  owner_email: string;
-  label: string;
-  type: 'quote' | 'order';
-  status: SavedStatus;
+  created_by_user_id: string | null;
+  created_by_email: string;
+  title: string;
+  case_type: 'quote' | 'order';
+  case_status: SavedStatus;
   state_json: ConfiguratorState;
   internal_note: string;
   pdf_downloaded: boolean;
   pdf_downloaded_at: string | null;
+  submitted_at: string | null;
+  last_saved_at: string;
   created_at: string;
-  updated_at: string;
 }
 
 /** Load all saved configurations for a specific user email */
@@ -22,7 +24,7 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
   const { data, error } = await supabase
     .from('configurations')
     .select('*')
-    .eq('owner_email', ownerEmail.toLowerCase())
+    .eq('created_by_email', ownerEmail.toLowerCase())
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -31,7 +33,7 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
   }
   return (data || []).map(row => ({
     ...row,
-    status: row.status || 'aktiv',
+    case_status: row.case_status || 'aktiv',
     state_json: typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json,
   }));
 }
@@ -41,30 +43,34 @@ export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
+  userId?: string | null,
 ): Promise<SavedConfiguration | null> {
+  const now = new Date().toISOString();
   const row = {
-    owner_email: ownerEmail.toLowerCase(),
-    label,
-    type: state.flowType || 'quote',
-    status: 'aktiv' as SavedStatus,
+    created_by_email: ownerEmail.toLowerCase(),
+    created_by_user_id: userId || null,
+    title: label,
+    case_type: state.flowType || 'quote',
+    case_status: 'aktiv' as SavedStatus,
     state_json: state,
     internal_note: state.internalNote || '',
     pdf_downloaded: false,
     pdf_downloaded_at: null,
+    submitted_at: null,
+    last_saved_at: now,
   };
 
   const { data, error } = await supabase
     .from('configurations')
     .insert(row)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Failed to save configuration:', error);
     return null;
   }
 
-  // Also save configuration_items (line items)
   if (data) {
     await saveConfigurationItems(data.id, state);
   }
@@ -87,7 +93,6 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
   }> = [];
 
   for (const mc of state.machineConfigs) {
-    // Gather individual unit configs for this machine
     const unitConfigs: Record<string, { acc: string[] }> = {};
     if (mc.configMode === 'individual') {
       for (let i = 1; i <= mc.qty; i++) {
@@ -119,11 +124,11 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
   }
 }
 
-/** Update configuration status (aktiv/pause) */
+/** Update configuration status */
 export async function updateConfigurationStatus(id: string, status: SavedStatus) {
   const { error } = await supabase
     .from('configurations')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ case_status: status, last_saved_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) console.error('Failed to update status:', error);
@@ -133,7 +138,7 @@ export async function updateConfigurationStatus(id: string, status: SavedStatus)
 export async function updateConfigurationNote(id: string, note: string) {
   const { error } = await supabase
     .from('configurations')
-    .update({ internal_note: note, updated_at: new Date().toISOString() })
+    .update({ internal_note: note, last_saved_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) console.error('Failed to update note:', error);
@@ -141,7 +146,6 @@ export async function updateConfigurationNote(id: string, note: string) {
 
 /** Delete a configuration and its items */
 export async function deleteConfiguration(id: string) {
-  // Items deleted via cascade
   const { error } = await supabase
     .from('configurations')
     .delete()
@@ -155,9 +159,10 @@ export async function markAsOrderSubmitted(id: string) {
   const { error } = await supabase
     .from('configurations')
     .update({
-      type: 'order',
-      status: 'ordre_afgivet' as SavedStatus,
-      updated_at: new Date().toISOString(),
+      case_type: 'order',
+      case_status: 'ordre_afgivet' as SavedStatus,
+      submitted_at: new Date().toISOString(),
+      last_saved_at: new Date().toISOString(),
     })
     .eq('id', id);
 
@@ -171,7 +176,7 @@ export async function markPdfDownloaded(id: string) {
     .update({
       pdf_downloaded: true,
       pdf_downloaded_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_saved_at: new Date().toISOString(),
     })
     .eq('id', id);
 
