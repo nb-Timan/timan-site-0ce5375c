@@ -1271,7 +1271,12 @@ export default function ConfiguratorPage() {
                       <div key={idx}>
                         <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
                           <div className="min-w-0 flex-1">
-                            <div>{item.txt}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.txt}</span>
+                              {item.isAutoAdded && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Automatisk tilføjet</span>
+                              )}
+                            </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
                           </div>
                           {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
