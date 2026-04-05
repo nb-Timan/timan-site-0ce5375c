@@ -273,7 +273,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     </div>
                     {/* Action buttons */}
                     <div className="flex gap-2">
-                      {item.status !== 'ordre_afgivet' && (
+                      {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleOpen(item)}
                           className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
@@ -281,12 +281,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           {tx('Åbn', 'Open')}
                         </button>
                       )}
-                      {item.status !== 'ordre_afgivet' && (
+                      {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleToggleStatus(item.id)}
                           className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
                         >
-                          {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                          {item.case_status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
                         </button>
                       )}
                       <button
