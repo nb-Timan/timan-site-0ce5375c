@@ -1321,6 +1321,7 @@ export default function ConfiguratorPage() {
                 setNewConfigModalOpen(false);
                 resetState();
                 setIsSavedCurrent(false);
+                setSavedConfigurationId(null);
               }}
               className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
