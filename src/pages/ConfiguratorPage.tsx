@@ -1171,6 +1171,17 @@ export default function ConfiguratorPage() {
               </div>
             </div>
 
+            {/* DEBUG: Role info (temporary) */}
+            <div className="mb-4 p-3 rounded-xl bg-yellow-50 border-2 border-yellow-300 text-xs font-mono space-y-1">
+              <div className="font-bold text-yellow-800 text-[11px] mb-1">🐛 DEBUG — User Permissions</div>
+              <div><span className="text-gray-500">name:</span> <span className="font-semibold text-gray-900">{appUser.display_name || '—'}</span></div>
+              <div><span className="text-gray-500">email:</span> <span className="font-semibold text-gray-900">{appUser.email || '—'}</span></div>
+              <div><span className="text-gray-500">role:</span> <span className="font-semibold text-gray-900">{appUser.role}</span></div>
+              <div><span className="text-gray-500">can_view_prices:</span> <span className={`font-semibold ${appUser.can_view_prices ? 'text-green-700' : 'text-red-600'}`}>{String(appUser.can_view_prices)}</span></div>
+              <div><span className="text-gray-500">can_submit_order:</span> <span className={`font-semibold ${appUser.can_submit_order ? 'text-green-700' : 'text-red-600'}`}>{String(appUser.can_submit_order)}</span></div>
+              <div><span className="text-gray-500">can_edit_discount:</span> <span className={`font-semibold ${appUser.can_edit_discount ? 'text-green-700' : 'text-red-600'}`}>{String(appUser.can_edit_discount)}</span></div>
+            </div>
+
             {!calcResult ? (
               <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
             ) : (
