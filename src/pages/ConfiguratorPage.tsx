@@ -5,6 +5,7 @@ import { t } from '@/data/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
+import AccountPanel from '@/components/configurator/AccountPanel';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
