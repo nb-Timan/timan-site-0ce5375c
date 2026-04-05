@@ -1030,18 +1030,58 @@ export default function ConfiguratorPage() {
                   <div className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
                     {renderAccessories()}
                   </div>
-                  <div className="flex justify-between pt-4 border-t">
-                    <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
-                    <button onClick={() => {
-                      if (currentDisplayIdx < displayUnits.length - 1) {
-                        setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
-                      } else {
-                        setStep(4);
-                      }
-                    }} className="px-4 py-2 bg-emerald-600 rounded-lg font-medium text-white shadow-lg text-sm">
-                      {currentDisplayIdx < displayUnits.length - 1 ? T('nextMachine') : T('goToContact')}
-                    </button>
-                  </div>
+                  {/* Step 3 validation: check all required groups across ALL units */}
+                  {(() => {
+                    // Check required groups for the CURRENT unit
+                    const allMandatoryMet = mandatoryGroups.every(g => groupHasSelection[g]);
+                    const isLastUnit = currentDisplayIdx >= displayUnits.length - 1;
+
+                    // For the last unit, also check all previous units have their required groups met
+                    let allUnitsMet = allMandatoryMet;
+                    if (isLastUnit) {
+                      displayUnits.forEach(du => {
+                        if (du.globalIndex === state.currentMachineIndex) return;
+                        const mt = du.modelType;
+                        const groups = mt === 'Timan 3330' ? REQUIRED_GROUPS_3330
+                          : mt === 'RC-1000S' ? REQUIRED_GROUPS_RC1000 : [];
+                        if (groups.length === 0) return;
+                        let ids: string[] = [];
+                        if (du.isSharedUnit) {
+                          const mc = state.machineConfigs.find(c => c.id === du.modelId);
+                          ids = mc?.acc || [];
+                        } else {
+                          ids = state.individualUnitConfigs[du.configKey]?.acc || [];
+                        }
+                        const flat = getAccessoriesFlat(mt);
+                        groups.forEach(g => {
+                          if (!flat.some(a => a.group === g && ids.includes(a.id))) allUnitsMet = false;
+                        });
+                      });
+                    }
+
+                    const canProceedStep3 = isLastUnit ? allUnitsMet : allMandatoryMet;
+
+                    return (
+                      <div className="flex justify-between pt-4 border-t">
+                        <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
+                        {!allMandatoryMet && (
+                          <p className="text-red-500 text-xs self-center">{lang === 'da' ? 'Vælg alle påkrævede grupper (markeret med rød ramme)' : 'Select all required groups (marked with red border)'}</p>
+                        )}
+                        <button onClick={() => {
+                          if (!canProceedStep3) return;
+                          if (currentDisplayIdx < displayUnits.length - 1) {
+                            setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
+                          } else {
+                            setStep(4);
+                          }
+                        }}
+                          disabled={!canProceedStep3}
+                          className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep3 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                          {currentDisplayIdx < displayUnits.length - 1 ? T('nextMachine') : T('goToContact')}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
