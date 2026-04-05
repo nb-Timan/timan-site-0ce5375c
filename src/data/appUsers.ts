@@ -1,11 +1,12 @@
 // Local app_users table — will be replaced by Supabase table lookup later
 // This is the single source of truth for user access control
 
-import { UserRole, TimanWorkingFor } from '@/types/configurator';
+import { UserRole, TimanWorkingFor, PartnerSubRole } from '@/types/configurator';
 
 export interface AppUser {
   email: string;
   role: UserRole;
+  partner_sub_role?: PartnerSubRole | null;
   approved: boolean;
   is_active: boolean;
   start_step: number; // 1-4
@@ -23,6 +24,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'nb@timan.dk',
     role: 'timan_saelger',
+    partner_sub_role: null,
     approved: true,
     is_active: true,
     start_step: 3,
@@ -36,7 +38,8 @@ const APP_USERS: AppUser[] = [
   },
   {
     email: 'thomas@jongshoej-maskiner.dk',
-    role: 'forhandler_servicepartner',
+    role: 'partner',
+    partner_sub_role: 'forhandler',
     approved: true,
     is_active: true,
     start_step: 2,
@@ -49,7 +52,8 @@ const APP_USERS: AppUser[] = [
   },
   {
     email: 'demo-dealer@timan.dk',
-    role: 'forhandler_servicepartner',
+    role: 'partner',
+    partner_sub_role: 'forhandler',
     approved: true,
     is_active: true,
     start_step: 1,
@@ -62,7 +66,8 @@ const APP_USERS: AppUser[] = [
   },
   {
     email: 'inactive@example.com',
-    role: 'forhandler_servicepartner',
+    role: 'partner',
+    partner_sub_role: 'service_partner',
     approved: true,
     is_active: false,
     start_step: 1,
@@ -75,7 +80,8 @@ const APP_USERS: AppUser[] = [
   },
   {
     email: 'pending@example.com',
-    role: 'forhandler_servicepartner',
+    role: 'partner',
+    partner_sub_role: 'importoer',
     approved: false,
     is_active: true,
     start_step: 1,
@@ -91,6 +97,7 @@ const APP_USERS: AppUser[] = [
 // Default permissions for unknown/unapproved users (slutkunde)
 export const SLUTKUNDE_DEFAULTS: Omit<AppUser, 'email' | 'display_name'> = {
   role: 'slutkunde',
+  partner_sub_role: null,
   approved: false,
   is_active: true,
   start_step: 1,
@@ -104,8 +111,6 @@ export const SLUTKUNDE_DEFAULTS: Omit<AppUser, 'email' | 'display_name'> = {
 /**
  * Look up user by email. Returns AppUser if found, approved, and active.
  * Returns null for unknown, unapproved, or inactive users.
- * In the future this will be a Supabase query:
- *   supabase.from('app_users').select('*').eq('email', email).eq('approved', true).eq('is_active', true).single()
  */
 export function lookupAppUser(email: string): AppUser | null {
   const normalized = email.trim().toLowerCase();

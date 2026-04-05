@@ -66,7 +66,7 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
   const isSlut = lookedUp?.role === 'slutkunde';
   const roleLabel: Record<string, Record<string, string>> = {
     slutkunde: { da: 'Slutkunde', en: 'End Customer', de: 'Endkunde', it: 'Cliente Finale', hu: 'Végfelhasználó' },
-    forhandler_servicepartner: { da: 'Forhandler / Servicepartner', en: 'Dealer / Service Partner', de: 'Händler / Servicepartner', it: 'Rivenditore', hu: 'Kereskedő' },
+    partner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
     timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkäufer', it: 'Venditore Timan', hu: 'Timan Értékesítő' },
   };
 

@@ -66,15 +66,25 @@ interface Props {
 function getRoleBadge(role: string, lang: Language) {
   const map: Record<string, Record<string, string>> = {
     slutkunde: { da: 'Slutkunde', en: 'End Customer' },
-    forhandler_servicepartner: { da: 'Forhandler', en: 'Dealer' },
+    partner: { da: 'Partner', en: 'Partner' },
     timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales' },
   };
   return map[role]?.[lang] || map[role]?.en || role;
 }
 
+function getSubRoleLabel(subRole: PartnerSubRole | null | undefined, lang: Language): string | null {
+  if (!subRole) return null;
+  const map: Record<PartnerSubRole, Record<string, string>> = {
+    service_partner: { da: 'Servicepartner', en: 'Service Partner' },
+    forhandler: { da: 'Forhandler', en: 'Dealer' },
+    importoer: { da: 'Importør', en: 'Importer' },
+  };
+  return map[subRole]?.[lang] || map[subRole]?.en || subRole;
+}
+
 function roleBadgeColor(role: string) {
   if (role === 'timan_saelger') return 'bg-blue-100 text-blue-800';
-  if (role === 'forhandler_servicepartner') return 'bg-emerald-100 text-emerald-800';
+  if (role === 'partner') return 'bg-emerald-100 text-emerald-800';
   return 'bg-gray-100 text-gray-700';
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserRole, TimanWorkingFor, AuthState } from '@/types/configurator';
+import { UserRole, PartnerSubRole, TimanWorkingFor, AuthState } from '@/types/configurator';
 
 interface RoleSelectionStepProps {
   onRoleSelected: (auth: AuthState) => void;
@@ -9,33 +9,42 @@ interface RoleSelectionStepProps {
 const ROLE_LABELS: Record<string, Record<UserRole, { title: string; desc: string }>> = {
   da: {
     slutkunde: { title: 'Slutkunde', desc: 'Konfigurer maskine, opret tilbud og ordreudkast, download PDF. Ingen priser vises.' },
-    forhandler_servicepartner: { title: 'Forhandler / Servicepartner', desc: 'Se bruttopriser, brug fast rabatstruktur ved ordrer, vælg rabat manuelt ved tilbud.' },
-    timan_saelger: { title: 'Timan Sælger', desc: 'Fuld adgang. Vælg om du arbejder for slutkunde eller forhandler. Styr rabatlogik i trin 4.' },
+    partner: { title: 'Partner', desc: 'Se bruttopriser, brug fast rabatstruktur ved ordrer, vælg rabat manuelt ved tilbud.' },
+    timan_saelger: { title: 'Timan Sælger', desc: 'Fuld adgang. Vælg om du arbejder for slutkunde eller partner. Styr rabatlogik i trin 4.' },
   },
   en: {
     slutkunde: { title: 'End Customer', desc: 'Configure machine, create quote and order draft, download PDF. No prices shown.' },
-    forhandler_servicepartner: { title: 'Dealer / Service Partner', desc: 'See gross prices, use fixed discount structure for orders, choose discount manually for quotes.' },
-    timan_saelger: { title: 'Timan Sales', desc: 'Full access. Choose whether working for end customer or dealer. Control discount logic in step 4.' },
+    partner: { title: 'Partner', desc: 'See gross prices, use fixed discount structure for orders, choose discount manually for quotes.' },
+    timan_saelger: { title: 'Timan Sales', desc: 'Full access. Choose whether working for end customer or partner. Control discount logic in step 4.' },
   },
   de: {
     slutkunde: { title: 'Endkunde', desc: 'Maschine konfigurieren, Angebot und Bestellentwurf erstellen, PDF herunterladen. Keine Preise angezeigt.' },
-    forhandler_servicepartner: { title: 'Händler / Servicepartner', desc: 'Bruttopreise sehen, feste Rabattstruktur für Bestellungen, manuellen Rabatt für Angebote wählen.' },
-    timan_saelger: { title: 'Timan Verkäufer', desc: 'Voller Zugang. Wählen Sie, ob Sie für Endkunden oder Händler arbeiten. Rabattlogik in Schritt 4 steuern.' },
+    partner: { title: 'Partner', desc: 'Bruttopreise sehen, feste Rabattstruktur für Bestellungen, manuellen Rabatt für Angebote wählen.' },
+    timan_saelger: { title: 'Timan Verkäufer', desc: 'Voller Zugang. Wählen Sie, ob Sie für Endkunden oder Partner arbeiten. Rabattlogik in Schritt 4 steuern.' },
   },
   it: {
     slutkunde: { title: 'Cliente Finale', desc: 'Configura macchina, crea preventivo e bozza ordine, scarica PDF. Nessun prezzo mostrato.' },
-    forhandler_servicepartner: { title: 'Rivenditore / Partner di Servizio', desc: 'Vedi prezzi lordi, usa struttura sconto fissa per ordini, scegli sconto manualmente per preventivi.' },
-    timan_saelger: { title: 'Venditore Timan', desc: 'Accesso completo. Scegli se lavori per cliente finale o rivenditore. Controlla logica sconto nello step 4.' },
+    partner: { title: 'Partner', desc: 'Vedi prezzi lordi, usa struttura sconto fissa per ordini, scegli sconto manualmente per preventivi.' },
+    timan_saelger: { title: 'Venditore Timan', desc: 'Accesso completo. Scegli se lavori per cliente finale o partner. Controlla logica sconto nello step 4.' },
   },
   hu: {
     slutkunde: { title: 'Végfelhasználó', desc: 'Gép konfigurálása, árajánlat és rendelés tervezet létrehozása, PDF letöltése. Árak nem jelennek meg.' },
-    forhandler_servicepartner: { title: 'Kereskedő / Szervizpartner', desc: 'Bruttó árak megtekintése, fix kedvezménystruktúra rendeléseknél, manuális kedvezmény ajánlatoknál.' },
-    timan_saelger: { title: 'Timan Értékesítő', desc: 'Teljes hozzáférés. Válassza ki, hogy végfelhasználónak vagy kereskedőnek dolgozik. Kedvezmény logika a 4. lépésben.' },
+    partner: { title: 'Partner', desc: 'Bruttó árak megtekintése, fix kedvezménystruktúra rendeléseknél, manuális kedvezmény ajánlatoknál.' },
+    timan_saelger: { title: 'Timan Értékesítő', desc: 'Teljes hozzáférés. Válassza ki, hogy végfelhasználónak vagy partnernek dolgozik. Kedvezmény logika a 4. lépésben.' },
   },
+};
+
+const PARTNER_SUB_LABELS: Record<string, Record<PartnerSubRole, string>> = {
+  da: { service_partner: 'Servicepartner', forhandler: 'Forhandler', importoer: 'Importør' },
+  en: { service_partner: 'Service Partner', forhandler: 'Dealer', importoer: 'Importer' },
+  de: { service_partner: 'Servicepartner', forhandler: 'Händler', importoer: 'Importeur' },
+  it: { service_partner: 'Partner di Servizio', forhandler: 'Rivenditore', importoer: 'Importatore' },
+  hu: { service_partner: 'Szervizpartner', forhandler: 'Kereskedő', importoer: 'Importőr' },
 };
 
 export default function RoleSelectionStep({ onRoleSelected, language }: RoleSelectionStepProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [partnerSubRole, setPartnerSubRole] = useState<PartnerSubRole | null>(null);
   const [workingFor, setWorkingFor] = useState<TimanWorkingFor | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -43,8 +52,10 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
 
   const lang = language as keyof typeof ROLE_LABELS;
   const labels = ROLE_LABELS[lang] || ROLE_LABELS.en;
+  const subLabels = PARTNER_SUB_LABELS[lang] || PARTNER_SUB_LABELS.en;
 
-  const needsLogin = selectedRole === 'forhandler_servicepartner' || selectedRole === 'timan_saelger';
+  const needsLogin = selectedRole === 'partner' || selectedRole === 'timan_saelger';
+  const needsSubRole = selectedRole === 'partner';
   const needsWorkingFor = selectedRole === 'timan_saelger';
 
   const T = (key: string): string => {
@@ -58,8 +69,10 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
       loginError: { da: 'Indtast venligst email og adgangskode', en: 'Please enter email and password', de: 'Bitte E-Mail und Passwort eingeben', it: 'Inserisci email e password', hu: 'Kérjük, adja meg az e-mail címét és jelszavát' },
       workingForTitle: { da: 'Hvem arbejder du for?', en: 'Who are you working for?', de: 'Für wen arbeiten Sie?', it: 'Per chi lavori?', hu: 'Kinek dolgozik?' },
       workingForSlut: { da: 'Slutkunde', en: 'End Customer', de: 'Endkunde', it: 'Cliente Finale', hu: 'Végfelhasználó' },
-      workingForForh: { da: 'Forhandler / Servicepartner', en: 'Dealer / Service Partner', de: 'Händler / Servicepartner', it: 'Rivenditore / Partner', hu: 'Kereskedő / Szervizpartner' },
+      workingForPartner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
       selectWorkingFor: { da: 'Vælg venligst hvem du arbejder for', en: 'Please select who you are working for', de: 'Bitte wählen Sie, für wen Sie arbeiten', it: 'Seleziona per chi lavori', hu: 'Kérjük, válassza ki, kinek dolgozik' },
+      selectSubRole: { da: 'Vælg venligst din partnertype', en: 'Please select your partner type', de: 'Bitte wählen Sie Ihren Partnertyp', it: 'Seleziona il tipo di partner', hu: 'Kérjük, válassza ki a partner típusát' },
+      subRoleTitle: { da: 'Vælg partnertype', en: 'Select partner type', de: 'Partnertyp wählen', it: 'Seleziona tipo partner', hu: 'Partner típus kiválasztása' },
       back: { da: '← Tilbage', en: '← Back', de: '← Zurück', it: '← Indietro', hu: '← Vissza' },
       roleSubtitle: { da: 'Vælg din rolle for at starte konfiguratoren', en: 'Select your role to start the configurator', de: 'Wählen Sie Ihre Rolle, um den Konfigurator zu starten', it: 'Seleziona il tuo ruolo per avviare il configuratore', hu: 'Válassza ki szerepét a konfigurátor indításához' },
       futureAuth: { da: 'Login vil blive forbundet til Supabase i fremtiden', en: 'Login will be connected to Supabase in the future', de: 'Login wird in Zukunft mit Supabase verbunden', it: 'Il login sarà collegato a Supabase in futuro', hu: 'A bejelentkezés a jövőben Supabase-hoz lesz csatlakoztatva' },
@@ -75,21 +88,27 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
       return;
     }
 
+    if (needsSubRole && !partnerSubRole) {
+      setLoginError(T('selectSubRole'));
+      return;
+    }
+
     if (needsWorkingFor && !workingFor) {
       setLoginError(T('selectWorkingFor'));
       return;
     }
 
-    // For now: stub authentication (will connect to Supabase later)
     onRoleSelected({
       role: selectedRole,
+      partnerSubRole: needsSubRole ? partnerSubRole : null,
       workingFor: needsWorkingFor ? workingFor : null,
       isAuthenticated: needsLogin,
       email: needsLogin ? loginEmail : undefined,
     });
   };
 
-  const roles: UserRole[] = ['slutkunde', 'forhandler_servicepartner', 'timan_saelger'];
+  const roles: UserRole[] = ['slutkunde', 'partner', 'timan_saelger'];
+  const subRoles: PartnerSubRole[] = ['service_partner', 'forhandler', 'importoer'];
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -104,7 +123,7 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
             return (
               <div
                 key={role}
-                onClick={() => { setSelectedRole(role); setLoginError(''); setWorkingFor(null); }}
+                onClick={() => { setSelectedRole(role); setLoginError(''); setWorkingFor(null); setPartnerSubRole(null); }}
                 className={`p-4 border-2 rounded-xl cursor-pointer transition ${isActive ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
               >
                 <div className="flex items-center gap-3">
@@ -121,7 +140,25 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
           })}
         </div>
 
-        {/* Login form for forhandler and timan */}
+        {/* Partner sub-role selector */}
+        {needsSubRole && (
+          <div className="mt-4 p-4 border border-gray-200 rounded-xl bg-gray-50">
+            <h3 className="font-bold text-gray-800 mb-3 text-sm">{T('subRoleTitle')}</h3>
+            <div className="flex gap-3">
+              {subRoles.map(sr => (
+                <label key={sr}
+                  className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm transition ${partnerSubRole === sr ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input type="radio" name="partner-sub-role" className="sr-only"
+                    checked={partnerSubRole === sr}
+                    onChange={() => { setPartnerSubRole(sr); setLoginError(''); }} />
+                  {subLabels[sr]}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Login form for partner and timan */}
         {needsLogin && (
           <div className="mt-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
             <h3 className="font-bold text-gray-800 mb-3 text-sm">{T('loginTitle')}</h3>
@@ -158,7 +195,7 @@ export default function RoleSelectionStep({ onRoleSelected, language }: RoleSele
             <div className="flex gap-3">
               {([
                 { value: 'slutkunde' as TimanWorkingFor, label: T('workingForSlut') },
-                { value: 'forhandler_servicepartner' as TimanWorkingFor, label: T('workingForForh') },
+                { value: 'partner' as TimanWorkingFor, label: T('workingForPartner') },
               ]).map(opt => (
                 <label key={opt.value}
                   className={`flex-1 p-3 rounded-lg border-2 cursor-pointer text-center text-sm transition ${workingFor === opt.value ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
