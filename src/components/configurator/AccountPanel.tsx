@@ -209,17 +209,18 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
-                  {getRoleBadge(appUser.role, language)}
-                </span>
-                {appUser.partner_type && (
-                  <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
-                    {getSubRoleLabel(appUser.partner_type, language)}
-                  </span>
-                )}
-              </div>
+              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
+                {getRoleBadge(appUser.role, language)}
+              </span>
             </div>
+            {appUser.partner_type && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">{tx('Partnertype', 'Partner type')}</span>
+                <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
+                  {getSubRoleLabel(appUser.partner_type, language)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Saved items */}
