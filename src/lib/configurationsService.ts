@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { ConfiguratorState } from '@/types/configurator';
+import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
@@ -28,6 +28,18 @@ type StoredConfigurationPayload = {
   pdf_downloaded: boolean;
   pdf_downloaded_at: string | null;
 };
+
+export interface SavedConfigurationItem {
+  id: string;
+  configuration_id: string;
+  item_type: string;
+  title: string;
+  machine_type?: string | null;
+  machine_qty?: number | null;
+  config_mode?: string | null;
+  accessories?: string[] | null;
+  unit_configs?: Record<string, { acc: string[] }> | null;
+}
 
 export interface SaveConfigurationResult {
   data: SavedConfiguration | null;
@@ -105,12 +117,93 @@ function parseStoredConfigurationPayload(value: unknown): StoredConfigurationPay
   }
 }
 
+/** Load configuration_items rows for a configuration */
+async function loadConfigurationItems(configurationId: string): Promise<SavedConfigurationItem[]> {
+  const { data, error } = await supabase
+    .from('configuration_items')
+    .select('*')
+    .eq('configuration_id', configurationId);
+
+  if (error) {
+    console.warn('[loadConfigurationItems] Failed to load items:', error);
+    return [];
+  }
+
+  return (data || []).map((row: Record<string, any>) => ({
+    id: row.id,
+    configuration_id: row.configuration_id,
+    item_type: row.item_type ?? 'machine',
+    title: row.title ?? '',
+    machine_type: row.machine_type ?? null,
+    machine_qty: row.machine_qty ?? null,
+    config_mode: row.config_mode ?? null,
+    accessories: Array.isArray(row.accessories) ? row.accessories : null,
+    unit_configs: row.unit_configs ?? null,
+  }));
+}
+
+/** Parse machine type and qty from item title like "RC-1000S x2" */
+function parseMachineFromTitle(title: string): { type: string; qty: number } | null {
+  const match = title.match(/^(.+?)\s*x(\d+)$/);
+  if (match) {
+    return { type: match[1].trim(), qty: parseInt(match[2], 10) };
+  }
+  return null;
+}
+
+/** Rebuild machineConfigs from configuration_items rows */
+function rebuildMachineConfigsFromItems(items: SavedConfigurationItem[]): {
+  machineConfigs: MachineConfig[];
+  individualUnitConfigs: Record<string, { acc: string[] }>;
+} {
+  const machineConfigs: MachineConfig[] = [];
+  let individualUnitConfigs: Record<string, { acc: string[] }> = {};
+
+  const machineItems = items.filter(i => i.item_type === 'machine');
+
+  machineItems.forEach((item, idx) => {
+    const fromColumn = item.machine_type && item.machine_qty;
+    const fromTitle = parseMachineFromTitle(item.title);
+
+    const type = item.machine_type ?? fromTitle?.type ?? item.title;
+    const qty = item.machine_qty ?? fromTitle?.qty ?? 1;
+    const configMode = (item.config_mode === 'shared' || item.config_mode === 'individual')
+      ? item.config_mode
+      : 'individual';
+    const acc = Array.isArray(item.accessories) ? item.accessories : [];
+
+    const id = `m${idx}`;
+
+    machineConfigs.push({ id, type, qty, configMode, acc });
+
+    if (item.unit_configs && typeof item.unit_configs === 'object') {
+      const remappedUnitConfigs: Record<string, { acc: string[] }> = {};
+      const oldKeys = Object.keys(item.unit_configs);
+      oldKeys.forEach((oldKey, i) => {
+        const newKey = `${id}_${i + 1}`;
+        remappedUnitConfigs[newKey] = item.unit_configs![oldKey];
+      });
+      individualUnitConfigs = { ...individualUnitConfigs, ...remappedUnitConfigs };
+    }
+  });
+
+  return { machineConfigs, individualUnitConfigs };
+}
+
 function buildFallbackState(row: Record<string, any>): ConfiguratorState {
   const language = ['da', 'en', 'de', 'it', 'hu'].includes(row.language) ? row.language : 'da';
   const flowType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
   const deliveryMethod = ['pickup', 'send', 'deliver'].includes(row.delivery_method) ? row.delivery_method : '';
 
-  return normalizeConfiguratorState({
+  return normalizeConfiguratorState(buildFallbackStatePartial(row));
+}
+
+function buildFallbackStatePartial(row: Record<string, any>): Partial<ConfiguratorState> {
+  const language = ['da', 'en', 'de', 'it', 'hu'].includes(row.language) ? row.language : 'da';
+  const flowType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+  const deliveryMethod = ['pickup', 'send', 'deliver'].includes(row.delivery_method) ? row.delivery_method : '';
+
+  return {
     ...createEmptyConfiguratorState(language, flowType),
     language,
     flowType,
@@ -122,7 +215,7 @@ function buildFallbackState(row: Record<string, any>): ConfiguratorState {
       : typeof row.note === 'string'
         ? row.note
         : '',
-  });
+  };
 }
 
 function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): SavedConfiguration {
@@ -234,7 +327,54 @@ export async function loadConfigurationById(id: string, ownerEmail: string): Pro
 
   if (!data) return null;
 
-  return mapConfigurationRow(data, ownerEmail);
+  const items = await loadConfigurationItems(id);
+
+  return mapConfigurationRowWithItems(data, ownerEmail, items);
+}
+
+function mapConfigurationRowWithItems(
+  row: Record<string, any>,
+  ownerEmail: string,
+  items: SavedConfigurationItem[],
+): SavedConfiguration {
+  const storedPayload = parseStoredConfigurationPayload(row.note);
+  const parsedState = parseStateJson(row.state_json) ?? storedPayload?.state ?? null;
+  const caseType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+
+  let finalState: ConfiguratorState;
+  let hasFullState = Boolean(parsedState);
+
+  if (parsedState) {
+    finalState = parsedState;
+  } else if (items.length > 0) {
+    const fallbackPartial = buildFallbackStatePartial(row);
+    const { machineConfigs, individualUnitConfigs } = rebuildMachineConfigsFromItems(items);
+    finalState = normalizeConfiguratorState({
+      ...fallbackPartial,
+      machineConfigs,
+      individualUnitConfigs,
+    });
+    hasFullState = machineConfigs.length > 0;
+  } else {
+    finalState = buildFallbackState(row);
+  }
+
+  return {
+    id: row.id,
+    created_by_user_id: row.created_by_user_id ?? null,
+    created_by_email: row.created_by_email ?? ownerEmail.toLowerCase(),
+    title: row.title ?? '',
+    case_type: caseType,
+    case_status: row.case_status ?? 'aktiv',
+    state_json: finalState,
+    has_full_state: hasFullState,
+    internal_note: row.internal_note ?? storedPayload?.internalNote ?? '',
+    pdf_downloaded: typeof row.pdf_downloaded === 'boolean' ? row.pdf_downloaded : Boolean(storedPayload?.pdf_downloaded),
+    pdf_downloaded_at: row.pdf_downloaded_at ?? storedPayload?.pdf_downloaded_at ?? null,
+    submitted_at: row.submitted_at ?? null,
+    last_saved_at: row.last_saved_at ?? row.created_at ?? new Date().toISOString(),
+    created_at: row.created_at ?? row.last_saved_at ?? new Date().toISOString(),
+  };
 }
 
 async function insertConfigurationRow(row: Record<string, unknown>) {
