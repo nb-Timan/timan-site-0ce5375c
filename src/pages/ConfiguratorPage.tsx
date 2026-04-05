@@ -819,15 +819,23 @@ export default function ConfiguratorPage() {
 
                 <div className="flex justify-between max-w-md mx-auto mt-8">
                   <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
-                  <button onClick={() => {
-                    if (!canProceedStep2) return;
-                    setState(s => ({ ...s, currentMachineIndex: 0 }));
-                    setStep(3);
-                  }}
-                    disabled={!canProceedStep2}
-                    className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep2 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
-                    {T('goToEquipment')}
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    {!state.date && (
+                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsdato' : 'Select a delivery date'}</p>
+                    )}
+                    {!state.deliveryMethod && (
+                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsmetode' : 'Select a delivery method'}</p>
+                    )}
+                    <button onClick={() => {
+                      if (!canProceedStep2) return;
+                      setState(s => ({ ...s, currentMachineIndex: 0 }));
+                      setStep(3);
+                    }}
+                      disabled={!canProceedStep2}
+                      className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep2 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                      {T('goToEquipment')}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
