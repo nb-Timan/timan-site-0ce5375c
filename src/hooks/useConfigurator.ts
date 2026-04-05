@@ -1,57 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
-
-const createInitialState = (language: Language = 'da'): ConfiguratorState => ({
-  step: 1,
-  flowType: 'quote',
-  language,
-  machineConfigs: [],
-  individualUnitConfigs: {},
-  ralCodes: {},
-  accQty: {},
-  date: '',
-  deliveryMethod: '',
-  deliveryDeliverStartup: null,
-  manualDealerDiscountPct: 0,
-  demoMachines: {},
-  reqNumbers: {},
-  currentMachineIndex: 0,
-  firmanavn: '',
-  kontaktperson: '',
-  telefon: '',
-  email: '',
-  emailRecipient: '',
-  comment: '',
-  internalNote: '',
-});
-
-function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
-  const base = createInitialState(value?.language ?? 'da');
-
-  return {
-    ...base,
-    ...value,
-    machineConfigs: Array.isArray(value?.machineConfigs) ? value.machineConfigs : [],
-    individualUnitConfigs: value?.individualUnitConfigs ?? {},
-    ralCodes: value?.ralCodes ?? {},
-    accQty: value?.accQty ?? {},
-    date: value?.date ?? '',
-    deliveryMethod: value?.deliveryMethod ?? '',
-    deliveryDeliverStartup: value?.deliveryDeliverStartup ?? null,
-    manualDealerDiscountPct: typeof value?.manualDealerDiscountPct === 'number' ? value.manualDealerDiscountPct : 0,
-    demoMachines: value?.demoMachines ?? {},
-    reqNumbers: value?.reqNumbers ?? {},
-    currentMachineIndex: typeof value?.currentMachineIndex === 'number' ? value.currentMachineIndex : 0,
-    firmanavn: value?.firmanavn ?? '',
-    kontaktperson: value?.kontaktperson ?? '',
-    telefon: value?.telefon ?? '',
-    email: value?.email ?? '',
-    emailRecipient: value?.emailRecipient ?? '',
-    comment: value?.comment ?? '',
-    internalNote: value?.internalNote ?? '',
-  };
-}
+import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 
 type ConfiguratorStateUpdate =
   | ConfiguratorState
@@ -60,7 +10,7 @@ type ConfiguratorStateUpdate =
   | ((prev: ConfiguratorState) => ConfiguratorState | Partial<ConfiguratorState> | undefined);
 
 export function useConfigurator() {
-  const [rawState, setRawState] = useState<ConfiguratorState>(createInitialState());
+  const [rawState, setRawState] = useState<ConfiguratorState>(createEmptyConfiguratorState());
 
   const state = useMemo(() => normalizeConfiguratorState(rawState), [rawState]);
 
@@ -397,7 +347,7 @@ export function useConfigurator() {
   }, [state, getGlobalMachineUnits]);
 
   const resetState = useCallback(() => {
-    setState(prev => createInitialState(prev.language));
+    setState(prev => createEmptyConfiguratorState(prev.language));
   }, [setState]);
 
   return {

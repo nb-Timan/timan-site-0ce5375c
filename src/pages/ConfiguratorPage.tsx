@@ -1192,13 +1192,16 @@ export default function ConfiguratorPage() {
               appUser={appUser}
               language={lang}
               currentState={state}
+              onSavedConfiguration={(configId) => {
+                setSavedConfigurationId(configId);
+                setIsSavedCurrent(true);
+              }}
               onLogout={() => {
                 import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
                 setAppUser(null);
               }}
               onRestoreState={(restored, configId) => {
-                const restoredWithStep1 = { ...restored, step: 1 };
-                setState(restoredWithStep1);
+                setState(restored);
                 setSavedConfigurationId(configId);
                 setIsSavedCurrent(true);
                 toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
