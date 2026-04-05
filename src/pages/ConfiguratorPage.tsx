@@ -337,10 +337,6 @@ export default function ConfiguratorPage() {
           ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
-      ${includeSalesArgs && salesArgsText ? `<div class="mt-6 text-sm text-gray-700 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-        <h2 class="font-bold text-base mb-2 text-emerald-800">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
-        <div class="whitespace-pre-line text-gray-700">${salesArgsText}</div>
-      </div>` : ''}
         </div>
       </div>
       <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${T('confirmDescription')}</h2>`;
