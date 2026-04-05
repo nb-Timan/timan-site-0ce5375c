@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppUser } from '@/data/appUsers';
-import { Language, ConfiguratorState, PartnerSubRole } from '@/types/configurator';
+import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
@@ -72,9 +72,9 @@ function getRoleBadge(role: string, lang: Language) {
   return map[role]?.[lang] || map[role]?.en || role;
 }
 
-function getSubRoleLabel(subRole: PartnerSubRole | null | undefined, lang: Language): string | null {
+function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
   if (!subRole) return null;
-  const map: Record<PartnerSubRole, Record<string, string>> = {
+  const map: Record<PartnerType, Record<string, string>> = {
     service_partner: { da: 'Servicepartner', en: 'Service Partner' },
     forhandler: { da: 'Forhandler', en: 'Dealer' },
     importoer: { da: 'Importør', en: 'Importer' },
@@ -173,9 +173,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[10px] font-semibold ${roleBadgeColor(appUser.role)}`}>
               {getRoleBadge(appUser.role, language)}
             </span>
-            {appUser.partner_sub_role && (
+            {appUser.partner_type && (
               <span className="inline-block mt-0.5 ml-1 px-1.5 py-px rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
-                {getSubRoleLabel(appUser.partner_sub_role, language)}
+                {getSubRoleLabel(appUser.partner_type, language)}
               </span>
             )}
           </div>
@@ -211,9 +211,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
                   {getRoleBadge(appUser.role, language)}
                 </span>
-                {appUser.partner_sub_role && (
+                {appUser.partner_type && (
                   <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
-                    {getSubRoleLabel(appUser.partner_sub_role, language)}
+                    {getSubRoleLabel(appUser.partner_type, language)}
                   </span>
                 )}
               </div>

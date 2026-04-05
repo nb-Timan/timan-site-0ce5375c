@@ -110,7 +110,7 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${isSlut ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'}`}>
                   {roleLabel[lookedUp.role]?.[language] || roleLabel[lookedUp.role]?.en}
                 </span>
-                {lookedUp.partner_sub_role && (
+                {lookedUp.partner_type && (
                   <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-teal-200 text-teal-800">
                     {(() => {
                       const subMap: Record<string, Record<string, string>> = {
@@ -118,7 +118,7 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
                         forhandler: { da: 'Forhandler', en: 'Dealer' },
                         importoer: { da: 'Importør', en: 'Importer' },
                       };
-                      return subMap[lookedUp.partner_sub_role]?.[language] || subMap[lookedUp.partner_sub_role]?.en || lookedUp.partner_sub_role;
+                      return subMap[lookedUp.partner_type]?.[language] || subMap[lookedUp.partner_type]?.en || lookedUp.partner_type;
                     })()}
                   </span>
                 )}

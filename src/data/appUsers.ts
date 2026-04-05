@@ -1,12 +1,12 @@
 // Local app_users table — will be replaced by Supabase table lookup later
 // This is the single source of truth for user access control
 
-import { UserRole, TimanWorkingFor, PartnerSubRole } from '@/types/configurator';
+import { UserRole, TimanWorkingFor, PartnerType } from '@/types/configurator';
 
 export interface AppUser {
   email: string;
   role: UserRole;
-  partner_sub_role?: PartnerSubRole | null;
+  partner_type?: PartnerType | null;
   approved: boolean;
   is_active: boolean;
   start_step: number; // 1-4
@@ -24,7 +24,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'nb@timan.dk',
     role: 'timan_saelger',
-    partner_sub_role: null,
+    partner_type: null,
     approved: true,
     is_active: true,
     start_step: 3,
@@ -39,7 +39,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'thomas@jongshoej-maskiner.dk',
     role: 'partner',
-    partner_sub_role: 'forhandler',
+    partner_type: 'forhandler',
     approved: true,
     is_active: true,
     start_step: 2,
@@ -53,7 +53,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'demo-dealer@timan.dk',
     role: 'partner',
-    partner_sub_role: 'forhandler',
+    partner_type: 'forhandler',
     approved: true,
     is_active: true,
     start_step: 1,
@@ -67,7 +67,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'inactive@example.com',
     role: 'partner',
-    partner_sub_role: 'service_partner',
+    partner_type: 'service_partner',
     approved: true,
     is_active: false,
     start_step: 1,
@@ -81,7 +81,7 @@ const APP_USERS: AppUser[] = [
   {
     email: 'pending@example.com',
     role: 'partner',
-    partner_sub_role: 'importoer',
+    partner_type: 'importoer',
     approved: false,
     is_active: true,
     start_step: 1,
@@ -97,7 +97,7 @@ const APP_USERS: AppUser[] = [
 // Default permissions for unknown/unapproved users (slutkunde)
 export const SLUTKUNDE_DEFAULTS: Omit<AppUser, 'email' | 'display_name'> = {
   role: 'slutkunde',
-  partner_sub_role: null,
+  partner_type: null,
   approved: false,
   is_active: true,
   start_step: 1,
