@@ -173,6 +173,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[10px] font-semibold ${roleBadgeColor(appUser.role)}`}>
               {getRoleBadge(appUser.role, language)}
             </span>
+            {appUser.partner_sub_role && (
+              <span className="inline-block mt-0.5 ml-1 px-1.5 py-px rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
+                {getSubRoleLabel(appUser.partner_sub_role, language)}
+              </span>
+            )}
           </div>
         </div>
         <button
