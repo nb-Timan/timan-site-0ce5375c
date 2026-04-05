@@ -170,14 +170,16 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <div className="text-sm font-semibold text-gray-900 truncate leading-tight">
               {appUser.display_name || appUser.email}
             </div>
-            <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[10px] font-semibold ${roleBadgeColor(appUser.role)}`}>
-              {getRoleBadge(appUser.role, language)}
-            </span>
-            {appUser.partner_type && (
-              <span className="inline-block mt-0.5 ml-1 px-1.5 py-px rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
-                {getSubRoleLabel(appUser.partner_type, language)}
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className={`px-1.5 py-px rounded text-[10px] font-semibold ${roleBadgeColor(appUser.role)}`}>
+                {getRoleBadge(appUser.role, language)}
               </span>
-            )}
+              {appUser.partner_type && (
+                <span className="px-1.5 py-px rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
+                  {getSubRoleLabel(appUser.partner_type, language)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button
