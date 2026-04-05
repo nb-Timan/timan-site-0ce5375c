@@ -1410,13 +1410,11 @@ export default function ConfiguratorPage() {
           </DialogHeader>
           {(() => {
             const parts = salesArgsText.split('\n\n');
-            const titleText = parts[0] || '';
-            const paragraphText = parts[1] || '';
-            const bulletsText = parts.slice(2).join('\n\n');
+            const introText = parts[0] || '';
+            const bulletsText = parts.slice(1).join('\n\n');
             return (
               <div className="border rounded-lg p-5 bg-muted/30 space-y-3">
-                {titleText && <h3 className="text-base font-semibold text-foreground">{titleText}</h3>}
-                {paragraphText && <p className="text-sm text-foreground/90 leading-relaxed">{paragraphText}</p>}
+                {introText && <p className="text-sm font-medium text-foreground leading-relaxed">{introText}</p>}
                 {bulletsText && <div className="whitespace-pre-line text-sm text-foreground/80 leading-relaxed">{bulletsText}</div>}
               </div>
             );
