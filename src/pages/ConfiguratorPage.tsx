@@ -7,6 +7,7 @@ import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
 import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
+import { generateSalesArguments } from '@/lib/salesArguments';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
