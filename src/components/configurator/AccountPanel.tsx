@@ -274,7 +274,6 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           />
                         </div>
                       </div>
-                      </div>
                       {/* Action buttons */}
                       <div className="flex gap-2">
                         {item.status !== 'ordre_afgivet' && (
