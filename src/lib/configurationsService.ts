@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState } from '@/types/configurator';
 
-export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet';
+export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
 export interface SavedConfiguration {
   id: string;
@@ -69,6 +69,7 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     .from('configurations')
     .select('*')
     .eq('created_by_user_id', user.id)
+    .neq('case_status', 'deleted')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -288,14 +289,14 @@ export async function updateConfigurationNote(id: string, note: string) {
   if (error) console.error('Failed to update note:', error);
 }
 
-/** Delete a configuration and its items */
+/** Soft-delete a configuration (mark as deleted, keep data) */
 export async function deleteConfiguration(id: string) {
   const { error } = await supabase
     .from('configurations')
-    .delete()
+    .update({ case_status: 'deleted' as SavedStatus, last_saved_at: new Date().toISOString() })
     .eq('id', id);
 
-  if (error) console.error('Failed to delete configuration:', error);
+  if (error) console.error('Failed to soft-delete configuration:', error);
 }
 
 /** Mark configuration as order submitted */
