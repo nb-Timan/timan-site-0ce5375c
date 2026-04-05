@@ -165,7 +165,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{tx('Min konto', 'My account')}</DialogTitle>
           </DialogHeader>
@@ -191,7 +191,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           {/* Saved items */}
           <div className="pt-2">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
+              <h3 className="text-base font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
               {canSave ? (
                 <button
                   onClick={() => setShowSaveInput(v => !v)}
@@ -226,32 +226,33 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             {savedItems.length === 0 ? (
               <p className="text-xs text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
             ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="space-y-2.5 max-h-72 overflow-y-auto">
                 {savedItems.map(item => (
-                  <div key={item.id} className="p-2.5 border rounded-lg bg-gray-50 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">{item.label}</div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-gray-400">
-                            {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
-                          </span>
-                          <span className="text-[10px] text-gray-300">·</span>
-                          <span className={`px-1.5 py-px rounded text-[10px] font-semibold ${statusColor(item.status)}`}>
-                            {statusLabel(item.status, language)}
-                          </span>
-                          <span className="text-[10px] text-gray-300">·</span>
-                          <span className="text-[10px] text-gray-400">
-                            {new Date(item.savedAt).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
-                          </span>
-                        </div>
+                  <div key={item.id} className="p-3 border rounded-lg bg-gray-50 space-y-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900 truncate">{item.label}</div>
+                      {item.state?.firmanavn && (
+                        <div className="text-xs text-gray-500 truncate mt-0.5">{item.state.firmanavn}</div>
+                      )}
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-xs text-gray-400">
+                          {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                        </span>
+                        <span className="text-xs text-gray-300">·</span>
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${statusColor(item.status)}`}>
+                          {statusLabel(item.status, language)}
+                        </span>
+                        <span className="text-xs text-gray-300">·</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(item.savedAt).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-1.5">
                       {item.status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleOpen(item)}
-                          className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium"
+                          className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium"
                         >
                           {tx('Åbn', 'Open')}
                         </button>
@@ -259,14 +260,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       {item.status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleToggleStatus(item.id)}
-                          className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+                          className="text-xs px-2.5 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
                         >
                           {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(item.id)}
-                        className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 font-medium"
+                        className="text-xs px-2.5 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 font-medium"
                       >
                         {tx('Slet', 'Delete')}
                       </button>
