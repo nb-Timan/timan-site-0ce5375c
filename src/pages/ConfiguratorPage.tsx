@@ -1139,8 +1139,23 @@ export default function ConfiguratorPage() {
                     <p className="text-xs text-gray-500 mt-1">{T('altDeliveryInfo')}</p>
                   </div>
                 </div>
-                <div className="flex justify-between mt-8 pt-4 border-t">
-                  <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                <div className="flex justify-between items-center mt-8 pt-4 border-t">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                    <button
+                      onClick={() => {
+                        if (isSavedCurrent) {
+                          resetState();
+                          setIsSavedCurrent(false);
+                        } else {
+                          setNewConfigModalOpen(true);
+                        }
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
+                    >
+                      {lang === 'da' ? 'Start ny konfiguration' : 'Start new configuration'}
+                    </button>
+                  </div>
                   {state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
                       {lang === 'da' ? 'Kun forhandler/Timan kan afsende ordre' : 'Only dealer/Timan can submit orders'}
