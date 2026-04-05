@@ -77,6 +77,7 @@ export default function ConfiguratorPage() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
 
