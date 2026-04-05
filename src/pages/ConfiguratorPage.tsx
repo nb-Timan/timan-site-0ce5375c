@@ -1415,13 +1415,27 @@ export default function ConfiguratorPage() {
             <DialogTitle>{lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</DialogTitle>
           </DialogHeader>
           {(() => {
-            const parts = salesArgsText.split('\n\n');
-            const introText = parts[0] || '';
-            const bulletsText = parts.slice(1).join('\n\n');
+            const sections = salesArgsText.split('\n\n');
+            // sections[0] = **heading**, sections[1] = paragraph, sections[2] = bullets
+            const headingRaw = sections[0] || '';
+            const heading = headingRaw.replace(/\*\*/g, '');
+            const paragraph = sections[1] || '';
+            const bulletsRaw = sections[2] || '';
+            const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
             return (
-              <div className="border rounded-lg p-5 bg-muted/30 space-y-3">
-                {introText && <p className="text-sm font-medium text-foreground leading-relaxed">{introText}</p>}
-                {bulletsText && <div className="whitespace-pre-line text-sm text-foreground/80 leading-relaxed">{bulletsText}</div>}
+              <div className="border rounded-lg p-5 bg-muted/30 space-y-4">
+                {heading && <h3 className="text-base font-bold text-foreground">{heading}</h3>}
+                {paragraph && <p className="text-sm text-foreground/90 leading-relaxed">{paragraph}</p>}
+                {bulletLines.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {bulletLines.map((b, i) => (
+                      <li key={i} className="text-sm text-foreground/80 leading-relaxed flex items-start gap-2">
+                        <span className="text-emerald-600 mt-0.5">•</span>
+                        <span>{b.replace(/^•\s*/, '')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             );
           })()}
