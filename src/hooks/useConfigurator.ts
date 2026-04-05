@@ -224,7 +224,9 @@ export function useConfigurator() {
 
     let subtotal = 0;
     const lineItems: LineItem[] = [];
-    const totalMachineQty = allUnits.filter(u => u.modelType !== LOOSE_TOOL_KEY).length;
+
+    // Track per-unit subtotals and demo status
+    const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string }[] = [];
 
     allUnits.forEach(unit => {
       const mach = PRODUCTS[unit.modelType];
@@ -256,6 +258,11 @@ export function useConfigurator() {
 
       subtotal += unitTotal;
       lineItems.push({ txt: `Subtotal Maskine ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
+
+      // Check if this unit is marked as demo
+      const demoKey = `${mach.varenr}_${unit.unitNumber}`;
+      const isDemo = !!state.demoMachines[demoKey];
+      unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
     });
 
     // DK: Startup pricing for "Timan leverer"
@@ -276,46 +283,68 @@ export function useConfigurator() {
       subtotal += startupPrice;
     }
 
+    // Split into demo vs non-demo subtotals
+    const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((sum, u) => sum + u.total, 0);
+    const nonDemoSubtotal = subtotal - demoSubtotal; // includes startup costs with non-demo
+    const nonDemoMachineCount = unitSubtotals.filter(u => !u.isDemo && u.modelType !== LOOSE_TOOL_KEY).length;
+
     // Discount chain
     let disc = 0;
     const details: DiscountDetail[] = [];
     let price = subtotal;
 
-    // 1. Base discount 25%
-    const d1 = subtotal * 0.25;
-    price -= d1; disc += d1;
-    details.push({ txt: `Grund rabat (25%)`, amount: d1 });
-
-    // 2. Qty discount
-    let qtyPct = totalMachineQty >= 4 ? 0.04 : (totalMachineQty >= 2 ? 0.02 : 0);
-    if (qtyPct > 0) {
-      const d2 = (subtotal - d1) * qtyPct;
-      price -= d2; disc += d2;
-      details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2 });
+    // --- Demo machines: fixed 32.5% total discount ---
+    if (demoSubtotal > 0) {
+      const demoDisc = demoSubtotal * 0.325;
+      price -= demoDisc;
+      disc += demoDisc;
+      details.push({ txt: `Demo maskine rabat (32,5%)`, amount: demoDisc });
     }
 
-    // 3. Delivery discount
-    let delActive = false;
-    if (state.date) {
-      const threeMonths = new Date();
-      threeMonths.setMonth(threeMonths.getMonth() + 3);
-      const deliveryDate = new Date(state.date);
-      if (deliveryDate > threeMonths) delActive = true;
-    }
-    if (delActive) {
-      const d3 = (subtotal - disc) * 0.02;
-      price -= d3; disc += d3;
-      details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3 });
+    // --- Non-demo machines: normal discount chain ---
+    if (nonDemoSubtotal > 0) {
+      // 1. Base discount 25%
+      const d1 = nonDemoSubtotal * 0.25;
+      price -= d1;
+      disc += d1;
+      details.push({ txt: `Grund rabat (25%)`, amount: d1 });
+
+      // 2. Qty discount (based only on non-demo machine count)
+      let qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
+      if (qtyPct > 0) {
+        const d2 = (nonDemoSubtotal - d1) * qtyPct;
+        price -= d2;
+        disc += d2;
+        details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2 });
+      }
+
+      // 3. Delivery discount
+      let delActive = false;
+      if (state.date) {
+        const threeMonths = new Date();
+        threeMonths.setMonth(threeMonths.getMonth() + 3);
+        const deliveryDate = new Date(state.date);
+        if (deliveryDate > threeMonths) delActive = true;
+      }
+      if (delActive) {
+        const nonDemoDiscSoFar = d1 + (qtyPct > 0 ? (nonDemoSubtotal - d1) * qtyPct : 0);
+        const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
+        price -= d3;
+        disc += d3;
+        details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3 });
+      }
     }
 
-    // 4. Manual dealer discount
+    // 4. Manual dealer discount (on remaining price)
     if (state.step === 4 && state.manualDealerDiscountPct > 0) {
       const d4 = (subtotal - disc) * (state.manualDealerDiscountPct / 100);
-      price -= d4; disc += d4;
+      price -= d4;
+      disc += d4;
       details.push({ txt: `Ekstra forhandlerrabat (${state.manualDealerDiscountPct}%)`, amount: d4 });
     }
 
     const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;
+    const qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
 
     return { lineItems, subtotal, discountDetails: details, totalDiscount: disc, currentPrice: price, totalPct, qtyPct };
   }, [state, getGlobalMachineUnits]);
