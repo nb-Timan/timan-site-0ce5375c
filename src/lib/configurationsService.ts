@@ -289,14 +289,14 @@ export async function updateConfigurationNote(id: string, note: string) {
   if (error) console.error('Failed to update note:', error);
 }
 
-/** Delete a configuration and its items */
+/** Soft-delete a configuration (mark as deleted, keep data) */
 export async function deleteConfiguration(id: string) {
   const { error } = await supabase
     .from('configurations')
-    .delete()
+    .update({ case_status: 'deleted' as SavedStatus, last_saved_at: new Date().toISOString() })
     .eq('id', id);
 
-  if (error) console.error('Failed to delete configuration:', error);
+  if (error) console.error('Failed to soft-delete configuration:', error);
 }
 
 /** Mark configuration as order submitted */
