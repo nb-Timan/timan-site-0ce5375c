@@ -1,230 +1,82 @@
 /**
  * Sales argument generator for Timan machine quotes.
- * Generates a specific, warm Danish sales summary based on the exact selected products.
- * No AI, no made-up specs — only known product data from machines.ts.
+ * Writes like a human sales consultant evaluating the customer's chosen solution.
+ * Solution-first, not product-by-product.
  */
 
 import { ConfiguratorState, MachineConfig, Accessory } from '@/types/configurator';
 import { ACCESSORIES, getLooseToolAccessories, LOOSE_TOOL_KEY, ACC_ID_OIL_BIO } from '@/data/machines';
 
-// ─── Machine-specific copy blocks ──────────────────────────────────────────
+// ─── Capability tags ───────────────────────────────────────────────────────
 
-interface MachineProfile {
-  label: string;
-  solo: string;
-  combo: string;
-  /** Used in the paragraph to describe the machine's role */
-  paragraphRole: string;
-  seasons: Set<string>;
+type Capability =
+  | 'green_rough'    // slagleklipper, skivehøster
+  | 'green_fine'     // rotorklipper, fingerklipper
+  | 'trimming'       // hæk/multitrimmer
+  | 'sweeping'       // fejemaskine, feje/sug
+  | 'weed'           // ukrudtsbørste
+  | 'stump'          // stubfræser
+  | 'snow_plow'      // V-plov, dozerblad
+  | 'snow_blower'    // sneslynge
+  | 'salt_spread'    // spreder / CS-200
+  | 'bio_oil'
+  | 'comfort'        // merged comfort features
+  | 'camera'
+  | 'chassis_care'
+  | 'tow';
+
+interface DetectedCapability {
+  cap: Capability;
+  detail?: string; // e.g. "aircondition, skyderuder og luftaffjedret sæde"
 }
 
-const MACHINE_PROFILES: Record<string, MachineProfile> = {
-  'RC-1000S': {
-    label: 'RC-1000s',
-    solo: 'RC-1000s er en kompakt og kraftfuld maskinbærer, der arbejder sikkert i krævende terræn og på stejle skråninger',
-    combo: 'RC-1000s giver en stærk platform til arbejde i krævende terræn og på vanskelige arealer',
-    paragraphRole: 'effektiv og sikker grøn vedligeholdelse – selv i krævende terræn og på stejle skråninger',
-    seasons: new Set(['forår', 'sommer', 'efterår', 'vinter']),
-  },
-  'RC-751': {
-    label: 'RC-751',
-    solo: 'RC-751 er en agil og driftsikker fjernbetjent maskinbærer, ideel til skråninger og grønne arealer',
-    combo: 'RC-751 supplerer med agil grøn vedligeholdelse på arealer og skråninger',
-    paragraphRole: 'agil og præcis grøn vedligeholdelse på skråninger og svært tilgængelige arealer',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
-  },
-  'Timan 3330': {
-    label: 'Timan 3330',
-    solo: 'Timan 3330 er en alsidig redskabsbærer, der kombinerer græsklipning, fejning og vinterberedskab på én maskine',
-    combo: 'Timan 3330 med feje- og sugeudstyr styrker den daglige renholdelse af arealer, stier og pladser',
-    paragraphRole: 'alsidig drift med fejning, renholdelse og redskabsskift fra førerkabinen',
-    seasons: new Set(['forår', 'sommer', 'efterår', 'vinter']),
-  },
+// ─── Detectors ──────────────────────────────────────────────────────────────
+
+const ACC_DETECTORS: Array<{ cap: Capability; match: (id: string, name: string) => boolean }> = [
+  { cap: 'green_rough', match: (id, n) => id === '410910' || n.includes('Slagleklipper') || n.includes('Skivehøster') || id === '412040' },
+  { cap: 'green_fine', match: (id, n) => id === '411666' || id === '730017' || id === '730130' || n.includes('Rotorklipper') || id === '411800' || n.includes('Fingerklipper') },
+  { cap: 'trimming', match: (id, n) => id.includes('HGM-20083') || id.includes('HGM-20082') || n.includes('Multitrimmer') || n.includes('Termit') },
+  { cap: 'sweeping', match: (id, n) => id === '411845' || id === '730020' || n.includes('fejemaskine') || n.includes('Sweeper') || id.includes('720125') || id.includes('720130') || id.includes('720132') || id.includes('720133') || id.includes('730030') || n.includes('Opsamlingstank') || n.includes('Forkostesæt') },
+  { cap: 'weed', match: (id, n) => id.includes('730600') || n.includes('krudtsbørste') },
+  { cap: 'stump', match: (id, n) => id.startsWith('HFS') || n.includes('Stubfræser') },
+  { cap: 'snow_plow', match: (id, n) => id.includes('411742') || id.includes('730114') || n.includes('V-plov') || id === '730105' || n.includes('Dozerblad') },
+  { cap: 'snow_blower', match: (id, n) => id === '418000' || id === '730106' || n.includes('Sneslynge') },
+  { cap: 'salt_spread', match: (id, n) => id.includes('725131') || id.includes('725132') || id.includes('725138') || n.includes('Spreder') || n.includes('CS-200') },
+  { cap: 'bio_oil', match: (id) => id === ACC_ID_OIL_BIO || id === '712180' },
+  { cap: 'camera', match: (id) => id === '712164' || id === '712168' || id === '712166' || id === '712167' },
+  { cap: 'chassis_care', match: (id) => id === '712175' },
+  { cap: 'tow', match: (id) => id === '712169' || id === '712527' || id === '712528' },
+];
+
+const COMFORT_IDS: Record<string, string> = {
+  '712060': 'aircondition',
+  '712147': 'skyderuder',
+  '712140': 'luftaffjedret sæde',
+  '712174': 'solskærm',
+  '712178': 'bakalarm',
 };
 
-// ─── Accessory category classifiers ───────────────────────────────────────
+// ─── Machine role descriptions (for paragraph weaving) ────────────────────
 
-interface AccessoryCategory {
-  match: (id: string, name: string) => boolean;
-  label: string;
-  bullet: string;
-  /** For the paragraph */
-  paragraphFragment: string;
-  seasons: Set<string>;
-}
-
-const ACCESSORY_CATEGORIES: AccessoryCategory[] = [
-  {
-    match: (id, name) => id === '410910' || name.includes('Slagleklipper') || name.includes('Flail'),
-    label: 'Slagleklipper',
-    bullet: 'Slagleklipperen håndterer grov vegetation og tilgroede arealer effektivt',
-    paragraphFragment: 'grov vegetation og tilgroede arealer',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
+const MACHINE_ROLES: Record<string, { roleInSolution: string; terrainNote: string }> = {
+  'RC-1000S': {
+    roleInSolution: 'den fjernbetjente RC-1000s tager sig af de krævende opgaver i terræn og på skråninger, hvor traditionelle maskiner ikke kan komme til',
+    terrainNote: 'krævende terræn og stejle skråninger',
   },
-  {
-    match: (id, name) => id === '411666' || id === '730017' || id === 'HGM-2007' || id === '730130' || name.includes('Rotorklipper') || name.includes('Rotary'),
-    label: 'Rotorklipper',
-    bullet: 'Rotorklipperen sikrer en ensartet og præcis klipning af græsarealer',
-    paragraphFragment: 'ensartet og præcis græsklipning',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
+  'RC-751': {
+    roleInSolution: 'RC-751 arbejder sikkert og præcist på skråninger og svært tilgængelige arealer',
+    terrainNote: 'skråninger og svært tilgængelige arealer',
   },
-  {
-    match: (id, name) => id === '411800' || name.includes('Fingerklipper') || name.includes('Finger Bar'),
-    label: 'Fingerklipper',
-    bullet: 'Fingerklipperen giver skånsom og præcis klipning, ideel til biodiversitetsarealer',
-    paragraphFragment: 'skånsom klipning af biodiversitetsarealer',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
+  'Timan 3330': {
+    roleInSolution: 'Timan 3330 håndterer de daglige driftsopgaver fra førerkabinen med hurtige redskabsskift',
+    terrainNote: 'arealer, stier og pladser',
   },
-  {
-    match: (id, name) => id === '412040' || name.includes('Skivehøster') || name.includes('Disc Harvester'),
-    label: 'Skivehøster',
-    bullet: 'Skivehøsteren håndterer høj bevoksning og tæt vegetation uden besvær',
-    paragraphFragment: 'høj bevoksning og tæt vegetation',
-    seasons: new Set(['sommer', 'efterår']),
-  },
-  {
-    match: (id, name) => id.startsWith('HFS') || name.includes('Stubfræser') || name.includes('Stump Grinder'),
-    label: 'Stubfræser',
-    bullet: 'Stubfræseren fjerner stubbe effektivt og gør arealet klar til videre brug',
-    paragraphFragment: 'fjernelse af stubbe og rødder',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
-  },
-  {
-    match: (id, name) => id.includes('411742') || id.includes('730114') || name.includes('V-plov') || name.includes('V-plow'),
-    label: 'V-plov',
-    bullet: 'V-ploven sikrer hurtig og effektiv snerydning på veje og stier',
-    paragraphFragment: 'effektiv snerydning',
-    seasons: new Set(['vinter']),
-  },
-  {
-    match: (id, name) => id === '730105' || name.includes('Dozerblad') || name.includes('Dozer blade'),
-    label: 'Dozerblad',
-    bullet: 'Dozerbladet giver fleksibel snerydning og materialehåndtering',
-    paragraphFragment: 'fleksibel snerydning og materialehåndtering',
-    seasons: new Set(['vinter']),
-  },
-  {
-    match: (id, name) => id === '418000' || id === '730106' || name.includes('Sneslynge') || name.includes('Snow Blower'),
-    label: 'Sneslynge',
-    bullet: 'Sneslyngen håndterer større snemængder og kaster sneen væk fra rydningsarealet',
-    paragraphFragment: 'rydning af større snemængder',
-    seasons: new Set(['vinter']),
-  },
-  {
-    match: (id, name) => id === '411845' || id === '730020' || name.includes('fejemaskine') || name.includes('Sweeper'),
-    label: 'Fejemaskine',
-    bullet: 'Fejemaskinen holder arealer, stier og pladser rene og præsentable året rundt',
-    paragraphFragment: 'daglig renholdelse af stier og arealer',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
-  },
-  {
-    match: (id, name) => id.includes('720125') || id.includes('720130') || id.includes('720132') || id.includes('720133') || id.includes('730030') || name.includes('Opsamlingstank') || name.includes('Forkostesæt') || name.includes('collection tank') || name.includes('Front broom'),
-    label: 'Feje-/sugeanlæg',
-    bullet: 'Feje-/sugeanlægget samler blade, affald og støv op i én arbejdsgang',
-    paragraphFragment: 'opsamling af blade, affald og støv',
-    seasons: new Set(['forår', 'sommer', 'efterår', 'vinter']),
-  },
-  {
-    match: (id, name) => id.includes('730600') || name.includes('ukrudtsbørste') || name.includes('Weed Brush') || name.includes('Ukrudtsbørste'),
-    label: 'Ukrudtsbørste',
-    bullet: 'Ukrudtsbørsten fjerner ukrudt mekanisk uden brug af sprøjtemidler – en mere bæredygtig løsning',
-    paragraphFragment: 'mekanisk ukrudtsbekæmpelse uden sprøjtemidler',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
-  },
-  {
-    match: (id, name) => id.includes('725131') || id.includes('725132') || id.includes('725138') || name.includes('Spreder') || name.includes('spreader') || name.includes('CS-200'),
-    label: 'Spreder',
-    bullet: 'CS-200 sprederen giver kompakt og effektiv glatførebekæmpelse direkte fra maskinen',
-    paragraphFragment: 'kompakt glatførebekæmpelse',
-    seasons: new Set(['vinter']),
-  },
-  {
-    match: (id, name) => id.includes('HGM-20083') || id.includes('HGM-20082') || name.includes('Multitrimmer') || name.includes('Termit'),
-    label: 'Hækkeklipper / Multitrimmer',
-    bullet: 'Multitrimmeren udvider maskinens anvendelse til hække og kantbeskæring',
-    paragraphFragment: 'hækklipning og kantbeskæring',
-    seasons: new Set(['forår', 'sommer', 'efterår']),
-  },
-];
-
-// ─── Option insight detectors ──────────────────────────────────────────────
-
-interface OptionInsight {
-  match: (id: string, name: string) => boolean;
-  bullet: string;
-  comfortGroup?: string; // used to merge comfort insights
-}
-
-const OPTION_INSIGHTS: OptionInsight[] = [
-  // Bio oil
-  {
-    match: (id) => id === ACC_ID_OIL_BIO || id === '712180',
-    bullet: 'Valg af bio-hydraulikolie er et grønnere og mere miljøbevidst valg',
-  },
-  // Aircondition
-  {
-    match: (id) => id === '712060',
-    bullet: 'Aircondition sikrer komfortabel drift selv på varme dage',
-    comfortGroup: 'aircondition',
-  },
-  // Sliding windows
-  {
-    match: (id) => id === '712147',
-    bullet: 'Døre med skyderuder giver bedre ventilation og udsyn under arbejdet',
-    comfortGroup: 'skyderuder',
-  },
-  // Air suspension seat
-  {
-    match: (id) => id === '712140',
-    bullet: 'Luftaffjedret sæde reducerer vibrationer og forbedrer førerkomforten markant',
-    comfortGroup: 'luftaffjedret sæde',
-  },
-  // Cameras
-  {
-    match: (id) => id === '712164' || id === '712168' || id === '712166' || id === '712167',
-    bullet: 'Kameraløsningen giver operatøren bedre overblik og øget sikkerhed i daglig drift',
-    comfortGroup: 'kamera',
-  },
-  // Reverse alarm
-  {
-    match: (id) => id === '712178',
-    bullet: 'Bakalarm øger sikkerheden ved bakning i travle områder',
-  },
-  // Chassis preservation
-  {
-    match: (id) => id === '712175',
-    bullet: 'Konservering af chassis og hydraulik forlænger maskinens levetid og beskytter investeringen',
-  },
-  // Sun visor
-  {
-    match: (id) => id === '712174',
-    bullet: 'Justerbar solskærm forbedrer udsyn og komfort i dagslys',
-    comfortGroup: 'solskærm',
-  },
-  // Combo hitch / tow
-  {
-    match: (id) => id === '712169' || id === '712527' || id === '712528',
-    bullet: 'Kombitræk giver mulighed for at trække tilhænger og udstyr direkte fra maskinen',
-  },
-  // Stump grinder (RC machines)
-  {
-    match: (id, name) => id.startsWith('HFS') || name.includes('Stubfræser'),
-    bullet: 'Stubfræseren udvider maskinens anvendelse til fjernelse af stubbe og rødder',
-  },
-];
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getAccName(acc: Accessory): string {
   return typeof acc.name === 'string' ? acc.name : acc.name?.da ?? '';
-}
-
-function classifyAccessory(acc: Accessory): AccessoryCategory | null {
-  const name = getAccName(acc);
-  for (const cat of ACCESSORY_CATEGORIES) {
-    if (cat.match(acc.id, name)) return cat;
-  }
-  return null;
 }
 
 function getAllAccessoriesForMachine(machineType: string): Accessory[] {
@@ -246,115 +98,190 @@ function getSelectedAccessoryObjects(mc: MachineConfig, state: ConfiguratorState
   return allAcc.filter(a => accIds.has(a.id) && !a.isHeader && !a.hidden);
 }
 
-// ─── Generator ──────────────────────────────────────────────────────────────
+// ─── Main generator ─────────────────────────────────────────────────────────
 
 export function generateSalesArguments(state: ConfiguratorState): string {
-  const machineEntries: { profile: MachineProfile; categories: AccessoryCategory[]; insights: string[]; comfortParts: string[] }[] = [];
-  const allSeasons = new Set<string>();
-  const seenInsights = new Set<string>();
-  const seenComfortGroups = new Set<string>();
-  const allComfortParts: string[] = [];
+  // Collect all capabilities and comfort features across entire package
+  const caps = new Set<Capability>();
+  const comfortParts: string[] = [];
+  const machineTypes: string[] = [];
 
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
-    const profile = MACHINE_PROFILES[mc.type];
-    if (!profile && mc.type !== LOOSE_TOOL_KEY) continue;
+    if (MACHINE_ROLES[mc.type]) machineTypes.push(mc.type);
 
     const selectedAcc = getSelectedAccessoryObjects(mc, state);
-    const seenCats = new Set<string>();
-    const cats: AccessoryCategory[] = [];
-    const machineInsights: string[] = [];
-    const machineComfortParts: string[] = [];
-
     for (const acc of selectedAcc) {
-      const cat = classifyAccessory(acc);
-      if (cat && !seenCats.has(cat.label)) {
-        seenCats.add(cat.label);
-        cats.push(cat);
-        cat.seasons.forEach(s => allSeasons.add(s));
+      const name = getAccName(acc);
+
+      // Check capabilities
+      for (const det of ACC_DETECTORS) {
+        if (det.match(acc.id, name)) caps.add(det.cap);
       }
 
-      const accName = getAccName(acc);
-      for (const insight of OPTION_INSIGHTS) {
-        if (insight.match(acc.id, accName) && !seenInsights.has(insight.bullet)) {
-          seenInsights.add(insight.bullet);
-          if (insight.comfortGroup && !seenComfortGroups.has(insight.comfortGroup)) {
-            seenComfortGroups.add(insight.comfortGroup);
-            machineComfortParts.push(insight.comfortGroup);
-            allComfortParts.push(insight.comfortGroup);
-          } else if (!insight.comfortGroup) {
-            machineInsights.push(insight.bullet);
-          }
-        }
+      // Check comfort
+      const comfortLabel = COMFORT_IDS[acc.id];
+      if (comfortLabel && !comfortParts.includes(comfortLabel)) {
+        comfortParts.push(comfortLabel);
       }
-    }
-
-    if (profile) {
-      profile.seasons.forEach(s => allSeasons.add(s));
-      machineEntries.push({ profile, categories: cats, insights: machineInsights, comfortParts: machineComfortParts });
     }
   }
 
-  if (machineEntries.length === 0) {
+  if (comfortParts.length > 0) caps.add('comfort');
+
+  if (machineTypes.length === 0) {
     return 'Vælg maskiner og redskaber for at generere salgsargumenter.';
   }
 
-  const isMulti = machineEntries.length > 1;
-  const hasWinter = allSeasons.has('vinter');
-  const hasSummer = allSeasons.has('sommer') || allSeasons.has('forår') || allSeasons.has('efterår');
-  const hasAllYear = hasWinter && hasSummer;
-  const machineNames = machineEntries.map(e => e.profile.label).join(' og ');
+  // ── Determine package character ───────────────────────────────────────
+  const hasGreen = caps.has('green_rough') || caps.has('green_fine') || caps.has('trimming');
+  const hasSweep = caps.has('sweeping') || caps.has('weed');
+  const hasWinter = caps.has('snow_plow') || caps.has('snow_blower') || caps.has('salt_spread');
+  const isMulti = machineTypes.length > 1;
+  const isAllYear = (hasGreen || hasSweep) && hasWinter;
 
-  // ── Short intro (1 sentence) ────────────────────────────────────────────
-  let intro: string;
-  if (isMulti && hasAllYear) {
-    intro = `Med ${machineNames} får I en komplet helårsløsning, der dækker grøn vedligeholdelse, renholdelse og vinterberedskab i én samlet pakke.`;
+  const machineLabel = machineTypes.length === 1
+    ? (machineTypes[0] === 'Timan 3330' ? 'Timan 3330' : machineTypes[0])
+    : machineTypes.map(t => t === 'Timan 3330' ? 'Timan 3330' : t).join(' og ');
+
+  // ── HEADING ───────────────────────────────────────────────────────────
+  let heading: string;
+  if (isAllYear && isMulti) {
+    heading = 'En samlet helårsløsning med fuld dækning';
+  } else if (isAllYear) {
+    heading = 'Stærk helårsløsning med bred anvendelse';
   } else if (isMulti) {
-    intro = `${machineNames} giver tilsammen en stærk og fleksibel pakke, der dækker flere driftsopgaver med færre maskiner.`;
-  } else if (hasAllYear) {
-    intro = `${machineEntries[0].profile.label} med de valgte redskaber giver en fleksibel helårsløsning – fra grøn pleje til vinterberedskab.`;
+    heading = 'En fleksibel og sammenhængende maskinpakke';
+  } else if (hasWinter) {
+    heading = 'Effektiv vinterdrift med stærk maskinplatform';
   } else {
-    intro = `${machineEntries[0].profile.label} med de valgte redskaber er sammensat til at løse de faktiske driftsopgaver effektivt og pålideligt.`;
+    heading = 'En målrettet og stærk driftsløsning';
   }
 
-  // ── Bullets (3-5, prioritized) ──────────────────────────────────────────
+  // ── PARAGRAPH (the main value piece) ──────────────────────────────────
+  const parts: string[] = [];
+
+  // Opening: evaluate the total solution
+  if (isAllYear && isMulti) {
+    parts.push(`Den valgte pakke med ${machineLabel} er sammensat som en sammenhængende helårsløsning, hvor maskinerne supplerer hinanden på tværs af opgaver og sæsoner.`);
+  } else if (isMulti) {
+    parts.push(`Med ${machineLabel} har I valgt en pakke, hvor maskinerne arbejder sammen og dækker et bredt opgavespektrum med færre enheder.`);
+  } else if (isAllYear) {
+    parts.push(`Den valgte konfiguration af ${machineLabel} giver en løsning, der rækker ud over en enkelt sæson og gør maskinen til en aktiv del af driften året rundt.`);
+  } else {
+    parts.push(`${machineLabel} er her sat sammen med redskaber, der er valgt til at løse de konkrete driftsopgaver effektivt og pålideligt.`);
+  }
+
+  // Middle: how machines and tools complement each other
+  if (isMulti) {
+    const roleParts: string[] = [];
+    for (const mt of machineTypes) {
+      const role = MACHINE_ROLES[mt];
+      if (role) roleParts.push(role.roleInSolution);
+    }
+    if (roleParts.length > 0) {
+      parts.push(`I praksis betyder det, at ${roleParts.join(', mens ')}.`);
+    }
+  }
+
+  // Practical usage across tasks/seasons
+  const taskMentions: string[] = [];
+  if (hasGreen) {
+    if (caps.has('green_rough') && caps.has('green_fine')) {
+      taskMentions.push('både grov vegetation og præcis græspleje');
+    } else if (caps.has('green_rough')) {
+      taskMentions.push('grov vegetation og tilgroede arealer');
+    } else if (caps.has('green_fine')) {
+      taskMentions.push('ensartet og præcis græspleje');
+    }
+    if (caps.has('trimming')) taskMentions.push('hæk- og kantbeskæring');
+  }
+  if (hasSweep) {
+    if (caps.has('weed')) {
+      taskMentions.push('renholdelse og mekanisk ukrudtsbekæmpelse uden sprøjtemidler');
+    } else {
+      taskMentions.push('fejning og renholdelse af stier og arealer');
+    }
+  }
+  if (hasWinter) {
+    const winterParts: string[] = [];
+    if (caps.has('snow_plow') || caps.has('snow_blower')) winterParts.push('snerydning');
+    if (caps.has('salt_spread')) winterParts.push('glatførebekæmpelse');
+    taskMentions.push(winterParts.join(' og '));
+  }
+  if (caps.has('stump')) taskMentions.push('fjernelse af stubbe');
+
+  if (taskMentions.length > 0) {
+    const joined = taskMentions.length <= 2
+      ? taskMentions.join(' og ')
+      : taskMentions.slice(0, -1).join(', ') + ' og ' + taskMentions[taskMentions.length - 1];
+    parts.push(`De valgte redskaber dækker ${joined} – og giver dermed en løsning, der kan bruges aktivt i hverdagen på tværs af opgavetyper${isAllYear ? ' og sæsoner' : ''}.`);
+  }
+
+  // Comfort / eco / durability (natural mention)
+  if (comfortParts.length >= 2) {
+    parts.push(`Med ${comfortParts.join(', ')} er der også tænkt på operatørens daglige arbejdsforhold, hvilket giver bedre trivsel og højere effektivitet i det daglige.`);
+  } else if (comfortParts.length === 1) {
+    parts.push(`Valg af ${comfortParts[0]} bidrager til bedre arbejdsforhold for operatøren.`);
+  }
+
+  if (caps.has('bio_oil')) {
+    parts.push(`Valget af bio-hydraulikolie viser en bevidst og ansvarlig tilgang til miljø og bæredygtighed.`);
+  }
+
+  const paragraph = parts.join(' ');
+
+  // ── BULLETS (3-5 supporting points, not repeating paragraph) ──────────
   const bullets: string[] = [];
 
-  // 1. Machine role bullets
-  for (const entry of machineEntries) {
-    bullets.push(isMulti ? entry.profile.combo : entry.profile.solo);
+  // 1. Package-level value
+  if (isAllYear) {
+    bullets.push('Løsningen dækker grøn vedligeholdelse, renholdelse og vinterdrift – og sikrer en højere årlig udnyttelse af maskinerne');
+  } else if (taskMentions.length >= 2) {
+    bullets.push('Redskabsvalget giver bred anvendelse på tværs af flere opgavetyper med samme maskinpark');
+  } else {
+    bullets.push('Maskine og redskaber er afstemt til at løse de faktiske driftsopgaver med høj effektivitet');
   }
 
-  // 2. Top tool bullets (max 2 per machine in solo, 1 in multi)
-  for (const entry of machineEntries) {
-    for (const cat of entry.categories.slice(0, isMulti ? 1 : 2)) {
-      bullets.push(cat.bullet);
+  // 2. Seasonal / operational strength
+  if (hasWinter && hasGreen) {
+    bullets.push('Vinterberedskabet forlænger maskinernes aktive sæson og styrker den samlede driftsøkonomi');
+  } else if (hasWinter) {
+    bullets.push('Vinterberedskabet gør løsningen klar til snerydning og glatførebekæmpelse, når behovet opstår');
+  } else if (hasGreen && hasSweep) {
+    bullets.push('Kombinationen af grøn pleje og renholdelse reducerer behovet for separate maskiner');
+  }
+
+  // 3. Comfort / quality of work
+  if (caps.has('comfort') && comfortParts.length >= 2) {
+    bullets.push('Komfortudstyr i kabinen sikrer bedre arbejdsmiljø og gør lange driftsdage mere overkommelige');
+  } else if (caps.has('camera')) {
+    bullets.push('Kameraløsningen giver bedre overblik og øget sikkerhed under drift');
+  }
+
+  // 4. Eco
+  if (caps.has('bio_oil')) {
+    bullets.push('Bio-hydraulikolie er et grønnere valg, der understøtter en mere bæredygtig driftstilgang');
+  }
+
+  // 5. Durability / flexibility
+  if (caps.has('chassis_care')) {
+    bullets.push('Konservering af chassis og hydraulik beskytter investeringen og forlænger levetiden');
+  }
+  if (caps.has('tow')) {
+    bullets.push('Kombitræk giver ekstra fleksibilitet med mulighed for at trække tilhænger direkte');
+  }
+
+  // Ensure 3-5 bullets
+  if (bullets.length < 3) {
+    if (isMulti) {
+      bullets.push('Maskinerne supplerer hinanden og giver en sammenhængende løsning med færre enheder');
+    } else {
+      bullets.push('En fokuseret løsning, der er enkel at drifte og hurtig at sætte i arbejde');
     }
-  }
-
-  // 3. Comfort (merged if 2+)
-  if (allComfortParts.length >= 2) {
-    bullets.push(`Valg af ${allComfortParts.join(', ')} giver operatøren bedre komfort og arbejdsforhold`);
-  } else if (allComfortParts.length === 1) {
-    const single = OPTION_INSIGHTS.find(i => i.comfortGroup === allComfortParts[0]);
-    if (single) bullets.push(single.bullet);
-  }
-
-  // 4. Non-comfort insights (bio oil, chassis, etc.)
-  for (const entry of machineEntries) {
-    for (const ins of entry.insights) {
-      if (!bullets.includes(ins)) bullets.push(ins);
-    }
-  }
-
-  // 5. Package-level closing bullet
-  if (hasAllYear) {
-    bullets.push('Pakken giver højere årlig udnyttelse og stærkere driftsøkonomi på tværs af sæsonerne');
-  } else if (machineEntries.reduce((n, e) => n + e.categories.length, 0) >= 2) {
-    bullets.push('De valgte redskaber giver bredere anvendelse og bedre udnyttelse gennem sæsonen');
   }
 
   const finalBullets = bullets.slice(0, 5);
 
-  return `${intro}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return `**${heading}**\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
 }
