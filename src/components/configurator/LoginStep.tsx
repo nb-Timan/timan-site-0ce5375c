@@ -30,6 +30,8 @@ function tx(key: string, lang: string): string {
 export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestError, setGuestError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
