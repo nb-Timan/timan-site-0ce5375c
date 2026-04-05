@@ -1152,8 +1152,6 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
-
             <AccountPanel
               appUser={appUser}
               language={lang}
