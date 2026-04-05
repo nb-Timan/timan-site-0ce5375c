@@ -104,10 +104,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
   const handleToggleStatus = async (id: string) => {
     const item = savedItems.find(i => i.id === id);
-    if (!item || item.status === 'ordre_afgivet') return;
-    const newStatus: SavedStatus = item.status === 'aktiv' ? 'pause' : 'aktiv';
+    if (!item || item.case_status === 'ordre_afgivet') return;
+    const newStatus: SavedStatus = item.case_status === 'aktiv' ? 'pause' : 'aktiv';
     await updateConfigurationStatus(id, newStatus);
-    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
+    setSavedItems(prev => prev.map(i => i.id === id ? { ...i, case_status: newStatus } : i));
   };
 
   const handleOpen = (item: SavedConfiguration) => {
@@ -235,17 +235,17 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     <div className="flex gap-4">
                       {/* Left: case info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-base font-semibold text-gray-900 truncate">{item.label}</div>
+                        <div className="text-base font-semibold text-gray-900 truncate">{item.title}</div>
                         {item.state_json?.firmanavn && (
                           <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
                         )}
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <span className="text-sm text-gray-400">
-                            {item.type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                            {item.case_type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
                           </span>
                           <span className="text-sm text-gray-300">·</span>
-                          <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.status)}`}>
-                            {statusLabel(item.status, language)}
+                          <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
+                            {statusLabel(item.case_status, language)}
                           </span>
                           <span className="text-sm text-gray-300">·</span>
                           <span className="text-sm text-gray-400">
@@ -273,7 +273,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     </div>
                     {/* Action buttons */}
                     <div className="flex gap-2">
-                      {item.status !== 'ordre_afgivet' && (
+                      {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleOpen(item)}
                           className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
@@ -281,12 +281,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           {tx('Åbn', 'Open')}
                         </button>
                       )}
-                      {item.status !== 'ordre_afgivet' && (
+                      {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleToggleStatus(item.id)}
                           className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
                         >
-                          {item.status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                          {item.case_status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
                         </button>
                       )}
                       <button
