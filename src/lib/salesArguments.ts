@@ -305,98 +305,56 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   const hasAllYear = hasWinter && hasSummer;
   const machineNames = machineEntries.map(e => e.profile.label).join(' og ');
 
-  // ── Title ───────────────────────────────────────────────────────────────
-  let title: string;
+  // ── Short intro (1 sentence) ────────────────────────────────────────────
+  let intro: string;
   if (isMulti && hasAllYear) {
-    title = `Helårsløsning med ${machineNames}`;
+    intro = `Med ${machineNames} får I en komplet helårsløsning, der dækker grøn vedligeholdelse, renholdelse og vinterberedskab i én samlet pakke.`;
   } else if (isMulti) {
-    title = `Samlet pakkeløsning med ${machineNames}`;
+    intro = `${machineNames} giver tilsammen en stærk og fleksibel pakke, der dækker flere driftsopgaver med færre maskiner.`;
   } else if (hasAllYear) {
-    title = `${machineEntries[0].profile.label} – fleksibel helårsløsning`;
+    intro = `${machineEntries[0].profile.label} med de valgte redskaber giver en fleksibel helårsløsning – fra grøn pleje til vinterberedskab.`;
   } else {
-    title = `${machineEntries[0].profile.label} – målrettet driftsløsning`;
+    intro = `${machineEntries[0].profile.label} med de valgte redskaber er sammensat til at løse de faktiske driftsopgaver effektivt og pålideligt.`;
   }
 
-  // ── Paragraph ───────────────────────────────────────────────────────────
-  // Build a flowing paragraph that ties the package together
-  const paragraphParts: string[] = [];
-
-  if (isMulti) {
-    paragraphParts.push(`Denne løsning er sammensat omkring ${machineNames} og giver en stærk, fleksibel pakke`);
-    // Describe each machine's role
-    const roles = machineEntries.map(e => `${e.profile.label} til ${e.profile.paragraphRole}`);
-    paragraphParts.push(`der kombinerer ${roles.join(' med ')}.`);
-  } else {
-    paragraphParts.push(`${machineEntries[0].profile.label} med de valgte redskaber giver en målrettet og effektiv løsning til ${machineEntries[0].profile.paragraphRole}.`);
-  }
-
-  // Mention tool coverage
-  const allToolFragments = machineEntries.flatMap(e => e.categories.slice(0, 3).map(c => c.paragraphFragment));
-  if (allToolFragments.length > 0) {
-    const uniqueFragments = [...new Set(allToolFragments)];
-    if (uniqueFragments.length <= 3) {
-      paragraphParts.push(`De valgte redskaber dækker ${uniqueFragments.join(', ')}${hasAllYear ? ' – og sikrer dermed en bred anvendelse på tværs af årets sæsoner' : ''}.`);
-    } else {
-      const shown = uniqueFragments.slice(0, 3).join(', ');
-      paragraphParts.push(`De valgte redskaber dækker bl.a. ${shown} – og giver dermed en bred og alsidig driftsløsning${hasAllYear ? ' året rundt' : ''}.`);
-    }
-  }
-
-  // Comfort summary in paragraph if multiple comfort items
-  if (allComfortParts.length >= 2) {
-    paragraphParts.push(`Med ${allComfortParts.join(', ')} er der lagt vægt på gode arbejdsforhold og komfort for operatøren i daglig drift.`);
-  }
-
-  if (isMulti) {
-    paragraphParts.push('Samlet sikrer pakken højere udnyttelse af maskinerne og ensartet service fra én leverandør.');
-  }
-
-  const paragraph = paragraphParts.join(' ');
-
-  // ── Bullets (3-5) ───────────────────────────────────────────────────────
+  // ── Bullets (3-5, prioritized) ──────────────────────────────────────────
   const bullets: string[] = [];
 
-  // Machine bullets
+  // 1. Machine role bullets
   for (const entry of machineEntries) {
     bullets.push(isMulti ? entry.profile.combo : entry.profile.solo);
   }
 
-  // Best tool bullets (1-2 per machine, avoid repeating machine desc)
+  // 2. Top tool bullets (max 2 per machine in solo, 1 in multi)
   for (const entry of machineEntries) {
-    const toolBullets = entry.categories.slice(0, isMulti ? 1 : 2);
-    for (const cat of toolBullets) {
+    for (const cat of entry.categories.slice(0, isMulti ? 1 : 2)) {
       bullets.push(cat.bullet);
     }
   }
 
-  // Comfort: merge into one bullet if 2+, otherwise add individually
+  // 3. Comfort (merged if 2+)
   if (allComfortParts.length >= 2) {
-    bullets.push(`Valg af ${allComfortParts.join(', ')} giver operatøren markant bedre komfort og arbejdsforhold i daglig drift`);
+    bullets.push(`Valg af ${allComfortParts.join(', ')} giver operatøren bedre komfort og arbejdsforhold`);
   } else if (allComfortParts.length === 1) {
-    // Find the original bullet for this single comfort item
-    const singleComfort = OPTION_INSIGHTS.find(i => i.comfortGroup === allComfortParts[0]);
-    if (singleComfort) bullets.push(singleComfort.bullet);
+    const single = OPTION_INSIGHTS.find(i => i.comfortGroup === allComfortParts[0]);
+    if (single) bullets.push(single.bullet);
   }
 
-  // Non-comfort insights (bio oil, chassis preservation, etc.)
+  // 4. Non-comfort insights (bio oil, chassis, etc.)
   for (const entry of machineEntries) {
     for (const ins of entry.insights) {
       if (!bullets.includes(ins)) bullets.push(ins);
     }
   }
 
-  // Package-level
+  // 5. Package-level closing bullet
   if (hasAllYear) {
-    bullets.push('Samlet giver pakken en højere årlig udnyttelse, større fleksibilitet og en mere komplet driftsløsning');
+    bullets.push('Pakken giver højere årlig udnyttelse og stærkere driftsøkonomi på tværs af sæsonerne');
   } else if (machineEntries.reduce((n, e) => n + e.categories.length, 0) >= 2) {
-    bullets.push('De valgte redskaber giver en bredere anvendelse og bedre udnyttelse af maskinen gennem sæsonen');
-  }
-
-  if (isMulti) {
-    bullets.push('Én leverandør for hele løsningen sikrer ensartet service, reservedele og nem drift');
+    bullets.push('De valgte redskaber giver bredere anvendelse og bedre udnyttelse gennem sæsonen');
   }
 
   const finalBullets = bullets.slice(0, 5);
 
-  return `${title}\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return `${intro}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
 }
