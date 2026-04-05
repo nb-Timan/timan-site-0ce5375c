@@ -22,7 +22,7 @@ interface Props {
   language: Language;
   currentState: ConfiguratorState;
   onLogout: () => void;
-  onRestoreState: (state: ConfiguratorState) => void;
+  onRestoreState: (state: ConfiguratorState, configId: string) => void;
 }
 
 function getRoleBadge(role: string, lang: Language) {
@@ -143,7 +143,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleOpen = (item: SavedConfiguration) => {
-    onRestoreState(item.state_json);
+    onRestoreState(item.state_json, item.id);
     setOpen(false);
   };
 
