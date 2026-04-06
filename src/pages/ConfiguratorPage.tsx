@@ -1489,7 +1489,7 @@ export default function ConfiguratorPage() {
 
       {/* Sales arguments + recommendation prompt modal */}
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{lang === 'da' ? 'Tilbud – valgmuligheder' : 'Quote – options'}</DialogTitle>
           </DialogHeader>
@@ -1526,34 +1526,69 @@ export default function ConfiguratorPage() {
               </div>
             </div>
 
-            {includeSalesArgs && (() => {
-              const sections = salesArgsText.split('\n\n');
-              const headingRaw = sections[0] || '';
-              const heading = headingRaw.replace(/\*\*/g, '');
-              const paragraph = sections[1] || '';
-              const bulletsRaw = sections[2] || '';
-              const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
+            {includeSalesArgs && salesArgsData && (() => {
+              const allBullets = [...salesArgsData.defaultBullets, ...salesArgsData.extraBullets];
+              const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+              const toggleSalesBullet = (bullet: string) => {
+                setSelectedSalesBullets(prev => {
+                  const next = new Set(prev);
+                  if (next.has(bullet)) {
+                    next.delete(bullet);
+                    return next;
+                  }
+                  // Check max 7 across both sections
+                  if (totalSelected >= 7) return prev;
+                  next.add(bullet);
+                  return next;
+                });
+              };
               return (
                 <div className="border rounded-lg p-5 bg-muted/30 space-y-4">
-                  {heading && <h3 className="text-base font-bold text-foreground">{heading}</h3>}
-                  {paragraph && <p className="text-sm text-foreground/90 leading-relaxed">{paragraph}</p>}
-                  {bulletLines.length > 0 && (
-                    <ul className="space-y-1.5">
-                      {bulletLines.map((b, i) => (
-                        <li key={i} className="text-sm text-foreground/80 leading-relaxed flex items-start gap-2">
-                          <span className="text-emerald-600 mt-0.5">•</span>
-                          <span>{b.replace(/^•\s*/, '')}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {salesArgsData.heading && <h3 className="text-base font-bold text-foreground">{salesArgsData.heading}</h3>}
+                  {salesArgsData.paragraph && <p className="text-sm text-foreground/90 leading-relaxed">{salesArgsData.paragraph}</p>}
+                  
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7 i alt, ${totalSelected} valgt)` : `Select key points (max 7 total, ${totalSelected} selected)`}
+                    </p>
+                    {allBullets.map((bullet, i) => {
+                      const isChecked = selectedSalesBullets.has(bullet);
+                      const isDefault = i < salesArgsData.defaultBullets.length;
+                      const isDisabled = !isChecked && totalSelected >= 7;
+                      return (
+                        <label
+                          key={i}
+                          className={cn(
+                            'flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition border',
+                            isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-background border-transparent hover:bg-muted/50',
+                            isDisabled && 'opacity-40 cursor-not-allowed',
+                            !isDefault && i === salesArgsData.defaultBullets.length && 'mt-3 pt-3 border-t border-border'
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isDisabled}
+                            onChange={() => !isDisabled && toggleSalesBullet(bullet)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                          />
+                          <span className={cn('text-sm leading-relaxed', isChecked ? 'text-foreground' : 'text-foreground/70')}>
+                            {bullet}
+                          </span>
+                          {!isDefault && !isChecked && (
+                            <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{lang === 'da' ? 'Valgfri' : 'Optional'}</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
           </div>
 
           {/* Section 2: Timan recommendation */}
-          {recommendationText && (
+          {recommendationData && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">
@@ -1586,26 +1621,60 @@ export default function ConfiguratorPage() {
               </div>
 
               {wantRecommendation && (() => {
-                const sections = recommendationText.split('\n\n');
-                const headingRaw = sections[0] || '';
-                const heading = headingRaw.replace(/\*\*/g, '');
-                const paragraph = sections[1] || '';
-                const bulletsRaw = sections[2] || '';
-                const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
+                const allRecBullets = [...recommendationData.defaultBullets, ...recommendationData.extraBullets];
+                const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+                const toggleRecBullet = (bullet: string) => {
+                  setSelectedRecBullets(prev => {
+                    const next = new Set(prev);
+                    if (next.has(bullet)) {
+                      next.delete(bullet);
+                      return next;
+                    }
+                    if (totalSelected >= 7) return prev;
+                    next.add(bullet);
+                    return next;
+                  });
+                };
                 return (
                   <div className="border border-amber-300 rounded-lg p-5 bg-amber-50/50 space-y-4">
-                    {heading && <h3 className="text-base font-bold text-amber-900">{heading}</h3>}
-                    {paragraph && <p className="text-sm text-amber-900/80 leading-relaxed">{paragraph}</p>}
-                    {bulletLines.length > 0 && (
-                      <ul className="space-y-1.5">
-                        {bulletLines.map((b, i) => (
-                          <li key={i} className="text-sm text-amber-900/70 leading-relaxed flex items-start gap-2">
-                            <span className="text-amber-600 mt-0.5">•</span>
-                            <span>{b.replace(/^•\s*/, '')}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {recommendationData.heading && <h3 className="text-base font-bold text-amber-900">{recommendationData.heading}</h3>}
+                    {recommendationData.paragraph && <p className="text-sm text-amber-900/80 leading-relaxed">{recommendationData.paragraph}</p>}
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-amber-700 mb-2">
+                        {lang === 'da' ? `Vælg anbefalinger (maks. 7 i alt, ${totalSelected} valgt)` : `Select recommendations (max 7 total, ${totalSelected} selected)`}
+                      </p>
+                      {allRecBullets.map((bullet, i) => {
+                        const isChecked = selectedRecBullets.has(bullet);
+                        const isDefault = i < recommendationData.defaultBullets.length;
+                        const isDisabled = !isChecked && totalSelected >= 7;
+                        return (
+                          <label
+                            key={i}
+                            className={cn(
+                              'flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition border',
+                              isChecked ? 'bg-amber-50 border-amber-200' : 'bg-background border-transparent hover:bg-muted/50',
+                              isDisabled && 'opacity-40 cursor-not-allowed',
+                              !isDefault && i === recommendationData.defaultBullets.length && 'mt-3 pt-3 border-t border-border'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isDisabled}
+                              onChange={() => !isDisabled && toggleRecBullet(bullet)}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 accent-amber-600"
+                            />
+                            <span className={cn('text-sm leading-relaxed', isChecked ? 'text-amber-900' : 'text-amber-900/60')}>
+                              {bullet}
+                            </span>
+                            {!isDefault && !isChecked && (
+                              <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{lang === 'da' ? 'Valgfri' : 'Optional'}</span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}
