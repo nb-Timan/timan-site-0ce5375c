@@ -43,7 +43,7 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className={cn('w-full sm:w-[280px] justify-start text-left font-normal', !deliveryInfo.date && 'text-muted-foreground')}
+              className={cn('w-full sm:w-[280px] justify-start text-left font-normal cursor-pointer', !deliveryInfo.date && 'text-muted-foreground')}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {deliveryInfo.date ? format(deliveryInfo.date, 'PPP', { locale: da }) : 'Vælg dato'}

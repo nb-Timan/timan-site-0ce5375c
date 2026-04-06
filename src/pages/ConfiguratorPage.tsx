@@ -938,6 +938,8 @@ export default function ConfiguratorPage() {
 
                 accs.forEach((a, idx) => {
                   if (a.hidden || (a.requires && !selectedIds.includes(a.requires))) return;
+                  // RAL color (961050) only for Løs redskab
+                  if ((String(a.id) === ACC_ID_RAL_COLOR || String(a.varenr) === ACC_ID_RAL_COLOR) && machineType !== LOOSE_TOOL_KEY) return;
                   // Danish-only / EUR-only filtering
                   const aId = String(a.id); const aVarenr = String(a.varenr);
                   if ((DANISH_ONLY_ITEM_IDS.has(aId) || DANISH_ONLY_ITEM_IDS.has(aVarenr)) && lang !== 'da') return;
