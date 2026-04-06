@@ -14,7 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
-import { generateSalesArguments } from '@/lib/salesArguments';
+import { generateSalesArguments, generateRecommendations } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
