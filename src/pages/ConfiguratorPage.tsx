@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
+import { format } from 'date-fns';
+import { da, de, enGB, hu, it } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
@@ -6,9 +9,13 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
 import { generateSalesArguments } from '@/lib/salesArguments';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
@@ -65,6 +72,8 @@ export default function ConfiguratorPage() {
 
   const lang = state.language;
   const T = (key: string) => t(key, lang);
+  const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
+  const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + (c.type !== LOOSE_TOOL_KEY ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
@@ -794,8 +803,40 @@ export default function ConfiguratorPage() {
                 <p className="text-gray-600 font-medium mb-6">{T('step2Desc')}</p>
                 <div className="mb-8 mx-auto max-w-sm">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
-                  <input type="date" value={state.date} onChange={e => setDate(e.target.value)}
-                    className="mt-1 w-40 p-1 border rounded-lg text-base text-center mx-auto block" />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          'mt-1 w-full rounded-full justify-start text-left font-normal',
+                          !state.date && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="flex-1 pointer-events-none select-none">
+                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : 'dd-mm-åååå'}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDeliveryDate}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          setDate(format(date, 'yyyy-MM-dd'));
+                        }}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {(() => {
                     const hasDeliveryDiscount = state.date && (() => {
                       const d = new Date(state.date);
