@@ -1536,8 +1536,8 @@ export default function ConfiguratorPage() {
                     next.delete(bullet);
                     return next;
                   }
-                  // Check max 7 across both sections
-                  if (totalSelected >= 7) return prev;
+                   // Check max 7 in this section
+                   if (prev.size >= 7) return prev;
                   next.add(bullet);
                   return next;
                 });
