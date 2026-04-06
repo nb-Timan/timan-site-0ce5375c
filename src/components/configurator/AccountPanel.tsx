@@ -321,7 +321,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         )}
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <span className="text-sm text-gray-400">
-                            {item.case_type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                            {item.case_type === 'quote' ? tx('quote') : tx('order')}
                           </span>
                           <span className="text-sm text-gray-300">·</span>
                           <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
