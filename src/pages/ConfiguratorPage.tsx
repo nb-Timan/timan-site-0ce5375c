@@ -99,6 +99,18 @@ export default function ConfiguratorPage() {
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
 
+  // Auto-fill email fields when entering step 4
+  useEffect(() => {
+    if (state.step === 4) {
+      if (appUser?.email && !state.email) {
+        setCustomerField('email', appUser.email);
+      }
+      if (state.flowType === 'order' && !state.emailRecipient) {
+        setCustomerField('emailRecipient', 'NB@Timan.dk');
+      }
+    }
+  }, [state.step]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
   // Show auto-add modal for wire harness
