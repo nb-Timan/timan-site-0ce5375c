@@ -101,7 +101,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       if (result.error) {
         console.error('handleSave failed:', result.error);
-        toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+        toast.error(tx('saveFailed'), {
           description: result.error,
         });
         return;
