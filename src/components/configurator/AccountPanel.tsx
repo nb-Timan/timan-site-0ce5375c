@@ -128,7 +128,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('Unexpected save error:', error);
-      toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+      toast.error(tx('saveFailed'), {
         description: message,
       });
     } finally {
