@@ -72,6 +72,8 @@ export default function ConfiguratorPage() {
 
   const lang = state.language;
   const T = (key: string) => t(key, lang);
+  const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
+  const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + (c.type !== LOOSE_TOOL_KEY ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
