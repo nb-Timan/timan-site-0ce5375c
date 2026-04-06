@@ -1256,12 +1256,23 @@ export default function ConfiguratorPage() {
                     <input type="text" value={state.telefon} onChange={e => setCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')} {state.flowType === 'order' && <span className="text-red-500">*</span>}</label>
                     <input type="email" value={state.email} onChange={e => setCustomerField('email', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailSenderPlaceholder')} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('emailRecipientLabel')}</label>
-                    <input type="email" value={state.emailRecipient} onChange={e => setCustomerField('emailRecipient', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailRecipientPlaceholder')} />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {state.flowType === 'order'
+                        ? (lang === 'da' ? 'E-mail modtager *' : 'Email recipient *')
+                        : T('emailRecipientLabel')}
+                    </label>
+                    <input
+                      type="email"
+                      value={state.emailRecipient}
+                      onChange={e => setCustomerField('emailRecipient', e.target.value)}
+                      className={`w-full p-2 border rounded-lg ${state.flowType === 'order' ? 'bg-gray-100' : ''}`}
+                      placeholder={T('emailRecipientPlaceholder')}
+                      readOnly={state.flowType === 'order'}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
