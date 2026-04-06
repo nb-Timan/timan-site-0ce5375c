@@ -1476,7 +1476,7 @@ export default function ConfiguratorPage() {
 
       {/* Sales arguments + recommendation prompt modal */}
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{lang === 'da' ? 'Tilbud – valgmuligheder' : 'Quote – options'}</DialogTitle>
           </DialogHeader>

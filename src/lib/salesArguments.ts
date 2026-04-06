@@ -319,7 +319,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
 
   const finalBullets = bullets.slice(0, 5);
 
-  return `**${heading}**\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return `${heading}\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
 }
 
 // ─── Recommendation engine ──────────────────────────────────────────────────
@@ -554,7 +554,7 @@ export function generateRecommendations(state: ConfiguratorState): string | null
   para += `Når vi kigger på den samlede konfiguration, er der dog ${countWord}, vi typisk vil anbefale ud fra vores erfaring med lignende opsætninger – ikke fordi der mangler noget afgørende, men fordi det kan gøre en mærkbar forskel i den daglige drift.`;
 
   // ── Build the bullets ─────────────────────────────────────
-  const bullets = topPicks.map(p => `**${p.rule.label}** – ${p.rule.reason}`);
+  const bullets = topPicks.map(p => `${p.rule.label} – ${p.rule.reason}`);
 
-  return `**${heading}**\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
+  return `${heading}\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
 }
