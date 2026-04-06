@@ -1549,7 +1549,7 @@ export default function ConfiguratorPage() {
                   
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7 i alt, ${totalSelected} valgt)` : `Select key points (max 7 total, ${totalSelected} selected)`}
+                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7, ${totalSelected} valgt)` : `Select key points (max 7, ${totalSelected} selected)`}
                     </p>
                     {allBullets.map((bullet, i) => {
                       const isChecked = selectedSalesBullets.has(bullet);
