@@ -244,7 +244,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           {/* User details */}
           <div className="space-y-3 text-base border-b pb-5">
             <div className="flex justify-between">
-              <span className="text-gray-500">{tx('Navn', 'Name')}</span>
+              <span className="text-gray-500">{tx('name')}</span>
               <span className="font-medium text-gray-900">{appUser.display_name || '—'}</span>
             </div>
             <div className="flex justify-between">
