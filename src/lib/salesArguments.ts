@@ -310,11 +310,16 @@ export function generateSalesArguments(state: ConfiguratorState): string {
 
   // Ensure 3-5 bullets
   if (bullets.length < 3) {
-    if (isMulti) {
+    if (isLooseOnly) {
+      bullets.push('Redskaberne er valgt til at passe den eksisterende maskinpark og kan tages i brug uden yderligere investeringer i nye maskiner');
+    } else if (isMulti) {
       bullets.push('Maskinerne supplerer hinanden og giver en sammenhængende løsning med færre enheder');
     } else {
       bullets.push('En fokuseret løsning, der er enkel at drifte og hurtig at sætte i arbejde');
     }
+  }
+  if (bullets.length < 3 && isLooseOnly) {
+    bullets.push('Fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
   }
 
   const finalBullets = bullets.slice(0, 5);
