@@ -270,7 +270,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           {/* Saved items */}
           <div className="pt-3">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
+              <h3 className="text-lg font-bold text-gray-800">{tx('savedCases')}</h3>
               {canSave ? (
                 <button
                   onClick={() => setShowSaveInput(v => !v)}
