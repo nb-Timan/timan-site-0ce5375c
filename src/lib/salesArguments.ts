@@ -319,7 +319,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
 
   const finalBullets = bullets.slice(0, 5);
 
-  return `**${heading}**\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return `${heading}\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
 }
 
 // ─── Recommendation engine ──────────────────────────────────────────────────
