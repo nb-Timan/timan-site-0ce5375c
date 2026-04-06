@@ -326,3 +326,238 @@ export function generateSalesArguments(state: ConfiguratorState): string {
 
   return `**${heading}**\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
 }
+
+// ─── Recommendation engine ──────────────────────────────────────────────────
+// Analyzes selected vs available accessories and recommends 2-4 valuable missing add-ons.
+
+interface RecommendationRule {
+  /** IDs or varenr patterns that indicate this add-on category */
+  matchIds: string[];
+  /** IDs that, if ANY is selected, mean the parent product is present */
+  parentIds: string[];
+  /** Human-readable Danish name */
+  label: string;
+  /** A warm, consultant-style recommendation sentence */
+  reason: string;
+  /** Priority: 1 = removes frustration, 2 = efficiency, 3 = comfort, 4 = durability */
+  priority: number;
+}
+
+const RECOMMENDATION_RULES: RecommendationRule[] = [
+  // RC-1000S recommendations
+  {
+    matchIds: [ACC_ID_WORK_LIGHT, '412594'],
+    parentIds: ['410910', '411666', '411800', '412040', 'HFS-1012', ACC_ID_VPLOW, '411845', '418000', ACC_ID_WEEDBRUSH],
+    label: 'Arbejdslamper til RC-1000s',
+    reason: 'gør det muligt at arbejde sikkert i dårlig belysning og forlænger den effektive arbejdsdag markant, især i de mørke vintermåneder',
+    priority: 1,
+  },
+  {
+    matchIds: [ACC_ID_FLASH_LIGHT, '411630'],
+    parentIds: ['410910', '411666', '411800', '412040', 'HFS-1012', ACC_ID_VPLOW, '411845', '418000', ACC_ID_WEEDBRUSH],
+    label: 'Blitzlys til RC-1000s',
+    reason: 'øger sikkerheden markant ved arbejde nær veje og trafik – og er ofte et krav fra kommuner og vejdirektorat',
+    priority: 1,
+  },
+  {
+    matchIds: [ACC_ID_WARRANTY_1000, '795016'],
+    parentIds: ['410910', '411666', '411800', '412040'],
+    label: 'Udvidet komponentgaranti (RC-1000s)',
+    reason: 'giver ekstra tryghed og beskytter mod uforudsete reparationsomkostninger i de første vigtige driftsår',
+    priority: 3,
+  },
+  // RC-751 recommendations  
+  {
+    matchIds: [ACC_ID_WARRANTY_751, '795015'],
+    parentIds: ['411687', '411571', '411866', '411867'],
+    label: 'Udvidet komponentgaranti (RC-751)',
+    reason: 'sikrer at maskinen er dækket mod uventede komponentfejl og reducerer risikoen for dyre driftsstop',
+    priority: 3,
+  },
+  {
+    matchIds: ['411571'],
+    parentIds: ['411687', '411866', '411867'],
+    label: 'Spikes-sæt til RC-751',
+    reason: 'giver markant bedre greb på blødt underlag og skråninger med mos, hvilket reducerer risikoen for at maskinen glider',
+    priority: 1,
+  },
+  // Timan 3330 recommendations
+  {
+    matchIds: ['712175'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138', '730105', '730106', '730017', 'HGM-2007', '730130'],
+    label: 'Konservering af chassis og hydraulik',
+    reason: 'beskytter maskinen mod rust og korrosion – særligt vigtigt hvis den bruges til saltspredning eller i våde miljøer, hvor det kan forlænge levetiden betydeligt',
+    priority: 4,
+  },
+  {
+    matchIds: ['712060'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'],
+    label: 'Aircondition',
+    reason: 'gør en markant forskel på lange driftsdage i sommervarmen og sikrer, at operatøren kan holde koncentrationen hele dagen',
+    priority: 3,
+  },
+  {
+    matchIds: ['712147'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'],
+    label: 'Skyderuder',
+    reason: 'giver mulighed for bedre ventilation og direkte kontakt med omgivelserne – en lille detalje, der gør hverdagen væsentligt mere behagelig',
+    priority: 3,
+  },
+  {
+    matchIds: ['712140'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'],
+    label: 'Luftaffjedret sæde',
+    reason: 'reducerer vibrationer og belastning på kroppen og er en god investering i operatørens helbred ved daglig brug',
+    priority: 3,
+  },
+  {
+    matchIds: ['712166', '712167'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'],
+    label: 'Bakkamera',
+    reason: 'giver overblik bagud og øger sikkerheden markant, både for operatøren og for omgivelserne',
+    priority: 1,
+  },
+  {
+    matchIds: ['795002'],
+    parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138', '730017', 'HGM-2007'],
+    label: 'Udvidet komponentgaranti (Timan 3330)',
+    reason: 'sikrer ro i maven og beskytter investeringen mod uforudsete reparationsomkostninger',
+    priority: 4,
+  },
+  // CS-200 / spreader sub-item recommendations
+  {
+    matchIds: ['712902', '725131__712902', '725132__712902', '725138__712902'],
+    parentIds: ['725131', '725132', '725138'],
+    label: 'Rustbeskyttelse til CS-200 spreder',
+    reason: 'er næsten et must, når sprederen bruges til salt – uden rustbeskyttelse kan levetiden reduceres markant',
+    priority: 4,
+  },
+  {
+    matchIds: ['725120', '725131__725120', '725132__725120', '725138__725120'],
+    parentIds: ['725131', '725132', '725138'],
+    label: 'LED arbejdslys bag på spreder',
+    reason: 'gør saltspredning i mørke langt mere overskuelig og sikker – en lille investering med stor daglig nytte',
+    priority: 1,
+  },
+  {
+    matchIds: ['V34-029', '725131__V34-029', '725132__V34-029', '725138__V34-029'],
+    parentIds: ['725131', '725132', '725138'],
+    label: 'Vogn til afmontering af spreder',
+    reason: 'gør det væsentligt nemmere at skifte mellem spreder og andre redskaber – en stor tidsbesparelse i hverdagen',
+    priority: 1,
+  },
+  {
+    matchIds: ['V34-055', '725131__V34-055', '725132__V34-055', '725138__V34-055'],
+    parentIds: ['725131', '725132', '725138'],
+    label: 'Lad med hydraulisk tip',
+    reason: 'giver mulighed for at transportere og tippe salt eller materialer direkte – og gør maskinen mere alsidig i den daglige drift',
+    priority: 2,
+  },
+  // Sweeper / T2/T3 sub-item recommendations
+  {
+    matchIds: ['721122', '721122_720125', '721122_720130', '721122_720132', '721122_720133'],
+    parentIds: ['720125', '720130', '720132', '720133'],
+    label: 'Fabriksmontering af centerslange',
+    reason: 'sikrer optimal sugeevne fra dag ét og sparer tid på eftermontering',
+    priority: 2,
+  },
+  {
+    matchIds: ['V34-029_720125', 'V34-029_720130', 'V34-029_720132', 'V34-029_720133'],
+    parentIds: ['720125', '720130', '720132', '720133'],
+    label: 'Vogn til afmontering af fejesug',
+    reason: 'gør det nemt og hurtigt at af- og påmontere fejesugtanken – og giver fleksibilitet i hverdagen',
+    priority: 1,
+  },
+  // Rust protection on sweeper/v-plow for 3330
+  {
+    matchIds: ['LT_712900', '712900'],
+    parentIds: ['730020', '411845'],
+    label: 'Rustbeskyttelse til fejemaskine',
+    reason: 'forlænger levetiden på fejemaskinen og er en lille investering, der beskytter mod dyr korrosion over tid',
+    priority: 4,
+  },
+  {
+    matchIds: ['LT_712901', '712901'],
+    parentIds: ['730114', ACC_ID_VPLOV],
+    label: 'Rustbeskyttelse til V-plov',
+    reason: 'er en god investering – især ved brug sammen med salt, hvor ploven ellers slides hurtigt',
+    priority: 4,
+  },
+];
+
+// Fix typo reference
+const ACC_ID_VPLOV = ACC_ID_VPLOW;
+
+export function generateRecommendations(state: ConfiguratorState): string | null {
+  // Collect ALL selected accessory IDs (including sub-items) across all machines
+  const selectedIds = new Set<string>();
+  const activeMachineTypes: string[] = [];
+
+  for (const mc of state.machineConfigs) {
+    if (mc.qty < 1) continue;
+    activeMachineTypes.push(mc.type);
+    
+    // Shared accessories
+    mc.acc.forEach(id => selectedIds.add(id));
+    
+    // Individual unit configs
+    if (mc.configMode === 'individual') {
+      for (let i = 1; i <= mc.qty; i++) {
+        const key = `${mc.id}_${i}`;
+        const unitCfg = state.individualUnitConfigs[key];
+        if (unitCfg) unitCfg.acc.forEach(id => selectedIds.add(id));
+      }
+    }
+  }
+
+  if (activeMachineTypes.length === 0) return null;
+
+  // Check which parent products are selected
+  const hasParent = (parentIds: string[]) => parentIds.some(id => selectedIds.has(id));
+  
+  // Check if ANY of the match IDs are already selected
+  const isAlreadySelected = (matchIds: string[]) => matchIds.some(id => selectedIds.has(id));
+
+  // Find applicable missing add-ons
+  const candidates: { rule: RecommendationRule }[] = [];
+
+  for (const rule of RECOMMENDATION_RULES) {
+    // Skip if the add-on is already selected
+    if (isAlreadySelected(rule.matchIds)) continue;
+    // Skip if the parent product is not selected
+    if (!hasParent(rule.parentIds)) continue;
+    
+    candidates.push({ rule });
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Sort by priority (1=best), take top 2-4
+  candidates.sort((a, b) => a.rule.priority - b.rule.priority);
+  const topPicks = candidates.slice(0, 4);
+  // Ensure at least 2
+  if (topPicks.length < 2) {
+    // Only 1 recommendation is too thin — but still show it
+  }
+
+  // ── Build the heading ─────────────────────────────────────
+  const heading = 'Timans anbefaling til denne konfiguration';
+
+  // ── Build the paragraph ───────────────────────────────────
+  const machineLabel = activeMachineTypes
+    .filter(t => t !== LOOSE_TOOL_KEY)
+    .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
+    .join(' og ');
+  const hasLT = activeMachineTypes.includes(LOOSE_TOOL_KEY);
+  const subjectLabel = machineLabel 
+    ? (hasLT ? `${machineLabel} og de valgte løse redskaber` : machineLabel)
+    : 'de valgte løse redskaber';
+
+  let para = `Den valgte konfiguration af ${subjectLabel} er allerede en stærk og gennemtænkt løsning. `;
+  para += `For at få endnu mere ud af pakken i den daglige drift, vil vi fremhæve ${topPicks.length === 1 ? 'ét tilvalg' : `${topPicks.length} tilvalg`}, som efter vores erfaring gør en mærkbar forskel i hverdagen.`;
+
+  // ── Build the bullets ─────────────────────────────────────
+  const bullets = topPicks.map(p => `${p.rule.label} – ${p.rule.reason}`);
+
+  return `**${heading}**\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
+}
