@@ -162,7 +162,7 @@ export function generateSalesArguments(state: ConfiguratorState): SalesArgsStruc
   if (comfortParts.length > 0) caps.add('comfort');
 
   if (machineTypes.length === 0) {
-    return 'Vælg maskiner og redskaber for at generere salgsargumenter.';
+    return { heading: '', paragraph: 'Vælg maskiner og redskaber for at generere salgsargumenter.', defaultBullets: [], extraBullets: [] };
   }
 
   const isLooseOnly = hasLooseTools && machineTypes.length === 1 && machineTypes[0] === LOOSE_TOOL_KEY;
