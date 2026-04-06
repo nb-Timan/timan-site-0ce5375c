@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
@@ -98,6 +98,18 @@ export default function ConfiguratorPage() {
   const [selectedRecBullets, setSelectedRecBullets] = useState<Set<string>>(new Set());
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
+
+  // Auto-fill email fields when entering step 4
+  useEffect(() => {
+    if (state.step === 4) {
+      if (appUser?.email && !state.email) {
+        setCustomerField('email', appUser.email);
+      }
+      if (state.flowType === 'order' && !state.emailRecipient) {
+        setCustomerField('emailRecipient', 'NB@Timan.dk');
+      }
+    }
+  }, [state.step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
@@ -674,7 +686,9 @@ export default function ConfiguratorPage() {
             <div ref={confirmContentRef} dangerouslySetInnerHTML={{ __html: buildConfirmationHtml() }} />
             <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
               <button onClick={() => setConfirmModalOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
-              <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">{T('downloadPdfBtn')}</button>
+              <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">
+                {state.flowType === 'order' ? (lang === 'da' ? 'Afsend ordre til Timan' : 'Submit order to Timan') : T('downloadPdfBtn')}
+              </button>
             </div>
           </div>
         </div>
@@ -1249,12 +1263,23 @@ export default function ConfiguratorPage() {
                     <input type="text" value={state.telefon} onChange={e => setCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')} {state.flowType === 'order' && <span className="text-red-500">*</span>}</label>
                     <input type="email" value={state.email} onChange={e => setCustomerField('email', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailSenderPlaceholder')} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('emailRecipientLabel')}</label>
-                    <input type="email" value={state.emailRecipient} onChange={e => setCustomerField('emailRecipient', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailRecipientPlaceholder')} />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {state.flowType === 'order'
+                        ? (lang === 'da' ? 'E-mail modtager *' : 'Email recipient *')
+                        : T('emailRecipientLabel')}
+                    </label>
+                    <input
+                      type="email"
+                      value={state.emailRecipient}
+                      onChange={e => setCustomerField('emailRecipient', e.target.value)}
+                      className={`w-full p-2 border rounded-lg ${state.flowType === 'order' ? 'bg-gray-100' : ''}`}
+                      placeholder={T('emailRecipientPlaceholder')}
+                      readOnly={state.flowType === 'order'}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
