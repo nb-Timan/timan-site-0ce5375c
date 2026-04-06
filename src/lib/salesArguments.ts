@@ -534,9 +534,9 @@ export function generateRecommendations(state: ConfiguratorState): string | null
   }
 
   // ── Build the heading ─────────────────────────────────────
-  const heading = 'Timans anbefaling til denne konfiguration';
+  const heading = 'Det ville vi anbefale herfra';
 
-  // ── Build the paragraph ───────────────────────────────────
+  // ── Build the paragraph (connected advisory, not intro to a list) ────
   const machineLabel = activeMachineTypes
     .filter(t => t !== LOOSE_TOOL_KEY)
     .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
@@ -546,11 +546,15 @@ export function generateRecommendations(state: ConfiguratorState): string | null
     ? (hasLT ? `${machineLabel} og de valgte løse redskaber` : machineLabel)
     : 'de valgte løse redskaber';
 
-  let para = `Den valgte konfiguration af ${subjectLabel} er allerede en stærk og gennemtænkt løsning. `;
-  para += `For at få endnu mere ud af pakken i den daglige drift, vil vi fremhæve ${topPicks.length === 1 ? 'ét tilvalg' : `${topPicks.length} tilvalg`}, som efter vores erfaring gør en mærkbar forskel i hverdagen.`;
+  // Build a connected paragraph that acknowledges the setup and transitions naturally into recommendations
+  const pickCount = topPicks.length;
+  const countWord = pickCount === 1 ? 'én ting' : pickCount === 2 ? 'et par ting' : 'nogle få ting';
+
+  let para = `I har allerede sat en stærk løsning sammen med ${subjectLabel}, og der er tydeligvis tænkt over, hvad der skal til. `;
+  para += `Når vi kigger på den samlede konfiguration, er der dog ${countWord}, vi typisk vil anbefale ud fra vores erfaring med lignende opsætninger – ikke fordi der mangler noget afgørende, men fordi det kan gøre en mærkbar forskel i den daglige drift.`;
 
   // ── Build the bullets ─────────────────────────────────────
-  const bullets = topPicks.map(p => `${p.rule.label} – ${p.rule.reason}`);
+  const bullets = topPicks.map(p => `**${p.rule.label}** – ${p.rule.reason}`);
 
   return `**${heading}**\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
 }
