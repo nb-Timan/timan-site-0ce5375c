@@ -67,9 +67,22 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
                 setCalendarOpen(false);
               }}
               disabled={(d) => d < new Date()}
+              modifiers={{
+                discount: (d) => d > threeMonthsAhead,
+              }}
+              modifiersStyles={{
+                discount: {
+                  backgroundColor: 'hsl(45 93% 80%)',
+                  borderRadius: '6px',
+                },
+              }}
               initialFocus
               className="p-3 pointer-events-auto"
             />
+            <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
+              Gul markering = 2% ekstra rabat
+            </div>
           </PopoverContent>
         </Popover>
         <p className="text-xs text-muted-foreground">
