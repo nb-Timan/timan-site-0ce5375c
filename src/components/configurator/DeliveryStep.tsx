@@ -42,11 +42,17 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
         <Popover>
           <PopoverTrigger asChild>
             <Button
+              type="button"
               variant="outline"
-              className={cn('w-full sm:w-[280px] justify-start text-left font-normal cursor-pointer', !deliveryInfo.date && 'text-muted-foreground')}
+              className={cn(
+                'w-full sm:w-[280px] justify-start text-left font-normal cursor-pointer pointer-events-auto select-none',
+                !deliveryInfo.date && 'text-muted-foreground'
+              )}
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {deliveryInfo.date ? format(deliveryInfo.date, 'PPP', { locale: da }) : 'Vælg dato'}
+              <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+              <span className="pointer-events-none">
+                {deliveryInfo.date ? format(deliveryInfo.date, 'PPP', { locale: da }) : 'Vælg dato'}
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
