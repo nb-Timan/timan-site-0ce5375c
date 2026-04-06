@@ -478,7 +478,7 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
   },
   {
     matchIds: ['LT_712901', '712901'],
-    parentIds: ['730114', ACC_ID_VPLOV],
+    parentIds: ['730114', ACC_ID_VPLOW],
     label: 'Rustbeskyttelse til V-plov',
     reason: 'er en god investering – især ved brug sammen med salt, hvor ploven ellers slides hurtigt',
     priority: 4,
