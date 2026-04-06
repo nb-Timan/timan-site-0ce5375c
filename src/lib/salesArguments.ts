@@ -193,7 +193,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
     const toolCount = looseToolNames.length;
     if (isAllYear) {
       parts.push(`Med ${toolCount} udvalgte redskaber er der sammensat en redskabspakke, der udvider den eksisterende maskinparks kapacitet på tværs af sæsoner – fra grøn vedligeholdelse til vinterberedskab.`);
-    } else if (taskMentions.length > 0) {
+    } else if (hasGreen || hasSweep) {
       parts.push(`De valgte redskaber er sammensat med fokus på at styrke den daglige drift med præcist de funktioner, der gør den eksisterende maskinpark mere alsidigt anvendelig.`);
     } else {
       parts.push(`De valgte løse redskaber udvider maskinparkens funktionalitet med målrettede løsninger til de konkrete driftsopgaver.`);
