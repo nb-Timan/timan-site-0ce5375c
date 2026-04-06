@@ -1478,49 +1478,82 @@ export default function ConfiguratorPage() {
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{lang === 'da' ? 'Ønsker du at tilføje salgsargumenter?' : 'Add sales arguments?'}</DialogTitle>
+            <DialogTitle>{lang === 'da' ? 'Tilbud – valgmuligheder' : 'Quote – options'}</DialogTitle>
           </DialogHeader>
-          {/* Section 1: Sales arguments preview */}
-          {(() => {
-            const sections = salesArgsText.split('\n\n');
-            const headingRaw = sections[0] || '';
-            const heading = headingRaw.replace(/\*\*/g, '');
-            const paragraph = sections[1] || '';
-            const bulletsRaw = sections[2] || '';
-            const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
-            return (
-              <div className="border rounded-lg p-5 bg-muted/30 space-y-4">
-                {heading && <h3 className="text-base font-bold text-foreground">{heading}</h3>}
-                {paragraph && <p className="text-sm text-foreground/90 leading-relaxed">{paragraph}</p>}
-                {bulletLines.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {bulletLines.map((b, i) => (
-                      <li key={i} className="text-sm text-foreground/80 leading-relaxed flex items-start gap-2">
-                        <span className="text-emerald-600 mt-0.5">•</span>
-                        <span>{b.replace(/^•\s*/, '')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+
+          {/* Section 1: Sales arguments */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">
+                {lang === 'da' ? 'Ønsker du at tilføje salgsargumenter?' : 'Include sales arguments?'}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIncludeSalesArgs(true)}
+                  className={cn(
+                    'px-4 py-1.5 text-xs font-medium rounded-full border transition',
+                    includeSalesArgs
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'border-border text-muted-foreground hover:border-emerald-400'
+                  )}
+                >
+                  {lang === 'da' ? 'Ja' : 'Yes'}
+                </button>
+                <button
+                  onClick={() => setIncludeSalesArgs(false)}
+                  className={cn(
+                    'px-4 py-1.5 text-xs font-medium rounded-full border transition',
+                    !includeSalesArgs
+                      ? 'bg-muted text-foreground border-border'
+                      : 'border-border text-muted-foreground hover:border-border'
+                  )}
+                >
+                  {lang === 'da' ? 'Nej' : 'No'}
+                </button>
               </div>
-            );
-          })()}
+            </div>
+
+            {includeSalesArgs && (() => {
+              const sections = salesArgsText.split('\n\n');
+              const headingRaw = sections[0] || '';
+              const heading = headingRaw.replace(/\*\*/g, '');
+              const paragraph = sections[1] || '';
+              const bulletsRaw = sections[2] || '';
+              const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
+              return (
+                <div className="border rounded-lg p-5 bg-muted/30 space-y-4">
+                  {heading && <h3 className="text-base font-bold text-foreground">{heading}</h3>}
+                  {paragraph && <p className="text-sm text-foreground/90 leading-relaxed">{paragraph}</p>}
+                  {bulletLines.length > 0 && (
+                    <ul className="space-y-1.5">
+                      {bulletLines.map((b, i) => (
+                        <li key={i} className="text-sm text-foreground/80 leading-relaxed flex items-start gap-2">
+                          <span className="text-emerald-600 mt-0.5">•</span>
+                          <span>{b.replace(/^•\s*/, '')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Section 2: Timan recommendation */}
           {recommendationText && (
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-foreground">
-                  {lang === 'da' ? 'Vil du også høre, hvad Timan anbefaler?' : 'Would you also like to hear Timan\'s recommendation?'}
-                </label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">
+                  {lang === 'da' ? 'Vil du også høre, hvad Timan anbefaler?' : 'Would you also like Timan\'s recommendation?'}
+                </span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setWantRecommendation(true)}
                     className={cn(
-                      'px-3 py-1 text-xs font-medium rounded-full border transition',
+                      'px-4 py-1.5 text-xs font-medium rounded-full border transition',
                       wantRecommendation
-                        ? 'bg-amber-500 text-white border-amber-500'
-                        : 'border-border text-muted-foreground hover:border-amber-400'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'border-border text-muted-foreground hover:border-emerald-400'
                     )}
                   >
                     {lang === 'da' ? 'Ja' : 'Yes'}
@@ -1528,7 +1561,7 @@ export default function ConfiguratorPage() {
                   <button
                     onClick={() => setWantRecommendation(false)}
                     className={cn(
-                      'px-3 py-1 text-xs font-medium rounded-full border transition',
+                      'px-4 py-1.5 text-xs font-medium rounded-full border transition',
                       !wantRecommendation
                         ? 'bg-muted text-foreground border-border'
                         : 'border-border text-muted-foreground hover:border-border'
@@ -1566,7 +1599,7 @@ export default function ConfiguratorPage() {
             </div>
           )}
 
-          <div className="flex gap-3 justify-end mt-2">
+          <div className="flex gap-3 justify-end mt-4 pt-4 border-t">
             <button
               onClick={() => {
                 setSalesArgsModalOpen(false);
@@ -1577,25 +1610,13 @@ export default function ConfiguratorPage() {
             </button>
             <button
               onClick={() => {
-                setIncludeSalesArgs(false);
-                setIncludeRecommendation(false);
-                setSalesArgsModalOpen(false);
-                setConfirmModalOpen(true);
-              }}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted transition"
-            >
-              {lang === 'da' ? 'Nej, fortsæt uden' : 'No, continue without'}
-            </button>
-            <button
-              onClick={() => {
-                setIncludeSalesArgs(true);
                 setIncludeRecommendation(wantRecommendation);
                 setSalesArgsModalOpen(false);
                 setConfirmModalOpen(true);
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
             >
-              {lang === 'da' ? 'Ja, tilføj' : 'Yes, include'}
+              {lang === 'da' ? 'Fortsæt' : 'Continue'}
             </button>
           </div>
         </DialogContent>
