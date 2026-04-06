@@ -93,6 +93,9 @@ export default function ConfiguratorPage() {
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
   const [salesArgsText, setSalesArgsText] = useState('');
   const [includeSalesArgs, setIncludeSalesArgs] = useState(false);
+  const [recommendationText, setRecommendationText] = useState<string | null>(null);
+  const [includeRecommendation, setIncludeRecommendation] = useState(false);
+  const [wantRecommendation, setWantRecommendation] = useState(false);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
