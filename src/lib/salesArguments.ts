@@ -485,8 +485,6 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
   },
 ];
 
-// Fix typo reference
-const ACC_ID_VPLOV = ACC_ID_VPLOW;
 
 export function generateRecommendations(state: ConfiguratorState): string | null {
   // Collect ALL selected accessory IDs (including sub-items) across all machines
