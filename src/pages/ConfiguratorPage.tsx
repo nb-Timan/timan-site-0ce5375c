@@ -1630,7 +1630,7 @@ export default function ConfiguratorPage() {
                       next.delete(bullet);
                       return next;
                     }
-                    if (totalSelected >= 7) return prev;
+                    if (prev.size >= 7) return prev;
                     next.add(bullet);
                     return next;
                   });
