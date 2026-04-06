@@ -1230,13 +1230,6 @@ export default function ConfiguratorPage() {
                           if (currentDisplayIdx < displayUnits.length - 1) {
                             setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
                           } else {
-                            // Auto-fill emails when entering step 4
-                            if (appUser?.email && !state.email) {
-                              setCustomerField('email', appUser.email);
-                            }
-                            if (state.flowType === 'order' && !state.emailRecipient) {
-                              setCustomerField('emailRecipient', 'NB@Timan.dk');
-                            }
                             setStep(4);
                           }
                         }}
