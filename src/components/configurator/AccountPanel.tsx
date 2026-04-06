@@ -307,7 +307,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             )}
 
             {savedItems.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
+              <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
             ) : (
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
                 {savedItems.map(item => (
