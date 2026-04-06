@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { DeliveryInfo, DeliveryMethod } from '@/types/configurator';
 import { t } from '@/data/translations';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ const deliveryMethods: { value: DeliveryMethod; icon: typeof Truck; label: strin
 ];
 
 export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPrevious }: DeliveryStepProps) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const threeMonthsAhead = new Date();
   threeMonthsAhead.setMonth(threeMonthsAhead.getMonth() + 3);
   const hasDeliveryDiscount = deliveryInfo.date && deliveryInfo.date > threeMonthsAhead;
@@ -39,7 +41,7 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
             </span>
           )}
         </div>
-        <Popover>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
           <PopoverTrigger asChild>
             <Button
               type="button"
@@ -59,7 +61,11 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
             <Calendar
               mode="single"
               selected={deliveryInfo.date ?? undefined}
-              onSelect={(d) => onDeliveryChange({ date: d ?? null })}
+              defaultMonth={deliveryInfo.date ?? new Date()}
+              onSelect={(d) => {
+                onDeliveryChange({ date: d ?? null });
+                setCalendarOpen(false);
+              }}
               disabled={(d) => d < new Date()}
               initialFocus
               className="p-3 pointer-events-auto"
