@@ -71,6 +71,10 @@ const MACHINE_ROLES: Record<string, { roleInSolution: string; terrainNote: strin
     roleInSolution: 'Timan 3330 håndterer de daglige driftsopgaver fra førerkabinen med hurtige redskabsskift',
     terrainNote: 'arealer, stier og pladser',
   },
+  [LOOSE_TOOL_KEY]: {
+    roleInSolution: 'de valgte løse redskaber udvider kapaciteten på den eksisterende maskinpark med præcist de funktioner, der mangler',
+    terrainNote: 'eksisterende maskinpark',
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -105,21 +109,35 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   const caps = new Set<Capability>();
   const comfortParts: string[] = [];
   const machineTypes: string[] = [];
+  let hasLooseTools = false;
+  const looseToolNames: string[] = [];
 
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
+
+    if (mc.type === LOOSE_TOOL_KEY) {
+      hasLooseTools = true;
+      machineTypes.push(mc.type);
+      // Collect selected loose tool names for context
+      const selectedAcc = getSelectedAccessoryObjects(mc, state);
+      for (const acc of selectedAcc) {
+        const name = getAccName(acc);
+        if (name && !acc.hidden) looseToolNames.push(name);
+        for (const det of ACC_DETECTORS) {
+          if (det.match(acc.id, name)) caps.add(det.cap);
+        }
+      }
+      continue;
+    }
+
     if (MACHINE_ROLES[mc.type]) machineTypes.push(mc.type);
 
     const selectedAcc = getSelectedAccessoryObjects(mc, state);
     for (const acc of selectedAcc) {
       const name = getAccName(acc);
-
-      // Check capabilities
       for (const det of ACC_DETECTORS) {
         if (det.match(acc.id, name)) caps.add(det.cap);
       }
-
-      // Check comfort
       const comfortLabel = COMFORT_IDS[acc.id];
       if (comfortLabel && !comfortParts.includes(comfortLabel)) {
         comfortParts.push(comfortLabel);
@@ -133,20 +151,29 @@ export function generateSalesArguments(state: ConfiguratorState): string {
     return 'Vælg maskiner og redskaber for at generere salgsargumenter.';
   }
 
+  const isLooseOnly = hasLooseTools && machineTypes.length === 1 && machineTypes[0] === LOOSE_TOOL_KEY;
+
   // ── Determine package character ───────────────────────────────────────
   const hasGreen = caps.has('green_rough') || caps.has('green_fine') || caps.has('trimming');
   const hasSweep = caps.has('sweeping') || caps.has('weed');
   const hasWinter = caps.has('snow_plow') || caps.has('snow_blower') || caps.has('salt_spread');
-  const isMulti = machineTypes.length > 1;
+  const realMachines = machineTypes.filter(t => t !== LOOSE_TOOL_KEY);
+  const isMulti = realMachines.length > 1 || (realMachines.length >= 1 && hasLooseTools);
   const isAllYear = (hasGreen || hasSweep) && hasWinter;
 
-  const machineLabel = machineTypes.length === 1
-    ? (machineTypes[0] === 'Timan 3330' ? 'Timan 3330' : machineTypes[0])
-    : machineTypes.map(t => t === 'Timan 3330' ? 'Timan 3330' : t).join(' og ');
+  const machineLabel = isLooseOnly
+    ? 'de valgte løse redskaber'
+    : realMachines.length === 1 && !hasLooseTools
+      ? (realMachines[0] === 'Timan 3330' ? 'Timan 3330' : realMachines[0])
+      : [...realMachines.map(t => t === 'Timan 3330' ? 'Timan 3330' : t), ...(hasLooseTools ? ['supplerende løse redskaber'] : [])].join(' og ');
 
   // ── HEADING ───────────────────────────────────────────────────────────
   let heading: string;
-  if (isAllYear && isMulti) {
+  if (isLooseOnly && isAllYear) {
+    heading = 'Løse redskaber til helårsdrift';
+  } else if (isLooseOnly) {
+    heading = 'Målrettede redskaber til den eksisterende maskinpark';
+  } else if (isAllYear && isMulti) {
     heading = 'En samlet helårsløsning med fuld dækning';
   } else if (isAllYear) {
     heading = 'Stærk helårsløsning med bred anvendelse';
@@ -162,7 +189,16 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   const parts: string[] = [];
 
   // Opening: evaluate the total solution
-  if (isAllYear && isMulti) {
+  if (isLooseOnly) {
+    const toolCount = looseToolNames.length;
+    if (isAllYear) {
+      parts.push(`Med ${toolCount} udvalgte redskaber er der sammensat en redskabspakke, der udvider den eksisterende maskinparks kapacitet på tværs af sæsoner – fra grøn vedligeholdelse til vinterberedskab.`);
+    } else if (hasGreen || hasSweep) {
+      parts.push(`De valgte redskaber er sammensat med fokus på at styrke den daglige drift med præcist de funktioner, der gør den eksisterende maskinpark mere alsidigt anvendelig.`);
+    } else {
+      parts.push(`De valgte løse redskaber udvider maskinparkens funktionalitet med målrettede løsninger til de konkrete driftsopgaver.`);
+    }
+  } else if (isAllYear && isMulti) {
     parts.push(`Den valgte pakke med ${machineLabel} er sammensat som en sammenhængende helårsløsning, hvor maskinerne supplerer hinanden på tværs af opgaver og sæsoner.`);
   } else if (isMulti) {
     parts.push(`Med ${machineLabel} har I valgt en pakke, hvor maskinerne arbejder sammen og dækker et bredt opgavespektrum med færre enheder.`);
@@ -173,7 +209,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   }
 
   // Middle: how machines and tools complement each other
-  if (isMulti) {
+  if (isMulti && !isLooseOnly) {
     const roleParts: string[] = [];
     for (const mt of machineTypes) {
       const role = MACHINE_ROLES[mt];
@@ -274,11 +310,16 @@ export function generateSalesArguments(state: ConfiguratorState): string {
 
   // Ensure 3-5 bullets
   if (bullets.length < 3) {
-    if (isMulti) {
+    if (isLooseOnly) {
+      bullets.push('Redskaberne er valgt til at passe den eksisterende maskinpark og kan tages i brug uden yderligere investeringer i nye maskiner');
+    } else if (isMulti) {
       bullets.push('Maskinerne supplerer hinanden og giver en sammenhængende løsning med færre enheder');
     } else {
       bullets.push('En fokuseret løsning, der er enkel at drifte og hurtig at sætte i arbejde');
     }
+  }
+  if (bullets.length < 3 && isLooseOnly) {
+    bullets.push('Fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
   }
 
   const finalBullets = bullets.slice(0, 5);
