@@ -1642,7 +1642,7 @@ export default function ConfiguratorPage() {
 
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-amber-700 mb-2">
-                        {lang === 'da' ? `Vælg anbefalinger (maks. 7 i alt, ${totalSelected} valgt)` : `Select recommendations (max 7 total, ${totalSelected} selected)`}
+                        {lang === 'da' ? `Vælg anbefalinger (maks. 7, ${totalSelected} valgt)` : `Select recommendations (max 7, ${totalSelected} selected)`}
                       </p>
                       {allRecBullets.map((bullet, i) => {
                         const isChecked = selectedRecBullets.has(bullet);
