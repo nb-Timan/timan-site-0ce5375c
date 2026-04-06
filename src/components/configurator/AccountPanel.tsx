@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,9 +29,9 @@ interface Props {
 
 function getRoleBadge(role: string, lang: Language) {
   const map: Record<string, Record<string, string>> = {
-    slutkunde: { da: 'Default bruger', en: 'Default user' },
-    partner: { da: 'Partner', en: 'Partner' },
-    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales' },
+    slutkunde: { da: 'Default bruger', en: 'Default user', de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó' },
+    partner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
+    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkauf', it: 'Timan Vendite', hu: 'Timan Értékesítő' },
   };
   return map[role]?.[lang] || map[role]?.en || role;
 }
@@ -39,9 +39,9 @@ function getRoleBadge(role: string, lang: Language) {
 function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
   if (!subRole) return null;
   const map: Record<PartnerType, Record<string, string>> = {
-    service_partner: { da: 'Service partner', en: 'Service Partner' },
-    forhandler: { da: 'Forhandler', en: 'Dealer' },
-    importoer: { da: 'Importør', en: 'Importer' },
+    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner' },
+    forhandler: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+    importoer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
   };
   return map[subRole]?.[lang] || map[subRole]?.en || subRole;
 }
@@ -54,10 +54,10 @@ function roleBadgeColor(role: string) {
 
 function statusLabel(status: SavedStatus, lang: Language): string {
   const labels: Record<SavedStatus, Record<string, string>> = {
-    aktiv: { da: 'Aktiv', en: 'Active' },
-    pause: { da: 'Pause', en: 'Paused' },
-    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted' },
-    deleted: { da: 'Slettet', en: 'Deleted' },
+    aktiv: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+    pause: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
+    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Bestellung aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
+    deleted: { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
   };
   return labels[status]?.[lang] || labels[status]?.en || status;
 }
@@ -101,7 +101,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       if (result.error) {
         console.error('handleSave failed:', result.error);
-        toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+        toast.error(tx('saveFailed'), {
           description: result.error,
         });
         return;
@@ -114,12 +114,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       }
 
       if (result.itemsError) {
-        toast.error(tx('Sag gemt, men linjer fejlede', 'Case saved, but line items failed'), {
-          description: `${tx('Sag ID', 'Case ID')}: ${result.id} — ${result.itemsError}`,
+        toast.error(tx('savedButLinesFailed'), {
+          description: `${tx('caseId')}: ${result.id} — ${result.itemsError}`,
         });
       } else {
-        toast.success(tx('Sag gemt', 'Case saved'), {
-          description: `${tx('Sag ID', 'Case ID')}: ${result.id}`,
+        toast.success(tx('caseSaved'), {
+          description: `${tx('caseId')}: ${result.id}`,
         });
       }
 
@@ -128,7 +128,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('Unexpected save error:', error);
-      toast.error(tx('Kunne ikke gemme sag', 'Failed to save case'), {
+      toast.error(tx('saveFailed'), {
         description: message,
       });
     } finally {
@@ -153,12 +153,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     const saved = await loadConfigurationById(item.id, userEmail);
 
     if (!saved) {
-      toast.error(tx('Kunne ikke åbne sag', 'Failed to open case'));
+      toast.error(tx('openFailed'));
       return;
     }
 
     if (!saved.has_full_state) {
-      toast.error(tx('Sagen mangler komplet gemt konfigurationsdata', 'The case is missing the full saved configurator state'));
+      toast.error(tx('missingState'));
       return;
     }
 
@@ -171,7 +171,36 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     await updateConfigurationNote(id, text);
   };
 
-  const tx = (da: string, en: string) => language === 'da' ? da : en;
+  const tx = useMemo(() => {
+    const strings: Record<string, Record<Language, string>> = {
+      myAccount: { da: 'Min konto', en: 'My account', de: 'Mein Konto', it: 'Il mio account', hu: 'Fiókom' },
+      name: { da: 'Navn', en: 'Name', de: 'Name', it: 'Nome', hu: 'Név' },
+      role: { da: 'Rolle', en: 'Role', de: 'Rolle', it: 'Ruolo', hu: 'Szerepkör' },
+      partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp', it: 'Tipo di partner', hu: 'Partnertípus' },
+      savedCases: { da: 'Gemte sager', en: 'Saved cases', de: 'Gespeicherte Fälle', it: 'Casi salvati', hu: 'Mentett ügyek' },
+      saveCurrent: { da: '+ Gem nuværende', en: '+ Save current', de: '+ Aktuelle speichern', it: '+ Salva corrente', hu: '+ Jelenlegi mentése' },
+      saveHint: { da: 'Udfyld firma, kontaktperson og email i trin 4 for at gemme', en: 'Fill in company, contact and email in step 4 to save', de: 'Firma, Kontakt und E-Mail in Schritt 4 ausfüllen zum Speichern', it: 'Compila azienda, contatto ed email al passo 4 per salvare', hu: 'Töltsd ki a cégnevet, kapcsolattartót és e-mailt a 4. lépésben a mentéshez' },
+      nameCase: { da: 'Navngiv sag...', en: 'Name case...', de: 'Fall benennen...', it: 'Nomina caso...', hu: 'Ügy elnevezése...' },
+      save: { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés' },
+      noCases: { da: 'Ingen gemte sager', en: 'No saved cases', de: 'Keine gespeicherten Fälle', it: 'Nessun caso salvato', hu: 'Nincsenek mentett ügyek' },
+      quote: { da: 'Tilbud', en: 'Quote', de: 'Angebot', it: 'Preventivo', hu: 'Árajánlat' },
+      order: { da: 'Ordre', en: 'Order', de: 'Bestellung', it: 'Ordine', hu: 'Rendelés' },
+      internalNote: { da: 'Intern note', en: 'Internal note', de: 'Interne Notiz', it: 'Nota interna', hu: 'Belső jegyzet' },
+      writeNote: { da: 'Skriv en huskenote...', en: 'Write a reminder...', de: 'Erinnerung schreiben...', it: 'Scrivi un promemoria...', hu: 'Írj emlékeztetőt...' },
+      open: { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
+      pause: { da: 'Sæt på pause', en: 'Pause', de: 'Pausieren', it: 'Pausa', hu: 'Szüneteltetés' },
+      reactivate: { da: 'Genaktivér', en: 'Reactivate', de: 'Reaktivieren', it: 'Riattiva', hu: 'Újraaktiválás' },
+      delete: { da: 'Slet', en: 'Delete', de: 'Löschen', it: 'Elimina', hu: 'Törlés' },
+      logout: { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+      saveFailed: { da: 'Kunne ikke gemme sag', en: 'Failed to save case', de: 'Speichern fehlgeschlagen', it: 'Salvataggio fallito', hu: 'Mentés sikertelen' },
+      savedButLinesFailed: { da: 'Sag gemt, men linjer fejlede', en: 'Case saved, but line items failed', de: 'Fall gespeichert, aber Positionen fehlgeschlagen', it: 'Caso salvato, ma righe fallite', hu: 'Ügy mentve, de a tételek sikertelenek' },
+      caseSaved: { da: 'Sag gemt', en: 'Case saved', de: 'Fall gespeichert', it: 'Caso salvato', hu: 'Ügy mentve' },
+      caseId: { da: 'Sag ID', en: 'Case ID', de: 'Fall-ID', it: 'ID caso', hu: 'Ügy ID' },
+      openFailed: { da: 'Kunne ikke åbne sag', en: 'Failed to open case', de: 'Öffnen fehlgeschlagen', it: 'Apertura fallita', hu: 'Megnyitás sikertelen' },
+      missingState: { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok' },
+    };
+    return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
+  }, [language]);
 
   return (
     <>
@@ -201,7 +230,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           onClick={() => setOpen(true)}
           className="flex-shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition"
         >
-          {tx('Min konto', 'My account')}
+          {tx('myAccount')}
         </button>
       </div>
 
@@ -209,13 +238,13 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl">{tx('Min konto', 'My account')}</DialogTitle>
+            <DialogTitle className="text-xl">{tx('myAccount')}</DialogTitle>
           </DialogHeader>
 
           {/* User details */}
           <div className="space-y-3 text-base border-b pb-5">
             <div className="flex justify-between">
-              <span className="text-gray-500">{tx('Navn', 'Name')}</span>
+              <span className="text-gray-500">{tx('name')}</span>
               <span className="font-medium text-gray-900">{appUser.display_name || '—'}</span>
             </div>
             <div className="flex justify-between">
@@ -223,14 +252,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <span className="font-medium text-gray-900 truncate ml-4">{appUser.email}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
+              <span className="text-gray-500">{tx('role')}</span>
               <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
                 {getRoleBadge(appUser.role, language)}
               </span>
             </div>
             {appUser.partner_type && (
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">{tx('Partnertype', 'Partner type')}</span>
+                <span className="text-gray-500">{tx('partnerType')}</span>
                 <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
                   {getSubRoleLabel(appUser.partner_type, language)}
                 </span>
@@ -241,17 +270,17 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           {/* Saved items */}
           <div className="pt-3">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">{tx('Gemte sager', 'Saved cases')}</h3>
+              <h3 className="text-lg font-bold text-gray-800">{tx('savedCases')}</h3>
               {canSave ? (
                 <button
                   onClick={() => setShowSaveInput(v => !v)}
                   className="text-sm text-emerald-700 hover:text-emerald-900 font-medium"
                 >
-                  {tx('+ Gem nuværende', '+ Save current')}
+                  {tx('saveCurrent')}
                 </button>
               ) : (
                 <span className="text-xs text-gray-400 italic max-w-[240px] text-right">
-                  {tx('Udfyld firma, kontaktperson og email i trin 4 for at gemme', 'Fill in company, contact and email in step 4 to save')}
+                  {tx('saveHint')}
                 </span>
               )}
             </div>
@@ -263,7 +292,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   value={saveLabel}
                   onChange={e => setSaveLabel(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSave()}
-                  placeholder={tx('Navngiv sag...', 'Name case...')}
+                  placeholder={tx('nameCase')}
                   className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
                   autoFocus
                 />
@@ -272,13 +301,13 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   disabled={saving}
                   className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
                 >
-                  {saving ? '...' : tx('Gem', 'Save')}
+                  {saving ? '...' : tx('save')}
                 </button>
               </div>
             )}
 
             {savedItems.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">{tx('Ingen gemte sager', 'No saved cases')}</p>
+              <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
             ) : (
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
                 {savedItems.map(item => (
@@ -292,7 +321,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         )}
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <span className="text-sm text-gray-400">
-                            {item.case_type === 'quote' ? tx('Tilbud', 'Quote') : tx('Ordre', 'Order')}
+                            {item.case_type === 'quote' ? tx('quote') : tx('order')}
                           </span>
                           <span className="text-sm text-gray-300">·</span>
                           <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
@@ -300,7 +329,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           </span>
                           <span className="text-sm text-gray-300">·</span>
                           <span className="text-sm text-gray-400">
-                            {new Date(item.created_at).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
+                            {new Date(item.created_at).toLocaleDateString({ da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-US')}
                           </span>
                           {item.pdf_downloaded && (
                             <>
@@ -312,12 +341,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       </div>
                       {/* Right: internal note */}
                       <div className="w-48 flex-shrink-0">
-                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
+                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('internalNote')}</div>
                         <textarea
                           rows={2}
                           value={item.internal_note || ''}
                           onChange={e => handleNoteChange(item.id, e.target.value)}
-                          placeholder={tx('Skriv en huskenote...', 'Write a reminder...')}
+                          placeholder={tx('writeNote')}
                           className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
                         />
                       </div>
@@ -329,7 +358,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           onClick={() => void handleOpen(item)}
                           className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
                         >
-                          {tx('Åbn', 'Open')}
+                          {tx('open')}
                         </button>
                       )}
                       {item.case_status !== 'ordre_afgivet' && (
@@ -337,14 +366,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           onClick={() => handleToggleStatus(item.id)}
                           className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
                         >
-                          {item.case_status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                          {item.case_status === 'aktiv' ? tx('pause') : tx('reactivate')}
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(item.id)}
                         className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
                       >
-                        {tx('Slet', 'Delete')}
+                        {tx('delete')}
                       </button>
                     </div>
                   </div>
@@ -359,7 +388,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               onClick={() => { onLogout(); setOpen(false); }}
               className="w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
-              {tx('Log ud', 'Log out')}
+              {tx('logout')}
             </button>
           </div>
         </DialogContent>
