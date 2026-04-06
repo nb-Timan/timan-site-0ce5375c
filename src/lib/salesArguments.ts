@@ -109,21 +109,35 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   const caps = new Set<Capability>();
   const comfortParts: string[] = [];
   const machineTypes: string[] = [];
+  let hasLooseTools = false;
+  const looseToolNames: string[] = [];
 
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
+
+    if (mc.type === LOOSE_TOOL_KEY) {
+      hasLooseTools = true;
+      machineTypes.push(mc.type);
+      // Collect selected loose tool names for context
+      const selectedAcc = getSelectedAccessoryObjects(mc, state);
+      for (const acc of selectedAcc) {
+        const name = getAccName(acc);
+        if (name && !acc.hidden) looseToolNames.push(name);
+        for (const det of ACC_DETECTORS) {
+          if (det.match(acc.id, name)) caps.add(det.cap);
+        }
+      }
+      continue;
+    }
+
     if (MACHINE_ROLES[mc.type]) machineTypes.push(mc.type);
 
     const selectedAcc = getSelectedAccessoryObjects(mc, state);
     for (const acc of selectedAcc) {
       const name = getAccName(acc);
-
-      // Check capabilities
       for (const det of ACC_DETECTORS) {
         if (det.match(acc.id, name)) caps.add(det.cap);
       }
-
-      // Check comfort
       const comfortLabel = COMFORT_IDS[acc.id];
       if (comfortLabel && !comfortParts.includes(comfortLabel)) {
         comfortParts.push(comfortLabel);
@@ -136,6 +150,8 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   if (machineTypes.length === 0) {
     return 'Vælg maskiner og redskaber for at generere salgsargumenter.';
   }
+
+  const isLooseOnly = hasLooseTools && machineTypes.length === 1 && machineTypes[0] === LOOSE_TOOL_KEY;
 
   // ── Determine package character ───────────────────────────────────────
   const hasGreen = caps.has('green_rough') || caps.has('green_fine') || caps.has('trimming');
