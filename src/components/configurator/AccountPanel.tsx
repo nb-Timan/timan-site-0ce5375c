@@ -54,10 +54,10 @@ function roleBadgeColor(role: string) {
 
 function statusLabel(status: SavedStatus, lang: Language): string {
   const labels: Record<SavedStatus, Record<string, string>> = {
-    aktiv: { da: 'Aktiv', en: 'Active' },
-    pause: { da: 'Pause', en: 'Paused' },
-    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted' },
-    deleted: { da: 'Slettet', en: 'Deleted' },
+    aktiv: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+    pause: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
+    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Bestellung aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
+    deleted: { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
   };
   return labels[status]?.[lang] || labels[status]?.en || status;
 }
