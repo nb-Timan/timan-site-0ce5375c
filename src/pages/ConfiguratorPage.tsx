@@ -14,7 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
-import { generateSalesArguments } from '@/lib/salesArguments';
+import { generateSalesArguments, generateRecommendations } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -93,6 +93,9 @@ export default function ConfiguratorPage() {
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
   const [salesArgsText, setSalesArgsText] = useState('');
   const [includeSalesArgs, setIncludeSalesArgs] = useState(false);
+  const [recommendationText, setRecommendationText] = useState<string | null>(null);
+  const [includeRecommendation, setIncludeRecommendation] = useState(false);
+  const [wantRecommendation, setWantRecommendation] = useState(false);
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
@@ -412,6 +415,13 @@ export default function ConfiguratorPage() {
       </div>`;
     }
 
+    if (includeRecommendation && recommendationText) {
+      html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${lang === 'da' ? 'Timans anbefaling' : 'Timan Recommends'}</h2>
+        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recommendationText}</div>
+      </div>`;
+    }
+
     return html;
   };
 
@@ -425,6 +435,10 @@ export default function ConfiguratorPage() {
     if (state.flowType === 'quote') {
       const text = generateSalesArguments(state);
       setSalesArgsText(text);
+      const recText = generateRecommendations(state);
+      setRecommendationText(recText);
+      setWantRecommendation(false);
+      setIncludeRecommendation(false);
       setSalesArgsModalOpen(true);
     } else {
       setConfirmModalOpen(true);
@@ -1460,12 +1474,13 @@ export default function ConfiguratorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Sales arguments prompt modal */}
+      {/* Sales arguments + recommendation prompt modal */}
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{lang === 'da' ? 'Ønsker du at tilføje salgsargumenter?' : 'Add sales arguments?'}</DialogTitle>
           </DialogHeader>
+          {/* Section 1: Sales arguments preview */}
           {(() => {
             const sections = salesArgsText.split('\n\n');
             const headingRaw = sections[0] || '';
@@ -1490,6 +1505,67 @@ export default function ConfiguratorPage() {
               </div>
             );
           })()}
+
+          {/* Section 2: Timan recommendation */}
+          {recommendationText && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-foreground">
+                  {lang === 'da' ? 'Vil du også høre, hvad Timan anbefaler?' : 'Would you also like to hear Timan\'s recommendation?'}
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setWantRecommendation(true)}
+                    className={cn(
+                      'px-3 py-1 text-xs font-medium rounded-full border transition',
+                      wantRecommendation
+                        ? 'bg-amber-500 text-white border-amber-500'
+                        : 'border-border text-muted-foreground hover:border-amber-400'
+                    )}
+                  >
+                    {lang === 'da' ? 'Ja' : 'Yes'}
+                  </button>
+                  <button
+                    onClick={() => setWantRecommendation(false)}
+                    className={cn(
+                      'px-3 py-1 text-xs font-medium rounded-full border transition',
+                      !wantRecommendation
+                        ? 'bg-muted text-foreground border-border'
+                        : 'border-border text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    {lang === 'da' ? 'Nej' : 'No'}
+                  </button>
+                </div>
+              </div>
+
+              {wantRecommendation && (() => {
+                const sections = recommendationText.split('\n\n');
+                const headingRaw = sections[0] || '';
+                const heading = headingRaw.replace(/\*\*/g, '');
+                const paragraph = sections[1] || '';
+                const bulletsRaw = sections[2] || '';
+                const bulletLines = bulletsRaw.split('\n').filter(l => l.trim().startsWith('•'));
+                return (
+                  <div className="border border-amber-300 rounded-lg p-5 bg-amber-50/50 space-y-4">
+                    {heading && <h3 className="text-base font-bold text-amber-900">{heading}</h3>}
+                    {paragraph && <p className="text-sm text-amber-900/80 leading-relaxed">{paragraph}</p>}
+                    {bulletLines.length > 0 && (
+                      <ul className="space-y-1.5">
+                        {bulletLines.map((b, i) => (
+                          <li key={i} className="text-sm text-amber-900/70 leading-relaxed flex items-start gap-2">
+                            <span className="text-amber-600 mt-0.5">•</span>
+                            <span>{b.replace(/^•\s*/, '')}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="flex gap-3 justify-end mt-2">
             <button
               onClick={() => {
@@ -1502,6 +1578,7 @@ export default function ConfiguratorPage() {
             <button
               onClick={() => {
                 setIncludeSalesArgs(false);
+                setIncludeRecommendation(false);
                 setSalesArgsModalOpen(false);
                 setConfirmModalOpen(true);
               }}
@@ -1512,6 +1589,7 @@ export default function ConfiguratorPage() {
             <button
               onClick={() => {
                 setIncludeSalesArgs(true);
+                setIncludeRecommendation(wantRecommendation);
                 setSalesArgsModalOpen(false);
                 setConfirmModalOpen(true);
               }}
