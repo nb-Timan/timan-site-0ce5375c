@@ -129,11 +129,17 @@ export function useConfigurator() {
           accList.push(accId);
         } else {
           accList.splice(idx, 1);
-          // Remove dependents
-          flatAccs.filter(a => a.requires === accId).forEach(dep => {
-            const di = accList.indexOf(dep.id);
-            if (di !== -1) accList.splice(di, 1);
-          });
+          // Recursively remove all dependents (requires + parentId)
+          const removeDependents = (parentId: string) => {
+            flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
+              const di = accList.indexOf(dep.id);
+              if (di !== -1) {
+                accList.splice(di, 1);
+                removeDependents(dep.id);
+              }
+            });
+          };
+          removeDependents(accId);
         }
 
         // Wire harness auto-add logic for RC-1000S
@@ -181,10 +187,17 @@ export function useConfigurator() {
         if (idx === -1) accList.push(accId);
         else {
           accList.splice(idx, 1);
-          flatAccs.filter(a => a.requires === accId).forEach(dep => {
-            const di = accList.indexOf(dep.id);
-            if (di !== -1) accList.splice(di, 1);
-          });
+          // Recursively remove all dependents (requires + parentId)
+          const removeDependents = (parentId: string) => {
+            flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
+              const di = accList.indexOf(dep.id);
+              if (di !== -1) {
+                accList.splice(di, 1);
+                removeDependents(dep.id);
+              }
+            });
+          };
+          removeDependents(accId);
         }
 
         if (unit.modelType === 'RC-1000S') {
