@@ -252,7 +252,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <span className="font-medium text-gray-900 truncate ml-4">{appUser.email}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">{tx('Rolle', 'Role')}</span>
+              <span className="text-gray-500">{tx('role')}</span>
               <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
                 {getRoleBadge(appUser.role, language)}
               </span>
