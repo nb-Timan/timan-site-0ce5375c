@@ -373,7 +373,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         onClick={() => handleDelete(item.id)}
                         className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
                       >
-                        {tx('Slet', 'Delete')}
+                        {tx('delete')}
                       </button>
                     </div>
                   </div>
