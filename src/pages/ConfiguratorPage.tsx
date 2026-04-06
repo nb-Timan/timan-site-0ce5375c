@@ -1528,7 +1528,7 @@ export default function ConfiguratorPage() {
 
             {includeSalesArgs && salesArgsData && (() => {
               const allBullets = [...salesArgsData.defaultBullets, ...salesArgsData.extraBullets];
-              const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+              const totalSelected = selectedSalesBullets.size;
               const toggleSalesBullet = (bullet: string) => {
                 setSelectedSalesBullets(prev => {
                   const next = new Set(prev);
@@ -1536,8 +1536,8 @@ export default function ConfiguratorPage() {
                     next.delete(bullet);
                     return next;
                   }
-                  // Check max 7 across both sections
-                  if (totalSelected >= 7) return prev;
+                   // Check max 7 in this section
+                   if (prev.size >= 7) return prev;
                   next.add(bullet);
                   return next;
                 });
@@ -1549,7 +1549,7 @@ export default function ConfiguratorPage() {
                   
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7 i alt, ${totalSelected} valgt)` : `Select key points (max 7 total, ${totalSelected} selected)`}
+                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7, ${totalSelected} valgt)` : `Select key points (max 7, ${totalSelected} selected)`}
                     </p>
                     {allBullets.map((bullet, i) => {
                       const isChecked = selectedSalesBullets.has(bullet);
@@ -1622,7 +1622,7 @@ export default function ConfiguratorPage() {
 
               {wantRecommendation && (() => {
                 const allRecBullets = [...recommendationData.defaultBullets, ...recommendationData.extraBullets];
-                const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+                const totalSelected = selectedRecBullets.size;
                 const toggleRecBullet = (bullet: string) => {
                   setSelectedRecBullets(prev => {
                     const next = new Set(prev);
@@ -1630,7 +1630,7 @@ export default function ConfiguratorPage() {
                       next.delete(bullet);
                       return next;
                     }
-                    if (totalSelected >= 7) return prev;
+                    if (prev.size >= 7) return prev;
                     next.add(bullet);
                     return next;
                   });
@@ -1642,7 +1642,7 @@ export default function ConfiguratorPage() {
 
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-amber-700 mb-2">
-                        {lang === 'da' ? `Vælg anbefalinger (maks. 7 i alt, ${totalSelected} valgt)` : `Select recommendations (max 7 total, ${totalSelected} selected)`}
+                        {lang === 'da' ? `Vælg anbefalinger (maks. 7, ${totalSelected} valgt)` : `Select recommendations (max 7, ${totalSelected} selected)`}
                       </p>
                       {allRecBullets.map((bullet, i) => {
                         const isChecked = selectedRecBullets.has(bullet);
