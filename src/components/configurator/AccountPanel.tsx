@@ -301,7 +301,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   disabled={saving}
                   className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
                 >
-                  {saving ? '...' : tx('Gem', 'Save')}
+                  {saving ? '...' : tx('save')}
                 </button>
               </div>
             )}
