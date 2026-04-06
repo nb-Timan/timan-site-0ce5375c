@@ -170,19 +170,19 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   // ── HEADING ───────────────────────────────────────────────────────────
   let heading: string;
   if (isLooseOnly && isAllYear) {
-    heading = 'Løse redskaber til helårsdrift';
+    heading = 'Helårsdrift med de rette redskaber';
   } else if (isLooseOnly) {
-    heading = 'Målrettede redskaber til den eksisterende maskinpark';
+    heading = 'De rette redskaber til jeres drift';
   } else if (isAllYear && isMulti) {
-    heading = 'En samlet helårsløsning med fuld dækning';
+    heading = 'En komplet helårsløsning';
   } else if (isAllYear) {
-    heading = 'Stærk helårsløsning med bred anvendelse';
+    heading = 'Klar til drift året rundt';
   } else if (isMulti) {
-    heading = 'En fleksibel og sammenhængende maskinpakke';
+    heading = 'Maskinerne arbejder sammen';
   } else if (hasWinter) {
-    heading = 'Effektiv vinterdrift med stærk maskinplatform';
+    heading = 'Klar til vinteren';
   } else {
-    heading = 'En målrettet og stærk driftsløsning';
+    heading = 'Den rigtige løsning til opgaven';
   }
 
   // ── PARAGRAPH (the main value piece) ──────────────────────────────────
