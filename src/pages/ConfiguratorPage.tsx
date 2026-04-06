@@ -546,6 +546,60 @@ export default function ConfiguratorPage() {
           });
         }
       }
+
+      // Send webhook for Ordre flow
+      if (state.flowType === 'order') {
+        // Save configuration first if not already saved
+        let caseId = savedConfigurationId;
+        if (!caseId && appUser) {
+          try {
+            const label = state.firmanavn
+              ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+              : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+            if (result.id) {
+              caseId = result.id;
+              setSavedConfigurationId(result.id);
+              setIsSavedCurrent(true);
+            }
+          } catch (saveErr) {
+            console.error('Failed to save before webhook:', saveErr);
+          }
+        }
+
+        try {
+          const webhookPayload = {
+            case_id: caseId || '',
+            document_type: 'Ordre',
+            firma: state.firmanavn,
+            kontaktperson: state.kontaktperson,
+            telefon: state.telefon,
+            email_udfylder: state.email,
+            email_modtager: state.emailRecipient,
+            kommentar: state.comment,
+            pdf_url: '',
+          };
+
+          const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-ordre', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          });
+
+          if (webhookRes.ok) {
+            toast.success(lang === 'da' ? 'Ordre afsendt til Timan' : 'Order submitted to Timan');
+          } else {
+            toast.error(lang === 'da' ? 'Kunne ikke afsende ordre til Timan' : 'Failed to submit order to Timan', {
+              description: `Status: ${webhookRes.status}`,
+            });
+          }
+        } catch (webhookErr) {
+          console.error('Webhook call failed:', webhookErr);
+          toast.error(lang === 'da' ? 'Fejl ved afsendelse af ordre' : 'Error submitting order', {
+            description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
+          });
+        }
+      }
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
