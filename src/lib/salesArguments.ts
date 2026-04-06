@@ -7,6 +7,20 @@
 import { ConfiguratorState, MachineConfig, Accessory } from '@/types/configurator';
 import { ACCESSORIES, getLooseToolAccessories, LOOSE_TOOL_KEY, ACC_ID_OIL_BIO, ACC_ID_WORK_LIGHT, ACC_ID_FLASH_LIGHT, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_WARRANTY_1000, ACC_ID_WARRANTY_751 } from '@/data/machines';
 
+export interface SalesArgsStructured {
+  heading: string;
+  paragraph: string;
+  defaultBullets: string[];
+  extraBullets: string[];
+}
+
+export interface RecommendationStructured {
+  heading: string;
+  paragraph: string;
+  defaultBullets: string[];
+  extraBullets: string[];
+}
+
 // ─── Capability tags ───────────────────────────────────────────────────────
 
 type Capability =
@@ -104,7 +118,7 @@ function getSelectedAccessoryObjects(mc: MachineConfig, state: ConfiguratorState
 
 // ─── Main generator ─────────────────────────────────────────────────────────
 
-export function generateSalesArguments(state: ConfiguratorState): string {
+export function generateSalesArguments(state: ConfiguratorState): SalesArgsStructured {
   // Collect all capabilities and comfort features across entire package
   const caps = new Set<Capability>();
   const comfortParts: string[] = [];
@@ -148,7 +162,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   if (comfortParts.length > 0) caps.add('comfort');
 
   if (machineTypes.length === 0) {
-    return 'Vælg maskiner og redskaber for at generere salgsargumenter.';
+    return { heading: '', paragraph: 'Vælg maskiner og redskaber for at generere salgsargumenter.', defaultBullets: [], extraBullets: [] };
   }
 
   const isLooseOnly = hasLooseTools && machineTypes.length === 1 && machineTypes[0] === LOOSE_TOOL_KEY;
@@ -268,58 +282,64 @@ export function generateSalesArguments(state: ConfiguratorState): string {
   const paragraph = parts.join(' ');
 
   // ── BULLETS (solution-level strengths, not product features) ──────────
-  const bullets: string[] = [];
+  const allBullets: string[] = [];
 
+  // Primary bullets (contextual)
   if (isAllYear) {
-    bullets.push('Løsningen er aktiv hele året – og det giver en markant bedre driftsøkonomi end maskiner, der kun bruges i én sæson');
+    allBullets.push('Løsningen er aktiv hele året – og det giver en markant bedre driftsøkonomi end maskiner, der kun bruges i én sæson');
   } else if (taskMentions.length >= 2) {
-    bullets.push('Bredden i redskabsvalget giver fleksibilitet til at skifte mellem opgavetyper uden ekstra materiel');
+    allBullets.push('Bredden i redskabsvalget giver fleksibilitet til at skifte mellem opgavetyper uden ekstra materiel');
   } else {
-    bullets.push('Maskine og redskaber er afstemt præcist til opgaven – ingen overkapacitet, ingen mangler');
+    allBullets.push('Maskine og redskaber er afstemt præcist til opgaven – ingen overkapacitet, ingen mangler');
   }
 
   if (hasWinter && hasGreen) {
-    bullets.push('Skiftet mellem sommer- og vinterdrift sker hurtigt, så I er klar, når vejret skifter');
+    allBullets.push('Skiftet mellem sommer- og vinterdrift sker hurtigt, så I er klar, når vejret skifter');
   } else if (hasWinter) {
-    bullets.push('Vinterberedskabet er på plads, og I kan rykke med kort varsel, når frosten melder sig');
+    allBullets.push('Vinterberedskabet er på plads, og I kan rykke med kort varsel, når frosten melder sig');
   } else if (hasGreen && hasSweep) {
-    bullets.push('Grøn pleje og renholdelse håndteres med samme maskine – det sparer tid, transport og mandskab');
+    allBullets.push('Grøn pleje og renholdelse håndteres med samme maskine – det sparer tid, transport og mandskab');
   }
 
   if (caps.has('comfort') && comfortParts.length >= 2) {
-    bullets.push('Komfortudstyret sikrer bedre arbejdsmiljø og gør det lettere at fastholde dygtige operatører');
+    allBullets.push('Komfortudstyret sikrer bedre arbejdsmiljø og gør det lettere at fastholde dygtige operatører');
   } else if (caps.has('camera')) {
-    bullets.push('Kameraet giver overblik og tryghed ved bakning – en sikkerhedsdetalje, der hurtigt bliver uundværlig');
+    allBullets.push('Kameraet giver overblik og tryghed ved bakning – en sikkerhedsdetalje, der hurtigt bliver uundværlig');
   }
 
   if (caps.has('bio_oil')) {
-    bullets.push('Bio-hydraulikolie understøtter en grønnere driftsprofil og er et godt signal over for kunder og borgere');
+    allBullets.push('Bio-hydraulikolie understøtter en grønnere driftsprofil og er et godt signal over for kunder og borgere');
   }
-
   if (caps.has('chassis_care')) {
-    bullets.push('Konservering af chassis beskytter mod rust og korrosion – en lille investering, der forlænger maskinens levetid markant');
+    allBullets.push('Konservering af chassis beskytter mod rust og korrosion – en lille investering, der forlænger maskinens levetid markant');
   }
   if (caps.has('tow')) {
-    bullets.push('Muligheden for at trække tilhænger giver ekstra fleksibilitet i hverdagen');
+    allBullets.push('Muligheden for at trække tilhænger giver ekstra fleksibilitet i hverdagen');
   }
 
-  // Ensure 3-5 bullets
-  if (bullets.length < 3) {
-    if (isLooseOnly) {
-      bullets.push('Redskaberne passer direkte til den eksisterende maskinpark – ingen yderligere investeringer nødvendige');
-    } else if (isMulti) {
-      bullets.push('Maskinerne supplerer hinanden – og det giver en sammenhængende løsning med høj udnyttelse');
-    } else {
-      bullets.push('En enkel og fokuseret løsning, der er hurtig at sætte i drift og let at vedligeholde');
-    }
-  }
-  if (bullets.length < 3 && isLooseOnly) {
-    bullets.push('Et fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
+  // Fill up to at least 5
+  const fillers = [
+    isLooseOnly ? 'Redskaberne passer direkte til den eksisterende maskinpark – ingen yderligere investeringer nødvendige' : (isMulti ? 'Maskinerne supplerer hinanden – og det giver en sammenhængende løsning med høj udnyttelse' : 'En enkel og fokuseret løsning, der er hurtig at sætte i drift og let at vedligeholde'),
+    'Hurtig ibrugtagning – løsningen kan sættes i drift uden lang indkøring eller specialtræning',
+    'Redskaberne skiftes hurtigt, og det reducerer spildtid mellem opgaver',
+    'Driftssikker teknik med lav vedligeholdelse og lang levetid',
+    'Lavt brændstofforbrug sammenlignet med traditionelle løsninger af samme kapacitet',
+    'Fjernbetjening eller kabinekomfort giver sikkerhed og effektivitet i krævende terræn',
+    'Kompakt maskinstørrelse giver adgang til smalle stier og tætte beplantninger',
+    'Stærk service- og reservedelsforsyning fra Timan sikrer minimal nedetid',
+    'Mulighed for at udvide med yderligere redskaber efterhånden som behovet vokser',
+    isAllYear ? 'Helårsdrift giver højere udnyttelsesgrad og bedre totaløkonomi' : 'Fokuseret løsning med høj udnyttelsesgrad inden for det valgte arbejdsområde',
+  ];
+
+  for (const f of fillers) {
+    if (!allBullets.includes(f)) allBullets.push(f);
+    if (allBullets.length >= 10) break;
   }
 
-  const finalBullets = bullets.slice(0, 5);
+  const defaultBullets = allBullets.slice(0, 5);
+  const extraBullets = allBullets.slice(5, 10);
 
-  return `${heading}\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return { heading, paragraph, defaultBullets, extraBullets };
 }
 
 // ─── Recommendation engine ──────────────────────────────────────────────────
@@ -481,19 +501,14 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
 ];
 
 
-export function generateRecommendations(state: ConfiguratorState): string | null {
-  // Collect ALL selected accessory IDs (including sub-items) across all machines
+export function generateRecommendations(state: ConfiguratorState): RecommendationStructured | null {
   const selectedIds = new Set<string>();
   const activeMachineTypes: string[] = [];
 
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
     activeMachineTypes.push(mc.type);
-    
-    // Shared accessories
     mc.acc.forEach(id => selectedIds.add(id));
-    
-    // Individual unit configs
     if (mc.configMode === 'individual') {
       for (let i = 1; i <= mc.qty; i++) {
         const key = `${mc.id}_${i}`;
@@ -505,56 +520,40 @@ export function generateRecommendations(state: ConfiguratorState): string | null
 
   if (activeMachineTypes.length === 0) return null;
 
-  // Check which parent products are selected
   const hasParent = (parentIds: string[]) => parentIds.some(id => selectedIds.has(id));
-  
-  // Check if ANY of the match IDs are already selected
   const isAlreadySelected = (matchIds: string[]) => matchIds.some(id => selectedIds.has(id));
 
-  // Find applicable missing add-ons
   const candidates: { rule: RecommendationRule }[] = [];
-
   for (const rule of RECOMMENDATION_RULES) {
-    // Skip if the add-on is already selected
     if (isAlreadySelected(rule.matchIds)) continue;
-    // Skip if the parent product is not selected
     if (!hasParent(rule.parentIds)) continue;
-    
     candidates.push({ rule });
   }
 
   if (candidates.length === 0) return null;
 
-  // Sort by priority (1=best), take top 2-4
   candidates.sort((a, b) => a.rule.priority - b.rule.priority);
-  const topPicks = candidates.slice(0, 4);
-  // Ensure at least 2
-  if (topPicks.length < 2) {
-    // Only 1 recommendation is too thin — but still show it
-  }
 
-  // ── Build the heading ─────────────────────────────────────
   const heading = 'Det ville vi anbefale herfra';
 
-  // ── Build the paragraph (connected advisory, not intro to a list) ────
   const machineLabel = activeMachineTypes
     .filter(t => t !== LOOSE_TOOL_KEY)
     .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
     .join(' og ');
   const hasLT = activeMachineTypes.includes(LOOSE_TOOL_KEY);
-  const subjectLabel = machineLabel 
+  const subjectLabel = machineLabel
     ? (hasLT ? `${machineLabel} og de valgte løse redskaber` : machineLabel)
     : 'de valgte løse redskaber';
 
-  // Build a connected paragraph that acknowledges the setup and transitions naturally into recommendations
-  const pickCount = topPicks.length;
+  const pickCount = Math.min(candidates.length, 5);
   const countWord = pickCount === 1 ? 'én ting' : pickCount === 2 ? 'et par ting' : 'nogle få ting';
 
   let para = `I har allerede sat en stærk løsning sammen med ${subjectLabel}, og der er tydeligvis tænkt over, hvad der skal til. `;
   para += `Når vi kigger på den samlede konfiguration, er der dog ${countWord}, vi typisk vil anbefale ud fra vores erfaring med lignende opsætninger – ikke fordi der mangler noget afgørende, men fordi det kan gøre en mærkbar forskel i den daglige drift.`;
 
-  // ── Build the bullets ─────────────────────────────────────
-  const bullets = topPicks.map(p => `${p.rule.label} – ${p.rule.reason}`);
+  const allBullets = candidates.map(p => `${p.rule.label} – ${p.rule.reason}`);
+  const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
+  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
 
-  return `${heading}\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
+  return { heading, paragraph: para, defaultBullets, extraBullets };
 }
