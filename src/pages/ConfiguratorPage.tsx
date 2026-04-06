@@ -428,6 +428,10 @@ export default function ConfiguratorPage() {
     if (state.flowType === 'quote') {
       const text = generateSalesArguments(state);
       setSalesArgsText(text);
+      const recText = generateRecommendations(state);
+      setRecommendationText(recText);
+      setWantRecommendation(false);
+      setIncludeRecommendation(false);
       setSalesArgsModalOpen(true);
     } else {
       setConfirmModalOpen(true);
