@@ -280,7 +280,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 </button>
               ) : (
                 <span className="text-xs text-gray-400 italic max-w-[240px] text-right">
-                  {tx('Udfyld firma, kontaktperson og email i trin 4 for at gemme', 'Fill in company, contact and email in step 4 to save')}
+                  {tx('saveHint')}
                 </span>
               )}
             </div>
