@@ -158,7 +158,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     }
 
     if (!saved.has_full_state) {
-      toast.error(tx('Sagen mangler komplet gemt konfigurationsdata', 'The case is missing the full saved configurator state'));
+      toast.error(tx('missingState'));
       return;
     }
 
