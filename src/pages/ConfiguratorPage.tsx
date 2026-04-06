@@ -1622,7 +1622,7 @@ export default function ConfiguratorPage() {
 
               {wantRecommendation && (() => {
                 const allRecBullets = [...recommendationData.defaultBullets, ...recommendationData.extraBullets];
-                const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+                const totalSelected = selectedRecBullets.size;
                 const toggleRecBullet = (bullet: string) => {
                   setSelectedRecBullets(prev => {
                     const next = new Set(prev);
