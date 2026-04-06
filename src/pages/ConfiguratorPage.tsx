@@ -1528,7 +1528,7 @@ export default function ConfiguratorPage() {
 
             {includeSalesArgs && salesArgsData && (() => {
               const allBullets = [...salesArgsData.defaultBullets, ...salesArgsData.extraBullets];
-              const totalSelected = selectedSalesBullets.size + selectedRecBullets.size;
+              const totalSelected = selectedSalesBullets.size;
               const toggleSalesBullet = (bullet: string) => {
                 setSelectedSalesBullets(prev => {
                   const next = new Set(prev);
