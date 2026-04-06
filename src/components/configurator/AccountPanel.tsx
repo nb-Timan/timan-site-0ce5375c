@@ -276,7 +276,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   onClick={() => setShowSaveInput(v => !v)}
                   className="text-sm text-emerald-700 hover:text-emerald-900 font-medium"
                 >
-                  {tx('+ Gem nuværende', '+ Save current')}
+                  {tx('saveCurrent')}
                 </button>
               ) : (
                 <span className="text-xs text-gray-400 italic max-w-[240px] text-right">
