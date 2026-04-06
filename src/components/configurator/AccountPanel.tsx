@@ -388,7 +388,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               onClick={() => { onLogout(); setOpen(false); }}
               className="w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
-              {tx('Log ud', 'Log out')}
+              {tx('logout')}
             </button>
           </div>
         </DialogContent>
