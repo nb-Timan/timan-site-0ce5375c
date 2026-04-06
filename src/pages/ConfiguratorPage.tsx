@@ -410,17 +410,21 @@ export default function ConfiguratorPage() {
       <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
     </div></div></div>`;
 
-    if (includeSalesArgs && salesArgsText) {
+    if (includeSalesArgs && salesArgsData) {
+      const selectedBulletsArr = salesArgsData.defaultBullets.concat(salesArgsData.extraBullets).filter(b => selectedSalesBullets.has(b));
+      const salesText = `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:24px;padding:16px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;">
         <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
-        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesArgsText}</div>
+        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesText}</div>
       </div>`;
     }
 
-    if (includeRecommendation && recommendationText) {
+    if (includeRecommendation && recommendationData) {
+      const selectedRecArr = recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b));
+      const recText = `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
         <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${lang === 'da' ? 'Timans anbefaling' : 'Timan Recommends'}</h2>
-        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recommendationText}</div>
+        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recText}</div>
       </div>`;
     }
 
