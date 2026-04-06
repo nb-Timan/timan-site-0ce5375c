@@ -341,7 +341,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       </div>
                       {/* Right: internal note */}
                       <div className="w-48 flex-shrink-0">
-                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('Intern note', 'Internal note')}</div>
+                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('internalNote')}</div>
                         <textarea
                           rows={2}
                           value={item.internal_note || ''}
