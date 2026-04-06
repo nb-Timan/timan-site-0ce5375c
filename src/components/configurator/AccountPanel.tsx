@@ -230,7 +230,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           onClick={() => setOpen(true)}
           className="flex-shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition"
         >
-          {tx('Min konto', 'My account')}
+          {tx('myAccount')}
         </button>
       </div>
 
