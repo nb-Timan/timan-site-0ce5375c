@@ -292,7 +292,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   value={saveLabel}
                   onChange={e => setSaveLabel(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSave()}
-                  placeholder={tx('Navngiv sag...', 'Name case...')}
+                  placeholder={tx('nameCase')}
                   className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
                   autoFocus
                 />
