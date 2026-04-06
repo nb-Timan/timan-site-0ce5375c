@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
+import { format } from 'date-fns';
+import { da, de, enGB, hu, it } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
@@ -6,9 +9,13 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
 import { generateSalesArguments } from '@/lib/salesArguments';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
