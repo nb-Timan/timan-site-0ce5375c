@@ -501,19 +501,14 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
 ];
 
 
-export function generateRecommendations(state: ConfiguratorState): string | null {
-  // Collect ALL selected accessory IDs (including sub-items) across all machines
+export function generateRecommendations(state: ConfiguratorState): RecommendationStructured | null {
   const selectedIds = new Set<string>();
   const activeMachineTypes: string[] = [];
 
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
     activeMachineTypes.push(mc.type);
-    
-    // Shared accessories
     mc.acc.forEach(id => selectedIds.add(id));
-    
-    // Individual unit configs
     if (mc.configMode === 'individual') {
       for (let i = 1; i <= mc.qty; i++) {
         const key = `${mc.id}_${i}`;
@@ -525,56 +520,40 @@ export function generateRecommendations(state: ConfiguratorState): string | null
 
   if (activeMachineTypes.length === 0) return null;
 
-  // Check which parent products are selected
   const hasParent = (parentIds: string[]) => parentIds.some(id => selectedIds.has(id));
-  
-  // Check if ANY of the match IDs are already selected
   const isAlreadySelected = (matchIds: string[]) => matchIds.some(id => selectedIds.has(id));
 
-  // Find applicable missing add-ons
   const candidates: { rule: RecommendationRule }[] = [];
-
   for (const rule of RECOMMENDATION_RULES) {
-    // Skip if the add-on is already selected
     if (isAlreadySelected(rule.matchIds)) continue;
-    // Skip if the parent product is not selected
     if (!hasParent(rule.parentIds)) continue;
-    
     candidates.push({ rule });
   }
 
   if (candidates.length === 0) return null;
 
-  // Sort by priority (1=best), take top 2-4
   candidates.sort((a, b) => a.rule.priority - b.rule.priority);
-  const topPicks = candidates.slice(0, 4);
-  // Ensure at least 2
-  if (topPicks.length < 2) {
-    // Only 1 recommendation is too thin — but still show it
-  }
 
-  // ── Build the heading ─────────────────────────────────────
   const heading = 'Det ville vi anbefale herfra';
 
-  // ── Build the paragraph (connected advisory, not intro to a list) ────
   const machineLabel = activeMachineTypes
     .filter(t => t !== LOOSE_TOOL_KEY)
     .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
     .join(' og ');
   const hasLT = activeMachineTypes.includes(LOOSE_TOOL_KEY);
-  const subjectLabel = machineLabel 
+  const subjectLabel = machineLabel
     ? (hasLT ? `${machineLabel} og de valgte løse redskaber` : machineLabel)
     : 'de valgte løse redskaber';
 
-  // Build a connected paragraph that acknowledges the setup and transitions naturally into recommendations
-  const pickCount = topPicks.length;
+  const pickCount = Math.min(candidates.length, 5);
   const countWord = pickCount === 1 ? 'én ting' : pickCount === 2 ? 'et par ting' : 'nogle få ting';
 
   let para = `I har allerede sat en stærk løsning sammen med ${subjectLabel}, og der er tydeligvis tænkt over, hvad der skal til. `;
   para += `Når vi kigger på den samlede konfiguration, er der dog ${countWord}, vi typisk vil anbefale ud fra vores erfaring med lignende opsætninger – ikke fordi der mangler noget afgørende, men fordi det kan gøre en mærkbar forskel i den daglige drift.`;
 
-  // ── Build the bullets ─────────────────────────────────────
-  const bullets = topPicks.map(p => `${p.rule.label} – ${p.rule.reason}`);
+  const allBullets = candidates.map(p => `${p.rule.label} – ${p.rule.reason}`);
+  const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
+  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
 
-  return `${heading}\n\n${para}\n\n${bullets.map(b => `• ${b}`).join('\n')}`;
+  return { heading, paragraph: para, defaultBullets, extraBullets };
 }
