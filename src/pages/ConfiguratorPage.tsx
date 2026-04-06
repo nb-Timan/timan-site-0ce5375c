@@ -832,9 +832,26 @@ export default function ConfiguratorPage() {
                           today.setHours(0, 0, 0, 0);
                           return date < today;
                         }}
+                        modifiers={{
+                          discount: (date) => {
+                            const threshold = new Date();
+                            threshold.setMonth(threshold.getMonth() + 3);
+                            return date > threshold;
+                          },
+                        }}
+                        modifiersStyles={{
+                          discount: {
+                            backgroundColor: 'hsl(45 93% 80%)',
+                            borderRadius: '6px',
+                          },
+                        }}
                         initialFocus
                         className="p-3 pointer-events-auto"
                       />
+                      <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
+                        Gul markering = 2% ekstra rabat
+                      </div>
                     </PopoverContent>
                   </Popover>
                   {(() => {
