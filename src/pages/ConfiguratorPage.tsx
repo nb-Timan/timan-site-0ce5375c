@@ -91,9 +91,11 @@ export default function ConfiguratorPage() {
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
-  const [salesArgsText, setSalesArgsText] = useState('');
+  const [salesArgsData, setSalesArgsData] = useState<SalesArgsStructured | null>(null);
+  const [selectedSalesBullets, setSelectedSalesBullets] = useState<Set<string>>(new Set());
   const [includeSalesArgs, setIncludeSalesArgs] = useState(false);
-  const [recommendationText, setRecommendationText] = useState<string | null>(null);
+  const [recommendationData, setRecommendationData] = useState<RecommendationStructured | null>(null);
+  const [selectedRecBullets, setSelectedRecBullets] = useState<Set<string>>(new Set());
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
 
