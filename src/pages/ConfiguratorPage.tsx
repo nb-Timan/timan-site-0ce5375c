@@ -803,8 +803,40 @@ export default function ConfiguratorPage() {
                 <p className="text-gray-600 font-medium mb-6">{T('step2Desc')}</p>
                 <div className="mb-8 mx-auto max-w-sm">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
-                  <input type="date" value={state.date} onChange={e => setDate(e.target.value)}
-                    className="mt-1 w-40 p-1 border rounded-lg text-base text-center mx-auto block" />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          'mt-1 w-full rounded-full justify-start text-left font-normal',
+                          !state.date && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="flex-1 pointer-events-none select-none">
+                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : 'dd-mm-åååå'}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDeliveryDate}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          setDate(format(date, 'yyyy-MM-dd'));
+                        }}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {(() => {
                     const hasDeliveryDiscount = state.date && (() => {
                       const d = new Date(state.date);
