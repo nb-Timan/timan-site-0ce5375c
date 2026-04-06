@@ -282,58 +282,64 @@ export function generateSalesArguments(state: ConfiguratorState): SalesArgsStruc
   const paragraph = parts.join(' ');
 
   // ── BULLETS (solution-level strengths, not product features) ──────────
-  const bullets: string[] = [];
+  const allBullets: string[] = [];
 
+  // Primary bullets (contextual)
   if (isAllYear) {
-    bullets.push('Løsningen er aktiv hele året – og det giver en markant bedre driftsøkonomi end maskiner, der kun bruges i én sæson');
+    allBullets.push('Løsningen er aktiv hele året – og det giver en markant bedre driftsøkonomi end maskiner, der kun bruges i én sæson');
   } else if (taskMentions.length >= 2) {
-    bullets.push('Bredden i redskabsvalget giver fleksibilitet til at skifte mellem opgavetyper uden ekstra materiel');
+    allBullets.push('Bredden i redskabsvalget giver fleksibilitet til at skifte mellem opgavetyper uden ekstra materiel');
   } else {
-    bullets.push('Maskine og redskaber er afstemt præcist til opgaven – ingen overkapacitet, ingen mangler');
+    allBullets.push('Maskine og redskaber er afstemt præcist til opgaven – ingen overkapacitet, ingen mangler');
   }
 
   if (hasWinter && hasGreen) {
-    bullets.push('Skiftet mellem sommer- og vinterdrift sker hurtigt, så I er klar, når vejret skifter');
+    allBullets.push('Skiftet mellem sommer- og vinterdrift sker hurtigt, så I er klar, når vejret skifter');
   } else if (hasWinter) {
-    bullets.push('Vinterberedskabet er på plads, og I kan rykke med kort varsel, når frosten melder sig');
+    allBullets.push('Vinterberedskabet er på plads, og I kan rykke med kort varsel, når frosten melder sig');
   } else if (hasGreen && hasSweep) {
-    bullets.push('Grøn pleje og renholdelse håndteres med samme maskine – det sparer tid, transport og mandskab');
+    allBullets.push('Grøn pleje og renholdelse håndteres med samme maskine – det sparer tid, transport og mandskab');
   }
 
   if (caps.has('comfort') && comfortParts.length >= 2) {
-    bullets.push('Komfortudstyret sikrer bedre arbejdsmiljø og gør det lettere at fastholde dygtige operatører');
+    allBullets.push('Komfortudstyret sikrer bedre arbejdsmiljø og gør det lettere at fastholde dygtige operatører');
   } else if (caps.has('camera')) {
-    bullets.push('Kameraet giver overblik og tryghed ved bakning – en sikkerhedsdetalje, der hurtigt bliver uundværlig');
+    allBullets.push('Kameraet giver overblik og tryghed ved bakning – en sikkerhedsdetalje, der hurtigt bliver uundværlig');
   }
 
   if (caps.has('bio_oil')) {
-    bullets.push('Bio-hydraulikolie understøtter en grønnere driftsprofil og er et godt signal over for kunder og borgere');
+    allBullets.push('Bio-hydraulikolie understøtter en grønnere driftsprofil og er et godt signal over for kunder og borgere');
   }
-
   if (caps.has('chassis_care')) {
-    bullets.push('Konservering af chassis beskytter mod rust og korrosion – en lille investering, der forlænger maskinens levetid markant');
+    allBullets.push('Konservering af chassis beskytter mod rust og korrosion – en lille investering, der forlænger maskinens levetid markant');
   }
   if (caps.has('tow')) {
-    bullets.push('Muligheden for at trække tilhænger giver ekstra fleksibilitet i hverdagen');
+    allBullets.push('Muligheden for at trække tilhænger giver ekstra fleksibilitet i hverdagen');
   }
 
-  // Ensure 3-5 bullets
-  if (bullets.length < 3) {
-    if (isLooseOnly) {
-      bullets.push('Redskaberne passer direkte til den eksisterende maskinpark – ingen yderligere investeringer nødvendige');
-    } else if (isMulti) {
-      bullets.push('Maskinerne supplerer hinanden – og det giver en sammenhængende løsning med høj udnyttelse');
-    } else {
-      bullets.push('En enkel og fokuseret løsning, der er hurtig at sætte i drift og let at vedligeholde');
-    }
-  }
-  if (bullets.length < 3 && isLooseOnly) {
-    bullets.push('Et fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
+  // Fill up to at least 5
+  const fillers = [
+    isLooseOnly ? 'Redskaberne passer direkte til den eksisterende maskinpark – ingen yderligere investeringer nødvendige' : (isMulti ? 'Maskinerne supplerer hinanden – og det giver en sammenhængende løsning med høj udnyttelse' : 'En enkel og fokuseret løsning, der er hurtig at sætte i drift og let at vedligeholde'),
+    'Hurtig ibrugtagning – løsningen kan sættes i drift uden lang indkøring eller specialtræning',
+    'Redskaberne skiftes hurtigt, og det reducerer spildtid mellem opgaver',
+    'Driftssikker teknik med lav vedligeholdelse og lang levetid',
+    'Lavt brændstofforbrug sammenlignet med traditionelle løsninger af samme kapacitet',
+    'Fjernbetjening eller kabinekomfort giver sikkerhed og effektivitet i krævende terræn',
+    'Kompakt maskinstørrelse giver adgang til smalle stier og tætte beplantninger',
+    'Stærk service- og reservedelsforsyning fra Timan sikrer minimal nedetid',
+    'Mulighed for at udvide med yderligere redskaber efterhånden som behovet vokser',
+    isAllYear ? 'Helårsdrift giver højere udnyttelsesgrad og bedre totaløkonomi' : 'Fokuseret løsning med høj udnyttelsesgrad inden for det valgte arbejdsområde',
+  ];
+
+  for (const f of fillers) {
+    if (!allBullets.includes(f)) allBullets.push(f);
+    if (allBullets.length >= 10) break;
   }
 
-  const finalBullets = bullets.slice(0, 5);
+  const defaultBullets = allBullets.slice(0, 5);
+  const extraBullets = allBullets.slice(5, 10);
 
-  return `${heading}\n\n${paragraph}\n\n${finalBullets.map(b => `• ${b}`).join('\n')}`;
+  return { heading, paragraph, defaultBullets, extraBullets };
 }
 
 // ─── Recommendation engine ──────────────────────────────────────────────────
