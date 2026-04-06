@@ -171,7 +171,36 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     await updateConfigurationNote(id, text);
   };
 
-  const tx = (da: string, en: string) => language === 'da' ? da : en;
+  const tx = useMemo(() => {
+    const strings: Record<string, Record<Language, string>> = {
+      myAccount: { da: 'Min konto', en: 'My account', de: 'Mein Konto', it: 'Il mio account', hu: 'Fiókom' },
+      name: { da: 'Navn', en: 'Name', de: 'Name', it: 'Nome', hu: 'Név' },
+      role: { da: 'Rolle', en: 'Role', de: 'Rolle', it: 'Ruolo', hu: 'Szerepkör' },
+      partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp', it: 'Tipo di partner', hu: 'Partnertípus' },
+      savedCases: { da: 'Gemte sager', en: 'Saved cases', de: 'Gespeicherte Fälle', it: 'Casi salvati', hu: 'Mentett ügyek' },
+      saveCurrent: { da: '+ Gem nuværende', en: '+ Save current', de: '+ Aktuelle speichern', it: '+ Salva corrente', hu: '+ Jelenlegi mentése' },
+      saveHint: { da: 'Udfyld firma, kontaktperson og email i trin 4 for at gemme', en: 'Fill in company, contact and email in step 4 to save', de: 'Firma, Kontakt und E-Mail in Schritt 4 ausfüllen zum Speichern', it: 'Compila azienda, contatto ed email al passo 4 per salvare', hu: 'Töltsd ki a cégnevet, kapcsolattartót és e-mailt a 4. lépésben a mentéshez' },
+      nameCase: { da: 'Navngiv sag...', en: 'Name case...', de: 'Fall benennen...', it: 'Nomina caso...', hu: 'Ügy elnevezése...' },
+      save: { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés' },
+      noCases: { da: 'Ingen gemte sager', en: 'No saved cases', de: 'Keine gespeicherten Fälle', it: 'Nessun caso salvato', hu: 'Nincsenek mentett ügyek' },
+      quote: { da: 'Tilbud', en: 'Quote', de: 'Angebot', it: 'Preventivo', hu: 'Árajánlat' },
+      order: { da: 'Ordre', en: 'Order', de: 'Bestellung', it: 'Ordine', hu: 'Rendelés' },
+      internalNote: { da: 'Intern note', en: 'Internal note', de: 'Interne Notiz', it: 'Nota interna', hu: 'Belső jegyzet' },
+      writeNote: { da: 'Skriv en huskenote...', en: 'Write a reminder...', de: 'Erinnerung schreiben...', it: 'Scrivi un promemoria...', hu: 'Írj emlékeztetőt...' },
+      open: { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
+      pause: { da: 'Sæt på pause', en: 'Pause', de: 'Pausieren', it: 'Pausa', hu: 'Szüneteltetés' },
+      reactivate: { da: 'Genaktivér', en: 'Reactivate', de: 'Reaktivieren', it: 'Riattiva', hu: 'Újraaktiválás' },
+      delete: { da: 'Slet', en: 'Delete', de: 'Löschen', it: 'Elimina', hu: 'Törlés' },
+      logout: { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+      saveFailed: { da: 'Kunne ikke gemme sag', en: 'Failed to save case', de: 'Speichern fehlgeschlagen', it: 'Salvataggio fallito', hu: 'Mentés sikertelen' },
+      savedButLinesFailed: { da: 'Sag gemt, men linjer fejlede', en: 'Case saved, but line items failed', de: 'Fall gespeichert, aber Positionen fehlgeschlagen', it: 'Caso salvato, ma righe fallite', hu: 'Ügy mentve, de a tételek sikertelenek' },
+      caseSaved: { da: 'Sag gemt', en: 'Case saved', de: 'Fall gespeichert', it: 'Caso salvato', hu: 'Ügy mentve' },
+      caseId: { da: 'Sag ID', en: 'Case ID', de: 'Fall-ID', it: 'ID caso', hu: 'Ügy ID' },
+      openFailed: { da: 'Kunne ikke åbne sag', en: 'Failed to open case', de: 'Öffnen fehlgeschlagen', it: 'Apertura fallita', hu: 'Megnyitás sikertelen' },
+      missingState: { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok' },
+    };
+    return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
+  }, [language]);
 
   return (
     <>
