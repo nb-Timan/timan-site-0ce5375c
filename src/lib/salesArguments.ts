@@ -185,30 +185,30 @@ export function generateSalesArguments(state: ConfiguratorState): string {
     heading = 'Den rigtige løsning til opgaven';
   }
 
-  // ── PARAGRAPH (the main value piece) ──────────────────────────────────
+  // ── PARAGRAPH (connected consultant-style evaluation) ──────────────
   const parts: string[] = [];
 
-  // Opening: evaluate the total solution
+  // Opening: acknowledge the customer's choice warmly
   if (isLooseOnly) {
     const toolCount = looseToolNames.length;
     if (isAllYear) {
-      parts.push(`Med ${toolCount} udvalgte redskaber er der sammensat en redskabspakke, der udvider den eksisterende maskinparks kapacitet på tværs af sæsoner – fra grøn vedligeholdelse til vinterberedskab.`);
+      parts.push(`I har sammensat ${toolCount} redskaber, der tilsammen giver jeres eksisterende maskinpark et markant løft – fra sommerdrift til vinterberedskab. Det er et velovervejet valg, fordi I undgår at investere i nye maskiner og i stedet udnytter det, I allerede har, langt bedre.`);
     } else if (hasGreen || hasSweep) {
-      parts.push(`De valgte redskaber er sammensat med fokus på at styrke den daglige drift med præcist de funktioner, der gør den eksisterende maskinpark mere alsidigt anvendelig.`);
+      parts.push(`De redskaber, I har valgt, passer præcist til den daglige drift og gør jeres nuværende maskiner mere alsidige. Det er et klogt valg, fordi I får mere kapacitet uden at binde kapital i nyt materiel.`);
     } else {
-      parts.push(`De valgte løse redskaber udvider maskinparkens funktionalitet med målrettede løsninger til de konkrete driftsopgaver.`);
+      parts.push(`I har udvalgt redskaber, der rammer lige præcis de opgaver, I skal have løst. Det er en fokuseret tilgang, der sikrer, at hver investering gør en konkret forskel i hverdagen.`);
     }
   } else if (isAllYear && isMulti) {
-    parts.push(`Den valgte pakke med ${machineLabel} er sammensat som en sammenhængende helårsløsning, hvor maskinerne supplerer hinanden på tværs af opgaver og sæsoner.`);
+    parts.push(`Det her er en gennemtænkt pakke. Med ${machineLabel} har I sat en løsning sammen, der fungerer på tværs af alle sæsoner – og det gør en stor forskel for den samlede driftsøkonomi, fordi maskinerne er i arbejde hele året.`);
   } else if (isMulti) {
-    parts.push(`Med ${machineLabel} har I valgt en pakke, hvor maskinerne arbejder sammen og dækker et bredt opgavespektrum med færre enheder.`);
+    parts.push(`I har valgt en pakke med ${machineLabel}, hvor maskinerne supplerer hinanden godt. I stedet for overlap får I bred dækning med færre enheder – og det mærkes både på fleksibiliteten og på bundlinjen.`);
   } else if (isAllYear) {
-    parts.push(`Den valgte konfiguration af ${machineLabel} giver en løsning, der rækker ud over en enkelt sæson og gør maskinen til en aktiv del af driften året rundt.`);
+    parts.push(`Med den her konfiguration af ${machineLabel} har I en maskine, der ikke kun løser én opgave – den arbejder for jer hele året rundt. Det er en af de mest fornuftige tilgange, fordi den årlige udnyttelsesgrad bliver markant højere.`);
   } else {
-    parts.push(`${machineLabel} er her sat sammen med redskaber, der er valgt til at løse de konkrete driftsopgaver effektivt og pålideligt.`);
+    parts.push(`${machineLabel} er sat sammen med redskaber, der er valgt med omtanke. Det er tydeligt, at der er tænkt over, hvilke opgaver der skal løses – og det giver en løsning, der føles rigtig fra dag ét.`);
   }
 
-  // Middle: how machines and tools complement each other
+  // Middle: how machines complement each other (connected narrative, not list)
   if (isMulti && !isLooseOnly) {
     const roleParts: string[] = [];
     for (const mt of machineTypes) {
@@ -216,11 +216,11 @@ export function generateSalesArguments(state: ConfiguratorState): string {
       if (role) roleParts.push(role.roleInSolution);
     }
     if (roleParts.length > 0) {
-      parts.push(`I praksis betyder det, at ${roleParts.join(', mens ')}.`);
+      parts.push(`I praksis betyder det, at ${roleParts.join(', mens ')} – og tilsammen dækker de et bredere opgavespektrum, end hver maskine ville kunne alene.`);
     }
   }
 
-  // Practical usage across tasks/seasons
+  // Practical daily use (connected to tasks, not features)
   const taskMentions: string[] = [];
   if (hasGreen) {
     if (caps.has('green_rough') && caps.has('green_fine')) {
@@ -236,7 +236,7 @@ export function generateSalesArguments(state: ConfiguratorState): string {
     if (caps.has('weed')) {
       taskMentions.push('renholdelse og mekanisk ukrudtsbekæmpelse uden sprøjtemidler');
     } else {
-      taskMentions.push('fejning og renholdelse af stier og arealer');
+      taskMentions.push('fejning og renholdelse af stier og pladser');
     }
   }
   if (hasWinter) {
@@ -251,75 +251,70 @@ export function generateSalesArguments(state: ConfiguratorState): string {
     const joined = taskMentions.length <= 2
       ? taskMentions.join(' og ')
       : taskMentions.slice(0, -1).join(', ') + ' og ' + taskMentions[taskMentions.length - 1];
-    parts.push(`De valgte redskaber dækker ${joined} – og giver dermed en løsning, der kan bruges aktivt i hverdagen på tværs af opgavetyper${isAllYear ? ' og sæsoner' : ''}.`);
+    parts.push(`I hverdagen betyder det, at I kan håndtere ${joined} uden at skulle ud og leje eller hente ekstra materiel${isAllYear ? ' – uanset sæson' : ''}.`);
   }
 
-  // Comfort / eco / durability (natural mention)
+  // Comfort/eco woven naturally into the narrative
   if (comfortParts.length >= 2) {
-    parts.push(`Med ${comfortParts.join(', ')} er der også tænkt på operatørens daglige arbejdsforhold, hvilket giver bedre trivsel og højere effektivitet i det daglige.`);
+    parts.push(`Det er også værd at bemærke, at I har tænkt på operatøren – ${comfortParts.join(', ')} gør en reel forskel på lange arbejdsdage og bidrager til, at folk faktisk trives med at køre maskinen.`);
   } else if (comfortParts.length === 1) {
-    parts.push(`Valg af ${comfortParts[0]} bidrager til bedre arbejdsforhold for operatøren.`);
+    parts.push(`Valget af ${comfortParts[0]} er en detalje, der gør hverdagen bedre for den, der sidder i maskinen – og det smitter af på effektiviteten.`);
   }
 
   if (caps.has('bio_oil')) {
-    parts.push(`Valget af bio-hydraulikolie viser en bevidst og ansvarlig tilgang til miljø og bæredygtighed.`);
+    parts.push(`At I har valgt bio-hydraulikolie viser, at miljø og bæredygtighed er en del af jeres tilgang – det er noget, der også vejer positivt over for kommuner og borgere.`);
   }
 
   const paragraph = parts.join(' ');
 
-  // ── BULLETS (3-5 supporting points, not repeating paragraph) ──────────
+  // ── BULLETS (solution-level strengths, not product features) ──────────
   const bullets: string[] = [];
 
-  // 1. Package-level value
   if (isAllYear) {
-    bullets.push('Løsningen dækker grøn vedligeholdelse, renholdelse og vinterdrift – og sikrer en højere årlig udnyttelse af maskinerne');
+    bullets.push('Løsningen er aktiv hele året – og det giver en markant bedre driftsøkonomi end maskiner, der kun bruges i én sæson');
   } else if (taskMentions.length >= 2) {
-    bullets.push('Redskabsvalget giver bred anvendelse på tværs af flere opgavetyper med samme maskinpark');
+    bullets.push('Bredden i redskabsvalget giver fleksibilitet til at skifte mellem opgavetyper uden ekstra materiel');
   } else {
-    bullets.push('Maskine og redskaber er afstemt til at løse de faktiske driftsopgaver med høj effektivitet');
+    bullets.push('Maskine og redskaber er afstemt præcist til opgaven – ingen overkapacitet, ingen mangler');
   }
 
-  // 2. Seasonal / operational strength
   if (hasWinter && hasGreen) {
-    bullets.push('Vinterberedskabet forlænger maskinernes aktive sæson og styrker den samlede driftsøkonomi');
+    bullets.push('Skiftet mellem sommer- og vinterdrift sker hurtigt, så I er klar, når vejret skifter');
   } else if (hasWinter) {
-    bullets.push('Vinterberedskabet gør løsningen klar til snerydning og glatførebekæmpelse, når behovet opstår');
+    bullets.push('Vinterberedskabet er på plads, og I kan rykke med kort varsel, når frosten melder sig');
   } else if (hasGreen && hasSweep) {
-    bullets.push('Kombinationen af grøn pleje og renholdelse reducerer behovet for separate maskiner');
+    bullets.push('Grøn pleje og renholdelse håndteres med samme maskine – det sparer tid, transport og mandskab');
   }
 
-  // 3. Comfort / quality of work
   if (caps.has('comfort') && comfortParts.length >= 2) {
-    bullets.push('Komfortudstyr i kabinen sikrer bedre arbejdsmiljø og gør lange driftsdage mere overkommelige');
+    bullets.push('Komfortudstyret sikrer bedre arbejdsmiljø og gør det lettere at fastholde dygtige operatører');
   } else if (caps.has('camera')) {
-    bullets.push('Kameraløsningen giver bedre overblik og øget sikkerhed under drift');
+    bullets.push('Kameraet giver overblik og tryghed ved bakning – en sikkerhedsdetalje, der hurtigt bliver uundværlig');
   }
 
-  // 4. Eco
   if (caps.has('bio_oil')) {
-    bullets.push('Bio-hydraulikolie er et grønnere valg, der understøtter en mere bæredygtig driftstilgang');
+    bullets.push('Bio-hydraulikolie understøtter en grønnere driftsprofil og er et godt signal over for kunder og borgere');
   }
 
-  // 5. Durability / flexibility
   if (caps.has('chassis_care')) {
-    bullets.push('Konservering af chassis og hydraulik beskytter investeringen og forlænger levetiden');
+    bullets.push('Konservering af chassis beskytter mod rust og korrosion – en lille investering, der forlænger maskinens levetid markant');
   }
   if (caps.has('tow')) {
-    bullets.push('Kombitræk giver ekstra fleksibilitet med mulighed for at trække tilhænger direkte');
+    bullets.push('Muligheden for at trække tilhænger giver ekstra fleksibilitet i hverdagen');
   }
 
   // Ensure 3-5 bullets
   if (bullets.length < 3) {
     if (isLooseOnly) {
-      bullets.push('Redskaberne er valgt til at passe den eksisterende maskinpark og kan tages i brug uden yderligere investeringer i nye maskiner');
+      bullets.push('Redskaberne passer direkte til den eksisterende maskinpark – ingen yderligere investeringer nødvendige');
     } else if (isMulti) {
-      bullets.push('Maskinerne supplerer hinanden og giver en sammenhængende løsning med færre enheder');
+      bullets.push('Maskinerne supplerer hinanden – og det giver en sammenhængende løsning med høj udnyttelse');
     } else {
-      bullets.push('En fokuseret løsning, der er enkel at drifte og hurtig at sætte i arbejde');
+      bullets.push('En enkel og fokuseret løsning, der er hurtig at sætte i drift og let at vedligeholde');
     }
   }
   if (bullets.length < 3 && isLooseOnly) {
-    bullets.push('Fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
+    bullets.push('Et fleksibelt redskabsvalg, der styrker driften uden at binde kapital i ekstra maskiner');
   }
 
   const finalBullets = bullets.slice(0, 5);
