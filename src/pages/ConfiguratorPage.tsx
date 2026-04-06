@@ -415,6 +415,13 @@ export default function ConfiguratorPage() {
       </div>`;
     }
 
+    if (includeRecommendation && recommendationText) {
+      html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${lang === 'da' ? 'Timans anbefaling' : 'Timan Recommends'}</h2>
+        <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recommendationText}</div>
+      </div>`;
+    }
+
     return html;
   };
 
