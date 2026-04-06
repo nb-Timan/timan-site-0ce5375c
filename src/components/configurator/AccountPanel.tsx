@@ -346,7 +346,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           rows={2}
                           value={item.internal_note || ''}
                           onChange={e => handleNoteChange(item.id, e.target.value)}
-                          placeholder={tx('Skriv en huskenote...', 'Write a reminder...')}
+                          placeholder={tx('writeNote')}
                           className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
                         />
                       </div>
