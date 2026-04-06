@@ -153,7 +153,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     const saved = await loadConfigurationById(item.id, userEmail);
 
     if (!saved) {
-      toast.error(tx('Kunne ikke åbne sag', 'Failed to open case'));
+      toast.error(tx('openFailed'));
       return;
     }
 
