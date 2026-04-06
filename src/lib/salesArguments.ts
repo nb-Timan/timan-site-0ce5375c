@@ -71,6 +71,10 @@ const MACHINE_ROLES: Record<string, { roleInSolution: string; terrainNote: strin
     roleInSolution: 'Timan 3330 håndterer de daglige driftsopgaver fra førerkabinen med hurtige redskabsskift',
     terrainNote: 'arealer, stier og pladser',
   },
+  [LOOSE_TOOL_KEY]: {
+    roleInSolution: 'de valgte løse redskaber udvider kapaciteten på den eksisterende maskinpark med præcist de funktioner, der mangler',
+    terrainNote: 'eksisterende maskinpark',
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
