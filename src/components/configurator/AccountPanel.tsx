@@ -366,7 +366,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           onClick={() => handleToggleStatus(item.id)}
                           className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
                         >
-                          {item.case_status === 'aktiv' ? tx('Sæt på pause', 'Pause') : tx('Genaktivér', 'Reactivate')}
+                          {item.case_status === 'aktiv' ? tx('pause') : tx('reactivate')}
                         </button>
                       )}
                       <button
