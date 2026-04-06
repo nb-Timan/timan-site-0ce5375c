@@ -439,10 +439,17 @@ export default function ConfiguratorPage() {
     }
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
-      const text = generateSalesArguments(state);
-      setSalesArgsText(text);
-      const recText = generateRecommendations(state);
-      setRecommendationText(recText);
+      const data = generateSalesArguments(state);
+      setSalesArgsData(data);
+      // Pre-select default bullets
+      setSelectedSalesBullets(new Set(data.defaultBullets));
+      const recData = generateRecommendations(state);
+      setRecommendationData(recData);
+      if (recData) {
+        setSelectedRecBullets(new Set(recData.defaultBullets));
+      } else {
+        setSelectedRecBullets(new Set());
+      }
       setWantRecommendation(false);
       setIncludeRecommendation(false);
       setSalesArgsModalOpen(true);
