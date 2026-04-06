@@ -114,12 +114,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       }
 
       if (result.itemsError) {
-        toast.error(tx('Sag gemt, men linjer fejlede', 'Case saved, but line items failed'), {
-          description: `${tx('Sag ID', 'Case ID')}: ${result.id} — ${result.itemsError}`,
+        toast.error(tx('savedButLinesFailed'), {
+          description: `${tx('caseId')}: ${result.id} — ${result.itemsError}`,
         });
       } else {
-        toast.success(tx('Sag gemt', 'Case saved'), {
-          description: `${tx('Sag ID', 'Case ID')}: ${result.id}`,
+        toast.success(tx('caseSaved'), {
+          description: `${tx('caseId')}: ${result.id}`,
         });
       }
 
