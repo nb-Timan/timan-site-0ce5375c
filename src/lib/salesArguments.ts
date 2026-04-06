@@ -118,7 +118,7 @@ function getSelectedAccessoryObjects(mc: MachineConfig, state: ConfiguratorState
 
 // ─── Main generator ─────────────────────────────────────────────────────────
 
-export function generateSalesArguments(state: ConfiguratorState): string {
+export function generateSalesArguments(state: ConfiguratorState): SalesArgsStructured {
   // Collect all capabilities and comfort features across entire package
   const caps = new Set<Capability>();
   const comfortParts: string[] = [];
