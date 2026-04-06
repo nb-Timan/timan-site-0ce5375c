@@ -29,9 +29,9 @@ interface Props {
 
 function getRoleBadge(role: string, lang: Language) {
   const map: Record<string, Record<string, string>> = {
-    slutkunde: { da: 'Default bruger', en: 'Default user' },
-    partner: { da: 'Partner', en: 'Partner' },
-    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales' },
+    slutkunde: { da: 'Default bruger', en: 'Default user', de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó' },
+    partner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
+    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkauf', it: 'Timan Vendite', hu: 'Timan Értékesítő' },
   };
   return map[role]?.[lang] || map[role]?.en || role;
 }
@@ -39,9 +39,9 @@ function getRoleBadge(role: string, lang: Language) {
 function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
   if (!subRole) return null;
   const map: Record<PartnerType, Record<string, string>> = {
-    service_partner: { da: 'Service partner', en: 'Service Partner' },
-    forhandler: { da: 'Forhandler', en: 'Dealer' },
-    importoer: { da: 'Importør', en: 'Importer' },
+    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner' },
+    forhandler: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+    importoer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
   };
   return map[subRole]?.[lang] || map[subRole]?.en || subRole;
 }
