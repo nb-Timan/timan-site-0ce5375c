@@ -358,7 +358,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           onClick={() => void handleOpen(item)}
                           className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
                         >
-                          {tx('Åbn', 'Open')}
+                          {tx('open')}
                         </button>
                       )}
                       {item.case_status !== 'ordre_afgivet' && (
