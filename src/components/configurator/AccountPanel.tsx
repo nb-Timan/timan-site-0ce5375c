@@ -329,7 +329,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           </span>
                           <span className="text-sm text-gray-300">·</span>
                           <span className="text-sm text-gray-400">
-                            {new Date(item.created_at).toLocaleDateString(language === 'da' ? 'da-DK' : 'en-US')}
+                            {new Date(item.created_at).toLocaleDateString({ da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-US')}
                           </span>
                           {item.pdf_downloaded && (
                             <>
