@@ -1667,7 +1667,7 @@ export default function ConfiguratorPage() {
           </div>
 
           {/* Section 2: Timan recommendation */}
-          {recommendationData && (
+          {(
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">
@@ -1699,7 +1699,7 @@ export default function ConfiguratorPage() {
                 </div>
               </div>
 
-              {wantRecommendation && (() => {
+              {wantRecommendation && recommendationData && (() => {
                 const allRecBullets = [...recommendationData.defaultBullets, ...recommendationData.extraBullets];
                 const totalSelected = selectedRecBullets.size;
                 const toggleRecBullet = (bullet: string) => {
@@ -1757,6 +1757,15 @@ export default function ConfiguratorPage() {
                   </div>
                 );
               })()}
+              {wantRecommendation && !recommendationData && (
+                <div className="border border-amber-300 rounded-lg p-5 bg-amber-50/50">
+                  <p className="text-sm text-amber-900/80">
+                    {lang === 'da'
+                      ? 'Der er ingen yderligere anbefalinger for denne konfiguration – I har allerede valgt de vigtigste tilbehør.'
+                      : 'No additional recommendations for this configuration – you have already selected the key accessories.'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
