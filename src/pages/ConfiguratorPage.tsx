@@ -1667,7 +1667,7 @@ export default function ConfiguratorPage() {
           </div>
 
           {/* Section 2: Timan recommendation */}
-          {recommendationData && (
+          {(
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">
