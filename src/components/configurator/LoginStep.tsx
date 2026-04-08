@@ -333,7 +333,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-gray-400 focus:outline-none transition"
               placeholder={language === 'da' ? 'din@email.dk' : 'your@email.com'}
             />
-            {guestError && <p className="text-red-500 text-xs mt-1">{guestError}</p>}
+            {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
           </div>
           <button
             onClick={handleGuestContinue}
