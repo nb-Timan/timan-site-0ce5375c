@@ -87,7 +87,7 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
               placeholder={tx('placeholder', language)}
               autoFocus
             />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
           </div>
 
           {!showResult && (
