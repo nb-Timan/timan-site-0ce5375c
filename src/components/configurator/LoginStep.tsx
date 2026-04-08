@@ -242,7 +242,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{tx('password', language)}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('password', language)}</label>
               <input
                 type="password"
                 value={password}
