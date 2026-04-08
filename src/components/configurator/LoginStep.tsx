@@ -230,7 +230,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{tx('email', language)}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('email', language)}</label>
               <input
                 type="email"
                 value={email}
@@ -242,7 +242,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{tx('password', language)}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('password', language)}</label>
               <input
                 type="password"
                 value={password}
@@ -252,7 +252,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               />
             </div>
 
-            {error && <p className="text-red-500 text-xs">{error}</p>}
+            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
 
             <button
               onClick={handleSignup}
@@ -284,7 +284,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         <div className="space-y-4">
           {/* Login fields */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{tx('email', language)}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('email', language)}</label>
             <input
               type="email"
               value={email}
@@ -296,7 +296,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{tx('password', language)}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('password', language)}</label>
             <input
               type="password"
               value={password}
@@ -306,7 +306,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             />
           </div>
 
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-red-500 text-xs text-center">{error}</p>}
 
           {/* Log ind */}
           <button
@@ -333,7 +333,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-gray-400 focus:outline-none transition"
               placeholder={language === 'da' ? 'din@email.dk' : 'your@email.com'}
             />
-            {guestError && <p className="text-red-500 text-xs mt-1">{guestError}</p>}
+            {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
           </div>
           <button
             onClick={handleGuestContinue}
