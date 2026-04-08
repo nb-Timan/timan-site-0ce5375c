@@ -87,7 +87,7 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
               placeholder={tx('placeholder', language)}
               autoFocus
             />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
           </div>
 
           {!showResult && (
@@ -100,13 +100,13 @@ export default function EmailGateStep({ language, onResolved }: EmailGateStepPro
           )}
 
           {showResult && lookedUp && (
-            <div className={`p-4 rounded-xl border-2 ${isSlut ? 'border-amber-300 bg-amber-50' : 'border-emerald-400 bg-emerald-50'}`}>
+            <div className={`p-4 rounded-xl border-2 text-center ${isSlut ? 'border-amber-300 bg-amber-50' : 'border-emerald-400 bg-emerald-50'}`}>
               {!isSlut && lookedUp.display_name && (
                 <p className="font-bold text-emerald-800 text-lg mb-1">
                   {tx('recognized', language)}, {lookedUp.display_name}!
                 </p>
               )}
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${isSlut ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'}`}>
                   {roleLabel[lookedUp.role]?.[language] || roleLabel[lookedUp.role]?.en}
                 </span>
