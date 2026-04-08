@@ -230,7 +230,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{tx('email', language)}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('email', language)}</label>
               <input
                 type="email"
                 value={email}
