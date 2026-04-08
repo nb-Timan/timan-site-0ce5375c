@@ -306,7 +306,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             />
           </div>
 
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-red-500 text-xs text-center">{error}</p>}
 
           {/* Log ind */}
           <button
