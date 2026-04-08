@@ -51,8 +51,8 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
                 !deliveryInfo.date && 'text-muted-foreground'
               )}
             >
-              <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-              <span className="pointer-events-none">
+              <CalendarIcon className="absolute left-3 h-4 w-4 shrink-0" />
+              <span className="pointer-events-none flex-1 text-center">
                 {deliveryInfo.date ? format(deliveryInfo.date, 'PPP', { locale: da }) : 'Vælg dato'}
               </span>
             </Button>
