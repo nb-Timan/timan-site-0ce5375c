@@ -47,7 +47,7 @@ export function DeliveryStep({ deliveryInfo, onDeliveryChange, onNext, onPreviou
               type="button"
               variant="outline"
               className={cn(
-                'w-full sm:w-[280px] justify-start text-left font-normal cursor-pointer pointer-events-auto select-none',
+                'w-full sm:w-[280px] justify-center text-center font-normal cursor-pointer pointer-events-auto select-none',
                 !deliveryInfo.date && 'text-muted-foreground'
               )}
             >
