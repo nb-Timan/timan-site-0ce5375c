@@ -290,7 +290,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               value={email}
               onChange={e => { setEmail(e.target.value); setError(''); }}
               onKeyDown={e => handleKeyDown(e, handleLogin)}
-              className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:outline-none transition"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-emerald-500 focus:outline-none transition"
               placeholder="din@email.dk"
               autoFocus
             />
