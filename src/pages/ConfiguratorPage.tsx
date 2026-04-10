@@ -426,7 +426,7 @@ export default function ConfiguratorPage() {
       const selectedBulletsArr = salesArgsData.defaultBullets.concat(salesArgsData.extraBullets).filter(b => selectedSalesBullets.has(b));
       const salesText = `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:24px;padding:16px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;">
-        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${{ da: 'Salgsargumenter', en: 'Sales Arguments', de: 'Verkaufsargumente', it: 'Argomenti di vendita', hu: 'Értékesítési érvek' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesText}</div>
       </div>`;
     }
@@ -435,7 +435,7 @@ export default function ConfiguratorPage() {
       const selectedRecArr = recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b));
       const recText = `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
-        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${lang === 'da' ? 'Timans anbefaling' : 'Timan Recommends'}</h2>
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${{ da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recText}</div>
       </div>`;
     }
@@ -451,11 +451,11 @@ export default function ConfiguratorPage() {
     }
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
-      const data = generateSalesArguments(state);
+      const data = generateSalesArguments(state, lang);
       setSalesArgsData(data);
       // Pre-select default bullets
       setSelectedSalesBullets(new Set(data.defaultBullets));
-      const recData = generateRecommendations(state);
+      const recData = generateRecommendations(state, lang);
       setRecommendationData(recData);
       if (recData) {
         setSelectedRecBullets(new Set(recData.defaultBullets));
@@ -1570,14 +1570,14 @@ export default function ConfiguratorPage() {
       <Dialog open={salesArgsModalOpen} onOpenChange={setSalesArgsModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{lang === 'da' ? 'Tilbud – valgmuligheder' : 'Quote – options'}</DialogTitle>
+            <DialogTitle>{{ da: 'Tilbud – valgmuligheder', en: 'Quote – options', de: 'Angebot – Optionen', it: 'Preventivo – opzioni', hu: 'Ajánlat – lehetőségek' }[lang]}</DialogTitle>
           </DialogHeader>
 
           {/* Section 1: Sales arguments */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground">
-                {lang === 'da' ? 'Ønsker du at tilføje salgsargumenter?' : 'Include sales arguments?'}
+                {{ da: 'Ønsker du at tilføje salgsargumenter?', en: 'Include sales arguments?', de: 'Verkaufsargumente hinzufügen?', it: 'Aggiungere argomenti di vendita?', hu: 'Értékesítési érvek hozzáadása?' }[lang]}
               </span>
               <div className="flex gap-2">
                 <button
@@ -1589,7 +1589,7 @@ export default function ConfiguratorPage() {
                       : 'border-border text-muted-foreground hover:border-emerald-400'
                   )}
                 >
-                  {lang === 'da' ? 'Ja' : 'Yes'}
+                   {{ da: 'Ja', en: 'Yes', de: 'Ja', it: 'Sì', hu: 'Igen' }[lang]}
                 </button>
                 <button
                   onClick={() => setIncludeSalesArgs(false)}
@@ -1600,7 +1600,7 @@ export default function ConfiguratorPage() {
                       : 'border-border text-muted-foreground hover:border-border'
                   )}
                 >
-                  {lang === 'da' ? 'Nej' : 'No'}
+                   {{ da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' }[lang]}
                 </button>
               </div>
             </div>
@@ -1628,7 +1628,7 @@ export default function ConfiguratorPage() {
                   
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {lang === 'da' ? `Vælg nøglepunkter (maks. 7, ${totalSelected} valgt)` : `Select key points (max 7, ${totalSelected} selected)`}
+                      {{ da: `Vælg nøglepunkter (maks. 7, ${totalSelected} valgt)`, en: `Select key points (max 7, ${totalSelected} selected)`, de: `Schlüsselpunkte wählen (max. 7, ${totalSelected} gewählt)`, it: `Seleziona punti chiave (max 7, ${totalSelected} selezionati)`, hu: `Válasszon kulcspontokat (max. 7, ${totalSelected} kiválasztva)` }[lang]}
                     </p>
                     {allBullets.map((bullet, i) => {
                       const isChecked = selectedSalesBullets.has(bullet);
@@ -1655,7 +1655,7 @@ export default function ConfiguratorPage() {
                             {bullet}
                           </span>
                           {!isDefault && !isChecked && (
-                            <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{lang === 'da' ? 'Valgfri' : 'Optional'}</span>
+                             <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{{ da: 'Valgfri', en: 'Optional', de: 'Optional', it: 'Opzionale', hu: 'Opcionális' }[lang]}</span>
                           )}
                         </label>
                       );
@@ -1671,7 +1671,7 @@ export default function ConfiguratorPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">
-                  {lang === 'da' ? 'Vil du også høre, hvad Timan anbefaler?' : 'Would you also like Timan\'s recommendation?'}
+                  {{ da: 'Vil du også høre, hvad Timan anbefaler?', en: 'Would you also like Timan\'s recommendation?', de: 'Möchten Sie auch Timans Empfehlung?', it: 'Volete anche la raccomandazione di Timan?', hu: 'Szeretné a Timan ajánlását is?' }[lang]}
                 </span>
                 <div className="flex gap-2">
                   <button
@@ -1683,7 +1683,7 @@ export default function ConfiguratorPage() {
                         : 'border-border text-muted-foreground hover:border-emerald-400'
                     )}
                   >
-                    {lang === 'da' ? 'Ja' : 'Yes'}
+                    {{ da: 'Ja', en: 'Yes', de: 'Ja', it: 'Sì', hu: 'Igen' }[lang]}
                   </button>
                   <button
                     onClick={() => setWantRecommendation(false)}
@@ -1694,7 +1694,7 @@ export default function ConfiguratorPage() {
                         : 'border-border text-muted-foreground hover:border-border'
                     )}
                   >
-                    {lang === 'da' ? 'Nej' : 'No'}
+                    {{ da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' }[lang]}
                   </button>
                 </div>
               </div>
@@ -1721,7 +1721,7 @@ export default function ConfiguratorPage() {
 
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-amber-700 mb-2">
-                        {lang === 'da' ? `Vælg anbefalinger (maks. 7, ${totalSelected} valgt)` : `Select recommendations (max 7, ${totalSelected} selected)`}
+                        {{ da: `Vælg anbefalinger (maks. 7, ${totalSelected} valgt)`, en: `Select recommendations (max 7, ${totalSelected} selected)`, de: `Empfehlungen wählen (max. 7, ${totalSelected} gewählt)`, it: `Seleziona raccomandazioni (max 7, ${totalSelected} selezionate)`, hu: `Válasszon ajánlásokat (max. 7, ${totalSelected} kiválasztva)` }[lang]}
                       </p>
                       {allRecBullets.map((bullet, i) => {
                         const isChecked = selectedRecBullets.has(bullet);
@@ -1748,7 +1748,7 @@ export default function ConfiguratorPage() {
                               {bullet}
                             </span>
                             {!isDefault && !isChecked && (
-                              <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{lang === 'da' ? 'Valgfri' : 'Optional'}</span>
+                              <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{{ da: 'Valgfri', en: 'Optional', de: 'Optional', it: 'Opzionale', hu: 'Opcionális' }[lang]}</span>
                             )}
                           </label>
                         );
@@ -1760,9 +1760,7 @@ export default function ConfiguratorPage() {
               {wantRecommendation && !recommendationData && (
                 <div className="border border-amber-300 rounded-lg p-5 bg-amber-50/50">
                   <p className="text-sm text-amber-900/80">
-                    {lang === 'da'
-                      ? 'Der er ingen yderligere anbefalinger for denne konfiguration – I har allerede valgt de vigtigste tilbehør.'
-                      : 'No additional recommendations for this configuration – you have already selected the key accessories.'}
+                     {{ da: 'Der er ingen yderligere anbefalinger for denne konfiguration – I har allerede valgt de vigtigste tilbehør.', en: 'No additional recommendations for this configuration – you have already selected the key accessories.', de: 'Keine weiteren Empfehlungen für diese Konfiguration – Sie haben bereits das wichtigste Zubehör ausgewählt.', it: 'Nessuna raccomandazione aggiuntiva per questa configurazione – avete già selezionato gli accessori principali.', hu: 'Nincs további ajánlás ehhez a konfigurációhoz – már kiválasztotta a legfontosabb tartozékokat.' }[lang]}
                   </p>
                 </div>
               )}
@@ -1776,7 +1774,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition"
             >
-              {lang === 'da' ? 'Annuller' : 'Cancel'}
+              {{ da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' }[lang]}
             </button>
             <button
               onClick={() => {
@@ -1786,7 +1784,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
             >
-              {lang === 'da' ? 'Fortsæt' : 'Continue'}
+              {{ da: 'Fortsæt', en: 'Continue', de: 'Weiter', it: 'Continua', hu: 'Tovább' }[lang]}
             </button>
           </div>
         </DialogContent>
