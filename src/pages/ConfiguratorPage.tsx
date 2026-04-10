@@ -1760,7 +1760,7 @@ export default function ConfiguratorPage() {
               {wantRecommendation && !recommendationData && (
                 <div className="border border-amber-300 rounded-lg p-5 bg-amber-50/50">
                   <p className="text-sm text-amber-900/80">
-                     {{{ da: 'Der er ingen yderligere anbefalinger for denne konfiguration – I har allerede valgt de vigtigste tilbehør.', en: 'No additional recommendations for this configuration – you have already selected the key accessories.', de: 'Keine weiteren Empfehlungen für diese Konfiguration – Sie haben bereits das wichtigste Zubehör ausgewählt.', it: 'Nessuna raccomandazione aggiuntiva per questa configurazione – avete già selezionato gli accessori principali.', hu: 'Nincs további ajánlás ehhez a konfigurációhoz – már kiválasztotta a legfontosabb tartozékokat.' }[lang]}}
+                     {{ da: 'Der er ingen yderligere anbefalinger for denne konfiguration – I har allerede valgt de vigtigste tilbehør.', en: 'No additional recommendations for this configuration – you have already selected the key accessories.', de: 'Keine weiteren Empfehlungen für diese Konfiguration – Sie haben bereits das wichtigste Zubehör ausgewählt.', it: 'Nessuna raccomandazione aggiuntiva per questa configurazione – avete già selezionato gli accessori principali.', hu: 'Nincs további ajánlás ehhez a konfigurációhoz – már kiválasztotta a legfontosabb tartozékokat.' }[lang]}
                   </p>
                 </div>
               )}
