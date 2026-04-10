@@ -426,7 +426,7 @@ export default function ConfiguratorPage() {
       const selectedBulletsArr = salesArgsData.defaultBullets.concat(salesArgsData.extraBullets).filter(b => selectedSalesBullets.has(b));
       const salesText = `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:24px;padding:16px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;">
-        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${lang === 'da' ? 'Salgsargumenter' : 'Sales Arguments'}</h2>
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${{ da: 'Salgsargumenter', en: 'Sales Arguments', de: 'Verkaufsargumente', it: 'Argomenti di vendita', hu: 'Értékesítési érvek' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesText}</div>
       </div>`;
     }
@@ -435,7 +435,7 @@ export default function ConfiguratorPage() {
       const selectedRecArr = recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b));
       const recText = `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
-        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${lang === 'da' ? 'Timans anbefaling' : 'Timan Recommends'}</h2>
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${{ da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recText}</div>
       </div>`;
     }
@@ -451,11 +451,11 @@ export default function ConfiguratorPage() {
     }
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
-      const data = generateSalesArguments(state);
+      const data = generateSalesArguments(state, lang);
       setSalesArgsData(data);
       // Pre-select default bullets
       setSelectedSalesBullets(new Set(data.defaultBullets));
-      const recData = generateRecommendations(state);
+      const recData = generateRecommendations(state, lang);
       setRecommendationData(recData);
       if (recData) {
         setSelectedRecBullets(new Set(recData.defaultBullets));
