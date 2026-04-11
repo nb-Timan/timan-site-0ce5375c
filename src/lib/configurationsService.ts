@@ -550,6 +550,7 @@ export async function saveConfiguration(
   }
 
   const documentType = state.flowType === 'order' ? 'order' : 'quote';
+  const isOrder = documentType === 'order';
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
@@ -571,6 +572,10 @@ export async function saveConfiguration(
     pdf_downloaded_at: null,
     submitted_at: null,
     last_saved_at: now,
+    quote_number: isOrder ? null : generateReferenceNumber('Q'),
+    order_number: isOrder ? generateReferenceNumber('O') : null,
+    source_quote_id: sourceQuoteId ?? null,
+    source_quote_number: sourceQuoteNumber ?? null,
   };
 
   const { data, error } = await insertConfigurationRow(row);
