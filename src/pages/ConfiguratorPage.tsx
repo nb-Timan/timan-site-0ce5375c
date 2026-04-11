@@ -585,6 +585,9 @@ export default function ConfiguratorPage() {
             if (result.id) {
               caseId = result.id;
               setSavedConfigurationId(result.id);
+              setSavedQuoteNumber(result.quote_number);
+              setSavedOrderNumber(result.order_number);
+              setSavedSourceQuoteNumber(result.source_quote_number);
               setIsSavedCurrent(true);
             }
           } catch (saveErr) {
@@ -1578,9 +1581,15 @@ export default function ConfiguratorPage() {
                 } else {
                   toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
                   setSavedConfigurationId(result.id);
+                  setSavedQuoteNumber(result.quote_number);
+                  setSavedOrderNumber(result.order_number);
+                  setSavedSourceQuoteNumber(result.source_quote_number);
                   resetState();
                   setIsSavedCurrent(false);
                   setSavedConfigurationId(null);
+                  setSavedQuoteNumber(null);
+                  setSavedOrderNumber(null);
+                  setSavedSourceQuoteNumber(null);
                 }
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
