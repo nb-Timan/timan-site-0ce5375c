@@ -577,7 +577,9 @@ export default function ConfiguratorPage() {
       const pdfTitle = state.flowType === 'quote'
         ? (lang === 'da' ? 'Tilbud' : 'Quote')
         : (lang === 'da' ? 'Ordre' : 'Order');
-      pdf.save(`Timan_${pdfTitle}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const refNum = savedOrderNumber || savedQuoteNumber || '';
+      const refSuffix = refNum ? `_${refNum}` : '';
+      pdf.save(`Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
