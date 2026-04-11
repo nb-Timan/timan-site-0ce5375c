@@ -346,9 +346,31 @@ export default function ConfiguratorPage() {
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
     const pdfTitle = state.flowType === 'quote' ? (lang === 'da' ? 'TILBUDSFORESPØRGSEL' : 'QUOTE REQUEST') : T('confirmTitle');
 
+    // Reference numbers section
+    const refNumbersHtml = (() => {
+      const lines: string[] = [];
+      if (savedQuoteNumber) {
+        const label = { da: 'Tilbudsnr.', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Ajánlatszám' }[lang] || 'Quote no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedQuoteNumber}</span>`);
+      }
+      if (savedOrderNumber) {
+        const label = { da: 'Ordrenr.', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' }[lang] || 'Order no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedOrderNumber}</span>`);
+      }
+      if (savedSourceQuoteNumber) {
+        const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedSourceQuoteNumber}</span>`);
+      }
+      if (lines.length === 0) return '';
+      return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">${lines.join('')}</div>
+      </div>`;
+    })();
+
     let html = `<div class="max-w-4xl mx-auto text-[15px] leading-relaxed">
       <div class="text-center pb-6 border-b border-emerald-600">
         <h1 class="text-3xl font-bold text-gray-900">${pdfTitle}</h1>
+        ${refNumbersHtml}
         <p class="mt-3 text-xl">
           <span class="block text-lg">${T('confirmDate')} ${today}</span>
           <span class="block text-base">${T('confirmDelivery')} ${delDate}</span>
