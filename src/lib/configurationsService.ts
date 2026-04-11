@@ -519,6 +519,7 @@ export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
+  options?: { sourceQuoteId?: string; sourceQuoteNumber?: string },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
     label,
