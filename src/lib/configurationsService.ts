@@ -536,10 +536,8 @@ export async function saveConfiguration(
   if (authError) {
     console.error('Failed to read auth user before save:', authError);
     return {
-      data: null,
-      id: null,
-      error: formatSupabaseError(authError),
-      itemsError: null,
+      data: null, id: null, error: formatSupabaseError(authError), itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
@@ -547,10 +545,8 @@ export async function saveConfiguration(
     const message = 'No authenticated Supabase user found. Please log in again.';
     console.error(message);
     return {
-      data: null,
-      id: null,
-      error: message,
-      itemsError: null,
+      data: null, id: null, error: message, itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
@@ -590,14 +586,15 @@ export async function saveConfiguration(
   if (error || !data) {
     console.error('Failed to save configuration:', error);
     return {
-      data: null,
-      id: null,
-      error: formatSupabaseError(error),
-      itemsError: null,
+      data: null, id: null, error: formatSupabaseError(error), itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
   const itemsError = await saveConfigurationItems(data.id, state);
+
+  const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
+  const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
 
   return {
     data: mapConfigurationRow({
@@ -613,10 +610,18 @@ export async function saveConfiguration(
       pdf_downloaded_at: data.pdf_downloaded_at ?? null,
       created_at: data.created_at ?? now,
       last_saved_at: data.last_saved_at ?? now,
+      quote_number: savedQuoteNumber,
+      order_number: savedOrderNumber,
+      source_quote_id: sourceQuoteId ?? null,
+      source_quote_number: sourceQuoteNumber ?? null,
     }, ownerEmail),
     id: data.id,
     error: null,
     itemsError,
+    quote_number: savedQuoteNumber,
+    order_number: savedOrderNumber,
+    source_quote_id: sourceQuoteId ?? null,
+    source_quote_number: sourceQuoteNumber ?? null,
   };
 }
 
