@@ -19,6 +19,18 @@ export interface SavedConfiguration {
   submitted_at: string | null;
   last_saved_at: string;
   created_at: string;
+  quote_number: string | null;
+  order_number: string | null;
+  source_quote_id: string | null;
+  source_quote_number: string | null;
+}
+
+/** Generate a unique reference number with prefix Q- or O- */
+function generateReferenceNumber(prefix: 'Q' | 'O'): string {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${datePart}-${rand}`;
 }
 
 type StoredConfigurationPayload = {
