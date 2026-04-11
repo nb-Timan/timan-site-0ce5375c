@@ -58,6 +58,10 @@ export interface SaveConfigurationResult {
   id: string | null;
   error: string | null;
   itemsError: string | null;
+  quote_number: string | null;
+  order_number: string | null;
+  source_quote_id: string | null;
+  source_quote_number: string | null;
 }
 
 type SupabaseErrorLike = {
