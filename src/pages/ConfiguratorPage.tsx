@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded, ensureReferenceNumbers } from '@/lib/configurationsService';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -475,7 +475,8 @@ export default function ConfiguratorPage() {
       return;
     }
 
-    // Auto-save to generate reference numbers if not already saved
+    // Auto-save to generate reference numbers before showing preview
+    const isOrder = state.flowType === 'order';
     if (!savedConfigurationId && appUser) {
       try {
         const label = state.firmanavn
@@ -491,6 +492,15 @@ export default function ConfiguratorPage() {
         }
       } catch (err) {
         console.error('Failed to auto-save before confirmation:', err);
+      }
+    } else if (savedConfigurationId) {
+      // Already saved — ensure reference numbers exist
+      try {
+        const refs = await ensureReferenceNumbers(savedConfigurationId, isOrder);
+        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
+        if (refs.order_number) setSavedOrderNumber(refs.order_number);
+      } catch (err) {
+        console.error('Failed to ensure reference numbers:', err);
       }
     }
 

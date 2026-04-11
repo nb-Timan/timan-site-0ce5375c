@@ -26,12 +26,55 @@ export interface SavedConfiguration {
 }
 
 /** Generate a unique reference number with prefix Q- or O- */
-function generateReferenceNumber(prefix: 'Q' | 'O'): string {
+export function generateReferenceNumber(prefix: 'Q' | 'O'): string {
   const now = new Date();
   const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
   const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `${prefix}-${datePart}-${rand}`;
 }
+
+/** Ensure a saved configuration has its reference numbers, updating in Supabase if needed */
+export async function ensureReferenceNumbers(
+  configId: string,
+  isOrder: boolean,
+): Promise<{ quote_number: string | null; order_number: string | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { quote_number: null, order_number: null };
+
+  const { data: row } = await supabase
+    .from('configurations')
+    .select('quote_number, order_number')
+    .eq('id', configId)
+    .maybeSingle();
+
+  if (!row) return { quote_number: null, order_number: null };
+
+  const needsQuote = !isOrder && !row.quote_number;
+  const needsOrder = isOrder && !row.order_number;
+
+  if (!needsQuote && !needsOrder) {
+    return { quote_number: row.quote_number, order_number: row.order_number };
+  }
+
+  const patch: Record<string, unknown> = {};
+  const result = { quote_number: row.quote_number as string | null, order_number: row.order_number as string | null };
+
+  if (needsQuote) {
+    const qn = generateReferenceNumber('Q');
+    patch.quote_number = qn;
+    result.quote_number = qn;
+  }
+  if (needsOrder) {
+    const on = generateReferenceNumber('O');
+    patch.order_number = on;
+    result.order_number = on;
+  }
+
+  await updateConfigurationRow(configId, patch);
+  return result;
+}
+
+
 
 type StoredConfigurationPayload = {
   __kind: 'configurator_state';
