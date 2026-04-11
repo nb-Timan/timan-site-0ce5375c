@@ -88,6 +88,9 @@ export default function ConfiguratorPage() {
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
+  const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
+  const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
+  const [savedSourceQuoteNumber, setSavedSourceQuoteNumber] = useState<string | null>(null);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
