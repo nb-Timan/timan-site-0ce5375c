@@ -552,6 +552,8 @@ export async function saveConfiguration(
 
   const documentType = state.flowType === 'order' ? 'order' : 'quote';
   const isOrder = documentType === 'order';
+  const sourceQuoteId = options?.sourceQuoteId;
+  const sourceQuoteNumber = options?.sourceQuoteNumber;
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
