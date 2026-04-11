@@ -619,6 +619,9 @@ export default function ConfiguratorPage() {
           const webhookPayload = {
             case_id: caseId || '',
             document_type: 'Ordre',
+            order_number: savedOrderNumber || '',
+            quote_number: savedQuoteNumber || '',
+            source_quote_number: savedSourceQuoteNumber || '',
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
             telefon: state.telefon,
