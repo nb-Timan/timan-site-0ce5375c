@@ -1408,8 +1408,10 @@ export default function ConfiguratorPage() {
               appUser={appUser}
               language={lang}
               currentState={state}
-              onSavedConfiguration={(configId) => {
+              onSavedConfiguration={(configId, quoteNumber, orderNumber) => {
                 setSavedConfigurationId(configId);
+                setSavedQuoteNumber(quoteNumber ?? null);
+                setSavedOrderNumber(orderNumber ?? null);
                 setIsSavedCurrent(true);
               }}
               onLogout={() => {

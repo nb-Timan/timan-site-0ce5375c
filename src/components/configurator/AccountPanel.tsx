@@ -24,7 +24,7 @@ interface Props {
   currentState: ConfiguratorState;
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string) => void;
-  onSavedConfiguration: (configId: string) => void;
+  onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
 }
 
 function getRoleBadge(role: string, lang: Language) {
@@ -110,7 +110,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       await refreshItems();
 
       if (result.id) {
-        onSavedConfiguration(result.id);
+        onSavedConfiguration(result.id, result.quote_number, result.order_number);
       }
 
       if (result.itemsError) {
