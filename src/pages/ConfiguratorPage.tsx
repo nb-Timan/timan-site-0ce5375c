@@ -88,6 +88,9 @@ export default function ConfiguratorPage() {
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
+  const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
+  const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
+  const [savedSourceQuoteNumber, setSavedSourceQuoteNumber] = useState<string | null>(null);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
@@ -343,9 +346,31 @@ export default function ConfiguratorPage() {
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
     const pdfTitle = state.flowType === 'quote' ? (lang === 'da' ? 'TILBUDSFORESPØRGSEL' : 'QUOTE REQUEST') : T('confirmTitle');
 
+    // Reference numbers section
+    const refNumbersHtml = (() => {
+      const lines: string[] = [];
+      if (savedQuoteNumber) {
+        const label = { da: 'Tilbudsnr.', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Ajánlatszám' }[lang] || 'Quote no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedQuoteNumber}</span>`);
+      }
+      if (savedOrderNumber) {
+        const label = { da: 'Ordrenr.', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' }[lang] || 'Order no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedOrderNumber}</span>`);
+      }
+      if (savedSourceQuoteNumber) {
+        const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
+        lines.push(`<span class="font-medium">${label}</span><span>${savedSourceQuoteNumber}</span>`);
+      }
+      if (lines.length === 0) return '';
+      return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">${lines.join('')}</div>
+      </div>`;
+    })();
+
     let html = `<div class="max-w-4xl mx-auto text-[15px] leading-relaxed">
       <div class="text-center pb-6 border-b border-emerald-600">
         <h1 class="text-3xl font-bold text-gray-900">${pdfTitle}</h1>
+        ${refNumbersHtml}
         <p class="mt-3 text-xl">
           <span class="block text-lg">${T('confirmDate')} ${today}</span>
           <span class="block text-base">${T('confirmDelivery')} ${delDate}</span>
@@ -444,11 +469,31 @@ export default function ConfiguratorPage() {
   };
 
   // Open confirmation — but first ask about sales arguments
-  const openConfirmation = () => {
+  const openConfirmation = async () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
       return;
     }
+
+    // Auto-save to generate reference numbers if not already saved
+    if (!savedConfigurationId && appUser) {
+      try {
+        const label = state.firmanavn
+          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+        if (result.id) {
+          setSavedConfigurationId(result.id);
+          setSavedQuoteNumber(result.quote_number);
+          setSavedOrderNumber(result.order_number);
+          setSavedSourceQuoteNumber(result.source_quote_number);
+          setIsSavedCurrent(true);
+        }
+      } catch (err) {
+        console.error('Failed to auto-save before confirmation:', err);
+      }
+    }
+
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
       const data = generateSalesArguments(state, lang);
@@ -532,7 +577,9 @@ export default function ConfiguratorPage() {
       const pdfTitle = state.flowType === 'quote'
         ? (lang === 'da' ? 'Tilbud' : 'Quote')
         : (lang === 'da' ? 'Ordre' : 'Order');
-      pdf.save(`Timan_${pdfTitle}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const refNum = savedOrderNumber || savedQuoteNumber || '';
+      const refSuffix = refNum ? `_${refNum}` : '';
+      pdf.save(`Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
@@ -560,6 +607,9 @@ export default function ConfiguratorPage() {
             if (result.id) {
               caseId = result.id;
               setSavedConfigurationId(result.id);
+              setSavedQuoteNumber(result.quote_number);
+              setSavedOrderNumber(result.order_number);
+              setSavedSourceQuoteNumber(result.source_quote_number);
               setIsSavedCurrent(true);
             }
           } catch (saveErr) {
@@ -571,6 +621,9 @@ export default function ConfiguratorPage() {
           const webhookPayload = {
             case_id: caseId || '',
             document_type: 'Ordre',
+            order_number: savedOrderNumber || '',
+            quote_number: savedQuoteNumber || '',
+            source_quote_number: savedSourceQuoteNumber || '',
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
             telefon: state.telefon,
@@ -1380,8 +1433,10 @@ export default function ConfiguratorPage() {
               appUser={appUser}
               language={lang}
               currentState={state}
-              onSavedConfiguration={(configId) => {
+              onSavedConfiguration={(configId, quoteNumber, orderNumber) => {
                 setSavedConfigurationId(configId);
+                setSavedQuoteNumber(quoteNumber ?? null);
+                setSavedOrderNumber(orderNumber ?? null);
                 setIsSavedCurrent(true);
               }}
               onLogout={() => {
@@ -1553,9 +1608,15 @@ export default function ConfiguratorPage() {
                 } else {
                   toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
                   setSavedConfigurationId(result.id);
+                  setSavedQuoteNumber(result.quote_number);
+                  setSavedOrderNumber(result.order_number);
+                  setSavedSourceQuoteNumber(result.source_quote_number);
                   resetState();
                   setIsSavedCurrent(false);
                   setSavedConfigurationId(null);
+                  setSavedQuoteNumber(null);
+                  setSavedOrderNumber(null);
+                  setSavedSourceQuoteNumber(null);
                 }
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"

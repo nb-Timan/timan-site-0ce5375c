@@ -19,6 +19,18 @@ export interface SavedConfiguration {
   submitted_at: string | null;
   last_saved_at: string;
   created_at: string;
+  quote_number: string | null;
+  order_number: string | null;
+  source_quote_id: string | null;
+  source_quote_number: string | null;
+}
+
+/** Generate a unique reference number with prefix Q- or O- */
+function generateReferenceNumber(prefix: 'Q' | 'O'): string {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${datePart}-${rand}`;
 }
 
 type StoredConfigurationPayload = {
@@ -46,6 +58,10 @@ export interface SaveConfigurationResult {
   id: string | null;
   error: string | null;
   itemsError: string | null;
+  quote_number: string | null;
+  order_number: string | null;
+  source_quote_id: string | null;
+  source_quote_number: string | null;
 }
 
 type SupabaseErrorLike = {
@@ -286,6 +302,10 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     submitted_at: row.submitted_at ?? null,
     last_saved_at: row.last_saved_at ?? row.created_at ?? new Date().toISOString(),
     created_at: row.created_at ?? row.last_saved_at ?? new Date().toISOString(),
+    quote_number: row.quote_number ?? null,
+    order_number: row.order_number ?? null,
+    source_quote_id: row.source_quote_id ?? null,
+    source_quote_number: row.source_quote_number ?? null,
   };
 }
 
@@ -404,6 +424,10 @@ function mapConfigurationRowWithItems(
     submitted_at: row.submitted_at ?? null,
     last_saved_at: row.last_saved_at ?? row.created_at ?? new Date().toISOString(),
     created_at: row.created_at ?? row.last_saved_at ?? new Date().toISOString(),
+    quote_number: row.quote_number ?? null,
+    order_number: row.order_number ?? null,
+    source_quote_id: row.source_quote_id ?? null,
+    source_quote_number: row.source_quote_number ?? null,
   };
 }
 
@@ -499,6 +523,7 @@ export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
+  options?: { sourceQuoteId?: string; sourceQuoteNumber?: string },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
     label,
@@ -511,10 +536,8 @@ export async function saveConfiguration(
   if (authError) {
     console.error('Failed to read auth user before save:', authError);
     return {
-      data: null,
-      id: null,
-      error: formatSupabaseError(authError),
-      itemsError: null,
+      data: null, id: null, error: formatSupabaseError(authError), itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
@@ -522,14 +545,15 @@ export async function saveConfiguration(
     const message = 'No authenticated Supabase user found. Please log in again.';
     console.error(message);
     return {
-      data: null,
-      id: null,
-      error: message,
-      itemsError: null,
+      data: null, id: null, error: message, itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
   const documentType = state.flowType === 'order' ? 'order' : 'quote';
+  const isOrder = documentType === 'order';
+  const sourceQuoteId = options?.sourceQuoteId;
+  const sourceQuoteNumber = options?.sourceQuoteNumber;
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
@@ -551,6 +575,10 @@ export async function saveConfiguration(
     pdf_downloaded_at: null,
     submitted_at: null,
     last_saved_at: now,
+    quote_number: isOrder ? null : generateReferenceNumber('Q'),
+    order_number: isOrder ? generateReferenceNumber('O') : null,
+    source_quote_id: sourceQuoteId ?? null,
+    source_quote_number: sourceQuoteNumber ?? null,
   };
 
   const { data, error } = await insertConfigurationRow(row);
@@ -558,14 +586,15 @@ export async function saveConfiguration(
   if (error || !data) {
     console.error('Failed to save configuration:', error);
     return {
-      data: null,
-      id: null,
-      error: formatSupabaseError(error),
-      itemsError: null,
+      data: null, id: null, error: formatSupabaseError(error), itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
     };
   }
 
   const itemsError = await saveConfigurationItems(data.id, state);
+
+  const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
+  const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
 
   return {
     data: mapConfigurationRow({
@@ -581,10 +610,18 @@ export async function saveConfiguration(
       pdf_downloaded_at: data.pdf_downloaded_at ?? null,
       created_at: data.created_at ?? now,
       last_saved_at: data.last_saved_at ?? now,
+      quote_number: savedQuoteNumber,
+      order_number: savedOrderNumber,
+      source_quote_id: sourceQuoteId ?? null,
+      source_quote_number: sourceQuoteNumber ?? null,
     }, ownerEmail),
     id: data.id,
     error: null,
     itemsError,
+    quote_number: savedQuoteNumber,
+    order_number: savedOrderNumber,
+    source_quote_id: sourceQuoteId ?? null,
+    source_quote_number: sourceQuoteNumber ?? null,
   };
 }
 
