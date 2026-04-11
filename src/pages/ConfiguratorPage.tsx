@@ -469,11 +469,31 @@ export default function ConfiguratorPage() {
   };
 
   // Open confirmation — but first ask about sales arguments
-  const openConfirmation = () => {
+  const openConfirmation = async () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
       return;
     }
+
+    // Auto-save to generate reference numbers if not already saved
+    if (!savedConfigurationId && appUser) {
+      try {
+        const label = state.firmanavn
+          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+        if (result.id) {
+          setSavedConfigurationId(result.id);
+          setSavedQuoteNumber(result.quote_number);
+          setSavedOrderNumber(result.order_number);
+          setSavedSourceQuoteNumber(result.source_quote_number);
+          setIsSavedCurrent(true);
+        }
+      } catch (err) {
+        console.error('Failed to auto-save before confirmation:', err);
+      }
+    }
+
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
       const data = generateSalesArguments(state, lang);
