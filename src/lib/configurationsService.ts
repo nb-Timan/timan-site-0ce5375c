@@ -298,6 +298,10 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     submitted_at: row.submitted_at ?? null,
     last_saved_at: row.last_saved_at ?? row.created_at ?? new Date().toISOString(),
     created_at: row.created_at ?? row.last_saved_at ?? new Date().toISOString(),
+    quote_number: row.quote_number ?? null,
+    order_number: row.order_number ?? null,
+    source_quote_id: row.source_quote_id ?? null,
+    source_quote_number: row.source_quote_number ?? null,
   };
 }
 
@@ -416,6 +420,10 @@ function mapConfigurationRowWithItems(
     submitted_at: row.submitted_at ?? null,
     last_saved_at: row.last_saved_at ?? row.created_at ?? new Date().toISOString(),
     created_at: row.created_at ?? row.last_saved_at ?? new Date().toISOString(),
+    quote_number: row.quote_number ?? null,
+    order_number: row.order_number ?? null,
+    source_quote_id: row.source_quote_id ?? null,
+    source_quote_number: row.source_quote_number ?? null,
   };
 }
 
