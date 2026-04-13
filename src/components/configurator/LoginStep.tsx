@@ -69,9 +69,15 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         .single();
 
       if (dbError || !appUserRow) {
+        const userEmail = data.user.email!.toLowerCase();
+        supabase.from('login_tracking').upsert({
+          email: userEmail,
+          last_login: new Date().toISOString(),
+        }, { onConflict: 'email' }).then(() => {});
+
         onResolved({
           ...SLUTKUNDE_DEFAULTS,
-          email: data.user.email!.toLowerCase(),
+          email: userEmail,
           display_name: undefined,
         });
         return;
