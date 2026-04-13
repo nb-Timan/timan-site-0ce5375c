@@ -91,6 +91,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         return;
       }
 
+      // Restore login tracking
+      supabase.from('login_tracking').upsert({
+        email: appUserRow.email,
+        last_login: new Date().toISOString(),
+      }, { onConflict: 'email' }).then(() => {});
+
       onResolved({
         email: appUserRow.email,
         role: appUserRow.role,
@@ -172,6 +178,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       setGuestError(tx('guestEmailRequired', language));
       return;
     }
+    // Restore login tracking for guest/free flow
+    supabase.from('login_tracking').upsert({
+      email: trimmed.toLowerCase(),
+      last_login: new Date().toISOString(),
+    }, { onConflict: 'email' }).then(() => {});
+
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
       email: trimmed.toLowerCase(),
