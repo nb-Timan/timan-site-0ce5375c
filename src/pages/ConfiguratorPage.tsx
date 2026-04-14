@@ -342,7 +342,7 @@ export default function ConfiguratorPage() {
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
-    const pdfTitle = state.flowType === 'quote' ? (lang === 'da' ? 'TILBUDSFORESPØRGSEL' : 'QUOTE REQUEST') : T('confirmTitle');
+    const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
 
     // Reference numbers section
     const refNumbersHtml = (() => {
