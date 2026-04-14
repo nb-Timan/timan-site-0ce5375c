@@ -1574,17 +1574,17 @@ export default function ConfiguratorPage() {
       <Dialog open={newConfigModalOpen} onOpenChange={setNewConfigModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Start ny konfiguration</DialogTitle>
+            <DialogTitle>{T('newConfigTitle')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600 mt-2">
-            Denne sag er ikke gemt endnu. Vil du gemme den til senere?
+            {T('newConfigMsg')}
           </p>
           <div className="flex gap-3 mt-6 justify-end">
             <button
               onClick={() => setNewConfigModalOpen(false)}
               className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
             >
-              Annuller
+              {T('cancelBtn')}
             </button>
             <button
               onClick={() => {
@@ -1595,7 +1595,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
-              Nej, kassér
+              {T('discardBtn')}
             </button>
             <button
               disabled={savingBeforeReset}
@@ -1604,14 +1604,14 @@ export default function ConfiguratorPage() {
                 setSavingBeforeReset(true);
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
-                  : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+                  : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
-                  toast.error('Kunne ikke gemme sag', { description: result.error });
+                  toast.error(T('saveFailed'), { description: result.error });
                 } else {
-                  toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
+                  toast.success(T('caseSaved'), { description: `${T('caseIdLabel')}: ${result.id}` });
                   setSavedConfigurationId(result.id);
                   setSavedQuoteNumber(result.quote_number);
                   setSavedOrderNumber(result.order_number);
@@ -1626,7 +1626,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
             >
-              {savingBeforeReset ? '...' : 'Ja, gem'}
+              {savingBeforeReset ? '...' : T('saveBtn')}
             </button>
           </div>
         </DialogContent>
