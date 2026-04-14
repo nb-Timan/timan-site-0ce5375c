@@ -187,7 +187,7 @@ export default function ConfiguratorPage() {
           it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
           hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
         };
-        setInfoModal({ title: lang === 'da' ? 'Pakkeomkostning' : 'Packaging cost', content: packMsg[lang] || packMsg.en });
+        setInfoModal({ title: T('packagingCostTitle'), content: packMsg[lang] || packMsg.en });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
