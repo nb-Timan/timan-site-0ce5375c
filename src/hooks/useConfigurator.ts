@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { t } from '@/data/translations';
 
 type ConfiguratorStateUpdate =
   | ConfiguratorState
@@ -231,6 +232,8 @@ export function useConfigurator() {
   const calcResult = useMemo((): CalcResult | null => {
     const allUnits = getGlobalMachineUnits();
     if (allUnits.length === 0) return null;
+    const lang = state.language;
+    const T = (key: string) => t(key, lang);
 
     let subtotal = 0;
     const lineItems: LineItem[] = [];
@@ -242,7 +245,7 @@ export function useConfigurator() {
       const mach = PRODUCTS[unit.modelType];
       if (!mach) return;
       const machPrice = getPrice(mach, state.language);
-      lineItems.push({ txt: `Maskine ${unit.unitNumber} (${getLocalizedName(mach.name, state.language)})`, price: machPrice, varenr: mach.varenr, bold: true, isMachine: true, index: unit.unitNumber });
+      lineItems.push({ txt: `${T('machineLabel')} ${unit.unitNumber} (${getLocalizedName(mach.name, state.language)})`, price: machPrice, varenr: mach.varenr, bold: true, isMachine: true, index: unit.unitNumber });
       let unitTotal = machPrice;
 
       // Get selected accessories
@@ -272,7 +275,7 @@ export function useConfigurator() {
       });
 
       subtotal += unitTotal;
-      lineItems.push({ txt: `Subtotal Maskine ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
+      lineItems.push({ txt: `${T('subtotalMachine')} ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
 
       // Check if this unit is marked as demo
       const demoKey = `${mach.varenr}_${unit.unitNumber}`;
@@ -280,19 +283,19 @@ export function useConfigurator() {
       unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
     });
 
-    // DK: Startup pricing for "Timan leverer"
-    if (state.language === 'da' && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
+    // Startup pricing for "Timan leverer"
+    if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
       let startupPrice = 0;
       let startupTxt = '';
       if (state.deliveryDeliverStartup === 'no_bridge') {
-        startupPrice = 1500;
-        startupTxt = 'Vare nr 795050 – Opstart af maskine / uden bro';
+        startupPrice = lang === 'da' ? 1500 : 200;
+        startupTxt = T('startupNoBridgeCalc');
       } else if (state.deliveryDeliverStartup === 'with_bridge') {
-        startupPrice = 2500;
-        startupTxt = 'Vare nr 795050 – Opstart af maskine / med bro';
+        startupPrice = lang === 'da' ? 2500 : 335;
+        startupTxt = T('startupWithBridgeCalc');
       } else {
         startupPrice = 0;
-        startupTxt = 'Vare nr 795050 – Opstart af maskine / Anden aftale (se kommentar)';
+        startupTxt = T('startupOtherCalc');
       }
       lineItems.push({ txt: `- ${startupTxt}`, price: startupPrice, varenr: '795050', sub: true });
       subtotal += startupPrice;
@@ -313,7 +316,7 @@ export function useConfigurator() {
       const demoDisc = demoSubtotal * 0.325;
       price -= demoDisc;
       disc += demoDisc;
-      details.push({ txt: `Demo maskine rabat (32,5%)`, amount: demoDisc });
+      details.push({ txt: T('demoDiscount'), amount: demoDisc });
     }
 
     // --- Non-demo machines: normal discount chain ---
@@ -322,7 +325,7 @@ export function useConfigurator() {
       const d1 = nonDemoSubtotal * 0.25;
       price -= d1;
       disc += d1;
-      details.push({ txt: `Grund rabat (25%)`, amount: d1 });
+      details.push({ txt: T('baseDiscountLabel'), amount: d1 });
 
       // 2. Qty discount (based only on non-demo machine count)
       let qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
@@ -330,7 +333,7 @@ export function useConfigurator() {
         const d2 = (nonDemoSubtotal - d1) * qtyPct;
         price -= d2;
         disc += d2;
-        details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
+        details.push({ txt: `${T('qtyDiscountLabel')} (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
       }
 
       // 3. Delivery discount
@@ -346,7 +349,7 @@ export function useConfigurator() {
         const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
         price -= d3;
         disc += d3;
-        details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3, varenr: '795045' });
+        details.push({ txt: `${T('deliveryDiscountLabel')} (2%)`, amount: d3, varenr: '795045' });
       }
     }
 
@@ -355,7 +358,7 @@ export function useConfigurator() {
       const d4 = (subtotal - disc) * (state.manualDealerDiscountPct / 100);
       price -= d4;
       disc += d4;
-      details.push({ txt: `Ekstra forhandlerrabat (${state.manualDealerDiscountPct}%)`, amount: d4, varenr: '795042' });
+      details.push({ txt: `${T('extraDealerDiscountLabel')} (${state.manualDealerDiscountPct}%)`, amount: d4, varenr: '795042' });
     }
 
     const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;

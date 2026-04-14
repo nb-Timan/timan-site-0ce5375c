@@ -121,10 +121,8 @@ export default function ConfiguratorPage() {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `Varenr: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
-    const msg = lang === 'da'
-      ? `Bemærk: <strong>${itemName}</strong> er automatisk lagt i kurven, da det er påkrævet ved kombination af lys og redskab.<br><br>${itemVarenr}<br>Pris: ${price}`
-      : `Note: <strong>${itemName}</strong> has been automatically added to the cart as it is required when combining lights and attachment.<br><br>${itemVarenr}<br>Price: ${price}`;
-    setInfoModal({ title: lang === 'da' ? 'Automatisk tilføjet' : 'Automatically added', content: msg });
+    const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
+    setInfoModal({ title: T('autoAddedTitle'), content: msg });
   }, [lang, isEURCurrency]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
@@ -189,7 +187,7 @@ export default function ConfiguratorPage() {
           it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
           hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
         };
-        setInfoModal({ title: lang === 'da' ? 'Pakkeomkostning' : 'Packaging cost', content: packMsg[lang] || packMsg.en });
+        setInfoModal({ title: T('packagingCostTitle'), content: packMsg[lang] || packMsg.en });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
@@ -213,14 +211,14 @@ export default function ConfiguratorPage() {
     const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
     const bullets = md.bullets[lang] || md.bullets.da || [];
     const dims = md.dimensions || [];
-    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Hovedinformation' : 'Main Information'}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
+    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${T('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Nøglefunktioner' : 'Key Features'}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
       bullets.forEach(b => { html += `<li>${b}</li>`; });
       html += '</ul></div>';
     }
     if (dims.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Dimensioner & Tekniske Specifikationer' : 'Dimensions & Technical Specifications'}</h4>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
           html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${d.label}</h5>`;
@@ -231,7 +229,7 @@ export default function ConfiguratorPage() {
       });
       html += '</div>';
     }
-    setInfoModal({ title: `${lang === 'da' ? 'Maskine Information' : 'Machine Information'}: ${getLocalizedName(p.name, lang)}`, content: html });
+    setInfoModal({ title: `${T('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
   const showSpecs = (accId: string, machineType: string) => {
@@ -344,7 +342,7 @@ export default function ConfiguratorPage() {
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
-    const pdfTitle = state.flowType === 'quote' ? (lang === 'da' ? 'TILBUDSFORESPØRGSEL' : 'QUOTE REQUEST') : T('confirmTitle');
+    const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
 
     // Reference numbers section
     const refNumbersHtml = (() => {
@@ -413,11 +411,11 @@ export default function ConfiguratorPage() {
         if (i.isMachine && i.index) {
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
-            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${lang === 'da' ? 'Rekv.nr.' : 'Ref.'}: ${reqVal}</div>`;
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${T('reqNrLabel')}: ${reqVal}</div>`;
           }
         }
       } else {
-        const autoTag = i.isAutoAdded ? ' <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">Automatisk tilføjet</span>' : '';
+        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${T('autoAdded')}</span>` : '';
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
           <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
@@ -472,7 +470,7 @@ export default function ConfiguratorPage() {
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
-      setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
+      setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
     }
 
@@ -585,9 +583,7 @@ export default function ConfiguratorPage() {
         pageNum++;
       }
 
-      const pdfTitle = state.flowType === 'quote'
-        ? (lang === 'da' ? 'Tilbud' : 'Quote')
-        : (lang === 'da' ? 'Ordre' : 'Order');
+      const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
       const refNum = savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
       pdf.save(`Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -596,10 +592,10 @@ export default function ConfiguratorPage() {
       if (savedConfigurationId) {
         try {
           await markPdfDownloaded(savedConfigurationId);
-          toast.success(lang === 'da' ? 'PDF-download registreret' : 'PDF download tracked');
+          toast.success(T('pdfTracked'));
         } catch (err) {
           console.error('Failed to mark PDF downloaded:', err);
-          toast.error(lang === 'da' ? 'Kunne ikke registrere PDF-download i databasen' : 'Failed to track PDF download', {
+          toast.error(T('pdfTrackFailed'), {
             description: err instanceof Error ? err.message : String(err),
           });
         }
@@ -651,15 +647,15 @@ export default function ConfiguratorPage() {
           });
 
           if (webhookRes.ok) {
-            toast.success(lang === 'da' ? 'Ordre afsendt til Timan' : 'Order submitted to Timan');
+            toast.success(T('orderSentToTiman'));
           } else {
-            toast.error(lang === 'da' ? 'Kunne ikke afsende ordre til Timan' : 'Failed to submit order to Timan', {
+            toast.error(T('orderSendFailed'), {
               description: `Status: ${webhookRes.status}`,
             });
           }
         } catch (webhookErr) {
           console.error('Webhook call failed:', webhookErr);
-          toast.error(lang === 'da' ? 'Fejl ved afsendelse af ordre' : 'Error submitting order', {
+          toast.error(T('orderSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
         }
@@ -698,7 +694,7 @@ export default function ConfiguratorPage() {
             ))}
           </div>
           <div className="header-title-container">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Timan Maskinkonfigurator</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
             <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
           </div>
           <div className="hidden lg:block w-[116px]" />
@@ -760,7 +756,7 @@ export default function ConfiguratorPage() {
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
                   <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_BIO}</div>
-                  <div className="text-xs text-gray-500">{lang === 'da' ? 'Pris incl. afgift og emb. afgift (20L)' : 'Price incl. tax and packaging tax (20L)'}</div>
+                  <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -805,7 +801,7 @@ export default function ConfiguratorPage() {
             <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
               <button onClick={() => setConfirmModalOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
               <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">
-                {state.flowType === 'order' ? (lang === 'da' ? 'Afsend ordre til Timan' : 'Submit order to Timan') : T('downloadPdfBtn')}
+                {state.flowType === 'order' ? T('submitOrderBtn') : T('downloadPdfBtn')}
               </button>
             </div>
           </div>
@@ -823,7 +819,7 @@ export default function ConfiguratorPage() {
           ))}
         </div>
         <div className="header-title-container">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Timan Maskinkonfigurator</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
           <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
         </div>
         <div className="hidden lg:block w-[116px]" />
@@ -974,7 +970,7 @@ export default function ConfiguratorPage() {
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="flex-1 pointer-events-none select-none">
-                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : 'dd-mm-åååå'}
+                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : T('datePlaceholder')}
                         </span>
                       </Button>
                     </PopoverTrigger>
@@ -1009,7 +1005,7 @@ export default function ConfiguratorPage() {
                       />
                       <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
-                        Gul markering = 2% ekstra rabat
+                        {T('calendarDiscountNote')}
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -1024,13 +1020,11 @@ export default function ConfiguratorPage() {
                       <div className="mt-2 text-center">
                         {hasDeliveryDiscount ? (
                           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
-                            ✅ {lang === 'da' ? '2% leveringsrabat aktiveret' : '2% delivery discount activated'}
+                            ✅ {T('deliveryDiscountActive')}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-500">
-                            {lang === 'da'
-                              ? 'Leveringsdato mere end 3 måneder frem giver 2% ekstra rabat'
-                              : 'Delivery date more than 3 months ahead gives 2% extra discount'}
+                            {T('deliveryDiscountHint')}
                           </span>
                         )}
                       </div>
@@ -1087,10 +1081,10 @@ export default function ConfiguratorPage() {
                   <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
                   <div className="flex flex-col items-end gap-1">
                     {!state.date && (
-                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsdato' : 'Select a delivery date'}</p>
+                      <p className="text-red-500 text-xs">{T('selectDeliveryDate')}</p>
                     )}
                     {!state.deliveryMethod && (
-                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsmetode' : 'Select a delivery method'}</p>
+                      <p className="text-red-500 text-xs">{T('selectDeliveryMethod')}</p>
                     )}
                     <button onClick={() => {
                       if (!canProceedStep2) return;
@@ -1298,7 +1292,7 @@ export default function ConfiguratorPage() {
                         <button key={du.globalIndex}
                           onClick={() => setState(s => ({ ...s, currentMachineIndex: du.globalIndex }))}
                           className={`px-4 py-2 text-sm rounded-t-lg whitespace-nowrap ${du.globalIndex === state.currentMachineIndex ? 'tab-active bg-white border-x border-t' : 'tab-inactive hover:bg-gray-100'}`}>
-                          {du.isSharedUnit ? `Alle ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `Maskine ${du.unitNumber}`}
+                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `${T('machineLabel')} ${du.unitNumber}`}
                         </button>
                       ))}
                     </div>
@@ -1341,7 +1335,7 @@ export default function ConfiguratorPage() {
                       <div className="flex justify-between pt-4 border-t">
                         <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
                         {!allMandatoryMet && (
-                          <p className="text-red-500 text-xs self-center">{lang === 'da' ? 'Vælg alle påkrævede grupper (markeret med rød ramme)' : 'Select all required groups (marked with red border)'}</p>
+                          <p className="text-red-500 text-xs self-center">{T('requiredGroupsHint')}</p>
                         )}
                         <button onClick={() => {
                           if (!canProceedStep3) return;
@@ -1387,7 +1381,7 @@ export default function ConfiguratorPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {state.flowType === 'order'
-                        ? (lang === 'da' ? 'E-mail modtager *' : 'Email recipient *')
+                        ? T('emailRecipientRequired')
                         : T('emailRecipientLabel')}
                     </label>
                     <input
@@ -1420,12 +1414,12 @@ export default function ConfiguratorPage() {
                       }}
                       className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
                     >
-                      {lang === 'da' ? 'Start ny konfiguration' : 'Start new configuration'}
+                      {T('startNewConfig')}
                     </button>
                   </div>
                   {state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
-                      {lang === 'da' ? 'Kun forhandler/Timan kan afsende ordre' : 'Only dealer/Timan can submit orders'}
+                      {T('onlyDealerCanOrder')}
                     </button>
                   ) : (
                     <button onClick={openConfirmation}
@@ -1499,7 +1493,7 @@ export default function ConfiguratorPage() {
                             <div className="flex items-center gap-1.5">
                               <span>{item.txt}</span>
                               {item.isAutoAdded && (
-                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Automatisk tilføjet</span>
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">{T('autoAdded')}</span>
                               )}
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
@@ -1521,7 +1515,7 @@ export default function ConfiguratorPage() {
                               <input type="checkbox"
                                 checked={isDemoSelected(item.varenr, item.index)}
                                 onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
-                              <span>{lang === 'da' ? 'Demo maskine' : 'Demo machine'} <span className="text-gray-500">(+{formatMoney(getDemoFee(), lang)})</span></span>
+                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatMoney(getDemoFee(), lang)})</span></span>
                             </label>
                           </div>
                         )}
@@ -1552,7 +1546,7 @@ export default function ConfiguratorPage() {
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
+                          {T('extraDealerDiscountPct')}
                         </label>
                         <input type="number" min="0" max="100" step="0.1"
                           value={state.manualDealerDiscountPct || ''}
@@ -1580,17 +1574,17 @@ export default function ConfiguratorPage() {
       <Dialog open={newConfigModalOpen} onOpenChange={setNewConfigModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Start ny konfiguration</DialogTitle>
+            <DialogTitle>{T('newConfigTitle')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600 mt-2">
-            Denne sag er ikke gemt endnu. Vil du gemme den til senere?
+            {T('newConfigMsg')}
           </p>
           <div className="flex gap-3 mt-6 justify-end">
             <button
               onClick={() => setNewConfigModalOpen(false)}
               className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
             >
-              Annuller
+              {T('cancelBtn')}
             </button>
             <button
               onClick={() => {
@@ -1601,7 +1595,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
             >
-              Nej, kassér
+              {T('discardBtn')}
             </button>
             <button
               disabled={savingBeforeReset}
@@ -1610,14 +1604,14 @@ export default function ConfiguratorPage() {
                 setSavingBeforeReset(true);
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
-                  : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+                  : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
-                  toast.error('Kunne ikke gemme sag', { description: result.error });
+                  toast.error(T('saveFailed'), { description: result.error });
                 } else {
-                  toast.success('Sag gemt', { description: `Sag ID: ${result.id}` });
+                  toast.success(T('caseSaved'), { description: `${T('caseIdLabel')}: ${result.id}` });
                   setSavedConfigurationId(result.id);
                   setSavedQuoteNumber(result.quote_number);
                   setSavedOrderNumber(result.order_number);
@@ -1632,7 +1626,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
             >
-              {savingBeforeReset ? '...' : 'Ja, gem'}
+              {savingBeforeReset ? '...' : T('saveBtn')}
             </button>
           </div>
         </DialogContent>
