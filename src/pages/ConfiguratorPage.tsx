@@ -1081,10 +1081,10 @@ export default function ConfiguratorPage() {
                   <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
                   <div className="flex flex-col items-end gap-1">
                     {!state.date && (
-                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsdato' : 'Select a delivery date'}</p>
+                      <p className="text-red-500 text-xs">{T('selectDeliveryDate')}</p>
                     )}
                     {!state.deliveryMethod && (
-                      <p className="text-red-500 text-xs">{lang === 'da' ? 'Vælg en leveringsmetode' : 'Select a delivery method'}</p>
+                      <p className="text-red-500 text-xs">{T('selectDeliveryMethod')}</p>
                     )}
                     <button onClick={() => {
                       if (!canProceedStep2) return;
