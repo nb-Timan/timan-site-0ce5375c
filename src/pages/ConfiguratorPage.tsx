@@ -694,7 +694,7 @@ export default function ConfiguratorPage() {
             ))}
           </div>
           <div className="header-title-container">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Timan Maskinkonfigurator</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
             <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
           </div>
           <div className="hidden lg:block w-[116px]" />
