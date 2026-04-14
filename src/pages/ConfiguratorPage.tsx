@@ -801,7 +801,7 @@ export default function ConfiguratorPage() {
             <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
               <button onClick={() => setConfirmModalOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
               <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">
-                {state.flowType === 'order' ? (lang === 'da' ? 'Afsend ordre til Timan' : 'Submit order to Timan') : T('downloadPdfBtn')}
+                {state.flowType === 'order' ? T('submitOrderBtn') : T('downloadPdfBtn')}
               </button>
             </div>
           </div>
