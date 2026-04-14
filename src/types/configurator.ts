@@ -174,6 +174,7 @@ export interface LineItem {
 export interface DiscountDetail {
   txt: string;
   amount: number;
+  varenr?: string;
 }
 
 export interface CalcResult {

@@ -330,7 +330,7 @@ export function useConfigurator() {
         const d2 = (nonDemoSubtotal - d1) * qtyPct;
         price -= d2;
         disc += d2;
-        details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2 });
+        details.push({ txt: `Stk. rabat (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
       }
 
       // 3. Delivery discount
@@ -346,7 +346,7 @@ export function useConfigurator() {
         const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
         price -= d3;
         disc += d3;
-        details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3 });
+        details.push({ txt: `Leveringsrabat over 3 mdr. (2%)`, amount: d3, varenr: '795045' });
       }
     }
 
@@ -355,7 +355,7 @@ export function useConfigurator() {
       const d4 = (subtotal - disc) * (state.manualDealerDiscountPct / 100);
       price -= d4;
       disc += d4;
-      details.push({ txt: `Ekstra forhandlerrabat (${state.manualDealerDiscountPct}%)`, amount: d4 });
+      details.push({ txt: `Ekstra forhandlerrabat (${state.manualDealerDiscountPct}%)`, amount: d4, varenr: '795042' });
     }
 
     const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;
