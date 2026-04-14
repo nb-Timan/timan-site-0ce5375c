@@ -970,7 +970,7 @@ export default function ConfiguratorPage() {
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="flex-1 pointer-events-none select-none">
-                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : 'dd-mm-åååå'}
+                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : T('datePlaceholder')}
                         </span>
                       </Button>
                     </PopoverTrigger>
@@ -1005,7 +1005,7 @@ export default function ConfiguratorPage() {
                       />
                       <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
-                        Gul markering = 2% ekstra rabat
+                        {T('calendarDiscountNote')}
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -1020,13 +1020,11 @@ export default function ConfiguratorPage() {
                       <div className="mt-2 text-center">
                         {hasDeliveryDiscount ? (
                           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
-                            ✅ {lang === 'da' ? '2% leveringsrabat aktiveret' : '2% delivery discount activated'}
+                            ✅ {T('deliveryDiscountActive')}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-500">
-                            {lang === 'da'
-                              ? 'Leveringsdato mere end 3 måneder frem giver 2% ekstra rabat'
-                              : 'Delivery date more than 3 months ahead gives 2% extra discount'}
+                            {T('deliveryDiscountHint')}
                           </span>
                         )}
                       </div>
