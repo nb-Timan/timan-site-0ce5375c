@@ -411,7 +411,7 @@ export default function ConfiguratorPage() {
         if (i.isMachine && i.index) {
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
-            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${lang === 'da' ? 'Rekv.nr.' : 'Ref.'}: ${reqVal}</div>`;
+            const reqLabel = T('reqNrLabel');
           }
         }
       } else {
