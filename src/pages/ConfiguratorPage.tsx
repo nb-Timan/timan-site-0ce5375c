@@ -1493,7 +1493,7 @@ export default function ConfiguratorPage() {
                             <div className="flex items-center gap-1.5">
                               <span>{item.txt}</span>
                               {item.isAutoAdded && (
-                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">Automatisk tilføjet</span>
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">{T('autoAdded')}</span>
                               )}
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
@@ -1515,7 +1515,7 @@ export default function ConfiguratorPage() {
                               <input type="checkbox"
                                 checked={isDemoSelected(item.varenr, item.index)}
                                 onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
-                              <span>{lang === 'da' ? 'Demo maskine' : 'Demo machine'} <span className="text-gray-500">(+{formatMoney(getDemoFee(), lang)})</span></span>
+                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatMoney(getDemoFee(), lang)})</span></span>
                             </label>
                           </div>
                         )}
