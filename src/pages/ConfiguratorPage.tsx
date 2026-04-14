@@ -411,11 +411,11 @@ export default function ConfiguratorPage() {
         if (i.isMachine && i.index) {
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
-            const reqLabel = T('reqNrLabel');
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${T('reqNrLabel')}: ${reqVal}</div>`;
           }
         }
       } else {
-        const autoTag = i.isAutoAdded ? ' <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">Automatisk tilføjet</span>' : '';
+        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${T('autoAdded')}</span>` : '';
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
           <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
