@@ -470,7 +470,7 @@ export default function ConfiguratorPage() {
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
-      setInfoModal({ title: lang === 'da' ? 'Manglende felter' : 'Missing fields', content: lang === 'da' ? 'Udfyld venligst Firmanavn, Kontaktperson og Email.' : 'Please fill in Company, Contact and Email.' });
+      setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
     }
 
