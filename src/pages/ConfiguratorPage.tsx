@@ -121,10 +121,8 @@ export default function ConfiguratorPage() {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `Varenr: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
-    const msg = lang === 'da'
-      ? `Bemærk: <strong>${itemName}</strong> er automatisk lagt i kurven, da det er påkrævet ved kombination af lys og redskab.<br><br>${itemVarenr}<br>Pris: ${price}`
-      : `Note: <strong>${itemName}</strong> has been automatically added to the cart as it is required when combining lights and attachment.<br><br>${itemVarenr}<br>Price: ${price}`;
-    setInfoModal({ title: lang === 'da' ? 'Automatisk tilføjet' : 'Automatically added', content: msg });
+    const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
+    setInfoModal({ title: T('autoAddedTitle'), content: msg });
   }, [lang, isEURCurrency]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
