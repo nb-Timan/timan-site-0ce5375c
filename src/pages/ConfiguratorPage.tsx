@@ -1412,14 +1412,14 @@ export default function ConfiguratorPage() {
                           setNewConfigModalOpen(true);
                         }
                       }}
-                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">{T('startNewConfig')}
+                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
                     >
-                      {lang === 'da' ? 'Start ny konfiguration' : 'Start new configuration'}
+                      {T('startNewConfig')}
                     </button>
                   </div>
                   {state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
-                      {lang === 'da' ? 'Kun forhandler/Timan kan afsende ordre' : 'Only dealer/Timan can submit orders'}
+                      {T('onlyDealerCanOrder')}
                     </button>
                   ) : (
                     <button onClick={openConfirmation}
