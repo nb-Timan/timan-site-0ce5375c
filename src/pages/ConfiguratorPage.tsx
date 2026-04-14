@@ -1546,7 +1546,7 @@ export default function ConfiguratorPage() {
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {lang === 'da' ? 'Ekstra forhandlerrabat (%)' : 'Extra dealer discount (%)'}
+                          {T('extraDealerDiscountPct')}
                         </label>
                         <input type="number" min="0" max="100" step="0.1"
                           value={state.manualDealerDiscountPct || ''}
