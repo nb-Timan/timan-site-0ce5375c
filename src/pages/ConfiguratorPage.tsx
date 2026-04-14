@@ -1335,7 +1335,7 @@ export default function ConfiguratorPage() {
                       <div className="flex justify-between pt-4 border-t">
                         <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
                         {!allMandatoryMet && (
-                          <p className="text-red-500 text-xs self-center">{lang === 'da' ? 'Vælg alle påkrævede grupper (markeret med rød ramme)' : 'Select all required groups (marked with red border)'}</p>
+                          <p className="text-red-500 text-xs self-center">{T('requiredGroupsHint')}</p>
                         )}
                         <button onClick={() => {
                           if (!canProceedStep3) return;
