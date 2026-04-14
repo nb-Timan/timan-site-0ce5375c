@@ -1292,7 +1292,7 @@ export default function ConfiguratorPage() {
                         <button key={du.globalIndex}
                           onClick={() => setState(s => ({ ...s, currentMachineIndex: du.globalIndex }))}
                           className={`px-4 py-2 text-sm rounded-t-lg whitespace-nowrap ${du.globalIndex === state.currentMachineIndex ? 'tab-active bg-white border-x border-t' : 'tab-inactive hover:bg-gray-100'}`}>
-                          {du.isSharedUnit ? `Alle ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `Maskine ${du.unitNumber}`}
+                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `${T('machineLabel')} ${du.unitNumber}`}
                         </button>
                       ))}
                     </div>
