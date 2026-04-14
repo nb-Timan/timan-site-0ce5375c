@@ -211,14 +211,14 @@ export default function ConfiguratorPage() {
     const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
     const bullets = md.bullets[lang] || md.bullets.da || [];
     const dims = md.dimensions || [];
-    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Hovedinformation' : 'Main Information'}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
+    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${T('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Nøglefunktioner' : 'Key Features'}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
       bullets.forEach(b => { html += `<li>${b}</li>`; });
       html += '</ul></div>';
     }
     if (dims.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${lang === 'da' ? 'Dimensioner & Tekniske Specifikationer' : 'Dimensions & Technical Specifications'}</h4>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
           html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${d.label}</h5>`;
@@ -229,7 +229,7 @@ export default function ConfiguratorPage() {
       });
       html += '</div>';
     }
-    setInfoModal({ title: `${lang === 'da' ? 'Maskine Information' : 'Machine Information'}: ${getLocalizedName(p.name, lang)}`, content: html });
+    setInfoModal({ title: `${T('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
   const showSpecs = (accId: string, machineType: string) => {
