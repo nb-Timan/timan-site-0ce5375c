@@ -647,15 +647,15 @@ export default function ConfiguratorPage() {
           });
 
           if (webhookRes.ok) {
-            toast.success(lang === 'da' ? 'Ordre afsendt til Timan' : 'Order submitted to Timan');
+            toast.success(T('orderSentToTiman'));
           } else {
-            toast.error(lang === 'da' ? 'Kunne ikke afsende ordre til Timan' : 'Failed to submit order to Timan', {
+            toast.error(T('orderSendFailed'), {
               description: `Status: ${webhookRes.status}`,
             });
           }
         } catch (webhookErr) {
           console.error('Webhook call failed:', webhookErr);
-          toast.error(lang === 'da' ? 'Fejl ved afsendelse af ordre' : 'Error submitting order', {
+          toast.error(T('orderSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
         }
