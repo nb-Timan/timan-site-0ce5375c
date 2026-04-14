@@ -756,7 +756,7 @@ export default function ConfiguratorPage() {
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
                   <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_BIO}</div>
-                  <div className="text-xs text-gray-500">{lang === 'da' ? 'Pris incl. afgift og emb. afgift (20L)' : 'Price incl. tax and packaging tax (20L)'}</div>
+                  <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -819,7 +819,7 @@ export default function ConfiguratorPage() {
           ))}
         </div>
         <div className="header-title-container">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Timan Maskinkonfigurator</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
           <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
         </div>
         <div className="hidden lg:block w-[116px]" />
