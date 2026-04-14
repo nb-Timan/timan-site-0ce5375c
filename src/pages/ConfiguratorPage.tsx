@@ -583,9 +583,7 @@ export default function ConfiguratorPage() {
         pageNum++;
       }
 
-      const pdfTitle = state.flowType === 'quote'
-        ? (lang === 'da' ? 'Tilbud' : 'Quote')
-        : (lang === 'da' ? 'Ordre' : 'Order');
+      const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
       const refNum = savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
       pdf.save(`Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -594,10 +592,10 @@ export default function ConfiguratorPage() {
       if (savedConfigurationId) {
         try {
           await markPdfDownloaded(savedConfigurationId);
-          toast.success(lang === 'da' ? 'PDF-download registreret' : 'PDF download tracked');
+          toast.success(T('pdfTracked'));
         } catch (err) {
           console.error('Failed to mark PDF downloaded:', err);
-          toast.error(lang === 'da' ? 'Kunne ikke registrere PDF-download i databasen' : 'Failed to track PDF download', {
+          toast.error(T('pdfTrackFailed'), {
             description: err instanceof Error ? err.message : String(err),
           });
         }
