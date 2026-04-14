@@ -1381,7 +1381,7 @@ export default function ConfiguratorPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {state.flowType === 'order'
-                        ? (lang === 'da' ? 'E-mail modtager *' : 'Email recipient *')
+                        ? T('emailRecipientRequired')
                         : T('emailRecipientLabel')}
                     </label>
                     <input
@@ -1412,7 +1412,7 @@ export default function ConfiguratorPage() {
                           setNewConfigModalOpen(true);
                         }
                       }}
-                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
+                      className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">{T('startNewConfig')}
                     >
                       {lang === 'da' ? 'Start ny konfiguration' : 'Start new configuration'}
                     </button>
