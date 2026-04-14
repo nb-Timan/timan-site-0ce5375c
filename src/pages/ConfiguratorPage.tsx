@@ -433,8 +433,9 @@ export default function ConfiguratorPage() {
         <span class="price-col">${formatMoney(calcResult.subtotal, lang)}</span>
       </div>`;
     calcResult.discountDetails.filter(d => d.amount > 0).forEach(d => {
+      const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
       html += `<div class="flex justify-between w-full text-xs text-red-600">
-        <span>${d.txt}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
+        <span>${discLabel}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
     });
     html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
         <span>${T('confirmTotalDiscount')} (${calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
@@ -1538,7 +1539,7 @@ export default function ConfiguratorPage() {
                     <div className="text-red-600 text-sm space-y-1">
                       {calcResult.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                         <div key={i} className="flex justify-between">
-                          <span className="text-red-500">{d.txt}</span>
+                          <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
                           <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
                         </div>
                       ))}
