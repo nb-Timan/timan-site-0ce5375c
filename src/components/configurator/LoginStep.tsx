@@ -97,11 +97,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         return;
       }
 
-      // Restore login tracking
+      // Sync user to app_users (update last activity)
+      supabase.from('app_users').upsert({
+        email: appUserRow.email,
+        full_name: appUserRow.full_name || data.user.email,
+        role: appUserRow.role,
+        is_active: appUserRow.is_active,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+        if (syncErr) console.error('[app_users sync] update failed:', syncErr);
+        else console.log('[app_users sync] updated:', appUserRow.email);
+      });
+
+      // Login tracking
       supabase.from('login_tracking').upsert({
         email: appUserRow.email,
-        last_login: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(() => {});
+      }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+        if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
+      });
 
       onResolved({
         email: appUserRow.email,
