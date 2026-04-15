@@ -83,11 +83,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           else console.log('[app_users sync] inserted new:', userEmail);
         });
 
-        supabase.from('login_tracking').upsert({
-          email: userEmail,
-        }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-          if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
-        });
+        trackLogin(userEmail, 'login');
 
         onResolved({
           ...SLUTKUNDE_DEFAULTS,
