@@ -70,10 +70,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       if (dbError || !appUserRow) {
         const userEmail = data.user.email!.toLowerCase();
+        // Sync new user to app_users
+        supabase.from('app_users').upsert({
+          email: userEmail,
+          full_name: data.user.user_metadata?.full_name || userEmail,
+          role: 'slutkunde',
+          is_active: true,
+          approved: false,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+          if (syncErr) console.error('[app_users sync] insert failed:', syncErr);
+          else console.log('[app_users sync] inserted new:', userEmail);
+        });
+
         supabase.from('login_tracking').upsert({
           email: userEmail,
-          last_login: new Date().toISOString(),
-        }, { onConflict: 'email' }).then(() => {});
+        }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+          if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
+        });
 
         onResolved({
           ...SLUTKUNDE_DEFAULTS,
@@ -97,11 +111,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         return;
       }
 
-      // Restore login tracking
+      // Sync user to app_users (update last activity)
+      supabase.from('app_users').upsert({
+        email: appUserRow.email,
+        full_name: appUserRow.full_name || data.user.email,
+        role: appUserRow.role,
+        is_active: appUserRow.is_active,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+        if (syncErr) console.error('[app_users sync] update failed:', syncErr);
+        else console.log('[app_users sync] updated:', appUserRow.email);
+      });
+
+      // Login tracking
       supabase.from('login_tracking').upsert({
         email: appUserRow.email,
-        last_login: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(() => {});
+      }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+        if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
+      });
 
       onResolved({
         email: appUserRow.email,
@@ -184,11 +211,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       setGuestError(tx('guestEmailRequired', language));
       return;
     }
-    // Restore login tracking for guest/free flow
+    // Sync guest to app_users
+    supabase.from('app_users').upsert({
+      email: trimmed.toLowerCase(),
+      full_name: trimmed.toLowerCase(),
+      role: 'slutkunde',
+      is_active: true,
+      approved: false,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+      if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
+      else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
+    });
+
     supabase.from('login_tracking').upsert({
       email: trimmed.toLowerCase(),
-      last_login: new Date().toISOString(),
-    }, { onConflict: 'email' }).then(() => {});
+    }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+      if (ltErr) console.error('[login_tracking] guest upsert failed:', ltErr);
+    });
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
