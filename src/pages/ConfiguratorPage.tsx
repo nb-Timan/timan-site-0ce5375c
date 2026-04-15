@@ -1462,6 +1462,8 @@ export default function ConfiguratorPage() {
                 setIncludeSalesArgs(false);
                 setRecommendationData(null);
                 setIncludeRecommendation(false);
+                setSelectedRecBullets(new Set());
+                setWantRecommendation(false);
                 // Clear any localStorage/sessionStorage configurator keys
                 try {
                   const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('configurator') || k.startsWith('timan'));
