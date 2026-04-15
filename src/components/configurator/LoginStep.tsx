@@ -229,6 +229,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     }, { onConflict: 'email' }).then(({ error: ltErr }) => {
       if (ltErr) console.error('[login_tracking] guest upsert failed:', ltErr);
     });
+
+    onResolved({
       ...SLUTKUNDE_DEFAULTS,
       email: trimmed.toLowerCase(),
       display_name: undefined,
