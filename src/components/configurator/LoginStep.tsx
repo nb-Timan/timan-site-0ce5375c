@@ -151,14 +151,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         else console.log('[app_users sync] updated:', authEmail);
       });
 
-      // Login tracking
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
-      supabase.from('login_tracking').upsert({
-        email: authEmail,
-      }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-        if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
-        else console.log('[login_tracking] upserted:', authEmail);
-      });
+      trackLogin(authEmail, 'login');
 
       onResolved({
         email: appUserRow.email,
@@ -254,11 +248,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
     });
 
-    supabase.from('login_tracking').upsert({
-      email: trimmed.toLowerCase(),
-    }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-      if (ltErr) console.error('[login_tracking] guest upsert failed:', ltErr);
-    });
+    trackLogin(trimmed.toLowerCase(), 'guest');
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
