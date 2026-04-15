@@ -70,10 +70,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       if (dbError || !appUserRow) {
         const userEmail = data.user.email!.toLowerCase();
+        // Sync new user to app_users
+        supabase.from('app_users').upsert({
+          email: userEmail,
+          full_name: data.user.user_metadata?.full_name || userEmail,
+          role: 'slutkunde',
+          is_active: true,
+          approved: false,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+          if (syncErr) console.error('[app_users sync] insert failed:', syncErr);
+          else console.log('[app_users sync] inserted new:', userEmail);
+        });
+
         supabase.from('login_tracking').upsert({
           email: userEmail,
-          last_login: new Date().toISOString(),
-        }, { onConflict: 'email' }).then(() => {});
+        }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+          if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
+        });
 
         onResolved({
           ...SLUTKUNDE_DEFAULTS,
