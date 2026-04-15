@@ -28,7 +28,7 @@ type L = Language;
 
 const T = {
   selectMachines: {
-    da: 'Vælg maskiner og redskaber for at generere salgsargumenter.',
+    da: 'Vælg maskiner og redskaber for at generere fordele ved den valgte løsning.',
     en: 'Select machines and accessories to generate sales arguments.',
     de: 'Wählen Sie Maschinen und Zubehör, um Verkaufsargumente zu erstellen.',
     it: 'Seleziona macchine e accessori per generare argomenti di vendita.',

@@ -450,7 +450,7 @@ export default function ConfiguratorPage() {
       const selectedBulletsArr = salesArgsData.defaultBullets.concat(salesArgsData.extraBullets).filter(b => selectedSalesBullets.has(b));
       const salesText = `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`;
       html += `<div style="margin-top:24px;padding:16px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;">
-        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${{ da: 'Salgsargumenter', en: 'Sales Arguments', de: 'Verkaufsargumente', it: 'Argomenti di vendita', hu: 'Értékesítési érvek' }[lang]}</h2>
+        <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#065f46;">${{ da: 'Fordele ved den valgte løsning', en: 'Benefits of the chosen solution', de: 'Vorteile der gewählten Lösung', it: 'Vantaggi della soluzione scelta', hu: 'A választott megoldás előnyei' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${salesText}</div>
       </div>`;
     }
@@ -1668,7 +1668,7 @@ export default function ConfiguratorPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground">
-                {{ da: 'Ønsker du at tilføje salgsargumenter?', en: 'Include sales arguments?', de: 'Verkaufsargumente hinzufügen?', it: 'Aggiungere argomenti di vendita?', hu: 'Értékesítési érvek hozzáadása?' }[lang]}
+                {{ da: 'Ønsker du at tilføje fordele ved den valgte løsning?', en: 'Include benefits of the chosen solution?', de: 'Vorteile der gewählten Lösung hinzufügen?', it: 'Aggiungere vantaggi della soluzione scelta?', hu: 'Hozzáadja a választott megoldás előnyeit?' }[lang]}
               </span>
               <div className="flex gap-2">
                 <button
