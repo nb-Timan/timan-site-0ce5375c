@@ -111,23 +111,29 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         return;
       }
 
+      // Use fresh authenticated session email for all sync
+      const authEmail = data.user.email!.toLowerCase();
+      console.log('[app_users sync] Using authenticated email:', authEmail);
+      
       // Sync user to app_users (update last activity)
       supabase.from('app_users').upsert({
-        email: appUserRow.email,
+        email: authEmail,
         full_name: appUserRow.full_name || data.user.email,
         role: appUserRow.role,
         is_active: appUserRow.is_active,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'email' }).then(({ error: syncErr }) => {
         if (syncErr) console.error('[app_users sync] update failed:', syncErr);
-        else console.log('[app_users sync] updated:', appUserRow.email);
+        else console.log('[app_users sync] updated:', authEmail);
       });
 
       // Login tracking
+      console.log('[login_tracking sync] Using authenticated email:', authEmail);
       supabase.from('login_tracking').upsert({
-        email: appUserRow.email,
+        email: authEmail,
       }, { onConflict: 'email' }).then(({ error: ltErr }) => {
         if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
+        else console.log('[login_tracking] upserted:', authEmail);
       });
 
       onResolved({
