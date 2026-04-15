@@ -211,13 +211,24 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       setGuestError(tx('guestEmailRequired', language));
       return;
     }
-    // Restore login tracking for guest/free flow
+    // Sync guest to app_users
+    supabase.from('app_users').upsert({
+      email: trimmed.toLowerCase(),
+      full_name: trimmed.toLowerCase(),
+      role: 'slutkunde',
+      is_active: true,
+      approved: false,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+      if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
+      else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
+    });
+
     supabase.from('login_tracking').upsert({
       email: trimmed.toLowerCase(),
-      last_login: new Date().toISOString(),
-    }, { onConflict: 'email' }).then(() => {});
-
-    onResolved({
+    }, { onConflict: 'email' }).then(({ error: ltErr }) => {
+      if (ltErr) console.error('[login_tracking] guest upsert failed:', ltErr);
+    });
       ...SLUTKUNDE_DEFAULTS,
       email: trimmed.toLowerCase(),
       display_name: undefined,
