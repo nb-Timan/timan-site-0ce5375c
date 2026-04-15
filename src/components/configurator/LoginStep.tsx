@@ -2,6 +2,34 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 
+async function trackLogin(email: string, loginType: 'login' | 'guest') {
+  try {
+    const { data: existing } = await supabase
+      .from('login_tracking')
+      .select('id, login_count')
+      .eq('email', email)
+      .eq('login_type', loginType)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('login_tracking')
+        .update({ login_count: (existing.login_count || 0) + 1, last_login: new Date().toISOString() })
+        .eq('id', existing.id);
+      if (error) console.error('[login_tracking] update failed:', error);
+      else console.log('[login_tracking] incremented:', email, loginType, existing.login_count + 1);
+    } else {
+      const { error } = await supabase
+        .from('login_tracking')
+        .insert({ email, login_type: loginType, login_count: 1, last_login: new Date().toISOString() });
+      if (error) console.error('[login_tracking] insert failed:', error);
+      else console.log('[login_tracking] created:', email, loginType);
+    }
+  } catch (err) {
+    console.error('[login_tracking] error:', err);
+  }
+}
+
 interface LoginStepProps {
   language: string;
   onResolved: (user: AppUser & { email: string }) => void;
@@ -83,11 +111,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           else console.log('[app_users sync] inserted new:', userEmail);
         });
 
-        supabase.from('login_tracking').upsert({
-          email: userEmail,
-        }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-          if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
-        });
+        trackLogin(userEmail, 'login');
 
         onResolved({
           ...SLUTKUNDE_DEFAULTS,
@@ -127,14 +151,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         else console.log('[app_users sync] updated:', authEmail);
       });
 
-      // Login tracking
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
-      supabase.from('login_tracking').upsert({
-        email: authEmail,
-      }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-        if (ltErr) console.error('[login_tracking] upsert failed:', ltErr);
-        else console.log('[login_tracking] upserted:', authEmail);
-      });
+      trackLogin(authEmail, 'login');
 
       onResolved({
         email: appUserRow.email,
@@ -230,11 +248,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
     });
 
-    supabase.from('login_tracking').upsert({
-      email: trimmed.toLowerCase(),
-    }, { onConflict: 'email' }).then(({ error: ltErr }) => {
-      if (ltErr) console.error('[login_tracking] guest upsert failed:', ltErr);
-    });
+    trackLogin(trimmed.toLowerCase(), 'guest');
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
