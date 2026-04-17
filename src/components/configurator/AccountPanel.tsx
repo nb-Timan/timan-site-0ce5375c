@@ -12,6 +12,7 @@ import {
   deleteConfiguration,
   SavedStatus,
 } from '@/lib/configurationsService';
+import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import { toast } from 'sonner';
 
 // Re-export for external use
