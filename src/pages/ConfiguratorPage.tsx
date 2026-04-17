@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded, ensureReferenceNumbers } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -101,6 +101,24 @@ export default function ConfiguratorPage() {
   const [selectedRecBullets, setSelectedRecBullets] = useState<Set<string>>(new Set());
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
+
+  // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
+  const handleSetFlowType = useCallback((ft: 'quote' | 'order') => {
+    if (state.flowType === ft) return;
+    setFlowType(ft);
+    if (savedConfigurationId) {
+      console.info('[flowType] persisting change to saved case', { id: savedConfigurationId, flowType: ft });
+      updateConfigurationFlowType(savedConfigurationId, ft).then(res => {
+        if (res.error) {
+          console.error('[flowType] failed to persist:', res.error);
+          toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
+          return;
+        }
+        if (res.quote_number) setSavedQuoteNumber(res.quote_number);
+        if (res.order_number) setSavedOrderNumber(res.order_number);
+      });
+    }
+  }, [state.flowType, setFlowType, savedConfigurationId, lang]);
 
   // Auto-fill email fields when entering step 4
   useEffect(() => {
@@ -855,7 +873,7 @@ export default function ConfiguratorPage() {
                 <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 max-w-3xl mx-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(['quote', 'order'] as const).map(ft => (
-                      <button key={ft} onClick={() => setFlowType(ft)}
+                      <button key={ft} onClick={() => handleSetFlowType(ft)}
                         className={`rounded-xl border-2 px-4 py-4 text-left transition ${state.flowType === ft ? 'border-emerald-500 bg-white shadow-sm' : 'border-transparent bg-white/80 hover:border-emerald-300'}`}>
                         <div className="font-bold text-gray-900">{T(ft)}</div>
                       </button>
@@ -1492,7 +1510,7 @@ export default function ConfiguratorPage() {
                     <button
                       key={ft}
                       type="button"
-                      onClick={() => { if (state.flowType !== ft) setFlowType(ft); }}
+                      onClick={() => handleSetFlowType(ft)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                         active
                           ? 'bg-emerald-600 text-white shadow'
