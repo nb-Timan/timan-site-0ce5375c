@@ -102,6 +102,24 @@ export default function ConfiguratorPage() {
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
 
+  // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
+  const handleSetFlowType = useCallback((ft: 'quote' | 'order') => {
+    if (state.flowType === ft) return;
+    setFlowType(ft);
+    if (savedConfigurationId) {
+      console.info('[flowType] persisting change to saved case', { id: savedConfigurationId, flowType: ft });
+      updateConfigurationFlowType(savedConfigurationId, ft).then(res => {
+        if (res.error) {
+          console.error('[flowType] failed to persist:', res.error);
+          toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
+          return;
+        }
+        if (res.quote_number) setSavedQuoteNumber(res.quote_number);
+        if (res.order_number) setSavedOrderNumber(res.order_number);
+      });
+    }
+  }, [state.flowType, setFlowType, savedConfigurationId, lang]);
+
   // Auto-fill email fields when entering step 4
   useEffect(() => {
     if (state.step === 4) {
