@@ -270,30 +270,69 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <DialogTitle className="text-xl">{tx('myAccount')}</DialogTitle>
           </DialogHeader>
 
-          {/* User details */}
-          <div className="space-y-3 text-base border-b pb-5">
-            <div className="flex justify-between">
-              <span className="text-gray-500">{tx('name')}</span>
-              <span className="font-medium text-gray-900">{appUser.display_name || '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium text-gray-900 truncate ml-4">{appUser.email}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">{tx('role')}</span>
-              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
-                {getRoleBadge(appUser.role, language)}
-              </span>
-            </div>
-            {appUser.partner_type && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">{tx('partnerType')}</span>
-                <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
-                  {getSubRoleLabel(appUser.partner_type, language)}
-                </span>
+          {/* Top: User info (left) + Statistics (right) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-b pb-5">
+            {/* Left: user info grouped */}
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-bold">
+                {(appUser.display_name || appUser.email || '?').charAt(0).toUpperCase()}
               </div>
-            )}
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-gray-900 truncate">
+                  {appUser.display_name || '—'}
+                </div>
+                <div className="text-sm text-gray-500 truncate">{appUser.email}</div>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${roleBadgeColor(appUser.role)}`}>
+                    {getRoleBadge(appUser.role, language)}
+                  </span>
+                  {appUser.partner_type && (
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-teal-100 text-teal-800">
+                      {getSubRoleLabel(appUser.partner_type, language)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: stats overview */}
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-emerald-800 truncate">{tx('statsActive')}</div>
+                  <div className="text-[11px] text-emerald-700/70">
+                    {stats.active.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-emerald-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.active.value, language)}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-blue-800 truncate">{tx('statsClosed')}</div>
+                  <div className="text-[11px] text-blue-700/70">
+                    {stats.closed.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-blue-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.closed.value, language)}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-amber-800 truncate">{tx('statsPaused')}</div>
+                  <div className="text-[11px] text-amber-700/70">
+                    {stats.paused.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-amber-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.paused.value, language)}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Saved items */}
