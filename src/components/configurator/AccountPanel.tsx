@@ -214,6 +214,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       open: { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
       pause: { da: 'Sæt på pause', en: 'Pause', de: 'Pausieren', it: 'Pausa', hu: 'Szüneteltetés' },
       reactivate: { da: 'Genaktivér', en: 'Reactivate', de: 'Reaktivieren', it: 'Riattiva', hu: 'Újraaktiválás' },
+      statusActive: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+      statusPaused: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
+      clickToPause: { da: 'Klik for at sætte på pause', en: 'Click to pause', de: 'Klicken zum Pausieren', it: 'Clicca per mettere in pausa', hu: 'Kattints a szüneteltetéshez' },
+      clickToActivate: { da: 'Klik for at genaktivere', en: 'Click to reactivate', de: 'Klicken zum Reaktivieren', it: 'Clicca per riattivare', hu: 'Kattints az újraaktiváláshoz' },
       delete: { da: 'Slet', en: 'Delete', de: 'Löschen', it: 'Elimina', hu: 'Törlés' },
       logout: { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
       saveFailed: { da: 'Kunne ikke gemme sag', en: 'Failed to save case', de: 'Speichern fehlgeschlagen', it: 'Salvataggio fallito', hu: 'Mentés sikertelen' },
@@ -391,10 +395,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           <span className="text-sm text-gray-400">
                             {item.case_type === 'quote' ? tx('quote') : tx('order')}
                           </span>
-                          <span className="text-sm text-gray-300">·</span>
-                          <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
-                            {statusLabel(item.case_status, language)}
-                          </span>
+                          {item.case_status === 'ordre_afgivet' && (
+                            <>
+                              <span className="text-sm text-gray-300">·</span>
+                              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
+                                {statusLabel(item.case_status, language)}
+                              </span>
+                            </>
+                          )}
                           <span className="text-sm text-gray-300">·</span>
                           <span className="text-sm text-gray-400">
                             {new Date(item.created_at).toLocaleDateString({ da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-US')}
@@ -432,9 +440,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleToggleStatus(item.id)}
-                          className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                          title={item.case_status === 'aktiv' ? tx('clickToPause') : tx('clickToActivate')}
+                          className={`text-sm px-3 py-1.5 rounded-lg font-semibold transition ${
+                            item.case_status === 'aktiv'
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              : 'bg-amber-400 text-amber-900 hover:bg-amber-500'
+                          }`}
                         >
-                          {item.case_status === 'aktiv' ? tx('pause') : tx('reactivate')}
+                          {item.case_status === 'aktiv' ? tx('statusActive') : tx('statusPaused')}
                         </button>
                       )}
                       <button
