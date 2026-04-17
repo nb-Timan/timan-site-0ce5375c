@@ -12,6 +12,7 @@ import {
   deleteConfiguration,
   SavedStatus,
 } from '@/lib/configurationsService';
+import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import { toast } from 'sonner';
 
 // Re-export for external use
@@ -171,6 +172,29 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     await updateConfigurationNote(id, text);
   };
 
+  const stats = useMemo(() => {
+    const totals = {
+      active: { count: 0, value: 0 },
+      closed: { count: 0, value: 0 },
+      paused: { count: 0, value: 0 },
+    };
+    savedItems.forEach(item => {
+      if (!item.state_json) return;
+      const { finalPrice } = calcConfigurationTotals(item.state_json);
+      if (item.case_status === 'aktiv') {
+        totals.active.count += 1;
+        totals.active.value += finalPrice;
+      } else if (item.case_status === 'ordre_afgivet') {
+        totals.closed.count += 1;
+        totals.closed.value += finalPrice;
+      } else if (item.case_status === 'pause') {
+        totals.paused.count += 1;
+        totals.paused.value += finalPrice;
+      }
+    });
+    return totals;
+  }, [savedItems]);
+
   const tx = useMemo(() => {
     const strings: Record<string, Record<Language, string>> = {
       myAccount: { da: 'Min konto', en: 'My account', de: 'Mein Konto', it: 'Il mio account', hu: 'Fiókom' },
@@ -198,6 +222,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       caseId: { da: 'Sag ID', en: 'Case ID', de: 'Fall-ID', it: 'ID caso', hu: 'Ügy ID' },
       openFailed: { da: 'Kunne ikke åbne sag', en: 'Failed to open case', de: 'Öffnen fehlgeschlagen', it: 'Apertura fallita', hu: 'Megnyitás sikertelen' },
       missingState: { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok' },
+      statsActive: { da: 'Aktive sager', en: 'Active cases', de: 'Aktive Fälle', it: 'Casi attivi', hu: 'Aktív ügyek' },
+      statsClosed: { da: 'Sendte/lukkede ordrer', en: 'Sent/closed orders', de: 'Gesendete/abgeschlossene Bestellungen', it: 'Ordini inviati/chiusi', hu: 'Elküldött/lezárt rendelések' },
+      statsPaused: { da: 'Sager på pause', en: 'Paused cases', de: 'Pausierte Fälle', it: 'Casi in pausa', hu: 'Szüneteltetett ügyek' },
+      statsTotalValue: { da: 'Samlet værdi', en: 'Total value', de: 'Gesamtwert', it: 'Valore totale', hu: 'Teljes érték' },
+      statsCount: { da: 'antal', en: 'count', de: 'Anzahl', it: 'numero', hu: 'darab' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
@@ -241,30 +270,69 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             <DialogTitle className="text-xl">{tx('myAccount')}</DialogTitle>
           </DialogHeader>
 
-          {/* User details */}
-          <div className="space-y-3 text-base border-b pb-5">
-            <div className="flex justify-between">
-              <span className="text-gray-500">{tx('name')}</span>
-              <span className="font-medium text-gray-900">{appUser.display_name || '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium text-gray-900 truncate ml-4">{appUser.email}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">{tx('role')}</span>
-              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${roleBadgeColor(appUser.role)}`}>
-                {getRoleBadge(appUser.role, language)}
-              </span>
-            </div>
-            {appUser.partner_type && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">{tx('partnerType')}</span>
-                <span className="px-2 py-0.5 rounded text-sm font-semibold bg-teal-100 text-teal-800">
-                  {getSubRoleLabel(appUser.partner_type, language)}
-                </span>
+          {/* Top: User info (left) + Statistics (right) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-b pb-5">
+            {/* Left: user info grouped */}
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-bold">
+                {(appUser.display_name || appUser.email || '?').charAt(0).toUpperCase()}
               </div>
-            )}
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-gray-900 truncate">
+                  {appUser.display_name || '—'}
+                </div>
+                <div className="text-sm text-gray-500 truncate">{appUser.email}</div>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${roleBadgeColor(appUser.role)}`}>
+                    {getRoleBadge(appUser.role, language)}
+                  </span>
+                  {appUser.partner_type && (
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-teal-100 text-teal-800">
+                      {getSubRoleLabel(appUser.partner_type, language)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: stats overview */}
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-emerald-800 truncate">{tx('statsActive')}</div>
+                  <div className="text-[11px] text-emerald-700/70">
+                    {stats.active.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-emerald-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.active.value, language)}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-blue-800 truncate">{tx('statsClosed')}</div>
+                  <div className="text-[11px] text-blue-700/70">
+                    {stats.closed.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-blue-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.closed.value, language)}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-amber-800 truncate">{tx('statsPaused')}</div>
+                  <div className="text-[11px] text-amber-700/70">
+                    {stats.paused.count} {tx('statsCount')} · {tx('statsTotalValue')}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-amber-900 tabular-nums whitespace-nowrap ml-2">
+                  {formatMoney(stats.paused.value, language)}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Saved items */}
