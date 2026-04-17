@@ -436,9 +436,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => handleToggleStatus(item.id)}
-                          className="text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                          title={item.case_status === 'aktiv' ? tx('clickToPause') : tx('clickToActivate')}
+                          className={`text-sm px-3 py-1.5 rounded-lg font-semibold transition ${
+                            item.case_status === 'aktiv'
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              : 'bg-amber-400 text-amber-900 hover:bg-amber-500'
+                          }`}
                         >
-                          {item.case_status === 'aktiv' ? tx('pause') : tx('reactivate')}
+                          {item.case_status === 'aktiv' ? tx('statusActive') : tx('statusPaused')}
                         </button>
                       )}
                       <button
