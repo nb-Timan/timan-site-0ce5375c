@@ -668,6 +668,66 @@ export async function saveConfiguration(
   };
 }
 
+/** Update the flow/document type (quote ↔ order) on a saved configuration.
+ * Persists case_type, document_type, state_json.flowType, and ensures a reference number exists.
+ */
+export async function updateConfigurationFlowType(
+  id: string,
+  flowType: 'quote' | 'order',
+): Promise<{ quote_number: string | null; order_number: string | null; error: string | null }> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    const message = authError ? formatSupabaseError(authError) : 'No authenticated Supabase user found.';
+    console.error('[updateConfigurationFlowType] auth error:', message);
+    return { quote_number: null, order_number: null, error: message };
+  }
+
+  const { data: row, error: loadError } = await loadConfigurationRowById(id, user.id);
+
+  if (loadError || !row) {
+    const message = loadError ? formatSupabaseError(loadError) : 'Configuration not found';
+    console.error('[updateConfigurationFlowType] load error:', message);
+    return { quote_number: null, order_number: null, error: message };
+  }
+
+  const isOrder = flowType === 'order';
+  const storedPayload = parseStoredConfigurationPayload(row.note);
+  const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
+  const nextState = normalizeConfiguratorState({ ...baseState, flowType });
+
+  let quoteNumber: string | null = row.quote_number ?? null;
+  let orderNumber: string | null = row.order_number ?? null;
+
+  if (!isOrder && !quoteNumber) quoteNumber = generateReferenceNumber('Q');
+  if (isOrder && !orderNumber) orderNumber = generateReferenceNumber('O');
+
+  const patch: Record<string, unknown> = {
+    case_type: flowType,
+    document_type: flowType,
+    state_json: nextState,
+    note: serializeStoredConfigurationPayload(
+      nextState,
+      row.internal_note ?? storedPayload?.internalNote ?? '',
+      Boolean(row.pdf_downloaded ?? storedPayload?.pdf_downloaded),
+      row.pdf_downloaded_at ?? storedPayload?.pdf_downloaded_at ?? null,
+    ),
+    quote_number: quoteNumber,
+    order_number: orderNumber,
+    last_saved_at: new Date().toISOString(),
+  };
+
+  const { error } = await updateConfigurationRow(id, patch);
+
+  if (error) {
+    console.error('[updateConfigurationFlowType] update error:', error);
+    return { quote_number: null, order_number: null, error: formatSupabaseError(error) };
+  }
+
+  console.info('[updateConfigurationFlowType] saved', { id, flowType, quoteNumber, orderNumber });
+  return { quote_number: quoteNumber, order_number: orderNumber, error: null };
+}
+
 /** Update configuration status */
 export async function updateConfigurationStatus(id: string, status: SavedStatus) {
   const { error } = await supabase
