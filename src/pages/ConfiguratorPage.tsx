@@ -1483,7 +1483,29 @@ export default function ConfiguratorPage() {
               }}
             />
 
-            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-emerald-200 pb-2">{T('summaryTitle')}</h2>
+            <div className="flex items-center justify-between gap-3 mb-4 border-b border-emerald-200 pb-2">
+              <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
+              <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
+                {(['quote', 'order'] as const).map(ft => {
+                  const active = state.flowType === ft;
+                  return (
+                    <button
+                      key={ft}
+                      type="button"
+                      onClick={() => { if (state.flowType !== ft) setFlowType(ft); }}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                        active
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'bg-transparent text-gray-600 hover:bg-gray-200'
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {T(ft)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {!calcResult ? (
               <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
