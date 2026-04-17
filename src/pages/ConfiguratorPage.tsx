@@ -873,7 +873,7 @@ export default function ConfiguratorPage() {
                 <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 max-w-3xl mx-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(['quote', 'order'] as const).map(ft => (
-                      <button key={ft} onClick={() => setFlowType(ft)}
+                      <button key={ft} onClick={() => handleSetFlowType(ft)}
                         className={`rounded-xl border-2 px-4 py-4 text-left transition ${state.flowType === ft ? 'border-emerald-500 bg-white shadow-sm' : 'border-transparent bg-white/80 hover:border-emerald-300'}`}>
                         <div className="font-bold text-gray-900">{T(ft)}</div>
                       </button>
@@ -1510,7 +1510,7 @@ export default function ConfiguratorPage() {
                     <button
                       key={ft}
                       type="button"
-                      onClick={() => { if (state.flowType !== ft) setFlowType(ft); }}
+                      onClick={() => handleSetFlowType(ft)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                         active
                           ? 'bg-emerald-600 text-white shadow'
