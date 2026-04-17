@@ -199,6 +199,11 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       caseId: { da: 'Sag ID', en: 'Case ID', de: 'Fall-ID', it: 'ID caso', hu: 'Ügy ID' },
       openFailed: { da: 'Kunne ikke åbne sag', en: 'Failed to open case', de: 'Öffnen fehlgeschlagen', it: 'Apertura fallita', hu: 'Megnyitás sikertelen' },
       missingState: { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok' },
+      statsActive: { da: 'Aktive sager', en: 'Active cases', de: 'Aktive Fälle', it: 'Casi attivi', hu: 'Aktív ügyek' },
+      statsClosed: { da: 'Sendte/lukkede ordrer', en: 'Sent/closed orders', de: 'Gesendete/abgeschlossene Bestellungen', it: 'Ordini inviati/chiusi', hu: 'Elküldött/lezárt rendelések' },
+      statsPaused: { da: 'Sager på pause', en: 'Paused cases', de: 'Pausierte Fälle', it: 'Casi in pausa', hu: 'Szüneteltetett ügyek' },
+      statsTotalValue: { da: 'Samlet værdi', en: 'Total value', de: 'Gesamtwert', it: 'Valore totale', hu: 'Teljes érték' },
+      statsCount: { da: 'antal', en: 'count', de: 'Anzahl', it: 'numero', hu: 'darab' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
