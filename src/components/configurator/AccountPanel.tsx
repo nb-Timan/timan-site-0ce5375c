@@ -172,6 +172,29 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     await updateConfigurationNote(id, text);
   };
 
+  const stats = useMemo(() => {
+    const totals = {
+      active: { count: 0, value: 0 },
+      closed: { count: 0, value: 0 },
+      paused: { count: 0, value: 0 },
+    };
+    savedItems.forEach(item => {
+      if (!item.state_json) return;
+      const { finalPrice } = calcConfigurationTotals(item.state_json);
+      if (item.case_status === 'aktiv') {
+        totals.active.count += 1;
+        totals.active.value += finalPrice;
+      } else if (item.case_status === 'ordre_afgivet') {
+        totals.closed.count += 1;
+        totals.closed.value += finalPrice;
+      } else if (item.case_status === 'pause') {
+        totals.paused.count += 1;
+        totals.paused.value += finalPrice;
+      }
+    });
+    return totals;
+  }, [savedItems]);
+
   const tx = useMemo(() => {
     const strings: Record<string, Record<Language, string>> = {
       myAccount: { da: 'Min konto', en: 'My account', de: 'Mein Konto', it: 'Il mio account', hu: 'Fiókom' },
