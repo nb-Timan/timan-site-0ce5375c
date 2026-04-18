@@ -492,27 +492,12 @@ export default function ConfiguratorPage() {
       return;
     }
 
-    // Auto-save to generate reference numbers before showing preview
-    const isOrder = state.flowType === 'order';
-    if (!savedConfigurationId && appUser) {
+    // NOTE: No auto-save here. Saving only happens on:
+    // 1) Download PDF (quote), 2) Afsend ordre til Timan (order), 3) "+ Gem nuværende" in My account.
+    // If the case is already saved, ensure reference numbers exist for display in the preview.
+    if (savedConfigurationId) {
       try {
-        const label = state.firmanavn
-          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
-          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
-        if (result.id) {
-          setSavedConfigurationId(result.id);
-          setSavedQuoteNumber(result.quote_number);
-          setSavedOrderNumber(result.order_number);
-          setSavedSourceQuoteNumber(result.source_quote_number);
-          setIsSavedCurrent(true);
-        }
-      } catch (err) {
-        console.error('Failed to auto-save before confirmation:', err);
-      }
-    } else if (savedConfigurationId) {
-      // Already saved — ensure reference numbers exist
-      try {
+        const isOrder = state.flowType === 'order';
         const refs = await ensureReferenceNumbers(savedConfigurationId, isOrder);
         if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
         if (refs.order_number) setSavedOrderNumber(refs.order_number);
