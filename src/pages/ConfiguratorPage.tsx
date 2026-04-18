@@ -604,7 +604,17 @@ export default function ConfiguratorPage() {
       const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
       const refNum = savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
-      pdf.save(`Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const pdfFilename = `Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(pdfFilename);
+
+      // Capture PDF as base64 for webhook payload (strip data URI prefix)
+      let pdfBase64 = '';
+      try {
+        const dataUri = pdf.output('datauristring');
+        pdfBase64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
+      } catch (b64Err) {
+        console.error('Failed to encode PDF as base64:', b64Err);
+      }
 
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
@@ -656,6 +666,9 @@ export default function ConfiguratorPage() {
             email_modtager: state.emailRecipient,
             kommentar: state.comment,
             pdf_url: '',
+            pdf_filename: pdfFilename,
+            pdf_mime_type: 'application/pdf',
+            pdf_base64: pdfBase64,
           };
 
           const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-ordre', {
