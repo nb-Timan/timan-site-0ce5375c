@@ -532,6 +532,34 @@ export default function ConfiguratorPage() {
     const el = confirmContentRef.current;
     if (!el) return;
 
+    // Persist case before generating PDF so reference numbers exist for filename/preview.
+    // This is one of the 3 allowed save triggers (Download PDF / Afsend ordre / + Gem nuværende).
+    if (!savedConfigurationId && appUser) {
+      try {
+        const label = state.firmanavn
+          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+        if (result.id) {
+          setSavedConfigurationId(result.id);
+          setSavedQuoteNumber(result.quote_number);
+          setSavedOrderNumber(result.order_number);
+          setSavedSourceQuoteNumber(result.source_quote_number);
+          setIsSavedCurrent(true);
+        }
+      } catch (saveErr) {
+        console.error('Failed to save before PDF download:', saveErr);
+      }
+    } else if (savedConfigurationId) {
+      try {
+        const refs = await ensureReferenceNumbers(savedConfigurationId, state.flowType === 'order');
+        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
+        if (refs.order_number) setSavedOrderNumber(refs.order_number);
+      } catch (err) {
+        console.error('Failed to ensure reference numbers before PDF:', err);
+      }
+    }
+
     try {
       const html2canvasModule = await import('html2canvas');
       const html2canvas = html2canvasModule.default;
