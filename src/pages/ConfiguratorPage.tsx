@@ -666,6 +666,9 @@ export default function ConfiguratorPage() {
             email_modtager: state.emailRecipient,
             kommentar: state.comment,
             pdf_url: '',
+            pdf_filename: pdfFilename,
+            pdf_mime_type: 'application/pdf',
+            pdf_base64: pdfBase64,
           };
 
           const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-ordre', {
