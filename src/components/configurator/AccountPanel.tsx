@@ -231,6 +231,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       statsPaused: { da: 'Sager på pause', en: 'Paused cases', de: 'Pausierte Fälle', it: 'Casi in pausa', hu: 'Szüneteltetett ügyek' },
       statsTotalValue: { da: 'Samlet værdi', en: 'Total value', de: 'Gesamtwert', it: 'Valore totale', hu: 'Teljes érték' },
       statsCount: { da: 'antal', en: 'count', de: 'Anzahl', it: 'numero', hu: 'darab' },
+      quoteNumber: { da: 'Tilbudsnr', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Árajánlatszám' },
+      orderNumber: { da: 'Ordrenr', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' },
+      sentDate: { da: 'Dato for afsendt ordre', en: 'Order sent date', de: 'Versanddatum der Bestellung', it: 'Data ordine inviato', hu: 'Rendelés elküldésének dátuma' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
