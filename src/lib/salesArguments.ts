@@ -751,9 +751,73 @@ function getSelectedAccessoryObjects(mc: MachineConfig, state: ConfiguratorState
   return allAcc.filter(a => accIds.has(a.id) && !a.isHeader && !a.hidden);
 }
 
+// ─── Demo-machine filtering ─────────────────────────────────────────────────
+// Demo machines stay in the quote pricing, but must be excluded from any
+// AI-generated customer-facing text (sales arguments + recommendations).
+// Demo flag is keyed by `${varenr}_${globalUnitNumber}` in state.demoMachines.
+
+function stripDemoMachines(state: ConfiguratorState): ConfiguratorState {
+  const demoMap = state.demoMachines || {};
+  if (!Object.keys(demoMap).some(k => demoMap[k])) return state;
+
+  const newConfigs: MachineConfig[] = [];
+  const newIndividual: Record<string, { acc: string[] }> = {};
+  let globalUnit = 0;
+
+  for (const mc of state.machineConfigs) {
+    if (mc.qty < 1) continue;
+    const mach = PRODUCTS[mc.type];
+    const varenr = mach?.varenr ?? '';
+
+    // Determine which units (1..qty) are demo, advancing the global counter
+    const unitFlags: boolean[] = [];
+    for (let i = 1; i <= mc.qty; i++) {
+      globalUnit++;
+      const isDemo = !!demoMap[`${varenr}_${globalUnit}`];
+      unitFlags.push(isDemo);
+    }
+
+    const keptIndices = unitFlags
+      .map((isDemo, idx) => (isDemo ? -1 : idx + 1))
+      .filter(i => i > 0);
+
+    if (keptIndices.length === 0) continue; // entire machine config is demo
+
+    if (keptIndices.length === mc.qty) {
+      newConfigs.push({ ...mc, acc: [...mc.acc] });
+      if (mc.configMode === 'individual') {
+        for (let i = 1; i <= mc.qty; i++) {
+          const key = `${mc.id}_${i}`;
+          if (state.individualUnitConfigs[key]) {
+            newIndividual[key] = { acc: [...state.individualUnitConfigs[key].acc] };
+          }
+        }
+      }
+      continue;
+    }
+
+    // Mixed: keep only non-demo units. Re-index to 1..N for individual configs.
+    const newQty = keptIndices.length;
+    if (mc.configMode === 'shared') {
+      newConfigs.push({ ...mc, qty: newQty, acc: [...mc.acc] });
+    } else {
+      newConfigs.push({ ...mc, qty: newQty, configMode: 'individual', acc: [...mc.acc] });
+      keptIndices.forEach((origIdx, newIdx) => {
+        const origKey = `${mc.id}_${origIdx}`;
+        const newKey = `${mc.id}_${newIdx + 1}`;
+        const cfg = state.individualUnitConfigs[origKey];
+        if (cfg) newIndividual[newKey] = { acc: [...cfg.acc] };
+      });
+    }
+  }
+
+  return { ...state, machineConfigs: newConfigs, individualUnitConfigs: newIndividual };
+}
+
 // ─── Main generator ─────────────────────────────────────────────────────────
 
-export function generateSalesArguments(state: ConfiguratorState, lang: L = 'da'): SalesArgsStructured {
+export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'da'): SalesArgsStructured {
+  const state = stripDemoMachines(rawState);
   const caps = new Set<Capability>();
   const comfortParts: string[] = [];
   const machineTypes: string[] = [];
