@@ -231,6 +231,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       statsPaused: { da: 'Sager på pause', en: 'Paused cases', de: 'Pausierte Fälle', it: 'Casi in pausa', hu: 'Szüneteltetett ügyek' },
       statsTotalValue: { da: 'Samlet værdi', en: 'Total value', de: 'Gesamtwert', it: 'Valore totale', hu: 'Teljes érték' },
       statsCount: { da: 'antal', en: 'count', de: 'Anzahl', it: 'numero', hu: 'darab' },
+      quoteNumber: { da: 'Tilbudsnr', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Árajánlatszám' },
+      orderNumber: { da: 'Ordrenr', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' },
+      sentDate: { da: 'Dato for afsendt ordre', en: 'Order sent date', de: 'Versanddatum der Bestellung', it: 'Data ordine inviato', hu: 'Rendelés elküldésének dátuma' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
@@ -427,6 +430,20 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         />
                       </div>
                     </div>
+                    {/* Reference numbers + sent date */}
+                    {(item.quote_number || item.order_number || (item.case_status === 'ordre_afgivet' && item.submitted_at)) && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 border-t border-gray-200 pt-2">
+                        {item.quote_number && (
+                          <span><span className="font-medium text-gray-500">{tx('quoteNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number}</span></span>
+                        )}
+                        {item.order_number && (
+                          <span><span className="font-medium text-gray-500">{tx('orderNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.order_number}</span></span>
+                        )}
+                        {item.case_status === 'ordre_afgivet' && item.submitted_at && (
+                          <span><span className="font-medium text-gray-500">{tx('sentDate')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{new Date(item.submitted_at).toLocaleDateString({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-GB')}</span></span>
+                        )}
+                      </div>
+                    )}
                     {/* Action buttons */}
                     <div className="flex gap-2">
                       {item.case_status !== 'ordre_afgivet' && (

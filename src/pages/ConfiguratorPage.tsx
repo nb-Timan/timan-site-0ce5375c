@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -534,13 +534,21 @@ export default function ConfiguratorPage() {
 
     // Persist case before generating PDF so reference numbers exist for filename/preview.
     // This is one of the 3 allowed save triggers (Download PDF / Afsend ordre / + Gem nuværende).
-    if (!savedConfigurationId && appUser) {
+    // IMPORTANT: ensure idempotency — never create a second row if this case is already saved.
+    let activeCaseId: string | null = savedConfigurationId;
+    let activeQuoteNumber: string | null = savedQuoteNumber;
+    let activeOrderNumber: string | null = savedOrderNumber;
+
+    if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
         const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
         if (result.id) {
+          activeCaseId = result.id;
+          activeQuoteNumber = result.quote_number;
+          activeOrderNumber = result.order_number;
           setSavedConfigurationId(result.id);
           setSavedQuoteNumber(result.quote_number);
           setSavedOrderNumber(result.order_number);
@@ -550,11 +558,11 @@ export default function ConfiguratorPage() {
       } catch (saveErr) {
         console.error('Failed to save before PDF download:', saveErr);
       }
-    } else if (savedConfigurationId) {
+    } else if (activeCaseId) {
       try {
-        const refs = await ensureReferenceNumbers(savedConfigurationId, state.flowType === 'order');
-        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
-        if (refs.order_number) setSavedOrderNumber(refs.order_number);
+        const refs = await ensureReferenceNumbers(activeCaseId, state.flowType === 'order');
+        if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
+        if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
       } catch (err) {
         console.error('Failed to ensure reference numbers before PDF:', err);
       }
@@ -644,16 +652,18 @@ export default function ConfiguratorPage() {
 
       // Send webhook for Ordre flow
       if (state.flowType === 'order') {
-        // Save configuration first if not already saved
-        let caseId = savedConfigurationId;
-        if (!caseId && appUser) {
+        // Idempotent save: only create a new row if no case exists yet.
+        // Reuse activeCaseId from the save block above to avoid duplicates.
+        if (!activeCaseId && appUser) {
           try {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
             const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
             if (result.id) {
-              caseId = result.id;
+              activeCaseId = result.id;
+              activeQuoteNumber = result.quote_number;
+              activeOrderNumber = result.order_number;
               setSavedConfigurationId(result.id);
               setSavedQuoteNumber(result.quote_number);
               setSavedOrderNumber(result.order_number);
@@ -663,14 +673,23 @@ export default function ConfiguratorPage() {
           } catch (saveErr) {
             console.error('Failed to save before webhook:', saveErr);
           }
+        } else if (activeCaseId && !activeOrderNumber) {
+          // Existing case but no order number yet — ensure one exists
+          try {
+            const refs = await ensureReferenceNumbers(activeCaseId, true);
+            if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
+            if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
+          } catch (err) {
+            console.error('Failed to ensure order number before webhook:', err);
+          }
         }
 
         try {
           const webhookPayload = {
-            case_id: caseId || '',
+            case_id: activeCaseId || '',
             document_type: 'Ordre',
-            order_number: savedOrderNumber || '',
-            quote_number: savedQuoteNumber || '',
+            order_number: activeOrderNumber || '',
+            quote_number: activeQuoteNumber || '',
             source_quote_number: savedSourceQuoteNumber || '',
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
@@ -691,6 +710,14 @@ export default function ConfiguratorPage() {
           });
 
           if (webhookRes.ok) {
+            // Persist sent date on the case so it shows in My account
+            if (activeCaseId) {
+              try {
+                await markAsOrderSubmitted(activeCaseId);
+              } catch (markErr) {
+                console.error('Failed to mark order as submitted:', markErr);
+              }
+            }
             toast.success(T('orderSentToTiman'));
           } else {
             toast.error(T('orderSendFailed'), {
