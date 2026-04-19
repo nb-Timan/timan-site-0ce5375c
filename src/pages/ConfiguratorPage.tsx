@@ -534,13 +534,21 @@ export default function ConfiguratorPage() {
 
     // Persist case before generating PDF so reference numbers exist for filename/preview.
     // This is one of the 3 allowed save triggers (Download PDF / Afsend ordre / + Gem nuværende).
-    if (!savedConfigurationId && appUser) {
+    // IMPORTANT: ensure idempotency — never create a second row if this case is already saved.
+    let activeCaseId: string | null = savedConfigurationId;
+    let activeQuoteNumber: string | null = savedQuoteNumber;
+    let activeOrderNumber: string | null = savedOrderNumber;
+
+    if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
         const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
         if (result.id) {
+          activeCaseId = result.id;
+          activeQuoteNumber = result.quote_number;
+          activeOrderNumber = result.order_number;
           setSavedConfigurationId(result.id);
           setSavedQuoteNumber(result.quote_number);
           setSavedOrderNumber(result.order_number);
@@ -550,11 +558,11 @@ export default function ConfiguratorPage() {
       } catch (saveErr) {
         console.error('Failed to save before PDF download:', saveErr);
       }
-    } else if (savedConfigurationId) {
+    } else if (activeCaseId) {
       try {
-        const refs = await ensureReferenceNumbers(savedConfigurationId, state.flowType === 'order');
-        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
-        if (refs.order_number) setSavedOrderNumber(refs.order_number);
+        const refs = await ensureReferenceNumbers(activeCaseId, state.flowType === 'order');
+        if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
+        if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
       } catch (err) {
         console.error('Failed to ensure reference numbers before PDF:', err);
       }
