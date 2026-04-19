@@ -1034,7 +1034,8 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
 ];
 
 
-export function generateRecommendations(state: ConfiguratorState, lang: L = 'da'): RecommendationStructured | null {
+export function generateRecommendations(rawState: ConfiguratorState, lang: L = 'da'): RecommendationStructured | null {
+  const state = stripDemoMachines(rawState);
   const selectedIds = new Set<string>();
   const activeMachineTypes: string[] = [];
 
