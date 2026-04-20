@@ -390,75 +390,82 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
                 {savedItems.map(item => (
                   <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
-                    <div className="flex gap-4">
-                      {/* Left: case info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-base font-semibold text-gray-900 truncate">{item.title}</div>
-                        {item.state_json?.firmanavn && (
-                          <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          <span className="text-sm text-gray-400">
-                            {item.case_type === 'quote' ? tx('quote') : tx('order')}
-                          </span>
-                          {item.case_status === 'ordre_afgivet' && (
-                            <>
-                              <span className="text-sm text-gray-300">·</span>
-                              <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
-                                {statusLabel(item.case_status, language)}
-                              </span>
-                            </>
-                          )}
-                          <span className="text-sm text-gray-300">·</span>
-                          <span className="text-sm text-gray-400">
-                            {new Date(item.created_at).toLocaleDateString({ da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-US')}
-                          </span>
-                          {item.pdf_downloaded && (
-                            <>
-                              <span className="text-sm text-gray-300">·</span>
-                              <span className="text-xs text-blue-500 font-medium">📄 PDF</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {/* Right: internal note */}
-                      <div className="w-48 flex-shrink-0">
-                        <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('internalNote')}</div>
-                        <textarea
-                          rows={2}
-                          value={item.internal_note || ''}
-                          onChange={e => handleNoteChange(item.id, e.target.value)}
-                          placeholder={tx('writeNote')}
-                          className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
-                        />
-                      </div>
-                    </div>
-                    {/* Reference numbers + dates */}
                     {(() => {
                       const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' } as Record<string, string>)[language] || 'en-GB';
                       const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : null;
                       const createdAt = fmt(item.created_case_at) || fmt(item.created_at);
-                      const quoteSentAt = item.case_type === 'quote' ? fmt(item.quote_sent_at) : null;
-                      const orderSentAt = item.case_type === 'order' ? (fmt(item.order_sent_at) || (item.case_status === 'ordre_afgivet' ? fmt(item.submitted_at) : null)) : null;
-                      const hasAny = item.quote_number || item.order_number || createdAt || quoteSentAt || orderSentAt;
-                      if (!hasAny) return null;
+                      const quoteSentAt = fmt(item.quote_sent_at);
+                      const orderSentAt = fmt(item.order_sent_at) || (item.case_status === 'ordre_afgivet' ? fmt(item.submitted_at) : null);
                       return (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 border-t border-gray-200 pt-2">
-                          {item.quote_number && (
-                            <span><span className="font-medium text-gray-500">{tx('quoteNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number}</span></span>
-                          )}
-                          {item.order_number && (
-                            <span><span className="font-medium text-gray-500">{tx('orderNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.order_number}</span></span>
-                          )}
-                          {createdAt && (
-                            <span><span className="font-medium text-gray-500">{tx('createdCaseAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{createdAt}</span></span>
-                          )}
-                          {quoteSentAt && (
-                            <span><span className="font-medium text-gray-500">{tx('quoteSentAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{quoteSentAt}</span></span>
-                          )}
-                          {orderSentAt && (
-                            <span><span className="font-medium text-gray-500">{tx('orderSentAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{orderSentAt}</span></span>
-                          )}
+                        <div className="flex gap-4">
+                          {/* Left: case info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-base font-semibold text-gray-900 truncate">{item.title}</div>
+                            {item.state_json?.firmanavn && (
+                              <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="text-sm text-gray-400">
+                                {item.case_type === 'quote' ? tx('quote') : tx('order')}
+                              </span>
+                              {item.case_status === 'ordre_afgivet' && (
+                                <>
+                                  <span className="text-sm text-gray-300">·</span>
+                                  <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
+                                    {statusLabel(item.case_status, language)}
+                                  </span>
+                                </>
+                              )}
+                              {item.pdf_downloaded && (
+                                <>
+                                  <span className="text-sm text-gray-300">·</span>
+                                  <span className="text-xs text-blue-500 font-medium">📄 PDF</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Middle: dates + references */}
+                          <div className="flex-shrink-0 min-w-[180px] space-y-1">
+                            {/* Dates block */}
+                            <div className="text-xs space-y-0.5">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-gray-500">{tx('createdCaseAt')}</span>
+                                <span className="font-semibold text-gray-800 tabular-nums">{createdAt ?? '-'}</span>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-gray-500">{tx('quoteSentAt')}</span>
+                                <span className="font-semibold text-gray-800 tabular-nums">{quoteSentAt ?? '-'}</span>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-gray-500">{tx('orderSentAt')}</span>
+                                <span className="font-semibold text-gray-800 tabular-nums">{orderSentAt ?? '-'}</span>
+                              </div>
+                            </div>
+                            {/* Reference numbers */}
+                            <div className="text-xs space-y-0.5 border-t border-gray-200 pt-1">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-gray-500">{tx('quoteNumber')}</span>
+                                <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number ?? '-'}</span>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-gray-500">{tx('orderNumber')}</span>
+                                <span className="font-semibold text-gray-800 tabular-nums">{item.order_number ?? '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: internal note */}
+                          <div className="w-40 flex-shrink-0">
+                            <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('internalNote')}</div>
+                            <textarea
+                              rows={2}
+                              value={item.internal_note || ''}
+                              onChange={e => handleNoteChange(item.id, e.target.value)}
+                              placeholder={tx('writeNote')}
+                              className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
+                            />
+                          </div>
                         </div>
                       );
                     })()}
