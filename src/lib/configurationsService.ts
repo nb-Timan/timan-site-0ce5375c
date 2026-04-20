@@ -23,6 +23,9 @@ export interface SavedConfiguration {
   order_number: string | null;
   source_quote_id: string | null;
   source_quote_number: string | null;
+  created_case_at: string | null;
+  quote_sent_at: string | null;
+  order_sent_at: string | null;
 }
 
 /** Generate a unique reference number with prefix Q- or O- */
