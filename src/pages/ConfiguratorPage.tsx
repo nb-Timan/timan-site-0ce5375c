@@ -640,7 +640,7 @@ export default function ConfiguratorPage() {
       // Mark PDF as downloaded in Supabase if configuration was saved
       if (savedConfigurationId) {
         try {
-          await markPdfDownloaded(savedConfigurationId);
+          await markPdfDownloaded(savedConfigurationId, state.flowType);
           toast.success(T('pdfTracked'));
         } catch (err) {
           console.error('Failed to mark PDF downloaded:', err);

@@ -234,6 +234,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       quoteNumber: { da: 'Tilbudsnr', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Árajánlatszám' },
       orderNumber: { da: 'Ordrenr', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' },
       sentDate: { da: 'Dato for afsendt ordre', en: 'Order sent date', de: 'Versanddatum der Bestellung', it: 'Data ordine inviato', hu: 'Rendelés elküldésének dátuma' },
+      createdCaseAt: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
+      quoteSentAt: { da: 'Afsendt tilbud', en: 'Quote sent', de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
+      orderSentAt: { da: 'Afsendt ordre', en: 'Order sent', de: 'Bestellung gesendet', it: 'Ordine inviato', hu: 'Rendelés elküldve' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
