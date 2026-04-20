@@ -55,7 +55,16 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
     const flatAccs = getAccessoriesFlat(unit.modelType);
     const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
 
-    selectedAccs.forEach(a => {
+    // Also include qty-input items with qty > 0 whose parent (requires) is selected
+    const qtyOnlyAccs = flatAccs.filter(a => {
+      if (!a.isQtyInput || a.isHeader) return false;
+      if (accIds.includes(a.id)) return false;
+      if (a.requires && !accIds.includes(a.requires)) return false;
+      const q = state.accQty?.[`${unit.configKey}_${a.id}`] || 0;
+      return q > 0;
+    });
+
+    [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
       const qty = state.accQty?.[`${unit.configKey}_${a.id}`] || 1;
       unitTotal += getPrice(a, state.language) * qty;
     });

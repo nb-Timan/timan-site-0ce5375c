@@ -260,7 +260,17 @@ export function useConfigurator() {
       const flatAccs = getAccessoriesFlat(unit.modelType);
       const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
 
-      selectedAccs.forEach(a => {
+      // Include qty-input items that have qty > 0 even if not toggled (e.g. sidekost børster).
+      // Their parent (`requires`) must still be selected for them to count.
+      const qtyOnlyAccs = flatAccs.filter(a => {
+        if (!a.isQtyInput || a.isHeader) return false;
+        if (accIds.includes(a.id)) return false; // already counted via selectedAccs
+        if (a.requires && !accIds.includes(a.requires)) return false; // parent not selected
+        const q = state.accQty[`${unit.configKey}_${a.id}`] || 0;
+        return q > 0;
+      });
+
+      [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
         const qty = state.accQty[`${unit.configKey}_${a.id}`] || 1;
         const accPrice = getPrice(a, state.language) * qty;
         unitTotal += accPrice;
