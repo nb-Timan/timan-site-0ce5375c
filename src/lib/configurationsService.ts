@@ -621,6 +621,9 @@ export async function saveConfiguration(
     pdf_downloaded_at: null,
     submitted_at: null,
     last_saved_at: now,
+    created_case_at: now,
+    quote_sent_at: null,
+    order_sent_at: null,
     quote_number: isOrder ? null : generateReferenceNumber('Q'),
     order_number: isOrder ? generateReferenceNumber('O') : null,
     source_quote_id: sourceQuoteId ?? null,
@@ -780,21 +783,28 @@ export async function deleteConfiguration(id: string) {
 
 /** Mark configuration as order submitted */
 export async function markAsOrderSubmitted(id: string) {
-  const { error } = await supabase
-    .from('configurations')
-    .update({
-      case_type: 'order',
-      case_status: 'ordre_afgivet' as SavedStatus,
-      submitted_at: new Date().toISOString(),
-      last_saved_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+  const nowIso = new Date().toISOString();
+  // Read current row to avoid overwriting order_sent_at if already set
+  const { data: { user } } = await supabase.auth.getUser();
+  let orderSentAt: string | null = nowIso;
+  if (user) {
+    const { data: row } = await loadConfigurationRowById(id, user.id);
+    if (row?.order_sent_at) orderSentAt = row.order_sent_at as string;
+  }
+
+  const { error } = await updateConfigurationRow(id, {
+    case_type: 'order',
+    case_status: 'ordre_afgivet' as SavedStatus,
+    submitted_at: nowIso,
+    order_sent_at: orderSentAt,
+    last_saved_at: nowIso,
+  });
 
   if (error) console.error('Failed to mark as order submitted:', error);
 }
 
-/** Mark PDF as downloaded */
-export async function markPdfDownloaded(id: string) {
+/** Mark PDF as downloaded. If flowType === 'quote', also stamps quote_sent_at (only first time). */
+export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order') {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError) {
@@ -814,12 +824,21 @@ export async function markPdfDownloaded(id: string) {
   const downloadedAt = new Date().toISOString();
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const state = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
-  const { error } = await updateConfigurationRow(id, {
+
+  const patch: Record<string, unknown> = {
     pdf_downloaded: true,
     pdf_downloaded_at: downloadedAt,
     note: serializeStoredConfigurationPayload(state, row.internal_note ?? storedPayload?.internalNote ?? '', true, downloadedAt),
     last_saved_at: downloadedAt,
-  });
+  };
+
+  // Stamp quote_sent_at only for quotes, and only the first time
+  const effectiveFlow = flowType ?? (row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote');
+  if (effectiveFlow === 'quote' && !row.quote_sent_at) {
+    patch.quote_sent_at = downloadedAt;
+  }
+
+  const { error } = await updateConfigurationRow(id, patch);
 
   if (error) {
     console.error('Failed to mark PDF downloaded:', error);
