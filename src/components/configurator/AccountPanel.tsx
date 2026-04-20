@@ -433,20 +433,35 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         />
                       </div>
                     </div>
-                    {/* Reference numbers + sent date */}
-                    {(item.quote_number || item.order_number || (item.case_status === 'ordre_afgivet' && item.submitted_at)) && (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 border-t border-gray-200 pt-2">
-                        {item.quote_number && (
-                          <span><span className="font-medium text-gray-500">{tx('quoteNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number}</span></span>
-                        )}
-                        {item.order_number && (
-                          <span><span className="font-medium text-gray-500">{tx('orderNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.order_number}</span></span>
-                        )}
-                        {item.case_status === 'ordre_afgivet' && item.submitted_at && (
-                          <span><span className="font-medium text-gray-500">{tx('sentDate')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{new Date(item.submitted_at).toLocaleDateString({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-GB')}</span></span>
-                        )}
-                      </div>
-                    )}
+                    {/* Reference numbers + dates */}
+                    {(() => {
+                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' } as Record<string, string>)[language] || 'en-GB';
+                      const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : null;
+                      const createdAt = fmt(item.created_case_at) || fmt(item.created_at);
+                      const quoteSentAt = item.case_type === 'quote' ? fmt(item.quote_sent_at) : null;
+                      const orderSentAt = item.case_type === 'order' ? (fmt(item.order_sent_at) || (item.case_status === 'ordre_afgivet' ? fmt(item.submitted_at) : null)) : null;
+                      const hasAny = item.quote_number || item.order_number || createdAt || quoteSentAt || orderSentAt;
+                      if (!hasAny) return null;
+                      return (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 border-t border-gray-200 pt-2">
+                          {item.quote_number && (
+                            <span><span className="font-medium text-gray-500">{tx('quoteNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number}</span></span>
+                          )}
+                          {item.order_number && (
+                            <span><span className="font-medium text-gray-500">{tx('orderNumber')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{item.order_number}</span></span>
+                          )}
+                          {createdAt && (
+                            <span><span className="font-medium text-gray-500">{tx('createdCaseAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{createdAt}</span></span>
+                          )}
+                          {quoteSentAt && (
+                            <span><span className="font-medium text-gray-500">{tx('quoteSentAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{quoteSentAt}</span></span>
+                          )}
+                          {orderSentAt && (
+                            <span><span className="font-medium text-gray-500">{tx('orderSentAt')}:</span> <span className="font-semibold text-gray-800 tabular-nums">{orderSentAt}</span></span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {/* Action buttons */}
                     <div className="flex gap-2">
                       {item.case_status !== 'ordre_afgivet' && (
