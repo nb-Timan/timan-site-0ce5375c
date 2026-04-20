@@ -352,6 +352,9 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     order_number: row.order_number ?? null,
     source_quote_id: row.source_quote_id ?? null,
     source_quote_number: row.source_quote_number ?? null,
+    created_case_at: row.created_case_at ?? row.created_at ?? null,
+    quote_sent_at: row.quote_sent_at ?? null,
+    order_sent_at: row.order_sent_at ?? null,
   };
 }
 
@@ -474,6 +477,9 @@ function mapConfigurationRowWithItems(
     order_number: row.order_number ?? null,
     source_quote_id: row.source_quote_id ?? null,
     source_quote_number: row.source_quote_number ?? null,
+    created_case_at: row.created_case_at ?? row.created_at ?? null,
+    quote_sent_at: row.quote_sent_at ?? null,
+    order_sent_at: row.order_sent_at ?? null,
   };
 }
 
