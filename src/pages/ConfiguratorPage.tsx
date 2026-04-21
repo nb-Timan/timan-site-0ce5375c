@@ -731,6 +731,85 @@ export default function ConfiguratorPage() {
           });
         }
       }
+
+      // Send webhook for Tilbud (Quote) flow — mirrors the order pattern
+      if (state.flowType === 'quote') {
+        // Idempotent save: only create a new row if no case exists yet
+        if (!activeCaseId && appUser) {
+          try {
+            const label = state.firmanavn
+              ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+              : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+            if (result.id) {
+              activeCaseId = result.id;
+              activeQuoteNumber = result.quote_number;
+              activeOrderNumber = result.order_number;
+              setSavedConfigurationId(result.id);
+              setSavedQuoteNumber(result.quote_number);
+              setSavedOrderNumber(result.order_number);
+              setSavedSourceQuoteNumber(result.source_quote_number);
+              setIsSavedCurrent(true);
+            }
+          } catch (saveErr) {
+            console.error('Failed to save before quote webhook:', saveErr);
+          }
+        } else if (activeCaseId && !activeQuoteNumber) {
+          try {
+            const refs = await ensureReferenceNumbers(activeCaseId, false);
+            if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
+          } catch (err) {
+            console.error('Failed to ensure quote number before webhook:', err);
+          }
+        }
+
+        // Recipients: always send to udfylder; include modtager only if non-empty
+        const emailUdfylder = (state.email || '').trim();
+        const emailModtager = (state.emailRecipient || '').trim();
+        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
+
+        try {
+          const webhookPayload = {
+            case_id: activeCaseId || '',
+            document_type: 'Tilbud',
+            quote_number: activeQuoteNumber || '',
+            order_number: activeOrderNumber || '',
+            source_quote_number: savedSourceQuoteNumber || '',
+            firma: state.firmanavn,
+            kontaktperson: state.kontaktperson,
+            telefon: state.telefon,
+            email_udfylder: emailUdfylder,
+            email_modtager: emailModtager,
+            recipients,
+            kommentar: state.comment,
+            pdf_url: '',
+            pdf_filename: pdfFilename,
+            pdf_mime_type: 'application/pdf',
+            pdf_base64: pdfBase64,
+          };
+
+          const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-tilbud', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          });
+
+          if (webhookRes.ok) {
+            // markPdfDownloaded above already stamped quote_sent_at on first send; ensure it's set if it wasn't yet
+            if (activeCaseId) {
+              try { await markPdfDownloaded(activeCaseId, 'quote'); } catch (e) { console.error(e); }
+            }
+            toast.success(T('quoteSentSuccess'));
+          } else {
+            toast.error(T('quoteSendFailed'), { description: `Status: ${webhookRes.status}` });
+          }
+        } catch (webhookErr) {
+          console.error('Quote webhook call failed:', webhookErr);
+          toast.error(T('quoteSendError'), {
+            description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
+          });
+        }
+      }
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
