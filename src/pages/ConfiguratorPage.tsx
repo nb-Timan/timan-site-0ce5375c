@@ -14,7 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
-import { supabase } from '@/lib/supabase';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -799,28 +799,44 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          // Call our Supabase Edge Function (server-side proxy) instead of
-          // calling n8n directly from the browser. This avoids CORS issues
-          // and lets us return the actual HTTP status / response body.
-          console.log('[Quote webhook] invoking edge function send-quote', {
+          const edgeFunctionUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/send-quote`;
+          console.log('[Quote webhook] POST edge function send-quote', {
+            edgeFunctionUrl,
             case_id: webhookPayload.case_id,
             quote_number: webhookPayload.quote_number,
             recipients,
             pdf_size: pdfBase64.length,
           });
 
-          const { data: fnData, error: fnError } = await supabase.functions.invoke(
-            'send-quote',
-            { body: webhookPayload },
-          );
+          const edgeRes = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify(webhookPayload),
+          });
 
-          console.log('[Quote webhook] proxy response', { fnData, fnError });
+          const edgeText = await edgeRes.text().catch(() => '');
+          let fnData: any = null;
+          try {
+            fnData = edgeText ? JSON.parse(edgeText) : null;
+          } catch {
+            fnData = null;
+          }
 
-          if (fnError) {
+          console.log('[Quote webhook] edge function response', {
+            status: edgeRes.status,
+            statusText: edgeRes.statusText,
+            body: fnData ?? edgeText,
+          });
+
+          if (!edgeRes.ok) {
             toast.error(T('quoteSendFailed'), {
-              description: `Edge function error: ${fnError.message || String(fnError)}`,
+              description: `Edge function HTTP ${edgeRes.status} ${edgeRes.statusText} — ${(edgeText || 'no response body').slice(0, 300)}`,
             });
-          } else if (fnData && (fnData as any).ok) {
+          } else if (fnData?.ok) {
             if (activeCaseId) {
               try {
                 await markPdfDownloaded(activeCaseId, 'quote');
@@ -830,9 +846,8 @@ export default function ConfiguratorPage() {
             }
             toast.success(T('quoteSentSuccess'));
           } else {
-            const d = (fnData || {}) as any;
             toast.error(T('quoteSendFailed'), {
-              description: `HTTP ${d.status ?? '?'} ${d.statusText ?? ''} — ${(d.response_text || d.error_message || d.error || 'no response body').toString().slice(0, 300)}`,
+              description: `HTTP ${fnData?.status ?? '?'} ${fnData?.statusText ?? ''} — ${(fnData?.response_text || fnData?.error_message || fnData?.error || edgeText || 'no response body').toString().slice(0, 300)}`,
             });
           }
         } catch (webhookErr) {
