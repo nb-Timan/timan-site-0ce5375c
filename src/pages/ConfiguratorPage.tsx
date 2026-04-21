@@ -703,11 +703,21 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-ordre', {
+          const orderWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-ordre';
+          console.log('[Order webhook] POST', orderWebhookUrl, {
+            case_id: webhookPayload.case_id,
+            order_number: webhookPayload.order_number,
+            pdf_size: pdfBase64.length,
+          });
+
+          const webhookRes = await fetch(orderWebhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(webhookPayload),
           });
+
+          const orderRespText = await webhookRes.text().catch(() => '');
+          console.log('[Order webhook] response', webhookRes.status, orderRespText);
 
           if (webhookRes.ok) {
             // Persist sent date on the case so it shows in My account
@@ -721,11 +731,11 @@ export default function ConfiguratorPage() {
             toast.success(T('orderSentToTiman'));
           } else {
             toast.error(T('orderSendFailed'), {
-              description: `Status: ${webhookRes.status}`,
+              description: `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${orderRespText.slice(0, 300) || 'no response body'}`,
             });
           }
         } catch (webhookErr) {
-          console.error('Webhook call failed:', webhookErr);
+          console.error('[Order webhook] call failed:', webhookErr);
           toast.error(T('orderSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
@@ -788,23 +798,40 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const webhookRes = await fetch('https://n8n.srv1509152.hstgr.cloud/webhook-test/timan-afsend-tilbud', {
+          const quoteWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud';
+          console.log('[Quote webhook] POST', quoteWebhookUrl, {
+            case_id: webhookPayload.case_id,
+            quote_number: webhookPayload.quote_number,
+            recipients,
+            pdf_size: pdfBase64.length,
+          });
+
+          const webhookRes = await fetch(quoteWebhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(webhookPayload),
           });
 
+          const quoteRespText = await webhookRes.text().catch(() => '');
+          console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
+
           if (webhookRes.ok) {
-            // markPdfDownloaded above already stamped quote_sent_at on first send; ensure it's set if it wasn't yet
+            // Stamp quote_sent_at only on successful webhook response
             if (activeCaseId) {
-              try { await markPdfDownloaded(activeCaseId, 'quote'); } catch (e) { console.error(e); }
+              try {
+                await markPdfDownloaded(activeCaseId, 'quote');
+              } catch (e) {
+                console.error('Failed to stamp quote_sent_at:', e);
+              }
             }
             toast.success(T('quoteSentSuccess'));
           } else {
-            toast.error(T('quoteSendFailed'), { description: `Status: ${webhookRes.status}` });
+            toast.error(T('quoteSendFailed'), {
+              description: `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`,
+            });
           }
         } catch (webhookErr) {
-          console.error('Quote webhook call failed:', webhookErr);
+          console.error('[Quote webhook] call failed:', webhookErr);
           toast.error(T('quoteSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
