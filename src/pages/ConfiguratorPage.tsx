@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf } from '@/lib/configurationsService';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
@@ -632,9 +632,11 @@ export default function ConfiguratorPage() {
 
       // Capture PDF as base64 for webhook payload (strip data URI prefix)
       let pdfBase64 = '';
+      let pdfBlob: Blob | null = null;
       try {
         const dataUri = pdf.output('datauristring');
         pdfBase64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
+        pdfBlob = pdf.output('blob');
       } catch (b64Err) {
         console.error('Failed to encode PDF as base64:', b64Err);
       }
@@ -738,6 +740,15 @@ export default function ConfiguratorPage() {
                 await markAsOrderSubmitted(activeCaseId);
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
+              }
+              // Persist the exact sent PDF so it can be reopened from "Min konto"
+              if (pdfBlob) {
+                try {
+                  const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
+                  if (up.error) console.error('[Order] sent PDF upload error:', up.error);
+                } catch (uploadErr) {
+                  console.error('[Order] sent PDF upload failed:', uploadErr);
+                }
               }
             }
             toast.success(T('orderSentToTiman'));
@@ -852,6 +863,15 @@ export default function ConfiguratorPage() {
                 await markPdfDownloaded(activeCaseId, 'quote');
               } catch (markErr) {
                 console.error('Failed to stamp quote_sent_at:', markErr);
+              }
+              // Persist the exact sent PDF so it can be reopened from "Min konto"
+              if (pdfBlob) {
+                try {
+                  const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
+                  if (up.error) console.error('[Quote] sent PDF upload error:', up.error);
+                } catch (uploadErr) {
+                  console.error('[Quote] sent PDF upload failed:', uploadErr);
+                }
               }
             }
             toast.success(T('quoteSentSuccess'));
