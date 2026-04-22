@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf } from '@/lib/configurationsService';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
+import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
@@ -681,7 +682,24 @@ export default function ConfiguratorPage() {
           }
         }
 
+        // Upload sent PDF to storage BEFORE webhook so we can include the
+        // stored path/filename in the email payload (single source of truth).
+        let orderSentPdfPath: string | null = null;
+        if (activeCaseId && pdfBlob) {
+          try {
+            const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
+            if (up.error) console.error('[Order] sent PDF upload error:', up.error);
+            orderSentPdfPath = up.path;
+          } catch (uploadErr) {
+            console.error('[Order] sent PDF upload failed:', uploadErr);
+          }
+        }
+
         try {
+          // Build structured content summary so the email template can render
+          // machine + accessory specifications even without parsing the PDF.
+          const contentSummary = buildQuoteContentSummary(state);
+
           const webhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
@@ -695,9 +713,19 @@ export default function ConfiguratorPage() {
             email_modtager: state.emailRecipient,
             kommentar: state.comment,
             pdf_url: '',
+            pdf_storage_path: orderSentPdfPath || '',
             pdf_filename: pdfFilename,
             pdf_mime_type: 'application/pdf',
             pdf_base64: pdfBase64,
+            // Structured product/specification data — source of truth is the
+            // saved configurator state. Used by n8n to render quote/order
+            // emails with full machine + accessory details.
+            language: state.language,
+            currency: contentSummary.currency,
+            delivery: contentSummary.delivery,
+            machines: contentSummary.machines,
+            totals: contentSummary.totals,
+            state_summary: contentSummary,
           };
 
           const orderWebhookUrl = getOrderWebhookUrl();
@@ -705,7 +733,9 @@ export default function ConfiguratorPage() {
             env: getWebhookEnv(),
             case_id: webhookPayload.case_id,
             order_number: webhookPayload.order_number,
+            machine_count: contentSummary.machines.length,
             pdf_size: pdfBase64.length,
+            pdf_storage_path: orderSentPdfPath,
           });
 
           // STRICT success: only treat as delivered if we get a real, readable
@@ -734,21 +764,15 @@ export default function ConfiguratorPage() {
           }
 
           if (delivered) {
-            // Persist sent date on the case so it shows in My account
+            // Persist sent date on the case so it shows in My account.
+            // markAsOrderSubmitted preserves any existing quote_sent_at —
+            // sending an order from a case that previously sent a quote
+            // must NOT clear the quote sent date.
             if (activeCaseId) {
               try {
                 await markAsOrderSubmitted(activeCaseId);
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
-              }
-              // Persist the exact sent PDF so it can be reopened from "Min konto"
-              if (pdfBlob) {
-                try {
-                  const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
-                  if (up.error) console.error('[Order] sent PDF upload error:', up.error);
-                } catch (uploadErr) {
-                  console.error('[Order] sent PDF upload failed:', uploadErr);
-                }
               }
             }
             toast.success(T('orderSentToTiman'));
@@ -764,6 +788,7 @@ export default function ConfiguratorPage() {
           });
         }
       }
+
 
       // Send webhook for Tilbud (Quote) flow — mirrors the order pattern
       if (state.flowType === 'quote') {
@@ -801,7 +826,26 @@ export default function ConfiguratorPage() {
         const emailModtager = (state.emailRecipient || '').trim();
         const recipients = [emailUdfylder, emailModtager].filter(Boolean);
 
+
+        // Upload sent PDF to storage BEFORE webhook so we can include the
+        // stored path/filename in the email payload (single source of truth).
+        let quoteSentPdfPath: string | null = null;
+        if (activeCaseId && pdfBlob) {
+          try {
+            const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
+            if (up.error) console.error('[Quote] sent PDF upload error:', up.error);
+            quoteSentPdfPath = up.path;
+          } catch (uploadErr) {
+            console.error('[Quote] sent PDF upload failed:', uploadErr);
+          }
+        }
+
         try {
+          // Build structured content summary so the quote email template can
+          // render machine + accessory specifications, even if the PDF
+          // attachment is missing or fails to parse downstream.
+          const contentSummary = buildQuoteContentSummary(state);
+
           const webhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Tilbud',
@@ -816,9 +860,20 @@ export default function ConfiguratorPage() {
             recipients,
             kommentar: state.comment,
             pdf_url: '',
+            pdf_storage_path: quoteSentPdfPath || '',
             pdf_filename: pdfFilename,
             pdf_mime_type: 'application/pdf',
             pdf_base64: pdfBase64,
+            // Structured product/specification data — source of truth is the
+            // saved configurator state. Used by n8n so the quote email
+            // includes the selected machines + accessories instead of
+            // empty fields.
+            language: state.language,
+            currency: contentSummary.currency,
+            delivery: contentSummary.delivery,
+            machines: contentSummary.machines,
+            totals: contentSummary.totals,
+            state_summary: contentSummary,
           };
 
           const quoteWebhookUrl = getQuoteWebhookUrl();
@@ -827,7 +882,9 @@ export default function ConfiguratorPage() {
             case_id: webhookPayload.case_id,
             quote_number: webhookPayload.quote_number,
             recipients,
+            machine_count: contentSummary.machines.length,
             pdf_size: pdfBase64.length,
+            pdf_storage_path: quoteSentPdfPath,
           });
 
           // STRICT success: only treat as delivered if we get a real, readable
@@ -857,21 +914,14 @@ export default function ConfiguratorPage() {
           }
 
           if (delivered) {
-            // Persist quote_sent_at on the case so it shows in My account
+            // Persist quote_sent_at on the case so it shows in My account.
+            // markPdfDownloaded only sets quote_sent_at the first time, so
+            // resending a quote does not overwrite the original sent date.
             if (activeCaseId) {
               try {
                 await markPdfDownloaded(activeCaseId, 'quote');
               } catch (markErr) {
                 console.error('Failed to stamp quote_sent_at:', markErr);
-              }
-              // Persist the exact sent PDF so it can be reopened from "Min konto"
-              if (pdfBlob) {
-                try {
-                  const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
-                  if (up.error) console.error('[Quote] sent PDF upload error:', up.error);
-                } catch (uploadErr) {
-                  console.error('[Quote] sent PDF upload failed:', uploadErr);
-                }
               }
             }
             toast.success(T('quoteSentSuccess'));
@@ -887,6 +937,7 @@ export default function ConfiguratorPage() {
           });
         }
       }
+
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
