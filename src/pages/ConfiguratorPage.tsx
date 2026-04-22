@@ -824,16 +824,32 @@ export default function ConfiguratorPage() {
             pdf_size: pdfBase64.length,
           });
 
-          const webhookRes = await fetch(quoteWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(webhookPayload),
-          });
+          // Same CORS-resilient pattern as the order flow.
+          let delivered = false;
+          let responseInfo = '';
+          try {
+            const webhookRes = await fetch(quoteWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(webhookPayload),
+            });
+            const quoteRespText = await webhookRes.text().catch(() => '');
+            console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
+            responseInfo = `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`;
+            if (webhookRes.ok) delivered = true;
+          } catch (corsErr) {
+            console.warn('[Quote webhook] CORS/network error, retrying with no-cors:', corsErr);
+            await fetch(quoteWebhookUrl, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(webhookPayload),
+            });
+            console.log('[Quote webhook] no-cors request sent (response opaque)');
+            delivered = true;
+          }
 
-          const quoteRespText = await webhookRes.text().catch(() => '');
-          console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
-
-          if (webhookRes.ok) {
+          if (delivered) {
             // Persist quote_sent_at on the case so it shows in My account
             if (activeCaseId) {
               try {
@@ -845,7 +861,7 @@ export default function ConfiguratorPage() {
             toast.success(T('quoteSentSuccess'));
           } else {
             toast.error(T('quoteSendFailed'), {
-              description: `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`,
+              description: responseInfo || 'no response body',
             });
           }
         } catch (webhookErr) {
