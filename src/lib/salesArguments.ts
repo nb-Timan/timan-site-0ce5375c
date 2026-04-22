@@ -992,7 +992,35 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
 
   if (caps.has('bio_oil')) parts.push(T.bioOil[lang]);
 
-  const paragraph = parts.join(' ');
+  // ─── Tool-aware sentences (one per selected redskab) ──────────────────────
+  // Adds concrete value-statements about the actual tools selected, instead of
+  // only talking about the base machine. Drives the "fordele" popup.
+  const toolSentences: string[] = [];
+  const seenToolIds = new Set<string>();
+  const selectedToolProfiles: ToolProfile[] = [];
+  for (const mc of state.machineConfigs) {
+    if (mc.qty < 1) continue;
+    const accs = getSelectedAccessoryObjects(mc, state);
+    for (const acc of accs) {
+      const profile = detectToolProfile(acc.id, getAccName(acc));
+      if (!profile || seenToolIds.has(profile.matchIds[0])) continue;
+      seenToolIds.add(profile.matchIds[0]);
+      selectedToolProfiles.push(profile);
+      toolSentences.push(
+        TOOL_AWARE_TEXT.toolValueLine[lang](profile.label[lang], profile.whatItsGoodFor[lang])
+      );
+    }
+  }
+  if (toolSentences.length > 0) {
+    const toolSummary = selectedToolProfiles.map(p => p.label[lang]).join(T.and[lang]);
+    parts.push(TOOL_AWARE_TEXT.toolFocusIntro[lang](toolSummary));
+    parts.push(toolSentences.join(' '));
+  }
+
+  let paragraph = parts.join(' ');
+  // Hard guard: strip any sentence containing a topic forbidden by ALL selected
+  // machines (e.g. cabin/aircondition mentions when only RC-1000s/RC-751 are selected).
+  paragraph = stripForbiddenTopics(paragraph, selectedMachineKeys);
 
   // ── BULLETS
   const allBullets: string[] = [];
