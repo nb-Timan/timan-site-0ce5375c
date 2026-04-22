@@ -739,6 +739,15 @@ export default function ConfiguratorPage() {
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
               }
+              // Persist the exact sent PDF so it can be reopened from "Min konto"
+              if (pdfBlob) {
+                try {
+                  const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
+                  if (up.error) console.error('[Order] sent PDF upload error:', up.error);
+                } catch (uploadErr) {
+                  console.error('[Order] sent PDF upload failed:', uploadErr);
+                }
+              }
             }
             toast.success(T('orderSentToTiman'));
           } else {
