@@ -359,6 +359,8 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     created_case_at: row.created_case_at ?? row.created_at ?? null,
     quote_sent_at: row.quote_sent_at ?? null,
     order_sent_at: row.order_sent_at ?? null,
+    sent_pdf_path: row.sent_pdf_path ?? null,
+    sent_pdf_filename: row.sent_pdf_filename ?? null,
   };
 }
 
@@ -484,6 +486,8 @@ function mapConfigurationRowWithItems(
     created_case_at: row.created_case_at ?? row.created_at ?? null,
     quote_sent_at: row.quote_sent_at ?? null,
     order_sent_at: row.order_sent_at ?? null,
+    sent_pdf_path: row.sent_pdf_path ?? null,
+    sent_pdf_filename: row.sent_pdf_filename ?? null,
   };
 }
 
