@@ -639,18 +639,11 @@ export default function ConfiguratorPage() {
         console.error('Failed to encode PDF as base64:', b64Err);
       }
 
-      // Mark PDF as downloaded in Supabase if configuration was saved
-      if (savedConfigurationId) {
-        try {
-          await markPdfDownloaded(savedConfigurationId, state.flowType);
-          toast.success(T('pdfTracked'));
-        } catch (err) {
-          console.error('Failed to mark PDF downloaded:', err);
-          toast.error(T('pdfTrackFailed'), {
-            description: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
+      // Track PDF generation in Supabase (silent — this is part of the SEND flow,
+      // not a standalone PDF download action, so we don't surface a "PDF tracked" toast.
+      // The user only cares about the send result, shown by the order/quote toasts below.
+      // For the order flow we let markAsOrderSubmitted handle stamping; for the quote flow
+      // we stamp quote_sent_at only on successful webhook (see below). So nothing to do here.
 
       // Send webhook for Ordre flow
       if (state.flowType === 'order') {
