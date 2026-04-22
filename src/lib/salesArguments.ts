@@ -1012,13 +1012,20 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
   if (caps.has('chassis_care')) allBullets.push(T.bulletChassis[lang]);
   if (caps.has('tow')) allBullets.push(T.bulletTow[lang]);
 
+  // Compute machine-platform flags for platform-aware filler text.
+  // RC-1000s and RC-751 have NO cab. Only Timan 3330 has a cab.
+  // Generic "remote control or cab comfort" filler MUST adapt to the actual selection.
+  const selectedMachineKeys = state.machineConfigs.filter(mc => mc.qty > 0).map(mc => mc.type);
+  const _hasCab = selectedMachineKeys.some(k => MACHINE_PROFILES[k]?.hasCab);
+  const _hasRemote = selectedMachineKeys.some(k => MACHINE_PROFILES[k]?.isRemoteControlled);
+
   const fillers = [
     T.fillerTools[lang](isLooseOnly, isMulti),
     T.fillerQuickStart[lang],
     T.fillerQuickChange[lang],
     T.fillerReliable[lang],
     T.fillerFuel[lang],
-    T.fillerSafety[lang],
+    T.fillerSafety[lang](_hasCab, _hasRemote),
     T.fillerCompact[lang],
     T.fillerService[lang],
     T.fillerExpandable[lang],
