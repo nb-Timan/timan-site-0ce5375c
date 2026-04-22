@@ -827,9 +827,11 @@ export default function ConfiguratorPage() {
             pdf_size: pdfBase64.length,
           });
 
-          // Same CORS-resilient pattern as the order flow.
+          // Same CORS-resilient pattern as the order flow:
+          // 1. Try normal fetch first.
+          // 2. On CORS/network error or non-2xx, retry with no-cors.
+          // 3. Either path completing without throwing = delivered.
           let delivered = false;
-          let responseInfo = '';
           try {
             const webhookRes = await fetch(quoteWebhookUrl, {
               method: 'POST',
@@ -838,18 +840,25 @@ export default function ConfiguratorPage() {
             });
             const quoteRespText = await webhookRes.text().catch(() => '');
             console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
-            responseInfo = `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`;
-            if (webhookRes.ok) delivered = true;
+            if (webhookRes.ok) {
+              delivered = true;
+            } else {
+              throw new Error(`HTTP ${webhookRes.status}`);
+            }
           } catch (corsErr) {
-            console.warn('[Quote webhook] CORS/network error, retrying with no-cors:', corsErr);
-            await fetch(quoteWebhookUrl, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(webhookPayload),
-            });
-            console.log('[Quote webhook] no-cors request sent (response opaque)');
-            delivered = true;
+            console.warn('[Quote webhook] normal fetch failed, retrying with no-cors:', corsErr);
+            try {
+              await fetch(quoteWebhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload),
+              });
+              console.log('[Quote webhook] no-cors request sent (response opaque)');
+              delivered = true;
+            } catch (fallbackErr) {
+              console.error('[Quote webhook] no-cors fallback also failed:', fallbackErr);
+            }
           }
 
           if (delivered) {
@@ -863,9 +872,7 @@ export default function ConfiguratorPage() {
             }
             toast.success(T('quoteSentSuccess'));
           } else {
-            toast.error(T('quoteSendFailed'), {
-              description: responseInfo || 'no response body',
-            });
+            toast.error(T('quoteSendFailed'));
           }
         } catch (webhookErr) {
           console.error('[Quote webhook] call failed:', webhookErr);
