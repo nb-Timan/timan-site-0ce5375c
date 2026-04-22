@@ -238,6 +238,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       createdCaseAt: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
       quoteSentAt: { da: 'Afsendt tilbud', en: 'Quote sent', de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
       orderSentAt: { da: 'Afsendt ordre', en: 'Order sent', de: 'Bestellung gesendet', it: 'Ordine inviato', hu: 'Rendelés elküldve' },
+      openSentPdf: { da: 'Åbn afsendt PDF', en: 'Open sent PDF', de: 'Gesendete PDF öffnen', it: 'Apri PDF inviato', hu: 'Elküldött PDF megnyitása' },
+      openCasePdf: { da: 'Åbn sag', en: 'Open case', de: 'Fall öffnen', it: 'Apri caso', hu: 'Ügy megnyitása' },
+      pdfOpenFailed: { da: 'Kunne ikke åbne PDF', en: 'Could not open PDF', de: 'PDF konnte nicht geöffnet werden', it: 'Impossibile aprire il PDF', hu: 'A PDF nem nyitható meg' },
+      pdfNotStored: { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
