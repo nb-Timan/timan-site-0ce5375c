@@ -705,8 +705,9 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const orderWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-ordre';
+          const orderWebhookUrl = getOrderWebhookUrl();
           console.log('[Order webhook] POST', orderWebhookUrl, {
+            env: getWebhookEnv(),
             case_id: webhookPayload.case_id,
             order_number: webhookPayload.order_number,
             pdf_size: pdfBase64.length,
