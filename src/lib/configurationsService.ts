@@ -859,3 +859,72 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     throw new Error(formatSupabaseError(error));
   }
 }
+
+/**
+ * Upload the generated PDF for a sent order/quote to private Storage and
+ * persist the path on the configuration row. Returns the storage path on
+ * success, or null on failure (caller should not treat upload failure as
+ * a send failure — the webhook itself already succeeded).
+ */
+export async function uploadSentPdf(
+  configurationId: string,
+  pdfBlob: Blob,
+  filename: string,
+): Promise<{ path: string | null; error: string | null }> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    const message = authError ? formatSupabaseError(authError) : 'No authenticated user';
+    console.error('[uploadSentPdf] auth error:', message);
+    return { path: null, error: message };
+  }
+
+  // Path layout: <user_id>/<configuration_id>/<timestamp>-<filename>
+  const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const path = `${user.id}/${configurationId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(SENT_PDF_BUCKET)
+    .upload(path, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error('[uploadSentPdf] upload failed:', uploadError);
+    return { path: null, error: uploadError.message };
+  }
+
+  const { error: updateError } = await updateConfigurationRow(configurationId, {
+    sent_pdf_path: path,
+    sent_pdf_filename: filename,
+  });
+
+  if (updateError) {
+    console.error('[uploadSentPdf] failed to persist path:', updateError);
+    return { path, error: formatSupabaseError(updateError) };
+  }
+
+  return { path, error: null };
+}
+
+/**
+ * Generate a short-lived signed URL to view a previously sent PDF.
+ * Bucket is private; users only see their own files via RLS on
+ * `storage.objects` (path must start with their auth user id).
+ */
+export async function getSentPdfSignedUrl(
+  path: string,
+  expiresInSeconds = 60,
+): Promise<{ url: string | null; error: string | null }> {
+  const { data, error } = await supabase.storage
+    .from(SENT_PDF_BUCKET)
+    .createSignedUrl(path, expiresInSeconds);
+
+  if (error || !data?.signedUrl) {
+    console.error('[getSentPdfSignedUrl] failed:', error);
+    return { url: null, error: error?.message ?? 'Unknown error' };
+  }
+
+  return { url: data.signedUrl, error: null };
+}
+
