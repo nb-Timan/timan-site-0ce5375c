@@ -789,6 +789,11 @@ export default function ConfiguratorPage() {
         }
       }
 
+        // Recipients: always send to udfylder; include modtager only if non-empty
+        const emailUdfylder = (state.email || '').trim();
+        const emailModtager = (state.emailRecipient || '').trim();
+        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
+
 
       // Send webhook for Tilbud (Quote) flow — mirrors the order pattern
       if (state.flowType === 'quote') {
