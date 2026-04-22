@@ -421,11 +421,36 @@ const T = {
     hu: 'Alacsony üzemanyag-fogyasztás az azonos kapacitású hagyományos megoldásokhoz képest',
   },
   fillerSafety: {
-    da: 'Fjernbetjening eller kabinekomfort giver sikkerhed og effektivitet i krævende terræn',
-    en: 'Remote control or cabin comfort provides safety and efficiency in demanding terrain',
-    de: 'Fernsteuerung oder Kabinenkomfort bieten Sicherheit und Effizienz in anspruchsvollem Gelände',
-    it: 'Telecomando o comfort della cabina offrono sicurezza ed efficienza in terreni impegnativi',
-    hu: 'A távirányítás vagy a fülkekomfort biztonságot és hatékonyságot biztosít igényes terepen',
+    da: (hasCab: boolean, hasRemote: boolean) =>
+      hasCab && hasRemote
+        ? 'Fjernbetjening på den ene maskine og kabinekomfort på den anden giver sikkerhed og effektivitet i krævende terræn'
+        : hasCab
+          ? 'Kabinekomfort giver sikkerhed og effektivitet i krævende terræn og på lange driftsdage'
+          : 'Fjernbetjening sætter operatøren sikkert udenfor maskinen – også på skråninger og i krævende terræn',
+    en: (hasCab: boolean, hasRemote: boolean) =>
+      hasCab && hasRemote
+        ? 'Remote control on one machine and cab comfort on the other provide safety and efficiency in demanding terrain'
+        : hasCab
+          ? 'Cab comfort provides safety and efficiency in demanding terrain and on long working days'
+          : 'Remote control keeps the operator safely outside the machine – also on slopes and in demanding terrain',
+    de: (hasCab: boolean, hasRemote: boolean) =>
+      hasCab && hasRemote
+        ? 'Fernsteuerung an der einen Maschine und Kabinenkomfort an der anderen sorgen für Sicherheit und Effizienz in anspruchsvollem Gelände'
+        : hasCab
+          ? 'Kabinenkomfort sorgt für Sicherheit und Effizienz in anspruchsvollem Gelände und an langen Arbeitstagen'
+          : 'Die Fernsteuerung hält den Bediener sicher außerhalb der Maschine – auch an Hängen und in anspruchsvollem Gelände',
+    it: (hasCab: boolean, hasRemote: boolean) =>
+      hasCab && hasRemote
+        ? 'Telecomando su una macchina e comfort della cabina sull\'altra offrono sicurezza ed efficienza in terreni impegnativi'
+        : hasCab
+          ? 'Il comfort della cabina offre sicurezza ed efficienza in terreni impegnativi e durante lunghe giornate lavorative'
+          : 'Il telecomando mantiene l\'operatore al sicuro fuori dalla macchina – anche su pendii e in terreni impegnativi',
+    hu: (hasCab: boolean, hasRemote: boolean) =>
+      hasCab && hasRemote
+        ? 'Az egyik gépen távirányítás, a másikon fülkekomfort biztonságot és hatékonyságot ad igényes terepen'
+        : hasCab
+          ? 'A fülkekomfort biztonságot és hatékonyságot ad igényes terepen és hosszú munkanapokon'
+          : 'A távirányítás biztonságosan a gépen kívül tartja a kezelőt – akár lejtőkön és igényes terepen is',
   },
   fillerCompact: {
     da: 'Kompakt maskinstørrelse giver adgang til smalle stier og tætte beplantninger',
