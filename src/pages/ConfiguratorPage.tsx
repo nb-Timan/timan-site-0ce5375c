@@ -799,55 +799,36 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const edgeFunctionUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/send-quote`;
-          console.log('[Quote webhook] POST edge function send-quote', {
-            edgeFunctionUrl,
+          const quoteWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud';
+          console.log('[Quote webhook] POST', quoteWebhookUrl, {
             case_id: webhookPayload.case_id,
             quote_number: webhookPayload.quote_number,
             recipients,
             pdf_size: pdfBase64.length,
           });
 
-          const edgeRes = await fetch(edgeFunctionUrl, {
+          const webhookRes = await fetch(quoteWebhookUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(webhookPayload),
           });
 
-          const edgeText = await edgeRes.text().catch(() => '');
-          let fnData: any = null;
-          try {
-            fnData = edgeText ? JSON.parse(edgeText) : null;
-          } catch {
-            fnData = null;
-          }
+          const quoteRespText = await webhookRes.text().catch(() => '');
+          console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
 
-          console.log('[Quote webhook] edge function response', {
-            status: edgeRes.status,
-            statusText: edgeRes.statusText,
-            body: fnData ?? edgeText,
-          });
-
-          if (!edgeRes.ok) {
-            toast.error(T('quoteSendFailed'), {
-              description: `Edge function HTTP ${edgeRes.status} ${edgeRes.statusText} — ${(edgeText || 'no response body').slice(0, 300)}`,
-            });
-          } else if (fnData?.ok) {
+          if (webhookRes.ok) {
+            // Persist quote_sent_at on the case so it shows in My account
             if (activeCaseId) {
               try {
                 await markPdfDownloaded(activeCaseId, 'quote');
-              } catch (e) {
-                console.error('Failed to stamp quote_sent_at:', e);
+              } catch (markErr) {
+                console.error('Failed to stamp quote_sent_at:', markErr);
               }
             }
             toast.success(T('quoteSentSuccess'));
           } else {
             toast.error(T('quoteSendFailed'), {
-              description: `HTTP ${fnData?.status ?? '?'} ${fnData?.statusText ?? ''} — ${(fnData?.response_text || fnData?.error_message || fnData?.error || edgeText || 'no response body').toString().slice(0, 300)}`,
+              description: `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`,
             });
           }
         } catch (webhookErr) {
