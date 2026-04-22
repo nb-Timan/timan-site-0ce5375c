@@ -992,12 +992,19 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
 
   if (caps.has('bio_oil')) parts.push(T.bioOil[lang]);
 
+  // Compute machine-platform flags (used for forbidden-topic stripping AND for
+  // platform-aware filler text further down). RC-1000s and RC-751 have NO cab.
+  const selectedMachineKeys = state.machineConfigs.filter(mc => mc.qty > 0).map(mc => mc.type);
+  const _hasCab = selectedMachineKeys.some(k => MACHINE_PROFILES[k]?.hasCab);
+  const _hasRemote = selectedMachineKeys.some(k => MACHINE_PROFILES[k]?.isRemoteControlled);
+
   // ─── Tool-aware sentences (one per selected redskab) ──────────────────────
   // Adds concrete value-statements about the actual tools selected, instead of
   // only talking about the base machine. Drives the "fordele" popup.
   const toolSentences: string[] = [];
   const seenToolIds = new Set<string>();
   const selectedToolProfiles: ToolProfile[] = [];
+  const selectedCapabilities = new Set<ToolCapability>();
   for (const mc of state.machineConfigs) {
     if (mc.qty < 1) continue;
     const accs = getSelectedAccessoryObjects(mc, state);
@@ -1006,6 +1013,7 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
       if (!profile || seenToolIds.has(profile.matchIds[0])) continue;
       seenToolIds.add(profile.matchIds[0]);
       selectedToolProfiles.push(profile);
+      profile.capabilities.forEach(c => selectedCapabilities.add(c));
       toolSentences.push(
         TOOL_AWARE_TEXT.toolValueLine[lang](profile.label[lang], profile.whatItsGoodFor[lang])
       );
@@ -1019,7 +1027,7 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
 
   let paragraph = parts.join(' ');
   // Hard guard: strip any sentence containing a topic forbidden by ALL selected
-  // machines (e.g. cabin/aircondition mentions when only RC-1000s/RC-751 are selected).
+  // machines (e.g. cab/aircondition mentions when only RC-1000s/RC-751 are selected).
   paragraph = stripForbiddenTopics(paragraph, selectedMachineKeys);
 
   // ── BULLETS
