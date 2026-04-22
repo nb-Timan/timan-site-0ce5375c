@@ -706,12 +706,12 @@ export default function ConfiguratorPage() {
             pdf_size: pdfBase64.length,
           });
 
-          // Try a normal CORS fetch first so we can read the response.
-          // If the browser blocks it due to missing CORS headers on the n8n
-          // webhook response, fall back to a no-cors fetch — the request is
-          // still delivered to n8n, we just can't read the response body.
+          // 1. Try normal fetch first so we can read the response.
+          // 2. If it fails with a CORS/network error OR returns a non-2xx,
+          //    automatically retry in safe no-cors fallback mode. n8n still
+          //    receives the request; we just can't read the response body.
+          // 3. Treat either path completing without throwing as "delivered".
           let delivered = false;
-          let responseInfo = '';
           try {
             const webhookRes = await fetch(orderWebhookUrl, {
               method: 'POST',
@@ -720,20 +720,25 @@ export default function ConfiguratorPage() {
             });
             const orderRespText = await webhookRes.text().catch(() => '');
             console.log('[Order webhook] response', webhookRes.status, orderRespText);
-            responseInfo = `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${orderRespText.slice(0, 300) || 'no response body'}`;
-            // Treat 2xx as success. n8n typically returns 200.
-            if (webhookRes.ok) delivered = true;
+            if (webhookRes.ok) {
+              delivered = true;
+            } else {
+              throw new Error(`HTTP ${webhookRes.status}`);
+            }
           } catch (corsErr) {
-            console.warn('[Order webhook] CORS/network error, retrying with no-cors:', corsErr);
-            // Fallback: fire-and-forget. n8n still receives the request.
-            await fetch(orderWebhookUrl, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(webhookPayload),
-            });
-            console.log('[Order webhook] no-cors request sent (response opaque)');
-            delivered = true;
+            console.warn('[Order webhook] normal fetch failed, retrying with no-cors:', corsErr);
+            try {
+              await fetch(orderWebhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload),
+              });
+              console.log('[Order webhook] no-cors request sent (response opaque)');
+              delivered = true;
+            } catch (fallbackErr) {
+              console.error('[Order webhook] no-cors fallback also failed:', fallbackErr);
+            }
           }
 
           if (delivered) {
@@ -747,9 +752,7 @@ export default function ConfiguratorPage() {
             }
             toast.success(T('orderSentToTiman'));
           } else {
-            toast.error(T('orderSendFailed'), {
-              description: responseInfo || 'no response body',
-            });
+            toast.error(T('orderSendFailed'));
           }
         } catch (webhookErr) {
           console.error('[Order webhook] call failed:', webhookErr);
@@ -824,9 +827,11 @@ export default function ConfiguratorPage() {
             pdf_size: pdfBase64.length,
           });
 
-          // Same CORS-resilient pattern as the order flow.
+          // Same CORS-resilient pattern as the order flow:
+          // 1. Try normal fetch first.
+          // 2. On CORS/network error or non-2xx, retry with no-cors.
+          // 3. Either path completing without throwing = delivered.
           let delivered = false;
-          let responseInfo = '';
           try {
             const webhookRes = await fetch(quoteWebhookUrl, {
               method: 'POST',
@@ -835,18 +840,25 @@ export default function ConfiguratorPage() {
             });
             const quoteRespText = await webhookRes.text().catch(() => '');
             console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
-            responseInfo = `HTTP ${webhookRes.status} ${webhookRes.statusText} — ${quoteRespText.slice(0, 300) || 'no response body'}`;
-            if (webhookRes.ok) delivered = true;
+            if (webhookRes.ok) {
+              delivered = true;
+            } else {
+              throw new Error(`HTTP ${webhookRes.status}`);
+            }
           } catch (corsErr) {
-            console.warn('[Quote webhook] CORS/network error, retrying with no-cors:', corsErr);
-            await fetch(quoteWebhookUrl, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(webhookPayload),
-            });
-            console.log('[Quote webhook] no-cors request sent (response opaque)');
-            delivered = true;
+            console.warn('[Quote webhook] normal fetch failed, retrying with no-cors:', corsErr);
+            try {
+              await fetch(quoteWebhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload),
+              });
+              console.log('[Quote webhook] no-cors request sent (response opaque)');
+              delivered = true;
+            } catch (fallbackErr) {
+              console.error('[Quote webhook] no-cors fallback also failed:', fallbackErr);
+            }
           }
 
           if (delivered) {
@@ -860,9 +872,7 @@ export default function ConfiguratorPage() {
             }
             toast.success(T('quoteSentSuccess'));
           } else {
-            toast.error(T('quoteSendFailed'), {
-              description: responseInfo || 'no response body',
-            });
+            toast.error(T('quoteSendFailed'));
           }
         } catch (webhookErr) {
           console.error('[Quote webhook] call failed:', webhookErr);
