@@ -819,11 +819,12 @@ export default function ConfiguratorPage() {
             pdf_size: pdfBase64.length,
           });
 
-          // Same CORS-resilient pattern as the order flow:
-          // 1. Try normal fetch first.
-          // 2. On CORS/network error or non-2xx, retry with no-cors.
-          // 3. Either path completing without throwing = delivered.
+          // STRICT success: only treat as delivered if we get a real, readable
+          // 2xx response from n8n. No no-cors fallback — opaque responses are
+          // unverifiable and were causing false "Tilbud afsendt" states even
+          // when the webhook never actually fired.
           let delivered = false;
+          let failureReason = '';
           try {
             const webhookRes = await fetch(quoteWebhookUrl, {
               method: 'POST',
@@ -831,26 +832,17 @@ export default function ConfiguratorPage() {
               body: JSON.stringify(webhookPayload),
             });
             const quoteRespText = await webhookRes.text().catch(() => '');
-            console.log('[Quote webhook] response', webhookRes.status, quoteRespText);
-            if (webhookRes.ok) {
+            console.log('[Quote webhook] response', webhookRes.status, webhookRes.type, quoteRespText);
+            if (webhookRes.type === 'opaque' || webhookRes.type === 'opaqueredirect') {
+              failureReason = 'Opaque response (CORS) — cannot verify delivery';
+            } else if (webhookRes.ok) {
               delivered = true;
             } else {
-              throw new Error(`HTTP ${webhookRes.status}`);
+              failureReason = `HTTP ${webhookRes.status}`;
             }
-          } catch (corsErr) {
-            console.warn('[Quote webhook] normal fetch failed, retrying with no-cors:', corsErr);
-            try {
-              await fetch(quoteWebhookUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(webhookPayload),
-              });
-              console.log('[Quote webhook] no-cors request sent (response opaque)');
-              delivered = true;
-            } catch (fallbackErr) {
-              console.error('[Quote webhook] no-cors fallback also failed:', fallbackErr);
-            }
+          } catch (fetchErr) {
+            failureReason = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+            console.error('[Quote webhook] fetch failed:', fetchErr);
           }
 
           if (delivered) {
@@ -864,7 +856,9 @@ export default function ConfiguratorPage() {
             }
             toast.success(T('quoteSentSuccess'));
           } else {
-            toast.error(T('quoteSendFailed'));
+            toast.error(T('quoteSendFailed'), {
+              description: failureReason || undefined,
+            });
           }
         } catch (webhookErr) {
           console.error('[Quote webhook] call failed:', webhookErr);
