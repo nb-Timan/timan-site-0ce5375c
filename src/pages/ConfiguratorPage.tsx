@@ -801,8 +801,9 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const quoteWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud';
+          const quoteWebhookUrl = getQuoteWebhookUrl();
           console.log('[Quote webhook] POST', quoteWebhookUrl, {
+            env: getWebhookEnv(),
             case_id: webhookPayload.case_id,
             quote_number: webhookPayload.quote_number,
             recipients,
