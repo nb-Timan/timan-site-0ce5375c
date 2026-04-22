@@ -173,6 +173,26 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     await updateConfigurationNote(id, text);
   };
 
+  const handleOpenPdf = async (item: SavedConfiguration) => {
+    // Sent orders/quotes: open the actual stored sent PDF (view-only, no resend).
+    if (item.sent_pdf_path) {
+      const { url, error } = await getSentPdfSignedUrl(item.sent_pdf_path, 120);
+      if (error || !url) {
+        toast.error(tx('pdfOpenFailed'), { description: error ?? undefined });
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // Sent order without a stored PDF (legacy row from before storage): can't view.
+    if (item.case_status === 'ordre_afgivet') {
+      toast.error(tx('pdfNotStored'));
+      return;
+    }
+    // Non-sent cases: behave like "Åbn" so the user can review/regenerate from the configurator.
+    await handleOpen(item);
+  };
+
   const stats = useMemo(() => {
     const totals = {
       active: { count: 0, value: 0 },
