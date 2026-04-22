@@ -7,6 +7,16 @@
 
 import { ConfiguratorState, MachineConfig, Accessory, Language } from '@/types/configurator';
 import { ACCESSORIES, getLooseToolAccessories, LOOSE_TOOL_KEY, ACC_ID_OIL_BIO, ACC_ID_WORK_LIGHT, ACC_ID_FLASH_LIGHT, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_WARRANTY_1000, ACC_ID_WARRANTY_751, PRODUCTS } from '@/data/machines';
+import {
+  MACHINE_PROFILES,
+  TOOL_PROFILES,
+  TOOL_COMPLEMENT_RULES,
+  TOOL_AWARE_TEXT,
+  detectToolProfile,
+  stripForbiddenTopics,
+  type ToolCapability,
+  type ToolProfile,
+} from '@/lib/aiPrompts';
 
 export interface SalesArgsStructured {
   heading: string;
