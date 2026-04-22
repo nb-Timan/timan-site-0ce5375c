@@ -26,7 +26,11 @@ export interface SavedConfiguration {
   created_case_at: string | null;
   quote_sent_at: string | null;
   order_sent_at: string | null;
+  sent_pdf_path: string | null;
+  sent_pdf_filename: string | null;
 }
+
+export const SENT_PDF_BUCKET = 'sent-pdfs';
 
 /** Generate a unique reference number with prefix Q- or O- */
 export function generateReferenceNumber(prefix: 'Q' | 'O'): string {
