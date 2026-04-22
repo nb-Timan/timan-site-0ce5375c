@@ -14,6 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType } from '@/lib/configurationsService';
+import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
@@ -704,8 +705,9 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const orderWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-ordre';
+          const orderWebhookUrl = getOrderWebhookUrl();
           console.log('[Order webhook] POST', orderWebhookUrl, {
+            env: getWebhookEnv(),
             case_id: webhookPayload.case_id,
             order_number: webhookPayload.order_number,
             pdf_size: pdfBase64.length,
@@ -799,8 +801,9 @@ export default function ConfiguratorPage() {
             pdf_base64: pdfBase64,
           };
 
-          const quoteWebhookUrl = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud';
+          const quoteWebhookUrl = getQuoteWebhookUrl();
           console.log('[Quote webhook] POST', quoteWebhookUrl, {
+            env: getWebhookEnv(),
             case_id: webhookPayload.case_id,
             quote_number: webhookPayload.quote_number,
             recipients,
