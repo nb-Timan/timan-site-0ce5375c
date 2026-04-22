@@ -789,11 +789,6 @@ export default function ConfiguratorPage() {
         }
       }
 
-        // Recipients: always send to udfylder; include modtager only if non-empty
-        const emailUdfylder = (state.email || '').trim();
-        const emailModtager = (state.emailRecipient || '').trim();
-        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
-
 
       // Send webhook for Tilbud (Quote) flow — mirrors the order pattern
       if (state.flowType === 'quote') {
@@ -825,6 +820,12 @@ export default function ConfiguratorPage() {
             console.error('Failed to ensure quote number before webhook:', err);
           }
         }
+
+        // Recipients: always send to udfylder; include modtager only if non-empty
+        const emailUdfylder = (state.email || '').trim();
+        const emailModtager = (state.emailRecipient || '').trim();
+        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
+
 
         // Upload sent PDF to storage BEFORE webhook so we can include the
         // stored path/filename in the email payload (single source of truth).
