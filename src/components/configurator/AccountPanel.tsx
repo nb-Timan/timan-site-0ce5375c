@@ -476,6 +476,24 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     })()}
                     {/* Action buttons */}
                     <div className="flex gap-2">
+                      {/* PDF icon — sent orders open the stored sent PDF (view-only, never resends);
+                          non-sent cases open the case so the user can review/regenerate. */}
+                      <button
+                        onClick={() => void handleOpenPdf(item)}
+                        title={item.sent_pdf_path ? tx('openSentPdf') : tx('openCasePdf')}
+                        aria-label={item.sent_pdf_path ? tx('openSentPdf') : tx('openCasePdf')}
+                        className={`text-sm px-2.5 py-1.5 rounded-lg font-medium border transition flex items-center gap-1 ${
+                          item.sent_pdf_path
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        PDF
+                      </button>
                       {item.case_status !== 'ordre_afgivet' && (
                         <button
                           onClick={() => void handleOpen(item)}
