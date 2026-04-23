@@ -37,13 +37,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex justify-between h-20 items-center">
           {/* Left: TIMAN logo + subtitle */}
           <div className="flex items-center">
             <img
               src={timanLogo}
               alt="Timan"
-              className="h-8 sm:h-10 w-auto object-contain"
+              className="h-12 sm:h-14 w-auto object-contain"
             />
             <span className="ml-3 text-gray-500 font-medium hidden sm:block">| {T.portal[language]}</span>
           </div>
