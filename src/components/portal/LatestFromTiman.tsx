@@ -1,0 +1,99 @@
+import { Language } from '@/types/configurator';
+
+const T: Record<string, Record<Language, string>> = {
+  heading: { da: 'Seneste fra Timan', en: 'Latest from Timan', de: 'Neueste von Timan', it: 'Ultime da Timan', hu: 'Legújabb a Timantól' },
+  newsTag: { da: 'NYHED', en: 'NEWS', de: 'NEUIGKEIT', it: 'NOVITÀ', hu: 'HÍR' },
+  serviceTag: { da: 'SERVICE', en: 'SERVICE', de: 'SERVICE', it: 'SERVIZIO', hu: 'SZERVIZ' },
+  placeholder1Title: {
+    da: 'Ny redskabsserie til Timan 3400 er nu tilgængelig',
+    en: 'New attachment series for Timan 3400 now available',
+    de: 'Neue Anbaugeräte-Serie für Timan 3400 jetzt verfügbar',
+    it: 'Nuova serie di accessori per Timan 3400 ora disponibile',
+    hu: 'Az új Timan 3400 tartozéksorozat már elérhető',
+  },
+  placeholder1Body: {
+    da: 'Vi har netop lanceret en ny række klippeborde der øger effektiviteten med 15%.',
+    en: 'We just launched a new range of cutting decks that increase efficiency by 15%.',
+    de: 'Wir haben gerade eine neue Reihe von Mähdecks eingeführt, die die Effizienz um 15% steigern.',
+    it: 'Abbiamo appena lanciato una nuova gamma di piatti di taglio che aumentano l\'efficienza del 15%.',
+    hu: 'Most indítottuk útjára az új vágóasztal-sorozatot, amely 15%-kal növeli a hatékonyságot.',
+  },
+  placeholder2Title: {
+    da: 'Opdatering af AI-assistenten i konfiguratoren',
+    en: 'AI assistant update in the configurator',
+    de: 'Update des KI-Assistenten im Konfigurator',
+    it: 'Aggiornamento dell\'assistente AI nel configuratore',
+    hu: 'AI-asszisztens frissítése a konfigurátorban',
+  },
+  placeholder2Body: {
+    da: 'Det er nu endnu lettere at generere professionelle PDF-tilbud til dine kunder.',
+    en: 'It is now even easier to generate professional PDF quotes for your customers.',
+    de: 'Es ist jetzt noch einfacher, professionelle PDF-Angebote für Ihre Kunden zu erstellen.',
+    it: 'Ora è ancora più facile generare preventivi PDF professionali per i tuoi clienti.',
+    hu: 'Most még egyszerűbb professzionális PDF-árajánlatokat készíteni ügyfelei számára.',
+  },
+};
+
+type Category = 'news' | 'service';
+
+export interface NewsItem {
+  category: Category;
+  title: string;
+  body: string;
+}
+
+interface Props {
+  language: Language;
+  items?: NewsItem[];
+}
+
+const CATEGORY_STYLES: Record<Category, { bg: string; text: string }> = {
+  news:    { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  service: { bg: 'bg-sky-100',     text: 'text-sky-700' },
+};
+
+export default function LatestFromTiman({ language, items }: Props) {
+  const data: NewsItem[] =
+    items && items.length > 0
+      ? items
+      : [
+          {
+            category: 'news',
+            title: T.placeholder1Title[language],
+            body: T.placeholder1Body[language],
+          },
+          {
+            category: 'service',
+            title: T.placeholder2Title[language],
+            body: T.placeholder2Body[language],
+          },
+        ];
+
+  const tagLabel = (cat: Category) => (cat === 'service' ? T.serviceTag[language] : T.newsTag[language]);
+
+  return (
+    <section>
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+        {T.heading[language]}
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {data.map((item, idx) => {
+          const styles = CATEGORY_STYLES[item.category];
+          return (
+            <article
+              key={idx}
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition"
+            >
+              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${styles.bg} ${styles.text}`}>
+                {tagLabel(item.category)}
+              </span>
+              <h3 className="mt-3 text-base font-bold text-gray-900">{item.title}</h3>
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">{item.body}</p>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
