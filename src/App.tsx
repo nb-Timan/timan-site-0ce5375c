@@ -10,6 +10,7 @@ import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import DriftberegnerPage from "./pages/DriftberegnerPage";
+import Co2CalculatorPage from "./pages/Co2CalculatorPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
             <Route path="/portal/resources" element={<ResourcesPage />} />
             <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
+            <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
             {/* Existing configurator is preserved at /configurator */}
             <Route path="/configurator" element={<ConfiguratorPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
