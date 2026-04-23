@@ -15,12 +15,6 @@ const T: Record<string, Record<Language, string>> = {
   logout:  { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
 };
 
-const ROLE: Record<string, Record<Language, string>> = {
-  slutkunde:     { da: 'Default bruger', en: 'Default user', de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett' },
-  partner:       { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
-  timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkauf', it: 'Timan Vendite', hu: 'Timan Értékesítő' },
-};
-
 interface Props {
   user: SessionUser;
   language: Language;
@@ -41,20 +35,20 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   return (
     <header className="bg-white border-b border-gray-200">
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-        {/* Left: TIMAN wordmark + subtitle */}
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xl md:text-2xl font-bold tracking-tight text-emerald-700">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 h-16 flex items-center justify-between gap-4">
+        {/* Left: TIMAN wordmark + pipe + subtitle (matches "TIMAN | Forhandler Portal") */}
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span className="text-2xl font-bold tracking-tight text-emerald-700">
             TIMAN
           </span>
-          <span className="hidden sm:inline-block w-px h-6 bg-gray-200" aria-hidden="true" />
-          <span className="hidden sm:inline text-sm text-gray-400 truncate">
+          <span className="text-gray-300 text-lg leading-none" aria-hidden="true">|</span>
+          <span className="hidden sm:inline text-sm text-gray-500">
             {T.portal[language]}
           </span>
         </div>
 
-        {/* Right: language flags, role, user chip, logout */}
-        <div className="flex items-center gap-2 md:gap-3">
+        {/* Right: language flags, user chip, logout */}
+        <div className="flex items-center gap-3 md:gap-4">
           <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
             {LANGS.map(l => (
               <button
@@ -68,26 +62,23 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
             ))}
           </div>
 
-          <span className="hidden md:inline-flex px-2 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800">
-            {ROLE[user.role]?.[language] || user.role}
-          </span>
-
-          {/* User chip */}
-          <div className="flex items-center gap-2 pl-2 md:pl-3 md:border-l md:border-gray-200">
-            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">
+          {/* User chip — circular avatar + name to the right */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
               {initials}
             </div>
-            <span className="hidden md:inline text-sm font-medium text-gray-700 truncate max-w-[160px]">
+            <span className="hidden md:inline text-sm font-semibold text-gray-800 truncate max-w-[180px]">
               {displayName}
             </span>
           </div>
 
           <button
             onClick={onLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition"
+            aria-label={T.logout[language]}
           >
             <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">{T.logout[language]}</span>
+            <span className="hidden lg:inline">{T.logout[language]}</span>
           </button>
         </div>
       </div>

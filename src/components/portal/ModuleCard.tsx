@@ -50,22 +50,22 @@ export default function ModuleCard({ module, language, badge }: Props) {
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'group relative text-left w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition flex flex-col',
+        'group relative text-left w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition flex flex-col min-h-[280px]',
         'hover:shadow-md hover:-translate-y-0.5',
         styles.hoverRing,
         disabled && 'opacity-70 cursor-not-allowed hover:translate-y-0 hover:shadow-sm',
       )}
     >
-      {/* Icon tile */}
-      <div className={cn('w-14 h-14 rounded-2xl flex items-center justify-center', styles.iconBg)}>
-        <Icon className={cn('w-7 h-7', styles.iconColor)} />
+      {/* Icon tile — large square */}
+      <div className={cn('w-16 h-16 rounded-2xl flex items-center justify-center', styles.iconBg)}>
+        <Icon className={cn('w-8 h-8', styles.iconColor)} />
       </div>
 
       {/* Title + description */}
-      <h3 className="mt-5 text-lg font-bold text-gray-900">
+      <h3 className="mt-6 text-xl font-bold text-gray-900">
         {module.title[language] || module.title.en}
       </h3>
-      <p className="mt-2 text-sm text-gray-500 leading-relaxed flex-1">
+      <p className="mt-3 text-sm text-gray-500 leading-relaxed flex-1">
         {module.description[language] || module.description.en}
       </p>
 
@@ -86,7 +86,7 @@ export default function ModuleCard({ module, language, badge }: Props) {
       )}
 
       {/* CTA */}
-      <div className={cn('mt-5 inline-flex items-center gap-1.5 text-sm font-semibold transition', styles.cta)}>
+      <div className={cn('mt-6 inline-flex items-center gap-1.5 text-sm font-semibold transition', styles.cta)}>
         {module.cta[language] || module.cta.en}
         <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
       </div>

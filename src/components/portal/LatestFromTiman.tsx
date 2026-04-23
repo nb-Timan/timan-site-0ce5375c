@@ -12,11 +12,11 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Az új Timan 3400 tartozéksorozat már elérhető',
   },
   placeholder1Body: {
-    da: 'Vi har netop lanceret en ny række klippeborde der øger effektiviteten med 15%.',
-    en: 'We just launched a new range of cutting decks that increase efficiency by 15%.',
-    de: 'Wir haben gerade eine neue Reihe von Mähdecks eingeführt, die die Effizienz um 15% steigern.',
-    it: 'Abbiamo appena lanciato una nuova gamma di piatti di taglio che aumentano l\'efficienza del 15%.',
-    hu: 'Most indítottuk útjára az új vágóasztal-sorozatot, amely 15%-kal növeli a hatékonyságot.',
+    da: 'Vi har netop lanceret en ny række klippeborde der øger effektiviteten med 15%...',
+    en: 'We just launched a new range of cutting decks that increase efficiency by 15%...',
+    de: 'Wir haben gerade eine neue Reihe von Mähdecks eingeführt, die die Effizienz um 15% steigern...',
+    it: 'Abbiamo appena lanciato una nuova gamma di piatti di taglio che aumentano l\'efficienza del 15%...',
+    hu: 'Most indítottuk útjára az új vágóasztal-sorozatot, amely 15%-kal növeli a hatékonyságot...',
   },
   placeholder2Title: {
     da: 'Opdatering af AI-assistenten i konfiguratoren',
@@ -72,12 +72,12 @@ export default function LatestFromTiman({ language, items }: Props) {
   const tagLabel = (cat: Category) => (cat === 'service' ? T.serviceTag[language] : T.newsTag[language]);
 
   return (
-    <section>
-      <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+    <section className="mt-12">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">
         {T.heading[language]}
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.map((item, idx) => {
           const styles = CATEGORY_STYLES[item.category];
           return (
@@ -85,10 +85,10 @@ export default function LatestFromTiman({ language, items }: Props) {
               key={idx}
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition"
             >
-              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${styles.bg} ${styles.text}`}>
+              <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider ${styles.bg} ${styles.text}`}>
                 {tagLabel(item.category)}
               </span>
-              <h3 className="mt-3 text-base font-bold text-gray-900">{item.title}</h3>
+              <h3 className="mt-4 text-lg font-bold text-gray-900 leading-snug">{item.title}</h3>
               <p className="mt-2 text-sm text-gray-500 leading-relaxed">{item.body}</p>
             </article>
           );
