@@ -76,12 +76,19 @@ export default function PortalPage() {
       />
 
       {/* Full-bleed hero — gradient green banner like the mockup */}
-      <section className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-20">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 text-white">
+        {/* Decorative soft glow / image treatment */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-20"
+             style={{
+               backgroundImage:
+                 'radial-gradient(circle at 85% 30%, rgba(255,255,255,0.35) 0%, transparent 45%), radial-gradient(circle at 15% 80%, rgba(255,255,255,0.18) 0%, transparent 40%)',
+             }}
+        />
+        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-20 md:py-24">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
             {T.heroTitle[lang]}
           </h1>
-          <p className="mt-4 text-base md:text-lg text-emerald-50/90 max-w-2xl">
+          <p className="mt-5 text-lg md:text-xl text-emerald-50/90 max-w-2xl font-light leading-relaxed">
             {T.heroBody[lang]}
           </p>
         </div>

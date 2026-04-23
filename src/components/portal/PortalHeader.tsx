@@ -35,20 +35,20 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   return (
     <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 h-16 flex items-center justify-between gap-4">
-        {/* Left: TIMAN wordmark + pipe + subtitle (matches "TIMAN | Forhandler Portal") */}
-        <div className="flex items-baseline gap-3 min-w-0">
-          <span className="text-2xl font-bold tracking-tight text-emerald-700">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 h-[72px] flex items-center justify-between gap-4">
+        {/* Left: bold green TIMAN + thin gray pipe + subtitle */}
+        <div className="flex items-center gap-4 min-w-0">
+          <span className="text-[26px] leading-none font-bold tracking-tight text-emerald-700">
             TIMAN
           </span>
-          <span className="text-gray-300 text-lg leading-none" aria-hidden="true">|</span>
-          <span className="hidden sm:inline text-sm text-gray-500">
+          <span className="text-gray-300 text-xl leading-none font-light" aria-hidden="true">|</span>
+          <span className="hidden sm:inline text-[15px] text-gray-500 font-normal">
             {T.portal[language]}
           </span>
         </div>
 
-        {/* Right: language flags, user chip, logout */}
-        <div className="flex items-center gap-3 md:gap-4">
+        {/* Right: language flags, user chip (avatar + company name), logout */}
+        <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
             {LANGS.map(l => (
               <button
@@ -62,12 +62,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
             ))}
           </div>
 
-          {/* User chip — circular avatar + name to the right */}
+          {/* User chip — round green badge with initials, then company/display name to the right */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
+            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold shadow-sm">
               {initials}
             </div>
-            <span className="hidden md:inline text-sm font-semibold text-gray-800 truncate max-w-[180px]">
+            <span className="hidden md:inline text-[15px] font-semibold text-gray-800 truncate max-w-[200px]">
               {displayName}
             </span>
           </div>
