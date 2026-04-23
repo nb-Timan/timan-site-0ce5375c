@@ -1,0 +1,117 @@
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
+import { supabase } from '@/lib/supabase';
+
+export type SessionUser = AppUser & { email: string };
+
+interface AppUserContextValue {
+  appUser: SessionUser | null;
+  loading: boolean;
+  setAppUser: (user: SessionUser | null) => void;
+  logout: () => Promise<void>;
+}
+
+const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
+
+const STORAGE_KEY = 'timan.appUser';
+
+function loadFromStorage(): SessionUser | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SessionUser;
+  } catch {
+    return null;
+  }
+}
+
+export function AppUserProvider({ children }: { children: ReactNode }) {
+  const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
+  const [loading, setLoading] = useState(true);
+
+  const setAppUser = useCallback((user: SessionUser | null) => {
+    setAppUserState(user);
+    if (user) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
+
+  // Re-hydrate from Supabase session on mount: if a session exists but no cached user, look up app_users.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
+        if (!session?.user?.email) {
+          setLoading(false);
+          return;
+        }
+        const cached = loadFromStorage();
+        if (cached && cached.email.toLowerCase() === session.user.email.toLowerCase()) {
+          setLoading(false);
+          return;
+        }
+        const email = session.user.email.toLowerCase();
+        const { data: row } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (row && row.approved && row.is_active) {
+          setAppUser({
+            email: row.email,
+            role: row.role,
+            partner_type: row.partner_type ?? null,
+            approved: row.approved,
+            is_active: row.is_active,
+            start_step: row.start_step ?? 1,
+            max_step: row.max_step ?? 4,
+            can_view_prices: row.can_view_prices ?? false,
+            can_submit_order: row.can_submit_order ?? false,
+            can_edit_discount: row.can_edit_discount ?? false,
+            can_switch_customer_mode: row.can_switch_customer_mode ?? false,
+            working_for: row.working_for ?? null,
+            display_name: row.display_name || row.full_name,
+          });
+        } else {
+          // Session present but not approved → treat as guest with limited access
+          setAppUser({ ...SLUTKUNDE_DEFAULTS, email, display_name: undefined });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    // React to auth changes (sign-out elsewhere)
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) setAppUser(null);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, [setAppUser]);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setAppUser(null);
+  }, [setAppUser]);
+
+  return (
+    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout }}>
+      {children}
+    </AppUserContext.Provider>
+  );
+}
+
+export function useAppUser() {
+  const ctx = useContext(AppUserContext);
+  if (!ctx) throw new Error('useAppUser must be used within AppUserProvider');
+  return ctx;
+}

@@ -9,6 +9,9 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import { useAppUser } from '@/context/AppUserContext';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -65,7 +68,9 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
 
-  const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
+  const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
+  const navigate = useNavigate();
+  const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   const permissions = {
     canSeePrices: appUser?.can_view_prices ?? false,
     canSubmitOrder: appUser?.can_submit_order ?? false,
@@ -958,35 +963,14 @@ export default function ConfiguratorPage() {
   // ======== Startup pricing in calc ========
   // (handled in useConfigurator via deliveryDeliverStartup state)
 
-  // Email gate: show email lookup before configurator
+  // Not logged in → send to portal which hosts the unified login screen.
   if (!appUser) {
-    return (
-      <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
-        <header className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
-          <div className="flex space-x-1 p-1 rounded-lg bg-white shadow-md border">
-            {LANGUAGES.map(l => (
-              <button key={l.code} onClick={() => setLanguage(l.code)}
-                className={`flag-button ${state.language === l.code ? 'active' : ''}`}>
-                <span className="text-lg">{l.flag}</span>
-              </button>
-            ))}
-          </div>
-          <div className="header-title-container">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
-            <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
-          </div>
-          <div className="hidden lg:block w-[116px]" />
-        </header>
-        <LoginStep
-          language={lang}
-          onResolved={(user) => {
-            setAppUser(user);
-            setStep(1);
-          }}
-        />
-      </div>
-    );
+    if (typeof window !== 'undefined') {
+      navigate('/portal', { replace: true });
+    }
+    return null;
   }
+
 
   // Helper: conditionally hide price text
   const showPrice = (price: number) => permissions.canSeePrices ? formatMoney(price, lang) : '—';
@@ -1100,7 +1084,17 @@ export default function ConfiguratorPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
           <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
         </div>
-        <div className="hidden lg:block w-[116px]" />
+        {appUser?.role !== 'slutkunde' ? (
+          <button
+            onClick={() => navigate('/portal')}
+            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {lang === 'da' ? 'Til portal' : 'To portal'}
+          </button>
+        ) : (
+          <div className="hidden lg:block w-[116px]" />
+        )}
       </header>
 
       {/* Step Tabs */}
@@ -1722,19 +1716,16 @@ export default function ConfiguratorPage() {
                 setSavedOrderNumber(orderNumber ?? null);
                 setIsSavedCurrent(true);
               }}
-              onLogout={() => {
-                console.log('[logout] Clearing state keys: appUser, machineConfigs, individualUnitConfigs, ralCodes, accQty, date, deliveryMethod, demoMachines, reqNumbers, customer fields, savedConfigurationId, savedQuoteNumber, savedOrderNumber, salesArgsData, recommendationData');
-                import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
-                setAppUser(null);
+              onLogout={async () => {
+                console.log('[logout] Clearing state and signing out');
+                await ctxLogout().catch(() => {});
                 // Reset all configurator state to clean
                 resetState();
-                // Clear saved config references
                 setSavedConfigurationId(null);
                 setSavedQuoteNumber(null);
                 setSavedOrderNumber(null);
                 setSavedSourceQuoteNumber(null);
                 setIsSavedCurrent(false);
-                // Clear sales/recommendation data
                 setSalesArgsData(null);
                 setSelectedSalesBullets(new Set());
                 setIncludeSalesArgs(false);
@@ -1742,14 +1733,13 @@ export default function ConfiguratorPage() {
                 setIncludeRecommendation(false);
                 setSelectedRecBullets(new Set());
                 setWantRecommendation(false);
-                // Clear any localStorage/sessionStorage configurator keys
                 try {
                   const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('configurator') || k.startsWith('timan'));
-                  keysToRemove.forEach(k => { localStorage.removeItem(k); console.log('[logout] Removed localStorage key:', k); });
-                  const sessKeys = Object.keys(sessionStorage).filter(k => k.startsWith('configurator') || k.startsWith('timan'));
-                  sessKeys.forEach(k => { sessionStorage.removeItem(k); console.log('[logout] Removed sessionStorage key:', k); });
-                } catch (e) { /* ignore */ }
-                console.log('[logout] App reset to clean state');
+                  keysToRemove.forEach(k => localStorage.removeItem(k));
+                  const sessKeys = Object.keys(sessionStorage).filter(k => k.startsWith('configurator') || (k.startsWith('timan') && k !== 'timan.appUser'));
+                  sessKeys.forEach(k => sessionStorage.removeItem(k));
+                } catch { /* ignore */ }
+                navigate('/portal', { replace: true });
               }}
               onRestoreState={(restored, configId) => {
                 setState(restored);
