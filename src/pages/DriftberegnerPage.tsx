@@ -460,7 +460,7 @@ export default function DriftberegnerPage() {
                           className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none mb-1"
                         />
                         <button
-                          onClick={() => setModalMachine(m)}
+                          onClick={() => openServiceModal(m)}
                           className="text-[9px] text-[#2d5a27] font-bold hover:underline uppercase tracking-tighter"
                         >
                           {t.seeBasis}
