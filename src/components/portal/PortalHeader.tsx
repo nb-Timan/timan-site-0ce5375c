@@ -1,6 +1,7 @@
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
 import { Bell, LogOut } from 'lucide-react';
+import timanLogo from '@/assets/timan-logo.png';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
