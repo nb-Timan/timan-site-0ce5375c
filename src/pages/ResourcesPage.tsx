@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, Mail, FileText } from 'lucide-react';
+import { ArrowLeft, Calculator, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -25,9 +25,15 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Számítsa ki a TCO-t és üzemköltségeket az RC sorozat és 3330 esetében.',
   },
   driftCta: { da: 'Åbn beregner →', en: 'Open calculator →', de: 'Rechner öffnen →', it: 'Apri calcolatore →', hu: 'Kalkulátor megnyitása →' },
-  newsletters: { da: 'Nyhedsbreve', en: 'Newsletters', de: 'Newsletter', it: 'Newsletter', hu: 'Hírlevelek' },
-  forms:       { da: 'Formularer', en: 'Forms', de: 'Formulare', it: 'Moduli', hu: 'Űrlapok' },
-  comingSoon:  { da: 'Kommer snart...', en: 'Coming soon...', de: 'Demnächst...', it: 'Prossimamente...', hu: 'Hamarosan...' },
+  co2Title: { da: 'CO2 Kalkulator', en: 'CO2 Calculator', de: 'CO2-Rechner', it: 'Calcolatore CO2', hu: 'CO2 Kalkulátor' },
+  co2Desc: {
+    da: 'Sammenlign CO2-udledning og brændstofbesparelse mod konkurrenter.',
+    en: 'Compare CO2 emissions and fuel savings against competitors.',
+    de: 'Vergleichen Sie CO2-Emissionen und Kraftstoffeinsparungen mit Wettbewerbern.',
+    it: 'Confronta emissioni CO2 e risparmio carburante con i concorrenti.',
+    hu: 'Hasonlítsa össze a CO2-kibocsátást és üzemanyag-megtakarítást a versenytársakkal.',
+  },
+  co2Cta: { da: 'Åbn kalkulator →', en: 'Open calculator →', de: 'Rechner öffnen →', it: 'Apri calcolatore →', hu: 'Kalkulátor megnyitása →' },
 };
 
 export default function ResourcesPage() {
@@ -59,7 +65,6 @@ export default function ResourcesPage() {
         }}
       />
 
-      {/* Page header — bg-white, border-b, py-10 (matches mockup) */}
       <header className="bg-white border-b border-gray-200 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
@@ -74,10 +79,10 @@ export default function ResourcesPage() {
         </div>
       </header>
 
-      {/* Cards grid — 1 / 3 columns, gap-6 (matches mockup) */}
+      {/* Cards grid — 1 / 2 columns matching mockup */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Driftberegner — active */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Driftberegner card */}
           <button
             type="button"
             onClick={() => navigate('/portal/resources/driftberegner')}
@@ -91,23 +96,19 @@ export default function ResourcesPage() {
             <span className="text-[#2d5a27] font-bold text-sm uppercase">{T.driftCta[lang]}</span>
           </button>
 
-          {/* Newsletters — coming soon */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm opacity-60">
-            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 mb-6">
-              <Mail className="h-6 w-6" />
+          {/* CO2 Kalkulator card */}
+          <button
+            type="button"
+            onClick={() => navigate('/portal/resources/co2')}
+            className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
+          >
+            <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center text-white mb-6">
+              <Leaf className="h-6 w-6" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-gray-900">{T.newsletters[lang]}</h3>
-            <p className="text-gray-400 text-sm italic">{T.comingSoon[lang]}</p>
-          </div>
-
-          {/* Forms — coming soon */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm opacity-60">
-            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 mb-6">
-              <FileText className="h-6 w-6" />
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-gray-900">{T.forms[lang]}</h3>
-            <p className="text-gray-400 text-sm italic">{T.comingSoon[lang]}</p>
-          </div>
+            <h3 className="text-xl font-bold mb-2 text-gray-900">{T.co2Title[lang]}</h3>
+            <p className="text-gray-500 text-sm mb-4">{T.co2Desc[lang]}</p>
+            <span className="text-emerald-600 font-bold text-sm uppercase">{T.co2Cta[lang]}</span>
+          </button>
         </div>
       </main>
 
