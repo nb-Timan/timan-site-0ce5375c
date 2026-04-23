@@ -1084,7 +1084,17 @@ export default function ConfiguratorPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
           <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
         </div>
-        <div className="hidden lg:block w-[116px]" />
+        {appUser?.role !== 'slutkunde' ? (
+          <button
+            onClick={() => navigate('/portal')}
+            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {lang === 'da' ? 'Til portal' : 'To portal'}
+          </button>
+        ) : (
+          <div className="hidden lg:block w-[116px]" />
+        )}
       </header>
 
       {/* Step Tabs */}
