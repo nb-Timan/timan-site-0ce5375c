@@ -19,6 +19,9 @@ const T: Record<string, Record<Language, string>> = {
     it: 'Il tuo accesso centrale a configurazione, strumenti di vendita e supporto tecnico.',
     hu: 'Központi hozzáférése a konfigurációhoz, értékesítési eszközökhöz és műszaki támogatáshoz.',
   },
+  heroAlt: {
+    da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar',
+  },
 };
 
 export default function PortalPage() {
@@ -40,7 +43,7 @@ export default function PortalPage() {
       <div className="min-h-screen p-4 md:p-8 bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="max-w-md mx-auto mb-8 text-center">
           <div className="inline-flex items-center gap-2 mb-3">
-            <span className="text-2xl font-bold tracking-tight text-emerald-700">TIMAN</span>
+            <span className="bg-[#2d5a27] text-white font-bold px-3 py-1 rounded text-xl">TIMAN</span>
           </div>
           <p className="text-sm text-gray-500">{T.loginNeeded[state.language]}</p>
         </div>
@@ -75,36 +78,33 @@ export default function PortalPage() {
         }}
       />
 
-      {/* Full-bleed hero — gradient green banner like the mockup */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 text-white">
-        {/* Decorative soft glow / image treatment */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-20"
-             style={{
-               backgroundImage:
-                 'radial-gradient(circle at 85% 30%, rgba(255,255,255,0.35) 0%, transparent 45%), radial-gradient(circle at 15% 80%, rgba(255,255,255,0.18) 0%, transparent 40%)',
-             }}
-        />
-        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-            {T.heroTitle[lang]}
-          </h1>
-          <p className="mt-5 text-lg md:text-xl text-emerald-50/90 max-w-2xl font-light leading-relaxed">
-            {T.heroBody[lang]}
-          </p>
+      {/* Hero Section — exact mockup: bg-gray-900, h-64, image overlay opacity-40, gradient-to-r from-black to-transparent */}
+      <header className="relative bg-gray-900 h-64 flex items-center overflow-hidden">
+        <div className="absolute inset-0 opacity-40">
+          <div className="absolute inset-0 bg-gradient-to-r from-black to-transparent z-10"></div>
+          <img
+            src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=2070"
+            alt={T.heroAlt[lang]}
+            className="w-full h-full object-cover"
+          />
         </div>
-      </section>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 md:px-10 py-10 md:py-12">
-        {/* 4-card grid */}
-        <section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {visibleModules.map(m => (
-              <ModuleCard key={m.id} module={m} language={lang} />
-            ))}
-          </div>
-        </section>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{T.heroTitle[lang]}</h1>
+          <p className="text-gray-300 text-lg max-w-2xl">{T.heroBody[lang]}</p>
+        </div>
+      </header>
 
-        {/* Latest from Timan */}
+      {/* Dashboard Main */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
+        {/* Grid of categories — 1 / 2 / 4 columns, gap-8 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {visibleModules.map(m => (
+            <ModuleCard key={m.id} module={m} language={lang} />
+          ))}
+        </div>
+
+        {/* Seneste fra Timan */}
         <LatestFromTiman language={lang} />
       </main>
 

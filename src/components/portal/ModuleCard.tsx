@@ -4,13 +4,14 @@ import { PortalModule } from '@/lib/portalModules';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
 
-const ACCENT_CLASSES: Record<PortalModule['accent'], { iconBg: string; iconColor: string; cta: string; hoverRing: string }> = {
-  primary: { iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700', cta: 'text-emerald-700 group-hover:text-emerald-800', hoverRing: 'hover:border-emerald-200' },
-  amber:   { iconBg: 'bg-amber-100',   iconColor: 'text-amber-700',   cta: 'text-amber-700 group-hover:text-amber-800',   hoverRing: 'hover:border-amber-200' },
-  rose:    { iconBg: 'bg-rose-100',    iconColor: 'text-rose-700',    cta: 'text-rose-700 group-hover:text-rose-800',     hoverRing: 'hover:border-rose-200' },
-  sky:     { iconBg: 'bg-sky-100',     iconColor: 'text-sky-700',     cta: 'text-sky-700 group-hover:text-sky-800',       hoverRing: 'hover:border-sky-200' },
-  violet:  { iconBg: 'bg-violet-100',  iconColor: 'text-violet-700',  cta: 'text-violet-700 group-hover:text-violet-800', hoverRing: 'hover:border-violet-200' },
-  slate:   { iconBg: 'bg-slate-100',   iconColor: 'text-slate-700',   cta: 'text-slate-700 group-hover:text-slate-900',   hoverRing: 'hover:border-slate-300' },
+// Map abstract accent tokens to the exact mockup color classes.
+const ACCENT: Record<PortalModule['accent'], { iconBg: string; iconBgHover: string; iconColor: string; ctaColor: string }> = {
+  primary: { iconBg: 'bg-green-50',  iconBgHover: 'group-hover:bg-green-100',  iconColor: 'text-[#2d5a27]',   ctaColor: 'text-[#2d5a27]' },
+  violet:  { iconBg: 'bg-blue-50',   iconBgHover: 'group-hover:bg-blue-100',   iconColor: 'text-blue-600',    ctaColor: 'text-blue-600' },
+  sky:     { iconBg: 'bg-orange-50', iconBgHover: 'group-hover:bg-orange-100', iconColor: 'text-orange-600',  ctaColor: 'text-orange-600' },
+  slate:   { iconBg: 'bg-purple-50', iconBgHover: 'group-hover:bg-purple-100', iconColor: 'text-purple-600',  ctaColor: 'text-purple-600' },
+  amber:   { iconBg: 'bg-amber-50',  iconBgHover: 'group-hover:bg-amber-100',  iconColor: 'text-amber-600',   ctaColor: 'text-amber-600' },
+  rose:    { iconBg: 'bg-rose-50',   iconBgHover: 'group-hover:bg-rose-100',   iconColor: 'text-rose-600',    ctaColor: 'text-rose-600' },
 };
 
 const SOON: Record<Language, string> = {
@@ -25,7 +26,7 @@ interface Props {
 
 export default function ModuleCard({ module, language, badge }: Props) {
   const navigate = useNavigate();
-  const styles = ACCENT_CLASSES[module.accent];
+  const styles = ACCENT[module.accent];
   const Icon = module.icon;
   const disabled = !module.enabled;
 
@@ -42,7 +43,7 @@ export default function ModuleCard({ module, language, badge }: Props) {
   const badgeClass =
     badgeTone === 'danger' ? 'bg-rose-100 text-rose-700' :
     badgeTone === 'warning' ? 'bg-amber-100 text-amber-700' :
-    'bg-emerald-100 text-emerald-700';
+    'bg-green-100 text-[#2d5a27]';
 
   return (
     <button
@@ -50,28 +51,29 @@ export default function ModuleCard({ module, language, badge }: Props) {
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'group relative text-left w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition flex flex-col min-h-[280px]',
-        'hover:shadow-md hover:-translate-y-0.5',
-        styles.hoverRing,
+        'bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col cursor-pointer group text-left w-full transition-all duration-300',
+        'hover:-translate-y-1.5 hover:shadow-md',
         disabled && 'opacity-70 cursor-not-allowed hover:translate-y-0 hover:shadow-sm',
       )}
     >
-      {/* Icon tile — large square */}
-      <div className={cn('w-16 h-16 rounded-2xl flex items-center justify-center', styles.iconBg)}>
-        <Icon className={cn('w-8 h-8', styles.iconColor)} />
+      {/* Icon tile — 14x14 (56px) rounded-xl */}
+      <div className={cn('w-14 h-14 rounded-xl flex items-center justify-center mb-6 transition-colors', styles.iconBg, styles.iconBgHover)}>
+        <Icon className={cn('h-8 w-8', styles.iconColor)} strokeWidth={2} />
       </div>
 
-      {/* Title + description */}
-      <h3 className="mt-6 text-xl font-bold text-gray-900">
+      {/* Title */}
+      <h3 className="text-xl font-bold text-gray-900 mb-3">
         {module.title[language] || module.title.en}
       </h3>
-      <p className="mt-3 text-sm text-gray-500 leading-relaxed flex-1">
+
+      {/* Description */}
+      <p className="text-gray-600 text-sm mb-6 flex-grow">
         {module.description[language] || module.description.en}
       </p>
 
       {/* Badges */}
       {(disabled || badge) && (
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2">
           {disabled && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
               {SOON[language] || SOON.en}
@@ -86,9 +88,9 @@ export default function ModuleCard({ module, language, badge }: Props) {
       )}
 
       {/* CTA */}
-      <div className={cn('mt-6 inline-flex items-center gap-1.5 text-sm font-semibold transition', styles.cta)}>
+      <div className={cn('flex items-center font-semibold text-sm', styles.ctaColor)}>
         {module.cta[language] || module.cta.en}
-        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight className="h-4 w-4 ml-2" />
       </div>
     </button>
   );
