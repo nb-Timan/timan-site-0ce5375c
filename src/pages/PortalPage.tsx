@@ -1,40 +1,31 @@
-import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
-import MetricStrip from '@/components/portal/MetricStrip';
 import ModuleCard from '@/components/portal/ModuleCard';
-import {
-  PORTAL_MODULES,
-  isModuleVisible,
-  loadDashboardMetrics,
-  EMPTY_METRICS,
-  DashboardMetrics,
-} from '@/lib/portalModules';
+import LatestFromTiman from '@/components/portal/LatestFromTiman';
+import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
-  yourTools:   { da: 'Dine værktøjer', en: 'Your tools', de: 'Ihre Tools', it: 'I tuoi strumenti', hu: 'Az eszközei' },
-  overview:    { da: 'Overblik', en: 'Overview', de: 'Übersicht', it: 'Panoramica', hu: 'Áttekintés' },
-  loginNeeded: { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
+  yourTools:    { da: 'Dine værktøjer', en: 'Your tools', de: 'Ihre Tools', it: 'I tuoi strumenti', hu: 'Az eszközei' },
+  loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
+  heroEyebrow:  { da: 'Forhandlerportal', en: 'Dealer portal', de: 'Händlerportal', it: 'Portale rivenditori', hu: 'Kereskedői portál' },
+  heroTitle:    { da: 'Velkommen til Timan', en: 'Welcome to Timan', de: 'Willkommen bei Timan', it: 'Benvenuto in Timan', hu: 'Üdvözöljük a Timannál' },
+  heroBody: {
+    da: 'Byg konfigurationer, find ressourcer og hold dig opdateret med det seneste fra Timan.',
+    en: 'Build configurations, find resources and stay up to date with the latest from Timan.',
+    de: 'Erstellen Sie Konfigurationen, finden Sie Ressourcen und bleiben Sie auf dem Laufenden.',
+    it: 'Crea configurazioni, trova risorse e resta aggiornato con le ultime novità di Timan.',
+    hu: 'Készítsen konfigurációkat, találjon forrásokat és maradjon naprakész a Timan híreivel.',
+  },
 };
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { state, setLanguage } = useConfigurator();
   const navigate = useNavigate();
-  const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
-
-  useEffect(() => {
-    if (!appUser) return;
-    let cancelled = false;
-    loadDashboardMetrics(appUser).then(m => {
-      if (!cancelled) setMetrics(m);
-    });
-    return () => { cancelled = true; };
-  }, [appUser]);
 
   if (loading) {
     return (
@@ -72,12 +63,13 @@ export default function PortalPage() {
   }
 
   const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
+  const lang = state.language;
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
         user={appUser}
-        language={state.language}
+        language={lang}
         onLanguageChange={setLanguage}
         onLogout={async () => {
           await logout();
@@ -85,24 +77,43 @@ export default function PortalPage() {
         }}
       />
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 space-y-8">
-        <section>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            {T.overview[state.language]}
-          </h2>
-          <MetricStrip metrics={metrics} language={state.language} />
+      <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 space-y-10">
+        {/* Hero / welcome banner */}
+        <section className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 text-white shadow-sm">
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, transparent 40%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.2) 0, transparent 35%)',
+            }}
+          />
+          <div className="relative px-6 md:px-10 py-10 md:py-14 max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-[11px] font-semibold uppercase tracking-wider">
+              {T.heroEyebrow[lang]}
+            </div>
+            <h1 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">
+              {T.heroTitle[lang]}{appUser.company_name ? `, ${appUser.company_name}` : ''}
+            </h1>
+            <p className="mt-3 text-sm md:text-base text-emerald-50/90 max-w-xl">
+              {T.heroBody[lang]}
+            </p>
+          </div>
         </section>
 
+        {/* 4-card grid */}
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            {T.yourTools[state.language]}
+            {T.yourTools[lang]}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {visibleModules.map(m => (
-              <ModuleCard key={m.id} module={m} language={state.language} />
+              <ModuleCard key={m.id} module={m} language={lang} />
             ))}
           </div>
         </section>
+
+        {/* Latest from Timan */}
+        <LatestFromTiman language={lang} />
       </main>
     </div>
   );
