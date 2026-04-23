@@ -102,24 +102,65 @@ const locales: Record<LangKey, Locale> = {
   },
 };
 
-type ServicePart = { id: string; name: string; price: number; count: number };
-const servicePartsData: Record<MachineKey, Record<number, ServicePart[]>> = {
+type MachineKey = 'rc751' | 'rc1000' | 'timan3330';
+
+type ServicePartRow = { id: string; name: string; price: number; count: number; sum: number };
+type ServiceStep = { rows: ServicePartRow[]; stepTotal: number };
+type MachineService = {
+  intervals: number[];
+  accumulatedTotals: Record<number, number>;
+  steps: Record<number, ServiceStep>;
+};
+
+const servicePartsData: Record<MachineKey, MachineService> = {
   rc751: {
-    5: [{ id: '22101006', name: 'Returfilter', price: 135.30, count: 1 }],
-    100: [{ id: '22601016', name: 'Luftfilter', price: 456.00, count: 1 }],
-    300: [{ id: '52101006', name: 'Rem for klipper', price: 519.80, count: 1 }],
+    intervals: [5, 100, 200, 300, 400, 500],
+    accumulatedTotals: { 500: 4486.70 },
+    steps: {
+      500: {
+        rows: [
+          { id: '22601016', name: 'Luftfilter', price: 453.60, count: 1, sum: 453.60 },
+          { id: '13101012', name: 'Motorolie 10W30', price: 75.10, count: 1, sum: 75.10 },
+        ],
+        stepTotal: 528.70,
+      },
+    },
   },
   rc1000: {
-    10: [{ id: '15901064', name: 'Oliefilter', price: 206.00, count: 1 }],
-    500: [{ id: 'VHY-00114', name: 'Hydraulikfilter', price: 1202.00, count: 1 }],
+    intervals: [10, 100, 200, 300, 400, 500],
+    accumulatedTotals: { 500: 7616.28 },
+    steps: {
+      500: {
+        rows: [
+          { id: '15901064', name: 'Oliefilter Vanguard', price: 206.00, count: 1, sum: 206.00 },
+          { id: '13101012', name: 'Motorolie Texaco Delo', price: 97.63, count: 1, sum: 97.63 },
+          { id: '22601012', name: 'Luftfilter Vanguard', price: 385.30, count: 1, sum: 385.30 },
+          { id: '22601013', name: 'Forfilter Vanguard', price: 137.40, count: 1, sum: 137.40 },
+          { id: '15901063', name: 'Tændrør (2 stk)', price: 155.40, count: 1, sum: 155.40 },
+          { id: 'VHY-00114', name: 'Hydraulikolie returfilter', price: 1202.00, count: 1, sum: 1202.00 },
+        ],
+        stepTotal: 2183.73,
+      },
+    },
   },
   timan3330: {
-    50: [{ id: '15901121', name: 'Motoroliefilter', price: 230.00, count: 1 }],
-    250: [{ id: 'VMO-00054', name: 'Kabinefilter', price: 210.00, count: 1 }],
+    intervals: [50, 250, 450, 650, 850, 1050, 1250],
+    accumulatedTotals: { 50: 1455.00 },
+    steps: {
+      50: {
+        rows: [
+          { id: '15901121', name: 'Motoroliefilter', price: 230.00, count: 1, sum: 230.00 },
+          { id: 'VHY-00114', name: 'Hydraulikolie returfilter', price: 1200.00, count: 1, sum: 1200.00 },
+          { id: '13101001', name: 'Motorolie Texaco Havoline Extra 10W-', price: 25.00, count: 1, sum: 25.00 },
+        ],
+        stepTotal: 1455.00,
+      },
+    },
   },
 };
 
-type MachineKey = 'rc751' | 'rc1000' | 'timan3330';
+const formatPriceDK = (amount: number) =>
+  new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' kr.';
 type Common = {
   fuelPrice: number; daysPerYear: number; hoursPerDay: number;
   depreciationYears: number; interestRate: number;
