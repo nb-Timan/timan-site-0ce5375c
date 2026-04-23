@@ -112,32 +112,37 @@ export default function LatestFromTiman({ language }: Props) {
   return (
     <div className="mt-16 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.heading[language]}</h2>
-      <div className="space-y-6">
-        {data.map((item, idx) => {
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {data.map((item) => {
           const styles = categoryStyle(item.category);
-          const isLast = idx === data.length - 1;
           const clickable = !!item.link_url;
 
           const inner = (
-            <div className={`flex items-start pb-6 ${isLast ? 'border-0' : 'border-b border-gray-50'}`}>
-              <div className={`${styles.bg} ${styles.text} text-xs font-bold px-2 py-1 rounded mr-4 mt-1 shrink-0`}>
-                {categoryLabel(item.category, language)}
-              </div>
-
+            <div className="flex flex-col h-full">
               <img
                 src={item.image_url || FALLBACK_IMAGE}
                 alt=""
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
                 }}
-                className="hidden sm:block w-24 h-16 object-cover rounded mr-4 shrink-0 bg-gray-100"
+                className="w-full h-40 object-cover rounded-lg mb-4 bg-gray-100"
               />
 
-              <div className="min-w-0">
-                <h4 className="font-semibold text-gray-900">{item.title}</h4>
-                {item.excerpt && (
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.excerpt}</p>
-                )}
+              <div className={`${styles.bg} ${styles.text} text-xs font-bold px-2 py-1 rounded self-start mb-3`}>
+                {categoryLabel(item.category, language)}
+              </div>
+
+              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{item.title}</h4>
+              {item.excerpt && (
+                <p className="text-sm text-gray-500 line-clamp-3 mb-3">{item.excerpt}</p>
+              )}
+
+              <div className="mt-auto pt-3 text-xs text-gray-400">
+                {new Date(item.published_at).toLocaleDateString(language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : language === 'it' ? 'it-IT' : language === 'hu' ? 'hu-HU' : 'en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </div>
             </div>
           );
@@ -148,12 +153,14 @@ export default function LatestFromTiman({ language }: Props) {
               href={item.link_url!}
               target="_blank"
               rel="noopener noreferrer"
-              className="block hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+              className="block bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md hover:border-gray-200 transition-all"
             >
               {inner}
             </a>
           ) : (
-            <div key={item.id}>{inner}</div>
+            <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4">
+              {inner}
+            </div>
           );
         })}
       </div>
