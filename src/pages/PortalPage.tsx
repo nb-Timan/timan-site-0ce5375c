@@ -62,7 +62,6 @@ export default function PortalPage() {
 
   const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
   const lang = state.language;
-  const greetingName = appUser.display_name ? `, ${appUser.display_name}` : '';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -76,27 +75,22 @@ export default function PortalPage() {
         }}
       />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 md:px-8 py-8 space-y-10">
-        {/* Hero / welcome banner — light card */}
-        <section className="rounded-3xl border border-gray-200 bg-white shadow-sm p-6 md:p-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 md:gap-7">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-4xl md:text-5xl font-bold shadow-sm flex-shrink-0">
-              T
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
-                {T.heroTitle[lang]}{greetingName}
-              </h1>
-              <p className="mt-2 text-sm md:text-base text-gray-500 max-w-2xl">
-                {T.heroBody[lang]}
-              </p>
-            </div>
-          </div>
-        </section>
+      {/* Full-bleed hero — gradient green banner like the mockup */}
+      <section className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-20">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            {T.heroTitle[lang]}
+          </h1>
+          <p className="mt-4 text-base md:text-lg text-emerald-50/90 max-w-2xl">
+            {T.heroBody[lang]}
+          </p>
+        </div>
+      </section>
 
+      <main className="flex-1 max-w-7xl w-full mx-auto px-6 md:px-10 py-10 md:py-12">
         {/* 4-card grid */}
         <section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {visibleModules.map(m => (
               <ModuleCard key={m.id} module={m} language={lang} />
             ))}
