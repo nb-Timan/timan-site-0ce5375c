@@ -102,24 +102,65 @@ const locales: Record<LangKey, Locale> = {
   },
 };
 
-type ServicePart = { id: string; name: string; price: number; count: number };
-const servicePartsData: Record<MachineKey, Record<number, ServicePart[]>> = {
+type MachineKey = 'rc751' | 'rc1000' | 'timan3330';
+
+type ServicePartRow = { id: string; name: string; price: number; count: number; sum: number };
+type ServiceStep = { rows: ServicePartRow[]; stepTotal: number };
+type MachineService = {
+  intervals: number[];
+  accumulatedTotals: Record<number, number>;
+  steps: Record<number, ServiceStep>;
+};
+
+const servicePartsData: Record<MachineKey, MachineService> = {
   rc751: {
-    5: [{ id: '22101006', name: 'Returfilter', price: 135.30, count: 1 }],
-    100: [{ id: '22601016', name: 'Luftfilter', price: 456.00, count: 1 }],
-    300: [{ id: '52101006', name: 'Rem for klipper', price: 519.80, count: 1 }],
+    intervals: [5, 100, 200, 300, 400, 500],
+    accumulatedTotals: { 500: 4486.70 },
+    steps: {
+      500: {
+        rows: [
+          { id: '22601016', name: 'Luftfilter', price: 453.60, count: 1, sum: 453.60 },
+          { id: '13101012', name: 'Motorolie 10W30', price: 75.10, count: 1, sum: 75.10 },
+        ],
+        stepTotal: 528.70,
+      },
+    },
   },
   rc1000: {
-    10: [{ id: '15901064', name: 'Oliefilter', price: 206.00, count: 1 }],
-    500: [{ id: 'VHY-00114', name: 'Hydraulikfilter', price: 1202.00, count: 1 }],
+    intervals: [10, 100, 200, 300, 400, 500],
+    accumulatedTotals: { 500: 7616.28 },
+    steps: {
+      500: {
+        rows: [
+          { id: '15901064', name: 'Oliefilter Vanguard', price: 206.00, count: 1, sum: 206.00 },
+          { id: '13101012', name: 'Motorolie Texaco Delo', price: 97.63, count: 1, sum: 97.63 },
+          { id: '22601012', name: 'Luftfilter Vanguard', price: 385.30, count: 1, sum: 385.30 },
+          { id: '22601013', name: 'Forfilter Vanguard', price: 137.40, count: 1, sum: 137.40 },
+          { id: '15901063', name: 'Tændrør (2 stk)', price: 155.40, count: 1, sum: 155.40 },
+          { id: 'VHY-00114', name: 'Hydraulikolie returfilter', price: 1202.00, count: 1, sum: 1202.00 },
+        ],
+        stepTotal: 2183.73,
+      },
+    },
   },
   timan3330: {
-    50: [{ id: '15901121', name: 'Motoroliefilter', price: 230.00, count: 1 }],
-    250: [{ id: 'VMO-00054', name: 'Kabinefilter', price: 210.00, count: 1 }],
+    intervals: [50, 250, 450, 650, 850, 1050, 1250],
+    accumulatedTotals: { 50: 1455.00 },
+    steps: {
+      50: {
+        rows: [
+          { id: '15901121', name: 'Motoroliefilter', price: 230.00, count: 1, sum: 230.00 },
+          { id: 'VHY-00114', name: 'Hydraulikolie returfilter', price: 1200.00, count: 1, sum: 1200.00 },
+          { id: '13101001', name: 'Motorolie Texaco Havoline Extra 10W-', price: 25.00, count: 1, sum: 25.00 },
+        ],
+        stepTotal: 1455.00,
+      },
+    },
   },
 };
 
-type MachineKey = 'rc751' | 'rc1000' | 'timan3330';
+const formatPriceDK = (amount: number) =>
+  new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' kr.';
 type Common = {
   fuelPrice: number; daysPerYear: number; hoursPerDay: number;
   depreciationYears: number; interestRate: number;
@@ -179,6 +220,20 @@ export default function DriftberegnerPage() {
   const [rc1000, setRc1000] = useState<Machine>({ ...baseMachines.rc1000, isServiceManual: false });
   const [timan3330, setTiman3330] = useState<Machine>({ ...baseMachines.timan3330, isServiceManual: false });
   const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<number | null>(null);
+
+  const openServiceModal = (m: MachineKey) => {
+    const svc = servicePartsData[m];
+    // Default to interval that has data, otherwise last interval
+    const withData = svc.intervals.find(i => svc.steps[i]);
+    setSelectedInterval(withData ?? svc.intervals[svc.intervals.length - 1]);
+    setModalMachine(m);
+  };
+
+  const closeServiceModal = () => {
+    setModalMachine(null);
+    setSelectedInterval(null);
+  };
 
   // All hooks must be called before any early returns
   const results = useMemo(() => ({
@@ -405,7 +460,7 @@ export default function DriftberegnerPage() {
                           className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none mb-1"
                         />
                         <button
-                          onClick={() => setModalMachine(m)}
+                          onClick={() => openServiceModal(m)}
                           className="text-[9px] text-[#2d5a27] font-bold hover:underline uppercase tracking-tighter"
                         >
                           {t.seeBasis}
@@ -479,60 +534,129 @@ export default function DriftberegnerPage() {
       </div>
 
       {/* Service basis modal */}
-      {modalMachine && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4 no-print"
-          onClick={() => setModalMachine(null)}
-        >
+      {modalMachine && selectedInterval !== null && (() => {
+        const svc = servicePartsData[modalMachine];
+        const step = svc.steps[selectedInterval];
+        const stepRows = step?.rows ?? [];
+        const stepTotal = step?.stepTotal ?? 0;
+        const accumulated = svc.accumulatedTotals[selectedInterval] ?? stepTotal;
+        return (
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4 no-print"
+            onClick={closeServiceModal}
           >
-            <div className="bg-[#2d5a27] p-6 text-white flex justify-between items-center">
-              <h3 className="text-xl font-bold">Servicegrundlag: {machinesState[modalMachine].name}</h3>
-              <button
-                onClick={() => setModalMachine(null)}
-                className="text-white/60 hover:text-white text-2xl leading-none"
-                aria-label={t.modalClose}
-              >
-                ×
-              </button>
-            </div>
-            <div className="p-8 max-h-[70vh] overflow-y-auto">
-              {Object.keys(servicePartsData[modalMachine]).length === 0 ? (
-                <p className="text-sm text-gray-500">{t.modalNoData}</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {Object.keys(servicePartsData[modalMachine]).map(h => (
-                    <div key={h} className="p-4 border border-gray-100 rounded-xl bg-gray-50">
-                      <div className="text-[10px] font-black text-gray-400 uppercase mb-2">{h} Timer</div>
-                      <ul className="text-xs space-y-1">
-                        {servicePartsData[modalMachine][Number(h)].map((p, i) => (
-                          <li key={i} className="flex justify-between">
-                            <span>{p.name}</span>
-                            <span className="font-bold">{p.price.toFixed(2)} kr.</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Red header bar */}
+              <div className="bg-red-600 px-6 py-5 text-white flex justify-between items-center">
+                <h3 className="text-2xl font-bold">
+                  Servicegrundlag – {machinesState[modalMachine].name}
+                </h3>
+                <button
+                  onClick={closeServiceModal}
+                  className="text-white/90 hover:text-white text-4xl leading-none"
+                  aria-label={t.modalClose}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-5 bg-gray-50 max-h-[75vh] overflow-y-auto">
+                {/* Interval selector */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="text-xl font-semibold text-gray-700 mr-2">Vælg interval:</div>
+                    {svc.intervals.map(h => {
+                      const active = selectedInterval === h;
+                      return (
+                        <button
+                          key={h}
+                          onClick={() => setSelectedInterval(h)}
+                          className={`px-5 py-2 rounded-md border text-base font-semibold transition ${
+                            active
+                              ? 'bg-slate-800 text-white border-slate-800'
+                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'
+                          }`}
+                        >
+                          {h} Timer
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-              <p className="text-[10px] text-gray-400 italic">
-                Dette er et estimat baseret på standard reservedelsintervaller.
-              </p>
-            </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={() => setModalMachine(null)}
-                className="bg-gray-100 px-6 py-2 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-colors uppercase text-xs"
-              >
-                {t.modalClose}
-              </button>
+
+                {/* Parts table */}
+                <div className="mt-5 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-100 text-gray-700">
+                      <tr>
+                        <th className="px-4 py-3 font-bold">Varenr</th>
+                        <th className="px-4 py-3 font-bold">Beskrivelse</th>
+                        <th className="px-4 py-3 font-bold text-right">Stk pris</th>
+                        <th className="px-4 py-3 font-bold text-center">Antal</th>
+                        <th className="px-4 py-3 font-bold text-right">Sum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stepRows.length > 0 ? (
+                        stepRows.map((row, i) => (
+                          <tr key={i} className="border-t border-gray-200 text-gray-700">
+                            <td className="px-4 py-3">{row.id}</td>
+                            <td className="px-4 py-3">{row.name}</td>
+                            <td className="px-4 py-3 text-right">{formatPriceDK(row.price)}</td>
+                            <td className="px-4 py-3 text-center">{row.count}</td>
+                            <td className="px-4 py-3 text-right font-semibold">{formatPriceDK(row.sum)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-gray-400 italic">
+                            Intervaldata mangler endnu for {selectedInterval} timer.
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr className="border-t border-gray-200 bg-gray-50">
+                        <td colSpan={4} className="px-4 py-2 text-right text-gray-500">
+                          Service ved {selectedInterval} timer (kun dette trin):
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-500">
+                          {formatPriceDK(stepTotal)}
+                        </td>
+                      </tr>
+
+                      <tr className="border-t border-gray-200">
+                        <td colSpan={4} className="px-4 py-3 text-right text-lg font-bold text-gray-700">
+                          Total samlet (akkumuleret):
+                        </td>
+                        <td className="px-4 py-3 text-right text-lg font-bold text-red-600">
+                          {formatPriceDK(accumulated)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="mt-4 text-sm italic text-gray-500">
+                  * Priser er vejledende listepriser ekskl. moms. Arbejdsløn er ikke inkluderet i reservedelsprisen.
+                </p>
+              </div>
+
+              {/* Dark close button footer */}
+              <div className="px-5 py-4 bg-gray-100 flex justify-end">
+                <button
+                  onClick={closeServiceModal}
+                  className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-lg"
+                >
+                  {t.modalClose}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
