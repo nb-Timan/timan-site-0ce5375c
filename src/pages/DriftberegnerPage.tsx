@@ -220,6 +220,20 @@ export default function DriftberegnerPage() {
   const [rc1000, setRc1000] = useState<Machine>({ ...baseMachines.rc1000, isServiceManual: false });
   const [timan3330, setTiman3330] = useState<Machine>({ ...baseMachines.timan3330, isServiceManual: false });
   const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<number | null>(null);
+
+  const openServiceModal = (m: MachineKey) => {
+    const svc = servicePartsData[m];
+    // Default to interval that has data, otherwise last interval
+    const withData = svc.intervals.find(i => svc.steps[i]);
+    setSelectedInterval(withData ?? svc.intervals[svc.intervals.length - 1]);
+    setModalMachine(m);
+  };
+
+  const closeServiceModal = () => {
+    setModalMachine(null);
+    setSelectedInterval(null);
+  };
 
   // All hooks must be called before any early returns
   const results = useMemo(() => ({
