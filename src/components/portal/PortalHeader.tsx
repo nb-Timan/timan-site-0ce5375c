@@ -1,6 +1,7 @@
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
 import { Bell, LogOut } from 'lucide-react';
+import timanLogo from '@/assets/timan-logo.png';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -37,9 +38,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          {/* Left: TIMAN block + subtitle */}
+          {/* Left: TIMAN logo + subtitle */}
           <div className="flex items-center">
-            <div className="bg-[#2d5a27] text-white font-bold px-3 py-1 rounded text-xl">TIMAN</div>
+            <img
+              src={timanLogo}
+              alt="Timan"
+              className="h-8 sm:h-10 w-auto object-contain"
+            />
             <span className="ml-3 text-gray-500 font-medium hidden sm:block">| {T.portal[language]}</span>
           </div>
 
