@@ -180,6 +180,13 @@ export default function DriftberegnerPage() {
   const [timan3330, setTiman3330] = useState<Machine>({ ...baseMachines.timan3330, isServiceManual: false });
   const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
 
+  // All hooks must be called before any early returns
+  const results = useMemo(() => ({
+    rc751: calculateCosts(common, rc751),
+    rc1000: calculateCosts(common, rc1000),
+    timan3330: calculateCosts(common, timan3330),
+  }), [common, rc751, rc1000, timan3330]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -205,12 +212,6 @@ export default function DriftberegnerPage() {
 
   const formatThousands = (val: number | string) =>
     new Intl.NumberFormat('da-DK').format(num(val));
-
-  const results = useMemo(() => ({
-    rc751: calculateCosts(common, rc751),
-    rc1000: calculateCosts(common, rc1000),
-    timan3330: calculateCosts(common, timan3330),
-  }), [common, rc751, rc1000, timan3330]);
 
   const updateCommon = (f: keyof Common, v: string) =>
     setCommon(s => ({ ...s, [f]: num(v) }));
