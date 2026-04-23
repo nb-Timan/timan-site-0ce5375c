@@ -19,13 +19,15 @@ interface Props {
 
 export default function PortalFooter({ language }: Props) {
   return (
-    <footer className="bg-white border-t border-gray-200 mt-16">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
-        <div>{T.copyright[language]}</div>
-        <div className="flex items-center gap-6">
-          <a href="#" className="hover:text-gray-900 transition">{T.privacy[language]}</a>
-          <a href="#" className="hover:text-gray-900 transition">{T.terms[language]}</a>
-          <a href="#" className="hover:text-gray-900 transition">{T.support[language]}</a>
+    <footer className="bg-white border-t border-gray-200 py-8 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-gray-400 text-sm">
+        <div className="mb-4 md:mb-0">
+          {T.copyright[language]}
+        </div>
+        <div className="flex space-x-6">
+          <a href="#" className="hover:text-[#2d5a27]">{T.privacy[language]}</a>
+          <a href="#" className="hover:text-[#2d5a27]">{T.terms[language]}</a>
+          <a href="#" className="hover:text-[#2d5a27]">{T.support[language]}</a>
         </div>
       </div>
     </footer>

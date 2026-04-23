@@ -1,6 +1,6 @@
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
-import { LogOut } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -34,54 +34,54 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const initials = getInitials(displayName);
 
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 h-[72px] flex items-center justify-between gap-4">
-        {/* Left: bold green TIMAN + thin gray pipe + subtitle */}
-        <div className="flex items-center gap-4 min-w-0">
-          <span className="text-[26px] leading-none font-bold tracking-tight text-emerald-700">
-            TIMAN
-          </span>
-          <span className="text-gray-300 text-xl leading-none font-light" aria-hidden="true">|</span>
-          <span className="hidden sm:inline text-[15px] text-gray-500 font-normal">
-            {T.portal[language]}
-          </span>
-        </div>
-
-        {/* Right: language flags, user chip (avatar + company name), logout */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
-            {LANGS.map(l => (
-              <button
-                key={l.code}
-                onClick={() => onLanguageChange(l.code)}
-                className={`px-1.5 py-0.5 rounded transition ${language === l.code ? 'bg-white shadow-sm border border-emerald-300' : 'hover:bg-white'}`}
-                aria-label={l.code}
-              >
-                <span className="text-base leading-none">{l.flag}</span>
-              </button>
-            ))}
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16 items-center">
+          {/* Left: TIMAN block + subtitle */}
+          <div className="flex items-center">
+            <div className="bg-[#2d5a27] text-white font-bold px-3 py-1 rounded text-xl">TIMAN</div>
+            <span className="ml-3 text-gray-500 font-medium hidden sm:block">| {T.portal[language]}</span>
           </div>
 
-          {/* User chip — round green badge with initials, then company/display name to the right */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold shadow-sm">
-              {initials}
+          {/* Right: language flags + bell + user chip + logout */}
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
+              {LANGS.map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => onLanguageChange(l.code)}
+                  className={`px-1.5 py-0.5 rounded transition ${language === l.code ? 'bg-white shadow-sm border border-[#2d5a27]/30' : 'hover:bg-white'}`}
+                  aria-label={l.code}
+                >
+                  <span className="text-base leading-none">{l.flag}</span>
+                </button>
+              ))}
             </div>
-            <span className="hidden md:inline text-[15px] font-semibold text-gray-800 truncate max-w-[200px]">
-              {displayName}
-            </span>
-          </div>
 
-          <button
-            onClick={onLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition"
-            aria-label={T.logout[language]}
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden lg:inline">{T.logout[language]}</span>
-          </button>
+            <button className="p-2 text-gray-400 hover:text-[#2d5a27]" aria-label="Notifications">
+              <Bell className="h-6 w-6" />
+            </button>
+
+            <div className="ml-4 flex items-center">
+              <div className="h-8 w-8 rounded-full bg-[#2d5a27] flex items-center justify-center text-white text-xs font-bold">
+                {initials}
+              </div>
+              <span className="ml-2 text-sm font-medium text-gray-700 hidden md:inline truncate max-w-[200px]">
+                {displayName}
+              </span>
+            </div>
+
+            <button
+              onClick={onLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition"
+              aria-label={T.logout[language]}
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden lg:inline">{T.logout[language]}</span>
+            </button>
+          </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }

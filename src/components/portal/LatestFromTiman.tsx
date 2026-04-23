@@ -48,8 +48,8 @@ interface Props {
 }
 
 const CATEGORY_STYLES: Record<Category, { bg: string; text: string }> = {
-  news:    { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  service: { bg: 'bg-sky-100',     text: 'text-sky-700' },
+  news:    { bg: 'bg-green-100', text: 'text-[#2d5a27]' },
+  service: { bg: 'bg-blue-100',  text: 'text-blue-600' },
 };
 
 export default function LatestFromTiman({ language, items }: Props) {
@@ -57,43 +57,36 @@ export default function LatestFromTiman({ language, items }: Props) {
     items && items.length > 0
       ? items
       : [
-          {
-            category: 'news',
-            title: T.placeholder1Title[language],
-            body: T.placeholder1Body[language],
-          },
-          {
-            category: 'service',
-            title: T.placeholder2Title[language],
-            body: T.placeholder2Body[language],
-          },
+          { category: 'news',    title: T.placeholder1Title[language], body: T.placeholder1Body[language] },
+          { category: 'service', title: T.placeholder2Title[language], body: T.placeholder2Body[language] },
         ];
 
   const tagLabel = (cat: Category) => (cat === 'service' ? T.serviceTag[language] : T.newsTag[language]);
 
+  // Mockup structure: outer card with vertical stack, each row = colored tag pill on the left, title + body to the right.
   return (
-    <section className="mt-12">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        {T.heading[language]}
-      </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="mt-16 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.heading[language]}</h2>
+      <div className="space-y-6">
         {data.map((item, idx) => {
           const styles = CATEGORY_STYLES[item.category];
+          const isLast = idx === data.length - 1;
           return (
-            <article
+            <div
               key={idx}
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition"
+              className={`flex items-start pb-6 ${isLast ? 'border-0' : 'border-b border-gray-50'}`}
             >
-              <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider ${styles.bg} ${styles.text}`}>
+              <div className={`${styles.bg} ${styles.text} text-xs font-bold px-2 py-1 rounded mr-4 mt-1 shrink-0`}>
                 {tagLabel(item.category)}
-              </span>
-              <h3 className="mt-4 text-lg font-bold text-gray-900 leading-snug">{item.title}</h3>
-              <p className="mt-2 text-sm text-gray-500 leading-relaxed">{item.body}</p>
-            </article>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-500 mt-1">{item.body}</p>
+              </div>
+            </div>
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
