@@ -68,7 +68,7 @@ export const PORTAL_MODULES: PortalModule[] = [
     cta: { da: 'Se videoer', en: 'Watch videos', de: 'Videos ansehen', it: 'Guarda i video', hu: 'Videók megtekintése' },
     icon: Film,
     href: '/portal/videos',
-    enabled: false,
+    enabled: true,
     accent: 'violet',
   },
   {
