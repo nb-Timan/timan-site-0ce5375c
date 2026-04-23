@@ -1,74 +1,184 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Calculator, RotateCw, Info, Printer, Globe } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { Language } from '@/types/configurator';
 
-const LANGS: { code: Language; flag: string; label: string }[] = [
-  { code: 'da', flag: '🇩🇰', label: 'DA' },
-  { code: 'en', flag: '🇬🇧', label: 'EN' },
-  { code: 'de', flag: '🇩🇪', label: 'DE' },
-  { code: 'it', flag: '🇮🇹', label: 'IT' },
-  { code: 'hu', flag: '🇭🇺', label: 'HU' },
-];
+// ---------------- Locales (from mockup) ----------------
+type LangKey = 'da' | 'de' | 'en';
 
-const T: Record<string, Record<string, string>> = {
-  back: {
-    da: 'Tilbage til ressourcer',
-    en: 'Back to resources',
-    de: 'Zurück zu Ressourcen',
-    it: 'Torna alle risorse',
-    hu: 'Vissza a forrásokhoz',
+type Texts = {
+  title: string; subtitle: string; commonHeader: string;
+  fuelPrice: string; days: string; hours: string;
+  depreciation: string; interest: string; reset: string;
+  machineData: string; purchasePrice: string; fuelConsumption: string;
+  serviceCost: string; residualValue: string; calcData: string;
+  totalHours: string; fuelCost: string; capitalCost: string;
+  totalYear: string; totalHour: string; guidanceHeader: string;
+  guidancePoints: string[]; print: string; disclaimer: string;
+  useCalculated: string; seeBasis: string; modalInterval: string;
+  modalPartId: string; modalDescription: string; modalPrice: string;
+  modalCount: string; modalSum: string; modalNoData: string;
+  modalStepTotal: string; modalTotalAccumulated: string;
+  modalTotalExclVat: string; modalClose: string;
+  back: string;
+};
+
+type Locale = {
+  label: string; currency: string; currencyLocale: string;
+  currencySymbol: string; rate: number; texts: Texts;
+};
+
+const locales: Record<LangKey, Locale> = {
+  da: {
+    label: 'DK', currency: 'DKK', currencyLocale: 'da-DK', currencySymbol: 'kr.', rate: 1,
+    texts: {
+      title: 'Driftberegner', subtitle: 'RC-751, RC-1000s og 3330+T2',
+      commonHeader: 'Forudsætninger', fuelPrice: 'Brændstofpris', days: 'Antal dage',
+      hours: 'Timer/dag', depreciation: 'Afskrivning (år)', interest: 'Rente (%)',
+      reset: 'Nulstil', machineData: 'MASKIN DATA', purchasePrice: 'Pris',
+      fuelConsumption: 'Forbrug (l/t)', serviceCost: 'Service (år)', residualValue: 'Restværdi',
+      calcData: 'BEREGNEDE RESULTATER', totalHours: 'Timer/år', fuelCost: 'Brændstof/år',
+      capitalCost: 'Afskr./Renter', totalYear: 'Total/år', totalHour: 'Pris/time',
+      guidanceHeader: 'Vejledning',
+      guidancePoints: [
+        'Gule felter kan redigeres.',
+        'Husk dagsaktuel brændstofpris.',
+        'Service er estimater baseret på reservedele.',
+        'Afskrivning påvirker timeprisen.'
+      ],
+      print: 'Udskriv rapport', disclaimer: 'Vejledende beregning. Forbehold for fejl.',
+      useCalculated: 'Brug beregnet', seeBasis: 'Se grundlag',
+      modalInterval: 'Vælg interval:', modalPartId: 'Varenr', modalDescription: 'Beskrivelse',
+      modalPrice: 'Stk pris', modalCount: 'Antal', modalSum: 'Sum', modalNoData: 'Ingen data.',
+      modalStepTotal: 'Service ved {0} timer:', modalTotalAccumulated: 'Total akkumuleret:',
+      modalTotalExclVat: 'Total ekskl. moms:', modalClose: 'Luk',
+      back: 'Tilbage til ressourcer',
+    },
+  },
+  de: {
+    label: 'DE', currency: 'EUR', currencyLocale: 'de-DE', currencySymbol: '€', rate: 0.1341,
+    texts: {
+      title: 'Betriebskosten', subtitle: 'RC-751, RC-1000s und 3330+T2',
+      commonHeader: 'Annahmen', fuelPrice: 'Kraftstoffpreis', days: 'Tage/Jahr',
+      hours: 'Std/Tag', depreciation: 'Abschreibung', interest: 'Zins (%)',
+      reset: 'Reset', machineData: 'MASCHINENDATEN', purchasePrice: 'Preis',
+      fuelConsumption: 'Verbrauch (l/h)', serviceCost: 'Service', residualValue: 'Restwert',
+      calcData: 'BERECHNET', totalHours: 'Std/Jahr', fuelCost: 'Kraftstoff/Jahr',
+      capitalCost: 'Abschr./Zins', totalYear: 'Gesamt/Jahr', totalHour: 'Preis/Std',
+      guidanceHeader: 'Anleitung',
+      guidancePoints: ['Gelbe Felder bearbeitbar.', 'Kraftstoffpreis anpassen.'],
+      print: 'Drucken', disclaimer: 'Unverbindliche Berechnung.',
+      useCalculated: 'Auto', seeBasis: 'Details',
+      modalInterval: 'Intervall:', modalPartId: 'Art.Nr.', modalDescription: 'Beschreibung',
+      modalPrice: 'Preis', modalCount: 'Menge', modalSum: 'Summe', modalNoData: 'Keine Daten.',
+      modalStepTotal: 'Service bei {0} Std:', modalTotalAccumulated: 'Gesamt:',
+      modalTotalExclVat: 'Gesamt exkl. MwSt:', modalClose: 'Schließen',
+      back: 'Zurück zu Ressourcen',
+    },
+  },
+  en: {
+    label: 'EN', currency: 'EUR', currencyLocale: 'en-GB', currencySymbol: '€', rate: 0.1341,
+    texts: {
+      title: 'Cost Calculator', subtitle: 'RC-751, RC-1000s and 3330+T2',
+      commonHeader: 'Assumptions', fuelPrice: 'Fuel Price', days: 'Days/yr',
+      hours: 'Hours/day', depreciation: 'Depreciation', interest: 'Interest (%)',
+      reset: 'Reset', machineData: 'INPUT DATA', purchasePrice: 'Price',
+      fuelConsumption: 'Fuel (l/h)', serviceCost: 'Service (yr)', residualValue: 'Residual Val',
+      calcData: 'CALCULATED', totalHours: 'Hours/yr', fuelCost: 'Fuel/yr',
+      capitalCost: 'Depr./Int.', totalYear: 'Total/yr', totalHour: 'Cost/hr',
+      guidanceHeader: 'Guidance',
+      guidancePoints: ['Yellow fields editable.'],
+      print: 'Print', disclaimer: 'Indicative calculation.',
+      useCalculated: 'Auto', seeBasis: 'See basis',
+      modalInterval: 'Select interval:', modalPartId: 'Part No.', modalDescription: 'Description',
+      modalPrice: 'Price', modalCount: 'Qty', modalSum: 'Sum', modalNoData: 'No data.',
+      modalStepTotal: 'Service at {0} hours:', modalTotalAccumulated: 'Total (accumulated):',
+      modalTotalExclVat: 'Total excl. VAT:', modalClose: 'Close',
+      back: 'Back to resources',
+    },
   },
 };
 
-// Calculator translations from mockup (DA/EN/DE). IT/HU fall back to DA.
-const calcT: Record<string, {
-  title: string; subtitle: string; commonHeader: string;
-  fuelPrice: string; daysPerYear: string; hoursPerDay: string;
-  totalHour: string; results: string; machine: string;
-}> = {
-  da: { title: 'Driftberegner', subtitle: 'RC-751, RC-1000s og 3330+T2', commonHeader: 'Forudsætninger', fuelPrice: 'Brændstofpris', daysPerYear: 'Dage/år', hoursPerDay: 'Timer/dag', totalHour: 'Pris/time', results: 'Resultater', machine: 'Maskine' },
-  en: { title: 'Cost Calculator', subtitle: 'RC-751, RC-1000s and 3330+T2', commonHeader: 'Assumptions', fuelPrice: 'Fuel Price', daysPerYear: 'Days/year', hoursPerDay: 'Hours/day', totalHour: 'Cost/hr', results: 'Results', machine: 'Machine' },
-  de: { title: 'Betriebskosten', subtitle: 'RC-751, RC-1000s und 3330+T2', commonHeader: 'Annahmen', fuelPrice: 'Kraftstoffpreis', daysPerYear: 'Tage/Jahr', hoursPerDay: 'Stunden/Tag', totalHour: 'Preis/Std', results: 'Ergebnisse', machine: 'Maschine' },
+type ServicePart = { id: string; name: string; price: number; count: number };
+const servicePartsData: Record<MachineKey, Record<number, ServicePart[]>> = {
+  rc751: {
+    5: [{ id: '22101006', name: 'Returfilter', price: 135.30, count: 1 }],
+    100: [{ id: '22601016', name: 'Luftfilter', price: 456.00, count: 1 }],
+    300: [{ id: '52101006', name: 'Rem for klipper', price: 519.80, count: 1 }],
+  },
+  rc1000: {
+    10: [{ id: '15901064', name: 'Oliefilter', price: 206.00, count: 1 }],
+    500: [{ id: 'VHY-00114', name: 'Hydraulikfilter', price: 1202.00, count: 1 }],
+  },
+  timan3330: {
+    50: [{ id: '15901121', name: 'Motoroliefilter', price: 230.00, count: 1 }],
+    250: [{ id: 'VMO-00054', name: 'Kabinefilter', price: 210.00, count: 1 }],
+  },
 };
 
-type Machine = { name: string; purchasePrice: number; fuelConsumption: number; serviceCostYear: number; residualValuePercent: number };
-type CalcState = {
-  common: { fuelPrice: number; daysPerYear: number; hoursPerDay: number; depreciationYears: number; interestRate: number };
-  rc751: Machine;
-  rc1000: Machine;
-  timan3330: Machine;
+type MachineKey = 'rc751' | 'rc1000' | 'timan3330';
+type Common = {
+  fuelPrice: number; daysPerYear: number; hoursPerDay: number;
+  depreciationYears: number; interestRate: number;
+};
+type Machine = {
+  name: string; purchasePrice: number; fuelConsumption: number;
+  serviceCostYear: number; residualValuePercent: number; isServiceManual: boolean;
 };
 
-const INITIAL: CalcState = {
-  common: { fuelPrice: 13.50, daysPerYear: 125, hoursPerDay: 6, depreciationYears: 5, interestRate: 4.0 },
+const baseCommon: Common = {
+  fuelPrice: 13.50, daysPerYear: 125, hoursPerDay: 6,
+  depreciationYears: 5, interestRate: 4.0,
+};
+const baseMachines: Record<MachineKey, Omit<Machine, 'isServiceManual'>> = {
   rc751:     { name: 'RC-751',   purchasePrice: 161700, fuelConsumption: 3.5, serviceCostYear: 4500, residualValuePercent: 20 },
   rc1000:    { name: 'RC-1000s', purchasePrice: 269800, fuelConsumption: 5.5, serviceCostYear: 6500, residualValuePercent: 20 },
   timan3330: { name: '3330+T2',  purchasePrice: 586135, fuelConsumption: 6.0, serviceCostYear: 7500, residualValuePercent: 20 },
 };
 
 const num = (v: string | number) => {
-  const n = typeof v === 'number' ? v : parseFloat(v);
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
   return isNaN(n) ? 0 : n;
 };
 
-function calcHourCost(c: CalcState, m: Machine) {
-  const totalHours = num(c.common.daysPerYear) * num(c.common.hoursPerDay);
-  const fuelYear = totalHours * num(m.fuelConsumption) * num(c.common.fuelPrice);
-  const totalYear = fuelYear + num(m.serviceCostYear) + (num(m.purchasePrice) / 5);
-  return totalHours > 0 ? totalYear / totalHours : 0;
+function calculateCosts(common: Common, machine: Machine) {
+  const totalHours = num(common.daysPerYear) * num(common.hoursPerDay);
+  const residualVal = num(machine.purchasePrice) * (num(machine.residualValuePercent) / 100);
+  const deprYear = num(common.depreciationYears) > 0
+    ? (num(machine.purchasePrice) - residualVal) / num(common.depreciationYears)
+    : 0;
+  const interestYear = ((num(machine.purchasePrice) + residualVal) / 2) * (num(common.interestRate) / 100);
+  const fuelYear = totalHours * num(machine.fuelConsumption) * num(common.fuelPrice);
+  const totalYear = deprYear + interestYear + fuelYear + num(machine.serviceCostYear);
+  return {
+    totalHours, totalYear,
+    hourCost: totalHours > 0 ? totalYear / totalHours : 0,
+    capital: deprYear + interestYear,
+    fuel: fuelYear,
+  };
 }
+
+const MACHINE_KEYS: MachineKey[] = ['rc751', 'rc1000', 'timan3330'];
 
 export default function DriftberegnerPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { state: appState, setLanguage: setAppLang } = useConfigurator();
   const navigate = useNavigate();
-  const lang = state.language;
-  const [calc, setCalc] = useState<CalcState>(INITIAL);
+
+  // Calculator-local language (DA/DE/EN). Default from app language if compatible.
+  const initialLang: LangKey = (['da', 'de', 'en'] as LangKey[]).includes(appState.language as LangKey)
+    ? (appState.language as LangKey)
+    : 'da';
+
+  const [currentLang, setCurrentLang] = useState<LangKey>(initialLang);
+  const [common, setCommon] = useState<Common>({ ...baseCommon });
+  const [rc751, setRc751] = useState<Machine>({ ...baseMachines.rc751, isServiceManual: false });
+  const [rc1000, setRc1000] = useState<Machine>({ ...baseMachines.rc1000, isServiceManual: false });
+  const [timan3330, setTiman3330] = useState<Machine>({ ...baseMachines.timan3330, isServiceManual: false });
+  const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
 
   if (loading) {
     return (
@@ -77,27 +187,86 @@ export default function DriftberegnerPage() {
       </div>
     );
   }
-
   if (!appUser) return <Navigate to="/portal" replace />;
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
-  const t = calcT[lang] ?? calcT.da;
-  const setCommon = (k: keyof CalcState['common'], v: string) =>
-    setCalc(s => ({ ...s, common: { ...s.common, [k]: num(v) } }));
+  const loc = locales[currentLang];
+  const t = loc.texts;
 
-  const machines: Array<keyof Pick<CalcState, 'rc751' | 'rc1000' | 'timan3330'>> = ['rc751', 'rc1000', 'timan3330'];
+  const machinesState: Record<MachineKey, Machine> = { rc751, rc1000, timan3330 };
+  const setMachineState: Record<MachineKey, (m: Machine) => void> = {
+    rc751: setRc751, rc1000: setRc1000, timan3330: setTiman3330,
+  };
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat(loc.currencyLocale, {
+      style: 'currency', currency: loc.currency, maximumFractionDigits: 0,
+    }).format(amount);
+
+  const formatThousands = (val: number | string) =>
+    new Intl.NumberFormat('da-DK').format(num(val));
+
+  const results = useMemo(() => ({
+    rc751: calculateCosts(common, rc751),
+    rc1000: calculateCosts(common, rc1000),
+    timan3330: calculateCosts(common, timan3330),
+  }), [common, rc751, rc1000, timan3330]);
+
+  const updateCommon = (f: keyof Common, v: string) =>
+    setCommon(s => ({ ...s, [f]: num(v) }));
+
+  const updateMachineField = (m: MachineKey, f: keyof Machine, v: string | number | boolean) =>
+    setMachineState[m]({ ...machinesState[m], [f]: v as never });
+
+  const updateMachinePrice = (m: MachineKey, v: string) =>
+    setMachineState[m]({ ...machinesState[m], purchasePrice: num(v) });
+
+  const updateMachineServiceManual = (m: MachineKey, v: string) =>
+    setMachineState[m]({ ...machinesState[m], serviceCostYear: num(v), isServiceManual: true });
+
+  const resetCalculator = () => {
+    setCommon({ ...baseCommon });
+    setRc751({ ...baseMachines.rc751, isServiceManual: false });
+    setRc1000({ ...baseMachines.rc1000, isServiceManual: false });
+    setTiman3330({ ...baseMachines.timan3330, isServiceManual: false });
+  };
+
+  const changeLanguage = (v: LangKey) => {
+    setCurrentLang(v);
+    // Keep portal-wide language in sync when compatible
+    setAppLang(v);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader
-        user={appUser}
-        language={lang}
-        onLanguageChange={setLanguage}
-        onLogout={async () => {
-          await logout();
-          navigate('/portal', { replace: true });
-        }}
-      />
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white; }
+          .print-area {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+        .drift-num-input::-webkit-inner-spin-button,
+        .drift-num-input::-webkit-outer-spin-button {
+          -webkit-appearance: none; margin: 0;
+        }
+      `}</style>
+
+      <div className="no-print">
+        <PortalHeader
+          user={appUser}
+          language={appState.language}
+          onLanguageChange={setAppLang}
+          onLogout={async () => {
+            await logout();
+            navigate('/portal', { replace: true });
+          }}
+        />
+      </div>
 
       {/* Calculator sub-header */}
       <header className="bg-white border-b border-gray-200 py-6 no-print">
@@ -107,103 +276,262 @@ export default function DriftberegnerPage() {
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            {T.back[lang]}
+            {t.back}
           </button>
 
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
-            {LANGS.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition ${
-                  lang === l.code ? 'bg-white shadow-sm border border-[#2d5a27]/30 text-gray-900' : 'text-gray-600 hover:bg-white'
-                }`}
-                aria-label={l.code}
-              >
-                <span className="text-base leading-none">{l.flag}</span>
-                <span className="hidden sm:inline">{l.label}</span>
-              </button>
-            ))}
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+            <span className="text-gray-400"><Globe className="h-3.5 w-3.5" /></span>
+            <select
+              value={currentLang}
+              onChange={(e) => changeLanguage(e.target.value as LangKey)}
+              className="bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer"
+            >
+              {(Object.keys(locales) as LangKey[]).map(k => (
+                <option key={k} value={k}>{locales[k].label}</option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center w-full flex-grow">
-        <div className="w-full">
+        <div className="w-full space-y-6 print-area">
+          {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
             <p className="text-gray-500">{t.subtitle}</p>
           </div>
 
-          {/* Assumptions card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 font-bold text-gray-700">
+          {/* Assumptions */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-2 font-bold text-gray-700">
               {t.commonHeader}
             </div>
-            <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.fuelPrice}</label>
+            <div className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="col-span-2 md:col-span-1">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                  {t.fuelPrice} ({loc.currency})
+                </label>
                 <input
                   type="number"
-                  value={calc.common.fuelPrice}
-                  onChange={(e) => setCommon('fuelPrice', e.target.value)}
-                  className="w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold outline-none"
+                  value={common.fuelPrice}
+                  onChange={(e) => updateCommon('fuelPrice', e.target.value)}
+                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.daysPerYear}</label>
-                <input
-                  type="number"
-                  value={calc.common.daysPerYear}
-                  onChange={(e) => setCommon('daysPerYear', e.target.value)}
-                  className="w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.hoursPerDay}</label>
-                <input
-                  type="number"
-                  value={calc.common.hoursPerDay}
-                  onChange={(e) => setCommon('hoursPerDay', e.target.value)}
-                  className="w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold outline-none"
-                />
-              </div>
+              {([
+                { key: 'daysPerYear', label: t.days },
+                { key: 'hoursPerDay', label: t.hours },
+                { key: 'depreciationYears', label: t.depreciation },
+                { key: 'interestRate', label: t.interest },
+              ] as { key: keyof Common; label: string }[]).map(({ key, label }) => (
+                <div key={key}>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{label}</label>
+                  <input
+                    type="number"
+                    value={common[key]}
+                    onChange={(e) => updateCommon(key, e.target.value)}
+                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Results card */}
+          {/* TCO comparison table */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
-              <h2 className="font-bold">{t.results}</h2>
+            <div className="bg-[#2d5a27] text-white px-6 py-4 flex justify-between items-center">
+              <h2 className="font-bold flex items-center gap-2">
+                <Calculator className="h-4 w-4" /> TCO Sammenligning
+              </h2>
+              <button
+                onClick={resetCalculator}
+                className="text-[10px] bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full flex items-center gap-1 transition-all uppercase font-bold"
+              >
+                <RotateCw className="h-3 w-3" /> {t.reset}
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="bg-gray-50 text-[10px] text-gray-400 uppercase font-black tracking-widest border-b">
-                    <th className="px-6 py-4">{t.machine}</th>
-                    <th className="px-6 py-4 text-center">{t.totalHour}</th>
+                  <tr className="bg-gray-50 text-[10px] text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                    <th className="px-6 py-4 font-bold">Parameter</th>
+                    {MACHINE_KEYS.map(m => (
+                      <th key={m} className="px-6 py-4 text-center text-gray-900 font-black">
+                        {machinesState[m].name}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {machines.map((m) => {
-                    const hourCost = calcHourCost(calc, calc[m]);
-                    return (
-                      <tr key={m} className="border-b border-gray-50">
-                        <td className="px-6 py-4 font-bold text-gray-700">{calc[m].name}</td>
-                        <td className="px-6 py-4 text-center text-lg font-black text-emerald-600">
-                          {Math.round(hourCost)} <span className="text-xs text-gray-400">kr.</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <tbody className="divide-y divide-gray-50">
+                  {/* Purchase price */}
+                  <tr>
+                    <td className="px-6 py-4 font-medium text-gray-500">{t.purchasePrice} ({loc.currency})</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4">
+                        <input
+                          type="text"
+                          value={formatThousands(machinesState[m].purchasePrice)}
+                          onChange={(e) => updateMachinePrice(m, e.target.value)}
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Fuel consumption */}
+                  <tr>
+                    <td className="px-6 py-4 font-medium text-gray-500">{t.fuelConsumption}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4">
+                        <input
+                          type="number"
+                          value={machinesState[m].fuelConsumption}
+                          onChange={(e) => updateMachineField(m, 'fuelConsumption', num(e.target.value))}
+                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Service cost */}
+                  <tr>
+                    <td className="px-6 py-4 font-medium text-gray-500">{t.serviceCost}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center">
+                        <input
+                          type="text"
+                          value={formatThousands(machinesState[m].serviceCostYear)}
+                          onChange={(e) => updateMachineServiceManual(m, e.target.value)}
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none mb-1"
+                        />
+                        <button
+                          onClick={() => setModalMachine(m)}
+                          className="text-[9px] text-[#2d5a27] font-bold hover:underline uppercase tracking-tighter"
+                        >
+                          {t.seeBasis}
+                        </button>
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Calculated header */}
+                  <tr className="bg-gray-50/50">
+                    <td colSpan={4} className="px-6 py-2 text-[10px] font-black text-gray-300 uppercase">
+                      {t.calcData}
+                    </td>
+                  </tr>
+                  {/* Fuel cost */}
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500">{t.fuelCost}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center font-bold">
+                        {formatCurrency(results[m].fuel)}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Capital cost */}
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500">{t.capitalCost}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center font-bold">
+                        {formatCurrency(results[m].capital)}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Total per hour */}
+                  <tr className="bg-gray-900 text-white font-black">
+                    <td className="px-6 py-4">{t.totalHour}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center text-lg text-green-400">
+                        {formatCurrency(results[m].hourCost)}
+                      </td>
+                    ))}
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* Guidance + Print */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex gap-4">
+              <span className="text-[#2d5a27] mt-1"><Info className="h-4 w-4" /></span>
+              <div>
+                <h4 className="font-bold mb-1">{t.guidanceHeader}</h4>
+                <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
+                  {t.guidancePoints.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            </div>
+            <button
+              onClick={() => window.print()}
+              className="bg-gray-900 text-white p-6 rounded-2xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-3 font-bold"
+            >
+              <Printer className="h-4 w-4" /> {t.print}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-center text-gray-400 italic">{t.disclaimer}</p>
         </div>
       </main>
 
-      <PortalFooter language={lang} />
+      <div className="no-print">
+        <PortalFooter language={appState.language} />
+      </div>
+
+      {/* Service basis modal */}
+      {modalMachine && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4 no-print"
+          onClick={() => setModalMachine(null)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#2d5a27] p-6 text-white flex justify-between items-center">
+              <h3 className="text-xl font-bold">Servicegrundlag: {machinesState[modalMachine].name}</h3>
+              <button
+                onClick={() => setModalMachine(null)}
+                className="text-white/60 hover:text-white text-2xl leading-none"
+                aria-label={t.modalClose}
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-8 max-h-[70vh] overflow-y-auto">
+              {Object.keys(servicePartsData[modalMachine]).length === 0 ? (
+                <p className="text-sm text-gray-500">{t.modalNoData}</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {Object.keys(servicePartsData[modalMachine]).map(h => (
+                    <div key={h} className="p-4 border border-gray-100 rounded-xl bg-gray-50">
+                      <div className="text-[10px] font-black text-gray-400 uppercase mb-2">{h} Timer</div>
+                      <ul className="text-xs space-y-1">
+                        {servicePartsData[modalMachine][Number(h)].map((p, i) => (
+                          <li key={i} className="flex justify-between">
+                            <span>{p.name}</span>
+                            <span className="font-bold">{p.price.toFixed(2)} kr.</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-gray-400 italic">
+                Dette er et estimat baseret på standard reservedelsintervaller.
+              </p>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setModalMachine(null)}
+                className="bg-gray-100 px-6 py-2 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-colors uppercase text-xs"
+              >
+                {t.modalClose}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
