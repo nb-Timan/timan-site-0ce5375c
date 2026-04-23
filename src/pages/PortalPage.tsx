@@ -92,7 +92,7 @@ export default function PortalPage() {
               {T.heroEyebrow[lang]}
             </div>
             <h1 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">
-              {T.heroTitle[lang]}{appUser.company_name ? `, ${appUser.company_name}` : ''}
+              {T.heroTitle[lang]}{appUser.display_name ? `, ${appUser.display_name}` : ''}
             </h1>
             <p className="mt-3 text-sm md:text-base text-emerald-50/90 max-w-xl">
               {T.heroBody[lang]}
