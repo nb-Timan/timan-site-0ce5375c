@@ -18,53 +18,9 @@ const T: Record<string, Record<Language, string>> = {
   },
 };
 
-interface Category {
-  id: string;
-  title: string;
-  subtitle: Record<Language, string>;
-  image?: string;
-  icon?: 'wrench' | 'book';
-  href?: string;
-}
+import { VIDEO_CATEGORIES } from '@/data/videoCategories';
 
-const CATEGORIES: Category[] = [
-  {
-    id: 'rc-751',
-    title: 'Timan RC-751',
-    subtitle: { da: 'Fjernstyret skråningsklipper', en: 'Remote-controlled slope mower', de: 'Ferngesteuerter Hangmäher', it: 'Tosaerba radiocomandato per pendii', hu: 'Távirányítású rézsűkaszáló' },
-    image: 'https://images.unsplash.com/photo-1590400541360-b2095820ec71?auto=format&fit=crop&q=80&w=800',
-  },
-  {
-    id: 'rc-1000s',
-    title: 'Timan RC-1000s',
-    subtitle: { da: 'Fjernstyret redskabsbærer', en: 'Remote-controlled tool carrier', de: 'Ferngesteuerter Geräteträger', it: 'Portautensili radiocomandato', hu: 'Távirányítású szerszámhordozó' },
-    image: 'https://images.unsplash.com/photo-1533991321616-622ee20c248b?auto=format&fit=crop&q=80&w=800',
-  },
-  {
-    id: '3330',
-    title: 'Timan 3330',
-    subtitle: { da: 'Redskabsbærer', en: 'Tool carrier', de: 'Geräteträger', it: 'Portautensili', hu: 'Szerszámhordozó' },
-    image: 'https://images.unsplash.com/photo-1516937941344-00b4e0337589?auto=format&fit=crop&q=80&w=800',
-  },
-  {
-    id: '2620',
-    title: 'Timan 2620',
-    subtitle: { da: 'Redskabsbærer', en: 'Tool carrier', de: 'Geräteträger', it: 'Portautensili', hu: 'Szerszámhordozó' },
-    image: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=800',
-  },
-  {
-    id: 'redskaber',
-    title: 'Redskaber',
-    subtitle: { da: 'Videoer af koste, klippeborde mm.', en: 'Videos of brushes, cutting decks etc.', de: 'Videos zu Bürsten, Mähdecks usw.', it: 'Video di spazzole, piatti di taglio ecc.', hu: 'Videók kefékről, vágóasztalokról stb.' },
-    icon: 'wrench',
-  },
-  {
-    id: 'help',
-    title: 'How to install & Help',
-    subtitle: { da: 'Vejledninger og teknisk hjælp', en: 'Guides and technical help', de: 'Anleitungen und technische Hilfe', it: 'Guide e supporto tecnico', hu: 'Útmutatók és műszaki segítség' },
-    icon: 'book',
-  },
-];
+const CATEGORIES = VIDEO_CATEGORIES;
 
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
@@ -117,7 +73,7 @@ export default function VideoGalleryPage() {
             <button
               key={cat.id}
               type="button"
-              onClick={() => cat.href && navigate(cat.href)}
+              onClick={() => navigate(`/portal/videos/${cat.id}`)}
               className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
             >
               {cat.image ? (
