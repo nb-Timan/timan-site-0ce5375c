@@ -84,7 +84,7 @@ export const PORTAL_MODULES: PortalModule[] = [
     cta: { da: 'Åbn bibliotek', en: 'Open library', de: 'Bibliothek öffnen', it: 'Apri biblioteca', hu: 'Könyvtár megnyitása' },
     icon: BookOpen,
     href: '/portal/resources',
-    enabled: false,
+    enabled: true,
     accent: 'sky',
   },
   {
