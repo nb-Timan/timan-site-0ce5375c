@@ -1706,19 +1706,16 @@ export default function ConfiguratorPage() {
                 setSavedOrderNumber(orderNumber ?? null);
                 setIsSavedCurrent(true);
               }}
-              onLogout={() => {
-                console.log('[logout] Clearing state keys: appUser, machineConfigs, individualUnitConfigs, ralCodes, accQty, date, deliveryMethod, demoMachines, reqNumbers, customer fields, savedConfigurationId, savedQuoteNumber, savedOrderNumber, salesArgsData, recommendationData');
-                import('@/lib/supabase').then(({ supabase }) => supabase.auth.signOut()).catch(() => {});
-                setAppUser(null);
+              onLogout={async () => {
+                console.log('[logout] Clearing state and signing out');
+                await ctxLogout().catch(() => {});
                 // Reset all configurator state to clean
                 resetState();
-                // Clear saved config references
                 setSavedConfigurationId(null);
                 setSavedQuoteNumber(null);
                 setSavedOrderNumber(null);
                 setSavedSourceQuoteNumber(null);
                 setIsSavedCurrent(false);
-                // Clear sales/recommendation data
                 setSalesArgsData(null);
                 setSelectedSalesBullets(new Set());
                 setIncludeSalesArgs(false);
@@ -1726,14 +1723,13 @@ export default function ConfiguratorPage() {
                 setIncludeRecommendation(false);
                 setSelectedRecBullets(new Set());
                 setWantRecommendation(false);
-                // Clear any localStorage/sessionStorage configurator keys
                 try {
                   const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('configurator') || k.startsWith('timan'));
-                  keysToRemove.forEach(k => { localStorage.removeItem(k); console.log('[logout] Removed localStorage key:', k); });
-                  const sessKeys = Object.keys(sessionStorage).filter(k => k.startsWith('configurator') || k.startsWith('timan'));
-                  sessKeys.forEach(k => { sessionStorage.removeItem(k); console.log('[logout] Removed sessionStorage key:', k); });
-                } catch (e) { /* ignore */ }
-                console.log('[logout] App reset to clean state');
+                  keysToRemove.forEach(k => localStorage.removeItem(k));
+                  const sessKeys = Object.keys(sessionStorage).filter(k => k.startsWith('configurator') || (k.startsWith('timan') && k !== 'timan.appUser'));
+                  sessKeys.forEach(k => sessionStorage.removeItem(k));
+                } catch { /* ignore */ }
+                navigate('/portal', { replace: true });
               }}
               onRestoreState={(restored, configId) => {
                 setState(restored);
