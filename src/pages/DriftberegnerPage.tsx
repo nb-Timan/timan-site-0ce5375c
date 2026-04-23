@@ -534,60 +534,129 @@ export default function DriftberegnerPage() {
       </div>
 
       {/* Service basis modal */}
-      {modalMachine && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4 no-print"
-          onClick={() => setModalMachine(null)}
-        >
+      {modalMachine && selectedInterval !== null && (() => {
+        const svc = servicePartsData[modalMachine];
+        const step = svc.steps[selectedInterval];
+        const stepRows = step?.rows ?? [];
+        const stepTotal = step?.stepTotal ?? 0;
+        const accumulated = svc.accumulatedTotals[selectedInterval] ?? stepTotal;
+        return (
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4 no-print"
+            onClick={closeServiceModal}
           >
-            <div className="bg-[#2d5a27] p-6 text-white flex justify-between items-center">
-              <h3 className="text-xl font-bold">Servicegrundlag: {machinesState[modalMachine].name}</h3>
-              <button
-                onClick={() => setModalMachine(null)}
-                className="text-white/60 hover:text-white text-2xl leading-none"
-                aria-label={t.modalClose}
-              >
-                ×
-              </button>
-            </div>
-            <div className="p-8 max-h-[70vh] overflow-y-auto">
-              {Object.keys(servicePartsData[modalMachine]).length === 0 ? (
-                <p className="text-sm text-gray-500">{t.modalNoData}</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {Object.keys(servicePartsData[modalMachine]).map(h => (
-                    <div key={h} className="p-4 border border-gray-100 rounded-xl bg-gray-50">
-                      <div className="text-[10px] font-black text-gray-400 uppercase mb-2">{h} Timer</div>
-                      <ul className="text-xs space-y-1">
-                        {servicePartsData[modalMachine][Number(h)].map((p, i) => (
-                          <li key={i} className="flex justify-between">
-                            <span>{p.name}</span>
-                            <span className="font-bold">{p.price.toFixed(2)} kr.</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Red header bar */}
+              <div className="bg-red-600 px-6 py-5 text-white flex justify-between items-center">
+                <h3 className="text-2xl font-bold">
+                  Servicegrundlag – {machinesState[modalMachine].name}
+                </h3>
+                <button
+                  onClick={closeServiceModal}
+                  className="text-white/90 hover:text-white text-4xl leading-none"
+                  aria-label={t.modalClose}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-5 bg-gray-50 max-h-[75vh] overflow-y-auto">
+                {/* Interval selector */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="text-xl font-semibold text-gray-700 mr-2">Vælg interval:</div>
+                    {svc.intervals.map(h => {
+                      const active = selectedInterval === h;
+                      return (
+                        <button
+                          key={h}
+                          onClick={() => setSelectedInterval(h)}
+                          className={`px-5 py-2 rounded-md border text-base font-semibold transition ${
+                            active
+                              ? 'bg-slate-800 text-white border-slate-800'
+                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'
+                          }`}
+                        >
+                          {h} Timer
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-              <p className="text-[10px] text-gray-400 italic">
-                Dette er et estimat baseret på standard reservedelsintervaller.
-              </p>
-            </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={() => setModalMachine(null)}
-                className="bg-gray-100 px-6 py-2 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition-colors uppercase text-xs"
-              >
-                {t.modalClose}
-              </button>
+
+                {/* Parts table */}
+                <div className="mt-5 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-100 text-gray-700">
+                      <tr>
+                        <th className="px-4 py-3 font-bold">Varenr</th>
+                        <th className="px-4 py-3 font-bold">Beskrivelse</th>
+                        <th className="px-4 py-3 font-bold text-right">Stk pris</th>
+                        <th className="px-4 py-3 font-bold text-center">Antal</th>
+                        <th className="px-4 py-3 font-bold text-right">Sum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stepRows.length > 0 ? (
+                        stepRows.map((row, i) => (
+                          <tr key={i} className="border-t border-gray-200 text-gray-700">
+                            <td className="px-4 py-3">{row.id}</td>
+                            <td className="px-4 py-3">{row.name}</td>
+                            <td className="px-4 py-3 text-right">{formatPriceDK(row.price)}</td>
+                            <td className="px-4 py-3 text-center">{row.count}</td>
+                            <td className="px-4 py-3 text-right font-semibold">{formatPriceDK(row.sum)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-gray-400 italic">
+                            Intervaldata mangler endnu for {selectedInterval} timer.
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr className="border-t border-gray-200 bg-gray-50">
+                        <td colSpan={4} className="px-4 py-2 text-right text-gray-500">
+                          Service ved {selectedInterval} timer (kun dette trin):
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-500">
+                          {formatPriceDK(stepTotal)}
+                        </td>
+                      </tr>
+
+                      <tr className="border-t border-gray-200">
+                        <td colSpan={4} className="px-4 py-3 text-right text-lg font-bold text-gray-700">
+                          Total samlet (akkumuleret):
+                        </td>
+                        <td className="px-4 py-3 text-right text-lg font-bold text-red-600">
+                          {formatPriceDK(accumulated)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="mt-4 text-sm italic text-gray-500">
+                  * Priser er vejledende listepriser ekskl. moms. Arbejdsløn er ikke inkluderet i reservedelsprisen.
+                </p>
+              </div>
+
+              {/* Dark close button footer */}
+              <div className="px-5 py-4 bg-gray-100 flex justify-end">
+                <button
+                  onClick={closeServiceModal}
+                  className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3 rounded-lg"
+                >
+                  {t.modalClose}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
