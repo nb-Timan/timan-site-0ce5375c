@@ -1,16 +1,16 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { PortalModule } from '@/lib/portalModules';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
 
-const ACCENT_CLASSES: Record<PortalModule['accent'], { bg: string; icon: string; ring: string }> = {
-  primary: { bg: 'bg-emerald-50', icon: 'text-emerald-700 bg-emerald-100', ring: 'group-hover:ring-emerald-300' },
-  amber:   { bg: 'bg-amber-50',   icon: 'text-amber-700 bg-amber-100',     ring: 'group-hover:ring-amber-300' },
-  rose:    { bg: 'bg-rose-50',    icon: 'text-rose-700 bg-rose-100',       ring: 'group-hover:ring-rose-300' },
-  sky:     { bg: 'bg-sky-50',     icon: 'text-sky-700 bg-sky-100',         ring: 'group-hover:ring-sky-300' },
-  violet:  { bg: 'bg-violet-50',  icon: 'text-violet-700 bg-violet-100',   ring: 'group-hover:ring-violet-300' },
-  slate:   { bg: 'bg-slate-50',   icon: 'text-slate-700 bg-slate-200',     ring: 'group-hover:ring-slate-300' },
+const ACCENT_CLASSES: Record<PortalModule['accent'], { iconBg: string; iconColor: string; cta: string; hoverRing: string }> = {
+  primary: { iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700', cta: 'text-emerald-700 group-hover:text-emerald-800', hoverRing: 'hover:border-emerald-200' },
+  amber:   { iconBg: 'bg-amber-100',   iconColor: 'text-amber-700',   cta: 'text-amber-700 group-hover:text-amber-800',   hoverRing: 'hover:border-amber-200' },
+  rose:    { iconBg: 'bg-rose-100',    iconColor: 'text-rose-700',    cta: 'text-rose-700 group-hover:text-rose-800',     hoverRing: 'hover:border-rose-200' },
+  sky:     { iconBg: 'bg-sky-100',     iconColor: 'text-sky-700',     cta: 'text-sky-700 group-hover:text-sky-800',       hoverRing: 'hover:border-sky-200' },
+  violet:  { iconBg: 'bg-violet-100',  iconColor: 'text-violet-700',  cta: 'text-violet-700 group-hover:text-violet-800', hoverRing: 'hover:border-violet-200' },
+  slate:   { iconBg: 'bg-slate-100',   iconColor: 'text-slate-700',   cta: 'text-slate-700 group-hover:text-slate-900',   hoverRing: 'hover:border-slate-300' },
 };
 
 const SOON: Record<Language, string> = {
@@ -50,39 +50,45 @@ export default function ModuleCard({ module, language, badge }: Props) {
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'group relative text-left w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition',
-        'ring-1 ring-transparent hover:shadow-md hover:-translate-y-0.5',
-        styles.ring,
+        'group relative text-left w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition flex flex-col',
+        'hover:shadow-md hover:-translate-y-0.5',
+        styles.hoverRing,
         disabled && 'opacity-70 cursor-not-allowed hover:translate-y-0 hover:shadow-sm',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center', styles.icon)}>
-          <Icon className="w-5 h-5" />
-        </div>
-        {!disabled && (
-          <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-gray-600 transition" />
-        )}
+      {/* Icon tile */}
+      <div className={cn('w-14 h-14 rounded-2xl flex items-center justify-center', styles.iconBg)}>
+        <Icon className={cn('w-7 h-7', styles.iconColor)} />
       </div>
 
-      <h3 className="mt-4 text-base font-semibold text-gray-900">
+      {/* Title + description */}
+      <h3 className="mt-5 text-lg font-bold text-gray-900">
         {module.title[language] || module.title.en}
       </h3>
-      <p className="mt-1 text-sm text-gray-500 leading-snug">
+      <p className="mt-2 text-sm text-gray-500 leading-relaxed flex-1">
         {module.description[language] || module.description.en}
       </p>
 
-      <div className="mt-4 flex items-center gap-2 min-h-[22px]">
-        {disabled && (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
-            {SOON[language] || SOON.en}
-          </span>
-        )}
-        {badge && (
-          <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold', badgeClass)}>
-            {badge.text}
-          </span>
-        )}
+      {/* Badges */}
+      {(disabled || badge) && (
+        <div className="mt-4 flex items-center gap-2">
+          {disabled && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
+              {SOON[language] || SOON.en}
+            </span>
+          )}
+          {badge && (
+            <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold', badgeClass)}>
+              {badge.text}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* CTA */}
+      <div className={cn('mt-5 inline-flex items-center gap-1.5 text-sm font-semibold transition', styles.cta)}>
+        {module.cta[language] || module.cta.en}
+        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>
   );

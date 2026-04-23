@@ -4,7 +4,7 @@
 
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
-import { Wrench, ShieldAlert, FileWarning, BookOpen, Film, Sparkles, LucideIcon } from 'lucide-react';
+import { Wrench, BookOpen, Film, Sparkles, LucideIcon } from 'lucide-react';
 
 export type PortalModuleId =
   | 'configurator'
@@ -23,6 +23,8 @@ export interface PortalModule {
   id: PortalModuleId;
   title: Record<Language, string>;
   description: Record<Language, string>;
+  /** Localized CTA button label shown at the bottom of each card. */
+  cta: Record<Language, string>;
   icon: LucideIcon;
   /** Where the card navigates. Internal route OR external URL. */
   href: string;
@@ -41,12 +43,13 @@ export const PORTAL_MODULES: PortalModule[] = [
     id: 'configurator',
     title: { da: 'Byg din Timan', en: 'Build your Timan', de: 'Bauen Sie Ihren Timan', it: 'Costruisci il tuo Timan', hu: 'Építse meg a Timanját' },
     description: {
-      da: 'Konfigurer maskine, redskaber og tilbud',
-      en: 'Configure machine, attachments and quote',
-      de: 'Maschine, Anbaugeräte und Angebot konfigurieren',
-      it: 'Configura macchina, accessori e preventivo',
-      hu: 'Gép, tartozékok és árajánlat összeállítása',
+      da: 'Konfigurer maskiner, se priser og specifikationer. Få AI-assistance til tilbud og afgiv ordrer direkte.',
+      en: 'Configure machines, view prices and specs. Get AI assistance for quotes and place orders directly.',
+      de: 'Maschinen konfigurieren, Preise und Spezifikationen ansehen. KI-Unterstützung für Angebote und Bestellungen.',
+      it: 'Configura macchine, visualizza prezzi e specifiche. Assistenza AI per preventivi e ordini diretti.',
+      hu: 'Gépek konfigurálása, árak és specifikációk megtekintése. AI segítség árajánlatokhoz és rendelésekhez.',
     },
+    cta: { da: 'Gå til konfigurator', en: 'Open configurator', de: 'Konfigurator öffnen', it: 'Apri configuratore', hu: 'Konfigurátor megnyitása' },
     icon: Wrench,
     href: '/configurator',
     enabled: true,
@@ -56,12 +59,13 @@ export const PORTAL_MODULES: PortalModule[] = [
     id: 'videos',
     title: { da: 'Video Galleri', en: 'Video gallery', de: 'Videogalerie', it: 'Galleria video', hu: 'Videógaléria' },
     description: {
-      da: 'Produktvideoer og træningsmateriale',
-      en: 'Product videos and training material',
-      de: 'Produktvideos und Schulungsmaterial',
-      it: 'Video di prodotto e formazione',
-      hu: 'Termékvideók és oktatóanyagok',
+      da: 'Hurtigt overblik over maskiner, redskaber og hjælpevideoer direkte fra vores YouTube-kanal.',
+      en: 'Quick overview of machines, attachments and help videos directly from our YouTube channel.',
+      de: 'Schneller Überblick über Maschinen, Anbaugeräte und Hilfevideos direkt von unserem YouTube-Kanal.',
+      it: 'Panoramica rapida di macchine, accessori e video di aiuto direttamente dal nostro canale YouTube.',
+      hu: 'Gyors áttekintés a gépekről, tartozékokról és súgóvideókról közvetlenül a YouTube-csatornánkról.',
     },
+    cta: { da: 'Se videoer', en: 'Watch videos', de: 'Videos ansehen', it: 'Guarda i video', hu: 'Videók megtekintése' },
     icon: Film,
     href: '/portal/videos',
     enabled: false,
@@ -71,12 +75,13 @@ export const PORTAL_MODULES: PortalModule[] = [
     id: 'resources',
     title: { da: 'Ressourcer', en: 'Resources', de: 'Ressourcen', it: 'Risorse', hu: 'Források' },
     description: {
-      da: 'Brochurer, manualer og prislister',
-      en: 'Brochures, manuals and price lists',
-      de: 'Broschüren, Handbücher und Preislisten',
-      it: 'Brochure, manuali e listini',
-      hu: 'Brosúrák, kézikönyvek és árlisták',
+      da: 'Hent nyhedsbreve, formularer og andet nyttigt materiale til din forretning.',
+      en: 'Download newsletters, forms and other useful material for your business.',
+      de: 'Newsletter, Formulare und anderes nützliches Material für Ihr Geschäft herunterladen.',
+      it: 'Scarica newsletter, moduli e altro materiale utile per la tua attività.',
+      hu: 'Töltsön le hírleveleket, űrlapokat és egyéb hasznos anyagokat vállalkozásához.',
     },
+    cta: { da: 'Åbn bibliotek', en: 'Open library', de: 'Bibliothek öffnen', it: 'Apri biblioteca', hu: 'Könyvtár megnyitása' },
     icon: BookOpen,
     href: '/portal/resources',
     enabled: false,
@@ -86,12 +91,13 @@ export const PORTAL_MODULES: PortalModule[] = [
     id: 'misc',
     title: { da: 'Diverse', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb' },
     description: {
-      da: 'Diverse værktøjer og links',
-      en: 'Other tools and links',
-      de: 'Sonstige Werkzeuge und Links',
-      it: 'Altri strumenti e link',
-      hu: 'Egyéb eszközök és linkek',
+      da: 'Diverse indstillinger, kontaktinfo og øvrige værktøjer samlet ét sted.',
+      en: 'Other settings, contact info and additional tools all in one place.',
+      de: 'Sonstige Einstellungen, Kontaktinformationen und zusätzliche Werkzeuge an einem Ort.',
+      it: 'Altre impostazioni, contatti e strumenti aggiuntivi in un unico posto.',
+      hu: 'Egyéb beállítások, kapcsolati információk és további eszközök egy helyen.',
     },
+    cta: { da: 'Se mere', en: 'See more', de: 'Mehr ansehen', it: 'Scopri di più', hu: 'További információ' },
     icon: Sparkles,
     href: '/portal/misc',
     enabled: false,
