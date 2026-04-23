@@ -8,10 +8,8 @@ import { Wrench, ShieldAlert, FileWarning, BookOpen, Film, Sparkles, LucideIcon 
 
 export type PortalModuleId =
   | 'configurator'
-  | 'claims'
-  | 'tsb'
-  | 'resources'
   | 'videos'
+  | 'resources'
   | 'misc';
 
 export interface PortalMetric {
@@ -41,7 +39,7 @@ export interface PortalModule {
 export const PORTAL_MODULES: PortalModule[] = [
   {
     id: 'configurator',
-    title: { da: 'Build your Timan', en: 'Build your Timan', de: 'Build your Timan', it: 'Build your Timan', hu: 'Build your Timan' },
+    title: { da: 'Byg din Timan', en: 'Build your Timan', de: 'Bauen Sie Ihren Timan', it: 'Costruisci il tuo Timan', hu: 'Építse meg a Timanját' },
     description: {
       da: 'Konfigurer maskine, redskaber og tilbud',
       en: 'Configure machine, attachments and quote',
@@ -55,55 +53,8 @@ export const PORTAL_MODULES: PortalModule[] = [
     accent: 'primary',
   },
   {
-    id: 'claims',
-    title: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' },
-    description: {
-      da: 'Indsend og følg garantisager',
-      en: 'Submit and follow warranty cases',
-      de: 'Garantiefälle einreichen und verfolgen',
-      it: 'Invia e segui le richieste di garanzia',
-      hu: 'Garanciális ügyek beküldése és követése',
-    },
-    icon: ShieldAlert,
-    href: '/portal/claims',
-    enabled: false,
-    visibleToRoles: ['partner', 'timan_saelger'],
-    accent: 'rose',
-  },
-  {
-    id: 'tsb',
-    title: { da: 'TSB / Service', en: 'TSB / Service', de: 'TSB / Service', it: 'TSB / Assistenza', hu: 'TSB / Szerviz' },
-    description: {
-      da: 'Tekniske service-bulletiner og service-sager',
-      en: 'Technical Service Bulletins and service cases',
-      de: 'Technische Service-Bulletins und Service-Fälle',
-      it: 'Bollettini tecnici e casi di assistenza',
-      hu: 'Műszaki értesítők és szervizügyek',
-    },
-    icon: FileWarning,
-    href: '/portal/tsb',
-    enabled: false,
-    visibleToRoles: ['partner', 'timan_saelger'],
-    accent: 'amber',
-  },
-  {
-    id: 'resources',
-    title: { da: 'Resources', en: 'Resources', de: 'Ressourcen', it: 'Risorse', hu: 'Források' },
-    description: {
-      da: 'Brochurer, manualer og prislister',
-      en: 'Brochures, manuals and price lists',
-      de: 'Broschüren, Handbücher und Preislisten',
-      it: 'Brochure, manuali e listini',
-      hu: 'Brosúrák, kézikönyvek és árlisták',
-    },
-    icon: BookOpen,
-    href: '/portal/resources',
-    enabled: false,
-    accent: 'sky',
-  },
-  {
     id: 'videos',
-    title: { da: 'Video gallery', en: 'Video gallery', de: 'Videogalerie', it: 'Galleria video', hu: 'Videógaléria' },
+    title: { da: 'Video Galleri', en: 'Video gallery', de: 'Videogalerie', it: 'Galleria video', hu: 'Videógaléria' },
     description: {
       da: 'Produktvideoer og træningsmateriale',
       en: 'Product videos and training material',
@@ -117,8 +68,23 @@ export const PORTAL_MODULES: PortalModule[] = [
     accent: 'violet',
   },
   {
+    id: 'resources',
+    title: { da: 'Ressourcer', en: 'Resources', de: 'Ressourcen', it: 'Risorse', hu: 'Források' },
+    description: {
+      da: 'Brochurer, manualer og prislister',
+      en: 'Brochures, manuals and price lists',
+      de: 'Broschüren, Handbücher und Preislisten',
+      it: 'Brochure, manuali e listini',
+      hu: 'Brosúrák, kézikönyvek és árlisták',
+    },
+    icon: BookOpen,
+    href: '/portal/resources',
+    enabled: false,
+    accent: 'sky',
+  },
+  {
     id: 'misc',
-    title: { da: 'Miscellaneous', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb' },
+    title: { da: 'Diverse', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb' },
     description: {
       da: 'Diverse værktøjer og links',
       en: 'Other tools and links',
