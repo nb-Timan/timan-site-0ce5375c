@@ -68,7 +68,9 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
 
-  const [appUser, setAppUser] = useState<(AppUser & { email: string }) | null>(null);
+  const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
+  const navigate = useNavigate();
+  const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   const permissions = {
     canSeePrices: appUser?.can_view_prices ?? false,
     canSubmitOrder: appUser?.can_submit_order ?? false,
