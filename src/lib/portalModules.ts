@@ -8,10 +8,8 @@ import { Wrench, ShieldAlert, FileWarning, BookOpen, Film, Sparkles, LucideIcon 
 
 export type PortalModuleId =
   | 'configurator'
-  | 'claims'
-  | 'tsb'
-  | 'resources'
   | 'videos'
+  | 'resources'
   | 'misc';
 
 export interface PortalMetric {
