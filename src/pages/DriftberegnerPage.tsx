@@ -537,7 +537,7 @@ export default function DriftberegnerPage() {
               {t.commonHeader}
             </div>
             <div className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="col-span-2 md:col-span-1">
+              <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
                   {t.fuelPrice} ({loc.currency})
                 </label>
@@ -545,7 +545,7 @@ export default function DriftberegnerPage() {
                   type="number"
                   value={common.fuelPrice}
                   onChange={(e) => updateCommon('fuelPrice', e.target.value)}
-                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
               {([
@@ -560,7 +560,7 @@ export default function DriftberegnerPage() {
                     type="number"
                     value={common[key]}
                     onChange={(e) => updateCommon(key, e.target.value)}
-                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                   />
                 </div>
               ))}
@@ -602,7 +602,7 @@ export default function DriftberegnerPage() {
                           type="text"
                           value={formatThousands(machinesState[m].purchasePrice)}
                           onChange={(e) => updateMachinePrice(m, e.target.value)}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
                     ))}
@@ -616,7 +616,7 @@ export default function DriftberegnerPage() {
                           type="number"
                           value={machinesState[m].fuelConsumption}
                           onChange={(e) => updateMachineField(m, 'fuelConsumption', num(e.target.value))}
-                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
                     ))}
@@ -630,7 +630,7 @@ export default function DriftberegnerPage() {
                           type="text"
                           value={formatThousands(machinesState[m].serviceCostYear)}
                           onChange={(e) => updateMachineServiceManual(m, e.target.value)}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none mb-1"
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1"
                         />
                         <button
                           onClick={() => openServiceModal(m)}
@@ -650,7 +650,7 @@ export default function DriftberegnerPage() {
                           type="number"
                           value={machinesState[m].residualValuePercent}
                           onChange={(e) => updateMachineField(m, 'residualValuePercent', num(e.target.value))}
-                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
                     ))}
