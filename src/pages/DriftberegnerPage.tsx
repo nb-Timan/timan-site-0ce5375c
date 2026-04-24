@@ -515,11 +515,7 @@ export default function DriftberegnerPage() {
     setTiman3330({ ...baseMachines.timan3330, isServiceManual: false });
   };
 
-  const changeLanguage = (v: LangKey) => {
-    setCurrentLang(v);
-    // Keep portal-wide language in sync when compatible
-    setAppLang(v);
-  };
+  // (Language is controlled by the global PortalHeader selector.)
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
