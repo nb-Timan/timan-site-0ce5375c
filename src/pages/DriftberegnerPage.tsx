@@ -548,9 +548,9 @@ export default function DriftberegnerPage() {
         />
       </div>
 
-      {/* Calculator sub-header */}
-      <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4 flex items-center">
+      {/* Back button - directly below header */}
+      <div className="bg-white border-b border-gray-200 py-3 no-print">
+        <div className="max-w-4xl mx-auto px-4">
           <button
             onClick={() => navigate('/portal/resources')}
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
@@ -558,6 +558,16 @@ export default function DriftberegnerPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             {t.back}
           </button>
+        </div>
+      </div>
+
+      {/* Calculator sub-header */}
+      <header className="bg-white border-b border-gray-200 py-6 no-print">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
+            <p className="text-gray-500">{t.subtitle}</p>
+          </div>
         </div>
       </header>
 

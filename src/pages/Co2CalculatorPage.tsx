@@ -127,9 +127,9 @@ export default function Co2CalculatorPage() {
         }}
       />
 
-      {/* CO2 sub-header */}
-      <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+      {/* Back button - directly below header */}
+      <div className="bg-white border-b border-gray-200 py-3 no-print">
+        <div className="max-w-4xl mx-auto px-4">
           <button
             onClick={() => navigate('/portal/resources')}
             className="flex items-center text-emerald-600 font-semibold hover:underline"
@@ -137,6 +137,16 @@ export default function Co2CalculatorPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             {backT[lang]}
           </button>
+        </div>
+      </div>
+
+      {/* CO2 sub-header */}
+      <header className="bg-white border-b border-gray-200 py-6 no-print">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900">{t.co2Title}</h1>
+            <p className="text-gray-500">{t.co2Subtitle}</p>
+          </div>
         </div>
       </header>
 
