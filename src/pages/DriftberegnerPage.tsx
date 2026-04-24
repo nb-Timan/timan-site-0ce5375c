@@ -409,15 +409,15 @@ const MACHINE_KEYS: MachineKey[] = ['rc751', 'rc1000', 'timan3330'];
 
 export default function DriftberegnerPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state: appState, setLanguage: setAppLang } = useConfigurator();
+  const { language: appLanguage, setLanguage: setAppLang } = useLanguage();
   const navigate = useNavigate();
 
-  // Calculator-local language (DA/DE/EN). Default from app language if compatible.
-  const initialLang: LangKey = (['da', 'de', 'en'] as LangKey[]).includes(appState.language as LangKey)
-    ? (appState.language as LangKey)
+  // Calculator only ships DA/DE/EN translations. Map other portal languages
+  // (it/hu) to Danish as the requested fallback.
+  const currentLang: LangKey = (['da', 'de', 'en'] as LangKey[]).includes(appLanguage as LangKey)
+    ? (appLanguage as LangKey)
     : 'da';
 
-  const [currentLang, setCurrentLang] = useState<LangKey>(initialLang);
   const [common, setCommon] = useState<Common>({ ...baseCommon });
   const [rc751, setRc751] = useState<Machine>({ ...baseMachines.rc751, isServiceManual: false });
   const [rc1000, setRc1000] = useState<Machine>({ ...baseMachines.rc1000, isServiceManual: false });
