@@ -152,10 +152,6 @@ export default function Co2CalculatorPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8 flex-grow w-full no-print">
         <div className="w-full">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">{t.co2Title}</h1>
-            <p className="text-gray-500">{t.co2Subtitle}</p>
-          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left column: parameters + info */}
