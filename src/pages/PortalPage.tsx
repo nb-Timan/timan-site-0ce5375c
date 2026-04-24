@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
@@ -26,7 +26,7 @@ const T: Record<string, Record<Language, string>> = {
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   if (loading) {
@@ -45,10 +45,10 @@ export default function PortalPage() {
           <div className="inline-flex items-center gap-2 mb-3">
             <span className="bg-[#2d5a27] text-white font-bold px-3 py-1 rounded text-xl">TIMAN</span>
           </div>
-          <p className="text-sm text-gray-500">{T.loginNeeded[state.language]}</p>
+          <p className="text-sm text-gray-500">{T.loginNeeded[lang]}</p>
         </div>
         <LoginStep
-          language={state.language}
+          language={lang}
           onResolved={(user) => {
             setAppUser(user);
             navigate('/portal', { replace: true });
@@ -64,7 +64,6 @@ export default function PortalPage() {
   }
 
   const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
-  const lang = state.language;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

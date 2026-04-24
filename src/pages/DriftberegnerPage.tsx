@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, RotateCw, Info, Printer, Globe } from 'lucide-react';
+import { ArrowLeft, Calculator, RotateCw, Info, Printer } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 
@@ -409,15 +409,15 @@ const MACHINE_KEYS: MachineKey[] = ['rc751', 'rc1000', 'timan3330'];
 
 export default function DriftberegnerPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state: appState, setLanguage: setAppLang } = useConfigurator();
+  const { language: appLanguage, setLanguage: setAppLang } = useLanguage();
   const navigate = useNavigate();
 
-  // Calculator-local language (DA/DE/EN). Default from app language if compatible.
-  const initialLang: LangKey = (['da', 'de', 'en'] as LangKey[]).includes(appState.language as LangKey)
-    ? (appState.language as LangKey)
+  // Calculator only ships DA/DE/EN translations. Map other portal languages
+  // (it/hu) to Danish as the requested fallback.
+  const currentLang: LangKey = (['da', 'de', 'en'] as LangKey[]).includes(appLanguage as LangKey)
+    ? (appLanguage as LangKey)
     : 'da';
 
-  const [currentLang, setCurrentLang] = useState<LangKey>(initialLang);
   const [common, setCommon] = useState<Common>({ ...baseCommon });
   const [rc751, setRc751] = useState<Machine>({ ...baseMachines.rc751, isServiceManual: false });
   const [rc1000, setRc1000] = useState<Machine>({ ...baseMachines.rc1000, isServiceManual: false });
@@ -515,11 +515,7 @@ export default function DriftberegnerPage() {
     setTiman3330({ ...baseMachines.timan3330, isServiceManual: false });
   };
 
-  const changeLanguage = (v: LangKey) => {
-    setCurrentLang(v);
-    // Keep portal-wide language in sync when compatible
-    setAppLang(v);
-  };
+  // (Language is controlled by the global PortalHeader selector.)
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -543,7 +539,7 @@ export default function DriftberegnerPage() {
       <div className="no-print">
         <PortalHeader
           user={appUser}
-          language={appState.language}
+          language={appLanguage}
           onLanguageChange={setAppLang}
           onLogout={async () => {
             await logout();
@@ -554,7 +550,7 @@ export default function DriftberegnerPage() {
 
       {/* Calculator sub-header */}
       <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+        <div className="max-w-4xl mx-auto px-4 flex items-center">
           <button
             onClick={() => navigate('/portal/resources')}
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
@@ -562,19 +558,6 @@ export default function DriftberegnerPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             {t.back}
           </button>
-
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-            <span className="text-gray-400"><Globe className="h-3.5 w-3.5" /></span>
-            <select
-              value={currentLang}
-              onChange={(e) => changeLanguage(e.target.value as LangKey)}
-              className="bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer"
-            >
-              {(Object.keys(locales) as LangKey[]).map(k => (
-                <option key={k} value={k}>{locales[k].label}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </header>
 
@@ -791,7 +774,7 @@ export default function DriftberegnerPage() {
       </main>
 
       <div className="no-print">
-        <PortalFooter language={appState.language} />
+        <PortalFooter language={appLanguage} />
       </div>
 
       {/* Service basis modal */}
