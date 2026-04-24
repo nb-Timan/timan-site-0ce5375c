@@ -439,11 +439,14 @@ export default function DriftberegnerPage() {
   };
 
   // All hooks must be called before any early returns
-  const results = useMemo(() => ({
-    rc751: calculateCosts(common, rc751),
-    rc1000: calculateCosts(common, rc1000),
-    timan3330: calculateCosts(common, timan3330),
-  }), [common, rc751, rc1000, timan3330]);
+  const results = useMemo(() => {
+    const yearlyHours = num(common.daysPerYear) * num(common.hoursPerDay);
+    return {
+      rc751: calculateCosts(common, rc751, calculateYearlyServiceCost('rc751', yearlyHours)),
+      rc1000: calculateCosts(common, rc1000, calculateYearlyServiceCost('rc1000', yearlyHours)),
+      timan3330: calculateCosts(common, timan3330, calculateYearlyServiceCost('timan3330', yearlyHours)),
+    };
+  }, [common, rc751, rc1000, timan3330]);
 
   if (loading) {
     return (
