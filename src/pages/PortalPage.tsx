@@ -64,7 +64,6 @@ export default function PortalPage() {
   }
 
   const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
-  const lang = state.language;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
