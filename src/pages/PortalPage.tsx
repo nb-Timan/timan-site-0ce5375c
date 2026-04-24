@@ -13,7 +13,7 @@ const T: Record<string, Record<Language, string>> = {
   loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
   heroTitle:    { da: 'Velkommen til Timan', en: 'Welcome to Timan', de: 'Willkommen bei Timan', it: 'Benvenuto in Timan', hu: 'Üdvözöljük a Timannál' },
   heroBody: {
-    da: 'Din centrale adgang til konfiguration, salgsværktøjer og teknisk support.',
+    da: 'Din centrale adgang som samarbejdspartner til konfiguration, salgsværktøjer og værdifulde ressourcer.',
     en: 'Your central access to configuration, sales tools and technical support.',
     de: 'Ihr zentraler Zugang zu Konfiguration, Vertriebstools und technischem Support.',
     it: 'Il tuo accesso centrale a configurazione, strumenti di vendita e supporto tecnico.',
