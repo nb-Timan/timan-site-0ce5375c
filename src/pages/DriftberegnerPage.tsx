@@ -358,7 +358,36 @@ const num = (v: string | number) => {
   return isNaN(n) ? 0 : n;
 };
 
-function calculateCosts(common: Common, machine: Machine) {
+// Calculate the yearly service cost for a machine based on its service intervals
+// and the number of operating hours per year. Service plan repeats in cycles
+// of length = max defined interval.
+function calculateYearlyServiceCost(machineKey: MachineKey, yearlyHours: number): number {
+  const svc = servicePartsData[machineKey];
+  if (!svc || yearlyHours <= 0) return 0;
+
+  const intervals = svc.intervals;
+  if (intervals.length === 0) return 0;
+
+  const cycleLength = Math.max(...intervals);
+  if (cycleLength <= 0) return 0;
+
+  const cycleTotal = intervals.reduce(
+    (sum, h) => sum + (svc.steps[h]?.stepTotal ?? 0),
+    0
+  );
+
+  const fullCycles = Math.floor(yearlyHours / cycleLength);
+  const remainder = yearlyHours - fullCycles * cycleLength;
+
+  const remainderTotal = intervals.reduce(
+    (sum, h) => (h <= remainder ? sum + (svc.steps[h]?.stepTotal ?? 0) : sum),
+    0
+  );
+
+  return fullCycles * cycleTotal + remainderTotal;
+}
+
+function calculateCosts(common: Common, machine: Machine, serviceCostYear: number) {
   const totalHours = num(common.daysPerYear) * num(common.hoursPerDay);
   const residualVal = num(machine.purchasePrice) * (num(machine.residualValuePercent) / 100);
   const deprYear = num(common.depreciationYears) > 0
@@ -366,12 +395,13 @@ function calculateCosts(common: Common, machine: Machine) {
     : 0;
   const interestYear = ((num(machine.purchasePrice) + residualVal) / 2) * (num(common.interestRate) / 100);
   const fuelYear = totalHours * num(machine.fuelConsumption) * num(common.fuelPrice);
-  const totalYear = deprYear + interestYear + fuelYear + num(machine.serviceCostYear);
+  const totalYear = deprYear + interestYear + fuelYear + serviceCostYear;
   return {
     totalHours, totalYear,
     hourCost: totalHours > 0 ? totalYear / totalHours : 0,
     capital: deprYear + interestYear,
     fuel: fuelYear,
+    serviceCostYear,
   };
 }
 
@@ -409,11 +439,14 @@ export default function DriftberegnerPage() {
   };
 
   // All hooks must be called before any early returns
-  const results = useMemo(() => ({
-    rc751: calculateCosts(common, rc751),
-    rc1000: calculateCosts(common, rc1000),
-    timan3330: calculateCosts(common, timan3330),
-  }), [common, rc751, rc1000, timan3330]);
+  const results = useMemo(() => {
+    const yearlyHours = num(common.daysPerYear) * num(common.hoursPerDay);
+    return {
+      rc751: calculateCosts(common, rc751, calculateYearlyServiceCost('rc751', yearlyHours)),
+      rc1000: calculateCosts(common, rc1000, calculateYearlyServiceCost('rc1000', yearlyHours)),
+      timan3330: calculateCosts(common, timan3330, calculateYearlyServiceCost('timan3330', yearlyHours)),
+    };
+  }, [common, rc751, rc1000, timan3330]);
 
   if (loading) {
     return (
@@ -628,9 +661,10 @@ export default function DriftberegnerPage() {
                       <td key={m} className="px-6 py-4 text-center">
                         <input
                           type="text"
-                          value={formatThousands(machinesState[m].serviceCostYear)}
-                          onChange={(e) => updateMachineServiceManual(m, e.target.value)}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1"
+                          value={formatThousands(Math.round(results[m].serviceCostYear))}
+                          readOnly
+                          tabIndex={-1}
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1 cursor-default"
                         />
                         <button
                           onClick={() => openServiceModal(m)}
