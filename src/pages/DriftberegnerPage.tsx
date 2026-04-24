@@ -539,7 +539,7 @@ export default function DriftberegnerPage() {
       <div className="no-print">
         <PortalHeader
           user={appUser}
-          language={appState.language}
+          language={appLanguage}
           onLanguageChange={setAppLang}
           onLogout={async () => {
             await logout();
@@ -550,7 +550,7 @@ export default function DriftberegnerPage() {
 
       {/* Calculator sub-header */}
       <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+        <div className="max-w-4xl mx-auto px-4 flex items-center">
           <button
             onClick={() => navigate('/portal/resources')}
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
@@ -558,19 +558,6 @@ export default function DriftberegnerPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             {t.back}
           </button>
-
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-            <span className="text-gray-400"><Globe className="h-3.5 w-3.5" /></span>
-            <select
-              value={currentLang}
-              onChange={(e) => changeLanguage(e.target.value as LangKey)}
-              className="bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer"
-            >
-              {(Object.keys(locales) as LangKey[]).map(k => (
-                <option key={k} value={k}>{locales[k].label}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </header>
 
