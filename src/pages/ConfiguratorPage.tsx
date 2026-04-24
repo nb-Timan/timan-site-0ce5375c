@@ -64,14 +64,29 @@ function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
 
 export default function ConfiguratorPage() {
   const {
-    state, setStep, setLanguage, setFlowType, setMachineQty, setConfigMode,
+    state, setStep, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
 
   const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
+  const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
+
+  // Keep the configurator's internal language in sync with the global portal
+  // language so the top-bar selector controls every page consistently.
+  useEffect(() => {
+    if (state.language !== globalLanguage) {
+      setConfigLanguage(globalLanguage);
+    }
+  }, [globalLanguage, state.language, setConfigLanguage]);
+
+  // Wrap setLanguage so the in-page flag buttons also push to the global store.
+  const setLanguage = useCallback((next: Language) => {
+    setConfigLanguage(next);
+    setGlobalLanguage(next);
+  }, [setConfigLanguage, setGlobalLanguage]);
   const permissions = {
     canSeePrices: appUser?.can_view_prices ?? false,
     canSubmitOrder: appUser?.can_submit_order ?? false,
