@@ -537,7 +537,7 @@ export default function DriftberegnerPage() {
               {t.commonHeader}
             </div>
             <div className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="col-span-2 md:col-span-1">
+              <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
                   {t.fuelPrice} ({loc.currency})
                 </label>
@@ -545,7 +545,7 @@ export default function DriftberegnerPage() {
                   type="number"
                   value={common.fuelPrice}
                   onChange={(e) => updateCommon('fuelPrice', e.target.value)}
-                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
               {([
@@ -560,7 +560,7 @@ export default function DriftberegnerPage() {
                     type="number"
                     value={common[key]}
                     onChange={(e) => updateCommon(key, e.target.value)}
-                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                   />
                 </div>
               ))}
