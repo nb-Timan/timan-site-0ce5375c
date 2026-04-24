@@ -23,20 +23,22 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppUserProvider>
-          <Routes>
-            {/* Portal is the new landing page after login */}
-            <Route path="/" element={<Navigate to="/portal" replace />} />
-            <Route path="/portal" element={<PortalPage />} />
-            <Route path="/portal/videos" element={<VideoGalleryPage />} />
-            <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
-            <Route path="/portal/resources" element={<ResourcesPage />} />
-            <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
-            <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
-            {/* Existing configurator is preserved at /configurator */}
-            <Route path="/configurator" element={<ConfiguratorPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <LanguageProvider>
+            <Routes>
+              {/* Portal is the new landing page after login */}
+              <Route path="/" element={<Navigate to="/portal" replace />} />
+              <Route path="/portal" element={<PortalPage />} />
+              <Route path="/portal/videos" element={<VideoGalleryPage />} />
+              <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
+              <Route path="/portal/resources" element={<ResourcesPage />} />
+              <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
+              <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
+              {/* Existing configurator is preserved at /configurator */}
+              <Route path="/configurator" element={<ConfiguratorPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>
     </TooltipProvider>
