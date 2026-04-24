@@ -641,11 +641,34 @@ export default function DriftberegnerPage() {
                       </td>
                     ))}
                   </tr>
+                  {/* Residual value (%) - editable */}
+                  <tr>
+                    <td className="px-6 py-4 font-medium text-gray-500">{t.residualValue} (%)</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4">
+                        <input
+                          type="number"
+                          value={machinesState[m].residualValuePercent}
+                          onChange={(e) => updateMachineField(m, 'residualValuePercent', num(e.target.value))}
+                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                        />
+                      </td>
+                    ))}
+                  </tr>
                   {/* Calculated header */}
                   <tr className="bg-gray-50/50">
                     <td colSpan={4} className="px-6 py-2 text-[10px] font-black text-gray-300 uppercase">
                       {t.calcData}
                     </td>
+                  </tr>
+                  {/* Hours per year */}
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500">{t.totalHours}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center font-bold">
+                        {formatThousands(results[m].totalHours)}
+                      </td>
+                    ))}
                   </tr>
                   {/* Fuel cost */}
                   <tr>
@@ -656,12 +679,21 @@ export default function DriftberegnerPage() {
                       </td>
                     ))}
                   </tr>
-                  {/* Capital cost */}
+                  {/* Capital cost (depreciation + interest) */}
                   <tr>
                     <td className="px-6 py-4 text-gray-500">{t.capitalCost}</td>
                     {MACHINE_KEYS.map(m => (
                       <td key={m} className="px-6 py-4 text-center font-bold">
                         {formatCurrency(results[m].capital)}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Total per year */}
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500">{t.totalYear}</td>
+                    {MACHINE_KEYS.map(m => (
+                      <td key={m} className="px-6 py-4 text-center font-bold">
+                        {formatCurrency(results[m].totalYear)}
                       </td>
                     ))}
                   </tr>
