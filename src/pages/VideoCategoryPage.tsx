@@ -1,7 +1,7 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Play } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { getCategoryById } from '@/data/videoCategories';
