@@ -573,11 +573,6 @@ export default function DriftberegnerPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center w-full flex-grow">
         <div className="w-full space-y-6 print-area">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-            <p className="text-gray-500">{t.subtitle}</p>
-          </div>
 
           {/* Assumptions */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
