@@ -214,7 +214,7 @@ const servicePartsData: Record<MachineKey, MachineService> = {
       },
       300: {
         rows: [
-          { id: '15901064', name: 'Oliefilter Vanguard', price: 206.00, style: 1, sum: 206.00 },
+          { id: '15901064', name: 'Oliefilter Vanguard', price: 206.00, count: 1, sum: 206.00 },
           { id: '13101012', name: 'Motorolie Texaco Delo', price: 97.63, count: 1, sum: 97.63 },
           { id: '22601012', name: 'Luftfilter Vanguard', price: 385.30, count: 1, sum: 385.30 },
           { id: '22601013', name: 'Forfilter Vanguard', price: 137.40, count: 1, sum: 137.40 },
