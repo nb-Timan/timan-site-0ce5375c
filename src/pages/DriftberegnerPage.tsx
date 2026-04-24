@@ -602,7 +602,7 @@ export default function DriftberegnerPage() {
                           type="text"
                           value={formatThousands(machinesState[m].purchasePrice)}
                           onChange={(e) => updateMachinePrice(m, e.target.value)}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-center font-bold text-xs outline-none"
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
                     ))}
