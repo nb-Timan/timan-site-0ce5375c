@@ -85,9 +85,8 @@ const INITIAL: Co2State = {
 
 export default function Co2CalculatorPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const lang = state.language;
   const [co2, setCo2] = useState<Co2State>(INITIAL);
 
   if (loading) {
