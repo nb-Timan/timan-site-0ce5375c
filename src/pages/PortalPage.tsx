@@ -26,7 +26,7 @@ const T: Record<string, Record<Language, string>> = {
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   if (loading) {
