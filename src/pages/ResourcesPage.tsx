@@ -38,9 +38,8 @@ const T: Record<string, Record<Language, string>> = {
 
 export default function ResourcesPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const lang = state.language;
 
   if (loading) {
     return (
