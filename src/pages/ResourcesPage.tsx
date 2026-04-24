@@ -64,15 +64,22 @@ export default function ResourcesPage() {
         }}
       />
 
-      <header className="bg-white border-b border-gray-200 py-10">
+      {/* Back button - directly below header */}
+      <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => navigate('/portal')}
-            className="flex items-center text-[#2d5a27] font-semibold mb-4 hover:underline"
+            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             {T.back[lang]}
           </button>
+        </div>
+      </div>
+
+      {/* Page header */}
+      <header className="bg-white border-b border-gray-200 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold text-gray-900">{T.title[lang]}</h1>
           <p className="text-gray-500 mt-2">{T.intro[lang]}</p>
         </div>
