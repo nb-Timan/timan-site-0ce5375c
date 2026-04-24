@@ -1,7 +1,7 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Wrench, BookOpen } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Language } from '@/types/configurator';
