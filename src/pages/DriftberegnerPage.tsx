@@ -774,7 +774,7 @@ export default function DriftberegnerPage() {
       </main>
 
       <div className="no-print">
-        <PortalFooter language={appState.language} />
+        <PortalFooter language={appLanguage} />
       </div>
 
       {/* Service basis modal */}
