@@ -661,9 +661,10 @@ export default function DriftberegnerPage() {
                       <td key={m} className="px-6 py-4 text-center">
                         <input
                           type="text"
-                          value={formatThousands(machinesState[m].serviceCostYear)}
-                          onChange={(e) => updateMachineServiceManual(m, e.target.value)}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1"
+                          value={formatThousands(Math.round(results[m].serviceCostYear))}
+                          readOnly
+                          tabIndex={-1}
+                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1 cursor-default"
                         />
                         <button
                           onClick={() => openServiceModal(m)}
