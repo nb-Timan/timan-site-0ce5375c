@@ -45,7 +45,6 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               alt="Timan"
               className="h-12 sm:h-14 w-auto object-contain"
             />
-            <span className="ml-3 text-gray-500 font-medium hidden sm:block">| {T.portal[language]}</span>
           </div>
 
           {/* Right: language flags + bell + user chip + logout */}
