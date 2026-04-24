@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
