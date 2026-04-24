@@ -425,11 +425,33 @@ export default function DriftberegnerPage() {
   const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<number | null>(null);
 
+  // Compute the interval that represents the "current step" in the service cycle
+  // for the given yearly hours. Cycle length = max defined interval.
+  const computeRelevantInterval = (m: MachineKey, yearlyHours: number): number | null => {
+    const svc = servicePartsData[m];
+    if (!svc || svc.intervals.length === 0) return null;
+    const sorted = [...svc.intervals].sort((a, b) => a - b);
+    const cycleLength = sorted[sorted.length - 1];
+    if (cycleLength <= 0 || yearlyHours <= 0) return sorted[0];
+    const remainder = yearlyHours % cycleLength;
+    // If remainder is 0, the cycle has just completed → use the highest interval
+    if (remainder === 0) return cycleLength;
+    // Find the nearest completed interval at or below remainder
+    let candidate = sorted[0];
+    for (const h of sorted) {
+      if (h <= remainder) candidate = h;
+      else break;
+    }
+    return candidate;
+  };
+
   const openServiceModal = (m: MachineKey) => {
     const svc = servicePartsData[m];
-    // Default to interval that has data, otherwise last interval
+    const yearlyHours = num(common.daysPerYear) * num(common.hoursPerDay);
+    const relevant = computeRelevantInterval(m, yearlyHours);
+    // Fallback chain: relevant → first interval with data → last interval
     const withData = svc.intervals.find(i => svc.steps[i]);
-    setSelectedInterval(withData ?? svc.intervals[svc.intervals.length - 1]);
+    setSelectedInterval(relevant ?? withData ?? svc.intervals[svc.intervals.length - 1]);
     setModalMachine(m);
   };
 
