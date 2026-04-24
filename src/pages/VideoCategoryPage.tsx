@@ -20,10 +20,9 @@ const localeMap: Record<Language, string> = {
 
 export default function VideoCategoryPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { state, setLanguage } = useConfigurator();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const { categoryId } = useParams<{ categoryId: string }>();
-  const lang = state.language;
 
   if (loading) {
     return (
