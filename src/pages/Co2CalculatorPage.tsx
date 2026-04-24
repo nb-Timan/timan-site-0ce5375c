@@ -137,22 +137,6 @@ export default function Co2CalculatorPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             {backT[lang]}
           </button>
-
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
-            {LANGS.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition ${
-                  lang === l.code ? 'bg-white shadow-sm border border-emerald-600/30 text-gray-900' : 'text-gray-600 hover:bg-white'
-                }`}
-                aria-label={l.code}
-              >
-                <span className="text-base leading-none">{l.flag}</span>
-                <span className="hidden sm:inline">{l.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
