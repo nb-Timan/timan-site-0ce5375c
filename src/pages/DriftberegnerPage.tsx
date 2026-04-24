@@ -846,6 +846,9 @@ export default function DriftberegnerPage() {
                       );
                     })}
                   </div>
+                  <div className="mt-3 text-xs text-gray-500">
+                    Beregnet ud fra: {formatThousands(num(common.daysPerYear) * num(common.hoursPerDay))} timer/år
+                  </div>
                 </div>
 
                 {/* Parts table */}
