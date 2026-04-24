@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, RotateCw, Info, Printer, Globe } from 'lucide-react';
+import { ArrowLeft, Calculator, RotateCw, Info, Printer } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { useConfigurator } from '@/hooks/useConfigurator';
+import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 
