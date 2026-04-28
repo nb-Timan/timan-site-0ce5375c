@@ -27,6 +27,7 @@ export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) {
     return (
