@@ -240,10 +240,16 @@ export default function CrmLeadsPage() {
             )}
           </p>
         </div>
-        <Link to="/portal/crm/leads/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] text-white text-sm font-medium px-4 py-2.5 shadow-sm transition">
-          <Plus className="h-4 w-4" /> Nyt lead
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/portal/crm/demo-leads/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-gray-50 text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] text-sm font-medium px-4 py-2.5 shadow-sm transition">
+            <Plus className="h-4 w-4" /> Ny demo-registrering
+          </Link>
+          <Link to="/portal/crm/leads/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] text-white text-sm font-medium px-4 py-2.5 shadow-sm transition">
+            <Plus className="h-4 w-4" /> Nyt lead
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}
