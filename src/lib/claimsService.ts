@@ -71,6 +71,36 @@ export interface LoadClaimsResult {
   error?: string;
 }
 
+export interface LoadClaimResult {
+  claim: ServiceClaim | null;
+  source: 'supabase' | 'mock';
+  error?: string;
+}
+
+export async function getClaimById(id: string): Promise<LoadClaimResult> {
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .select('id, claim_number, machine_serial, machine_model, customer_name, description, status, created_at, created_by_email')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      const fallback = MOCK_CLAIMS.find(c => c.id === id) ?? null;
+      return { claim: fallback, source: 'mock', error: error.message };
+    }
+    if (!data) {
+      const fallback = MOCK_CLAIMS.find(c => c.id === id) ?? null;
+      return { claim: fallback, source: fallback ? 'mock' : 'supabase' };
+    }
+    return { claim: data as ServiceClaim, source: 'supabase' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    const fallback = MOCK_CLAIMS.find(c => c.id === id) ?? null;
+    return { claim: fallback, source: 'mock', error: msg };
+  }
+}
+
 export async function loadClaims(): Promise<LoadClaimsResult> {
   try {
     const { data, error } = await supabase
