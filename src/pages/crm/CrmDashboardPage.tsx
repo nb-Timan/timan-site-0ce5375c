@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import CrmLayout from '@/components/crm/CrmLayout';
 import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection';
+import DemoStatsSection from '@/components/crm/DemoStatsSection';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
