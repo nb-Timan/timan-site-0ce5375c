@@ -5,17 +5,19 @@
  *   - Kontakt os (Timan A/S address + email)
  * Phone & email are click-to-call / mailto links.
  */
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, Mail, MapPin, Phone } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { getPortalBackTarget } from "@/lib/portalBackNav";
 
 export default function ServiceInformationPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -37,11 +39,11 @@ export default function ServiceInformationPage() {
       <div className="bg-white border-b border-slate-200 py-3">
         <div className="mx-auto max-w-7xl px-6">
           <button
-            onClick={() => navigate("/portal")}
+            onClick={() => navigate(getPortalBackTarget(location.pathname))}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tilbage til Timan Portalen
+            Tilbage til Teknik &amp; Service
           </button>
         </div>
       </div>
