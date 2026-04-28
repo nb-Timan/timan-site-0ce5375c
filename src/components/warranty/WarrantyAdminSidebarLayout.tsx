@@ -24,6 +24,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { getPortalBackTarget } from "@/lib/portalBackNav";
 
 export type WarrantyLayoutScope = "admin" | "dealer";
 
