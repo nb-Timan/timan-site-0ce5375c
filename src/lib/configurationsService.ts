@@ -659,6 +659,24 @@ export async function saveConfiguration(
   const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
   const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
 
+  // CRM: log quote_created / order_created on first save (best-effort).
+  try {
+    const { logActivity } = await import('@/lib/crmActivitiesService');
+    await logActivity({
+      activity_type: isOrder ? 'order_created' : 'quote_created',
+      configuration_id: data.id,
+      quote_id: isOrder ? null : data.id,
+      order_id: isOrder ? data.id : null,
+      title: (isOrder ? savedOrderNumber : savedQuoteNumber) || label,
+      description: isOrder ? 'Ordre oprettet' : 'Tilbud oprettet',
+      status: 'aktiv',
+      created_by_user_id: user.id,
+      created_by_name: user.email ?? null,
+    });
+  } catch (e) {
+    console.warn('[saveConfiguration] crm log failed (ignored):', e);
+  }
+
   return {
     data: mapConfigurationRow({
       ...data,
