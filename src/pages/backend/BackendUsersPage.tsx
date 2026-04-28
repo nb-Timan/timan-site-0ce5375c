@@ -102,7 +102,7 @@ export default function BackendUsersPage() {
   }
   if (!appUser) return <Navigate to="/portal" replace />;
   if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
-  if (!perms?.canManageUsers) return <Navigate to="/portal/backend" replace />;
+  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
 
   const editing = editingId ? users.find((u) => u.id === editingId) : null;
 
