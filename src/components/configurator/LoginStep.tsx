@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
+import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
@@ -153,6 +154,10 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
       trackLogin(authEmail, 'login');
+
+      // Link Supabase Auth uid to app_users.auth_user_id so RLS policies
+      // (e.g. Timan Backend update) can identify this user.
+      linkAuthUserIdIfNeeded();
 
       onResolved({
         email: appUserRow.email,

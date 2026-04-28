@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
+import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -72,6 +73,8 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (row && row.approved && row.is_active) {
+          // Best-effort: link auth uid to app_users row if not yet linked.
+          linkAuthUserIdIfNeeded();
           setAppUser({
             email: row.email,
             role: row.role,
