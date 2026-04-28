@@ -22,6 +22,15 @@ export function canAccessTsb(role: PortalRole | null): boolean {
   return TSB_INTERNAL_ROLES.includes(role) && hasModuleAccess(role, "tsb");
 }
 
+/**
+ * Only Timan Backend may create new TSB'er.
+ * Timan Service and Timan Sælger have full internal view access but cannot
+ * create new TSB'er (mirrors the old TSB Hub admin permission split).
+ */
+export function canCreateTsb(role: PortalRole | null): boolean {
+  return role === "timan_backend";
+}
+
 export default function TsbAccessGuard({ children }: { children: ReactNode }) {
   const { appUser, loading } = useAppUser();
   if (loading) return null;
