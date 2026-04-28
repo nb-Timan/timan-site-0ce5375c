@@ -208,16 +208,35 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI CARDS — equal width & height */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
-          <Kpi accent="emerald" icon={Target}     label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
+        {/* TOP KPI CARDS — 4 cards: 2 single + 2 grouped duos */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
+          <Kpi accent="emerald" icon={Target} label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
                trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
-          <Kpi accent="violet"  icon={Sparkles}   label={T.kpi_leads[lang]}    value={String(metrics.activeLeads)}
-               trendPct={metrics.leadsPctChange} lang={lang} to="/portal/crm/leads" />
-          <Kpi accent="emerald" icon={Trophy}     label={T.kpi_won[lang]}      value={String(metrics.wonOrdersCount)}
-               trendPct={metrics.wonPctChange} lang={lang} to="/portal/crm/orders" />
-          <Kpi accent="sky"     icon={CheckCircle2} label={T.kpi_winrate[lang]} value={`${metrics.winRate}%`} lang={lang} />
-          <Kpi accent="amber"   icon={Clock}      label={T.kpi_avgtime[lang]}  value={`${metrics.avgSalesDays} ${T.days[lang]}`} lang={lang} />
+
+          <KpiDuo
+            lang={lang}
+            left={{
+              icon: Sparkles, accent: 'violet', label: T.kpi_leads[lang],
+              value: String(metrics.activeLeads), trendPct: metrics.leadsPctChange, to: '/portal/crm/leads',
+            }}
+            right={{
+              icon: Trophy, accent: 'emerald', label: T.kpi_won[lang],
+              value: String(metrics.wonOrdersCount), trendPct: metrics.wonPctChange, to: '/portal/crm/orders',
+            }}
+          />
+
+          <KpiDuo
+            lang={lang}
+            left={{
+              icon: CheckCircle2, accent: 'sky', label: T.kpi_winrate[lang],
+              value: `${metrics.winRate}%`,
+            }}
+            right={{
+              icon: Clock, accent: 'amber', label: T.kpi_avgtime[lang],
+              value: `${metrics.avgSalesDays} ${T.days[lang]}`,
+            }}
+          />
+
           <Kpi accent="emerald" icon={ShoppingCart} label={T.kpi_closed[lang]}
                value={fmtKrShort(metrics.closedValueThisMonth)}
                sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
