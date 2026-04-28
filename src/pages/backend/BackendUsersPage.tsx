@@ -61,6 +61,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   teknik_service: "Teknik & Service",
   salg_marketing: "Salg & Marketing",
   timan_backend: "Timan Backend",
+  timan_crm: "Timan CRM",
   claims: "Claims",
   tsb: "TSB",
   warranty: "Warranty",
