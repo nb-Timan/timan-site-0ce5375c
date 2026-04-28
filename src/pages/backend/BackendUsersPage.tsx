@@ -32,11 +32,12 @@ import {
   BackendMetaModule,
   BackendUser,
   UserStatus,
-  listBackendUsers,
-  resetBackendUsers,
-  subscribeBackendUsers,
-  updateBackendUser,
 } from "@/lib/backend-users-store";
+import {
+  fetchBackendUsers,
+  saveBackendUser,
+  type BackendUsersSource,
+} from "@/lib/backendUsersService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
@@ -89,10 +90,26 @@ export default function BackendUsersPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<BackendUser[]>(() => listBackendUsers());
+  const [users, setUsers] = useState<BackendUser[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [source, setSource] = useState<BackendUsersSource>("supabase");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
-  useEffect(() => subscribeBackendUsers(() => setUsers(listBackendUsers())), []);
+  const reload = useMemo(
+    () => async () => {
+      setLoadingUsers(true);
+      const res = await fetchBackendUsers();
+      setUsers(res.users);
+      setSource(res.source);
+      setLoadError(res.error ?? null);
+      setLoadingUsers(false);
+    },
+    [],
+  );
+
+  useEffect(() => { void reload(); }, [reload]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
@@ -132,12 +149,22 @@ export default function BackendUsersPage() {
           </div>
           <button
             type="button"
-            onClick={() => { if (confirm("Nulstil alle brugere til seed-data?")) resetBackendUsers(); }}
+            onClick={() => void reload()}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> Nulstil til seed
+            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
           </button>
         </div>
+
+        {(loadError || saveError) && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {loadError && <div>{loadError}</div>}
+            {saveError && <div className="mt-1">{saveError}</div>}
+          </div>
+        )}
+        {loadingUsers && (
+          <div className="mb-4 text-xs text-slate-500">Henter brugere…</div>
+        )}
 
         <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
           <table className="min-w-full text-sm">
@@ -214,9 +241,9 @@ export default function BackendUsersPage() {
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
-          Ændringer gemmes lokalt i preview (localStorage). Når Supabase-tabellen
-          <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">backend_users</code>
-          er klar, kan store-laget skiftes uden ændringer i denne side.
+          {source === "supabase"
+            ? "Kilde: Supabase public.app_users — ændringer gemmes direkte i databasen."
+            : "Kilde: lokal preview-fallback (Supabase ikke tilgængelig). Ændringer gemmes kun i denne browser."}
         </p>
       </main>
 
@@ -226,7 +253,14 @@ export default function BackendUsersPage() {
         <EditUserModal
           user={editing}
           onClose={() => setEditingId(null)}
-          onSave={(patch) => { updateBackendUser(editing.id, patch); setEditingId(null); }}
+          onSave={async (patch) => {
+            setSaveError(null);
+            const res = await saveBackendUser(editing.id, patch);
+            if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
+            else setSaveError(null);
+            await reload();
+            setEditingId(null);
+          }}
         />
       )}
     </div>
@@ -249,7 +283,7 @@ function EditUserModal({
 }: {
   user: BackendUser;
   onClose: () => void;
-  onSave: (patch: Partial<BackendUser>) => void;
+  onSave: (patch: BackendUser) => void;
 }) {
   const [draft, setDraft] = useState<BackendUser>(user);
 
