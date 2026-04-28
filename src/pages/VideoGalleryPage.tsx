@@ -56,7 +56,7 @@ export default function VideoGalleryPage() {
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
-            onClick={() => navigate('/portal')}
+            onClick={() => navigate(getPortalBackTarget(location.pathname))}
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
