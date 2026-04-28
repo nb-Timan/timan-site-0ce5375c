@@ -81,18 +81,27 @@ export default function CrmLayout({ children, pageTitle }: Props) {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{T.title[lang]}{pageTitle ? <span className="text-gray-400 font-medium"> · {pageTitle}</span> : null}</h1>
         </div>
 
-        <nav className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-3">
+        <nav className="relative flex flex-wrap items-center gap-1 mb-8 border-b border-slate-200/80">
           {NAV.map(item => {
             const active = location.pathname === item.to;
             const Icon = item.icon;
             return (
               <Link key={item.to} to={item.to}
                 className={cn(
-                  "inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition",
-                  active ? "bg-[#2d5a27] text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
+                  "group relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors -mb-px",
+                  active
+                    ? "text-[#2d5a27]"
+                    : "text-slate-500 hover:text-slate-900"
                 )}>
-                <Icon className="h-4 w-4" />
+                <Icon className={cn("h-4 w-4 transition-colors", active ? "text-[#2d5a27]" : "text-slate-400 group-hover:text-slate-600")} />
                 {T[item.key as string][lang]}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute left-3 right-3 -bottom-px h-[2px] rounded-full transition-all duration-200",
+                    active ? "bg-[#2d5a27] opacity-100" : "bg-slate-900 opacity-0 group-hover:opacity-20"
+                  )}
+                />
               </Link>
             );
           })}

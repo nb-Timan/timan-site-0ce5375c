@@ -209,7 +209,7 @@ export default function CrmDashboardPage() {
         />
 
         {/* TOP KPI CARDS — 4 cards: 2 single + 2 grouped duos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
           <Kpi accent="emerald" icon={Target} label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
                trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
 
@@ -540,10 +540,10 @@ function EmptyState({ text, icon: Icon = Inbox, tone = 'neutral' }:
 }
 
 const ACCENTS: Record<string, { ring: string; icon: string; soft: string }> = {
-  emerald: { ring: 'ring-emerald-100', icon: 'bg-gradient-to-br from-emerald-500 to-[#2d5a27] text-white', soft: 'from-emerald-50/40' },
-  sky:     { ring: 'ring-sky-100',     icon: 'bg-gradient-to-br from-sky-400 to-sky-600 text-white',      soft: 'from-sky-50/40' },
-  violet:  { ring: 'ring-violet-100',  icon: 'bg-gradient-to-br from-violet-400 to-violet-600 text-white', soft: 'from-violet-50/40' },
-  amber:   { ring: 'ring-amber-100',   icon: 'bg-gradient-to-br from-amber-400 to-amber-600 text-white',  soft: 'from-amber-50/40' },
+  emerald: { ring: 'ring-emerald-50', icon: 'bg-emerald-50 text-[#2d5a27] border border-emerald-100', soft: 'from-emerald-50/40' },
+  sky:     { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-sky-50/40' },
+  violet:  { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-violet-50/40' },
+  amber:   { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-amber-50/40' },
 };
 
 function Kpi({
@@ -564,11 +564,10 @@ function Kpi({
     Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
 
   const inner = (
-    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5 h-full min-h-[170px] flex flex-col`}>
-      <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-30 ${a.icon}`} />
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className={`h-10 w-10 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm`}>
-          <Icon className="h-5 w-5" />
+    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/70 transition-all duration-300 p-6 h-full min-h-[190px] flex flex-col`}>
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className={`h-10 w-10 rounded-xl ${a.icon} flex items-center justify-center`}>
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
         </div>
         {showTrend ? (
           <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
@@ -578,13 +577,13 @@ function Kpi({
           <span className="h-[22px]" aria-hidden />
         )}
       </div>
-      <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">{label}</p>
-      <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
-      <p className="text-[11px] text-gray-500 mt-0.5 min-h-[14px]">{sub || '\u00A0'}</p>
-      <p className="text-[10px] text-gray-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
+      <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500 font-semibold">{label}</p>
+      <p className="text-[1.65rem] md:text-[1.75rem] font-bold text-slate-900 tracking-tight tabular-nums leading-tight mt-1">{value}</p>
+      <p className="text-[12px] text-slate-500 mt-1 min-h-[16px]">{sub || '\u00A0'}</p>
+      <p className="text-[10px] text-slate-400 mt-1 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
       <div className="mt-auto" />
       {sparkline && sparkline.length > 1 && (
-        <div className="absolute inset-x-0 bottom-0 h-10 opacity-70 group-hover:opacity-100 transition pointer-events-none">
+        <div className="absolute inset-x-0 bottom-0 h-10 opacity-60 group-hover:opacity-90 transition pointer-events-none">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={sparkline}>
               <Line type="monotone" dataKey="value" stroke="#2d5a27" strokeWidth={1.5} dot={false} isAnimationActive />
@@ -608,9 +607,9 @@ interface KpiHalf {
 }
 function KpiDuo({ left, right, lang }: { left: KpiHalf; right: KpiHalf; lang: Language }) {
   return (
-    <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all h-full min-h-[170px] flex">
+    <div className="group relative overflow-hidden bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/70 transition-all duration-300 h-full min-h-[190px] flex">
       <KpiHalfBlock {...left} lang={lang} />
-      <div className="w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+      <div className="w-px bg-slate-200/70 my-5" />
       <KpiHalfBlock {...right} lang={lang} />
     </div>
   );
@@ -630,10 +629,10 @@ function KpiHalfBlock({
     Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
 
   const inner = (
-    <div className="flex-1 p-5 flex flex-col min-w-0 hover:bg-gray-50/60 transition-colors">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className={`h-9 w-9 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm shrink-0`}>
-          <Icon className="h-4 w-4" />
+    <div className="flex-1 p-6 flex flex-col min-w-0 hover:bg-slate-50/40 transition-colors">
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <div className={`h-9 w-9 rounded-xl ${a.icon} flex items-center justify-center`}>
+          <Icon className="h-4 w-4" strokeWidth={2} />
         </div>
         {showTrend ? (
           <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
@@ -643,9 +642,9 @@ function KpiHalfBlock({
           <span className="h-[22px]" aria-hidden />
         )}
       </div>
-      <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium truncate">{label}</p>
-      <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
-      <p className="text-[10px] text-gray-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
+      <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500 font-semibold truncate">{label}</p>
+      <p className="text-[1.5rem] md:text-[1.6rem] font-bold text-slate-900 tracking-tight tabular-nums leading-tight mt-1">{value}</p>
+      <p className="text-[10px] text-slate-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
       <div className="mt-auto" />
     </div>
   );
