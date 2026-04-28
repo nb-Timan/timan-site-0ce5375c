@@ -191,8 +191,11 @@ export function getWarrantyViewVariant(role: PortalRole | null): WarrantyViewVar
 // ---------- Mapping from existing AppUser → PortalRole ----------
 // Keeps backward compat with current UserRole/PartnerType so we don't break
 // configurator, pricing or auth.
-export function derivePortalRole(user: Pick<AppUser, 'role' | 'partner_type'> | null): PortalRole | null {
+export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null }) | null): PortalRole | null {
   if (!user) return null;
+  if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
+    return user.portal_role as PortalRole;
+  }
   if (user.role === 'timan_saelger') return 'timan_seller';
   if (user.role === 'partner') {
     switch (user.partner_type) {
