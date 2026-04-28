@@ -197,30 +197,48 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     updated_at: new Date().toISOString(),
   };
 
-  // Try a full update first; on missing-column errors retry with a minimal
-  // patch so older databases (no Phase 2 migration) still get a partial save.
+  // Try a full update first. If Postgres complains about a missing column
+  // (PGRST204 from PostgREST schema cache, or "column ... does not exist"),
+  // drop that column and retry. This keeps the page working when the
+  // Phase 2 / Phase 3 SQL migrations haven't all been applied yet.
   let attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
 
-  if (attempt.error && /column .* does not exist/i.test(attempt.error.message)) {
-    const minimal: Record<string, unknown> = {
-      full_name: draft.name,
-      email: draft.email,
-      notes: draft.notes,
-      approved,
-      is_active,
-      updated_at: new Date().toISOString(),
-    };
-    attempt = await supabase.from("app_users").update(minimal).eq("id", id).select("*").maybeSingle();
+  let safety = 0;
+  while (attempt.error && safety < 10) {
+    const msg = attempt.error.message || "";
+    const match =
+      msg.match(/Could not find the '([^']+)' column/i) ||
+      msg.match(/column "?([a-z0-9_]+)"? .* does not exist/i) ||
+      msg.match(/column ([a-z0-9_]+) of relation/i);
+    if (!match) break;
+    const col = match[1];
+    if (!(col in fullPatch)) break;
+    delete fullPatch[col];
+    safety++;
+    attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
   }
 
   if (attempt.error) {
-    // Fall back to the local store so the preview UI still reacts.
+    const msg = attempt.error.message || String(attempt.error);
+    const code = (attempt.error as { code?: string }).code || "";
+
+    // Translate common RLS / auth issues into clear Danish messages.
+    let friendly = `Kunne ikke gemme i Supabase: ${msg}`;
+    if (code === "42501" || /row-level security|permission denied|policy/i.test(msg)) {
+      friendly =
+        "Du har ikke rettigheder til at opdatere brugere. Log ind som en Timan Backend bruger " +
+        "(portal_role = 'timan_backend') hvis app_users-rækken har auth_user_id koblet til din Supabase Auth-konto. " +
+        `Detaljer: ${msg}`;
+    } else if (code === "PGRST301" || /JWT|not authenticated/i.test(msg)) {
+      friendly = `Din session er udløbet — log ind igen og prøv at gemme. Detaljer: ${msg}`;
+    }
+
     const local = updateFallbackUser(id, draft);
     return {
       ok: false,
       source: "fallback",
       user: local,
-      error: `Kunne ikke gemme i Supabase: ${attempt.error.message}. Ændringen blev gemt lokalt i preview.`,
+      error: `${friendly} Ændringen blev gemt lokalt i preview indtil videre.`,
     };
   }
 
