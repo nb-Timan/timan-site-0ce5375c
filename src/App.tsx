@@ -20,6 +20,11 @@ import TsbDashboardPage from "./pages/tsb/TsbDashboardPage";
 import TsbListPage from "./pages/tsb/TsbListPage";
 import TsbDetailPage from "./pages/tsb/TsbDetailPage";
 import NewTsbPage from "./pages/tsb/NewTsbPage";
+import TsbDealersPage from "./pages/tsb/TsbDealersPage";
+import TsbMachinesPage from "./pages/tsb/TsbMachinesPage";
+import TsbUsersPage from "./pages/tsb/TsbUsersPage";
+import TsbCountriesPage from "./pages/tsb/TsbCountriesPage";
+import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
@@ -55,6 +60,11 @@ const App = () => (
               <Route path="/portal/service/tsb" element={<TsbAccessGuard><TsbListPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/dashboard" element={<TsbAccessGuard><TsbDashboardPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/new" element={<TsbAccessGuard requireCreate><NewTsbPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/dealers" element={<TsbAccessGuard><TsbDealersPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/machines" element={<TsbAccessGuard><TsbMachinesPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/users" element={<TsbAccessGuard><TsbUsersPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/countries" element={<TsbAccessGuard><TsbCountriesPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/settings" element={<TsbAccessGuard><TsbSettingsPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/:id" element={<TsbAccessGuard><TsbDetailPage /></TsbAccessGuard>} />
               {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
               <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
