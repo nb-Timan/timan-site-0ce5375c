@@ -128,11 +128,97 @@ function writeLocal(list: ServiceClaim[]): void {
   try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); } catch { /* ignore */ }
 }
 
-export function generateClaimNumber(): string {
-  const year = new Date().getFullYear();
-  const seq = Math.floor(1000 + Math.random() * 9000);
-  return `CLM-${year}-${seq}`;
+// ---------- Claim number generation ----------
+// Format: CLM-YYYY-#### (4-digit zero-padded sequence per year).
+// Optional grouped suffix: CLM-YYYY-####/N for multi-machine claims.
+
+const CLAIM_NUMBER_RE = /^CLM-(\d{4})-(\d{4,})(?:\/(\d+))?$/;
+
+function pad4(n: number): string {
+  return n.toString().padStart(4, '0');
 }
+
+export function formatClaimNumber(year: number, seq: number, groupIndex?: number): string {
+  const base = `CLM-${year}-${pad4(seq)}`;
+  return groupIndex && groupIndex > 0 ? `${base}/${groupIndex}` : base;
+}
+
+/** Parses CLM-YYYY-####(/N) → { year, seq, group? }. Returns null if not matching. */
+export function parseClaimNumber(value: string | null | undefined): { year: number; seq: number; group?: number } | null {
+  if (!value) return null;
+  const m = CLAIM_NUMBER_RE.exec(value.trim());
+  if (!m) return null;
+  return {
+    year: Number(m[1]),
+    seq: Number(m[2]),
+    group: m[3] ? Number(m[3]) : undefined,
+  };
+}
+
+async function fetchExistingNumbersForYear(year: number): Promise<Set<string>> {
+  const set = new Set<string>();
+  // Local + mock are always available
+  for (const c of readLocal()) if (c.claim_number) set.add(c.claim_number);
+  for (const c of MOCK_CLAIMS) if (c.claim_number) set.add(c.claim_number);
+
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .select('claim_number')
+      .like('claim_number', `CLM-${year}-%`)
+      .limit(10000);
+    if (!error && Array.isArray(data)) {
+      for (const row of data as Array<{ claim_number: string | null }>) {
+        if (row.claim_number) set.add(row.claim_number);
+      }
+    }
+  } catch {
+    // network/table missing — local/mock fallback already loaded
+  }
+  return set;
+}
+
+/**
+ * Generate the next unique claim number for the current year.
+ * Considers Supabase + local drafts + mock data.
+ *
+ * If `groupBase` is provided (an existing CLM-YYYY-#### number), returns the
+ * next available suffix variant (e.g. CLM-YYYY-####/2) instead of a new sequence.
+ */
+export async function generateClaimNumber(groupBase?: string): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const existing = await fetchExistingNumbersForYear(year);
+
+  // Grouped suffix variant
+  if (groupBase) {
+    const parsed = parseClaimNumber(groupBase);
+    if (!parsed) {
+      throw new Error(`Invalid base claim number: ${groupBase}`);
+    }
+    const base = formatClaimNumber(parsed.year, parsed.seq);
+    let n = 1;
+    while (existing.has(`${base}/${n}`)) n++;
+    if (n > 9999) throw new Error('Too many group variants for this claim');
+    return `${base}/${n}`;
+  }
+
+  // Find highest existing sequence for the year, then +1
+  let maxSeq = 0;
+  for (const num of existing) {
+    const p = parseClaimNumber(num);
+    if (p && p.year === year && p.seq > maxSeq) maxSeq = p.seq;
+  }
+  let next = maxSeq + 1;
+  // Defensive: skip any concurrent collisions
+  while (existing.has(formatClaimNumber(year, next))) next++;
+  if (next > 9999) {
+    // Year exhausted — extend padding gracefully (still unique)
+    return `CLM-${year}-${next}`;
+  }
+  return formatClaimNumber(year, next);
+}
+
 
 // ---------- Loaders ----------
 export interface LoadClaimsResult {
