@@ -12,9 +12,30 @@
  */
 
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Users } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Crown, Trophy, Users } from 'lucide-react';
 import { CrmActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
+
+const COL_WINRATE: Record<Language, string> = {
+  da: 'Win rate', en: 'Win rate', de: 'Win-Rate', it: 'Win rate', hu: 'Win rate',
+};
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || '?';
+}
+function avatarGradient(name: string): string {
+  // Stable per-name gradient
+  const palette = [
+    'from-emerald-500 to-emerald-700',
+    'from-sky-500 to-indigo-600',
+    'from-violet-500 to-fuchsia-600',
+    'from-amber-500 to-rose-500',
+    'from-teal-500 to-cyan-600',
+    'from-rose-500 to-pink-600',
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
 
 type Filter = 'this_month' | 'last_month' | 'ytd' | 'forecast';
 
