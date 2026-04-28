@@ -149,12 +149,22 @@ export default function BackendUsersPage() {
           </div>
           <button
             type="button"
-            onClick={() => { if (confirm("Nulstil alle brugere til seed-data?")) resetBackendUsers(); }}
+            onClick={() => void reload()}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> Nulstil til seed
+            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
           </button>
         </div>
+
+        {(loadError || saveError) && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {loadError && <div>{loadError}</div>}
+            {saveError && <div className="mt-1">{saveError}</div>}
+          </div>
+        )}
+        {loadingUsers && (
+          <div className="mb-4 text-xs text-slate-500">Henter brugere…</div>
+        )}
 
         <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
           <table className="min-w-full text-sm">
