@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 
-export type SessionUser = AppUser & { email: string };
+export type SessionUser = AppUser & {
+  email: string;
+  preferred_language?: string | null;
+  preferred_currency?: string | null;
+  company_dealer?: string | null;
+  module_access?: string[] | null;
+  status?: string | null;
+};
 
 interface AppUserContextValue {
   appUser: SessionUser | null;
