@@ -175,8 +175,8 @@ export default function ClaimsPage() {
                     {claims.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">{T.empty[lang]}</td></tr>
                     ) : claims.map(c => (
-                      <tr key={c.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-semibold text-gray-900">{c.claim_number}</td>
+                      <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/portal/service/claims/${c.id}`)}>
+                        <td className="px-4 py-3 font-semibold text-[#2d5a27] hover:underline">{c.claim_number}</td>
                         <td className="px-4 py-3 text-gray-700">
                           <div className="font-medium">{c.machine_model || '—'}</div>
                           <div className="text-xs text-gray-500">{c.machine_serial || ''}</div>
