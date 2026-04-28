@@ -4,6 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { listActivities, CrmActivity } from '@/lib/crmActivitiesService';
+import { listDemoLeads, resolveSeedOwners, demoLeadsToActivities } from '@/lib/crmLeadsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
