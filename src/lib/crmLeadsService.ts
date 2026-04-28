@@ -397,7 +397,7 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
  * app_users. Backend role sees everything regardless. Used by activities feed
  * & seller performance so seed data attributes correctly.
  */
-export async function resolveSeedOwners(rows: CrmDemoLead[]): Promise<CrmDemoLead[]> {
+export async function resolveSeedOwners<T extends { owner_user_id: string | null; owner_email?: string | null }>(rows: T[]): Promise<T[]> {
   const emails = Array.from(new Set(rows.map(r => r.owner_email).filter(Boolean) as string[]));
   if (emails.length === 0) return rows;
   try {
