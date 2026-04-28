@@ -208,7 +208,7 @@ export default function CrmDashboardPage() {
             return metrics.pipelineByStage.map(s => (
               <div key={s.key}>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="font-medium text-gray-800">{T[`stage_${s.key === 'neg' ? 'neg' : s.key}` === 'stage_neg' ? 'stage_neg' : `stage_${s.key}`][lang]}</span>
+                  <span className="font-medium text-gray-800">{T[`stage_${s.key}`][lang]}</span>
                   <span className="text-gray-500">{fmtKr(s.value)} · {s.count}</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
