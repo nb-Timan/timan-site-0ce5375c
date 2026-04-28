@@ -83,7 +83,7 @@ export default function ClaimsPage() {
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
   const portalRole = derivePortalRole(appUser);
-  const allowed = hasModuleAccess(portalRole, 'claims', appUser.module_access ?? null);
+  const allowed = hasModuleAccess(portalRole, 'claims', (appUser.module_access as import('@/lib/portalAccess').ModuleAccessKey[] | null | undefined) ?? null);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateClaim;
 
