@@ -67,7 +67,7 @@ export default function CrmNewLeadPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [title, setTitle] = useState('');
-  const [responsibleName, setResponsibleName] = useState(appUser?.name || appUser?.email || '');
+  const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
   const [linkedDealer, setLinkedDealer] = useState('');
   const [firstContact, setFirstContact] = useState(today);
   const [expectedClose, setExpectedClose] = useState('');
@@ -96,7 +96,7 @@ export default function CrmNewLeadPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (appUser && !responsibleName) setResponsibleName(appUser.name || appUser.email);
+    if (appUser && !responsibleName) setResponsibleName(appUser.display_name || appUser.email);
   }, [appUser, responsibleName]);
 
   const isLost = stage === 'Lost';
