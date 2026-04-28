@@ -148,11 +148,20 @@ export default function ClaimDetailPage() {
               <p className="text-gray-500 mt-1 text-sm">Service / Claims</p>
             </div>
           </div>
-          {allowed && readOnly && (
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-              <Lock className="h-3.5 w-3.5" />
-              {T.readOnly[lang]}
-            </span>
+          {allowed && (
+            <div className="flex items-center gap-2">
+              {viewVariant !== 'none' && (
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${viewVariant === 'internal' ? 'bg-[#2d5a27]/10 text-[#2d5a27]' : 'bg-blue-50 text-blue-700'}`}>
+                  {viewVariant === 'internal' ? T.viewInternal[lang] : T.viewDealer[lang]}
+                </span>
+              )}
+              {readOnly && (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                  <Lock className="h-3.5 w-3.5" />
+                  {T.readOnly[lang]}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </header>
