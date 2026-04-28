@@ -65,7 +65,7 @@ export default function PortalPage() {
     return <Navigate to="/configurator" replace />;
   }
 
-  const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
