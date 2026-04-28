@@ -1,9 +1,10 @@
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calculator, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import { getPortalBackTarget } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
