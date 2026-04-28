@@ -67,6 +67,8 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/service/warranty';
             } else if (p.key === 'service_info') {
               href = '/portal/service/information';
+            } else if (p.key === 'users') {
+              href = '/portal/backend/users';
             }
             return (
               <PlaceholderCard

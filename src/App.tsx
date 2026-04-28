@@ -28,6 +28,7 @@ import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
+import BackendUsersPage from "./pages/backend/BackendUsersPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
@@ -72,6 +73,8 @@ const App = () => (
               <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
               {/* Serviceinformation */}
               <Route path="/portal/service/information" element={<ServiceInformationPage />} />
+              {/* Timan Backend → Users */}
+              <Route path="/portal/backend/users" element={<BackendUsersPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
