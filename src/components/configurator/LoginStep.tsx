@@ -167,6 +167,17 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       // (e.g. Timan Backend update) can identify this user.
       linkAuthUserIdIfNeeded();
 
+      // CRM: best-effort login event (never blocks login).
+      import('@/lib/crmLoginsService').then(({ logLogin }) => {
+        logLogin({
+          user_id: appUserRow.id ?? null,
+          user_name: appUserRow.full_name ?? null,
+          user_email: appUserRow.email ?? authEmail,
+          account_id: appUserRow.id ?? null,
+          account_name: appUserRow.company || appUserRow.full_name || appUserRow.email,
+        });
+      }).catch(() => { /* ignore */ });
+
       onResolved({
         email: appUserRow.email,
         role: appUserRow.role,

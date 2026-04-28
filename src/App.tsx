@@ -8,6 +8,10 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import PortalPage from "./pages/PortalPage";
 import PortalAreaPage from "./pages/PortalAreaPage";
 import PortalCrmPage from "./pages/PortalCrmPage";
+import CrmDashboardPage from "./pages/crm/CrmDashboardPage";
+import CrmAccountsPage from "./pages/crm/CrmAccountsPage";
+import CrmActivitiesPage from "./pages/crm/CrmActivitiesPage";
+import CrmComingSoonPage from "./pages/crm/CrmComingSoonPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
@@ -54,6 +58,13 @@ const App = () => (
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
+              <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
+              <Route path="/portal/crm/accounts"   element={<CrmAccountsPage />} />
+              <Route path="/portal/crm/activities" element={<CrmActivitiesPage />} />
+              <Route path="/portal/crm/leads"      element={<CrmComingSoonPage titleKey="leads" />} />
+              <Route path="/portal/crm/quotes"     element={<CrmComingSoonPage titleKey="quotes" />} />
+              <Route path="/portal/crm/orders"     element={<CrmComingSoonPage titleKey="orders" />} />
+              <Route path="/portal/crm/reports"    element={<CrmComingSoonPage titleKey="reports" />} />
               <Route path="/portal/videos" element={<VideoGalleryPage />} />
               <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
               <Route path="/portal/resources" element={<ResourcesPage />} />

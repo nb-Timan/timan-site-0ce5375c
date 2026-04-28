@@ -659,6 +659,24 @@ export async function saveConfiguration(
   const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
   const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
 
+  // CRM: log quote_created / order_created on first save (best-effort).
+  try {
+    const { logActivity } = await import('@/lib/crmActivitiesService');
+    await logActivity({
+      activity_type: isOrder ? 'order_created' : 'quote_created',
+      configuration_id: data.id,
+      quote_id: isOrder ? null : data.id,
+      order_id: isOrder ? data.id : null,
+      title: (isOrder ? savedOrderNumber : savedQuoteNumber) || label,
+      description: isOrder ? 'Ordre oprettet' : 'Tilbud oprettet',
+      status: 'aktiv',
+      created_by_user_id: user.id,
+      created_by_name: user.email ?? null,
+    });
+  } catch (e) {
+    console.warn('[saveConfiguration] crm log failed (ignored):', e);
+  }
+
   return {
     data: mapConfigurationRow({
       ...data,
@@ -801,8 +819,10 @@ export async function markAsOrderSubmitted(id: string) {
   // Read current row to avoid overwriting order_sent_at if already set
   const { data: { user } } = await supabase.auth.getUser();
   let orderSentAt: string | null = nowIso;
+  let rowSnapshot: Record<string, unknown> | null = null;
   if (user) {
     const { data: row } = await loadConfigurationRowById(id, user.id);
+    rowSnapshot = row as Record<string, unknown> | null;
     if (row?.order_sent_at) orderSentAt = row.order_sent_at as string;
   }
 
@@ -815,6 +835,26 @@ export async function markAsOrderSubmitted(id: string) {
   });
 
   if (error) console.error('Failed to mark as order submitted:', error);
+
+  // CRM: log order_sent activity (best-effort; never throws).
+  try {
+    const { logActivity } = await import('@/lib/crmActivitiesService');
+    await logActivity({
+      activity_type: 'order_sent',
+      configuration_id: id,
+      order_id: id,
+      title: (rowSnapshot?.order_number as string | null) || (rowSnapshot?.title as string | null) || 'Ordre afgivet',
+      description: 'Ordre afgivet via konfigurator',
+      status: 'ordre_afgivet',
+      account_id: (rowSnapshot?.assigned_seller_id as string | null) ?? null,
+      account_name: (rowSnapshot?.created_by_email as string | null) ?? null,
+      created_by_user_id: (rowSnapshot?.created_by_user_id as string | null) ?? null,
+      created_by_name: (rowSnapshot?.created_by_email as string | null) ?? null,
+      assigned_owner_user_id: (rowSnapshot?.assigned_seller_id as string | null) ?? null,
+    });
+  } catch (e) {
+    console.warn('[markAsOrderSubmitted] crm log failed (ignored):', e);
+  }
 }
 
 /** Mark PDF as downloaded. If flowType === 'quote', also stamps quote_sent_at (only first time). */
@@ -848,7 +888,8 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
 
   // Stamp quote_sent_at only for quotes, and only the first time
   const effectiveFlow = flowType ?? (row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote');
-  if (effectiveFlow === 'quote' && !row.quote_sent_at) {
+  const isFirstQuoteSend = effectiveFlow === 'quote' && !row.quote_sent_at;
+  if (isFirstQuoteSend) {
     patch.quote_sent_at = downloadedAt;
   }
 
@@ -857,6 +898,28 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
   if (error) {
     console.error('Failed to mark PDF downloaded:', error);
     throw new Error(formatSupabaseError(error));
+  }
+
+  // CRM: log quote_sent on the first quote PDF download.
+  if (isFirstQuoteSend) {
+    try {
+      const { logActivity } = await import('@/lib/crmActivitiesService');
+      await logActivity({
+        activity_type: 'quote_sent',
+        configuration_id: id,
+        quote_id: id,
+        title: (row.quote_number as string | null) || (row.title as string | null) || 'Tilbud sendt',
+        description: 'Tilbud sendt (PDF downloadet)',
+        status: 'aktiv',
+        account_id: (row.assigned_seller_id as string | null) ?? null,
+        account_name: (row.created_by_email as string | null) ?? null,
+        created_by_user_id: (row.created_by_user_id as string | null) ?? user.id,
+        created_by_name: (row.created_by_email as string | null) ?? user.email ?? null,
+        assigned_owner_user_id: (row.assigned_seller_id as string | null) ?? null,
+      });
+    } catch (e) {
+      console.warn('[markPdfDownloaded] crm log failed (ignored):', e);
+    }
   }
 }
 
