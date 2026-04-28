@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RTooltip,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  LineChart, Line,
+} from 'recharts';
 import CrmLayout from '@/components/crm/CrmLayout';
 import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection';
 import { useAppUser } from '@/context/AppUserContext';
@@ -11,36 +16,37 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Building2, CheckCircle2,
-  Clock, FileText, Layers, ShoppingCart, Sparkles, Target, TrendingDown,
-  Trophy, Users, XCircle,
+  Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
+  Clock, FileText, Flame, Inbox, Layers, Minus, ShoppingCart, Sparkles, Target,
+  TrendingDown, Trophy, Users, XCircle, Zap,
 } from 'lucide-react';
 
 // ────────────────────────────────────────────────────────────
 // Translations
 // ────────────────────────────────────────────────────────────
 const T: Record<string, Record<Language, string>> = {
-  // KPIs
   kpi_pipeline:   { da: 'Pipeline værdi',          en: 'Pipeline value',         de: 'Pipeline-Wert',       it: 'Valore pipeline',     hu: 'Pipeline érték' },
   kpi_leads:      { da: 'Aktive leads',             en: 'Active leads',           de: 'Aktive Leads',        it: 'Lead attivi',         hu: 'Aktív leadek' },
   kpi_won:        { da: 'Vundne ordrer',            en: 'Won orders',             de: 'Gewonnene Aufträge',  it: 'Ordini vinti',        hu: 'Megnyert rendelések' },
   kpi_winrate:    { da: 'Win rate',                 en: 'Win rate',               de: 'Win-Rate',            it: 'Win rate',            hu: 'Win rate' },
   kpi_avgtime:    { da: 'Gns. salgstid',            en: 'Avg. sales cycle',       de: 'Ø Verkaufszyklus',    it: 'Ciclo medio',         hu: 'Átl. értékesítési idő' },
-  kpi_closed:     { da: 'Lukkede ordrer',           en: 'Closed orders',          de: 'Abgeschlossene Aufträge', it: 'Ordini chiusi',   hu: 'Lezárt rendelések' },
-  vs_last_month:  { da: 'vs. samme tid sidste måned', en: 'vs. same time last month', de: 'vs. Vormonat',    it: 'vs stesso periodo',   hu: 'vs előző hónap' },
+  kpi_closed:     { da: 'Lukkede ordrer',           en: 'Closed orders',          de: 'Abgeschl. Aufträge',  it: 'Ordini chiusi',       hu: 'Lezárt rendelések' },
+  vs_last_month:  { da: 'vs. sidste måned',         en: 'vs. last month',         de: 'vs. Vormonat',        it: 'vs mese scorso',      hu: 'vs előző hónap' },
+  stable:         { da: 'Stabil',                   en: 'Stable',                 de: 'Stabil',              it: 'Stabile',             hu: 'Stabil' },
 
-  // Sections
   pipeline_dist:  { da: 'Pipeline Fordeling',       en: 'Pipeline distribution',  de: 'Pipeline-Verteilung', it: 'Distribuzione pipeline', hu: 'Pipeline eloszlás' },
+  pipeline_total: { da: 'Total pipeline',           en: 'Total pipeline',         de: 'Gesamt-Pipeline',     it: 'Pipeline totale',     hu: 'Teljes pipeline' },
   recent:         { da: 'Seneste Aktivitet',        en: 'Recent activity',        de: 'Letzte Aktivität',    it: 'Attività recente',    hu: 'Legutóbbi tevékenység' },
-  lost_reasons:   { da: 'Hvorfor taber vi ordrer?', en: 'Why do we lose orders?', de: 'Warum verlieren wir Aufträge?', it: 'Perché perdiamo ordini?', hu: 'Miért veszítünk?' },
-  seller_perf:    { da: 'Sælger Performance (Aktuel måned)', en: 'Seller performance (current month)', de: 'Verkäufer-Performance', it: 'Performance venditori', hu: 'Értékesítői teljesítmény' },
+  lost_reasons:   { da: 'Hvorfor taber vi ordrer?', en: 'Why do we lose orders?', de: 'Warum verlieren wir?', it: 'Perché perdiamo?',   hu: 'Miért veszítünk?' },
   followups:      { da: 'Kommende opfølgninger',    en: 'Upcoming follow-ups',    de: 'Anstehende Follow-ups', it: 'Follow-up imminenti', hu: 'Közelgő követések' },
-  inactive:       { da: 'Inaktive konti',           en: 'Inactive accounts',      de: 'Inaktive Konten',     it: 'Account inattivi',    hu: 'Inaktív fiókok' },
+  no_followups:   { da: 'Ingen åbne opfølgninger – godt arbejde!', en: 'No open follow-ups – great work!', de: 'Keine offenen Follow-ups!', it: 'Nessun follow-up aperto!', hu: 'Nincs nyitott követés!' },
+  inactive:       { da: 'Inaktive konti (60+ dage)', en: 'Inactive accounts (60+ days)', de: 'Inaktive Konten (60+ Tage)', it: 'Account inattivi (60+ gg)', hu: 'Inaktív fiókok (60+ nap)' },
   best:           { da: 'Bedst præsterende konti',  en: 'Best performing accounts', de: 'Top-Konten',        it: 'Account migliori',    hu: 'Legjobb fiókok' },
   open_all:       { da: 'Se alle',                  en: 'View all',               de: 'Alle anzeigen',       it: 'Vedi tutto',          hu: 'Összes' },
   empty:          { da: 'Ingen data endnu.',        en: 'No data yet.',           de: 'Noch keine Daten.',   it: 'Nessun dato.',        hu: 'Még nincs adat.' },
+  empty_chart:    { da: 'Ingen data at vise.',      en: 'Nothing to show yet.',   de: 'Keine Daten.',        it: 'Nulla da mostrare.',  hu: 'Nincs megjeleníthető.' },
+  trend30:        { da: 'Pipeline (sidste 30 dage)', en: 'Pipeline (last 30 days)', de: 'Pipeline (30 Tage)', it: 'Pipeline (30 gg)',   hu: 'Pipeline (30 nap)' },
 
-  // Pipeline stages
   stage_lead:     { da: 'Lead',          en: 'Lead',          de: 'Lead',          it: 'Lead',          hu: 'Lead' },
   stage_demo:     { da: 'Demo planlagt', en: 'Demo planned',  de: 'Demo geplant',  it: 'Demo pianificata', hu: 'Demó tervezve' },
   stage_quote:    { da: 'Tilbud sendt',  en: 'Quote sent',    de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
@@ -48,38 +54,37 @@ const T: Record<string, Record<Language, string>> = {
   stage_won:      { da: 'Vundet',        en: 'Won',           de: 'Gewonnen',      it: 'Vinto',         hu: 'Megnyert' },
   stage_lost:     { da: 'Tabt',          en: 'Lost',          de: 'Verloren',      it: 'Perso',         hu: 'Elveszett' },
 
-  // Lost reasons
   reason_price:   { da: 'Pris',          en: 'Price',         de: 'Preis',         it: 'Prezzo',        hu: 'Ár' },
   reason_lead:    { da: 'Leveringstid',  en: 'Lead time',     de: 'Lieferzeit',    it: 'Tempo consegna',hu: 'Szállítási idő' },
   reason_comp:    { da: 'Konkurrent',    en: 'Competitor',    de: 'Wettbewerb',    it: 'Concorrente',   hu: 'Versenytárs' },
   reason_other:   { da: 'Andet',         en: 'Other',         de: 'Sonstiges',     it: 'Altro',         hu: 'Egyéb' },
 
-  // Table
-  col_seller:     { da: 'Sælger',        en: 'Seller',        de: 'Verkäufer',     it: 'Venditore',     hu: 'Értékesítő' },
-  col_pipeline:   { da: 'Pipeline',      en: 'Pipeline',      de: 'Pipeline',      it: 'Pipeline',      hu: 'Pipeline' },
-  col_sales:      { da: 'Salg',          en: 'Sales',         de: 'Umsatz',        it: 'Vendite',       hu: 'Eladás' },
-  col_active:     { da: 'Aktive leads',  en: 'Active leads',  de: 'Aktive Leads',  it: 'Lead attivi',   hu: 'Aktív leadek' },
-  col_won:        { da: 'Vundet',        en: 'Won',           de: 'Gewonnen',      it: 'Vinti',         hu: 'Megnyert' },
-  col_winrate:    { da: 'Win rate',      en: 'Win rate',      de: 'Win-Rate',      it: 'Win rate',      hu: 'Win rate' },
-
   days:           { da: 'dage',          en: 'days',          de: 'Tage',          it: 'giorni',        hu: 'nap' },
-  orders:         { da: 'ordrer',        en: 'orders',        de: 'Aufträge',      it: 'ordini',        hu: 'rendelés' },
+  orders:         { da: 'ordrer',        en: 'ordrer',        de: 'Aufträge',      it: 'ordini',        hu: 'rendelés' },
 };
 
-const PIPELINE_STAGES: Array<{ key: 'lead'|'demo'|'quote'|'neg'|'won'|'lost'; tKey: string; color: string }> = [
-  { key: 'lead',  tKey: 'stage_lead',  color: 'bg-slate-400' },
-  { key: 'demo',  tKey: 'stage_demo',  color: 'bg-sky-500' },
-  { key: 'quote', tKey: 'stage_quote', color: 'bg-amber-500' },
-  { key: 'neg',   tKey: 'stage_neg',   color: 'bg-violet-500' },
-  { key: 'won',   tKey: 'stage_won',   color: 'bg-[#2d5a27]' },
-  { key: 'lost',  tKey: 'stage_lost',  color: 'bg-rose-500' },
+interface StageMeta { key: 'lead'|'demo'|'quote'|'neg'|'won'|'lost'; tKey: string; bar: string; hex: string; ring: string }
+const PIPELINE_STAGES: StageMeta[] = [
+  { key: 'lead',  tKey: 'stage_lead',  bar: 'bg-gradient-to-r from-slate-300 to-slate-400',   hex: '#94a3b8', ring: 'bg-slate-100 text-slate-600' },
+  { key: 'demo',  tKey: 'stage_demo',  bar: 'bg-gradient-to-r from-sky-400 to-sky-500',       hex: '#0ea5e9', ring: 'bg-sky-100 text-sky-700' },
+  { key: 'quote', tKey: 'stage_quote', bar: 'bg-gradient-to-r from-amber-400 to-amber-500',   hex: '#f59e0b', ring: 'bg-amber-100 text-amber-700' },
+  { key: 'neg',   tKey: 'stage_neg',   bar: 'bg-gradient-to-r from-violet-400 to-violet-500', hex: '#8b5cf6', ring: 'bg-violet-100 text-violet-700' },
+  { key: 'won',   tKey: 'stage_won',   bar: 'bg-gradient-to-r from-emerald-500 to-[#2d5a27]', hex: '#2d5a27', ring: 'bg-emerald-100 text-emerald-700' },
+  { key: 'lost',  tKey: 'stage_lost',  bar: 'bg-gradient-to-r from-rose-400 to-rose-500',     hex: '#f43f5e', ring: 'bg-rose-100 text-rose-700' },
 ];
+
+const REASON_HEX: Record<'price'|'lead'|'comp'|'other', string> = {
+  price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', other: '#64748b',
+};
 
 // ────────────────────────────────────────────────────────────
 // Utilities
 // ────────────────────────────────────────────────────────────
-function fmtKr(n: number): string {
-  return `${Math.round(n).toLocaleString('da-DK')} kr.`;
+function fmtKr(n: number): string { return `${Math.round(n).toLocaleString('da-DK')} kr.`; }
+function fmtKrShort(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} mio.`;
+  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(Math.round(n));
 }
 function pctChange(curr: number, prev: number): number {
   if (prev === 0) return curr > 0 ? 100 : 0;
@@ -93,29 +98,18 @@ function sameTimePrevMonth(now: Date): { from: Date; to: Date } {
   return { from, to };
 }
 
-function classifyStage(a: CrmActivity): typeof PIPELINE_STAGES[number]['key'] | null {
+function classifyStage(a: CrmActivity): StageMeta['key'] | null {
   const status = (a.status || '').toLowerCase();
   switch (a.activity_type) {
-    case 'lead_created':
-    case 'lead_viewed':
-    case 'lead_accepted':
-      return 'lead';
-    case 'lead_rejected':
-      return 'lost';
-    case 'quote_created':
-    case 'quote_revised':
-      return 'quote';
-    case 'quote_sent':
-      return status === 'negotiating' ? 'neg' : 'quote';
-    case 'order_created':
-      return 'neg';
-    case 'order_sent':
-      return status === 'lost' ? 'lost' : 'won';
-    default:
-      return null;
+    case 'lead_created': case 'lead_viewed': case 'lead_accepted': return 'lead';
+    case 'lead_rejected': return 'lost';
+    case 'quote_created': case 'quote_revised': return 'quote';
+    case 'quote_sent': return status === 'negotiating' ? 'neg' : 'quote';
+    case 'order_created': return 'neg';
+    case 'order_sent': return status === 'lost' ? 'lost' : 'won';
+    default: return null;
   }
 }
-
 function classifyLostReason(a: CrmActivity): 'price' | 'lead' | 'comp' | 'other' {
   const meta = (a.meta || {}) as Record<string, unknown>;
   const r = String(meta.lost_reason || a.description || '').toLowerCase();
@@ -124,6 +118,43 @@ function classifyLostReason(a: CrmActivity): 'price' | 'lead' | 'comp' | 'other'
   if (/konkur|competitor|comp/.test(r)) return 'comp';
   return 'other';
 }
+
+function activityDotClass(stage: StageMeta['key'] | null): string {
+  switch (stage) {
+    case 'won': return 'bg-emerald-500 ring-emerald-100';
+    case 'lost': return 'bg-rose-500 ring-rose-100';
+    case 'quote': case 'neg': return 'bg-sky-500 ring-sky-100';
+    case 'demo': return 'bg-amber-500 ring-amber-100';
+    case 'lead': return 'bg-violet-500 ring-violet-100';
+    default: return 'bg-slate-400 ring-slate-100';
+  }
+}
+function activityBadge(stage: StageMeta['key'] | null, lang: Language): { label: string; cls: string } | null {
+  switch (stage) {
+    case 'won':   return { label: T.stage_won[lang],   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    case 'lost':  return { label: T.stage_lost[lang],  cls: 'bg-rose-50 text-rose-700 border-rose-200' };
+    case 'quote': return { label: T.stage_quote[lang], cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+    case 'neg':   return { label: T.stage_neg[lang],   cls: 'bg-violet-50 text-violet-700 border-violet-200' };
+    case 'demo':  return { label: T.stage_demo[lang],  cls: 'bg-sky-50 text-sky-700 border-sky-200' };
+    case 'lead':  return { label: T.stage_lead[lang],  cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+    default: return null;
+  }
+}
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || '?';
+}
+function relativeTime(iso: string, lang: Language): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return lang === 'da' ? 'nu' : 'now';
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}t`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d`;
+  return new Date(iso).toLocaleDateString('da-DK');
+}
+function prettyType(t: CrmActivityType): string { return t.replace(/_/g, ' '); }
 
 // ────────────────────────────────────────────────────────────
 // Page
@@ -136,244 +167,403 @@ export default function CrmDashboardPage() {
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const sellerId = await resolveSellerId(appUser?.email);
-        const acc = await listCrmAccounts({ role: portalRole, sellerId });
-        const act = await listActivities({
-          ownerUserId: isAdmin ? null : sellerId,
-          limit: 500,
-        });
-        if (cancelled) return;
-        setAccounts(acc.accounts);
-        setActivities(act);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const sellerId = await resolveSellerId(appUser?.email);
+      const acc = await listCrmAccounts({ role: portalRole, sellerId });
+      const act = await listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 });
+      if (cancelled) return;
+      setAccounts(acc.accounts);
+      setActivities(act);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, portalRole, isAdmin]);
 
-  // ── Derived metrics ─────────────────────────────────────
   const metrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
+  const trend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
   return (
     <CrmLayout pageTitle="Dashboard">
-      {/* TOP KPI CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-        <Kpi
-          icon={Target} label={T.kpi_pipeline[lang]}
-          value={fmtKr(metrics.pipelineValue)}
-          to="/portal/crm/quotes"
+      {/* PREMIUM BACKDROP */}
+      <div className="relative -mt-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-24 h-72 -z-10 opacity-60 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(60% 50% at 20% 0%, rgba(45,90,39,0.18), transparent 70%), radial-gradient(50% 50% at 90% 0%, rgba(14,165,233,0.18), transparent 70%)',
+          }}
         />
-        <Kpi
-          icon={Sparkles} label={T.kpi_leads[lang]}
-          value={String(metrics.activeLeads)}
-          to="/portal/crm/leads"
-        />
-        <Kpi
-          icon={Trophy} label={T.kpi_won[lang]}
-          value={String(metrics.wonOrdersCount)}
-          to="/portal/crm/orders"
-        />
-        <Kpi
-          icon={CheckCircle2} label={T.kpi_winrate[lang]}
-          value={`${metrics.winRate}%`}
-        />
-        <Kpi
-          icon={Clock} label={T.kpi_avgtime[lang]}
-          value={`${metrics.avgSalesDays} ${T.days[lang]}`}
-        />
-        <KpiClosedOrders
-          lang={lang}
-          valueThisMonth={metrics.closedValueThisMonth}
-          countThisMonth={metrics.closedCountThisMonth}
-          pctChange={metrics.closedPctChange}
-        />
-      </div>
 
-      {/* PIPELINE FORDELING */}
-      <Section
-        icon={Layers}
-        title={T.pipeline_dist[lang]}
-        empty={metrics.pipelineByStage.every(s => s.value === 0) && metrics.pipelineByStage.every(s => s.count === 0)}
-        emptyText={T.empty[lang]}
-      >
-        <div className="space-y-3">
-          {(() => {
-            const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
-            return metrics.pipelineByStage.map(s => (
-              <div key={s.key}>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="font-medium text-gray-800">{T[`stage_${s.key}`][lang]}</span>
-                  <span className="text-gray-500">{fmtKr(s.value)} · {s.count}</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className={`${s.color} h-full rounded-full`} style={{ width: `${(s.value / max) * 100}%` }} />
+        {/* TOP KPI CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 animate-[fadeIn_.4s_ease-out]">
+          <Kpi accent="emerald" icon={Target}     label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
+               trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
+          <Kpi accent="violet"  icon={Sparkles}   label={T.kpi_leads[lang]}    value={String(metrics.activeLeads)}
+               trendPct={metrics.leadsPctChange} lang={lang} to="/portal/crm/leads" />
+          <Kpi accent="emerald" icon={Trophy}     label={T.kpi_won[lang]}      value={String(metrics.wonOrdersCount)}
+               trendPct={metrics.wonPctChange} lang={lang} to="/portal/crm/orders" />
+          <Kpi accent="sky"     icon={CheckCircle2} label={T.kpi_winrate[lang]} value={`${metrics.winRate}%`} lang={lang} />
+          <Kpi accent="amber"   icon={Clock}      label={T.kpi_avgtime[lang]}  value={`${metrics.avgSalesDays} ${T.days[lang]}`} lang={lang} />
+          <Kpi accent="emerald" icon={ShoppingCart} label={T.kpi_closed[lang]}
+               value={fmtKrShort(metrics.closedValueThisMonth)}
+               sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
+               trendPct={metrics.closedPctChange} lang={lang} />
+        </div>
+
+        {/* PIPELINE — bars + donut */}
+        <Card className="mb-6">
+          <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
+          {metrics.pipelineByStage.every(s => s.value === 0 && s.count === 0) ? (
+            <EmptyState text={T.empty[lang]} />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-3.5">
+                {(() => {
+                  const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
+                  const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                  return metrics.pipelineByStage.map(s => {
+                    const pct = Math.round((s.value / max) * 100);
+                    const sharePct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                    return (
+                      <div key={s.key}>
+                        <div className="flex items-center justify-between text-sm mb-1.5">
+                          <span className="inline-flex items-center gap-2 font-medium text-gray-800">
+                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold ${s.ring}`}>
+                              {s.count}
+                            </span>
+                            {T[`stage_${s.key}`][lang]}
+                          </span>
+                          <span className="text-xs text-gray-500 tabular-nums">
+                            <span className="font-semibold text-gray-700">{fmtKr(s.value)}</span>
+                            <span className="mx-1.5 text-gray-300">·</span>{sharePct}%
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`${s.bar} h-full rounded-full transition-[width] duration-700 ease-out`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="flex flex-col items-center justify-center">
+                <div className="relative h-44 w-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={metrics.pipelineByStage.filter(s => s.count > 0).map(s => ({
+                          name: T[`stage_${s.key}`][lang], value: s.count, fill: s.hex,
+                        }))}
+                        dataKey="value" innerRadius={52} outerRadius={78} paddingAngle={2}
+                        stroke="white" strokeWidth={2} isAnimationActive
+                      >
+                        {metrics.pipelineByStage.filter(s => s.count > 0).map((s, i) => (
+                          <Cell key={i} fill={s.hex} />
+                        ))}
+                      </Pie>
+                      <RTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400">{T.pipeline_total[lang]}</span>
+                    <span className="text-base font-bold text-gray-900">{fmtKrShort(metrics.pipelineValue)}</span>
+                  </div>
                 </div>
               </div>
-            ));
-          })()}
-        </div>
-      </Section>
+            </div>
+          )}
+        </Card>
 
-      {/* TWO-COLUMN: Recent activity + Lost reasons */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        <div className="lg:col-span-2">
-          <Section
-            icon={Activity}
-            title={T.recent[lang]}
-            actions={<Link className="text-sm text-[#2d5a27] hover:underline" to="/portal/crm/activities">{T.open_all[lang]}</Link>}
-            empty={activities.length === 0}
-            emptyText={T.empty[lang]}
-          >
-            <ul className="divide-y divide-gray-100">
-              {activities.slice(0, 10).map(a => (
-                <li key={a.id} className="py-3 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {a.title || prettyType(a.activity_type)}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {(isAdmin ? (a.created_by_name || a.assigned_owner_name || '—') : '—')} · {a.account_name || '—'} · {prettyType(a.activity_type)}
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(a.activity_date).toLocaleDateString('da-DK')}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        </div>
+        {/* RECENT ACTIVITY + LOST REASONS */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <Card className="lg:col-span-2">
+            <CardHeader
+              icon={Activity}
+              title={T.recent[lang]}
+              actions={<Link className="text-sm font-medium text-[#2d5a27] hover:underline" to="/portal/crm/activities">{T.open_all[lang]} →</Link>}
+            />
+            {activities.length === 0 ? (
+              <EmptyState text={T.empty[lang]} icon={Inbox} />
+            ) : (
+              <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 before:to-transparent">
+                {activities.slice(0, 8).map(a => {
+                  const stage = classifyStage(a);
+                  const badge = activityBadge(stage, lang);
+                  const owner = isAdmin ? (a.created_by_name || a.assigned_owner_name || '—') : '';
+                  return (
+                    <li key={a.id} className="relative pl-10 group">
+                      {/* avatar / dot */}
+                      {isAdmin && owner !== '—' ? (
+                        <div className={`absolute left-0 top-1 h-8 w-8 rounded-full bg-gradient-to-br from-[#2d5a27] to-emerald-700 text-white text-[11px] font-semibold flex items-center justify-center ring-2 ring-white shadow-sm`}>
+                          {initials(owner)}
+                        </div>
+                      ) : (
+                        <span className={`absolute left-[10px] top-3 h-2.5 w-2.5 rounded-full ring-4 ${activityDotClass(stage)}`} />
+                      )}
+                      <div className="flex items-start justify-between gap-3 rounded-lg -mx-2 px-2 py-1 group-hover:bg-gray-50 transition">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{a.title || prettyType(a.activity_type)}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {isAdmin && <><span className="font-medium text-gray-700">{owner}</span> · </>}
+                            {a.account_name || '—'}{a.value ? <> · <span className="text-gray-700 font-medium">{fmtKr(a.value)}</span></> : null}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {badge && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>{badge.label}</span>
+                          )}
+                          <span className="text-[11px] text-gray-400 tabular-nums">{relativeTime(a.activity_date, lang)}</span>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </Card>
 
-        <Section
-          icon={TrendingDown}
-          title={T.lost_reasons[lang]}
-          empty={metrics.lostReasons.total === 0}
-          emptyText={T.empty[lang]}
-        >
-          <div className="space-y-3">
-            {(['price','lead','comp','other'] as const).map(key => {
-              const item = metrics.lostReasons.items[key];
-              const total = Math.max(1, metrics.lostReasons.total);
-              const pct = Math.round((item.count / total) * 100);
-              return (
-                <div key={key}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-medium text-gray-800">{T[`reason_${key}`][lang]}</span>
-                    <span className="text-gray-500">{item.count} · {pct}%</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} />
-                  </div>
+          <Card>
+            <CardHeader icon={TrendingDown} title={T.lost_reasons[lang]} />
+            {metrics.lostReasons.total === 0 ? (
+              <EmptyState text={T.empty[lang]} />
+            ) : (
+              <>
+                <div className="h-40 mb-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(['price','lead','comp','other'] as const)
+                          .map(k => ({ name: T[`reason_${k}`][lang], value: metrics.lostReasons.items[k].count, fill: REASON_HEX[k] }))
+                          .filter(d => d.value > 0)}
+                        dataKey="value" innerRadius={42} outerRadius={64} paddingAngle={3}
+                        stroke="white" strokeWidth={2}
+                      >
+                        {(['price','lead','comp','other'] as const).map(k => (
+                          <Cell key={k} fill={REASON_HEX[k]} />
+                        ))}
+                      </Pie>
+                      <RTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
+                <div className="space-y-2.5">
+                  {(['price','lead','comp','other'] as const).map(key => {
+                    const item = metrics.lostReasons.items[key];
+                    const total = Math.max(1, metrics.lostReasons.total);
+                    const pct = Math.round((item.count / total) * 100);
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="inline-flex items-center gap-2 font-medium text-gray-700">
+                            <span className="h-2 w-2 rounded-full" style={{ background: REASON_HEX[key] }} />
+                            {T[`reason_${key}`][lang]}
+                          </span>
+                          <span className="text-gray-500 tabular-nums">{item.count} · {pct}%</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full transition-[width] duration-700"
+                               style={{ width: `${pct}%`, background: REASON_HEX[key] }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+
+        {/* PIPELINE TREND CHART (admins or sellers — own data) */}
+        <Card className="mb-6">
+          <CardHeader icon={Zap} title={T.trend30[lang]} />
+          {trend30.every(p => p.value === 0) ? (
+            <EmptyState text={T.empty_chart[lang]} />
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trend30} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="pipeGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor="#2d5a27" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#2d5a27" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false}
+                         tickFormatter={(v: number) => fmtKrShort(v)} width={50} />
+                  <RTooltip
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                    formatter={(v: number) => fmtKr(v)}
+                  />
+                  <Area type="monotone" dataKey="value" stroke="#2d5a27" strokeWidth={2} fill="url(#pipeGrad)" isAnimationActive />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+
+        {/* SELLER PERFORMANCE — backend only */}
+        {isAdmin && <SellerPerformanceSection activities={activities} language={lang} />}
+
+        {/* BOTTOM ROW */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <Card>
+            <CardHeader icon={Clock} title={T.followups[lang]} />
+            <EmptyState text={T.no_followups[lang]} icon={CheckCircle2} tone="positive" />
+          </Card>
+
+          <Card>
+            <CardHeader icon={XCircle} title={T.inactive[lang]} />
+            {(() => {
+              const list = metrics.inactiveAccounts(accounts).slice(0, 6);
+              if (list.length === 0) return <EmptyState text={T.empty[lang]} />;
+              return (
+                <ul className="divide-y divide-gray-100">
+                  {list.map(a => (
+                    <li key={a.id} className="py-2.5 flex items-center justify-between gap-3 group">
+                      <div className="inline-flex items-center gap-2 min-w-0">
+                        <span className="h-7 w-7 rounded-lg bg-gray-100 text-gray-600 text-[10px] font-semibold inline-flex items-center justify-center">
+                          {initials(accountDisplayName(a))}
+                        </span>
+                        <span className="text-sm text-gray-800 truncate group-hover:text-gray-900">{accountDisplayName(a)}</span>
+                      </div>
+                      <span className="text-[11px] text-gray-400 whitespace-nowrap">{a.country || '—'}</span>
+                    </li>
+                  ))}
+                </ul>
               );
-            })}
-          </div>
-        </Section>
-      </div>
+            })()}
+          </Card>
 
-      {/* SELLER PERFORMANCE — backend only */}
-      {isAdmin && (
-        <SellerPerformanceSection activities={activities} language={lang} />
-      )}
-
-      {/* BOTTOM ROW: Follow-ups · Inactive accounts · Best accounts (admin) / My accounts (seller) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        <Section icon={Clock} title={T.followups[lang]} empty emptyText={T.empty[lang]} />
-        <Section
-          icon={XCircle}
-          title={T.inactive[lang]}
-          empty={metrics.inactiveAccounts(accounts).length === 0}
-          emptyText={T.empty[lang]}
-        >
-          <ul className="divide-y divide-gray-100">
-            {metrics.inactiveAccounts(accounts).slice(0, 6).map(a => (
-              <li key={a.id} className="py-2 flex items-center justify-between gap-3">
-                <span className="text-sm text-gray-800 truncate">{accountDisplayName(a)}</span>
-                <span className="text-xs text-gray-400 whitespace-nowrap">{a.country || '—'}</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-        <Section
-          icon={Building2}
-          title={isAdmin ? T.best[lang] : T.kpi_pipeline[lang]}
-          empty={metrics.bestAccounts(accounts).length === 0}
-          emptyText={T.empty[lang]}
-        >
-          <ul className="divide-y divide-gray-100">
-            {metrics.bestAccounts(accounts).slice(0, 6).map(b => (
-              <li key={b.account.id} className="py-2 flex items-center justify-between gap-3">
-                <span className="text-sm text-gray-800 truncate">{accountDisplayName(b.account)}</span>
-                <span className="text-xs font-semibold text-[#2d5a27] whitespace-nowrap">{fmtKr(b.value)}</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
+          <Card>
+            <CardHeader icon={Award} title={isAdmin ? T.best[lang] : T.kpi_pipeline[lang]} />
+            {(() => {
+              const list = metrics.bestAccounts(accounts).slice(0, 6);
+              if (list.length === 0) return <EmptyState text={T.empty[lang]} />;
+              return (
+                <ul className="space-y-2">
+                  {list.map((b, i) => (
+                    <li key={b.account.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-emerald-50/50 transition">
+                      <span className={`h-7 w-7 rounded-lg text-[11px] font-bold inline-flex items-center justify-center ${
+                        i === 0 ? 'bg-amber-100 text-amber-700' :
+                        i === 1 ? 'bg-slate-100 text-slate-600' :
+                        i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-50 text-gray-500'
+                      }`}>{i + 1}</span>
+                      <span className="text-sm text-gray-800 truncate flex-1">{accountDisplayName(b.account)}</span>
+                      <span className="text-xs font-semibold text-[#2d5a27] whitespace-nowrap tabular-nums">{fmtKr(b.value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+          </Card>
+        </div>
       </div>
     </CrmLayout>
   );
 }
 
 // ────────────────────────────────────────────────────────────
-// Components
+// Reusable UI
 // ────────────────────────────────────────────────────────────
-function Kpi({ icon: Icon, label, value, to }: { icon: typeof Building2; label: string; value: string; to?: string }) {
-  const inner = (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:border-[#2d5a27]/30 transition flex items-center gap-4">
-      <div className="h-12 w-12 rounded-xl bg-[#2d5a27]/10 text-[#2d5a27] flex items-center justify-center">
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.18)] transition-shadow p-6 ${className}`}>
+      {children}
+    </section>
+  );
+}
+
+function CardHeader({ icon: Icon, title, actions }: { icon: typeof Building2; title: string; actions?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between mb-5">
+      <h2 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2.5">
+        <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 text-gray-700 inline-flex items-center justify-center ring-1 ring-gray-200/70">
+          <Icon className="h-4 w-4" />
+        </span>
+        {title}
+      </h2>
+      {actions}
+    </div>
+  );
+}
+
+function EmptyState({ text, icon: Icon = Inbox, tone = 'neutral' }:
+  { text: string; icon?: typeof Inbox; tone?: 'neutral' | 'positive' }) {
+  const cls = tone === 'positive' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400';
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className={`h-12 w-12 rounded-2xl ${cls} inline-flex items-center justify-center mb-3`}>
         <Icon className="h-6 w-6" />
       </div>
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="text-xl font-semibold text-gray-900 truncate">{value}</p>
+      <p className="text-sm text-gray-500">{text}</p>
+    </div>
+  );
+}
+
+const ACCENTS: Record<string, { ring: string; icon: string; soft: string }> = {
+  emerald: { ring: 'ring-emerald-100', icon: 'bg-gradient-to-br from-emerald-500 to-[#2d5a27] text-white', soft: 'from-emerald-50/40' },
+  sky:     { ring: 'ring-sky-100',     icon: 'bg-gradient-to-br from-sky-400 to-sky-600 text-white',      soft: 'from-sky-50/40' },
+  violet:  { ring: 'ring-violet-100',  icon: 'bg-gradient-to-br from-violet-400 to-violet-600 text-white', soft: 'from-violet-50/40' },
+  amber:   { ring: 'ring-amber-100',   icon: 'bg-gradient-to-br from-amber-400 to-amber-600 text-white',  soft: 'from-amber-50/40' },
+};
+
+function Kpi({
+  icon: Icon, label, value, sub, trendPct, lang, accent = 'emerald', sparkline, to,
+}: {
+  icon: typeof Building2; label: string; value: string; sub?: string;
+  trendPct?: number; lang: Language; accent?: keyof typeof ACCENTS;
+  sparkline?: Array<{ label: string; value: number }>; to?: string;
+}) {
+  const a = ACCENTS[accent];
+  const showTrend = typeof trendPct === 'number';
+  const TrendIcon = !showTrend ? ArrowRight : trendPct! > 2 ? ArrowUpRight : trendPct! < -2 ? ArrowDownRight : Minus;
+  const trendCls = !showTrend ? '' :
+    trendPct! > 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+    trendPct! < -2 ? 'bg-rose-50 text-rose-700 border-rose-200' :
+    'bg-gray-50 text-gray-600 border-gray-200';
+  const trendLabel = !showTrend ? '' :
+    Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
+
+  const inner = (
+    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5`}>
+      <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-30 ${a.icon}`} />
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className={`h-10 w-10 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        {showTrend && (
+          <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
+            <TrendIcon className="h-3 w-3" />{trendLabel}
+          </span>
+        )}
       </div>
+      <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">{label}</p>
+      <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
+      {sub ? <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p> : null}
+      {showTrend && (
+        <p className="text-[10px] text-gray-400 mt-1.5">{T.vs_last_month[lang]}</p>
+      )}
+      {sparkline && sparkline.length > 1 && (
+        <div className="absolute inset-x-0 bottom-0 h-10 opacity-70 group-hover:opacity-100 transition pointer-events-none">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={sparkline}>
+              <Line type="monotone" dataKey="value" stroke="#2d5a27" strokeWidth={1.5} dot={false} isAnimationActive />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
   return to ? <Link to={to}>{inner}</Link> : inner;
-}
-
-function KpiClosedOrders({ lang, valueThisMonth, countThisMonth, pctChange }: {
-  lang: Language; valueThisMonth: number; countThisMonth: number; pctChange: number;
-}) {
-  const up = pctChange >= 0;
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="h-10 w-10 rounded-xl bg-[#2d5a27]/10 text-[#2d5a27] flex items-center justify-center">
-          <ShoppingCart className="h-5 w-5" />
-        </div>
-        <p className="text-xs uppercase tracking-wide text-gray-500">{T.kpi_closed[lang]}</p>
-      </div>
-      <p className="text-xl font-semibold text-gray-900">{fmtKr(valueThisMonth)}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{countThisMonth} {T.orders[lang]}</p>
-      <p className={`text-xs mt-2 inline-flex items-center gap-1 font-semibold ${up ? 'text-emerald-600' : 'text-rose-600'}`}>
-        {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-        {Math.abs(pctChange)}% {T.vs_last_month[lang]}
-      </p>
-    </div>
-  );
-}
-
-function Section({
-  icon: Icon, title, children, actions, empty, emptyText, className,
-}: {
-  icon: typeof Building2; title: string; children?: React.ReactNode; actions?: React.ReactNode;
-  empty?: boolean; emptyText?: string; className?: string;
-}) {
-  return (
-    <section className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 ${className || ''}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-2"><Icon className="h-5 w-5" />{title}</h2>
-        {actions}
-      </div>
-      {empty ? <p className="text-sm text-gray-500">{emptyText || '—'}</p> : children}
-    </section>
-  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -381,45 +571,71 @@ function Section({
 // ────────────────────────────────────────────────────────────
 interface DerivedMetrics {
   pipelineValue: number;
+  pipelinePctChange: number;
   activeLeads: number;
+  leadsPctChange: number;
   wonOrdersCount: number;
+  wonPctChange: number;
   winRate: number;
   avgSalesDays: number;
   closedValueThisMonth: number;
   closedCountThisMonth: number;
   closedPctChange: number;
-  pipelineByStage: Array<{ key: typeof PIPELINE_STAGES[number]['key']; color: string; value: number; count: number }>;
+  pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
   lostReasons: { total: number; items: Record<'price'|'lead'|'comp'|'other', { count: number }> };
-  sellerPerf: Array<{ name: string; pipeline: number; sales: number; activeLeads: number; won: number; winRate: number }>;
   inactiveAccounts: (accounts: CrmAccount[]) => CrmAccount[];
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
 }
 
-function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetrics {
+function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMetrics {
+  void _isAdmin;
   const now = new Date();
   const monthStart = startOfMonth(now);
   const prevWindow = sameTimePrevMonth(now);
 
-  // Map activity → stage
   const staged = activities.map(a => ({ a, stage: classifyStage(a) }));
 
-  // Pipeline distribution (open stages only contribute to "pipeline value")
   const byStage = PIPELINE_STAGES.map(meta => {
     const rows = staged.filter(s => s.stage === meta.key);
     const value = rows.reduce((sum, s) => sum + (s.a.value || 0), 0);
-    return { key: meta.key, color: meta.color, value, count: rows.length };
+    return { key: meta.key, bar: meta.bar, hex: meta.hex, ring: meta.ring, value, count: rows.length };
   });
 
-  const openStages: Array<typeof PIPELINE_STAGES[number]['key']> = ['lead','demo','quote','neg'];
+  const openStages: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
   const pipelineValue = byStage.filter(s => openStages.includes(s.key)).reduce((sum, s) => sum + s.value, 0);
 
+  // Pipeline pct change — value created this month vs prev same window (proxy)
+  const pipeThis = staged.filter(s => s.stage && openStages.includes(s.stage) && new Date(s.a.activity_date) >= monthStart)
+    .reduce((sum, s) => sum + (s.a.value || 0), 0);
+  const pipePrev = staged.filter(s => {
+    if (!s.stage || !openStages.includes(s.stage)) return false;
+    const d = new Date(s.a.activity_date);
+    return d >= prevWindow.from && d <= prevWindow.to;
+  }).reduce((sum, s) => sum + (s.a.value || 0), 0);
+  const pipelinePctChange = pctChange(pipeThis, pipePrev);
+
   const activeLeads = staged.filter(s => s.stage === 'lead' || s.stage === 'demo').length;
+  const leadsThis = staged.filter(s => (s.stage === 'lead' || s.stage === 'demo') && new Date(s.a.activity_date) >= monthStart).length;
+  const leadsPrev = staged.filter(s => {
+    if (s.stage !== 'lead' && s.stage !== 'demo') return false;
+    const d = new Date(s.a.activity_date);
+    return d >= prevWindow.from && d <= prevWindow.to;
+  }).length;
+  const leadsPctChange = pctChange(leadsThis, leadsPrev);
+
   const won = staged.filter(s => s.stage === 'won');
   const lost = staged.filter(s => s.stage === 'lost');
   const wonOrdersCount = won.length;
   const winRate = (won.length + lost.length) === 0 ? 0 : Math.round((won.length / (won.length + lost.length)) * 100);
 
-  // Avg sales days — gap between first quote_created and matching order_sent per configuration
+  const wonThis = won.filter(s => new Date(s.a.activity_date) >= monthStart).length;
+  const wonPrev = won.filter(s => {
+    const d = new Date(s.a.activity_date);
+    return d >= prevWindow.from && d <= prevWindow.to;
+  }).length;
+  const wonPctChange = pctChange(wonThis, wonPrev);
+
+  // Avg sales days
   const quoteDates = new Map<string, number>();
   for (const a of activities) {
     if (a.activity_type === 'quote_created' && a.configuration_id) {
@@ -440,7 +656,6 @@ function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetr
   }
   const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
 
-  // Closed orders this month vs same period last month
   const closedThisMonth = won.filter(s => new Date(s.a.activity_date) >= monthStart);
   const closedPrev = won.filter(s => {
     const d = new Date(s.a.activity_date);
@@ -451,11 +666,8 @@ function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetr
   const closedValuePrev = closedPrev.reduce((sum, s) => sum + (s.a.value || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
-  // Lost reasons
   const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
-  for (const s of lost) {
-    reasonCounts[classifyLostReason(s.a)] += 1;
-  }
+  for (const s of lost) reasonCounts[classifyLostReason(s.a)] += 1;
   const lostReasons = {
     total: lost.length,
     items: {
@@ -466,11 +678,7 @@ function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetr
     },
   };
 
-  // Seller performance — admin only
-  const sellerPerf = isAdmin ? buildSellerPerf(staged) : [];
-
-  // Best accounts by total won value
-  const bestByAccount = new Map<string, { value: number; account?: CrmAccount }>();
+  const bestByAccount = new Map<string, { value: number }>();
   for (const s of won) {
     const id = s.a.account_id;
     if (!id) continue;
@@ -480,19 +688,15 @@ function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetr
   }
 
   return {
-    pipelineValue,
-    activeLeads,
-    wonOrdersCount,
-    winRate,
-    avgSalesDays,
-    closedValueThisMonth,
-    closedCountThisMonth,
-    closedPctChange,
+    pipelineValue, pipelinePctChange,
+    activeLeads, leadsPctChange,
+    wonOrdersCount, wonPctChange,
+    winRate, avgSalesDays,
+    closedValueThisMonth, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
-    sellerPerf,
     inactiveAccounts: (accounts) => {
-      const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 60; // 60 days
+      const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 60;
       const lastByAccount = new Map<string, number>();
       for (const a of activities) {
         if (!a.account_id) continue;
@@ -516,29 +720,28 @@ function deriveMetrics(activities: CrmActivity[], isAdmin: boolean): DerivedMetr
   };
 }
 
-function buildSellerPerf(staged: Array<{ a: CrmActivity; stage: ReturnType<typeof classifyStage> }>) {
-  const by = new Map<string, { name: string; pipeline: number; sales: number; activeLeads: number; won: number; lost: number }>();
-  const openStages = new Set(['lead','demo','quote','neg']);
-  for (const s of staged) {
-    const name = s.a.assigned_owner_name || s.a.created_by_name;
-    if (!name) continue;
-    const cur = by.get(name) || { name, pipeline: 0, sales: 0, activeLeads: 0, won: 0, lost: 0 };
-    if (s.stage && openStages.has(s.stage)) cur.pipeline += s.a.value || 0;
-    if (s.stage === 'lead' || s.stage === 'demo') cur.activeLeads += 1;
-    if (s.stage === 'won') { cur.won += 1; cur.sales += s.a.value || 0; }
-    if (s.stage === 'lost') cur.lost += 1;
-    by.set(name, cur);
+// 30-day pipeline trend (cumulative pipeline value created per day)
+function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; value: number }> {
+  const days = 30;
+  const buckets: number[] = new Array(days).fill(0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const open = new Set(['lead','demo','quote','neg']);
+  for (const a of activities) {
+    const stage = classifyStage(a);
+    if (!stage || !open.has(stage)) continue;
+    const d = new Date(a.activity_date); d.setHours(0, 0, 0, 0);
+    const diff = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0 || diff >= days) continue;
+    buckets[days - 1 - diff] += a.value || 0;
   }
-  return Array.from(by.values()).map(r => ({
-    name: r.name,
-    pipeline: r.pipeline,
-    sales: r.sales,
-    activeLeads: r.activeLeads,
-    won: r.won,
-    winRate: (r.won + r.lost) === 0 ? 0 : Math.round((r.won / (r.won + r.lost)) * 100),
-  })).sort((a, b) => b.sales - a.sales);
+  // cumulative
+  let acc = 0;
+  return buckets.map((v, i) => {
+    acc += v;
+    const d = new Date(today); d.setDate(d.getDate() - (days - 1 - i));
+    return { label: `${d.getDate()}/${d.getMonth() + 1}`, value: acc };
+  });
 }
 
-function prettyType(t: CrmActivityType): string {
-  return t.replace(/_/g, ' ');
-}
+// Suppress unused warnings for lucide imports kept for future widgets.
+void Flame; void Users; void FileText;

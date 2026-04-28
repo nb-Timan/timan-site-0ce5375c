@@ -12,9 +12,30 @@
  */
 
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Users } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Crown, Trophy, Users } from 'lucide-react';
 import { CrmActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
+
+const COL_WINRATE: Record<Language, string> = {
+  da: 'Win rate', en: 'Win rate', de: 'Win-Rate', it: 'Win rate', hu: 'Win rate',
+};
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || '?';
+}
+function avatarGradient(name: string): string {
+  // Stable per-name gradient
+  const palette = [
+    'from-emerald-500 to-emerald-700',
+    'from-sky-500 to-indigo-600',
+    'from-violet-500 to-fuchsia-600',
+    'from-amber-500 to-rose-500',
+    'from-teal-500 to-cyan-600',
+    'from-rose-500 to-pink-600',
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
 
 type Filter = 'this_month' | 'last_month' | 'ytd' | 'forecast';
 
@@ -50,6 +71,9 @@ interface SellerRow {
   prevPctChange: number;
   forecastCount: number;
   forecastValue: number;
+  wonCount: number;
+  lostCount: number;
+  winRate: number;
 }
 
 function fmtKr(n: number): string {
@@ -100,6 +124,7 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
         activeCount: 0, activeValue: 0,
         prevValue: 0, prevPctChange: 0,
         forecastCount: 0, forecastValue: 0,
+        wonCount: 0, lostCount: 0, winRate: 0,
       };
       sellers.set(name, r);
     }
@@ -137,8 +162,14 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
       monthBeforeClosed.set(name, (monthBeforeClosed.get(name) || 0) + (a.value || 0));
     }
 
-    // ── Forecast: open quotes with expected_close_date next month, fall back
-    //    to all currently-open quotes (counted once) as expected pipeline.
+    // ── Win rate (overall, in scope) ─────────────────────
+    if (date >= scopeFrom && date <= scopeTo) {
+      if (isWon(a)) row.wonCount += 1;
+      if (a.activity_type === 'order_sent' && (a.status || '').toLowerCase() === 'lost') row.lostCount += 1;
+      if (a.activity_type === 'lead_rejected') row.lostCount += 1;
+    }
+
+    // ── Forecast: open quotes with expected_close_date next month ─────────
     if (isOpenQuote(a)) {
       const meta = (a.meta || {}) as Record<string, unknown>;
       const expected = meta.expected_close_date ? new Date(String(meta.expected_close_date)) : null;
@@ -149,8 +180,6 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
     }
   }
 
-  // If no explicit forecast hits exist, treat 50% of currently-active pipeline
-  // as next-month forecast — keeps the column meaningful in early-data state.
   for (const r of sellers.values()) {
     if (r.forecastCount === 0 && r.activeCount > 0) {
       r.forecastCount = Math.max(1, Math.round(r.activeCount * 0.5));
@@ -162,6 +191,8 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
     } else {
       r.prevPctChange = Math.round(((r.prevValue - prevPrev) / prevPrev) * 100);
     }
+    const tot = r.wonCount + r.lostCount;
+    r.winRate = tot === 0 ? 0 : Math.round((r.wonCount / tot) * 100);
   }
 
   return Array.from(sellers.values()).sort((a, b) => b.closedValue - a.closedValue);
@@ -186,19 +217,22 @@ export default function SellerPerformanceSection({ activities, language }: Props
   ];
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-2">
-          <Users className="h-5 w-5" />{T.title[language]}
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] p-6 mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2.5">
+          <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 inline-flex items-center justify-center ring-1 ring-amber-200/70">
+            <Trophy className="h-4 w-4" />
+          </span>
+          {T.title[language]}
         </h2>
-        <div className="inline-flex flex-wrap gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
+        <div className="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
           {FILTERS.map(f => (
             <button
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
               className={
-                'px-3 py-1.5 rounded-md text-xs font-medium transition ' +
+                'px-3 py-1.5 rounded-lg text-xs font-medium transition ' +
                 (filter === f.key
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
                   : 'text-gray-600 hover:text-gray-900')
@@ -211,54 +245,100 @@ export default function SellerPerformanceSection({ activities, language }: Props
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">{T.empty[language]}</p>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <div className="h-12 w-12 rounded-2xl bg-gray-50 text-gray-400 inline-flex items-center justify-center mb-3">
+            <Users className="h-6 w-6" />
+          </div>
+          <p className="text-sm text-gray-500">{T.empty[language]}</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="py-2 pr-4">{T.col_seller[language]}</th>
-                <th className="py-2 pr-4">{T.col_closed[language]}</th>
-                <th className="py-2 pr-4">{T.col_active[language]}</th>
-                <th className="py-2 pr-4">{T.col_prev[language]}</th>
-                <th className="py-2 pr-4">{T.col_forecast[language]}</th>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-2.5 pr-4 font-medium">{T.col_seller[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_closed[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_active[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_prev[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_forecast[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{COL_WINRATE[language]}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.name} className={isForecastView ? 'bg-violet-50/30' : undefined}>
-                  <td className="py-3 pr-4 font-medium text-gray-900">{r.name}</td>
+              {rows.map((r, idx) => {
+                const isLeader = idx === 0 && r.closedValue > 0;
+                return (
+                  <tr key={r.name}
+                      className={
+                        (isForecastView ? 'bg-violet-50/30 ' : '') +
+                        (isLeader ? 'bg-gradient-to-r from-amber-50/60 to-transparent ' : '') +
+                        'hover:bg-gray-50/70 transition-colors'
+                      }>
+                    {/* Seller — avatar + name + crown */}
+                    <td className="py-3.5 pr-4">
+                      <div className="inline-flex items-center gap-3">
+                        <div className="relative">
+                          <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${avatarGradient(r.name)} text-white text-xs font-semibold flex items-center justify-center shadow-sm ring-2 ring-white`}>
+                            {initials(r.name)}
+                          </div>
+                          {isLeader && (
+                            <Crown className="absolute -top-1.5 -right-1.5 h-4 w-4 text-amber-500 fill-amber-300 drop-shadow-sm" />
+                          )}
+                        </div>
+                        <div className="leading-tight">
+                          <div className="font-semibold text-gray-900">{r.name}</div>
+                          {isLeader && <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Top performer</div>}
+                        </div>
+                      </div>
+                    </td>
 
-                  {/* Closed (green) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-emerald-700 font-semibold">{fmtKr(r.closedValue)}</div>
-                    <div className="text-xs text-gray-500">{r.closedCount} {T.stk[language]}</div>
-                  </td>
+                    {/* Closed (green) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-emerald-700 font-semibold tabular-nums">{fmtKr(r.closedValue)}</div>
+                      <div className="text-xs text-gray-500">{r.closedCount} {T.stk[language]}</div>
+                    </td>
 
-                  {/* Active offers (blue) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-sky-700 font-semibold">{fmtKr(r.activeValue)}</div>
-                    <div className="text-xs text-gray-500">{r.activeCount} {T.stk[language]}</div>
-                  </td>
+                    {/* Active offers (sky) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-sky-700 font-semibold tabular-nums">{fmtKr(r.activeValue)}</div>
+                      <div className="text-xs text-gray-500">{r.activeCount} {T.stk[language]}</div>
+                    </td>
 
-                  {/* Previous month (muted + trend arrow) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-gray-500 font-medium inline-flex items-center gap-1">
-                      <TrendArrow pct={r.prevPctChange} />
-                      {fmtKr(r.prevValue)}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {r.prevPctChange > 0 ? '+' : ''}{r.prevPctChange}%
-                    </div>
-                  </td>
+                    {/* Previous month */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-gray-700 font-medium inline-flex items-center gap-1 tabular-nums">
+                        <TrendArrow pct={r.prevPctChange} />
+                        {fmtKr(r.prevValue)}
+                      </div>
+                      <div className={`text-xs ${r.prevPctChange > 2 ? 'text-emerald-600' : r.prevPctChange < -2 ? 'text-rose-600' : 'text-gray-400'}`}>
+                        {r.prevPctChange > 0 ? '+' : ''}{r.prevPctChange}%
+                      </div>
+                    </td>
 
-                  {/* Forecast (purple) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-violet-700 font-semibold">{fmtKr(r.forecastValue)}</div>
-                    <div className="text-xs text-gray-500">{r.forecastCount} {T.stk[language]}</div>
-                  </td>
-                </tr>
-              ))}
+                    {/* Forecast (violet) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-violet-700 font-semibold tabular-nums">{fmtKr(r.forecastValue)}</div>
+                      <div className="text-xs text-gray-500">{r.forecastCount} {T.stk[language]}</div>
+                    </td>
+
+                    {/* Win rate — mini progress */}
+                    <td className="py-3.5 pr-4 min-w-[120px]">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden max-w-[80px]">
+                          <div
+                            className={`h-full rounded-full transition-[width] duration-700 ${
+                              r.winRate >= 60 ? 'bg-emerald-500' :
+                              r.winRate >= 30 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${r.winRate}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700 tabular-nums">{r.winRate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
