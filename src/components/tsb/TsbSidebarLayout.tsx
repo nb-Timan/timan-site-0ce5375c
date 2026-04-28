@@ -8,7 +8,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, FileText, LayoutDashboard, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, FileText, Globe, LayoutDashboard, Settings, Users, Wrench, type LucideIcon } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
@@ -25,6 +25,11 @@ interface NavItem {
 const TSB_NAV: NavItem[] = [
   { to: "/portal/service/tsb/dashboard", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/tsb/dashboard" },
   { to: "/portal/service/tsb",           label: "TSB'er",    icon: FileText,        match: "/portal/service/tsb", exact: true },
+  { to: "/portal/service/tsb/dealers",   label: "Forhandlere", icon: Building2,     match: "/portal/service/tsb/dealers" },
+  { to: "/portal/service/tsb/machines",  label: "Maskiner",    icon: Wrench,        match: "/portal/service/tsb/machines" },
+  { to: "/portal/service/tsb/users",     label: "Brugere",     icon: Users,         match: "/portal/service/tsb/users" },
+  { to: "/portal/service/tsb/countries", label: "Landeliste",  icon: Globe,         match: "/portal/service/tsb/countries" },
+  { to: "/portal/service/tsb/settings",  label: "Indstillinger", icon: Settings,    match: "/portal/service/tsb/settings" },
 ];
 
 class TsbErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
