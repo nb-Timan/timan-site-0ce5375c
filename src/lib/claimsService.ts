@@ -128,11 +128,97 @@ function writeLocal(list: ServiceClaim[]): void {
   try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); } catch { /* ignore */ }
 }
 
-export function generateClaimNumber(): string {
-  const year = new Date().getFullYear();
-  const seq = Math.floor(1000 + Math.random() * 9000);
-  return `CLM-${year}-${seq}`;
+// ---------- Claim number generation ----------
+// Format: CLM-YYYY-#### (4-digit zero-padded sequence per year).
+// Optional grouped suffix: CLM-YYYY-####/N for multi-machine claims.
+
+const CLAIM_NUMBER_RE = /^CLM-(\d{4})-(\d{4,})(?:\/(\d+))?$/;
+
+function pad4(n: number): string {
+  return n.toString().padStart(4, '0');
 }
+
+export function formatClaimNumber(year: number, seq: number, groupIndex?: number): string {
+  const base = `CLM-${year}-${pad4(seq)}`;
+  return groupIndex && groupIndex > 0 ? `${base}/${groupIndex}` : base;
+}
+
+/** Parses CLM-YYYY-####(/N) → { year, seq, group? }. Returns null if not matching. */
+export function parseClaimNumber(value: string | null | undefined): { year: number; seq: number; group?: number } | null {
+  if (!value) return null;
+  const m = CLAIM_NUMBER_RE.exec(value.trim());
+  if (!m) return null;
+  return {
+    year: Number(m[1]),
+    seq: Number(m[2]),
+    group: m[3] ? Number(m[3]) : undefined,
+  };
+}
+
+async function fetchExistingNumbersForYear(year: number): Promise<Set<string>> {
+  const set = new Set<string>();
+  // Local + mock are always available
+  for (const c of readLocal()) if (c.claim_number) set.add(c.claim_number);
+  for (const c of MOCK_CLAIMS) if (c.claim_number) set.add(c.claim_number);
+
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .select('claim_number')
+      .like('claim_number', `CLM-${year}-%`)
+      .limit(10000);
+    if (!error && Array.isArray(data)) {
+      for (const row of data as Array<{ claim_number: string | null }>) {
+        if (row.claim_number) set.add(row.claim_number);
+      }
+    }
+  } catch {
+    // network/table missing — local/mock fallback already loaded
+  }
+  return set;
+}
+
+/**
+ * Generate the next unique claim number for the current year.
+ * Considers Supabase + local drafts + mock data.
+ *
+ * If `groupBase` is provided (an existing CLM-YYYY-#### number), returns the
+ * next available suffix variant (e.g. CLM-YYYY-####/2) instead of a new sequence.
+ */
+export async function generateClaimNumber(groupBase?: string): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const existing = await fetchExistingNumbersForYear(year);
+
+  // Grouped suffix variant
+  if (groupBase) {
+    const parsed = parseClaimNumber(groupBase);
+    if (!parsed) {
+      throw new Error(`Invalid base claim number: ${groupBase}`);
+    }
+    const base = formatClaimNumber(parsed.year, parsed.seq);
+    let n = 1;
+    while (existing.has(`${base}/${n}`)) n++;
+    if (n > 9999) throw new Error('Too many group variants for this claim');
+    return `${base}/${n}`;
+  }
+
+  // Find highest existing sequence for the year, then +1
+  let maxSeq = 0;
+  for (const num of existing) {
+    const p = parseClaimNumber(num);
+    if (p && p.year === year && p.seq > maxSeq) maxSeq = p.seq;
+  }
+  let next = maxSeq + 1;
+  // Defensive: skip any concurrent collisions
+  while (existing.has(formatClaimNumber(year, next))) next++;
+  if (next > 9999) {
+    // Year exhausted — extend padding gracefully (still unique)
+    return `CLM-${year}-${next}`;
+  }
+  return formatClaimNumber(year, next);
+}
+
 
 // ---------- Loaders ----------
 export interface LoadClaimsResult {
@@ -217,41 +303,78 @@ export interface SaveClaimResult {
   error?: string;
 }
 
-export async function saveClaim(input: NewClaimInput, status: ClaimStatus): Promise<SaveClaimResult> {
-  const claim_number = generateClaimNumber();
+/**
+ * Save a claim. Generates a unique CLM-YYYY-#### number first; on a duplicate
+ * collision (e.g. concurrent insert) retries up to 3 times.
+ *
+ * @param groupBase Optional existing claim number to attach this claim to as a
+ *                  grouped variant (CLM-YYYY-####/N).
+ */
+export async function saveClaim(
+  input: NewClaimInput,
+  status: ClaimStatus,
+  groupBase?: string,
+): Promise<SaveClaimResult> {
   const created_at = new Date().toISOString();
   const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
     ? crypto.randomUUID()
-    : `local-${Date.now()}`;
+    : `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const draft: ServiceClaim = {
-    ...input,
-    id,
-    claim_number,
-    created_at,
-    status,
-  };
+  const MAX_ATTEMPTS = 3;
+  let lastError: string | undefined;
 
-  try {
-    const { data, error } = await supabase
-      .from('service_claims')
-      .insert(draft)
-      .select(SELECT_COLS)
-      .maybeSingle();
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let claim_number: string;
+    try {
+      claim_number = await generateClaimNumber(groupBase);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Claim number generation failed';
+      throw new Error(msg);
+    }
+    if (!claim_number) {
+      throw new Error('Claim number generation failed');
+    }
 
-    if (error || !data) {
-      // Fallback: persist locally so UX still works.
+    const draft: ServiceClaim = { ...input, id, claim_number, created_at, status };
+
+    try {
+      const { data, error } = await supabase
+        .from('service_claims')
+        .insert(draft)
+        .select(SELECT_COLS)
+        .maybeSingle();
+
+      if (!error && data) {
+        return { claim: data as unknown as ServiceClaim, source: 'supabase' };
+      }
+
+      // Postgres unique-violation → retry with a fresh number
+      const code = (error as { code?: string } | null)?.code;
+      if (code === '23505' && attempt < MAX_ATTEMPTS - 1) {
+        lastError = error?.message;
+        continue;
+      }
+
+      // Any other Supabase error → fall back to local store, with a number
       const list = readLocal();
+      // Belt-and-braces: ensure local uniqueness too
+      if (list.some(c => c.claim_number === claim_number)) {
+        lastError = 'Local duplicate';
+        continue;
+      }
       list.unshift(draft);
       writeLocal(list);
-      return { claim: draft, source: 'local', error: error?.message };
+      return { claim: draft, source: 'local', error: error?.message ?? lastError };
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : 'Unknown error';
+      const list = readLocal();
+      if (list.some(c => c.claim_number === claim_number)) continue;
+      list.unshift(draft);
+      writeLocal(list);
+      return { claim: draft, source: 'local', error: lastError };
     }
-    return { claim: data as unknown as ServiceClaim, source: 'supabase' };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Unknown error';
-    const list = readLocal();
-    list.unshift(draft);
-    writeLocal(list);
-    return { claim: draft, source: 'local', error: msg };
   }
+
+  throw new Error(lastError ?? 'Could not generate a unique claim number');
 }
+
