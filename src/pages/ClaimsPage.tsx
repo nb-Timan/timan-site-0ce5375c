@@ -6,7 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Language } from '@/types/configurator';
-import { derivePortalRole, getPortalPermissions, hasModuleAccess } from '@/lib/portalAccess';
+import { derivePortalRole, getPortalPermissions, hasModuleAccess, getClaimsViewVariant } from '@/lib/portalAccess';
 import { loadClaims, ServiceClaim, ClaimStatus } from '@/lib/claimsService';
 
 const T: Record<string, Record<Language, string>> = {
@@ -25,6 +25,8 @@ const T: Record<string, Record<Language, string>> = {
   colDesc:     { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
   colStatus:   { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Állapot' },
   colDate:     { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
+  viewInternal:{ da: 'Intern visning', en: 'Internal view', de: 'Interne Ansicht', it: 'Vista interna', hu: 'Belső nézet' },
+  viewDealer:  { da: 'Forhandlervisning', en: 'Dealer view', de: 'Händleransicht', it: 'Vista rivenditore', hu: 'Kereskedői nézet' },
 };
 
 const STATUS_LABEL: Record<ClaimStatus, Record<Language, string>> = {
@@ -86,6 +88,7 @@ export default function ClaimsPage() {
   const allowed = hasModuleAccess(portalRole, 'claims', (appUser.module_access as import('@/lib/portalAccess').ModuleAccessKey[] | null | undefined) ?? null);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateClaim;
+  const viewVariant = getClaimsViewVariant(portalRole);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
