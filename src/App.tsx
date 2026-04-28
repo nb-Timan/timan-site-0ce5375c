@@ -7,6 +7,7 @@ import { AppUserProvider } from "@/context/AppUserContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import PortalPage from "./pages/PortalPage";
 import PortalAreaPage from "./pages/PortalAreaPage";
+import PortalCrmPage from "./pages/PortalCrmPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
+              <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/videos" element={<VideoGalleryPage />} />
               <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
               <Route path="/portal/resources" element={<ResourcesPage />} />

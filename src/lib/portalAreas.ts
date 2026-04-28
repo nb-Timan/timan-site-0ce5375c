@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_backend';
+export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -49,6 +49,19 @@ export const PORTAL_AREAS: PortalArea[] = [
       hu: 'Konfigurátor, árajánlatok, rendelések és értékesítési eszközök.',
     },
     moduleIds: ['configurator', 'videos', 'resources', 'misc'],
+    placeholders: [],
+  },
+  {
+    id: 'timan_crm',
+    title: { da: 'Timan CRM', en: 'Timan CRM', de: 'Timan CRM', it: 'Timan CRM', hu: 'Timan CRM' },
+    description: {
+      da: 'Forhandlere, kontakter, aktiviteter og pipeline.',
+      en: 'Dealers, contacts, activities and pipeline.',
+      de: 'Händler, Kontakte, Aktivitäten und Pipeline.',
+      it: 'Rivenditori, contatti, attività e pipeline.',
+      hu: 'Kereskedők, kapcsolatok, tevékenységek és pipeline.',
+    },
+    moduleIds: [],
     placeholders: [],
   },
   {
@@ -98,6 +111,8 @@ export function isAreaVisible(area: PortalArea, user: AppUser | null): boolean {
     case 'salg_marketing':
     case 'teknik_service':
       return user.role === 'timan_saelger' || user.role === 'partner';
+    case 'timan_crm':
+      return user.role === 'timan_saelger';
     case 'timan_backend':
       return user.role === 'timan_saelger';
     default:
