@@ -31,9 +31,8 @@ export const PORTAL_AREAS: PortalArea[] = [
       it: 'Assistenza, garanzia, TSB e informazioni tecniche.',
       hu: 'Szerviz, garancia, TSB és műszaki információk.',
     },
-    moduleIds: [],
+    moduleIds: ['claims'],
     placeholders: [
-      { key: 'service_claims',  title: { da: 'Service / Claims', en: 'Service / Claims', de: 'Service / Claims', it: 'Assistenza / Reclami', hu: 'Szerviz / Reklamációk' } },
       { key: 'tsb_portal',      title: { da: 'TSB Portal', en: 'TSB Portal', de: 'TSB Portal', it: 'Portale TSB', hu: 'TSB Portál' } },
       { key: 'warranty_reg',    title: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' } },
       { key: 'service_info',    title: { da: 'Serviceinformation', en: 'Service information', de: 'Serviceinformationen', it: 'Informazioni di assistenza', hu: 'Szervizinformáció' } },
