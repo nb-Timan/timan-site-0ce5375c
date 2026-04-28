@@ -6,6 +6,7 @@
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
+import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 
 export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_backend';
 
@@ -76,19 +77,28 @@ export const PORTAL_AREAS: PortalArea[] = [
  * Future roles (Timan Backend / Service / Importør / Service Partner / Dealer User) will be
  * introduced together with the new app_users schema in a later phase.
  */
+/**
+ * Phase 1B visibility — driven by the unified portal role / module-access map.
+ * Falls back to the legacy role check when no portal role can be derived
+ * (keeps existing logins working).
+ */
 export function isAreaVisible(area: PortalArea, user: AppUser | null): boolean {
   if (!user) return false;
   if (user.role === 'slutkunde') return false;
 
+  const portalRole = derivePortalRole(user);
+  const key: ModuleAccessKey = area.id; // PortalAreaId is a subset of ModuleAccessKey
+
+  if (portalRole) {
+    return hasModuleAccess(portalRole, key);
+  }
+
+  // Legacy fallback (should not be hit once portal_role is populated).
   switch (area.id) {
     case 'salg_marketing':
-      // timan_saelger + all partner types
-      return user.role === 'timan_saelger' || user.role === 'partner';
     case 'teknik_service':
-      // timan_saelger + all partner types
       return user.role === 'timan_saelger' || user.role === 'partner';
     case 'timan_backend':
-      // Internal only — until dedicated "timan_backend" role exists, gate to timan_saelger.
       return user.role === 'timan_saelger';
     default:
       return false;
