@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Check,
@@ -28,7 +28,8 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { usePortalLanguage, type PortalLang } from "@/components/PortalHeader";
+import { useLanguage } from "@/context/LanguageContext";
+import type { Language } from "@/types/configurator";
 import {
   addConnectedClaim,
   addDealerComment,
@@ -47,19 +48,25 @@ import {
   type ClaimStatus,
 } from "@/lib/claims-store";
 import {
-  COUNTRY_GROUP_LABEL,
-  getCountriesGrouped,
-} from "@/lib/countries-store";
-import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format-date";
+
+// Compatibility shim — old portal had a "PortalLang" type that was just
+// "DK" | "GB" | etc.; we adapt to this project's Language and only support
+// the DK and GB translations the old ClaimTool ships with.
+type PortalLang = "DK" | "GB" | "DE" | "IT" | "HU";
+function usePortalLanguage(): [PortalLang] {
+  const { language } = useLanguage();
+  const map: Record<Language, PortalLang> = {
+    da: "DK", en: "GB", de: "DE", it: "IT", hu: "HU",
+  };
+  return [map[language] ?? "GB"];
+}
 
 const LANGUAGES = [
   { code: "dk", name: "Dansk", flag: "DK" },
