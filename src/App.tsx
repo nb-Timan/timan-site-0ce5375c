@@ -29,6 +29,9 @@ import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
 import BackendUsersPage from "./pages/backend/BackendUsersPage";
+import BackendRolesPage from "./pages/backend/BackendRolesPage";
+import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
+import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
@@ -73,8 +76,11 @@ const App = () => (
               <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
               {/* Serviceinformation */}
               <Route path="/portal/service/information" element={<ServiceInformationPage />} />
-              {/* Timan Backend → Users */}
+              {/* Timan Backend → Users / Roles / Module access / Audit log */}
               <Route path="/portal/backend/users" element={<BackendUsersPage />} />
+              <Route path="/portal/backend/roles" element={<BackendRolesPage />} />
+              <Route path="/portal/backend/module-access" element={<BackendModuleAccessPage />} />
+              <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
