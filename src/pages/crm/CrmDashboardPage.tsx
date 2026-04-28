@@ -299,11 +299,11 @@ export default function CrmDashboardPage() {
               title={T.recent[lang]}
               actions={<Link className="text-sm font-medium text-[#2d5a27] hover:underline" to="/portal/crm/activities">{T.open_all[lang]} →</Link>}
             />
-            {activities.length === 0 ? (
+            {previewActivities.length === 0 ? (
               <EmptyState text={T.empty[lang]} icon={Inbox} />
             ) : (
               <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 before:to-transparent">
-                {activities.slice(0, 8).map(a => {
+                {previewActivities.slice(0, 8).map(a => {
                   const stage = classifyStage(a);
                   const badge = activityBadge(stage, lang);
                   const owner = isAdmin ? (a.created_by_name || a.assigned_owner_name || '—') : '';
