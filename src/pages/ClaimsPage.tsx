@@ -139,7 +139,7 @@ export default function ClaimsPage() {
               {canCreate ? (
                 <button
                   type="button"
-                  onClick={() => { /* form modal in next phase */ }}
+                  onClick={() => navigate('/portal/service/claims/new')}
                   className="inline-flex items-center gap-2 bg-[#2d5a27] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#244820] transition"
                 >
                   <Plus className="h-4 w-4" />
