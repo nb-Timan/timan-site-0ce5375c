@@ -17,6 +17,7 @@ export default function ServiceInformationPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!appUser) {
     navigate("/portal", { replace: true });
