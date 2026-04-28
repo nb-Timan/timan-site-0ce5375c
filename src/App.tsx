@@ -13,6 +13,7 @@ import ResourcesPage from "./pages/ResourcesPage";
 import DriftberegnerPage from "./pages/DriftberegnerPage";
 import Co2CalculatorPage from "./pages/Co2CalculatorPage";
 import ClaimsPage from "./pages/ClaimsPage";
+import ClaimDetailPage from "./pages/ClaimDetailPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
