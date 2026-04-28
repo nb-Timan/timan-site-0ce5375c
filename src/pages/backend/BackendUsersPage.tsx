@@ -241,9 +241,9 @@ export default function BackendUsersPage() {
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
-          Ændringer gemmes lokalt i preview (localStorage). Når Supabase-tabellen
-          <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">backend_users</code>
-          er klar, kan store-laget skiftes uden ændringer i denne side.
+          {source === "supabase"
+            ? "Kilde: Supabase public.app_users — ændringer gemmes direkte i databasen."
+            : "Kilde: lokal preview-fallback (Supabase ikke tilgængelig). Ændringer gemmes kun i denne browser."}
         </p>
       </main>
 
@@ -253,7 +253,14 @@ export default function BackendUsersPage() {
         <EditUserModal
           user={editing}
           onClose={() => setEditingId(null)}
-          onSave={(patch) => { updateBackendUser(editing.id, patch); setEditingId(null); }}
+          onSave={async (patch) => {
+            setSaveError(null);
+            const res = await saveBackendUser(editing.id, patch);
+            if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
+            else setSaveError(null);
+            await reload();
+            setEditingId(null);
+          }}
         />
       )}
     </div>
