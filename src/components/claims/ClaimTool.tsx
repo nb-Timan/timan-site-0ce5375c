@@ -342,8 +342,7 @@ export function ClaimTool({
     if (!initialClaim) return;
     const created = addConnectedClaim(initialClaim.id);
     if (!created) return;
-    const target = adminMode ? "/admin/claims/$claimId" : "/dealer/claims/$claimId";
-    navigate({ to: target, params: { claimId: created.id } });
+    navigate(`/portal/service/claims/${created.id}`);
   }
 
   const t = (key: string): string => {
@@ -500,10 +499,7 @@ export function ClaimTool({
     // Small delay so the success message is visible before navigation.
     setTimeout(() => {
       setSavingAction(null);
-      navigate({
-        to: "/dealer/claims/$claimId",
-        params: { claimId: created.id },
-      });
+      navigate(`/portal/service/claims/${created.id}`);
     }, 800);
   }
 
@@ -620,14 +616,10 @@ export function ClaimTool({
             <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {groupClaims.map((sibling) => {
                 const current = sibling.id === initialClaim.id;
-                const target = adminMode
-                  ? "/admin/claims/$claimId"
-                  : "/dealer/claims/$claimId";
                 return (
                   <li key={sibling.id}>
                     <Link
-                      to={target}
-                      params={{ claimId: sibling.id }}
+                      to={`/portal/service/claims/${sibling.id}`}
                       className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs transition-colors ${
                         current
                           ? "border-indigo-400 bg-white shadow-sm"
@@ -1604,11 +1596,9 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * CountrySelect — grouped dropdown of standardized country names.
- *
- * Replaces the free-text Land input in the claim form. Countries are
- * sourced from `src/lib/countries-store.ts` and grouped into Europe /
- * Outside Europe. Timan Admin can extend the list via /admin/countries.
+ * CountrySelect — adapted to plain text input in the Configurator Pro project
+ * (no countries-store available). Visual styling matches the original
+ * Service Portal field 1:1.
  */
 function CountrySelect({
   label,
@@ -1623,46 +1613,24 @@ function CountrySelect({
   required?: boolean;
   disabled?: boolean;
 }) {
-  const groups = useMemo(() => getCountriesGrouped(), []);
   const missing = required && !value.trim();
   return (
     <div className="w-full">
       <label className="mb-1 block text-[9px] font-bold uppercase text-slate-400 print:text-black">
         {label} {required && "*"}
       </label>
-      <Select
-        value={value || undefined}
-        onValueChange={onChange}
+      <input
+        type="text"
         disabled={disabled}
-      >
-        <SelectTrigger
-          className={`h-auto w-full rounded-lg border px-3 py-2 text-sm shadow-none ${
-            missing
-              ? "border-red-200 bg-red-50"
-              : "border-slate-200 bg-slate-50"
-          } print:border-black print:bg-white`}
-        >
-          <SelectValue placeholder="Vælg land" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>{COUNTRY_GROUP_LABEL.europe}</SelectLabel>
-            {groups.europe.map((c) => (
-              <SelectItem key={`eu-${c.name}`} value={c.name}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-          <SelectGroup>
-            <SelectLabel>{COUNTRY_GROUP_LABEL.outside}</SelectLabel>
-            {groups.outside.map((c) => (
-              <SelectItem key={`ow-${c.name}`} value={c.name}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+        placeholder="Vælg land"
+        className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all ${
+          missing
+            ? "border-red-200 bg-red-50"
+            : "border-slate-200 bg-slate-50 focus:border-green-600"
+        } print:border-black print:bg-white`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
