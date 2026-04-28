@@ -124,6 +124,7 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
         activeCount: 0, activeValue: 0,
         prevValue: 0, prevPctChange: 0,
         forecastCount: 0, forecastValue: 0,
+        wonCount: 0, lostCount: 0, winRate: 0,
       };
       sellers.set(name, r);
     }
