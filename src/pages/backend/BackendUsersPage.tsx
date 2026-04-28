@@ -90,10 +90,26 @@ export default function BackendUsersPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<BackendUser[]>(() => listBackendUsers());
+  const [users, setUsers] = useState<BackendUser[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [source, setSource] = useState<BackendUsersSource>("supabase");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
-  useEffect(() => subscribeBackendUsers(() => setUsers(listBackendUsers())), []);
+  const reload = useMemo(
+    () => async () => {
+      setLoadingUsers(true);
+      const res = await fetchBackendUsers();
+      setUsers(res.users);
+      setSource(res.source);
+      setLoadError(res.error ?? null);
+      setLoadingUsers(false);
+    },
+    [],
+  );
+
+  useEffect(() => { void reload(); }, [reload]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
