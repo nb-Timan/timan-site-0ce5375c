@@ -59,6 +59,11 @@ export interface BackendUser {
     can_create_tsb: boolean;
     can_manage_users: boolean;
   };
+  /** CRM — responsible Timan Sælger for this account. Null = unassigned. */
+  account_owner_user_id: string | null;
+  account_owner_name: string | null;
+  account_owner_initials: string | null;
+  account_owner_email: string | null;
   last_login_at: string | null; // ISO
   created_at: string;
   updated_at: string;
@@ -96,6 +101,10 @@ function seedUser(
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
     },
+    account_owner_user_id: null,
+    account_owner_name: null,
+    account_owner_initials: null,
+    account_owner_email: null,
     last_login_at: null,
     created_at: nowIso(),
     updated_at: nowIso(),
