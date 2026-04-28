@@ -128,6 +128,10 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
       can_create_tsb: perms.can_create_tsb ?? isBackend,
       can_manage_users: perms.can_manage_users ?? isBackend,
     },
+    account_owner_user_id: (row.account_owner_user_id as string | null) ?? null,
+    account_owner_name:    (row.account_owner_name    as string | null) ?? null,
+    account_owner_initials:(row.account_owner_initials as string | null) ?? null,
+    account_owner_email:   (row.account_owner_email   as string | null) ?? null,
     last_login_at: (row.last_login as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
@@ -186,6 +190,10 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     allowed_modules: draft.allowed_modules,
     backend_modules: draft.backend_modules,
     permissions: draft.perms,
+    account_owner_user_id: draft.account_owner_user_id,
+    account_owner_name: draft.account_owner_name,
+    account_owner_initials: draft.account_owner_initials,
+    account_owner_email: draft.account_owner_email,
     updated_at: new Date().toISOString(),
   };
 
