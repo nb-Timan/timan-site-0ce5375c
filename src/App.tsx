@@ -12,6 +12,10 @@ import CrmDashboardPage from "./pages/crm/CrmDashboardPage";
 import CrmAccountsPage from "./pages/crm/CrmAccountsPage";
 import CrmActivitiesPage from "./pages/crm/CrmActivitiesPage";
 import CrmComingSoonPage from "./pages/crm/CrmComingSoonPage";
+import CrmLeadsPage from "./pages/crm/CrmLeadsPage";
+import CrmNewLeadPage from "./pages/crm/CrmNewLeadPage";
+import CrmDemoLeadsPage from "./pages/crm/CrmDemoLeadsPage";
+import CrmNewDemoLeadPage from "./pages/crm/CrmNewDemoLeadPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
@@ -61,7 +65,10 @@ const App = () => (
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
               <Route path="/portal/crm/accounts"   element={<CrmAccountsPage />} />
               <Route path="/portal/crm/activities" element={<CrmActivitiesPage />} />
-              <Route path="/portal/crm/leads"      element={<CrmComingSoonPage titleKey="leads" />} />
+              <Route path="/portal/crm/leads"          element={<CrmLeadsPage />} />
+              <Route path="/portal/crm/leads/new"      element={<CrmNewLeadPage />} />
+              <Route path="/portal/crm/demo-leads"     element={<CrmDemoLeadsPage />} />
+              <Route path="/portal/crm/demo-leads/new" element={<CrmNewDemoLeadPage />} />
               <Route path="/portal/crm/quotes"     element={<CrmComingSoonPage titleKey="quotes" />} />
               <Route path="/portal/crm/orders"     element={<CrmComingSoonPage titleKey="orders" />} />
               <Route path="/portal/crm/reports"    element={<CrmComingSoonPage titleKey="reports" />} />
