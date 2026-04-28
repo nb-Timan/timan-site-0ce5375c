@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 const T: Record<string, Record<Language, string>> = {
   back:       { da: 'Tilbage til portal', en: 'Back to portal', de: 'Zurück zum Portal', it: 'Torna al portale', hu: 'Vissza a portálra' },
+  back_crm:   { da: 'Tilbage til CRM', en: 'Back to CRM', de: 'Zurück zum CRM', it: 'Torna al CRM', hu: 'Vissza a CRM-hez' },
   title:      { da: 'Timan CRM', en: 'Timan CRM', de: 'Timan CRM', it: 'Timan CRM', hu: 'Timan CRM' },
   dashboard:  { da: 'Dashboard',     en: 'Dashboard',  de: 'Dashboard',  it: 'Dashboard',  hu: 'Irányítópult' },
   accounts:   { da: 'Konti',         en: 'Accounts',   de: 'Konten',     it: 'Account',    hu: 'Fiókok' },
