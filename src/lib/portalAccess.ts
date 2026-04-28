@@ -77,17 +77,17 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   ],
   timan_importer: [
     'teknik_service', 'salg_marketing',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_dealer: [
     'teknik_service', 'salg_marketing',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_service_partner: [
     'teknik_service', 'salg_marketing',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   // Read-only / visual access only

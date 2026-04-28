@@ -294,3 +294,26 @@ html, body {
   body { background-color: white; padding: 0; }
   .no-print { display: none !important; }
 }
+
+/* ============================================
+   Legacy TSB design tokens (copied 1:1 from
+   Timan TSB Hub for visual parity of the TSB
+   module). Do not use in unrelated modules.
+   ============================================ */
+:root {
+  --timan-red: #C8102E;
+  --timan-green: #00844A;
+  --page-bg: #F5F7F6;
+  --border-soft: #E5E7EB;
+
+  --status-success-bg: #D1FAE5;
+  --status-success-fg: #065F46;
+  --status-warning-bg: #FEF3C7;
+  --status-warning-fg: #92400E;
+  --status-danger-bg: #FEE2E2;
+  --status-danger-fg: #991B1B;
+  --status-info-bg: #DBEAFE;
+  --status-info-fg: #1E40AF;
+  --status-neutral-bg: #E5E7EB;
+  --status-neutral-fg: #374151;
+}
