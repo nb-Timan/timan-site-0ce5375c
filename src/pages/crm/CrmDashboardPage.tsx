@@ -540,10 +540,10 @@ function EmptyState({ text, icon: Icon = Inbox, tone = 'neutral' }:
 }
 
 const ACCENTS: Record<string, { ring: string; icon: string; soft: string }> = {
-  emerald: { ring: 'ring-emerald-100', icon: 'bg-gradient-to-br from-emerald-500 to-[#2d5a27] text-white', soft: 'from-emerald-50/40' },
-  sky:     { ring: 'ring-sky-100',     icon: 'bg-gradient-to-br from-sky-400 to-sky-600 text-white',      soft: 'from-sky-50/40' },
-  violet:  { ring: 'ring-violet-100',  icon: 'bg-gradient-to-br from-violet-400 to-violet-600 text-white', soft: 'from-violet-50/40' },
-  amber:   { ring: 'ring-amber-100',   icon: 'bg-gradient-to-br from-amber-400 to-amber-600 text-white',  soft: 'from-amber-50/40' },
+  emerald: { ring: 'ring-emerald-50', icon: 'bg-emerald-50 text-[#2d5a27] border border-emerald-100', soft: 'from-emerald-50/40' },
+  sky:     { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-sky-50/40' },
+  violet:  { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-violet-50/40' },
+  amber:   { ring: 'ring-slate-50',   icon: 'bg-slate-50 text-slate-700 border border-slate-200',     soft: 'from-amber-50/40' },
 };
 
 function Kpi({
