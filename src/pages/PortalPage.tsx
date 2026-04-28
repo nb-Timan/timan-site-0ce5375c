@@ -9,7 +9,7 @@ import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { Language } from '@/types/configurator';
-import { Wrench, ShoppingBag, Settings } from 'lucide-react';
+import { Wrench, ShoppingBag, Settings, Users } from 'lucide-react';
 
 const T: Record<string, Record<Language, string>> = {
   loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
@@ -26,9 +26,10 @@ const T: Record<string, Record<Language, string>> = {
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
-  teknik_service: { to: '/portal/teknik-service', icon: Wrench,    accent: 'primary' },
+  teknik_service: { to: '/portal/teknik-service', icon: Wrench,      accent: 'primary' },
   salg_marketing: { to: '/portal/salg-marketing', icon: ShoppingBag, accent: 'sky' },
-  timan_backend:  { to: '/portal/backend',         icon: Settings,    accent: 'violet' },
+  timan_crm:      { to: '/portal/crm',            icon: Users,       accent: 'primary' },
+  timan_backend:  { to: '/portal/backend',        icon: Settings,    accent: 'violet' },
 };
 
 export default function PortalPage() {
