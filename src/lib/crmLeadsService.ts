@@ -7,7 +7,8 @@
  * crmActivitiesService.ts.
  */
 import { supabase } from "@/lib/supabase";
-import { logActivity } from "@/lib/crmActivitiesService";
+import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
+import machineDemoSeed from "@/data/machineDemoSeed.json";
 
 // ---------- Shared option lists (Danish UI) ----------
 
