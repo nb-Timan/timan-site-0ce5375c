@@ -64,7 +64,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         <div className="flex items-center justify-between mb-4">
-          <Link to="/portal" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+          <Link to={getPortalBackTarget(location.pathname)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4 mr-2" />{T.back[lang]}
           </Link>
           <span className={cn(
