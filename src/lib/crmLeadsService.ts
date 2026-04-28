@@ -125,10 +125,13 @@ export interface CrmLead {
 
 export interface CrmDemoLead {
   id: string;
+  legacy_id?: string | null;
   title: string;
   owner_user_id: string | null;
   owner_name: string | null;
+  owner_email?: string | null;
   dealer_company: string | null;
+  dealer_country?: string | null;
   dealer_rep: string | null;
   customer_name: string | null;
   customer_address: string | null;
@@ -148,6 +151,7 @@ export interface CrmDemoLead {
   result_status: string | null;
   attachments: { name: string; size: number }[];
   created_at: string;
+  source?: "user" | "seed";
 }
 
 const LS_LEADS = "timan.crm.leads.v1";
