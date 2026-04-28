@@ -303,41 +303,78 @@ export interface SaveClaimResult {
   error?: string;
 }
 
-export async function saveClaim(input: NewClaimInput, status: ClaimStatus): Promise<SaveClaimResult> {
-  const claim_number = generateClaimNumber();
+/**
+ * Save a claim. Generates a unique CLM-YYYY-#### number first; on a duplicate
+ * collision (e.g. concurrent insert) retries up to 3 times.
+ *
+ * @param groupBase Optional existing claim number to attach this claim to as a
+ *                  grouped variant (CLM-YYYY-####/N).
+ */
+export async function saveClaim(
+  input: NewClaimInput,
+  status: ClaimStatus,
+  groupBase?: string,
+): Promise<SaveClaimResult> {
   const created_at = new Date().toISOString();
   const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
     ? crypto.randomUUID()
-    : `local-${Date.now()}`;
+    : `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const draft: ServiceClaim = {
-    ...input,
-    id,
-    claim_number,
-    created_at,
-    status,
-  };
+  const MAX_ATTEMPTS = 3;
+  let lastError: string | undefined;
 
-  try {
-    const { data, error } = await supabase
-      .from('service_claims')
-      .insert(draft)
-      .select(SELECT_COLS)
-      .maybeSingle();
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let claim_number: string;
+    try {
+      claim_number = await generateClaimNumber(groupBase);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Claim number generation failed';
+      throw new Error(msg);
+    }
+    if (!claim_number) {
+      throw new Error('Claim number generation failed');
+    }
 
-    if (error || !data) {
-      // Fallback: persist locally so UX still works.
+    const draft: ServiceClaim = { ...input, id, claim_number, created_at, status };
+
+    try {
+      const { data, error } = await supabase
+        .from('service_claims')
+        .insert(draft)
+        .select(SELECT_COLS)
+        .maybeSingle();
+
+      if (!error && data) {
+        return { claim: data as unknown as ServiceClaim, source: 'supabase' };
+      }
+
+      // Postgres unique-violation → retry with a fresh number
+      const code = (error as { code?: string } | null)?.code;
+      if (code === '23505' && attempt < MAX_ATTEMPTS - 1) {
+        lastError = error?.message;
+        continue;
+      }
+
+      // Any other Supabase error → fall back to local store, with a number
       const list = readLocal();
+      // Belt-and-braces: ensure local uniqueness too
+      if (list.some(c => c.claim_number === claim_number)) {
+        lastError = 'Local duplicate';
+        continue;
+      }
       list.unshift(draft);
       writeLocal(list);
-      return { claim: draft, source: 'local', error: error?.message };
+      return { claim: draft, source: 'local', error: error?.message ?? lastError };
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : 'Unknown error';
+      const list = readLocal();
+      if (list.some(c => c.claim_number === claim_number)) continue;
+      list.unshift(draft);
+      writeLocal(list);
+      return { claim: draft, source: 'local', error: lastError };
     }
-    return { claim: data as unknown as ServiceClaim, source: 'supabase' };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Unknown error';
-    const list = readLocal();
-    list.unshift(draft);
-    writeLocal(list);
-    return { claim: draft, source: 'local', error: msg };
   }
+
+  throw new Error(lastError ?? 'Could not generate a unique claim number');
 }
+
