@@ -100,6 +100,7 @@ export interface CrmLead {
   title: string;
   owner_user_id: string | null;
   owner_name: string | null;
+  owner_email?: string | null;
   linked_dealer_id: string | null;
   first_contact_date: string | null;
   expected_close_date: string | null;
