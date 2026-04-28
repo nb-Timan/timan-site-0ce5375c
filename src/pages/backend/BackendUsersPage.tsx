@@ -32,11 +32,12 @@ import {
   BackendMetaModule,
   BackendUser,
   UserStatus,
-  listBackendUsers,
-  resetBackendUsers,
-  subscribeBackendUsers,
-  updateBackendUser,
 } from "@/lib/backend-users-store";
+import {
+  fetchBackendUsers,
+  saveBackendUser,
+  type BackendUsersSource,
+} from "@/lib/backendUsersService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
