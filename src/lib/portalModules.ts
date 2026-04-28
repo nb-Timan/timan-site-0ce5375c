@@ -4,13 +4,14 @@
 
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
-import { Wrench, BookOpen, Film, Sparkles, LucideIcon } from 'lucide-react';
+import { Wrench, BookOpen, Film, Sparkles, LifeBuoy, LucideIcon } from 'lucide-react';
 
 export type PortalModuleId =
   | 'configurator'
   | 'videos'
   | 'resources'
-  | 'misc';
+  | 'misc'
+  | 'claims';
 
 export interface PortalMetric {
   label: Record<Language, string>;
@@ -102,6 +103,22 @@ export const PORTAL_MODULES: PortalModule[] = [
     href: '/portal/misc',
     enabled: false,
     accent: 'slate',
+  },
+  {
+    id: 'claims',
+    title: { da: 'Service / Claims', en: 'Service / Claims', de: 'Service / Reklamationen', it: 'Assistenza / Reclami', hu: 'Szerviz / Reklamációk' },
+    description: {
+      da: 'Opret og følg service- og garantisager direkte i portalen.',
+      en: 'Create and track service and warranty claims directly in the portal.',
+      de: 'Service- und Garantiefälle direkt im Portal erstellen und verfolgen.',
+      it: 'Crea e segui i casi di assistenza e garanzia direttamente nel portale.',
+      hu: 'Szerviz- és garanciaesetek létrehozása és nyomon követése a portálon.',
+    },
+    cta: { da: 'Åbn sager', en: 'Open claims', de: 'Fälle öffnen', it: 'Apri reclami', hu: 'Ügyek megnyitása' },
+    icon: LifeBuoy,
+    href: '/portal/service/claims',
+    enabled: true,
+    accent: 'rose',
   },
 ];
 
