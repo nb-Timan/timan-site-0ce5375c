@@ -4,6 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { listActivities, CrmActivity } from '@/lib/crmActivitiesService';
+import { listDemoLeads, resolveSeedOwners, demoLeadsToActivities } from '@/lib/crmLeadsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
@@ -32,12 +33,22 @@ export default function CrmActivitiesPage() {
     (async () => {
       setLoading(true);
       const sellerId = await resolveSellerId(appUser?.email);
-      const list = await listActivities({
-        ownerUserId: isCrmAdmin(portalRole) ? null : sellerId,
-        limit: 200,
-      });
+      const isAdmin = isCrmAdmin(portalRole);
+      const [activityList, demoAll] = await Promise.all([
+        listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 200 }),
+        listDemoLeads({}),
+      ]);
+      const demoResolved = await resolveSeedOwners(demoAll);
+      const demoActs = demoLeadsToActivities(demoResolved);
+      const visibleDemoActs = isAdmin
+        ? demoActs
+        : demoActs.filter(a => a.assigned_owner_user_id && a.assigned_owner_user_id === sellerId);
+      // Merge & sort newest first; cap at 300.
+      const merged = [...activityList, ...visibleDemoActs].sort((a, b) =>
+        (b.activity_date || '').localeCompare(a.activity_date || '')
+      ).slice(0, 300);
       if (!cancelled) {
-        setRows(list);
+        setRows(merged);
         setLoading(false);
       }
     })();

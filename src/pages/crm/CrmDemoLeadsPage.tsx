@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { listDemoLeads, CrmDemoLead, DEMO_RESULT_STATUS } from '@/lib/crmLeadsService';
+import { listDemoLeads, resolveSeedOwners, CrmDemoLead, DEMO_RESULT_STATUS } from '@/lib/crmLeadsService';
 import { Plus, Sparkles, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,8 +35,13 @@ export default function CrmDemoLeadsPage() {
     (async () => {
       setLoading(true);
       const sellerId = await resolveSellerId(appUser?.email);
-      const r = await listDemoLeads({ ownerUserId: isAdmin ? null : sellerId });
-      if (!cancelled) { setRows(r); setLoading(false); }
+      // Fetch all rows, then resolve seed-row owner_user_id via owner_email,
+      // then filter for sellers. Backend sees everything.
+      const all = await listDemoLeads({});
+      const resolved = await resolveSeedOwners(all);
+      const visible = isAdmin ? resolved
+        : resolved.filter(r => r.owner_user_id && r.owner_user_id === sellerId);
+      if (!cancelled) { setRows(visible); setLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, isAdmin]);
