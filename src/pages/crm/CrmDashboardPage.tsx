@@ -443,6 +443,9 @@ export default function CrmDashboardPage() {
         {/* SELLER PERFORMANCE — backend only */}
         {isAdmin && <SellerPerformanceSection activities={activities} language={lang} />}
 
+        {/* DEMO STATISTICS — visible for admin + sellers (sellers see only own) */}
+        <DemoStatsSection />
+
         {/* BOTTOM ROW */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <Card>
