@@ -5,28 +5,30 @@ import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import ModuleCard from '@/components/portal/ModuleCard';
-import PlaceholderCard from '@/components/portal/PlaceholderCard';
+import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
-import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
-import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { derivePortalRole } from '@/lib/portalAccess';
 import { Language } from '@/types/configurator';
+import { Wrench, ShoppingBag, Settings } from 'lucide-react';
 
 const T: Record<string, Record<Language, string>> = {
   loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
   heroTitle:    { da: 'Velkommen til Timan Portalen', en: 'Welcome to the Timan Portal', de: 'Willkommen im Timan-Portal', it: 'Benvenuto nel Portale Timan', hu: 'Üdvözöljük a Timan Portálon' },
   heroBody: {
-    da: 'Din centrale adgang som samarbejdspartner til konfiguration, salgsværktøjer og værdifulde ressourcer.',
-    en: 'Your central access to configuration, sales tools and technical support.',
-    de: 'Ihr zentraler Zugang zu Konfiguration, Vertriebstools und technischem Support.',
-    it: 'Il tuo accesso centrale a configurazione, strumenti di vendita e supporto tecnico.',
-    hu: 'Központi hozzáférése a konfigurációhoz, értékesítési eszközökhöz és műszaki támogatáshoz.',
+    da: 'Vælg et område for at komme i gang.',
+    en: 'Select an area to get started.',
+    de: 'Wählen Sie einen Bereich, um zu beginnen.',
+    it: 'Seleziona un’area per iniziare.',
+    hu: 'Válasszon egy területet a kezdéshez.',
   },
-  heroAlt: {
-    da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar',
-  },
+  heroAlt: { da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar' },
+  open: { da: 'Åbn område', en: 'Open area', de: 'Bereich öffnen', it: 'Apri area', hu: 'Terület megnyitása' },
+};
+
+const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
+  teknik_service: { to: '/portal/teknik-service', icon: Wrench,    accent: 'primary' },
+  salg_marketing: { to: '/portal/salg-marketing', icon: ShoppingBag, accent: 'sky' },
+  timan_backend:  { to: '/portal/backend',         icon: Settings,    accent: 'violet' },
 };
 
 export default function PortalPage() {
@@ -34,7 +36,6 @@ export default function PortalPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
-  // Apply user's preferred_language once after login (Phase 1B).
   const prefLangApplied = useRef(false);
   useEffect(() => {
     if (prefLangApplied.current) return;
@@ -53,7 +54,6 @@ export default function PortalPage() {
     );
   }
 
-  // Not logged in → render LoginStep, redirect to /portal on success
   if (!appUser) {
     return (
       <div className="min-h-screen p-4 md:p-8 bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -65,21 +65,15 @@ export default function PortalPage() {
         </div>
         <LoginStep
           language={lang}
-          onResolved={(user) => {
-            setAppUser(user);
-            navigate('/portal', { replace: true });
-          }}
+          onResolved={(user) => { setAppUser(user); navigate('/portal', { replace: true }); }}
         />
       </div>
     );
   }
 
-  // Slutkunde / unapproved users go straight to the configurator (single-purpose access)
-  if (appUser.role === 'slutkunde') {
-    return <Navigate to="/configurator" replace />;
-  }
+  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
-  
+  const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, appUser));
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -87,13 +81,9 @@ export default function PortalPage() {
         user={appUser}
         language={lang}
         onLanguageChange={setLanguage}
-        onLogout={async () => {
-          await logout();
-          navigate('/portal', { replace: true });
-        }}
+        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
 
-      {/* Hero Section — exact mockup: bg-gray-900, h-64, image overlay opacity-40, gradient-to-r from-black to-transparent */}
       <header className="relative bg-gray-900 h-64 flex items-center overflow-hidden">
         <div className="absolute inset-0 opacity-40">
           <div className="absolute inset-0 bg-gradient-to-r from-black to-transparent z-10"></div>
@@ -103,60 +93,31 @@ export default function PortalPage() {
             className="w-full h-full object-cover"
           />
         </div>
-
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{T.heroTitle[lang]}</h1>
           <p className="text-gray-300 text-lg max-w-2xl">{T.heroBody[lang]}</p>
         </div>
       </header>
 
-      {/* Dashboard Main — grouped by portal area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
-        <div className="space-y-12">
-          {PORTAL_AREAS.filter(area => isAreaVisible(area, appUser)).map(area => {
-            const areaModules = PORTAL_MODULES
-              .filter(m => area.moduleIds.includes(m.id))
-              .filter(m => isModuleVisible(m, appUser));
-
-            const hasContent = areaModules.length > 0 || area.placeholders.length > 0;
-            if (!hasContent) return null;
-
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {visibleAreas.map(area => {
+            const meta = AREA_META[area.id];
+            if (!meta) return null;
             return (
-              <section key={area.id}>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">{area.title[lang] || area.title.en}</h2>
-                  <p className="text-gray-600 text-sm mt-1">{area.description[lang] || area.description.en}</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {areaModules.map(m => (
-                    <ModuleCard key={m.id} module={m} language={lang} />
-                  ))}
-                  {area.placeholders.map(p => {
-                    const portalRole = derivePortalRole(appUser);
-                    let href: string | undefined;
-                    if (p.key === 'tsb_portal' && canAccessTsb(portalRole)) {
-                      href = '/portal/service/tsb/dashboard';
-                    } else if (p.key === 'warranty_reg') {
-                      href = '/portal/service/warranty';
-                    } else if (p.key === 'service_info') {
-                      href = '/portal/service/information';
-                    }
-                    return (
-                      <PlaceholderCard
-                        key={p.key}
-                        title={p.title[lang] || p.title.en}
-                        language={lang}
-                        to={href}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
+              <AreaCard
+                key={area.id}
+                title={area.title[lang] || area.title.en}
+                description={area.description[lang] || area.description.en}
+                cta={T.open[lang]}
+                to={meta.to}
+                icon={meta.icon}
+                accent={meta.accent}
+              />
             );
           })}
         </div>
 
-        {/* Seneste fra Timan */}
         <LatestFromTiman language={lang} />
       </main>
 
