@@ -4,15 +4,61 @@
 
 import { supabase } from '@/lib/supabase';
 
-export type ClaimStatus = 'open' | 'in_review' | 'approved' | 'rejected' | 'closed';
+export type ClaimStatus =
+  | 'draft'         // Gemt / ikke afsendt
+  | 'submitted'     // Afventer accept
+  | 'open'
+  | 'in_review'
+  | 'approved'
+  | 'rejected'
+  | 'closed';
+
+export interface ClaimPartLine {
+  id: string;
+  part_number?: string;
+  description: string;
+  quantity: number;
+  unit_price_net: number;
+}
+
+export interface ClaimWorkLine {
+  id: string;
+  description: string;
+  hours: number;
+  hourly_rate_net: number;
+}
 
 export interface ServiceClaim {
   id: string;
   claim_number: string;
-  machine_serial: string | null;
-  machine_model: string | null;
+  // Dealer
+  dealer_company?: string | null;
+  dealer_contact?: string | null;
+  dealer_email?: string | null;
+  dealer_phone?: string | null;
+  // Owner / customer
   customer_name: string | null;
-  description: string;
+  customer_contact?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  // Machine
+  machine_model: string | null;
+  machine_serial: string | null;
+  machine_year?: string | null;
+  // Dates
+  delivery_date?: string | null;
+  fault_date?: string | null;
+  repair_date?: string | null;
+  // Descriptions
+  description: string;            // Fault description
+  repair_description?: string | null;
+  // Service / hours / km
+  work_hours?: number | null;
+  driven_km?: number | null;
+  parts?: ClaimPartLine[] | null;
+  work_lines?: ClaimWorkLine[] | null;
+  total_price_net?: number | null;
+  // Status / meta
   status: ClaimStatus;
   created_at: string;
   created_by_email?: string | null;
@@ -65,6 +111,30 @@ const MOCK_CLAIMS: ServiceClaim[] = [
   },
 ];
 
+// ---------- Local fallback store (preview-safe) ----------
+const LOCAL_KEY = 'timan.claims.local';
+
+function readLocal(): ServiceClaim[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ServiceClaim[];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocal(list: ServiceClaim[]): void {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+export function generateClaimNumber(): string {
+  const year = new Date().getFullYear();
+  const seq = Math.floor(1000 + Math.random() * 9000);
+  return `CLM-${year}-${seq}`;
+}
+
+// ---------- Loaders ----------
 export interface LoadClaimsResult {
   claims: ServiceClaim[];
   source: 'supabase' | 'mock';
@@ -77,11 +147,24 @@ export interface LoadClaimResult {
   error?: string;
 }
 
+const SELECT_COLS =
+  'id, claim_number, dealer_company, dealer_contact, dealer_email, dealer_phone, ' +
+  'customer_name, customer_contact, customer_email, customer_phone, ' +
+  'machine_model, machine_serial, machine_year, ' +
+  'delivery_date, fault_date, repair_date, ' +
+  'description, repair_description, ' +
+  'work_hours, driven_km, parts, work_lines, total_price_net, ' +
+  'status, created_at, created_by_email';
+
 export async function getClaimById(id: string): Promise<LoadClaimResult> {
+  // Local-saved drafts always win
+  const local = readLocal().find(c => c.id === id);
+  if (local) return { claim: local, source: 'mock' };
+
   try {
     const { data, error } = await supabase
       .from('service_claims')
-      .select('id, claim_number, machine_serial, machine_model, customer_name, description, status, created_at, created_by_email')
+      .select(SELECT_COLS)
       .eq('id', id)
       .maybeSingle();
 
@@ -102,23 +185,73 @@ export async function getClaimById(id: string): Promise<LoadClaimResult> {
 }
 
 export async function loadClaims(): Promise<LoadClaimsResult> {
+  const local = readLocal();
   try {
     const { data, error } = await supabase
       .from('service_claims')
-      .select('id, claim_number, machine_serial, machine_model, customer_name, description, status, created_at, created_by_email')
+      .select(SELECT_COLS)
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (error) {
-      // Table missing / RLS / network — fall back to mock so preview still works.
-      return { claims: MOCK_CLAIMS, source: 'mock', error: error.message };
+      return { claims: [...local, ...MOCK_CLAIMS], source: 'mock', error: error.message };
     }
     if (!data || data.length === 0) {
-      return { claims: MOCK_CLAIMS, source: 'mock' };
+      return { claims: [...local, ...MOCK_CLAIMS], source: 'mock' };
     }
-    return { claims: data as ServiceClaim[], source: 'supabase' };
+    return { claims: [...local, ...(data as ServiceClaim[])], source: local.length > 0 ? 'mock' : 'supabase' };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
-    return { claims: MOCK_CLAIMS, source: 'mock', error: msg };
+    return { claims: [...local, ...MOCK_CLAIMS], source: 'mock', error: msg };
+  }
+}
+
+// ---------- Create ----------
+export type NewClaimInput = Omit<ServiceClaim, 'id' | 'claim_number' | 'created_at' | 'status'> & {
+  status?: ClaimStatus;
+};
+
+export interface SaveClaimResult {
+  claim: ServiceClaim;
+  source: 'supabase' | 'local';
+  error?: string;
+}
+
+export async function saveClaim(input: NewClaimInput, status: ClaimStatus): Promise<SaveClaimResult> {
+  const claim_number = generateClaimNumber();
+  const created_at = new Date().toISOString();
+  const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? crypto.randomUUID()
+    : `local-${Date.now()}`;
+
+  const draft: ServiceClaim = {
+    ...input,
+    id,
+    claim_number,
+    created_at,
+    status,
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .insert(draft)
+      .select(SELECT_COLS)
+      .maybeSingle();
+
+    if (error || !data) {
+      // Fallback: persist locally so UX still works.
+      const list = readLocal();
+      list.unshift(draft);
+      writeLocal(list);
+      return { claim: draft, source: 'local', error: error?.message };
+    }
+    return { claim: data as ServiceClaim, source: 'supabase' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    const list = readLocal();
+    list.unshift(draft);
+    writeLocal(list);
+    return { claim: draft, source: 'local', error: msg };
   }
 }
