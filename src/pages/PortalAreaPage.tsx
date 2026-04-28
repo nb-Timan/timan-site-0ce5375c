@@ -59,9 +59,15 @@ export default function PortalAreaPage({ areaId }: Props) {
           {areaModules.map(m => <ModuleCard key={m.id} module={m} language={lang} />)}
           {area.placeholders.map(p => {
             let href: string | undefined;
-            if (p.key === 'tsb_portal' && canAccessTsb(portalRole)) href = '/portal/service/tsb/dashboard';
-            else if (p.key === 'warranty_reg') href = '/portal/service/warranty';
-            else if (p.key === 'service_info') href = '/portal/service/information';
+            if (p.key === 'tsb_portal') {
+              // TSB is internal-only — hide card entirely for roles without access
+              if (!canAccessTsb(portalRole)) return null;
+              href = '/portal/service/tsb/dashboard';
+            } else if (p.key === 'warranty_reg') {
+              href = '/portal/service/warranty';
+            } else if (p.key === 'service_info') {
+              href = '/portal/service/information';
+            }
             return (
               <PlaceholderCard
                 key={p.key}
