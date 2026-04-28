@@ -545,24 +545,25 @@ function Kpi({
     Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
 
   const inner = (
-    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5`}>
+    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5 h-full min-h-[170px] flex flex-col`}>
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-30 ${a.icon}`} />
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className={`h-10 w-10 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm`}>
           <Icon className="h-5 w-5" />
         </div>
-        {showTrend && (
+        {showTrend ? (
           <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
             <TrendIcon className="h-3 w-3" />{trendLabel}
           </span>
+        ) : (
+          <span className="h-[22px]" aria-hidden />
         )}
       </div>
       <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">{label}</p>
       <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
-      {sub ? <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p> : null}
-      {showTrend && (
-        <p className="text-[10px] text-gray-400 mt-1.5">{T.vs_last_month[lang]}</p>
-      )}
+      <p className="text-[11px] text-gray-500 mt-0.5 min-h-[14px]">{sub || '\u00A0'}</p>
+      <p className="text-[10px] text-gray-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
+      <div className="mt-auto" />
       {sparkline && sparkline.length > 1 && (
         <div className="absolute inset-x-0 bottom-0 h-10 opacity-70 group-hover:opacity-100 transition pointer-events-none">
           <ResponsiveContainer width="100%" height="100%">
@@ -574,7 +575,7 @@ function Kpi({
       )}
     </div>
   );
-  return to ? <Link to={to}>{inner}</Link> : inner;
+  return to ? <Link to={to} className="block h-full">{inner}</Link> : inner;
 }
 
 // ────────────────────────────────────────────────────────────
