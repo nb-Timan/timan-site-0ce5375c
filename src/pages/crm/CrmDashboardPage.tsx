@@ -209,7 +209,7 @@ export default function CrmDashboardPage() {
         />
 
         {/* TOP KPI CARDS — 4 cards: 2 single + 2 grouped duos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
           <Kpi accent="emerald" icon={Target} label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
                trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
 
