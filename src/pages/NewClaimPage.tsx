@@ -196,15 +196,26 @@ export default function NewClaimPage() {
   );
   const total = partsTotal + workTotal;
 
-  // Progress: count required filled fields out of 6 required
-  const filledRequired =
-    (form.dealer_company.trim() ? 1 : 0) +
-    (form.customer_name.trim() ? 1 : 0) +
-    (form.machine_model.trim() ? 1 : 0) +
-    (form.machine_serial.trim() ? 1 : 0) +
-    (form.description.trim() ? 1 : 0) +
-    ((form.fault_date || form.repair_date || form.delivery_date) ? 1 : 0);
-  const progressPct = Math.round((filledRequired / 6) * 100);
+  // Progress steps — match the actual claim form sections (7 total).
+  // 1. Kontakt Timan før start  → informational, always considered done on entry
+  // 2. Reklamations nr.         → auto-generated on save, always considered done
+  // 3. Forhandler & ejer        → dealer_company + customer_name
+  // 4. Maskin info              → machine_model + machine_serial
+  // 5. Dato                     → at least one of delivery/fault/repair date
+  // 6. Beskrivelse              → fault description
+  // 7. Reservedele & arbejde    → at least one parts or work line with content
+  const stepDone: boolean[] = [
+    true,
+    true,
+    !!form.dealer_company.trim() && !!form.customer_name.trim(),
+    !!form.machine_model.trim() && !!form.machine_serial.trim(),
+    !!(form.fault_date || form.repair_date || form.delivery_date),
+    !!form.description.trim(),
+    parts.some(p => p.description || p.part_number || p.quantity || p.unit_price_net) ||
+      workLines.some(w => w.description || w.hours || w.hourly_rate_net),
+  ];
+  const completedSteps = stepDone.filter(Boolean).length;
+  const progressPct = Math.round((completedSteps / stepDone.length) * 100);
 
   // Toast for read-only / no-access roles when they hit the route
   useEffect(() => {
