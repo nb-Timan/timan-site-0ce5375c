@@ -392,15 +392,28 @@ export default function NewClaimPage() {
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <div className="mt-3 hidden md:flex items-center justify-between text-[11px] text-white/80">
-              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang]].map((s, i) => (
-                <div key={s} className="flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-white/15 ring-1 ring-white/25 flex items-center justify-center text-[10px] font-bold">
-                    {i + 1}
-                  </span>
-                  <span className="font-medium">{s}</span>
-                </div>
-              ))}
+            <div className="mt-3 hidden md:flex items-center justify-between gap-2 text-[11px] text-white/80">
+              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang], T.step6[lang], T.step7[lang]].map((s, i) => {
+                const done = stepDone[i];
+                const active = !done && stepDone.slice(0, i).every(Boolean);
+                return (
+                  <div key={s} className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className={[
+                        'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 transition-colors',
+                        done
+                          ? 'bg-white text-[#2d5a27] ring-1 ring-white'
+                          : active
+                            ? 'bg-white/30 text-white ring-1 ring-white/60'
+                            : 'bg-white/10 text-white/70 ring-1 ring-white/20',
+                      ].join(' ')}
+                    >
+                      {done ? '✓' : i + 1}
+                    </span>
+                    <span className={`font-medium truncate ${done ? 'text-white' : active ? 'text-white' : 'text-white/70'}`}>{s}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
