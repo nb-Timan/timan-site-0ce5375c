@@ -191,7 +191,7 @@ export function getWarrantyViewVariant(role: PortalRole | null): WarrantyViewVar
 // ---------- Mapping from existing AppUser → PortalRole ----------
 // Keeps backward compat with current UserRole/PartnerType so we don't break
 // configurator, pricing or auth.
-export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null }) | null): PortalRole | null {
+export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
   if (!user) return null;
   if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
     return user.portal_role as PortalRole;
@@ -200,7 +200,7 @@ export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> &
   if (user.role === 'partner') {
     switch (user.partner_type) {
       case 'forhandler':      return 'timan_dealer';
-      case 'service_partner': return 'timan_service_partner';
+      case 'service_partner': return user.module_access?.includes('tsb') ? 'timan_service' : 'timan_service_partner';
       case 'importoer':       return 'timan_importer';
       default:                return 'dealer_user';
     }
