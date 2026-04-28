@@ -96,13 +96,38 @@ export default function PortalPage() {
         </div>
       </header>
 
-      {/* Dashboard Main */}
+      {/* Dashboard Main — grouped by portal area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
-        {/* Grid of categories — 1 / 2 / 4 columns, gap-8 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {visibleModules.map(m => (
-            <ModuleCard key={m.id} module={m} language={lang} />
-          ))}
+        <div className="space-y-12">
+          {PORTAL_AREAS.filter(area => isAreaVisible(area, appUser)).map(area => {
+            const areaModules = PORTAL_MODULES
+              .filter(m => area.moduleIds.includes(m.id))
+              .filter(m => isModuleVisible(m, appUser));
+
+            const hasContent = areaModules.length > 0 || area.placeholders.length > 0;
+            if (!hasContent) return null;
+
+            return (
+              <section key={area.id}>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">{area.title[lang] || area.title.en}</h2>
+                  <p className="text-gray-600 text-sm mt-1">{area.description[lang] || area.description.en}</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {areaModules.map(m => (
+                    <ModuleCard key={m.id} module={m} language={lang} />
+                  ))}
+                  {area.placeholders.map(p => (
+                    <PlaceholderCard
+                      key={p.key}
+                      title={p.title[lang] || p.title.en}
+                      language={lang}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Seneste fra Timan */}
