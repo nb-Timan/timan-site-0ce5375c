@@ -1,68 +1,83 @@
+# CRM / Sales Portal — access model plan
 
+Status: **foundation only**. No CRM dashboard built yet. This document
+records the agreed access rules and the data model added in Phase 3.
 
-# Apply new front-end design to dealer portal
+## Goal
 
-Replace the visuals of `/portal` with the layout from your HTML mockup, while keeping all current behavior (auth, routing, language switcher, role gating, configurator link, login fallback).
+Timan Sælger users must only see and manage data connected to their own
+assigned accounts (dealers, importers, service partners, dealer users) and
+their own offers/orders.
 
-## What changes (visual / structural)
+## Roles & visibility
 
-**Top header bar (`PortalHeader.tsx`)**
-- Left: bold green "TIMAN" wordmark + thin divider + light gray "Forhandler Portal" subtitle.
-- Right: language flags (kept), role pill (kept), and a new compact user chip — circular green avatar with the user's initials + company / display name next to it.
-- Logout button kept (icon-only on small screens, label on desktop).
-- Light bottom border, white background — matches the mockup.
+| Role                  | CRM scope                                |
+|-----------------------|------------------------------------------|
+| Timan Backend         | Sees everything (admin)                  |
+| Timan Service         | Sees everything (admin, read-mostly)     |
+| Timan Sælger          | **Only** assigned accounts + own offers/orders |
+| Timan Importør        | Not part of CRM (uses dealer portal)     |
+| Timan Forhandler      | Not part of CRM                          |
+| Timan Service Partner | Not part of CRM                          |
+| Dealer User           | Read-only, not part of CRM               |
 
-**Hero / welcome banner (`PortalPage.tsx`)**
-- Replace the current dark green gradient with the mockup's lighter card style:
-  - White rounded card on a soft gray page background.
-  - Left side: large square Timan logo block (green, rounded, big "T").
-  - Right side: "Velkommen til Timan{, name}" headline + subtitle ("Din centrale adgang til konfiguration, salgsværktøjer og teknisk support.").
-- Translations preserved for all 5 languages.
+Timan Sælger:
+- Can create offers/orders.
+- Can only see their own offers/orders.
+- Can only see dealers/accounts assigned to them.
+- Can see dashboard stats for their assigned accounts.
+- Cannot see other salespeople’s accounts unless explicitly allowed
+  (`extraAccountIds` allow-list in `SellerScope`).
 
-**4-card grid (`ModuleCard.tsx`)**
-- Same 4 modules — order and IDs unchanged: Byg din Timan, Video Galleri, Ressourcer, Diverse.
-- New card style to match mockup:
-  - White card, rounded-2xl, soft shadow, subtle hover lift.
-  - Larger square icon tile (light tinted background per accent color) at the top.
-  - Title (bold) + description (gray).
-  - Bottom CTA row: green text link ("Gå til konfigurator", "Se videoer", "Åbn bibliotek", "Se mere") + arrow icon.
-- "Coming soon" badge kept for disabled cards (videos / resources / misc).
-- A new optional `cta` field added to each module in `portalModules.ts` for the localized button label.
+## Data model (Phase 3)
 
-**"Seneste fra Timan" section (`LatestFromTiman.tsx`)**
-- Keep the component, restyle to match mockup:
-  - Section heading in normal case ("Seneste fra Timan"), not uppercase eyebrow.
-  - Two cards side-by-side: colored category tag (e.g. green "NYHED", blue "SERVICE"), title, body text.
-  - Support a `category` field per item with tone (`news` / `service`) so future content can color-tag itself.
-- Placeholder content updated to the two examples from the mockup ("Ny redskabsserie til Timan 3400…" and "Opdatering af AI-assistenten…").
+SQL: `docs/sql/phase3_crm_account_owner.sql` (idempotent, run in Supabase).
 
-**Footer (new `PortalFooter.tsx`)**
-- Thin top border, light background.
-- Left: "© 2024 Timan A/S — Forhandler Portal".
-- Right: Privatlivspolitik · Brugervilkår · Support (placeholder links for now).
+`public.app_users` gets:
+- `account_owner_user_id  uuid → app_users(id)`
+- `account_owner_name     text`
+- `account_owner_initials text`
+- `account_owner_email    text`
+- Trigger `sync_account_owner_fields` keeps the denormalised fields in
+  sync whenever `account_owner_user_id` changes.
 
-**Page background & font**
-- Page background: soft gray (`bg-gray-50`) — already in place.
-- Inter font preserved.
+`public.configurations` (offers/orders) gets:
+- `assigned_seller_id  uuid → app_users(id)`
 
-## What stays exactly the same
+View `public.crm_accounts_view` exposes the dealer-side rows with their
+owner fields, used later by the CRM list pages.
 
-- Routing: `/portal` is the landing page, `/configurator` is the configurator.
-- Auth: `AppUserContext` + Supabase session — no changes.
-- Login fallback: when not signed in, `LoginStep` is rendered as today.
-- `slutkunde` users still get auto-redirected to `/configurator`.
-- Role-based module visibility via `isModuleVisible`.
-- Language switcher, all 5 languages.
-- Configurator, webhooks, quote/order logic — untouched.
+## Frontend foundation
 
-## Files touched
+`src/lib/crmScope.ts` — pure helpers:
+- `isScopedSeller(role)`, `isCrmAdmin(role)`
+- `canSellerSeeAccount(scope, account)`
+- `canSellerSeeOffer(scope, offer)`
+- `filterAccountsForSeller(scope, rows)`
+- `filterOffersForSeller(scope, rows)`
 
-- `src/pages/PortalPage.tsx` — new hero card, render footer.
-- `src/components/portal/PortalHeader.tsx` — TIMAN wordmark, user chip with avatar initials.
-- `src/components/portal/ModuleCard.tsx` — new card style with bottom CTA.
-- `src/components/portal/LatestFromTiman.tsx` — restyle, add category tone.
-- `src/lib/portalModules.ts` — add `cta: Record<Language,string>` per module.
-- `src/components/portal/PortalFooter.tsx` — new file.
+These will be wired into list pages when the CRM area is built. Today
+they are imported nowhere by default (zero behaviour change).
 
-No backend, no auth, no routing, no Supabase changes.
+## Backend Users page
 
+`src/pages/backend/BackendUsersPage.tsx` gets a new "Account Owner" select
+in the edit modal so a Timan Backend user can assign any dealer / importer
+/ service partner / dealer user to a Timan Sælger. Saving goes through
+`saveBackendUser` → `app_users` (full patch, with the existing graceful
+fallback if columns are missing).
+
+## Future CRM area (NOT built yet)
+
+Planned routes (placeholders only):
+- `/portal/sales/my-dealers`
+- `/portal/sales/my-importers`
+- `/portal/sales/my-service-partners`
+- `/portal/sales/my-dealer-users`
+- `/portal/sales/offers`
+- `/portal/sales/orders`
+- `/portal/sales/activity`
+- `/portal/sales/stats`
+
+Out of scope for this phase. Pricing, configurator calculations,
+order/PDF logic, n8n flows and login/auth are untouched.

@@ -111,6 +111,11 @@ export default function BackendUsersPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  // Expose snapshot for the edit modal's Account Owner select (avoids prop drilling).
+  useEffect(() => {
+    (window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot = users;
+  }, [users]);
+
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
 
@@ -291,6 +296,38 @@ function EditUserModal({
     return arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
   }
 
+  // Sellers list (from currently loaded users) — pulled from window.__timanUsersSnapshot
+  // populated by BackendUsersPage to avoid prop drilling.
+  const sellers = (typeof window !== "undefined"
+    ? ((window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot ?? [])
+    : []
+  ).filter((u) => u.role === "timan_seller" || u.role === "timan_backend");
+
+  function applyOwner(ownerId: string) {
+    if (!ownerId) {
+      setDraft({
+        ...draft,
+        account_owner_user_id: null,
+        account_owner_name: null,
+        account_owner_initials: null,
+        account_owner_email: null,
+      });
+      return;
+    }
+    const owner = sellers.find((s) => s.id === ownerId);
+    if (!owner) return;
+    setDraft({
+      ...draft,
+      account_owner_user_id: owner.id,
+      account_owner_name: owner.name,
+      account_owner_initials: owner.initials,
+      account_owner_email: owner.email,
+    });
+  }
+
+  // Owner only applies to dealer-side accounts (non-internal roles).
+  const ownerApplicable = !["timan_backend", "timan_seller", "timan_service"].includes(draft.role);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
@@ -359,6 +396,30 @@ function EditUserModal({
               ))}
             </div>
           </Section>
+
+          {/* Account Owner (CRM) — only meaningful for dealer-side accounts. */}
+          {ownerApplicable && (
+            <Section title="Account Owner (Timan Sælger)">
+              <Select
+                label="Tildelt sælger"
+                value={draft.account_owner_user_id ?? ""}
+                onChange={(v) => applyOwner(v)}
+                options={[
+                  { value: "", label: "— ingen tildelt —" },
+                  ...sellers.map((s) => ({ value: s.id, label: `${s.initials} · ${s.name}` })),
+                ]}
+              />
+              {draft.account_owner_user_id && (
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Ejer: {draft.account_owner_name} ({draft.account_owner_email})
+                </p>
+              )}
+              <p className="mt-2 text-[11px] text-slate-500">
+                Brugt af kommende CRM/Sales Portal til at filtrere dealers, importører,
+                service partnere, dealer users og tilbud/ordrer.
+              </p>
+            </Section>
+          )}
 
           {/* Allowed Areas */}
           <Section title="Allowed Areas">
