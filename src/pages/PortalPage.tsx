@@ -5,13 +5,15 @@ import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import ModuleCard from '@/components/portal/ModuleCard';
+import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
+import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
   loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
-  heroTitle:    { da: 'Velkommen til Timan', en: 'Welcome to Timan', de: 'Willkommen bei Timan', it: 'Benvenuto in Timan', hu: 'Üdvözöljük a Timannál' },
+  heroTitle:    { da: 'Velkommen til Timan Portalen', en: 'Welcome to the Timan Portal', de: 'Willkommen im Timan-Portal', it: 'Benvenuto nel Portale Timan', hu: 'Üdvözöljük a Timan Portálon' },
   heroBody: {
     da: 'Din centrale adgang som samarbejdspartner til konfiguration, salgsværktøjer og værdifulde ressourcer.',
     en: 'Your central access to configuration, sales tools and technical support.',
@@ -63,7 +65,7 @@ export default function PortalPage() {
     return <Navigate to="/configurator" replace />;
   }
 
-  const visibleModules = PORTAL_MODULES.filter(m => isModuleVisible(m, appUser));
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -94,13 +96,38 @@ export default function PortalPage() {
         </div>
       </header>
 
-      {/* Dashboard Main */}
+      {/* Dashboard Main — grouped by portal area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
-        {/* Grid of categories — 1 / 2 / 4 columns, gap-8 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {visibleModules.map(m => (
-            <ModuleCard key={m.id} module={m} language={lang} />
-          ))}
+        <div className="space-y-12">
+          {PORTAL_AREAS.filter(area => isAreaVisible(area, appUser)).map(area => {
+            const areaModules = PORTAL_MODULES
+              .filter(m => area.moduleIds.includes(m.id))
+              .filter(m => isModuleVisible(m, appUser));
+
+            const hasContent = areaModules.length > 0 || area.placeholders.length > 0;
+            if (!hasContent) return null;
+
+            return (
+              <section key={area.id}>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">{area.title[lang] || area.title.en}</h2>
+                  <p className="text-gray-600 text-sm mt-1">{area.description[lang] || area.description.en}</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {areaModules.map(m => (
+                    <ModuleCard key={m.id} module={m} language={lang} />
+                  ))}
+                  {area.placeholders.map(p => (
+                    <PlaceholderCard
+                      key={p.key}
+                      title={p.title[lang] || p.title.en}
+                      language={lang}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Seneste fra Timan */}
