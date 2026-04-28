@@ -60,10 +60,13 @@ export function getPortalBackTarget(pathname: string): PortalBackTarget {
   // Area pages first → portal frontpage
   if (AREA_PAGES.includes(pathname)) return '/portal';
 
+  // CRM dashboard route is treated as the CRM area landing → back to portal
+  if (pathname === '/portal/crm/dashboard') return '/portal';
+
   if (startsWithAny(pathname, SERVICE_PREFIXES)) return '/portal/teknik-service';
   if (startsWithAny(pathname, SALES_PREFIXES)) return '/portal/salg-marketing';
   if (startsWithAny(pathname, BACKEND_CHILD_PREFIXES)) return '/portal/backend';
-  if (pathname === '/portal/crm' || pathname.startsWith('/portal/crm/')) return '/portal/crm';
+  if (pathname.startsWith('/portal/crm/')) return '/portal/crm';
 
   return '/portal';
 }
