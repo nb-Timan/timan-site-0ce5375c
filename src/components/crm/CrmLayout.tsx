@@ -7,6 +7,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
+import { getPortalBackTarget } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
 
