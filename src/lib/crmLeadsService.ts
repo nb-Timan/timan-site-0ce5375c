@@ -9,6 +9,7 @@
 import { supabase } from "@/lib/supabase";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
+import openLeadsSeed from "@/data/openLeadsSeed.json";
 
 // ---------- Shared option lists (Danish UI) ----------
 
@@ -246,20 +247,43 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
 
 export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
 
+function seedOpenLeads(): CrmLead[] {
+  return (openLeadsSeed as unknown as (CrmLead & { owner_email?: string | null })[]).map(r => ({ ...r }));
+}
+
+function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmLead[] {
+  const seen = new Set<string>();
+  const out: CrmLead[] = [];
+  for (const r of rows) {
+    const k1 = (r as any).legacy_id ? `lid:${(r as any).legacy_id}` : "";
+    const k2 = `t:${(r.title||"").toLowerCase()}|${r.first_contact_date||""}`;
+    if (k1 && seen.has(k1)) continue;
+    if (seen.has(k2)) continue;
+    if (k1) seen.add(k1);
+    seen.add(k2);
+    out.push(r);
+  }
+  return out;
+}
+
 export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const limit = opts.limit ?? 200;
+  let supRows: CrmLead[] = [];
   try {
     let q = supabase.from("crm_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     const { data, error } = await q;
     if (error) throw error;
-    if (data && data.length > 0) return data as unknown as CrmLead[];
+    if (data) supRows = data as unknown as CrmLead[];
   } catch (err) {
     console.warn("[crm.listLeads] supabase failed → local fallback:", err);
   }
-  let rows = readLS<CrmLead>(LS_LEADS);
-  if (opts.ownerUserId) rows = rows.filter(r => r.owner_user_id === opts.ownerUserId);
-  return rows.slice(0, limit);
+  const localRows = readLS<CrmLead>(LS_LEADS);
+  const seeded = seedOpenLeads();
+  let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
+  if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
+  merged.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  return merged.slice(0, limit);
 }
 
 // ---------- Demo Leads ----------
