@@ -392,6 +392,30 @@ function EditUserModal({
             </div>
           </Section>
 
+          {/* Account Owner (CRM) — only meaningful for dealer-side accounts. */}
+          {ownerApplicable && (
+            <Section title="Account Owner (Timan Sælger)">
+              <Select
+                label="Tildelt sælger"
+                value={draft.account_owner_user_id ?? ""}
+                onChange={(v) => applyOwner(v)}
+                options={[
+                  { value: "", label: "— ingen tildelt —" },
+                  ...sellers.map((s) => ({ value: s.id, label: `${s.initials} · ${s.name}` })),
+                ]}
+              />
+              {draft.account_owner_user_id && (
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Ejer: {draft.account_owner_name} ({draft.account_owner_email})
+                </p>
+              )}
+              <p className="mt-2 text-[11px] text-slate-500">
+                Brugt af kommende CRM/Sales Portal til at filtrere dealers, importører,
+                service partnere, dealer users og tilbud/ordrer.
+              </p>
+            </Section>
+          )}
+
           {/* Allowed Areas */}
           <Section title="Allowed Areas">
             <CheckboxGroup
