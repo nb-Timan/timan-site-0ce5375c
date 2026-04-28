@@ -133,15 +133,20 @@ export default function PortalPage() {
                   ))}
                   {area.placeholders.map(p => {
                     const portalRole = derivePortalRole(appUser);
-                    const tsbHref = p.key === 'tsb_portal' && canAccessTsb(portalRole)
-                      ? '/portal/service/tsb/dashboard'
-                      : undefined;
+                    let href: string | undefined;
+                    if (p.key === 'tsb_portal' && canAccessTsb(portalRole)) {
+                      href = '/portal/service/tsb/dashboard';
+                    } else if (p.key === 'warranty_reg') {
+                      href = '/portal/service/warranty';
+                    } else if (p.key === 'service_info') {
+                      href = '/portal/service/information';
+                    }
                     return (
                       <PlaceholderCard
                         key={p.key}
                         title={p.title[lang] || p.title.en}
                         language={lang}
-                        to={tsbHref}
+                        to={href}
                       />
                     );
                   })}

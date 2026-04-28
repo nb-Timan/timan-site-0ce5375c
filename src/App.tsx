@@ -20,6 +20,8 @@ import TsbListPage from "./pages/tsb/TsbListPage";
 import TsbDetailPage from "./pages/tsb/TsbDetailPage";
 import NewTsbPage from "./pages/tsb/NewTsbPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
+import WarrantyPage from "./pages/WarrantyPage";
+import ServiceInformationPage from "./pages/ServiceInformationPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
@@ -50,6 +52,12 @@ const App = () => (
               <Route path="/portal/service/tsb/dashboard" element={<TsbAccessGuard><TsbDashboardPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/new" element={<TsbAccessGuard><NewTsbPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/:id" element={<TsbAccessGuard><TsbDetailPage /></TsbAccessGuard>} />
+              {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
+              <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
+              <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
+              <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
+              {/* Serviceinformation */}
+              <Route path="/portal/service/information" element={<ServiceInformationPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
