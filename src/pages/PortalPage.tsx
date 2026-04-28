@@ -5,13 +5,15 @@ import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import ModuleCard from '@/components/portal/ModuleCard';
+import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
+import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
   loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
-  heroTitle:    { da: 'Velkommen til Timan', en: 'Welcome to Timan', de: 'Willkommen bei Timan', it: 'Benvenuto in Timan', hu: 'Üdvözöljük a Timannál' },
+  heroTitle:    { da: 'Velkommen til Timan Portalen', en: 'Welcome to the Timan Portal', de: 'Willkommen im Timan-Portal', it: 'Benvenuto nel Portale Timan', hu: 'Üdvözöljük a Timan Portálon' },
   heroBody: {
     da: 'Din centrale adgang som samarbejdspartner til konfiguration, salgsværktøjer og værdifulde ressourcer.',
     en: 'Your central access to configuration, sales tools and technical support.',
