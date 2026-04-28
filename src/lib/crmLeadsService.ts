@@ -320,18 +320,97 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
   return row;
 }
 
+/** Seed rows imported from Machine_Demonstration.csv (real Timan demo history). */
+function seedDemoRows(): CrmDemoLead[] {
+  return (machineDemoSeed as unknown as CrmDemoLead[]).map(r => ({ ...r, source: "seed" as const }));
+}
+
+/** Dedup by legacy_id first, then by (customer_company + demo_date + demo_machine). */
+function dedupDemoRows(rows: CrmDemoLead[]): CrmDemoLead[] {
+  const seen = new Set<string>();
+  const out: CrmDemoLead[] = [];
+  for (const r of rows) {
+    const k1 = r.legacy_id ? `lid:${r.legacy_id}` : "";
+    const k2 = `cm:${(r.customer_name||"").toLowerCase()}|${r.demo_date||""}|${r.demo_machine||""}`;
+    if (k1 && seen.has(k1)) continue;
+    if (seen.has(k2)) continue;
+    if (k1) seen.add(k1);
+    seen.add(k2);
+    out.push(r);
+  }
+  return out;
+}
+
 export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLead[]> {
-  const limit = opts.limit ?? 200;
+  const limit = opts.limit ?? 500;
+  let supRows: CrmDemoLead[] = [];
   try {
     let q = supabase.from("crm_demo_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     const { data, error } = await q;
     if (error) throw error;
-    if (data && data.length > 0) return data as unknown as CrmDemoLead[];
+    if (data) supRows = data as unknown as CrmDemoLead[];
   } catch (err) {
     console.warn("[crm.listDemoLeads] supabase failed → local fallback:", err);
   }
-  let rows = readLS<CrmDemoLead>(LS_DEMO);
-  if (opts.ownerUserId) rows = rows.filter(r => r.owner_user_id === opts.ownerUserId);
-  return rows.slice(0, limit);
+
+  const localRows = readLS<CrmDemoLead>(LS_DEMO);
+  const seeded = seedDemoRows();
+  // Merge order: user-created (supabase / local) first so they win on dedup.
+  let merged = dedupDemoRows([...supRows, ...localRows, ...seeded]);
+
+  if (opts.ownerUserId) {
+    merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
+  }
+  // Sort newest first by created_at then demo_date.
+  merged.sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""));
+  return merged.slice(0, limit);
+}
+
+/**
+ * Resolve seed rows that lack owner_user_id by looking up `owner_email` against
+ * app_users. Backend role sees everything regardless. Used by activities feed
+ * & seller performance so seed data attributes correctly.
+ */
+export async function resolveSeedOwners(rows: CrmDemoLead[]): Promise<CrmDemoLead[]> {
+  const emails = Array.from(new Set(rows.map(r => r.owner_email).filter(Boolean) as string[]));
+  if (emails.length === 0) return rows;
+  try {
+    const { data } = await supabase.from("app_users").select("id,email").in("email", emails);
+    const map = new Map<string, string>();
+    (data || []).forEach((u: { id: string; email: string }) => map.set(u.email.toLowerCase(), u.id));
+    return rows.map(r => r.owner_user_id ? r : ({ ...r, owner_user_id: map.get((r.owner_email||"").toLowerCase()) || null }));
+  } catch {
+    return rows;
+  }
+}
+
+/** Synthesize CRM activities from demo lead rows for the activities feed/dashboard. */
+export function demoLeadsToActivities(rows: CrmDemoLead[]): CrmActivity[] {
+  return rows.map(r => ({
+    id: `demo-act-${r.id}`,
+    activity_type: "lead_created",
+    activity_date: r.demo_date ? `${r.demo_date}T09:00:00.000Z` : (r.created_at || new Date().toISOString()),
+    account_id: null,
+    account_name: r.customer_name || r.dealer_company || null,
+    created_by_user_id: r.owner_user_id,
+    created_by_name: r.owner_name,
+    assigned_owner_user_id: r.owner_user_id,
+    assigned_owner_name: r.owner_name,
+    title: `Demo: ${r.demo_machine || r.title}`,
+    description: [r.customer_name, r.dealer_company, r.dealer_country].filter(Boolean).join(" · "),
+    status: r.result_status,
+    quote_id: null,
+    order_id: null,
+    configuration_id: null,
+    value: r.estimated_value,
+    currency: "DKK",
+    meta: {
+      legacy_id: r.legacy_id,
+      demo_equipment: r.demo_equipment,
+      machine_category: r.machine_category,
+      country: r.dealer_country,
+    },
+    created_at: r.created_at || new Date().toISOString(),
+  }));
 }
