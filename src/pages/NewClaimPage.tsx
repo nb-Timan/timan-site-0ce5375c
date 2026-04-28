@@ -41,11 +41,13 @@ const T: Record<string, Record<Language, string>> = {
   validation:  { da: 'Ret venligst de markerede felter.', en: 'Please fix the highlighted fields.', de: 'Bitte markierte Felder korrigieren.', it: 'Correggi i campi evidenziati.', hu: 'Kérlek javítsd a megjelölt mezőket.' },
   progress:    { da: 'Fremdrift', en: 'Progress', de: 'Fortschritt', it: 'Avanzamento', hu: 'Előrehaladás' },
 
-  step1:       { da: 'Forhandler & kunde', en: 'Dealer & customer', de: 'Händler & Kunde', it: 'Rivenditore & cliente', hu: 'Kereskedő & ügyfél' },
-  step2:       { da: 'Maskine & datoer', en: 'Machine & dates', de: 'Maschine & Daten', it: 'Macchina & date', hu: 'Gép & dátumok' },
-  step3:       { da: 'Fejl & reparation', en: 'Fault & repair', de: 'Fehler & Reparatur', it: 'Guasto & riparazione', hu: 'Hiba & javítás' },
-  step4:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
-  step5:       { da: 'Oversigt', en: 'Overview', de: 'Übersicht', it: 'Riepilogo', hu: 'Áttekintés' },
+  step1:       { da: 'Kontakt Timan før start', en: 'Contact Timan before start', de: 'Timan vor Beginn kontaktieren', it: 'Contatta Timan prima di iniziare', hu: 'Lépjen kapcsolatba Timan-nal' },
+  step2:       { da: 'Reklamations nr.', en: 'Claim number', de: 'Reklamationsnummer', it: 'N. reclamo', hu: 'Reklamációs szám' },
+  step3:       { da: 'Forhandler & ejer', en: 'Dealer & owner', de: 'Händler & Eigentümer', it: 'Rivenditore & proprietario', hu: 'Kereskedő & tulajdonos' },
+  step4:       { da: 'Maskin info', en: 'Machine info', de: 'Maschineninfo', it: 'Info macchina', hu: 'Gép adatai' },
+  step5:       { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
+  step6:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
+  step7:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
 
   sDealer:     { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   sOwner:      { da: 'Ejer / Kunde', en: 'Owner / Customer', de: 'Eigentümer / Kunde', it: 'Proprietario / Cliente', hu: 'Tulajdonos / Ügyfél' },
@@ -194,15 +196,26 @@ export default function NewClaimPage() {
   );
   const total = partsTotal + workTotal;
 
-  // Progress: count required filled fields out of 6 required
-  const filledRequired =
-    (form.dealer_company.trim() ? 1 : 0) +
-    (form.customer_name.trim() ? 1 : 0) +
-    (form.machine_model.trim() ? 1 : 0) +
-    (form.machine_serial.trim() ? 1 : 0) +
-    (form.description.trim() ? 1 : 0) +
-    ((form.fault_date || form.repair_date || form.delivery_date) ? 1 : 0);
-  const progressPct = Math.round((filledRequired / 6) * 100);
+  // Progress steps — match the actual claim form sections (7 total).
+  // 1. Kontakt Timan før start  → informational, always considered done on entry
+  // 2. Reklamations nr.         → auto-generated on save, always considered done
+  // 3. Forhandler & ejer        → dealer_company + customer_name
+  // 4. Maskin info              → machine_model + machine_serial
+  // 5. Dato                     → at least one of delivery/fault/repair date
+  // 6. Beskrivelse              → fault description
+  // 7. Reservedele & arbejde    → at least one parts or work line with content
+  const stepDone: boolean[] = [
+    true,
+    true,
+    !!form.dealer_company.trim() && !!form.customer_name.trim(),
+    !!form.machine_model.trim() && !!form.machine_serial.trim(),
+    !!(form.fault_date || form.repair_date || form.delivery_date),
+    !!form.description.trim(),
+    parts.some(p => p.description || p.part_number || p.quantity || p.unit_price_net) ||
+      workLines.some(w => w.description || w.hours || w.hourly_rate_net),
+  ];
+  const completedSteps = stepDone.filter(Boolean).length;
+  const progressPct = Math.round((completedSteps / stepDone.length) * 100);
 
   // Toast for read-only / no-access roles when they hit the route
   useEffect(() => {
@@ -379,15 +392,28 @@ export default function NewClaimPage() {
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <div className="mt-3 hidden md:flex items-center justify-between text-[11px] text-white/80">
-              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang]].map((s, i) => (
-                <div key={s} className="flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-white/15 ring-1 ring-white/25 flex items-center justify-center text-[10px] font-bold">
-                    {i + 1}
-                  </span>
-                  <span className="font-medium">{s}</span>
-                </div>
-              ))}
+            <div className="mt-3 hidden md:flex items-center justify-between gap-2 text-[11px] text-white/80">
+              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang], T.step6[lang], T.step7[lang]].map((s, i) => {
+                const done = stepDone[i];
+                const active = !done && stepDone.slice(0, i).every(Boolean);
+                return (
+                  <div key={s} className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className={[
+                        'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 transition-colors',
+                        done
+                          ? 'bg-white text-[#2d5a27] ring-1 ring-white'
+                          : active
+                            ? 'bg-white/30 text-white ring-1 ring-white/60'
+                            : 'bg-white/10 text-white/70 ring-1 ring-white/20',
+                      ].join(' ')}
+                    >
+                      {done ? '✓' : i + 1}
+                    </span>
+                    <span className={`font-medium truncate ${done ? 'text-white' : active ? 'text-white' : 'text-white/70'}`}>{s}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
