@@ -32,6 +32,17 @@ export default function PortalPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
+  // Apply user's preferred_language once after login (Phase 1B).
+  const prefLangApplied = useRef(false);
+  useEffect(() => {
+    if (prefLangApplied.current) return;
+    const pref = appUser?.preferred_language;
+    if (pref && ['da','en','de','it','hu'].includes(pref)) {
+      prefLangApplied.current = true;
+      if (pref !== lang) setLanguage(pref as typeof lang);
+    }
+  }, [appUser, lang, setLanguage]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
