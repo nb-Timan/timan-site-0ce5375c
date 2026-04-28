@@ -126,20 +126,27 @@ export default function ClaimsPage() {
           </div>
 
           {allowed && (
-            canCreate ? (
-              <button
-                type="button"
-                onClick={() => { /* form modal in next phase */ }}
-                className="inline-flex items-center gap-2 bg-[#2d5a27] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#244820] transition"
-              >
-                <Plus className="h-4 w-4" />
-                {T.newClaim[lang]}
-              </button>
-            ) : (
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-                {T.readOnly[lang]}
-              </span>
-            )
+            <div className="flex items-center gap-2">
+              {viewVariant !== 'none' && (
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${viewVariant === 'internal' ? 'bg-[#2d5a27]/10 text-[#2d5a27]' : 'bg-blue-50 text-blue-700'}`}>
+                  {viewVariant === 'internal' ? T.viewInternal[lang] : T.viewDealer[lang]}
+                </span>
+              )}
+              {canCreate ? (
+                <button
+                  type="button"
+                  onClick={() => { /* form modal in next phase */ }}
+                  className="inline-flex items-center gap-2 bg-[#2d5a27] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#244820] transition"
+                >
+                  <Plus className="h-4 w-4" />
+                  {T.newClaim[lang]}
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                  {T.readOnly[lang]}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </header>
