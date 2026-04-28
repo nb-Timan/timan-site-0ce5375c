@@ -31,12 +31,21 @@ export function canCreateTsb(role: PortalRole | null): boolean {
   return role === "timan_backend";
 }
 
-export default function TsbAccessGuard({ children }: { children: ReactNode }) {
+export default function TsbAccessGuard({
+  children,
+  requireCreate = false,
+}: {
+  children: ReactNode;
+  requireCreate?: boolean;
+}) {
   const { appUser, loading } = useAppUser();
   if (loading) return null;
   const role = derivePortalRole(appUser ?? null);
   if (!canAccessTsb(role)) {
     return <Navigate to="/portal" replace />;
+  }
+  if (requireCreate && role !== "timan_backend") {
+    return <Navigate to="/portal/service/tsb" replace />;
   }
   return <>{children}</>;
 }
