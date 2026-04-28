@@ -40,6 +40,7 @@ function buildPreviewUser(role: PortalRole, base: SessionUser | null): SessionUs
   const label = PORTAL_ROLE_LABELS[role].da;
   return {
     email: base?.email || `preview+${role}@timan.dk`,
+    portal_role: role,
     role: legacy.role,
     partner_type: legacy.partner_type,
     approved: true,
