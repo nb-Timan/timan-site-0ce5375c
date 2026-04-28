@@ -217,19 +217,22 @@ export default function SellerPerformanceSection({ activities, language }: Props
   ];
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-2">
-          <Users className="h-5 w-5" />{T.title[language]}
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] p-6 mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2.5">
+          <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 inline-flex items-center justify-center ring-1 ring-amber-200/70">
+            <Trophy className="h-4 w-4" />
+          </span>
+          {T.title[language]}
         </h2>
-        <div className="inline-flex flex-wrap gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
+        <div className="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
           {FILTERS.map(f => (
             <button
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
               className={
-                'px-3 py-1.5 rounded-md text-xs font-medium transition ' +
+                'px-3 py-1.5 rounded-lg text-xs font-medium transition ' +
                 (filter === f.key
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
                   : 'text-gray-600 hover:text-gray-900')
@@ -242,54 +245,100 @@ export default function SellerPerformanceSection({ activities, language }: Props
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">{T.empty[language]}</p>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <div className="h-12 w-12 rounded-2xl bg-gray-50 text-gray-400 inline-flex items-center justify-center mb-3">
+            <Users className="h-6 w-6" />
+          </div>
+          <p className="text-sm text-gray-500">{T.empty[language]}</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="py-2 pr-4">{T.col_seller[language]}</th>
-                <th className="py-2 pr-4">{T.col_closed[language]}</th>
-                <th className="py-2 pr-4">{T.col_active[language]}</th>
-                <th className="py-2 pr-4">{T.col_prev[language]}</th>
-                <th className="py-2 pr-4">{T.col_forecast[language]}</th>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-2.5 pr-4 font-medium">{T.col_seller[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_closed[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_active[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_prev[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{T.col_forecast[language]}</th>
+                <th className="py-2.5 pr-4 font-medium">{COL_WINRATE[language]}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.name} className={isForecastView ? 'bg-violet-50/30' : undefined}>
-                  <td className="py-3 pr-4 font-medium text-gray-900">{r.name}</td>
+              {rows.map((r, idx) => {
+                const isLeader = idx === 0 && r.closedValue > 0;
+                return (
+                  <tr key={r.name}
+                      className={
+                        (isForecastView ? 'bg-violet-50/30 ' : '') +
+                        (isLeader ? 'bg-gradient-to-r from-amber-50/60 to-transparent ' : '') +
+                        'hover:bg-gray-50/70 transition-colors'
+                      }>
+                    {/* Seller — avatar + name + crown */}
+                    <td className="py-3.5 pr-4">
+                      <div className="inline-flex items-center gap-3">
+                        <div className="relative">
+                          <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${avatarGradient(r.name)} text-white text-xs font-semibold flex items-center justify-center shadow-sm ring-2 ring-white`}>
+                            {initials(r.name)}
+                          </div>
+                          {isLeader && (
+                            <Crown className="absolute -top-1.5 -right-1.5 h-4 w-4 text-amber-500 fill-amber-300 drop-shadow-sm" />
+                          )}
+                        </div>
+                        <div className="leading-tight">
+                          <div className="font-semibold text-gray-900">{r.name}</div>
+                          {isLeader && <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Top performer</div>}
+                        </div>
+                      </div>
+                    </td>
 
-                  {/* Closed (green) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-emerald-700 font-semibold">{fmtKr(r.closedValue)}</div>
-                    <div className="text-xs text-gray-500">{r.closedCount} {T.stk[language]}</div>
-                  </td>
+                    {/* Closed (green) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-emerald-700 font-semibold tabular-nums">{fmtKr(r.closedValue)}</div>
+                      <div className="text-xs text-gray-500">{r.closedCount} {T.stk[language]}</div>
+                    </td>
 
-                  {/* Active offers (blue) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-sky-700 font-semibold">{fmtKr(r.activeValue)}</div>
-                    <div className="text-xs text-gray-500">{r.activeCount} {T.stk[language]}</div>
-                  </td>
+                    {/* Active offers (sky) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-sky-700 font-semibold tabular-nums">{fmtKr(r.activeValue)}</div>
+                      <div className="text-xs text-gray-500">{r.activeCount} {T.stk[language]}</div>
+                    </td>
 
-                  {/* Previous month (muted + trend arrow) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-gray-500 font-medium inline-flex items-center gap-1">
-                      <TrendArrow pct={r.prevPctChange} />
-                      {fmtKr(r.prevValue)}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {r.prevPctChange > 0 ? '+' : ''}{r.prevPctChange}%
-                    </div>
-                  </td>
+                    {/* Previous month */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-gray-700 font-medium inline-flex items-center gap-1 tabular-nums">
+                        <TrendArrow pct={r.prevPctChange} />
+                        {fmtKr(r.prevValue)}
+                      </div>
+                      <div className={`text-xs ${r.prevPctChange > 2 ? 'text-emerald-600' : r.prevPctChange < -2 ? 'text-rose-600' : 'text-gray-400'}`}>
+                        {r.prevPctChange > 0 ? '+' : ''}{r.prevPctChange}%
+                      </div>
+                    </td>
 
-                  {/* Forecast (purple) */}
-                  <td className="py-3 pr-4">
-                    <div className="text-violet-700 font-semibold">{fmtKr(r.forecastValue)}</div>
-                    <div className="text-xs text-gray-500">{r.forecastCount} {T.stk[language]}</div>
-                  </td>
-                </tr>
-              ))}
+                    {/* Forecast (violet) */}
+                    <td className="py-3.5 pr-4">
+                      <div className="text-violet-700 font-semibold tabular-nums">{fmtKr(r.forecastValue)}</div>
+                      <div className="text-xs text-gray-500">{r.forecastCount} {T.stk[language]}</div>
+                    </td>
+
+                    {/* Win rate — mini progress */}
+                    <td className="py-3.5 pr-4 min-w-[120px]">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden max-w-[80px]">
+                          <div
+                            className={`h-full rounded-full transition-[width] duration-700 ${
+                              r.winRate >= 60 ? 'bg-emerald-500' :
+                              r.winRate >= 30 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${r.winRate}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700 tabular-nums">{r.winRate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
