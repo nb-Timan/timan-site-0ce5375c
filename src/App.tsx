@@ -14,6 +14,7 @@ import DriftberegnerPage from "./pages/DriftberegnerPage";
 import Co2CalculatorPage from "./pages/Co2CalculatorPage";
 import ClaimsPage from "./pages/ClaimsPage";
 import ClaimDetailPage from "./pages/ClaimDetailPage";
+import NewClaimPage from "./pages/NewClaimPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
               <Route path="/portal/service/claims" element={<ClaimsPage />} />
+              <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
               <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
