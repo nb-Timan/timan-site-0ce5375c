@@ -162,8 +162,14 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
       monthBeforeClosed.set(name, (monthBeforeClosed.get(name) || 0) + (a.value || 0));
     }
 
-    // ── Forecast: open quotes with expected_close_date next month, fall back
-    //    to all currently-open quotes (counted once) as expected pipeline.
+    // ── Win rate (overall, in scope) ─────────────────────
+    if (date >= scopeFrom && date <= scopeTo) {
+      if (isWon(a)) row.wonCount += 1;
+      if (a.activity_type === 'order_sent' && (a.status || '').toLowerCase() === 'lost') row.lostCount += 1;
+      if (a.activity_type === 'lead_rejected') row.lostCount += 1;
+    }
+
+    // ── Forecast: open quotes with expected_close_date next month ─────────
     if (isOpenQuote(a)) {
       const meta = (a.meta || {}) as Record<string, unknown>;
       const expected = meta.expected_close_date ? new Date(String(meta.expected_close_date)) : null;
@@ -174,8 +180,6 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
     }
   }
 
-  // If no explicit forecast hits exist, treat 50% of currently-active pipeline
-  // as next-month forecast — keeps the column meaningful in early-data state.
   for (const r of sellers.values()) {
     if (r.forecastCount === 0 && r.activeCount > 0) {
       r.forecastCount = Math.max(1, Math.round(r.activeCount * 0.5));
@@ -187,6 +191,8 @@ function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
     } else {
       r.prevPctChange = Math.round(((r.prevValue - prevPrev) / prevPrev) * 100);
     }
+    const tot = r.wonCount + r.lostCount;
+    r.winRate = tot === 0 ? 0 : Math.round((r.wonCount / tot) * 100);
   }
 
   return Array.from(sellers.values()).sort((a, b) => b.closedValue - a.closedValue);
