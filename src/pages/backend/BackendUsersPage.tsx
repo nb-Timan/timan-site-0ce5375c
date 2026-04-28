@@ -111,6 +111,11 @@ export default function BackendUsersPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  // Expose snapshot for the edit modal's Account Owner select (avoids prop drilling).
+  useEffect(() => {
+    (window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot = users;
+  }, [users]);
+
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
 
