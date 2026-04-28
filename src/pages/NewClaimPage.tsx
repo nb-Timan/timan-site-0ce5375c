@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, LifeBuoy, AlertCircle, Plus, Trash2, Save, Send, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft, LifeBuoy, AlertCircle, Plus, Trash2, Save, Send, CheckCircle2,
+  Building2, User, Wrench, Calendar, FileText, Hammer, Package, Calculator, Paperclip,
+} from 'lucide-react';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useAppUser } from '@/context/AppUserContext';
@@ -27,6 +30,7 @@ const T: Record<string, Record<Language, string>> = {
   title:       { da: 'Ny sag', en: 'New claim', de: 'Neuer Fall', it: 'Nuovo reclamo', hu: 'Új ügy' },
   intro:       { da: 'Opret en ny service- eller garantisag.', en: 'Create a new service or warranty case.', de: 'Neuen Service- oder Garantiefall anlegen.', it: 'Crea un nuovo caso.', hu: 'Új szerviz- vagy garanciaeset létrehozása.' },
   noAccess:    { da: 'Ingen adgang til oprettelse af sager.', en: 'No access to create claims.', de: 'Kein Zugriff zum Anlegen.', it: 'Nessun accesso alla creazione.', hu: 'Nincs jogosultság új ügy létrehozására.' },
+  readOnlyMsg: { da: 'Skrivebeskyttet adgang — du kan ikke oprette nye sager.', en: 'Read-only access — you cannot create new claims.', de: 'Nur-Lese-Zugriff — Sie können keine neuen Fälle anlegen.', it: 'Accesso in sola lettura — non puoi creare nuovi reclami.', hu: 'Csak olvasható hozzáférés — nem hozhat létre új ügyet.' },
   required:    { da: 'Påkrævet', en: 'Required', de: 'Pflicht', it: 'Obbligatorio', hu: 'Kötelező' },
   saveDraft:   { da: 'Gem til senere', en: 'Save for later', de: 'Später speichern', it: 'Salva per dopo', hu: 'Mentés későbbre' },
   sendTiman:   { da: 'Send til Timan', en: 'Send to Timan', de: 'An Timan senden', it: 'Invia a Timan', hu: 'Küldés a Timan-nak' },
@@ -35,6 +39,13 @@ const T: Record<string, Record<Language, string>> = {
   sentOk:      { da: 'Sendt til Timan', en: 'Sent to Timan', de: 'An Timan gesendet', it: 'Inviato a Timan', hu: 'Elküldve a Timan-nak' },
   saveError:   { da: 'Kunne ikke gemme. Prøv igen.', en: 'Could not save. Try again.', de: 'Speichern fehlgeschlagen.', it: 'Salvataggio fallito.', hu: 'Mentés sikertelen.' },
   validation:  { da: 'Ret venligst de markerede felter.', en: 'Please fix the highlighted fields.', de: 'Bitte markierte Felder korrigieren.', it: 'Correggi i campi evidenziati.', hu: 'Kérlek javítsd a megjelölt mezőket.' },
+  progress:    { da: 'Fremdrift', en: 'Progress', de: 'Fortschritt', it: 'Avanzamento', hu: 'Előrehaladás' },
+
+  step1:       { da: 'Forhandler & kunde', en: 'Dealer & customer', de: 'Händler & Kunde', it: 'Rivenditore & cliente', hu: 'Kereskedő & ügyfél' },
+  step2:       { da: 'Maskine & datoer', en: 'Machine & dates', de: 'Maschine & Daten', it: 'Macchina & date', hu: 'Gép & dátumok' },
+  step3:       { da: 'Fejl & reparation', en: 'Fault & repair', de: 'Fehler & Reparatur', it: 'Guasto & riparazione', hu: 'Hiba & javítás' },
+  step4:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
+  step5:       { da: 'Oversigt', en: 'Overview', de: 'Übersicht', it: 'Riepilogo', hu: 'Áttekintés' },
 
   sDealer:     { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   sOwner:      { da: 'Ejer / Kunde', en: 'Owner / Customer', de: 'Eigentümer / Kunde', it: 'Proprietario / Cliente', hu: 'Tulajdonos / Ügyfél' },
@@ -42,6 +53,7 @@ const T: Record<string, Record<Language, string>> = {
   sDates:      { da: 'Datoer', en: 'Dates', de: 'Daten', it: 'Date', hu: 'Dátumok' },
   sFault:      { da: 'Fejlbeskrivelse', en: 'Fault description', de: 'Fehlerbeschreibung', it: 'Descrizione del guasto', hu: 'Hibaleírás' },
   sRepair:     { da: 'Reparationsbeskrivelse', en: 'Repair description', de: 'Reparaturbeschreibung', it: 'Descrizione riparazione', hu: 'Javítás leírása' },
+  sPartsWork:  { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
   sParts:      { da: 'Reservedele', en: 'Spare parts', de: 'Ersatzteile', it: 'Ricambi', hu: 'Pótalkatrészek' },
   sWork:       { da: 'Arbejdslinjer', en: 'Work lines', de: 'Arbeitspositionen', it: 'Voci di lavoro', hu: 'Munkasorok' },
   sService:    { da: 'Service', en: 'Service', de: 'Service', it: 'Servizio', hu: 'Szerviz' },
@@ -68,7 +80,10 @@ const T: Record<string, Record<Language, string>> = {
   fUnit:       { da: 'Stykpris (netto)', en: 'Unit price (net)', de: 'Stückpreis (netto)', it: 'Prezzo unitario (netto)', hu: 'Egységár (nettó)' },
   fRate:       { da: 'Timepris (netto)', en: 'Hourly rate (net)', de: 'Stundensatz (netto)', it: 'Tariffa oraria (netta)', hu: 'Óradíj (nettó)' },
   fLineHours:  { da: 'Timer', en: 'Hours', de: 'Std.', it: 'Ore', hu: 'Óra' },
-  addLine:     { da: 'Tilføj linje', en: 'Add line', de: 'Zeile hinzufügen', it: 'Aggiungi riga', hu: 'Sor hozzáadása' },
+  addPart:     { da: 'Tilføj reservedel', en: 'Add part', de: 'Ersatzteil hinzufügen', it: 'Aggiungi ricambio', hu: 'Alkatrész hozzáadása' },
+  addWork:     { da: 'Tilføj arbejdslinje', en: 'Add work line', de: 'Arbeitszeile hinzufügen', it: 'Aggiungi lavoro', hu: 'Munkasor hozzáadása' },
+  partsTotal:  { da: 'Reservedele i alt', en: 'Parts total', de: 'Ersatzteile gesamt', it: 'Totale ricambi', hu: 'Alkatrészek összesen' },
+  workTotal:   { da: 'Arbejde i alt', en: 'Work total', de: 'Arbeit gesamt', it: 'Totale lavoro', hu: 'Munka összesen' },
   total:       { da: 'I alt (netto)', en: 'Total (net)', de: 'Gesamt (netto)', it: 'Totale (netto)', hu: 'Összesen (nettó)' },
 
   viewInternal:{ da: 'Intern visning', en: 'Internal view', de: 'Interne Ansicht', it: 'Vista interna', hu: 'Belső nézet' },
@@ -151,6 +166,8 @@ function toNonNegNumber(s: string): number {
   return n;
 }
 
+const BRAND = '#2d5a27';
+
 export default function NewClaimPage() {
   const { appUser, loading: authLoading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -167,11 +184,36 @@ export default function NewClaimPage() {
   const [submitting, setSubmitting] = useState<null | ClaimStatus>(null);
   const [done, setDone] = useState<{ id: string; status: ClaimStatus } | null>(null);
 
-  const total = useMemo(() => {
-    const partsTotal = parts.reduce((s, p) => s + (p.quantity || 0) * (p.unit_price_net || 0), 0);
-    const workTotal = workLines.reduce((s, w) => s + (w.hours || 0) * (w.hourly_rate_net || 0), 0);
-    return partsTotal + workTotal;
-  }, [parts, workLines]);
+  const partsTotal = useMemo(
+    () => parts.reduce((s, p) => s + (p.quantity || 0) * (p.unit_price_net || 0), 0),
+    [parts]
+  );
+  const workTotal = useMemo(
+    () => workLines.reduce((s, w) => s + (w.hours || 0) * (w.hourly_rate_net || 0), 0),
+    [workLines]
+  );
+  const total = partsTotal + workTotal;
+
+  // Progress: count required filled fields out of 6 required
+  const filledRequired =
+    (form.dealer_company.trim() ? 1 : 0) +
+    (form.customer_name.trim() ? 1 : 0) +
+    (form.machine_model.trim() ? 1 : 0) +
+    (form.machine_serial.trim() ? 1 : 0) +
+    (form.description.trim() ? 1 : 0) +
+    ((form.fault_date || form.repair_date || form.delivery_date) ? 1 : 0);
+  const progressPct = Math.round((filledRequired / 6) * 100);
+
+  // Toast for read-only / no-access roles when they hit the route
+  useEffect(() => {
+    if (authLoading || !appUser) return;
+    const role = derivePortalRole(appUser);
+    const perms = role ? getPortalPermissions(role) : null;
+    if (perms && !perms.canCreateClaim) {
+      toast.error(role === 'dealer_user' ? T.readOnlyMsg[lang] : T.noAccess[lang]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, appUser?.email]);
 
   if (authLoading) {
     return (
@@ -188,6 +230,11 @@ export default function NewClaimPage() {
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateClaim;
   const viewVariant = getClaimsViewVariant(portalRole);
+
+  // Hard redirect for roles that cannot create claims
+  if (!allowed || !canCreate) {
+    return <Navigate to="/portal/service/claims" replace />;
+  }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -212,7 +259,6 @@ export default function NewClaimPage() {
       setErrors(map);
       return { ok: false };
     }
-    // Validate lines (skip empty-only rows)
     for (const p of parts) {
       if (!p.description && !p.part_number && !p.quantity && !p.unit_price_net) continue;
       if (!lineSchemaPart.safeParse(p).success) {
@@ -277,9 +323,12 @@ export default function NewClaimPage() {
   }
 
   const inputCls = (key: string, extra = '') =>
-    `w-full rounded-lg border px-3 py-2 text-sm bg-white ${
-      errors[key] ? 'border-rose-400 focus:outline-rose-500' : 'border-gray-300 focus:outline-[#2d5a27]'
+    `w-full rounded-md border px-3 py-2 text-sm bg-white transition-colors ${
+      errors[key] ? 'border-rose-400 focus:outline-rose-500' : 'border-gray-300 focus:border-[#2d5a27] focus:outline-[#2d5a27]'
     } ${extra}`;
+
+  const fmtMoney = (n: number) =>
+    n.toLocaleString(lang === 'en' ? 'en-GB' : lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -290,47 +339,63 @@ export default function NewClaimPage() {
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
 
-      {/* Back button */}
-      <div className="bg-white border-b border-gray-200 py-3">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ===== Service-Portal style topbar ===== */}
+      <div className="text-white" style={{ background: `linear-gradient(135deg, ${BRAND} 0%, #1f3f1c 100%)` }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={() => navigate('/portal/service/claims')}
-            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
+            className="flex items-center text-white/80 hover:text-white text-sm font-medium mb-4 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
             {T.back[lang]}
           </button>
+
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/15 backdrop-blur rounded-xl flex items-center justify-center ring-1 ring-white/20">
+                <LifeBuoy className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{T.title[lang]}</h1>
+                <p className="text-white/80 mt-1 text-sm">{T.intro[lang]}</p>
+              </div>
+            </div>
+            {viewVariant !== 'none' && (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/15 text-white ring-1 ring-white/20">
+                {viewVariant === 'internal' ? T.viewInternal[lang] : T.viewDealer[lang]}
+              </span>
+            )}
+          </div>
+
+          {/* Progress / step bar */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-white/70 mb-2">
+              <span>{T.progress[lang]}</span>
+              <span>{progressPct}%</span>
+            </div>
+            <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-500 rounded-full"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="mt-3 hidden md:flex items-center justify-between text-[11px] text-white/80">
+              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang]].map((s, i) => (
+                <div key={s} className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-white/15 ring-1 ring-white/25 flex items-center justify-center text-[10px] font-bold">
+                    {i + 1}
+                  </span>
+                  <span className="font-medium">{s}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center">
-              <LifeBuoy className="h-6 w-6 text-rose-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{T.title[lang]}</h1>
-              <p className="text-gray-500 mt-1 text-sm">{T.intro[lang]}</p>
-            </div>
-          </div>
-          {viewVariant !== 'none' && (
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${viewVariant === 'internal' ? 'bg-[#2d5a27]/10 text-[#2d5a27]' : 'bg-blue-50 text-blue-700'}`}>
-              {viewVariant === 'internal' ? T.viewInternal[lang] : T.viewDealer[lang]}
-            </span>
-          )}
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        {!allowed || !canCreate ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex items-center gap-3 text-gray-700">
-            <AlertCircle className="h-5 w-5 text-rose-500" />
-            {T.noAccess[lang]}
-          </div>
-        ) : done ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        {done ? (
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center max-w-2xl mx-auto">
             <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto mb-3" />
             <h2 className="text-xl font-bold text-gray-900 mb-1">
               {done.status === 'draft' ? T.savedDraft[lang] : T.sentOk[lang]}
@@ -354,190 +419,229 @@ export default function NewClaimPage() {
         ) : (
           <form
             onSubmit={(e) => { e.preventDefault(); handleSubmit('submitted'); }}
-            className="space-y-6"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
-            {/* Dealer */}
-            <Section title={T.sDealer[lang]}>
-              <Grid>
-                <FieldText label={T.fCompany[lang]} required value={form.dealer_company} onChange={(v) => setField('dealer_company', v)} cls={inputCls('dealer_company')} error={errors.dealer_company} />
-                <FieldText label={T.fContact[lang]} value={form.dealer_contact} onChange={(v) => setField('dealer_contact', v)} cls={inputCls('dealer_contact')} />
-                <FieldText label={T.fEmail[lang]} type="email" value={form.dealer_email} onChange={(v) => setField('dealer_email', v)} cls={inputCls('dealer_email')} error={errors.dealer_email} />
-                <FieldText label={T.fPhone[lang]} value={form.dealer_phone} onChange={(v) => setField('dealer_phone', v)} cls={inputCls('dealer_phone')} />
-              </Grid>
-            </Section>
+            {/* ===== Left column: form sections ===== */}
+            <div className="lg:col-span-2 space-y-6">
+              <Section title={T.sDealer[lang]} icon={<Building2 className="h-4 w-4" />}>
+                <Grid>
+                  <FieldText label={T.fCompany[lang]} required value={form.dealer_company} onChange={(v) => setField('dealer_company', v)} cls={inputCls('dealer_company')} error={errors.dealer_company} />
+                  <FieldText label={T.fContact[lang]} value={form.dealer_contact} onChange={(v) => setField('dealer_contact', v)} cls={inputCls('dealer_contact')} />
+                  <FieldText label={T.fEmail[lang]} type="email" value={form.dealer_email} onChange={(v) => setField('dealer_email', v)} cls={inputCls('dealer_email')} error={errors.dealer_email} />
+                  <FieldText label={T.fPhone[lang]} value={form.dealer_phone} onChange={(v) => setField('dealer_phone', v)} cls={inputCls('dealer_phone')} />
+                </Grid>
+              </Section>
 
-            {/* Owner */}
-            <Section title={T.sOwner[lang]}>
-              <Grid>
-                <FieldText label={T.fName[lang]} required value={form.customer_name} onChange={(v) => setField('customer_name', v)} cls={inputCls('customer_name')} error={errors.customer_name} />
-                <FieldText label={T.fContact[lang]} value={form.customer_contact} onChange={(v) => setField('customer_contact', v)} cls={inputCls('customer_contact')} />
-                <FieldText label={T.fEmail[lang]} type="email" value={form.customer_email} onChange={(v) => setField('customer_email', v)} cls={inputCls('customer_email')} error={errors.customer_email} />
-                <FieldText label={T.fPhone[lang]} value={form.customer_phone} onChange={(v) => setField('customer_phone', v)} cls={inputCls('customer_phone')} />
-              </Grid>
-            </Section>
+              <Section title={T.sOwner[lang]} icon={<User className="h-4 w-4" />}>
+                <Grid>
+                  <FieldText label={T.fName[lang]} required value={form.customer_name} onChange={(v) => setField('customer_name', v)} cls={inputCls('customer_name')} error={errors.customer_name} />
+                  <FieldText label={T.fContact[lang]} value={form.customer_contact} onChange={(v) => setField('customer_contact', v)} cls={inputCls('customer_contact')} />
+                  <FieldText label={T.fEmail[lang]} type="email" value={form.customer_email} onChange={(v) => setField('customer_email', v)} cls={inputCls('customer_email')} error={errors.customer_email} />
+                  <FieldText label={T.fPhone[lang]} value={form.customer_phone} onChange={(v) => setField('customer_phone', v)} cls={inputCls('customer_phone')} />
+                </Grid>
+              </Section>
 
-            {/* Machine */}
-            <Section title={T.sMachine[lang]}>
-              <Grid>
-                <FieldText label={T.fModel[lang]} required value={form.machine_model} onChange={(v) => setField('machine_model', v)} cls={inputCls('machine_model')} error={errors.machine_model} />
-                <FieldText label={T.fSerial[lang]} required value={form.machine_serial} onChange={(v) => setField('machine_serial', v)} cls={inputCls('machine_serial')} error={errors.machine_serial} />
-                <FieldText label={T.fYear[lang]} value={form.machine_year} onChange={(v) => setField('machine_year', v)} cls={inputCls('machine_year')} />
-              </Grid>
-            </Section>
+              <Section title={T.sMachine[lang]} icon={<Wrench className="h-4 w-4" />}>
+                <Grid>
+                  <FieldText label={T.fModel[lang]} required value={form.machine_model} onChange={(v) => setField('machine_model', v)} cls={inputCls('machine_model')} error={errors.machine_model} />
+                  <FieldText label={T.fSerial[lang]} required value={form.machine_serial} onChange={(v) => setField('machine_serial', v)} cls={inputCls('machine_serial')} error={errors.machine_serial} />
+                  <FieldText label={T.fYear[lang]} value={form.machine_year} onChange={(v) => setField('machine_year', v)} cls={inputCls('machine_year')} />
+                </Grid>
+              </Section>
 
-            {/* Dates */}
-            <Section title={T.sDates[lang]}>
-              <Grid>
-                <FieldText label={T.fDelivery[lang]} type="date" value={form.delivery_date} onChange={(v) => setField('delivery_date', v)} cls={inputCls('delivery_date')} />
-                <FieldText label={T.fFault[lang]} type="date" value={form.fault_date} onChange={(v) => setField('fault_date', v)} cls={inputCls('fault_date')} />
-                <FieldText label={T.fRepair[lang]} type="date" value={form.repair_date} onChange={(v) => setField('repair_date', v)} cls={inputCls('repair_date')} />
-              </Grid>
-            </Section>
+              <Section title={T.sDates[lang]} icon={<Calendar className="h-4 w-4" />}>
+                <Grid cols={3}>
+                  <FieldText label={T.fDelivery[lang]} type="date" value={form.delivery_date} onChange={(v) => setField('delivery_date', v)} cls={inputCls('delivery_date')} />
+                  <FieldText label={T.fFault[lang]} type="date" value={form.fault_date} onChange={(v) => setField('fault_date', v)} cls={inputCls('fault_date')} />
+                  <FieldText label={T.fRepair[lang]} type="date" value={form.repair_date} onChange={(v) => setField('repair_date', v)} cls={inputCls('repair_date')} />
+                </Grid>
+              </Section>
 
-            {/* Fault description */}
-            <Section title={T.sFault[lang]}>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                {T.fDesc[lang]} <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                rows={4}
-                value={form.description}
-                onChange={(e) => setField('description', e.target.value)}
-                className={inputCls('description')}
-              />
-              {errors.description && <p className="mt-1 text-xs text-rose-600">{T.required[lang]}</p>}
-            </Section>
+              <Section title={T.sFault[lang]} icon={<FileText className="h-4 w-4" />}>
+                <Label>
+                  {T.fDesc[lang]} <span className="text-rose-500">*</span>
+                </Label>
+                <textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => setField('description', e.target.value)}
+                  className={inputCls('description')}
+                  placeholder={T.sFault[lang]}
+                />
+                {errors.description && <p className="mt-1 text-xs text-rose-600">{T.required[lang]}</p>}
+              </Section>
 
-            {/* Repair description */}
-            <Section title={T.sRepair[lang]}>
-              <textarea
-                rows={4}
-                value={form.repair_description}
-                onChange={(e) => setField('repair_description', e.target.value)}
-                className={inputCls('repair_description')}
-              />
-            </Section>
+              <Section title={T.sRepair[lang]} icon={<Hammer className="h-4 w-4" />}>
+                <textarea
+                  rows={4}
+                  value={form.repair_description}
+                  onChange={(e) => setField('repair_description', e.target.value)}
+                  className={inputCls('repair_description')}
+                  placeholder={T.sRepair[lang]}
+                />
+                <div className="mt-4">
+                  <Grid>
+                    <FieldNumber label={T.fHours[lang]} value={form.work_hours} onChange={(v) => setField('work_hours', v)} cls={inputCls('work_hours')} />
+                    <FieldNumber label={T.fKm[lang]} value={form.driven_km} onChange={(v) => setField('driven_km', v)} cls={inputCls('driven_km')} />
+                  </Grid>
+                </div>
+              </Section>
 
-            {/* Service hours / km */}
-            <Section title={T.sService[lang]}>
-              <Grid>
-                <FieldNumber label={T.fHours[lang]} value={form.work_hours} onChange={(v) => setField('work_hours', v)} cls={inputCls('work_hours')} />
-                <FieldNumber label={T.fKm[lang]} value={form.driven_km} onChange={(v) => setField('driven_km', v)} cls={inputCls('driven_km')} />
-              </Grid>
-            </Section>
+              {/* ===== Combined Reservedele & arbejde ===== */}
+              <Section title={T.sPartsWork[lang]} icon={<Package className="h-4 w-4" />}>
+                {/* Parts subsection */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{T.sParts[lang]}</h3>
+                    <span className="text-xs text-gray-500">{T.partsTotal[lang]}: <strong className="text-gray-900">{fmtMoney(partsTotal)}</strong></span>
+                  </div>
+                  <div className="space-y-2">
+                    {parts.map((p, idx) => (
+                      <div key={p.id} className="grid grid-cols-12 gap-2 items-end bg-gray-50/60 border border-gray-100 rounded-lg p-3">
+                        <div className="col-span-12 md:col-span-3">
+                          <Label>{T.fPart[lang]}</Label>
+                          <input className={inputCls('')} value={p.part_number || ''} onChange={(e) => {
+                            const v = e.target.value;
+                            setParts(prev => prev.map((x, i) => i === idx ? { ...x, part_number: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-12 md:col-span-4">
+                          <Label>{T.fDesc[lang]}</Label>
+                          <input className={inputCls('')} value={p.description} onChange={(e) => {
+                            const v = e.target.value;
+                            setParts(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <Label>{T.fQty[lang]}</Label>
+                          <input type="number" min={0} step="1" className={inputCls('')} value={p.quantity || ''} onChange={(e) => {
+                            const v = toNonNegNumber(e.target.value);
+                            setParts(prev => prev.map((x, i) => i === idx ? { ...x, quantity: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-7 md:col-span-2">
+                          <Label>{T.fUnit[lang]}</Label>
+                          <input type="number" min={0} step="0.01" className={inputCls('')} value={p.unit_price_net || ''} onChange={(e) => {
+                            const v = toNonNegNumber(e.target.value);
+                            setParts(prev => prev.map((x, i) => i === idx ? { ...x, unit_price_net: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          <button type="button" onClick={() => setParts(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-gray-400 hover:text-rose-600" aria-label="remove">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setParts(prev => [...prev, { id: uid(), description: '', quantity: 0, unit_price_net: 0 }])}
+                      className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
+                    >
+                      <Plus className="h-4 w-4" /> {T.addPart[lang]}
+                    </button>
+                  </div>
+                </div>
 
-            {/* Parts */}
-            <Section title={T.sParts[lang]}>
-              <div className="space-y-2">
-                {parts.map((p, idx) => (
-                  <div key={p.id} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-3">
-                      <Label>{T.fPart[lang]}</Label>
-                      <input className={inputCls('')} value={p.part_number || ''} onChange={(e) => {
-                        const v = e.target.value;
-                        setParts(prev => prev.map((x, i) => i === idx ? { ...x, part_number: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-4">
-                      <Label>{T.fDesc[lang]}</Label>
-                      <input className={inputCls('')} value={p.description} onChange={(e) => {
-                        const v = e.target.value;
-                        setParts(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>{T.fQty[lang]}</Label>
-                      <input type="number" min={0} step="1" className={inputCls('')} value={p.quantity || ''} onChange={(e) => {
-                        const v = toNonNegNumber(e.target.value);
-                        setParts(prev => prev.map((x, i) => i === idx ? { ...x, quantity: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>{T.fUnit[lang]}</Label>
-                      <input type="number" min={0} step="0.01" className={inputCls('')} value={p.unit_price_net || ''} onChange={(e) => {
-                        const v = toNonNegNumber(e.target.value);
-                        setParts(prev => prev.map((x, i) => i === idx ? { ...x, unit_price_net: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <button type="button" onClick={() => setParts(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-gray-400 hover:text-rose-600" aria-label="remove">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                <div className="border-t border-gray-100 my-4" />
+
+                {/* Work subsection */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{T.sWork[lang]}</h3>
+                    <span className="text-xs text-gray-500">{T.workTotal[lang]}: <strong className="text-gray-900">{fmtMoney(workTotal)}</strong></span>
+                  </div>
+                  <div className="space-y-2">
+                    {workLines.map((w, idx) => (
+                      <div key={w.id} className="grid grid-cols-12 gap-2 items-end bg-gray-50/60 border border-gray-100 rounded-lg p-3">
+                        <div className="col-span-12 md:col-span-6">
+                          <Label>{T.fDesc[lang]}</Label>
+                          <input className={inputCls('')} value={w.description} onChange={(e) => {
+                            const v = e.target.value;
+                            setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <Label>{T.fLineHours[lang]}</Label>
+                          <input type="number" min={0} step="0.25" className={inputCls('')} value={w.hours || ''} onChange={(e) => {
+                            const v = toNonNegNumber(e.target.value);
+                            setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hours: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-7 md:col-span-3">
+                          <Label>{T.fRate[lang]}</Label>
+                          <input type="number" min={0} step="0.01" className={inputCls('')} value={w.hourly_rate_net || ''} onChange={(e) => {
+                            const v = toNonNegNumber(e.target.value);
+                            setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hourly_rate_net: v } : x));
+                          }} />
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          <button type="button" onClick={() => setWorkLines(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-gray-400 hover:text-rose-600" aria-label="remove">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setWorkLines(prev => [...prev, { id: uid(), description: '', hours: 0, hourly_rate_net: 0 }])}
+                      className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
+                    >
+                      <Plus className="h-4 w-4" /> {T.addWork[lang]}
+                    </button>
+                  </div>
+                </div>
+              </Section>
+
+              <Section title={T.sFiles[lang]} icon={<Paperclip className="h-4 w-4" />}>
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
+                  {T.filesSoon[lang]}
+                </div>
+              </Section>
+            </div>
+
+            {/* ===== Right column: sticky overview ===== */}
+            <aside className="lg:col-span-1">
+              <div className="sticky top-6 space-y-4">
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                  <div
+                    className="px-5 py-3 text-white flex items-center gap-2"
+                    style={{ background: `linear-gradient(135deg, ${BRAND}, #1f3f1c)` }}
+                  >
+                    <Calculator className="h-4 w-4" />
+                    <h3 className="text-sm font-bold uppercase tracking-wide">{T.sTotals[lang]}</h3>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <Row label={T.partsTotal[lang]} value={fmtMoney(partsTotal)} />
+                    <Row label={T.workTotal[lang]} value={fmtMoney(workTotal)} />
+                    <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">{T.total[lang]}</span>
+                      <span className="text-2xl font-bold text-[#2d5a27]">{fmtMoney(total)}</span>
                     </div>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setParts(prev => [...prev, { id: uid(), description: '', quantity: 0, unit_price_net: 0 }])}
-                  className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
-                >
-                  <Plus className="h-4 w-4" /> {T.addLine[lang]}
-                </button>
-              </div>
-            </Section>
+                </div>
 
-            {/* Work lines */}
-            <Section title={T.sWork[lang]}>
-              <div className="space-y-2">
-                {workLines.map((w, idx) => (
-                  <div key={w.id} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-6">
-                      <Label>{T.fDesc[lang]}</Label>
-                      <input className={inputCls('')} value={w.description} onChange={(e) => {
-                        const v = e.target.value;
-                        setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>{T.fLineHours[lang]}</Label>
-                      <input type="number" min={0} step="0.25" className={inputCls('')} value={w.hours || ''} onChange={(e) => {
-                        const v = toNonNegNumber(e.target.value);
-                        setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hours: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-3">
-                      <Label>{T.fRate[lang]}</Label>
-                      <input type="number" min={0} step="0.01" className={inputCls('')} value={w.hourly_rate_net || ''} onChange={(e) => {
-                        const v = toNonNegNumber(e.target.value);
-                        setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hourly_rate_net: v } : x));
-                      }} />
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <button type="button" onClick={() => setWorkLines(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-gray-400 hover:text-rose-600" aria-label="remove">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                {Object.keys(errors).length > 0 && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{T.validation[lang]}</span>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setWorkLines(prev => [...prev, { id: uid(), description: '', hours: 0, hourly_rate_net: 0 }])}
-                  className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
-                >
-                  <Plus className="h-4 w-4" /> {T.addLine[lang]}
-                </button>
+                )}
               </div>
-            </Section>
+            </aside>
+          </form>
+        )}
+      </main>
 
-            {/* Total */}
-            <Section title={T.sTotals[lang]}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{T.total[lang]}</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {total.toLocaleString(lang === 'en' ? 'en-GB' : lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </Section>
-
-            {/* Attachments placeholder */}
-            <Section title={T.sFiles[lang]}>
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
-                {T.filesSoon[lang]}
-              </div>
-            </Section>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
+      {/* ===== Sticky bottom action area ===== */}
+      {!done && (
+        <div className="sticky bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="text-xs text-gray-500">
+              <span className="font-semibold text-gray-700">{T.total[lang]}:</span>{' '}
+              <span className="text-[#2d5a27] font-bold">{fmtMoney(total)}</span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 disabled={submitting !== null}
@@ -548,17 +652,18 @@ export default function NewClaimPage() {
                 {submitting === 'draft' ? T.saving[lang] : T.saveDraft[lang]}
               </button>
               <button
-                type="submit"
+                type="button"
                 disabled={submitting !== null}
+                onClick={() => handleSubmit('submitted')}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#2d5a27] text-white text-sm font-semibold hover:bg-[#244820] disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
                 {submitting === 'submitted' ? T.saving[lang] : T.sendTiman[lang]}
               </button>
             </div>
-          </form>
-        )}
-      </main>
+          </div>
+        </div>
+      )}
 
       <PortalFooter language={lang} />
     </div>
@@ -566,19 +671,31 @@ export default function NewClaimPage() {
 }
 
 // ---------- Small UI helpers ----------
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
-      <h2 className="text-lg font-bold text-gray-900 mb-4">{title}</h2>
-      {children}
+    <section className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-6 py-3 border-b border-gray-100 bg-gradient-to-r from-[#2d5a27]/5 to-transparent flex items-center gap-2">
+        {icon && <span className="text-[#2d5a27]">{icon}</span>}
+        <h2 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{title}</h2>
+      </div>
+      <div className="p-6">{children}</div>
     </section>
   );
 }
-function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
+function Grid({ children, cols = 2 }: { children: React.ReactNode; cols?: 2 | 3 }) {
+  const cls = cols === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2';
+  return <div className={`grid grid-cols-1 ${cls} gap-4`}>{children}</div>;
 }
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">{children}</label>;
+  return <label className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">{children}</label>;
+}
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-semibold text-gray-900 tabular-nums">{value}</span>
+    </div>
+  );
 }
 function FieldText({
   label, value, onChange, cls, type = 'text', required, error,

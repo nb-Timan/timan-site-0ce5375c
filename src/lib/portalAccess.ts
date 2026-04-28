@@ -129,12 +129,16 @@ const FULL: PortalPermissions = {
 
 export function getPortalPermissions(role: PortalRole): PortalPermissions {
   switch (role) {
-    case 'timan_backend':         return { ...FULL, isBackend: true };
-    case 'timan_seller':          return FULL;
-    case 'timan_service':         return { ...FULL, canSubmitOrder: false };
+    // Internal/admin roles: can manage/view claims but CANNOT create new ones
+    // (mirrors the old Service Portal where Timan Admin could not create claims).
+    case 'timan_backend':         return { ...FULL, canCreateClaim: false, isBackend: true };
+    case 'timan_seller':          return { ...FULL, canCreateClaim: false };
+    case 'timan_service':         return { ...FULL, canCreateClaim: false, canSubmitOrder: false };
+    // Dealer-side roles: can create claims
     case 'timan_importer':        return FULL;
     case 'timan_dealer':          return FULL;
     case 'timan_service_partner': return FULL;
+    // Read-only
     case 'dealer_user':           return READ_ONLY;
     default:                      return READ_ONLY;
   }
