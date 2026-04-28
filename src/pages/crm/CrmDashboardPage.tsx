@@ -208,16 +208,35 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI CARDS — equal width & height */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
-          <Kpi accent="emerald" icon={Target}     label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
+        {/* TOP KPI CARDS — 4 cards: 2 single + 2 grouped duos */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
+          <Kpi accent="emerald" icon={Target} label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
                trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
-          <Kpi accent="violet"  icon={Sparkles}   label={T.kpi_leads[lang]}    value={String(metrics.activeLeads)}
-               trendPct={metrics.leadsPctChange} lang={lang} to="/portal/crm/leads" />
-          <Kpi accent="emerald" icon={Trophy}     label={T.kpi_won[lang]}      value={String(metrics.wonOrdersCount)}
-               trendPct={metrics.wonPctChange} lang={lang} to="/portal/crm/orders" />
-          <Kpi accent="sky"     icon={CheckCircle2} label={T.kpi_winrate[lang]} value={`${metrics.winRate}%`} lang={lang} />
-          <Kpi accent="amber"   icon={Clock}      label={T.kpi_avgtime[lang]}  value={`${metrics.avgSalesDays} ${T.days[lang]}`} lang={lang} />
+
+          <KpiDuo
+            lang={lang}
+            left={{
+              icon: Sparkles, accent: 'violet', label: T.kpi_leads[lang],
+              value: String(metrics.activeLeads), trendPct: metrics.leadsPctChange, to: '/portal/crm/leads',
+            }}
+            right={{
+              icon: Trophy, accent: 'emerald', label: T.kpi_won[lang],
+              value: String(metrics.wonOrdersCount), trendPct: metrics.wonPctChange, to: '/portal/crm/orders',
+            }}
+          />
+
+          <KpiDuo
+            lang={lang}
+            left={{
+              icon: CheckCircle2, accent: 'sky', label: T.kpi_winrate[lang],
+              value: `${metrics.winRate}%`,
+            }}
+            right={{
+              icon: Clock, accent: 'amber', label: T.kpi_avgtime[lang],
+              value: `${metrics.avgSalesDays} ${T.days[lang]}`,
+            }}
+          />
+
           <Kpi accent="emerald" icon={ShoppingCart} label={T.kpi_closed[lang]}
                value={fmtKrShort(metrics.closedValueThisMonth)}
                sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
@@ -577,6 +596,62 @@ function Kpi({
   );
   return to ? <Link to={to} className="block h-full">{inner}</Link> : inner;
 }
+
+// Grouped KPI card — two metrics side by side, sharing one premium card frame.
+interface KpiHalf {
+  icon: typeof Building2;
+  label: string;
+  value: string;
+  trendPct?: number;
+  accent?: keyof typeof ACCENTS;
+  to?: string;
+}
+function KpiDuo({ left, right, lang }: { left: KpiHalf; right: KpiHalf; lang: Language }) {
+  return (
+    <div className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all h-full min-h-[170px] flex">
+      <KpiHalfBlock {...left} lang={lang} />
+      <div className="w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+      <KpiHalfBlock {...right} lang={lang} />
+    </div>
+  );
+}
+
+function KpiHalfBlock({
+  icon: Icon, label, value, trendPct, accent = 'emerald', to, lang,
+}: KpiHalf & { lang: Language }) {
+  const a = ACCENTS[accent];
+  const showTrend = typeof trendPct === 'number';
+  const TrendIcon = !showTrend ? ArrowRight : trendPct! > 2 ? ArrowUpRight : trendPct! < -2 ? ArrowDownRight : Minus;
+  const trendCls = !showTrend ? '' :
+    trendPct! > 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+    trendPct! < -2 ? 'bg-rose-50 text-rose-700 border-rose-200' :
+    'bg-gray-50 text-gray-600 border-gray-200';
+  const trendLabel = !showTrend ? '' :
+    Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
+
+  const inner = (
+    <div className="flex-1 p-5 flex flex-col min-w-0 hover:bg-gray-50/60 transition-colors">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className={`h-9 w-9 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm shrink-0`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        {showTrend ? (
+          <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
+            <TrendIcon className="h-3 w-3" />{trendLabel}
+          </span>
+        ) : (
+          <span className="h-[22px]" aria-hidden />
+        )}
+      </div>
+      <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium truncate">{label}</p>
+      <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
+      <p className="text-[10px] text-gray-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
+      <div className="mt-auto" />
+    </div>
+  );
+  return to ? <Link to={to} className="flex-1 flex min-w-0">{inner}</Link> : inner;
+}
+
 
 // ────────────────────────────────────────────────────────────
 // Metric derivation
