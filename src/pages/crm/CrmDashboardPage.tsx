@@ -4,7 +4,7 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
+import { listCrmAccounts, CrmAccount } from '@/lib/crmAccountsService';
 import { listActivities, CrmActivity } from '@/lib/crmActivitiesService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { isCrmAdmin } from '@/lib/crmScope';
