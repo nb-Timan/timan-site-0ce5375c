@@ -283,7 +283,7 @@ function EditUserModal({
 }: {
   user: BackendUser;
   onClose: () => void;
-  onSave: (patch: Partial<BackendUser>) => void;
+  onSave: (patch: BackendUser) => void;
 }) {
   const [draft, setDraft] = useState<BackendUser>(user);
 
