@@ -11,6 +11,9 @@ import {
   PROCESS_STATUS_OPTIONS, setTsbProcessStatus, totalMachineCount, useTsbs,
   type ProcessStatus, type Tsb,
 } from "@/lib/tsb-store";
+import { canCreateTsb } from "@/components/tsb/TsbAccessGuard";
+import { useAppUser } from "@/context/AppUserContext";
+import { derivePortalRole } from "@/lib/portalAccess";
 
 type AdminTab = "all" | "aktive" | "kladder" | "afventer" | "near" | "overdue" | "lukkede";
 
@@ -51,6 +54,9 @@ const STATUS_FILTERS: { value: "all" | ProcessStatus; label: string }[] = [
 export default function TsbListPage() {
   const navigate = useNavigate();
   const tsbs = useTsbs();
+  const { appUser } = useAppUser();
+  const portalRole = derivePortalRole(appUser ?? null);
+  const mayCreate = canCreateTsb(portalRole);
   const [tab, setTab] = useState<AdminTab>("all");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ProcessStatus>("all");
@@ -89,11 +95,13 @@ export default function TsbListPage() {
             <div className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{rows.length}</span> af {tsbs.length}
             </div>
-            <Link to="/portal/service/tsb/new">
-              <Button style={{ backgroundColor: "var(--timan-green)", color: "white" }}>
-                <Plus className="h-4 w-4" /> Ny TSB
-              </Button>
-            </Link>
+            {mayCreate && (
+              <Link to="/portal/service/tsb/new">
+                <Button style={{ backgroundColor: "var(--timan-green)", color: "white" }}>
+                  <Plus className="h-4 w-4" /> Ny TSB
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       }

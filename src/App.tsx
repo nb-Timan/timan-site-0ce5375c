@@ -54,7 +54,7 @@ const App = () => (
               {/* TSB Portal — internal-only (Timan Backend / Service / Sælger) */}
               <Route path="/portal/service/tsb" element={<TsbAccessGuard><TsbListPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/dashboard" element={<TsbAccessGuard><TsbDashboardPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/new" element={<TsbAccessGuard><NewTsbPage /></TsbAccessGuard>} />
+              <Route path="/portal/service/tsb/new" element={<TsbAccessGuard requireCreate><NewTsbPage /></TsbAccessGuard>} />
               <Route path="/portal/service/tsb/:id" element={<TsbAccessGuard><TsbDetailPage /></TsbAccessGuard>} />
               {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
               <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />

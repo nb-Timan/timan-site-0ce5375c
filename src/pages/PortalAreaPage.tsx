@@ -62,7 +62,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             if (p.key === 'tsb_portal') {
               // TSB is internal-only — hide card entirely for roles without access
               if (!canAccessTsb(portalRole)) return null;
-              href = '/portal/service/tsb/dashboard';
+              href = '/portal/service/tsb';
             } else if (p.key === 'warranty_reg') {
               href = '/portal/service/warranty';
             } else if (p.key === 'service_info') {
