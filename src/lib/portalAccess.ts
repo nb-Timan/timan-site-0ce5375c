@@ -140,6 +140,28 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
   }
 }
 
+// ---------- Claims view variant ----------
+// Internal/admin view: Timan Backend, Timan Service, Timan Sælger
+// Dealer-side view:    Timan Importør, Timan Forhandler, Timan Service Partner, Dealer User (read-only)
+export type ClaimsViewVariant = 'internal' | 'dealer' | 'none';
+
+export function getClaimsViewVariant(role: PortalRole | null): ClaimsViewVariant {
+  if (!role) return 'none';
+  switch (role) {
+    case 'timan_backend':
+    case 'timan_service':
+    case 'timan_seller':
+      return 'internal';
+    case 'timan_importer':
+    case 'timan_dealer':
+    case 'timan_service_partner':
+    case 'dealer_user':
+      return 'dealer';
+    default:
+      return 'none';
+  }
+}
+
 // ---------- Mapping from existing AppUser → PortalRole ----------
 // Keeps backward compat with current UserRole/PartnerType so we don't break
 // configurator, pricing or auth.
