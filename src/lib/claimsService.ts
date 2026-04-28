@@ -176,7 +176,7 @@ export async function getClaimById(id: string): Promise<LoadClaimResult> {
       const fallback = MOCK_CLAIMS.find(c => c.id === id) ?? null;
       return { claim: fallback, source: fallback ? 'mock' : 'supabase' };
     }
-    return { claim: data as ServiceClaim, source: 'supabase' };
+    return { claim: data as unknown as ServiceClaim, source: 'supabase' };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     const fallback = MOCK_CLAIMS.find(c => c.id === id) ?? null;
@@ -199,7 +199,7 @@ export async function loadClaims(): Promise<LoadClaimsResult> {
     if (!data || data.length === 0) {
       return { claims: [...local, ...MOCK_CLAIMS], source: 'mock' };
     }
-    return { claims: [...local, ...(data as ServiceClaim[])], source: local.length > 0 ? 'mock' : 'supabase' };
+    return { claims: [...local, ...(data as unknown as ServiceClaim[])], source: local.length > 0 ? 'mock' : 'supabase' };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     return { claims: [...local, ...MOCK_CLAIMS], source: 'mock', error: msg };
@@ -246,7 +246,7 @@ export async function saveClaim(input: NewClaimInput, status: ClaimStatus): Prom
       writeLocal(list);
       return { claim: draft, source: 'local', error: error?.message };
     }
-    return { claim: data as ServiceClaim, source: 'supabase' };
+    return { claim: data as unknown as ServiceClaim, source: 'supabase' };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     const list = readLocal();

@@ -30,6 +30,8 @@ const T: Record<string, Record<Language, string>> = {
 };
 
 const STATUS_LABEL: Record<ClaimStatus, Record<Language, string>> = {
+  draft:     { da: 'Gemt / ikke afsendt', en: 'Saved / not sent', de: 'Gespeichert / nicht gesendet', it: 'Salvato / non inviato', hu: 'Mentve / nem elküldve' },
+  submitted: { da: 'Afventer accept', en: 'Awaiting acceptance', de: 'Wartet auf Annahme', it: 'In attesa di accettazione', hu: 'Elfogadásra vár' },
   open:      { da: 'Åben',         en: 'Open',        de: 'Offen',        it: 'Aperto',       hu: 'Nyitott' },
   in_review: { da: 'Under behandling', en: 'In review', de: 'In Prüfung', it: 'In revisione', hu: 'Vizsgálat alatt' },
   approved:  { da: 'Godkendt',     en: 'Approved',    de: 'Genehmigt',    it: 'Approvato',    hu: 'Jóváhagyva' },
@@ -38,6 +40,8 @@ const STATUS_LABEL: Record<ClaimStatus, Record<Language, string>> = {
 };
 
 const STATUS_CLASS: Record<ClaimStatus, string> = {
+  draft:     'bg-gray-100 text-gray-700',
+  submitted: 'bg-indigo-100 text-indigo-800',
   open:      'bg-amber-100 text-amber-800',
   in_review: 'bg-blue-100 text-blue-800',
   approved:  'bg-green-100 text-green-800',
