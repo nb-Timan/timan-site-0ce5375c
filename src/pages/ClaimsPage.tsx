@@ -1,92 +1,81 @@
-import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { useAppUser } from '@/context/AppUserContext';
-import { useLanguage } from '@/context/LanguageContext';
-import PortalHeader from '@/components/portal/PortalHeader';
-import PortalFooter from '@/components/portal/PortalFooter';
-import { Language } from '@/types/configurator';
+/**
+ * Service / Claims — role router.
+ *
+ * Routes the same URLs to different page bodies based on Timan Portal role:
+ *   - Internal roles (Timan Backend / Service / Sælger) → admin views
+ *   - Dealer roles (Importør / Forhandler / Service Partner) → dealer views
+ *   - Dealer User → dealer views, fully read-only
+ *
+ * URL conventions:
+ *   /portal/service/claims              → dashboard
+ *   /portal/service/claims?tab=all      → admin "Alle claims"
+ *   /portal/service/claims?tab=mine     → dealer "Mine claims"
+ *   /portal/service/claims/new          → new claim (dealer-side only)
+ *   /portal/service/claims/:claimId     → claim detail (handled by ClaimDetailPage)
+ */
+
+import { Navigate, useLocation } from "react-router-dom";
+import { useAppUser } from "@/context/AppUserContext";
 import {
   derivePortalRole,
   getPortalPermissions,
   hasModuleAccess,
   getClaimsViewVariant,
-  ModuleAccessKey,
-} from '@/lib/portalAccess';
-import ClaimsInternalView from '@/components/claims/ClaimsInternalView';
-import ClaimsDealerView from '@/components/claims/ClaimsDealerView';
-
-const T: Record<string, Record<Language, string>> = {
-  back:     { da: 'Tilbage til Timan Portalen', en: 'Back to Timan Portal', de: 'Zurück zum Timan Portal', it: 'Torna al Portale Timan', hu: 'Vissza a Timan Portálra' },
-  noAccess: { da: 'Ingen adgang til Service / Claims.', en: 'No access to Service / Claims.', de: 'Kein Zugriff.', it: 'Nessun accesso.', hu: 'Nincs hozzáférés.' },
-};
+  type ModuleAccessKey,
+} from "@/lib/portalAccess";
+import AdminClaimsDashboardPage from "@/pages/claims/AdminClaimsDashboardPage";
+import AdminClaimsAllPage from "@/pages/claims/AdminClaimsAllPage";
+import DealerClaimsDashboardPage from "@/pages/claims/DealerClaimsDashboardPage";
+import DealerClaimsMinePage from "@/pages/claims/DealerClaimsMinePage";
 
 export default function ClaimsPage() {
-  const { appUser, loading: authLoading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
-  const navigate = useNavigate();
+  const { appUser, loading } = useAppUser();
+  const location = useLocation();
 
-  if (authLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">…</div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-sm text-slate-500">…</div>
       </div>
     );
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
 
-  const portalRole = derivePortalRole(appUser);
+  const role = derivePortalRole(appUser);
   const allowed = hasModuleAccess(
-    portalRole,
-    'claims',
+    role,
+    "claims",
     (appUser.module_access as ModuleAccessKey[] | null | undefined) ?? null,
   );
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
-  const viewVariant = getClaimsViewVariant(portalRole);
-  const canCreate = !!perms?.canCreateClaim;
+  const variant = getClaimsViewVariant(role);
+  const perms = role ? getPortalPermissions(role) : null;
   const isReadOnly = !perms?.canEditData;
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader
-        user={appUser}
-        language={lang}
-        onLanguageChange={setLanguage}
-        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
-      />
-
-      {/* Back button — same for all role variants, keeps the unified portal nav */}
-      <div className="bg-white border-b border-gray-200 py-3">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => navigate('/portal')}
-            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            {T.back[lang]}
-          </button>
+  if (!allowed || variant === "none") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h2 className="text-xl font-black">Ingen adgang</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Du har ikke adgang til Service / Claims.
+          </p>
         </div>
       </div>
+    );
+  }
 
-      {!allowed || viewVariant === 'none' ? (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex items-center gap-3 text-gray-700">
-            <AlertCircle className="h-5 w-5 text-rose-500" />
-            {T.noAccess[lang]}
-          </div>
-        </main>
-      ) : viewVariant === 'internal' ? (
-        <ClaimsInternalView lang={lang} />
-      ) : (
-        <ClaimsDealerView
-          lang={lang}
-          userEmail={appUser.email}
-          canCreate={canCreate}
-          readOnly={isReadOnly}
-        />
-      )}
+  const tab = new URLSearchParams(location.search).get("tab");
 
-      <PortalFooter language={lang} />
-    </div>
-  );
+  if (variant === "internal") {
+    if (tab === "all") return <AdminClaimsAllPage />;
+    return <AdminClaimsDashboardPage />;
+  }
+
+  // Dealer-side
+  const dealerName = appUser.company_dealer || appUser.display_name || appUser.email;
+  if (tab === "mine") {
+    return <DealerClaimsMinePage readOnly={isReadOnly} dealerName={dealerName} />;
+  }
+  return <DealerClaimsDashboardPage readOnly={isReadOnly} dealerName={dealerName} />;
 }
