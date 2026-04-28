@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { listDemoLeads, CrmDemoLead, DEMO_RESULT_STATUS } from '@/lib/crmLeadsService';
+import { listDemoLeads, resolveSeedOwners, CrmDemoLead, DEMO_RESULT_STATUS } from '@/lib/crmLeadsService';
 import { Plus, Sparkles, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
