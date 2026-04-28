@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 
-export type SessionUser = AppUser & { email: string };
+export type SessionUser = AppUser & {
+  email: string;
+  preferred_language?: string | null;
+  preferred_currency?: string | null;
+  company_dealer?: string | null;
+  module_access?: string[] | null;
+  status?: string | null;
+};
 
 interface AppUserContextValue {
   appUser: SessionUser | null;
@@ -78,6 +85,11 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
             can_switch_customer_mode: row.can_switch_customer_mode ?? false,
             working_for: row.working_for ?? null,
             display_name: row.display_name || row.full_name,
+            preferred_language: row.preferred_language ?? null,
+            preferred_currency: row.preferred_currency ?? null,
+            company_dealer: row.company_dealer ?? null,
+            module_access: row.module_access ?? null,
+            status: row.status ?? null,
           });
         } else {
           // Session present but not approved → treat as guest with limited access

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -30,6 +31,17 @@ export default function PortalPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+
+  // Apply user's preferred_language once after login (Phase 1B).
+  const prefLangApplied = useRef(false);
+  useEffect(() => {
+    if (prefLangApplied.current) return;
+    const pref = appUser?.preferred_language;
+    if (pref && ['da','en','de','it','hu'].includes(pref)) {
+      prefLangApplied.current = true;
+      if (pref !== lang) setLanguage(pref as typeof lang);
+    }
+  }, [appUser, lang, setLanguage]);
 
   if (loading) {
     return (
