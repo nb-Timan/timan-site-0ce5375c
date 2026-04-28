@@ -28,6 +28,7 @@ import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
+import BackendUsersPage from "./pages/backend/BackendUsersPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
