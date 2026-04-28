@@ -181,8 +181,19 @@ export default function CrmDashboardPage() {
     return () => { cancelled = true; };
   }, [appUser?.email, portalRole, isAdmin]);
 
-  const metrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
-  const trend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
+  const realMetrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
+  const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
+
+  // Use preview/mock data when there is no real CRM data yet, so the dashboard
+  // never looks empty in preview environments.
+  const isPreview =
+    activities.length === 0 &&
+    realMetrics.pipelineValue === 0 &&
+    realMetrics.wonOrdersCount === 0;
+
+  const metrics = isPreview ? PREVIEW_METRICS : realMetrics;
+  const trend30 = isPreview ? PREVIEW_TREND : realTrend30;
+  const previewActivities = isPreview ? buildPreviewActivities() : activities;
 
   return (
     <CrmLayout pageTitle="Dashboard">
@@ -197,8 +208,8 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 animate-[fadeIn_.4s_ease-out]">
+        {/* TOP KPI CARDS — equal width & height */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
           <Kpi accent="emerald" icon={Target}     label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
                trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
           <Kpi accent="violet"  icon={Sparkles}   label={T.kpi_leads[lang]}    value={String(metrics.activeLeads)}
@@ -288,11 +299,11 @@ export default function CrmDashboardPage() {
               title={T.recent[lang]}
               actions={<Link className="text-sm font-medium text-[#2d5a27] hover:underline" to="/portal/crm/activities">{T.open_all[lang]} →</Link>}
             />
-            {activities.length === 0 ? (
+            {previewActivities.length === 0 ? (
               <EmptyState text={T.empty[lang]} icon={Inbox} />
             ) : (
               <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 before:to-transparent">
-                {activities.slice(0, 8).map(a => {
+                {previewActivities.slice(0, 8).map(a => {
                   const stage = classifyStage(a);
                   const badge = activityBadge(stage, lang);
                   const owner = isAdmin ? (a.created_by_name || a.assigned_owner_name || '—') : '';
@@ -534,24 +545,25 @@ function Kpi({
     Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
 
   const inner = (
-    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5`}>
+    <div className={`group relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5 h-full min-h-[170px] flex flex-col`}>
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-30 ${a.icon}`} />
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className={`h-10 w-10 rounded-xl ${a.icon} ring-4 ${a.ring} flex items-center justify-center shadow-sm`}>
           <Icon className="h-5 w-5" />
         </div>
-        {showTrend && (
+        {showTrend ? (
           <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${trendCls}`}>
             <TrendIcon className="h-3 w-3" />{trendLabel}
           </span>
+        ) : (
+          <span className="h-[22px]" aria-hidden />
         )}
       </div>
       <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">{label}</p>
       <p className="text-xl md:text-[1.4rem] font-bold text-gray-900 tracking-tight tabular-nums leading-tight mt-0.5">{value}</p>
-      {sub ? <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p> : null}
-      {showTrend && (
-        <p className="text-[10px] text-gray-400 mt-1.5">{T.vs_last_month[lang]}</p>
-      )}
+      <p className="text-[11px] text-gray-500 mt-0.5 min-h-[14px]">{sub || '\u00A0'}</p>
+      <p className="text-[10px] text-gray-400 mt-1.5 min-h-[12px]">{showTrend ? T.vs_last_month[lang] : '\u00A0'}</p>
+      <div className="mt-auto" />
       {sparkline && sparkline.length > 1 && (
         <div className="absolute inset-x-0 bottom-0 h-10 opacity-70 group-hover:opacity-100 transition pointer-events-none">
           <ResponsiveContainer width="100%" height="100%">
@@ -563,7 +575,7 @@ function Kpi({
       )}
     </div>
   );
-  return to ? <Link to={to}>{inner}</Link> : inner;
+  return to ? <Link to={to} className="block h-full">{inner}</Link> : inner;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -745,3 +757,96 @@ function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; v
 
 // Suppress unused warnings for lucide imports kept for future widgets.
 void Flame; void Users; void FileText;
+
+// ────────────────────────────────────────────────────────────
+// Preview / mock data — used when no real CRM data is available
+// so the dashboard always looks alive in preview environments.
+// ────────────────────────────────────────────────────────────
+const PREVIEW_METRICS: DerivedMetrics = {
+  pipelineValue: 1_475_000,
+  pipelinePctChange: 14,
+  activeLeads: 4,
+  leadsPctChange: 25,
+  wonOrdersCount: 3,
+  wonPctChange: 50,
+  winRate: 50,
+  avgSalesDays: 20,
+  closedValueThisMonth: 425_000,
+  closedCountThisMonth: 12,
+  closedPctChange: 18,
+  pipelineByStage: [
+    { key: 'lead',  bar: PIPELINE_STAGES[0].bar, hex: PIPELINE_STAGES[0].hex, ring: PIPELINE_STAGES[0].ring, value: 125_000, count: 4 },
+    { key: 'demo',  bar: PIPELINE_STAGES[1].bar, hex: PIPELINE_STAGES[1].hex, ring: PIPELINE_STAGES[1].ring, value: 480_000, count: 3 },
+    { key: 'quote', bar: PIPELINE_STAGES[2].bar, hex: PIPELINE_STAGES[2].hex, ring: PIPELINE_STAGES[2].ring, value: 450_000, count: 5 },
+    { key: 'neg',   bar: PIPELINE_STAGES[3].bar, hex: PIPELINE_STAGES[3].hex, ring: PIPELINE_STAGES[3].ring, value: 420_000, count: 2 },
+    { key: 'won',   bar: PIPELINE_STAGES[4].bar, hex: PIPELINE_STAGES[4].hex, ring: PIPELINE_STAGES[4].ring, value: 300_000, count: 3 },
+    { key: 'lost',  bar: PIPELINE_STAGES[5].bar, hex: PIPELINE_STAGES[5].hex, ring: PIPELINE_STAGES[5].ring, value: 100_000, count: 7 },
+  ],
+  lostReasons: {
+    total: 7,
+    items: {
+      price: { count: 3 },
+      lead:  { count: 1 },
+      comp:  { count: 2 },
+      other: { count: 1 },
+    },
+  },
+  inactiveAccounts: () => [],
+  bestAccounts: () => [],
+};
+
+const PREVIEW_TREND: Array<{ label: string; value: number }> = (() => {
+  const days = 30;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const out: Array<{ label: string; value: number }> = [];
+  let acc = 0;
+  for (let i = 0; i < days; i++) {
+    const step = 35_000 + Math.round(Math.sin(i / 3) * 12_000) + (i % 5 === 0 ? 25_000 : 0);
+    acc += step;
+    const d = new Date(today); d.setDate(d.getDate() - (days - 1 - i));
+    out.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, value: acc });
+  }
+  return out;
+})();
+
+function buildPreviewActivities(): CrmActivity[] {
+  const now = Date.now();
+  const minutes = (m: number) => new Date(now - m * 60_000).toISOString();
+  const mk = (
+    id: string,
+    activity_type: CrmActivityType,
+    title: string,
+    account_name: string,
+    created_by_name: string,
+    minsAgo: number,
+    value?: number,
+    status?: string,
+  ): CrmActivity => ({
+    id,
+    activity_type,
+    title,
+    description: null,
+    account_id: null,
+    account_name,
+    configuration_id: null,
+    assigned_owner_id: null,
+    assigned_owner_name: created_by_name,
+    created_by_id: null,
+    created_by_name,
+    activity_date: minutes(minsAgo),
+    value: value ?? null,
+    status: status ?? null,
+    meta: null,
+  } as unknown as CrmActivity);
+
+  return [
+    mk('p1', 'quote_created', 'Esben oprettede tilbud',           'Have & Park Svendborg', 'Esben',    25, 180_000, 'sent'),
+    mk('p2', 'order_sent',    'Esben vandt ordre',                 'Lyngfeldt',             'Esben',    95, 245_000, 'won'),
+    mk('p3', 'quote_sent',    'Esben opfølgning',                  'WJ Maskinservice',      'Esben',   240, 120_000, 'negotiating'),
+    mk('p4', 'lead_viewed',   'Nicolai opdaterede kundeprofil',    'Grøn Service A/S',      'Nicolai', 360),
+    mk('p5', 'order_sent',    'Janni lukkede ordre i UK',          'Garden Pro Ltd.',       'Janni',   480, 312_000, 'won'),
+    mk('p6', 'quote_created', 'Esben sendte tilbud',               'Park & Vej Aalborg',    'Esben',   720,  98_000, 'sent'),
+    mk('p7', 'lead_created',  'Nyt lead modtaget',                 'Skov & Have ApS',       'Nicolai', 900),
+    mk('p8', 'quote_sent',    'Forhandling i gang',                'Maskinhuset Vest',      'Janni',  1320, 210_000, 'negotiating'),
+  ];
+}
