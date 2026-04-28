@@ -95,7 +95,10 @@ export const PORTAL_AREAS: PortalArea[] = [
  * Falls back to the legacy role check when no portal role can be derived
  * (keeps existing logins working).
  */
-export function isAreaVisible(area: PortalArea, user: AppUser | null): boolean {
+export function isAreaVisible(
+  area: PortalArea,
+  user: (AppUser & { portal_role?: string | null; module_access?: string[] | null }) | null,
+): boolean {
   if (!user) return false;
   if (user.role === 'slutkunde') return false;
 
@@ -103,18 +106,18 @@ export function isAreaVisible(area: PortalArea, user: AppUser | null): boolean {
   const key: ModuleAccessKey = area.id; // PortalAreaId is a subset of ModuleAccessKey
 
   if (portalRole) {
-    return hasModuleAccess(portalRole, key);
+    return hasModuleAccess(portalRole, key, user.module_access as ModuleAccessKey[] | null | undefined);
   }
 
-  // Legacy fallback (should not be hit once portal_role is populated).
+  // Legacy fallback (no portal_role resolved). Be conservative — never grant
+  // Backend or CRM without an explicit portal_role.
   switch (area.id) {
     case 'salg_marketing':
     case 'teknik_service':
       return user.role === 'timan_saelger' || user.role === 'partner';
     case 'timan_crm':
-      return user.role === 'timan_saelger';
     case 'timan_backend':
-      return user.role === 'timan_saelger';
+      return false;
     default:
       return false;
   }

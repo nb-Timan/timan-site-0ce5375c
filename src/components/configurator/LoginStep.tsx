@@ -33,7 +33,15 @@ async function trackLogin(email: string, loginType: 'login' | 'guest') {
 
 interface LoginStepProps {
   language: string;
-  onResolved: (user: AppUser & { email: string }) => void;
+  onResolved: (user: AppUser & {
+    email: string;
+    portal_role?: string | null;
+    preferred_language?: string | null;
+    preferred_currency?: string | null;
+    company_dealer?: string | null;
+    module_access?: string[] | null;
+    status?: string | null;
+  }) => void;
 }
 
 const T: Record<string, Record<string, string>> = {
@@ -173,6 +181,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         can_switch_customer_mode: appUserRow.can_switch_customer_mode ?? false,
         working_for: appUserRow.working_for ?? null,
         display_name: appUserRow.display_name || appUserRow.full_name,
+        portal_role: appUserRow.portal_role ?? null,
+        preferred_language: appUserRow.preferred_language ?? null,
+        preferred_currency: appUserRow.preferred_currency ?? null,
+        company_dealer: appUserRow.company_dealer ?? null,
+        module_access: appUserRow.module_access ?? null,
+        status: appUserRow.status ?? null,
       });
     } catch (err) {
       setError(tx('loginError', language));
