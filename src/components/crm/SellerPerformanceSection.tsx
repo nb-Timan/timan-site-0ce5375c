@@ -71,6 +71,9 @@ interface SellerRow {
   prevPctChange: number;
   forecastCount: number;
   forecastValue: number;
+  wonCount: number;
+  lostCount: number;
+  winRate: number;
 }
 
 function fmtKr(n: number): string {
