@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import PortalPage from "./pages/PortalPage";
+import PortalAreaPage from "./pages/PortalAreaPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
@@ -39,6 +40,9 @@ const App = () => (
               {/* Portal is the new landing page after login */}
               <Route path="/" element={<Navigate to="/portal" replace />} />
               <Route path="/portal" element={<PortalPage />} />
+              <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
+              <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
+              <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/videos" element={<VideoGalleryPage />} />
               <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
               <Route path="/portal/resources" element={<ResourcesPage />} />
