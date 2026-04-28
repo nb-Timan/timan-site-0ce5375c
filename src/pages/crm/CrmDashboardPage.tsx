@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
+import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -277,40 +278,7 @@ export default function CrmDashboardPage() {
 
       {/* SELLER PERFORMANCE — backend only */}
       {isAdmin && (
-        <Section
-          icon={Users}
-          title={T.seller_perf[lang]}
-          className="mt-6"
-          empty={metrics.sellerPerf.length === 0}
-          emptyText={T.empty[lang]}
-        >
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th className="py-2 pr-4">{T.col_seller[lang]}</th>
-                  <th className="py-2 pr-4 text-right">{T.col_pipeline[lang]}</th>
-                  <th className="py-2 pr-4 text-right">{T.col_sales[lang]}</th>
-                  <th className="py-2 pr-4 text-right">{T.col_active[lang]}</th>
-                  <th className="py-2 pr-4 text-right">{T.col_won[lang]}</th>
-                  <th className="py-2 pr-4 text-right">{T.col_winrate[lang]}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {metrics.sellerPerf.map(s => (
-                  <tr key={s.name}>
-                    <td className="py-2 pr-4 font-medium text-gray-900">{s.name}</td>
-                    <td className="py-2 pr-4 text-right text-gray-700">{fmtKr(s.pipeline)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-700">{fmtKr(s.sales)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-700">{s.activeLeads}</td>
-                    <td className="py-2 pr-4 text-right text-gray-700">{s.won}</td>
-                    <td className="py-2 pr-4 text-right font-semibold text-[#2d5a27]">{s.winRate}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
+        <SellerPerformanceSection activities={activities} language={lang} />
       )}
 
       {/* BOTTOM ROW: Follow-ups · Inactive accounts · Best accounts (admin) / My accounts (seller) */}
