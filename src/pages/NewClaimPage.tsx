@@ -41,11 +41,13 @@ const T: Record<string, Record<Language, string>> = {
   validation:  { da: 'Ret venligst de markerede felter.', en: 'Please fix the highlighted fields.', de: 'Bitte markierte Felder korrigieren.', it: 'Correggi i campi evidenziati.', hu: 'Kérlek javítsd a megjelölt mezőket.' },
   progress:    { da: 'Fremdrift', en: 'Progress', de: 'Fortschritt', it: 'Avanzamento', hu: 'Előrehaladás' },
 
-  step1:       { da: 'Forhandler & kunde', en: 'Dealer & customer', de: 'Händler & Kunde', it: 'Rivenditore & cliente', hu: 'Kereskedő & ügyfél' },
-  step2:       { da: 'Maskine & datoer', en: 'Machine & dates', de: 'Maschine & Daten', it: 'Macchina & date', hu: 'Gép & dátumok' },
-  step3:       { da: 'Fejl & reparation', en: 'Fault & repair', de: 'Fehler & Reparatur', it: 'Guasto & riparazione', hu: 'Hiba & javítás' },
-  step4:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
-  step5:       { da: 'Oversigt', en: 'Overview', de: 'Übersicht', it: 'Riepilogo', hu: 'Áttekintés' },
+  step1:       { da: 'Kontakt Timan før start', en: 'Contact Timan before start', de: 'Timan vor Beginn kontaktieren', it: 'Contatta Timan prima di iniziare', hu: 'Lépjen kapcsolatba Timan-nal' },
+  step2:       { da: 'Reklamations nr.', en: 'Claim number', de: 'Reklamationsnummer', it: 'N. reclamo', hu: 'Reklamációs szám' },
+  step3:       { da: 'Forhandler & ejer', en: 'Dealer & owner', de: 'Händler & Eigentümer', it: 'Rivenditore & proprietario', hu: 'Kereskedő & tulajdonos' },
+  step4:       { da: 'Maskin info', en: 'Machine info', de: 'Maschineninfo', it: 'Info macchina', hu: 'Gép adatai' },
+  step5:       { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
+  step6:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
+  step7:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
 
   sDealer:     { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   sOwner:      { da: 'Ejer / Kunde', en: 'Owner / Customer', de: 'Eigentümer / Kunde', it: 'Proprietario / Cliente', hu: 'Tulajdonos / Ügyfél' },
