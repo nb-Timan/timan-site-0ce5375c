@@ -13,6 +13,7 @@ import ResourcesPage from "./pages/ResourcesPage";
 import DriftberegnerPage from "./pages/DriftberegnerPage";
 import Co2CalculatorPage from "./pages/Co2CalculatorPage";
 import NotFound from "./pages/NotFound.tsx";
+import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <PreviewRoleSwitcher />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>
