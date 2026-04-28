@@ -1,0 +1,466 @@
+/**
+ * Timan Backend → Brugere (Users administration).
+ *
+ * Route: /portal/backend/users
+ * Access: only Timan Backend (perms.canManageUsers).
+ *
+ * Lists all backend users with edit panel. Persists to localStorage in
+ * preview; the same shape is ready to swap to a Supabase `backend_users`
+ * table without changes to the page.
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { ArrowLeft, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import PortalHeader from "@/components/portal/PortalHeader";
+import PortalFooter from "@/components/portal/PortalFooter";
+import {
+  derivePortalRole,
+  getPortalPermissions,
+  PORTAL_ROLES,
+  PORTAL_ROLE_LABELS,
+  PortalRole,
+  ModuleAccessKey,
+} from "@/lib/portalAccess";
+import {
+  ALL_AREAS,
+  ALL_MODULES,
+  AreaKey,
+  BACKEND_META_MODULES,
+  BackendMetaModule,
+  BackendUser,
+  UserStatus,
+  listBackendUsers,
+  resetBackendUsers,
+  subscribeBackendUsers,
+  updateBackendUser,
+} from "@/lib/backend-users-store";
+
+const STATUS_LABEL: Record<UserStatus, string> = {
+  active: "Active",
+  pending: "Pending",
+  blocked: "Blocked",
+};
+
+const STATUS_PILL: Record<UserStatus, string> = {
+  active: "bg-emerald-100 text-emerald-800",
+  pending: "bg-amber-100 text-amber-800",
+  blocked: "bg-rose-100 text-rose-800",
+};
+
+const AREA_LABEL: Record<AreaKey, string> = {
+  teknik_service: "Teknik & Service",
+  salg_marketing: "Salg & Marketing",
+  timan_backend: "Timan Backend",
+};
+
+const MODULE_LABEL: Record<ModuleAccessKey, string> = {
+  teknik_service: "Teknik & Service",
+  salg_marketing: "Salg & Marketing",
+  timan_backend: "Timan Backend",
+  claims: "Claims",
+  tsb: "TSB",
+  warranty: "Warranty",
+  service_information: "Serviceinformation",
+  byg_din_timan: "Configurator",
+  resources: "Ressourcer",
+  sales_tools: "Diverse",
+  tilbud: "Tilbud",
+  ordre: "Ordrer",
+};
+
+const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
+  users: "Users",
+  roles: "Roles",
+  module_access: "Module Access",
+  audit_log: "Audit Log",
+};
+
+const VIDEOS_LABEL = "Video Galleri";
+
+function formatLastLogin(iso: string | null): string {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("da-DK"); } catch { return "—"; }
+}
+
+export default function BackendUsersPage() {
+  const { appUser, loading, logout } = useAppUser();
+  const { language: lang, setLanguage } = useLanguage();
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<BackendUser[]>(() => listBackendUsers());
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => subscribeBackendUsers(() => setUsers(listBackendUsers())), []);
+
+  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
+  }
+  if (!appUser) return <Navigate to="/portal" replace />;
+  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
+  if (!perms?.canManageUsers) return <Navigate to="/portal/backend" replace />;
+
+  const editing = editingId ? users.find((u) => u.id === editingId) : null;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PortalHeader
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
+      />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
+        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
+        </Link>
+
+        <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+              <UsersIcon className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Brugere</h1>
+              <p className="text-slate-500 mt-1 text-sm">Administrer brugere, roller, områder og modul-adgang.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { if (confirm("Nulstil alle brugere til seed-data?")) resetBackendUsers(); }}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Nulstil til seed
+          </button>
+        </div>
+
+        <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+              <tr>
+                <Th>Initials</Th>
+                <Th>Name</Th>
+                <Th>Email</Th>
+                <Th>Company</Th>
+                <Th>Country</Th>
+                <Th>Role</Th>
+                <Th>Status</Th>
+                <Th>Allowed Areas</Th>
+                <Th>Allowed Modules</Th>
+                <Th>Last Login</Th>
+                <Th>Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                  <Td>
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white text-[11px] font-bold">
+                      {u.initials}
+                    </span>
+                  </Td>
+                  <Td className="font-semibold text-slate-900">{u.name}</Td>
+                  <Td className="text-slate-600">{u.email}</Td>
+                  <Td>{u.company}</Td>
+                  <Td>{u.country}</Td>
+                  <Td>{PORTAL_ROLE_LABELS[u.role].da}</Td>
+                  <Td>
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_PILL[u.status]}`}>
+                      {STATUS_LABEL[u.status]}
+                    </span>
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1 max-w-[220px]">
+                      {u.allowed_areas.map((a) => (
+                        <span key={a} className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                          {AREA_LABEL[a]}
+                        </span>
+                      ))}
+                    </div>
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1 max-w-[260px]">
+                      {u.allowed_modules.map((m) => (
+                        <span key={m} className="inline-flex rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+                          {MODULE_LABEL[m] || m}
+                        </span>
+                      ))}
+                      {u.backend_modules.map((m) => (
+                        <span key={m} className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          {BACKEND_MODULE_LABEL[m]}
+                        </span>
+                      ))}
+                    </div>
+                  </Td>
+                  <Td className="text-slate-500 text-xs">{formatLastLogin(u.last_login_at)}</Td>
+                  <Td>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(u.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-4 text-xs text-slate-500">
+          Ændringer gemmes lokalt i preview (localStorage). Når Supabase-tabellen
+          <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">backend_users</code>
+          er klar, kan store-laget skiftes uden ændringer i denne side.
+        </p>
+      </main>
+
+      <PortalFooter language={lang} />
+
+      {editing && (
+        <EditUserModal
+          user={editing}
+          onClose={() => setEditingId(null)}
+          onSave={(patch) => { updateBackendUser(editing.id, patch); setEditingId(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Th({ children }: { children: React.ReactNode }) {
+  return <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">{children}</th>;
+}
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-3 py-3 align-middle ${className}`}>{children}</td>;
+}
+
+// ---------------- Edit Modal ----------------
+
+function EditUserModal({
+  user,
+  onClose,
+  onSave,
+}: {
+  user: BackendUser;
+  onClose: () => void;
+  onSave: (patch: Partial<BackendUser>) => void;
+}) {
+  const [draft, setDraft] = useState<BackendUser>(user);
+
+  function toggle<T extends string>(arr: T[], value: T): T[] {
+    return arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Rediger bruger</h2>
+            <p className="text-xs text-slate-500">{user.email}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-6">
+          {/* Basic */}
+          <Section title="Basic">
+            <Grid>
+              <Input label="Initials" value={draft.initials} onChange={(v) => setDraft({ ...draft, initials: v.toUpperCase().slice(0, 4) })} />
+              <Input label="Name" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
+              <Input label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
+              <Input label="Company" value={draft.company} onChange={(v) => setDraft({ ...draft, company: v })} />
+              <Input label="Country" value={draft.country} onChange={(v) => setDraft({ ...draft, country: v.toUpperCase().slice(0, 2) })} />
+              <Select
+                label="Language"
+                value={draft.language}
+                onChange={(v) => setDraft({ ...draft, language: v as BackendUser["language"] })}
+                options={[
+                  { value: "da", label: "Dansk" },
+                  { value: "en", label: "English" },
+                  { value: "de", label: "Deutsch" },
+                  { value: "it", label: "Italiano" },
+                  { value: "hu", label: "Magyar" },
+                ]}
+              />
+              <Input label="Dealer number" value={draft.dealer_number ?? ""} onChange={(v) => setDraft({ ...draft, dealer_number: v || null })} />
+              <Input label="Notes" value={draft.notes ?? ""} onChange={(v) => setDraft({ ...draft, notes: v || null })} />
+            </Grid>
+          </Section>
+
+          {/* Role */}
+          <Section title="Role">
+            <Select
+              label="Portal role"
+              value={draft.role}
+              onChange={(v) => setDraft({ ...draft, role: v as PortalRole })}
+              options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
+            />
+          </Section>
+
+          {/* Status */}
+          <Section title="Status">
+            <div className="flex flex-wrap gap-2">
+              {(["active", "pending", "blocked"] as UserStatus[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, status: s })}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${
+                    draft.status === s
+                      ? `${STATUS_PILL[s]} border-transparent`
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {STATUS_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          {/* Allowed Areas */}
+          <Section title="Allowed Areas">
+            <CheckboxGroup
+              items={ALL_AREAS.map((a) => ({ value: a, label: AREA_LABEL[a] }))}
+              checked={draft.allowed_areas}
+              onChange={(v) => setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, v as AreaKey) })}
+            />
+          </Section>
+
+          {/* Allowed Modules */}
+          <Section title="Allowed Modules">
+            <CheckboxGroup
+              items={[
+                ...ALL_MODULES.map((m) => ({ value: m, label: MODULE_LABEL[m] || m })),
+                { value: "videos", label: VIDEOS_LABEL, disabled: true },
+              ]}
+              checked={draft.allowed_modules}
+              onChange={(v) => setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, v as ModuleAccessKey) })}
+            />
+            <p className="mt-2 text-[11px] text-slate-500">Backend-meta moduler:</p>
+            <CheckboxGroup
+              items={BACKEND_META_MODULES.map((m) => ({ value: m, label: BACKEND_MODULE_LABEL[m] }))}
+              checked={draft.backend_modules}
+              onChange={(v) => setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) })}
+            />
+          </Section>
+
+          {/* Permissions */}
+          <Section title="Permissions">
+            <CheckboxGroup
+              items={[
+                { value: "can_create_claims", label: "Can create claims" },
+                { value: "can_approve_claims", label: "Can approve claims" },
+                { value: "can_create_tsb", label: "Can create TSB" },
+                { value: "can_manage_users", label: "Can manage users" },
+              ]}
+              checked={(Object.entries(draft.perms) as [keyof BackendUser["perms"], boolean][])
+                .filter(([, v]) => v)
+                .map(([k]) => k)}
+              onChange={(key) =>
+                setDraft({
+                  ...draft,
+                  perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
+                })
+              }
+            />
+          </Section>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 sticky bottom-0 bg-white">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Annuller
+          </button>
+          <button
+            onClick={() => onSave(draft)}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+          >
+            Gem ændringer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Modal helpers ----------------
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">{title}</h3>
+      {children}
+    </div>
+  );
+}
+function Grid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
+}
+function Input({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+      />
+    </label>
+  );
+}
+function Select({
+  label, value, onChange, options,
+}: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
+  );
+}
+function CheckboxGroup({
+  items, checked, onChange,
+}: {
+  items: { value: string; label: string; disabled?: boolean }[];
+  checked: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {items.map((it) => {
+        const isChecked = checked.includes(it.value);
+        return (
+          <label
+            key={it.value}
+            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+              it.disabled ? "border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={isChecked}
+              disabled={it.disabled}
+              onChange={() => !it.disabled && onChange(it.value)}
+              className="h-3.5 w-3.5"
+            />
+            <span className="font-semibold">{it.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
