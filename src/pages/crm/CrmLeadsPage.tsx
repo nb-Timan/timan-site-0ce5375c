@@ -69,7 +69,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     dealer: l.linked_dealer_id || null,
     owner_user_id: l.owner_user_id,
     owner_name: l.owner_name,
-    owner_email: null,
+    owner_email: l.owner_email || null,
     responsible_name: l.owner_name,
     machine: (l.machine_types || []).join(', ') || null,
     equipment: null,
@@ -142,10 +142,20 @@ export default function CrmLeadsPage() {
         listLeads({}),
         listDemoLeads({}),
       ]);
-      const demoResolved = await resolveSeedOwners(demoAll);
+      const [openResolved, demoResolved] = await Promise.all([
+        resolveSeedOwners(openAll),
+        resolveSeedOwners(demoAll),
+      ]);
       if (cancelled) return;
+      // eslint-disable-next-line no-console
+      console.log('[CRM Leads] counts', {
+        crm_open_leads: openResolved.length,
+        crm_demo_leads: demoResolved.length,
+        sellerId: sid,
+        email: appUser?.email,
+      });
       setSellerId(sid);
-      setOpenLeads(openAll);
+      setOpenLeads(openResolved);
       setDemoLeads(demoResolved);
       setLoading(false);
     })();
