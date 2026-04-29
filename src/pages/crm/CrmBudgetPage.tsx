@@ -118,6 +118,20 @@ const T: Record<string, Record<Language, string>> = {
                         it: 'Budget bloccato — chiedi al backend di aprirlo.',
                         hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
   row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
+  // "Nyt varenr." product creation flow
+  new_item:      { da: 'Nyt varenr.',           en: 'New item no.',            de: 'Neue Artikelnr.',         it: 'Nuovo cod. art.',         hu: 'Új cikkszám' },
+  new_item_title:{ da: 'Opret nyt varenummer til budget', en: 'Create new item number for budget', de: 'Neue Artikelnummer für Budget anlegen', it: 'Crea nuovo codice articolo per il budget', hu: 'Új cikkszám létrehozása a költségvetéshez' },
+  field_type:    { da: 'Type',                  en: 'Type',                    de: 'Typ',                     it: 'Tipo',                    hu: 'Típus' },
+  type_machine:  { da: 'Maskine',               en: 'Machine',                 de: 'Maschine',                it: 'Macchina',                hu: 'Gép' },
+  type_attach:   { da: 'Redskab',               en: 'Attachment',              de: 'Anbaugerät',              it: 'Attrezzatura',            hu: 'Tartozék' },
+  field_pname:   { da: 'Produktnavn',           en: 'Product name',            de: 'Produktname',             it: 'Nome prodotto',           hu: 'Terméknév' },
+  field_varenr:  { da: 'Varenummer',            en: 'Item number',             de: 'Artikelnummer',           it: 'Codice articolo',         hu: 'Cikkszám' },
+  field_owner:   { da: 'Sælger / ejer',         en: 'Seller / owner',          de: 'Verkäufer / Eigentümer',  it: 'Venditore / proprietario', hu: 'Értékesítő / tulajdonos' },
+  owner_all:     { da: 'Alle sælgere',          en: 'All sellers',             de: 'Alle Verkäufer',          it: 'Tutti i venditori',       hu: 'Összes értékesítő' },
+  field_parent:  { da: 'Tilhører maskine',      en: 'Belongs to machine',      de: 'Gehört zu Maschine',      it: 'Appartiene alla macchina', hu: 'Géphez tartozik' },
+  pick_parent:   { da: 'Vælg en hovedmaskine',  en: 'Select a main machine',   de: 'Hauptmaschine wählen',    it: 'Seleziona macchina principale', hu: 'Válasszon főgépet' },
+  validation_required: { da: 'Udfyld navn og varenummer.', en: 'Please fill in name and item number.', de: 'Bitte Name und Artikelnummer ausfüllen.', it: 'Inserisci nome e codice articolo.', hu: 'Kérjük, adja meg a nevet és a cikkszámot.' },
+  validation_parent: { da: 'Vælg en hovedmaskine for redskabet.', en: 'Select a parent machine for the attachment.', de: 'Hauptmaschine für das Anbaugerät auswählen.', it: 'Seleziona una macchina per l\'attrezzatura.', hu: 'Válasszon főgépet a tartozékhoz.' },
 };
 
 // Localized month labels.
