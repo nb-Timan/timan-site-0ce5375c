@@ -598,41 +598,30 @@ export default function CrmBudgetPage() {
     setLines(prev => prev.filter(l => l.id !== id));
   }
 
-  async function addLine() {
-    const product = findProduct(newRow.product_key);
-    if (!product) return;
-    if (product.status === "coming_soon") {
-      if (!confirm(`${product.name} ${T.cs_confirm[lang]}`)) return;
+  // Create a new Budget-only product (machine or attachment). Does NOT touch
+  // the configurator catalog, pricing, or order flow.
+  async function addProduct() {
+    const name = newRow.name.trim();
+    const varenr = newRow.varenr.trim();
+    if (!name || !varenr) {
+      alert(T.validation_required[lang]);
+      return;
     }
-    const unit = product.priceDKK || 0;
-    const qty = Math.max(0, Number(newRow.qty_budget) || 0);
-    // Try to derive seller_email/initials from the typed seller name (matches a known seller)
-    // or fall back to the current user's identity.
-    const typedName = (newRow.seller_name || "").trim();
-    const known = BUDGET_SELLERS.find(
-      s => s.full_name.toLowerCase() === typedName.toLowerCase() || s.initials.toLowerCase() === typedName.toLowerCase(),
-    );
-    const seller_email = known?.email ?? (isAdmin ? null : (appUser?.email ?? null));
-    const seller_initials = known?.initials ?? (isAdmin ? (typedName || null) : (myInitialsFromName || null));
-    const created = await createBudgetLine({
-      year,
-      product_key: product.key,
-      product_name: product.name,
-      item_number: product.varenr,
-      category: product.category,
-      seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: typedName || (appUser?.display_name ?? null),
-      seller_email,
-      seller_initials,
+    if (newRow.type === "attachment" && !newRow.parent_machine_key) {
+      alert(T.validation_parent[lang]);
+      return;
+    }
+    createCustomProduct({
+      type: newRow.type,
+      name,
+      varenr,
+      parent_machine_key: newRow.type === "attachment" ? newRow.parent_machine_key : null,
+      seller_email: newRow.seller_email || null,
       country: newRow.country || null,
-      qty_budget: qty,
-      value_budget: qty * unit,
-      monthly_split: EVEN,
-      notes: newRow.notes || null,
     });
-    setLines(prev => [...prev, created]);
+    setCustomRev(v => v + 1);
     setShowAdd(false);
-    setNewRow({ product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "" });
+    setNewRow({ type: "machine", name: "", varenr: "", parent_machine_key: "RC-1000s", seller_email: "", country: "DK" });
   }
 
   // void to silence unused warning for upsertBudgetLine import (kept for future inline edits)
