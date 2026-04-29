@@ -777,24 +777,19 @@ export interface BudgetAuditPayload {
 export function appendBudgetAuditEntry(p: BudgetAuditPayload) {
   if (typeof window === "undefined") return;
   try {
-    // Lazy import to avoid a hard dep cycle at module load time.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require("@/lib/audit-log-store") as typeof import("@/lib/audit-log-store");
-    if (typeof mod.appendAuditEntry === "function") {
-      const diff = p.new_value - p.old_value;
-      const sign = diff >= 0 ? `+${diff}` : `${diff}`;
-      const who = p.seller_initials || p.seller_name || "ukendt";
-      mod.appendAuditEntry({
-        user: p.seller_name || p.seller_initials || "ukendt",
-        action: "update",
-        module: "Budget · Arbejdsbudget",
-        record: `${p.year} · ${p.product_name}${p.item_number ? ` (${p.item_number})` : ""} · ${p.month}`,
-        old_value: `qty: ${p.old_value}`,
-        new_value: `qty: ${p.new_value} (${sign}) — ${who}`,
-        ip: "internal",
-        status: "success",
-      });
-    }
+    const diff = p.new_value - p.old_value;
+    const sign = diff >= 0 ? `+${diff}` : `${diff}`;
+    const who = p.seller_initials || p.seller_name || "ukendt";
+    appendAuditEntry({
+      user: p.seller_name || p.seller_initials || "ukendt",
+      action: "update",
+      module: "Budget · Arbejdsbudget",
+      record: `${p.year} · ${p.product_name}${p.item_number ? ` (${p.item_number})` : ""} · ${p.month}`,
+      old_value: `qty: ${p.old_value}`,
+      new_value: `qty: ${p.new_value} (${sign}) — ${who}`,
+      ip: "internal",
+      status: "success",
+    });
   } catch { /* audit log is best-effort */ }
 }
 
