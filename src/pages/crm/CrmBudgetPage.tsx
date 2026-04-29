@@ -1051,6 +1051,7 @@ export default function CrmBudgetPage() {
                               keyPrefix: group.product_key,
                               productName: group.product_name,
                               rowLines: group.lines,
+                              fallbackProductKey: group.product_key,
                             })}
 
                             {/* Equipment section */}
