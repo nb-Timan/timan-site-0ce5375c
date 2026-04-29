@@ -63,3 +63,31 @@ export function resetAuditLog() {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED));
   window.dispatchEvent(new CustomEvent("timan.audit_log.changed"));
 }
+
+/** Append a single audit entry (used by Budget module for arbejdsbudget changes). */
+export function appendAuditEntry(
+  entry: Omit<AuditEntry, "id" | "ts"> & Partial<Pick<AuditEntry, "ts">>,
+): AuditEntry {
+  const all = readAll();
+  const next: AuditEntry = {
+    id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    ts: entry.ts || new Date().toISOString(),
+    user: entry.user,
+    action: entry.action,
+    module: entry.module,
+    record: entry.record,
+    old_value: entry.old_value ?? null,
+    new_value: entry.new_value ?? null,
+    ip: entry.ip || "internal",
+    status: entry.status || "success",
+  };
+  const updated = [next, ...all].slice(0, 500); // keep storage bounded
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("timan.audit_log.changed"));
+    } catch { /* */ }
+  }
+  return next;
+}
+
