@@ -470,10 +470,10 @@ export default function CrmBudgetPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-emerald-600" /> Årligt budget {year}
+            <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            {isAdmin ? "Administrer officielle budgetter, lås og se forecast på tværs af sælgere." : "Se dit eget budget og opdater dit working forecast."}
+            {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -489,23 +489,23 @@ export default function CrmBudgetPage() {
           </div>
           {isAdmin && (
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Sælger</span>
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.seller_label[lang]}</span>
               <select
                 value={backendFilter}
                 onChange={(e) => setBackendFilter(e.target.value)}
                 className="text-sm bg-transparent outline-none"
               >
-                <option value="all">Alle sælgere</option>
+                <option value="all">{T.all_sellers[lang]}</option>
                 {BUDGET_SELLERS.map(s => (
                   <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
                 ))}
-                <optgroup label="Backend">
+                <optgroup label={T.backend_group[lang]}>
                   {BUDGET_BACKEND_USERS
                     .filter(s => !BUDGET_SELLERS.some(x => x.email.toLowerCase() === s.email.toLowerCase()))
                     .map(s => (
                       <option key={s.email} value={s.email}>{s.initials}</option>
                     ))}
-                  <option value="mine">Min egen visning</option>
+                  <option value="mine">{T.my_view[lang]}</option>
                 </optgroup>
               </select>
             </div>
@@ -515,7 +515,7 @@ export default function CrmBudgetPage() {
               onClick={() => setEditWorking(true)}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
             >
-              <Edit3 className="h-4 w-4" /> Rediger arbejdsbudget
+              <Edit3 className="h-4 w-4" /> {T.edit_working[lang]}
             </button>
           ) : (
             <>
@@ -523,13 +523,13 @@ export default function CrmBudgetPage() {
                 onClick={() => { setWorkingDraft({}); setEditWorking(false); }}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
               >
-                <X className="h-4 w-4" /> Annuller
+                <X className="h-4 w-4" /> {T.cancel[lang]}
               </button>
               <button
                 onClick={saveWorkingForecast}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 shadow-sm"
               >
-                <Save className="h-4 w-4" /> Gem arbejdsbudget
+                <Save className="h-4 w-4" /> {T.save_working[lang]}
               </button>
             </>
           )}
@@ -538,7 +538,7 @@ export default function CrmBudgetPage() {
               onClick={() => setShowAdd(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
             >
-              <Plus className="h-4 w-4" /> Ny budgetlinje
+              <Plus className="h-4 w-4" /> {T.new_line[lang]}
             </button>
           )}
         </div>
@@ -546,20 +546,20 @@ export default function CrmBudgetPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-        <KpiCard label="Budget (stk.)" value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
-        <KpiCard label="Ordrer (stk.)" value={`${totals.sold.qty}`} sub={fmtDKK(totals.sold.value)} icon={Wallet} tone="ok" />
-        <KpiCard label="Arbejdsbudget" value={`${totals.fc.qty}`} sub={fmtDKK(totals.fc.value)} icon={Wallet} tone="warn" />
-        <KpiCard label="Score" value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} stk.`} icon={Wallet} />
+        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
+        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={fmtDKK(totals.sold.value)} icon={Wallet} tone="ok" />
+        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={fmtDKK(totals.fc.value)} icon={Wallet} tone="warn" />
+        <KpiCard label={T.kpi_score[lang]} value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} ${T.pcs[lang]}`} icon={Wallet} />
       </div>
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-slate-600">
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-300" /> Budget</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Ordrer</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-400" /> Pipeline / tilbud</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-900" /> Arbejdsbudget</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500" /> Performance −</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Performance +</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-300" /> {T.legend_budget[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> {T.legend_orders[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-400" /> {T.legend_pipe[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-900" /> {T.legend_work[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500" /> {T.legend_perf_n[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> {T.legend_perf_p[lang]}</span>
       </div>
 
       {/* Matrix */}
