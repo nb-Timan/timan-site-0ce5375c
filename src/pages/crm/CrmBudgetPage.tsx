@@ -19,6 +19,7 @@ import {
   BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
+  EQUIPMENT_BY_MACHINE, localizedName,
   type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
 } from "@/lib/crmBudgetService";
 
