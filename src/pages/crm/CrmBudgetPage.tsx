@@ -273,12 +273,13 @@ function KpiCard({ label, value, sub, icon: Icon, tone = "neutral" }: { label: s
   );
 }
 
-interface NewRowState {
-  product_key: string;
-  seller_name: string;
+interface NewProductState {
+  type: "machine" | "attachment";
+  name: string;
+  varenr: string;
+  parent_machine_key: string; // required when type === "attachment"
+  seller_email: string;       // "" = all sellers
   country: string;
-  qty_budget: number;
-  notes: string;
 }
 
 // Per-machine working forecast monthly draft.
