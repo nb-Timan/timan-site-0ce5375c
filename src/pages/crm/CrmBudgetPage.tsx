@@ -20,7 +20,9 @@ import {
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
-  type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
+  getSellerYearLock, setSellerYearLock,
+  type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
+  type BudgetSellerRef, findProduct,
 } from "@/lib/crmBudgetService";
 
 // ────────────────────────────────────────────────────────────
