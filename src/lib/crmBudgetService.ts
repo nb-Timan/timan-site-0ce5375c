@@ -216,8 +216,91 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
   },
 ];
 
+// ---------- Custom (Budget-only) products ----------
+// Created via the "Nyt varenr." flow on the CRM Budget page. These are
+// CRM-Budget-only entries — they MUST NOT be added to the configurator
+// product catalog ("Byg din Timan"), pricing or order flow.
+export interface CustomBudgetProduct {
+  key: string;                          // stable id (`cm_…` machine, `ce_…` equipment)
+  type: "machine" | "attachment";
+  name: string;
+  varenr: string | null;
+  parent_machine_key?: string | null;   // required when type === "attachment"
+  seller_email?: string | null;         // optional owner; null = all sellers
+  country?: string | null;
+  created_at: string;
+}
+const LS_CUSTOM_PRODUCTS = "timan.crm.budget.customProducts.v1";
+function readCustomProducts(): CustomBudgetProduct[] {
+  try { return JSON.parse(localStorage.getItem(LS_CUSTOM_PRODUCTS) || "[]"); }
+  catch { return []; }
+}
+function writeCustomProducts(rows: CustomBudgetProduct[]) {
+  try { localStorage.setItem(LS_CUSTOM_PRODUCTS, JSON.stringify(rows)); } catch { /* */ }
+}
+export function listCustomProducts(): CustomBudgetProduct[] {
+  return readCustomProducts();
+}
+export function createCustomProduct(input: Omit<CustomBudgetProduct, "key" | "created_at"> & { key?: string }): CustomBudgetProduct {
+  const prefix = input.type === "machine" ? "cm_" : "ce_";
+  const key = input.key || (prefix + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3));
+  const row: CustomBudgetProduct = {
+    key,
+    type: input.type,
+    name: input.name,
+    varenr: input.varenr ?? null,
+    parent_machine_key: input.parent_machine_key ?? null,
+    seller_email: input.seller_email ?? null,
+    country: input.country ?? null,
+    created_at: new Date().toISOString(),
+  };
+  const all = readCustomProducts();
+  all.push(row);
+  writeCustomProducts(all);
+  return row;
+}
+
+/** All custom machine products (type === "machine"). */
+export function customMachineProducts(): BudgetProduct[] {
+  return readCustomProducts()
+    .filter(p => p.type === "machine")
+    .map<BudgetProduct>(p => ({
+      key: p.key,
+      name: p.name,
+      varenr: p.varenr,
+      category: "machine",
+      status: "available",
+    }));
+}
+
+/** All custom equipment grouped by parent machine key. */
+export function customEquipmentByMachine(): Record<string, EquipmentCategory[]> {
+  const map: Record<string, EquipmentCategory[]> = {};
+  for (const p of readCustomProducts()) {
+    if (p.type !== "attachment" || !p.parent_machine_key) continue;
+    (map[p.parent_machine_key] ||= []).push({
+      key: p.key,
+      parent_machine_key: p.parent_machine_key,
+      name: { da: p.name, en: p.name, de: p.name, it: p.name, hu: p.name },
+      varenr: p.varenr,
+      status: "available",
+    });
+  }
+  return map;
+}
+
 export function findProduct(key: string): BudgetProduct | undefined {
-  return BUDGET_PRODUCTS.find(p => p.key === key);
+  const stock = BUDGET_PRODUCTS.find(p => p.key === key);
+  if (stock) return stock;
+  const custom = readCustomProducts().find(p => p.key === key);
+  if (!custom) return undefined;
+  return {
+    key: custom.key,
+    name: custom.name,
+    varenr: custom.varenr,
+    category: custom.type === "machine" ? "machine" : "attachment",
+    status: "available",
+  };
 }
 
 // Storage (localStorage fallback)
