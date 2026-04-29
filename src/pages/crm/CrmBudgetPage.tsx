@@ -6,19 +6,111 @@ import {
 } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { cn } from "@/lib/utils";
+import { Language } from "@/types/configurator";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, MONTHS_DA, availableYears, fmtDKK,
+  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
 } from "@/lib/crmBudgetService";
+
+// ────────────────────────────────────────────────────────────
+// i18n — all visible UI strings for the Budget module
+// ────────────────────────────────────────────────────────────
+const T: Record<string, Record<Language, string>> = {
+  page_title:    { da: 'Budget',                en: 'Budget',                  de: 'Budget',                  it: 'Budget',                  hu: 'Költségvetés' },
+  annual_budget: { da: 'Årligt budget',         en: 'Annual budget',           de: 'Jahresbudget',            it: 'Budget annuale',          hu: 'Éves költségvetés' },
+  subtitle_admin:{ da: 'Administrer officielle budgetter, lås og se forecast på tværs af sælgere.',
+                   en: 'Manage official budgets, lock entries and view forecasts across sellers.',
+                   de: 'Offizielle Budgets verwalten, sperren und Prognosen über Verkäufer hinweg sehen.',
+                   it: 'Gestisci i budget ufficiali, blocca le voci e visualizza le previsioni per venditore.',
+                   hu: 'Hivatalos költségvetések kezelése, zárolása és előrejelzések megtekintése értékesítőnként.' },
+  subtitle_seller:{da: 'Se dit eget budget og opdater dit working forecast.',
+                   en: 'View your own budget and update your working forecast.',
+                   de: 'Eigenes Budget einsehen und Arbeitsprognose aktualisieren.',
+                   it: 'Visualizza il tuo budget e aggiorna la previsione di lavoro.',
+                   hu: 'Tekintse meg saját költségvetését és frissítse a munka-előrejelzést.' },
+  seller_label:  { da: 'Sælger',                en: 'Seller',                  de: 'Verkäufer',               it: 'Venditore',               hu: 'Értékesítő' },
+  all_sellers:   { da: 'Alle sælgere',          en: 'All sellers',             de: 'Alle Verkäufer',          it: 'Tutti i venditori',       hu: 'Összes értékesítő' },
+  my_view:       { da: 'Min egen visning',      en: 'My own view',             de: 'Eigene Ansicht',          it: 'La mia vista',            hu: 'Saját nézet' },
+  backend_group: { da: 'Backend',               en: 'Backend',                 de: 'Backend',                 it: 'Backend',                 hu: 'Backend' },
+  edit_working:  { da: 'Rediger arbejdsbudget', en: 'Edit working forecast',   de: 'Arbeitsprognose bearbeiten', it: 'Modifica previsione',  hu: 'Munka-előrejelzés szerkesztése' },
+  cancel:        { da: 'Annuller',              en: 'Cancel',                  de: 'Abbrechen',               it: 'Annulla',                 hu: 'Mégse' },
+  save_working:  { da: 'Gem arbejdsbudget',     en: 'Save working forecast',   de: 'Arbeitsprognose speichern', it: 'Salva previsione',      hu: 'Munka-előrejelzés mentése' },
+  new_line:      { da: 'Ny budgetlinje',        en: 'New budget line',         de: 'Neue Budgetzeile',        it: 'Nuova riga budget',       hu: 'Új költségvetés-sor' },
+  kpi_budget:    { da: 'Budget (stk.)',         en: 'Budget (qty)',            de: 'Budget (Stk.)',           it: 'Budget (pz)',             hu: 'Költségvetés (db)' },
+  kpi_orders:    { da: 'Ordrer (stk.)',         en: 'Orders (qty)',            de: 'Aufträge (Stk.)',         it: 'Ordini (pz)',             hu: 'Rendelések (db)' },
+  kpi_working:   { da: 'Arbejdsbudget',         en: 'Working forecast',        de: 'Arbeitsprognose',         it: 'Previsione lavoro',       hu: 'Munka-előrejelzés' },
+  kpi_score:     { da: 'Score',                 en: 'Score',                   de: 'Score',                   it: 'Punteggio',               hu: 'Pontszám' },
+  pcs:           { da: 'stk.',                  en: 'pcs',                     de: 'Stk.',                    it: 'pz',                      hu: 'db' },
+  legend_budget: { da: 'Budget',                en: 'Budget',                  de: 'Budget',                  it: 'Budget',                  hu: 'Költségvetés' },
+  legend_orders: { da: 'Ordrer',                en: 'Orders',                  de: 'Aufträge',                it: 'Ordini',                  hu: 'Rendelések' },
+  legend_pipe:   { da: 'Pipeline / tilbud',     en: 'Pipeline / quotes',       de: 'Pipeline / Angebote',     it: 'Pipeline / preventivi',   hu: 'Pipeline / ajánlatok' },
+  legend_work:   { da: 'Arbejdsbudget',         en: 'Working forecast',        de: 'Arbeitsprognose',         it: 'Previsione lavoro',       hu: 'Munka-előrejelzés' },
+  legend_perf_n: { da: 'Performance −',         en: 'Performance −',           de: 'Performance −',           it: 'Performance −',           hu: 'Teljesítmény −' },
+  legend_perf_p: { da: 'Performance +',         en: 'Performance +',           de: 'Performance +',           it: 'Performance +',           hu: 'Teljesítmény +' },
+  col_model:     { da: 'Model & Kategori',      en: 'Model & Category',        de: 'Modell & Kategorie',      it: 'Modello e categoria',     hu: 'Modell és kategória' },
+  col_total:     { da: 'Total',                 en: 'Total',                   de: 'Gesamt',                  it: 'Totale',                  hu: 'Összesen' },
+  col_score:     { da: 'Score',                 en: 'Score',                   de: 'Score',                   it: 'Punteggio',               hu: 'Pontszám' },
+  loading:       { da: 'Indlæser budget…',      en: 'Loading budget…',         de: 'Budget wird geladen…',    it: 'Caricamento budget…',     hu: 'Költségvetés betöltése…' },
+  empty_year:    { da: 'Ingen budgetlinjer for dette år.', en: 'No budget lines for this year.', de: 'Keine Budgetzeilen für dieses Jahr.', it: 'Nessuna riga budget per questo anno.', hu: 'Nincsenek költségvetés-sorok ebben az évben.' },
+  coming_soon:   { da: 'Kommer snart',          en: 'Coming soon',             de: 'Demnächst',               it: 'In arrivo',               hu: 'Hamarosan' },
+  locked:        { da: 'Låst',                  en: 'Locked',                  de: 'Gesperrt',                it: 'Bloccato',                hu: 'Zárolt' },
+  unlock:        { da: 'Lås op',                en: 'Unlock',                  de: 'Entsperren',              it: 'Sblocca',                 hu: 'Feloldás' },
+  lock:          { da: 'Lås',                   en: 'Lock',                    de: 'Sperren',                 it: 'Blocca',                  hu: 'Zárolás' },
+  delete_line:   { da: 'Slet linje',            en: 'Delete line',             de: 'Zeile löschen',           it: 'Elimina riga',            hu: 'Sor törlése' },
+  delete_confirm:{ da: 'Slet denne budgetlinje?', en: 'Delete this budget line?', de: 'Diese Budgetzeile löschen?', it: 'Eliminare questa riga di budget?', hu: 'Törli ezt a költségvetés-sort?' },
+  row_budget_orders:{ da: 'BUDGET / ORDRER',    en: 'BUDGET / ORDERS',         de: 'BUDGET / AUFTRÄGE',       it: 'BUDGET / ORDINI',         hu: 'KÖLTSÉGVETÉS / RENDELÉSEK' },
+  row_pipeline:  { da: 'PIPELINE (TILBUD)',     en: 'PIPELINE (QUOTES)',       de: 'PIPELINE (ANGEBOTE)',     it: 'PIPELINE (PREVENTIVI)',   hu: 'PIPELINE (AJÁNLATOK)' },
+  row_working:   { da: 'ARBEJDSBUDGET',         en: 'WORKING FORECAST',        de: 'ARBEITSPROGNOSE',         it: 'PREVISIONE DI LAVORO',    hu: 'MUNKA-ELŐREJELZÉS' },
+  row_perf:      { da: 'PERFORMANCE',           en: 'PERFORMANCE',             de: 'PERFORMANCE',             it: 'PERFORMANCE',             hu: 'TELJESÍTMÉNY' },
+  tip_quotes:    { da: 'tilbud',                en: 'quotes',                  de: 'Angebote',                it: 'preventivi',              hu: 'ajánlat' },
+  tip_customer:  { da: 'Kunde',                 en: 'Customer',                de: 'Kunde',                   it: 'Cliente',                 hu: 'Ügyfél' },
+  tip_machine:   { da: 'Maskine',               en: 'Machine',                 de: 'Maschine',                it: 'Macchina',                hu: 'Gép' },
+  tip_attach:    { da: 'Redskab',               en: 'Attachment',              de: 'Anbaugerät',              it: 'Attrezzatura',            hu: 'Tartozék' },
+  tip_sent:      { da: 'Sendt',                 en: 'Sent',                    de: 'Gesendet',                it: 'Inviato',                 hu: 'Elküldve' },
+  modal_title:   { da: 'Ny budgetlinje',        en: 'New budget line',         de: 'Neue Budgetzeile',        it: 'Nuova riga budget',       hu: 'Új költségvetés-sor' },
+  field_product: { da: 'Produkt',               en: 'Product',                 de: 'Produkt',                 it: 'Prodotto',                hu: 'Termék' },
+  field_seller:  { da: 'Sælger',                en: 'Seller',                  de: 'Verkäufer',               it: 'Venditore',               hu: 'Értékesítő' },
+  field_country: { da: 'Land',                  en: 'Country',                 de: 'Land',                    it: 'Paese',                   hu: 'Ország' },
+  field_qty:     { da: 'Antal (qty budget)',    en: 'Quantity (budget qty)',   de: 'Menge (Budget-Menge)',    it: 'Quantità (budget)',       hu: 'Mennyiség (költségvetés)' },
+  field_notes:   { da: 'Noter',                 en: 'Notes',                   de: 'Notizen',                 it: 'Note',                    hu: 'Megjegyzések' },
+  placeholder_name:{ da: 'Navn',                en: 'Name',                    de: 'Name',                    it: 'Nome',                    hu: 'Név' },
+  create:        { da: 'Opret',                 en: 'Create',                  de: 'Erstellen',               it: 'Crea',                    hu: 'Létrehozás' },
+  cs_confirm:    { da: 'er markeret som "Kommer snart". Tilføj alligevel?',
+                   en: 'is marked as "Coming soon". Add anyway?',
+                   de: 'ist als "Demnächst" markiert. Trotzdem hinzufügen?',
+                   it: 'è contrassegnato come "In arrivo". Aggiungere comunque?',
+                   hu: '"Hamarosan" jelölésű. Mégis hozzáadja?' },
+  no_access:     { da: 'Ingen adgang',          en: 'No access',               de: 'Kein Zugriff',            it: 'Nessun accesso',          hu: 'Nincs hozzáférés' },
+  no_access_msg: { da: 'Budgetmodulet er kun tilgængeligt for Timan Backend og Timan Sælger.',
+                   en: 'The budget module is only available to Timan Backend and Timan Sellers.',
+                   de: 'Das Budgetmodul ist nur für Timan Backend und Timan Verkäufer verfügbar.',
+                   it: 'Il modulo budget è disponibile solo per Timan Backend e Timan Seller.',
+                   hu: 'A költségvetés modul csak Timan Backend és Timan értékesítők számára érhető el.' },
+  loading_short: { da: 'Indlæser…',             en: 'Loading…',                de: 'Wird geladen…',           it: 'Caricamento…',            hu: 'Betöltés…' },
+};
+
+// Localized month labels.
+const MONTHS_BY_LANG: Record<Language, string[]> = {
+  da: ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'],
+  en: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  de: ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],
+  it: ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'],
+  hu: ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Szep','Okt','Nov','Dec'],
+};
+
+// Locale tag for date formatting.
+const LOCALE_BY_LANG: Record<Language, string> = { da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
+
 
 const EVEN: number[] = Array.from({ length: 12 }, () => 1 / 12);
 
