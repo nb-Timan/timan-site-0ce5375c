@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import CrmLayout from '@/components/crm/CrmLayout';
 import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection';
+import SellerOverviewSection from '@/components/crm/SellerOverviewSection';
 import DemoStatsSection from '@/components/crm/DemoStatsSection';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -171,6 +172,7 @@ export default function CrmDashboardPage() {
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -545,6 +547,14 @@ export default function CrmDashboardPage() {
             </div>
           )}
         </Card>
+
+        {/* SÆLGEROVERBLIK — Timan Backend only */}
+        {isAdmin && (
+          <SellerOverviewSection
+            selectedInitials={selectedSellerInitials}
+            onSelectSeller={setSelectedSellerInitials}
+          />
+        )}
 
         {/* SELLER PERFORMANCE — backend only */}
         {isAdmin && <SellerPerformanceSection activities={activities} language={lang} />}
