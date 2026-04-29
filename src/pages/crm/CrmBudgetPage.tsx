@@ -1312,23 +1312,9 @@ export default function CrmBudgetPage() {
                                 </tr>
 
                                 {expanded && equipList.map(eq => {
-                                  const eqLabel = localizedName(eq.name, lang);
-                                  const isPreview = eq.status === "preview";
-
-                                  // Visual sub-folder heading only — no budget row.
-                                  if (eq.isHeader) {
-                                    return (
-                                      <tr key={`equip-subhead-${eq.key}`}>
-                                        <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1 pl-8", colors.row || "bg-slate-50")}>
-                                          <div className="flex items-center gap-2">
-                                            <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
-                                            <span className={cn("text-[11px] font-semibold uppercase tracking-wide", colors.text)}>{eqLabel}</span>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  }
-
+                                  const fullLabel = localizedName(eq.name, lang);
+                                  const eqLabel = shortLabelFor(eq.varenr, fullLabel);
+                                  const hasShort = eqLabel !== fullLabel;
                                   const synthetic = syntheticEquipLine(group.product_key, eq.key, eqLabel, eq.varenr);
                                   return (
                                     <Fragment key={`equip-frag-${eq.key}`}>
@@ -1338,7 +1324,18 @@ export default function CrmBudgetPage() {
                                           <div className="flex items-center gap-2">
                                             <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
                                             <Wrench className="h-3 w-3 text-slate-400" />
-                                            <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
+                                            {hasShort ? (
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <span className="font-medium text-slate-800 text-sm cursor-help">{eqLabel}</span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="max-w-xs">
+                                                  <span className="text-xs">{fullLabel}</span>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            ) : (
+                                              <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
+                                            )}
                                             {eq.varenr ? <span className="text-[10px] text-slate-500 tabular-nums">· {eq.varenr}</span> : <span className="text-[10px] text-slate-400 italic">· varenr. mangler</span>}
                                             {isPreview && (
                                               <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
