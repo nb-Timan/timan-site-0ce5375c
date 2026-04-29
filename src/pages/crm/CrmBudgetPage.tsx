@@ -375,6 +375,11 @@ export default function CrmBudgetPage() {
     "Timan 2620": { bar: "bg-blue-500",   gradient: "from-blue-50 to-white",    row: "bg-blue-50/30",    text: "text-blue-900" },
   };
   const defaultColor = { bar: "bg-emerald-500", gradient: "from-slate-100 to-slate-50", row: "", text: "text-slate-900" };
+
+  // Custom (Budget-only) machines + equipment, re-read on creation.
+  const customMachines = useMemo(() => customMachineProducts(), [customRev]);
+  const customEquip = useMemo(() => customEquipmentByMachine(), [customRev]);
+
   const grouped = useMemo(() => {
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
@@ -382,21 +387,30 @@ export default function CrmBudgetPage() {
       prev.lines.push(l);
       m.set(l.product_key, prev);
     });
-    // Ensure all 4 machines appear (even with empty lines) and in the required order.
     const out: Array<{ product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }> = [];
     for (const key of MACHINE_ORDER) {
-      if (m.has(key)) {
-        out.push(m.get(key)!);
-        m.delete(key);
-      } else {
+      if (m.has(key)) { out.push(m.get(key)!); m.delete(key); }
+      else {
         const p = findProduct(key);
         if (p) out.push({ product_key: key, product_name: p.name, item_number: p.varenr, lines: [] });
       }
     }
-    // Append any other product groups (filtered Tool-Trac removed in service).
+    // Append custom machines (Budget-only) — always show even with no lines.
+    for (const cm of customMachines) {
+      if (m.has(cm.key)) { out.push(m.get(cm.key)!); m.delete(cm.key); }
+      else out.push({ product_key: cm.key, product_name: cm.name, item_number: cm.varenr, lines: [] });
+    }
     m.forEach(v => out.push(v));
     return out;
-  }, [visibleLines]);
+  }, [visibleLines, customMachines]);
+
+  // Merged equipment map (stock + custom Budget-only equipment).
+  const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
+    const out: Record<string, EquipmentCategory[]> = {};
+    for (const k of Object.keys(EQUIPMENT_BY_MACHINE)) out[k] = [...EQUIPMENT_BY_MACHINE[k]];
+    for (const k of Object.keys(customEquip)) out[k] = [...(out[k] || []), ...customEquip[k]];
+    return out;
+  }, [customEquip]);
 
   // KPI totals
   const totals = useMemo(() => {
