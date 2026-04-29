@@ -21,7 +21,9 @@ import {
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock,
+  customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
+  type EquipmentCategory,
   findProduct,
 } from "@/lib/crmBudgetService";
 
