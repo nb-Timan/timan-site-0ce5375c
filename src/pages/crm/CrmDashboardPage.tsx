@@ -355,52 +355,98 @@ export default function CrmDashboardPage() {
                   });
                 })()}
               </div>
-              <div className="flex flex-col items-center justify-center">
-                <div className="relative h-56 w-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={metrics.pipelineByStage.filter(s => s.count > 0).map(s => ({
-                          name: T[`stage_${s.key}`][lang], value: s.count, fill: s.hex,
-                        }))}
-                        dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={3}
-                        stroke="white" strokeWidth={3} isAnimationActive
-                      >
-                        {metrics.pipelineByStage.filter(s => s.count > 0).map((s, i) => (
-                          <Cell key={i} fill={s.hex} />
-                        ))}
-                      </Pie>
-                      <RTooltip
-                        cursor={false}
-                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
-                        contentStyle={{
-                          borderRadius: 12,
-                          border: '1px solid #e5e7eb',
-                          fontSize: 12,
-                          boxShadow: '0 10px 30px -10px rgba(15,23,42,0.25)',
-                          padding: '8px 12px',
-                        }}
-                        formatter={(v: number, name: string) => [`${v}`, name]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400 font-semibold">{T.pipeline_total[lang]}</span>
-                    <span className="text-xl font-bold text-slate-900 tabular-nums mt-1">{fmtKrShort(metrics.pipelineValue)}</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">
-                      {metrics.pipelineByStage.reduce((s, x) => s + x.count, 0)} {T.orders[lang]}
+        {/* PIPELINE — bars + horizontal stacked bar legend */}
+        <Card className="mb-6">
+          <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
+          {metrics.pipelineByStage.every(s => s.value === 0 && s.count === 0) ? (
+            <EmptyState text={T.empty[lang]} />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: per-stage progress bars */}
+              <div className="lg:col-span-2 space-y-3.5">
+                {(() => {
+                  const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
+                  const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                  return metrics.pipelineByStage.map(s => {
+                    const pct = Math.round((s.value / max) * 100);
+                    const sharePct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                    return (
+                      <div key={s.key}>
+                        <div className="flex items-center justify-between text-sm mb-1.5">
+                          <span className="inline-flex items-center gap-2 font-medium text-gray-800">
+                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold ${s.ring}`}>
+                              {s.count}
+                            </span>
+                            {T[`stage_${s.key}`][lang]}
+                          </span>
+                          <span className="text-xs text-gray-500 tabular-nums">
+                            <span className="font-semibold text-gray-700">{fmtKr(s.value)}</span>
+                            <span className="mx-1.5 text-gray-300">·</span>{sharePct}%
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`${s.bar} h-full rounded-full transition-[width] duration-700 ease-out`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Right: horizontal stacked bar + legend (replaces donut) */}
+              <div className="flex flex-col">
+                <div className="rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-5">
+                  <div className="flex items-baseline justify-between mb-4">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 font-semibold">
+                      {T.pipeline_total[lang]}
+                    </span>
+                    <span className="text-lg font-bold text-slate-900 tabular-nums">
+                      {fmtKrShort(metrics.pipelineValue)}
                     </span>
                   </div>
-                </div>
-                {/* Legend */}
-                <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-1.5 w-full max-w-[260px]">
-                  {metrics.pipelineByStage.filter(s => s.count > 0).map(s => (
-                    <div key={s.key} className="flex items-center gap-2 text-[11px] text-slate-600">
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.hex }} />
-                      <span className="truncate">{T[`stage_${s.key}`][lang]}</span>
-                      <span className="ml-auto tabular-nums font-semibold text-slate-700">{s.count}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const totalValue = Math.max(1, metrics.pipelineByStage.reduce((s, x) => s + x.value, 0));
+                    const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                    const segs = metrics.pipelineByStage.filter(s => s.value > 0);
+                    return (
+                      <>
+                        <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200/60">
+                          {segs.map((s, i) => {
+                            const pct = (s.value / totalValue) * 100;
+                            return (
+                              <div
+                                key={s.key}
+                                title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value)}`}
+                                className={`${s.bar} h-full ${i === 0 ? '' : 'border-l border-white/60'}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          {metrics.pipelineByStage.filter(s => s.count > 0).map(s => {
+                            const pct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                            return (
+                              <div key={s.key} className="flex items-center gap-2 text-[11.5px]">
+                                <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: s.hex }} />
+                                <span className="text-slate-700 font-medium truncate">{T[`stage_${s.key}`][lang]}</span>
+                                <span className="ml-auto text-slate-500 tabular-nums shrink-0">
+                                  <span className="font-semibold text-slate-700">{s.count}</span>
+                                  <span className="mx-1 text-slate-300">·</span>
+                                  <span>{fmtKrShort(s.value)}</span>
+                                  <span className="mx-1 text-slate-300">·</span>
+                                  <span>{pct}%</span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
