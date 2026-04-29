@@ -16,7 +16,7 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
+  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
