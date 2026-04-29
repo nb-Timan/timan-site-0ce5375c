@@ -535,3 +535,69 @@ export function fmtDKK(value: number): string {
   if (!Number.isFinite(value)) return "0 kr.";
   return new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK", maximumFractionDigits: 0 }).format(value);
 }
+
+// ---------- Per-seller / per-year budget lock ----------
+// Each seller has their own lock status for a given year. When LOCKED:
+//   - Backend cannot edit the gray Budget row for that seller/year
+//   - Sellers cannot edit their own Arbejdsbudget (working forecast)
+// When UNLOCKED:
+//   - Backend can edit the gray Budget row + create new lines
+//   - Sellers can edit their own Arbejdsbudget
+//
+// Default = locked (official budgets are locked until backend opens them).
+// Stored in localStorage as a single map keyed by `${year}|${sellerEmail}`.
+export interface SellerYearLock {
+  year: number;
+  seller_email: string;
+  locked: boolean;
+  locked_by?: string | null;
+  locked_at?: string | null;
+  unlocked_by?: string | null;
+  unlocked_at?: string | null;
+}
+
+const LS_SELLER_LOCKS = "timan.crm.budget.sellerLocks.v1";
+
+function readSellerLocks(): Record<string, SellerYearLock> {
+  try { return JSON.parse(localStorage.getItem(LS_SELLER_LOCKS) || "{}"); }
+  catch { return {}; }
+}
+function writeSellerLocks(map: Record<string, SellerYearLock>) {
+  try { localStorage.setItem(LS_SELLER_LOCKS, JSON.stringify(map)); } catch { /* */ }
+}
+function lockKey(year: number, email: string): string {
+  return `${year}|${email.toLowerCase()}`;
+}
+
+/** Returns the lock status for a given (year, sellerEmail). Default = locked. */
+export function getSellerYearLock(year: number, sellerEmail: string | null | undefined): SellerYearLock {
+  if (!sellerEmail) return { year, seller_email: "", locked: true };
+  const map = readSellerLocks();
+  const k = lockKey(year, sellerEmail);
+  return map[k] ?? { year, seller_email: sellerEmail.toLowerCase(), locked: true };
+}
+
+export function setSellerYearLock(
+  year: number,
+  sellerEmail: string,
+  locked: boolean,
+  who: string | null,
+): SellerYearLock {
+  const map = readSellerLocks();
+  const k = lockKey(year, sellerEmail);
+  const now = new Date().toISOString();
+  const prev = map[k];
+  const next: SellerYearLock = {
+    year,
+    seller_email: sellerEmail.toLowerCase(),
+    locked,
+    locked_by:    locked ? who : (prev?.locked_by ?? null),
+    locked_at:    locked ? now : (prev?.locked_at ?? null),
+    unlocked_by: !locked ? who : (prev?.unlocked_by ?? null),
+    unlocked_at: !locked ? now : (prev?.unlocked_at ?? null),
+  };
+  map[k] = next;
+  writeSellerLocks(map);
+  return next;
+}
+
