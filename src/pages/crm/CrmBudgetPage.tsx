@@ -304,9 +304,11 @@ export default function CrmBudgetPage() {
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
   const [backendFilter, setBackendFilter] = useState<string>("all");
-  const [newRow, setNewRow] = useState<NewRowState>({
-    product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "",
+  const [newRow, setNewRow] = useState<NewProductState>({
+    type: "machine", name: "", varenr: "", parent_machine_key: "RC-1000s", seller_email: "", country: "DK",
   });
+  // Bumps to force re-read of custom products after creation.
+  const [customRev, setCustomRev] = useState(0);
   // Per-machine expand/collapse state for equipment sections.
   // Default: expanded so backend users see the structure.
   const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
