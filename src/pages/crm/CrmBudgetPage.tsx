@@ -1018,12 +1018,12 @@ export default function CrmBudgetPage() {
                             )}
                             {/* Machine title row */}
                             <tr key={`title-${group.product_key}`}>
-                              <td colSpan={15} className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300 border-b border-slate-200 px-3 py-3 shadow-sm">
+                              <td colSpan={15} className={cn("bg-gradient-to-r border-t-2 border-b border-slate-200 px-3 py-3 shadow-sm", colors.gradient, "border-t-slate-300")}>
                                 <div className="flex items-center justify-between gap-3 flex-wrap">
                                   <div className="flex items-center gap-2">
-                                    <span className="inline-block h-5 w-1 rounded bg-emerald-500" aria-hidden="true" />
-                                    <span className="font-semibold text-slate-900 text-base">{group.product_name}</span>
-                                    {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
+                                    <span className={cn("inline-block h-5 w-1.5 rounded", colors.bar)} aria-hidden="true" />
+                                    <span className={cn("font-semibold text-base", colors.text)}>{group.product_name}</span>
+                                    {group.item_number ? <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span> : <span className="text-xs text-slate-400 italic">· varenr. mangler</span>}
                                     {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
                                     {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
                                   </div>
