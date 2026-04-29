@@ -1057,18 +1057,21 @@ export default function CrmBudgetPage() {
                             {equipList.length > 0 && (
                               <>
                                 <tr key={`equip-h-${group.product_key}`}>
-                                  <td colSpan={15} className="bg-slate-50 border-t border-slate-100 px-3 py-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
-                                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
-                                      aria-expanded={expanded}
-                                      title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
-                                    >
-                                      {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      <Wrench className="h-3.5 w-3.5 text-emerald-600" />
-                                      {T.equipment_for[lang]} {group.product_name}
-                                    </button>
+                                  <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1.5", colors.row || "bg-slate-50")}>
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn("inline-block h-3.5 w-1 rounded", colors.bar)} aria-hidden="true" />
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
+                                        className={cn("inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide hover:opacity-80", colors.text)}
+                                        aria-expanded={expanded}
+                                        title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
+                                      >
+                                        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        <Wrench className="h-3.5 w-3.5" />
+                                        {T.equipment_for[lang]} {group.product_name}
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
 
