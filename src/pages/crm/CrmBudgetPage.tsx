@@ -282,7 +282,7 @@ export default function CrmBudgetPage() {
   const [actuals, setActuals] = useState<SalesActual[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [editWorking, setEditWorking] = useState(false);
+  // Working-forecast monthly drafts per line (used as live override; auto-saved).
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
