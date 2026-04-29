@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
-  Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench,
+  Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
 } from "lucide-react";
+import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -20,7 +21,8 @@ import {
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
-  getSellerYearLock, setSellerYearLock,
+  getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
+  appendBudgetAuditEntry,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type EquipmentCategory,
