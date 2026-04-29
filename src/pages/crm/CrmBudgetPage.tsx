@@ -348,6 +348,14 @@ export default function CrmBudgetPage() {
 
   // Group lines by product (machine model). Enforce required machine order.
   const MACHINE_ORDER = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+  // Visual color accent per main machine group (Tailwind tokens).
+  const MACHINE_COLORS: Record<string, { bar: string; gradient: string; row: string; text: string }> = {
+    "RC-751":     { bar: "bg-yellow-500", gradient: "from-yellow-50 to-white",  row: "bg-yellow-50/30",  text: "text-yellow-900" },
+    "RC-1000s":   { bar: "bg-red-500",    gradient: "from-red-50 to-white",     row: "bg-red-50/30",     text: "text-red-900" },
+    "Timan 3330": { bar: "bg-green-600",  gradient: "from-green-50 to-white",   row: "bg-green-50/30",   text: "text-green-900" },
+    "Timan 2620": { bar: "bg-blue-500",   gradient: "from-blue-50 to-white",    row: "bg-blue-50/30",    text: "text-blue-900" },
+  };
+  const defaultColor = { bar: "bg-emerald-500", gradient: "from-slate-100 to-slate-50", row: "", text: "text-slate-900" };
   const grouped = useMemo(() => {
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
