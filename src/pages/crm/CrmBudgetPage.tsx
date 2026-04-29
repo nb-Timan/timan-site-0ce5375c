@@ -542,38 +542,7 @@ export default function CrmBudgetPage() {
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
   }
 
-  async function saveWorkingForecast() {
-    const updates: BudgetForecast[] = [];
-    for (const line of visibleLines) {
-      const draft = workingDraft[line.id];
-      if (!draft) continue;
-      const fc = forecasts.find(f => f.budget_line_id === line.id);
-      const qty = draft.reduce((a, b) => a + b, 0);
-      const unit = line.qty_budget > 0 ? line.value_budget / line.qty_budget : 0;
-      const next: BudgetForecast = {
-        id: fc?.id || ("f_" + line.id),
-        budget_line_id: line.id,
-        qty_forecast: qty,
-        value_forecast: Math.round(qty * unit),
-        comments: fc?.comments ?? null,
-        expected_timing: fc?.expected_timing ?? null,
-        risk_level: fc?.risk_level ?? null,
-        probability: fc?.probability ?? null,
-        updated_at: new Date().toISOString(),
-      };
-      const saved = await upsertForecast(next);
-      updates.push(saved);
-    }
-    if (updates.length) {
-      setForecasts(prev => {
-        const map = new Map(prev.map(f => [f.budget_line_id, f]));
-        updates.forEach(u => map.set(u.budget_line_id, u));
-        return Array.from(map.values());
-      });
-    }
-    setWorkingDraft({});
-    setEditWorking(false);
-  }
+  // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
   async function toggleLock(line: BudgetLine) {
     if (!isAdmin) return;
