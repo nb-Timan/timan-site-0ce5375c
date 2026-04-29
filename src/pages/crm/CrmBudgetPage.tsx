@@ -614,257 +614,305 @@ export default function CrmBudgetPage() {
                   <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
                 )}
 
-                {grouped.map(group => {
-                  // Aggregate per group across its lines (same machine, possibly multiple sellers).
-                  const agg = (key: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
-                    const arr = Array.from({ length: 12 }, () => 0);
-                    group.lines.forEach(l => {
-                      const m = lineMonthly(l)[key];
-                      m.forEach((v, i) => { arr[i] += v; });
+                {(() => {
+                  // Reusable 4-row block (BUDGET/ORDERS, PIPELINE, WORKING, PERFORMANCE)
+                  // — used both for machine groups and individual equipment items so
+                  // equipment has the exact same budget functionality as machines.
+                  function renderRowBlock(opts: {
+                    keyPrefix: string;
+                    productName: string;
+                    rowLines: BudgetLine[]; // lines used for budget/orders/working aggregation
+                    indent?: boolean;       // visually nest under a machine
+                  }) {
+                    const { keyPrefix, productName, rowLines, indent } = opts;
+                    const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
+                      const arr = Array.from({ length: 12 }, () => 0);
+                      rowLines.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
+                      return arr;
+                    };
+                    const budgetMonthly = agg("budgetMonthly");
+                    const ordersMonthly = agg("ordersMonthly");
+                    const workingMonthly = agg("workingMonthly");
+                    const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
+                    rowLines.forEach(l => {
+                      const p = pipelineByLine[l.id] || [];
+                      p.forEach((arr, i) => { pipelineMonthly[i].push(...arr); });
                     });
-                    return arr;
-                  };
-                  const budgetMonthly = agg("budgetMonthly");
-                  const ordersMonthly = agg("ordersMonthly");
-                  const workingMonthly = agg("workingMonthly");
+                    const totalBudget = budgetMonthly.reduce((a, b) => a + b, 0);
+                    const totalOrders = ordersMonthly.reduce((a, b) => a + b, 0);
+                    const totalWorking = workingMonthly.reduce((a, b) => a + b, 0);
+                    const totalPipeline = pipelineMonthly.reduce((s, x) => s + x.length, 0);
+                    const totalPerf = totalOrders - totalBudget;
+                    const scorePct = totalBudget > 0 ? Math.round((totalOrders / totalBudget) * 100) : 0;
+                    const scoreTone =
+                      scorePct >= 100 ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                      scorePct >= 70  ? "bg-amber-100 text-amber-800 border-amber-200" :
+                      totalBudget === 0 ? "bg-slate-100 text-slate-500 border-slate-200" :
+                                        "bg-rose-100 text-rose-800 border-rose-200";
+                    const stickyPad = indent ? "pl-8" : "px-3";
+                    return (
+                      <Fragment key={`block-${keyPrefix}`}>
+                        {/* BUDGET / ORDERS */}
+                        <tr key={`bo-${keyPrefix}`} className="bg-slate-50/60">
+                          <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
+                          {budgetMonthly.map((b, i) => {
+                            const o = ordersMonthly[i];
+                            return (
+                              <td key={i} className="px-2 py-2 text-center tabular-nums text-xs">
+                                <span className="text-slate-500">{b}</span>
+                                <span className="text-slate-400 mx-0.5">/</span>
+                                <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">
+                            <span className="text-slate-600">{totalBudget}</span>
+                            <span className="text-slate-400 mx-0.5">/</span>
+                            <span className="text-emerald-700">{totalOrders}</span>
+                          </td>
+                          <td className="px-2 py-2"></td>
+                        </tr>
 
-                  const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
-                  group.lines.forEach(l => {
-                    const p = pipelineByLine[l.id] || [];
-                    p.forEach((arr, i) => { pipelineMonthly[i].push(...arr); });
-                  });
+                        {/* PIPELINE */}
+                        <tr key={`pipe-${keyPrefix}`} className="bg-amber-50/40">
+                          <td className={cn("sticky left-0 z-10 bg-amber-50/40 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800", stickyPad)}>{T.row_pipeline[lang]}</td>
+                          {pipelineMonthly.map((offers, i) => {
+                            const count = offers.length;
+                            const sum = offers.reduce((a, b) => a + b.value, 0);
+                            if (count === 0) {
+                              return <td key={i} className="px-2 py-2 text-center text-amber-700/40 text-xs">−</td>;
+                            }
+                            return (
+                              <td key={i} className="px-1 py-2 text-center">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button className="inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 transition">
+                                      {count}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-sm">
+                                    <div className="text-xs space-y-2">
+                                      <div className="font-semibold border-b border-slate-200 pb-1">
+                                        {count} {T.tip_quotes[lang]} · {fmtDKK(sum)}
+                                      </div>
+                                      {offers.map((o, idx) => (
+                                        <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
+                                          <div className="font-medium">{o.offer_no} · {(STATUS_LABELS as Record<string, Record<Language,string>>)[o.status]?.[lang] || o.status}</div>
+                                          <div className="text-slate-600">{o.dealer}</div>
+                                          <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
+                                          <div className="text-slate-600">{T.tip_machine[lang]}: {productName}</div>
+                                          <div className="text-slate-600">{T.tip_attach[lang]}: {o.attachment}</div>
+                                          <div className="flex justify-between">
+                                            <span className="text-slate-500">{T.tip_sent[lang]}: {fmtDate(o.sent_date, lang)}</span>
+                                            <span className="font-semibold tabular-nums">{fmtDKK(o.value)}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums">{totalPipeline}</td>
+                          <td className="px-2 py-2"></td>
+                        </tr>
 
-                  const totalBudget = budgetMonthly.reduce((a, b) => a + b, 0);
-                  const totalOrders = ordersMonthly.reduce((a, b) => a + b, 0);
-                  const totalWorking = workingMonthly.reduce((a, b) => a + b, 0);
-                  const totalPipeline = pipelineMonthly.reduce((s, x) => s + x.length, 0);
-                  const totalPerf = totalOrders - totalBudget;
-                  const scorePct = totalBudget > 0 ? Math.round((totalOrders / totalBudget) * 100) : 0;
-                  const scoreTone =
-                    scorePct >= 100 ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-                    scorePct >= 70  ? "bg-amber-100 text-amber-800 border-amber-200" :
-                                      "bg-rose-100 text-rose-800 border-rose-200";
+                        {/* WORKING */}
+                        <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
+                          <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
+                          {workingMonthly.map((w, i) => (
+                            <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                              {editWorking && rowLines.length > 0 ? (
+                                <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
+                                  <button
+                                    onClick={() => adjustWorking(rowLines[0].id, i, -1)}
+                                    className="p-0.5 hover:bg-slate-700 rounded"
+                                    title="−1"
+                                  ><Minus className="h-3 w-3" /></button>
+                                  <span className="min-w-[16px] text-center font-semibold">{w}</span>
+                                  <button
+                                    onClick={() => adjustWorking(rowLines[0].id, i, +1)}
+                                    className="p-0.5 hover:bg-slate-700 rounded"
+                                    title="+1"
+                                  ><Plus className="h-3 w-3" /></button>
+                                </div>
+                              ) : (
+                                <span className="font-semibold">{w}</span>
+                              )}
+                            </td>
+                          ))}
+                          <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">{totalWorking}</td>
+                          <td className="px-2 py-2"></td>
+                        </tr>
 
-                  // Group title row (machine name + lock controls per line below)
-                  const product = findProduct(group.product_key);
-                  const comingSoon = product?.status === "coming_soon";
-                  const anyLocked = group.lines.some(l => l.locked);
+                        {/* PERFORMANCE */}
+                        <tr key={`perf-${keyPrefix}`} className="border-b-2 border-slate-200">
+                          <td className={cn("sticky left-0 z-10 bg-white py-2 text-xs font-semibold uppercase tracking-wide text-slate-500", stickyPad)}>{T.row_perf[lang]}</td>
+                          {ordersMonthly.map((o, i) => {
+                            const diff = o - budgetMonthly[i];
+                            let cls = "text-slate-400";
+                            let label: string = "•";
+                            if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
+                            else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
+                            return (
+                              <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>{label}</td>
+                            );
+                          })}
+                          <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
+                            totalPerf > 0 ? "text-emerald-700" : totalPerf < 0 ? "text-rose-700" : "text-slate-500")}>
+                            {totalPerf > 0 ? `+${totalPerf}` : totalPerf}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <span className={cn("inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums", scoreTone)}>
+                              {totalBudget === 0 ? "−" : `${scorePct}%`}
+                            </span>
+                          </td>
+                        </tr>
+                      </Fragment>
+                    );
+                  }
+
+                  // Synthesize an in-memory BudgetLine for an equipment item so the
+                  // working-forecast stepper has a stable id to write to. We build a
+                  // stable id per (year, machine, equipment.key) and seed an empty
+                  // line if none exists yet; this keeps storage logic untouched.
+                  function syntheticEquipLine(machineKey: string, equipKey: string, equipName: string, varenr: string | null): BudgetLine {
+                    const id = `eq_${year}_${machineKey}_${equipKey}`;
+                    const existing = lines.find(l => l.id === id);
+                    if (existing) return existing;
+                    return {
+                      id,
+                      year,
+                      product_key: `${machineKey}::${equipKey}`,
+                      product_name: equipName,
+                      item_number: varenr,
+                      category: "attachment",
+                      parent_machine_key: machineKey,
+                      seller_id: null,
+                      seller_name: null,
+                      seller_email: null,
+                      seller_initials: null,
+                      country: null,
+                      qty_budget: 0,
+                      value_budget: 0,
+                      monthly_split: EVEN,
+                      notes: null,
+                      locked: false,
+                      created_at: new Date().toISOString(),
+                    };
+                  }
 
                   return (
-                    <Fragment key={group.product_key}>
-                      {/* Machine title row */}
-                      <tr key={`title-${group.product_key}`}>
-                        <td colSpan={15} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
-                          <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-900">{group.product_name}</span>
-                              {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
-                              {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
-                              {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
-                            </div>
-                            {isAdmin && (
-                              <div className="flex items-center gap-1">
-                                {group.lines.map(l => (
-                                  <span key={l.id} className="inline-flex items-center gap-1 text-xs text-slate-600">
-                                    <span className="text-slate-500">{l.seller_name || "—"}</span>
-                                    <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? T.unlock[lang] : T.lock[lang]}>
-                                      {l.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                                    </button>
-                                    <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title={T.delete_line[lang]}>
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                    <>
+                      {busy && (
+                        <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.loading[lang]}</td></tr>
+                      )}
+                      {!busy && grouped.length === 0 && (
+                        <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
+                      )}
 
-                      {/* BUDGET / ORDRER */}
-                      <tr key={`bo-${group.product_key}`} className="bg-slate-50/60">
-                        <td className="sticky left-0 z-10 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">{T.row_budget_orders[lang]}</td>
-                        {budgetMonthly.map((b, i) => {
-                          const o = ordersMonthly[i];
-                          return (
-                            <td key={i} className="px-2 py-2 text-center tabular-nums text-xs">
-                              <span className="text-slate-500">{b}</span>
-                              <span className="text-slate-400 mx-0.5">/</span>
-                              <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">
-                          <span className="text-slate-600">{totalBudget}</span>
-                          <span className="text-slate-400 mx-0.5">/</span>
-                          <span className="text-emerald-700">{totalOrders}</span>
-                        </td>
-                        <td className="px-2 py-2"></td>
-                      </tr>
-
-                      {/* PIPELINE */}
-                      <tr key={`pipe-${group.product_key}`} className="bg-amber-50/40">
-                        <td className="sticky left-0 z-10 bg-amber-50/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">{T.row_pipeline[lang]}</td>
-                        {pipelineMonthly.map((offers, i) => {
-                          const count = offers.length;
-                          const sum = offers.reduce((a, b) => a + b.value, 0);
-                          if (count === 0) {
-                            return <td key={i} className="px-2 py-2 text-center text-amber-700/40 text-xs">−</td>;
-                          }
-                          return (
-                            <td key={i} className="px-1 py-2 text-center">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 transition">
-                                    {count}
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-sm">
-                                  <div className="text-xs space-y-2">
-                                    <div className="font-semibold border-b border-slate-200 pb-1">
-                                      {count} {T.tip_quotes[lang]} · {fmtDKK(sum)}
-                                    </div>
-                                    {offers.map((o, idx) => (
-                                      <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
-                                        <div className="font-medium">{o.offer_no} · {(STATUS_LABELS as Record<string, Record<Language,string>>)[o.status]?.[lang] || o.status}</div>
-                                        <div className="text-slate-600">{o.dealer}</div>
-                                        <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
-                                        <div className="text-slate-600">{T.tip_machine[lang]}: {group.product_name}</div>
-                                        <div className="text-slate-600">{T.tip_attach[lang]}: {o.attachment}</div>
-                                        <div className="flex justify-between">
-                                          <span className="text-slate-500">{T.tip_sent[lang]}: {fmtDate(o.sent_date, lang)}</span>
-                                          <span className="font-semibold tabular-nums">{fmtDKK(o.value)}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums">{totalPipeline}</td>
-                        <td className="px-2 py-2"></td>
-                      </tr>
-
-                      {/* ARBEJDSBUDGET */}
-                      <tr key={`work-${group.product_key}`} className="bg-slate-900 text-slate-100">
-                        <td className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200">{T.row_working[lang]}</td>
-                        {workingMonthly.map((w, i) => (
-                          <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                            {editWorking ? (
-                              <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
-                                <button
-                                  onClick={() => {
-                                    // Decrement on the first line of the group (simple model).
-                                    const target = group.lines[0];
-                                    adjustWorking(target.id, i, -1);
-                                  }}
-                                  className="p-0.5 hover:bg-slate-700 rounded"
-                                  title="−1"
-                                ><Minus className="h-3 w-3" /></button>
-                                <span className="min-w-[16px] text-center font-semibold">{w}</span>
-                                <button
-                                  onClick={() => {
-                                    const target = group.lines[0];
-                                    adjustWorking(target.id, i, +1);
-                                  }}
-                                  className="p-0.5 hover:bg-slate-700 rounded"
-                                  title="+1"
-                                ><Plus className="h-3 w-3" /></button>
-                              </div>
-                            ) : (
-                              <span className="font-semibold">{w}</span>
-                            )}
-                          </td>
-                        ))}
-                        <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">{totalWorking}</td>
-                        <td className="px-2 py-2"></td>
-                      </tr>
-
-                      {/* PERFORMANCE */}
-                      <tr key={`perf-${group.product_key}`} className="border-b-2 border-slate-200">
-                        <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{T.row_perf[lang]}</td>
-                        {ordersMonthly.map((o, i) => {
-                          const diff = o - budgetMonthly[i];
-                          let cls = "text-slate-400";
-                          let label: string = "•";
-                          if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
-                          else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
-                          return (
-                            <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>{label}</td>
-                          );
-                        })}
-                        <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
-                          totalPerf > 0 ? "text-emerald-700" : totalPerf < 0 ? "text-rose-700" : "text-slate-500")}>
-                          {totalPerf > 0 ? `+${totalPerf}` : totalPerf}
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <span className={cn("inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums", scoreTone)}>
-                            {scorePct}%
-                          </span>
-                        </td>
-                      </tr>
-
-                      {/* Equipment categories under this machine (RC-1000s / 3330 / 2620 only) */}
-                      {(() => {
+                      {grouped.map(group => {
+                        const product = findProduct(group.product_key);
+                        const comingSoon = product?.status === "coming_soon";
+                        const anyLocked = group.lines.some(l => l.locked);
                         const equipList = EQUIPMENT_BY_MACHINE[group.product_key] || [];
-                        if (equipList.length === 0) return null;
                         const expanded = expandedEquip[group.product_key] !== false;
+
                         return (
-                          <>
-                            {/* Equipment section header */}
-                            <tr key={`equip-h-${group.product_key}`}>
-                              <td colSpan={15} className="bg-slate-50 border-t border-slate-100 px-3 py-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
-                                  className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
-                                  aria-expanded={expanded}
-                                  title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
-                                >
-                                  {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                  <Wrench className="h-3.5 w-3.5 text-emerald-600" />
-                                  {T.equipment_for[lang]} {group.product_name}
-                                </button>
+                          <Fragment key={group.product_key}>
+                            {/* Machine title row */}
+                            <tr key={`title-${group.product_key}`}>
+                              <td colSpan={15} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-900">{group.product_name}</span>
+                                    {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
+                                    {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
+                                    {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
+                                  </div>
+                                  {isAdmin && group.lines.length > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      {group.lines.map(l => (
+                                        <span key={l.id} className="inline-flex items-center gap-1 text-xs text-slate-600">
+                                          <span className="text-slate-500">{l.seller_name || "—"}</span>
+                                          <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? T.unlock[lang] : T.lock[lang]}>
+                                            {l.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                                          </button>
+                                          <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title={T.delete_line[lang]}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                             </tr>
 
-                            {/* One row per equipment category — same columns, no data yet */}
-                            {expanded && equipList.map(eq => {
-                              const eqLabel = localizedName(eq.name, lang);
-                              const isPreview = eq.status === "preview";
-                              return (
-                                <tr key={`equip-${eq.key}`} className="border-b border-slate-100">
-                                  <td className="sticky left-0 z-10 bg-white px-3 py-2">
-                                    <div className="flex items-center gap-2 pl-5">
-                                      <span className="text-slate-700 text-sm">{eqLabel}</span>
-                                      {eq.varenr && <span className="text-[10px] text-slate-400 tabular-nums">· {eq.varenr}</span>}
-                                      {isPreview && (
-                                        <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                          {T.preview_row[lang]}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  {monthCols.map((_, i) => (
-                                    <td key={i} className="px-2 py-2 text-center text-slate-300 text-xs tabular-nums">−</td>
-                                  ))}
-                                  <td className="px-2 py-2 text-center text-slate-400 text-xs tabular-nums">−</td>
-                                  <td className="px-2 py-2 text-center">
-                                    <span className="inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums bg-slate-100 text-slate-500 border-slate-200">
-                                      −
-                                    </span>
+                            {renderRowBlock({
+                              keyPrefix: group.product_key,
+                              productName: group.product_name,
+                              rowLines: group.lines,
+                            })}
+
+                            {/* Equipment section */}
+                            {equipList.length > 0 && (
+                              <>
+                                <tr key={`equip-h-${group.product_key}`}>
+                                  <td colSpan={15} className="bg-slate-50 border-t border-slate-100 px-3 py-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
+                                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
+                                      aria-expanded={expanded}
+                                      title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
+                                    >
+                                      {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      <Wrench className="h-3.5 w-3.5 text-emerald-600" />
+                                      {T.equipment_for[lang]} {group.product_name}
+                                    </button>
                                   </td>
                                 </tr>
-                              );
-                            })}
-                          </>
+
+                                {expanded && equipList.map(eq => {
+                                  const eqLabel = localizedName(eq.name, lang);
+                                  const isPreview = eq.status === "preview";
+                                  const synthetic = syntheticEquipLine(group.product_key, eq.key, eqLabel, eq.varenr);
+                                  return (
+                                    <Fragment key={`equip-frag-${eq.key}`}>
+                                      {/* Equipment title sub-row */}
+                                      <tr key={`equip-title-${eq.key}`}>
+                                        <td colSpan={15} className="bg-white border-t border-slate-100 px-3 py-1.5 pl-8">
+                                          <div className="flex items-center gap-2">
+                                            <Wrench className="h-3 w-3 text-slate-400" />
+                                            <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
+                                            {eq.varenr && <span className="text-[10px] text-slate-400 tabular-nums">· {eq.varenr}</span>}
+                                            {isPreview && (
+                                              <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                                {T.preview_row[lang]}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {renderRowBlock({
+                                        keyPrefix: `eq-${eq.key}`,
+                                        productName: `${group.product_name} · ${eqLabel}`,
+                                        rowLines: [synthetic],
+                                        indent: true,
+                                      })}
+                                    </Fragment>
+                                  );
+                                })}
+                              </>
+                            )}
+                          </Fragment>
                         );
-                      })()}
-                    </Fragment>
+                      })}
+                    </>
                   );
-                })}
+                })()}
               </tbody>
             </table>
           </div>
