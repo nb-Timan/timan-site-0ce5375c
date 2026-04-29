@@ -173,6 +173,7 @@ const BUDGET_SHORT_LABELS: Record<string, string> = {
   "720132":   "T3 u. højtryk",
   "720133":   "T3 m. højtryk",
   "730030":   "Forkoste med 2 koste",
+  "730020":   "Centerdrevet fejemaskine, 120 cm",
   "730017":   "Rotorklipper 3 knive 135 cm",
   "HGM-2007": "Rotorklipper 150 cm",
   "730130":   "Rotorklipper 120 cm for T3",
