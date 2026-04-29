@@ -286,6 +286,7 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
       return (data as BudgetForecast[]).filter(f => ids.has(f.budget_line_id));
     }
   } catch { /* */ }
+  ensureSeed();
   return readLS<BudgetForecast>(LS_FORECASTS);
 }
 
