@@ -78,6 +78,9 @@ const REASON_HEX: Record<'price'|'lead'|'comp'|'other', string> = {
   price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', other: '#64748b',
 };
 
+// Mini bar chart heights (%) for the Closed Orders hero card
+const CLOSED_BARS: number[] = [38, 52, 44, 65, 48, 72, 60, 80, 70, 92];
+
 // ────────────────────────────────────────────────────────────
 // Utilities
 // ────────────────────────────────────────────────────────────
@@ -209,51 +212,100 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI HERO LAYOUT — Pipeline hero + compact KPI rail */}
+        {/* TOP KPI HERO LAYOUT — Two stacked dark cards on left + 4 KPI rail on right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-8 items-stretch animate-[fadeIn_.4s_ease-out]">
-          {/* HERO — Pipeline value */}
-          <Link to="/portal/crm/quotes" className="lg:col-span-5 group block">
-            <div className="relative overflow-hidden h-full min-h-[300px] rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-7 flex flex-col">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full opacity-30 blur-3xl"
-                style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
-              />
-              <div className="flex items-start justify-between gap-3 relative">
-                <div className="h-11 w-11 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
-                  <Target className="h-5 w-5" strokeWidth={2} />
+          {/* LEFT COLUMN — compact Pipeline + Closed Orders */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            {/* Pipeline value — compact dark green */}
+            <Link to="/portal/crm/quotes" className="group block">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[140px]">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
+                  style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
+                />
+                <div className="relative flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-8 w-8 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <Target className="h-4 w-4" strokeWidth={2} />
+                    </div>
+                    <p className="text-[10.5px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
+                      {T.kpi_pipeline[lang]}
+                    </p>
+                    <div className="ml-auto">
+                      <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
+                    </div>
+                  </div>
+                  <p className="text-[1.9rem] leading-none font-bold tracking-tight tabular-nums mt-2">
+                    {fmtKr(metrics.pipelineValue)}
+                  </p>
+                  <p className="text-[11px] text-emerald-100/70 mt-1.5">{T.vs_last_month[lang]}</p>
                 </div>
-                <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
+                {trend30 && trend30.length > 1 && (
+                  <div className="relative w-32 h-16 shrink-0 opacity-90">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={trend30} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                        <defs>
+                          <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
+                            <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
+                              fill="url(#heroGrad)" isAnimationActive />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
-              <p className="mt-5 text-[11px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
-                {T.kpi_pipeline[lang]}
-              </p>
-              <p className="mt-2 text-[2.4rem] md:text-[2.6rem] leading-none font-bold tracking-tight tabular-nums">
-                {fmtKr(metrics.pipelineValue)}
-              </p>
-              <p className="text-[12px] text-emerald-100/70 mt-2">{T.vs_last_month[lang]}</p>
-              <div className="mt-auto" />
-              {trend30 && trend30.length > 1 && (
-                <div className="-mx-7 -mb-7 mt-6 h-24 opacity-90">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trend30} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-                      <defs>
-                        <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
-                            fill="url(#heroGrad)" isAnimationActive />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </Link>
+            </Link>
 
-          {/* RIGHT RAIL — 5 compact KPIs */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Closed Orders — compact dark navy */}
+            <Link to="/portal/crm/orders" className="group block">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[140px]">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
+                  style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
+                />
+                <div className="relative flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-8 w-8 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <ShoppingCart className="h-4 w-4" strokeWidth={2} />
+                    </div>
+                    <p className="text-[10.5px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold">
+                      {T.kpi_closed[lang]}
+                    </p>
+                    <div className="ml-auto">
+                      <HeroTrend pct={metrics.closedPctChange} lang={lang} />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+                    <p className="text-[1.9rem] leading-none font-bold tracking-tight tabular-nums">
+                      {fmtKr(metrics.closedValueThisMonth)}
+                    </p>
+                    <span className="text-[12px] text-sky-100/80 font-medium">
+                      · {metrics.closedCountThisMonth} {T.orders[lang]}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sky-100/70 mt-1.5">{T.vs_last_month[lang]}</p>
+                </div>
+                {/* Mini bar chart */}
+                <div className="relative w-32 h-16 shrink-0 opacity-90 flex items-end gap-1">
+                  {CLOSED_BARS.map((v, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-sm bg-gradient-to-t from-sky-300/40 to-sky-200/90"
+                      style={{ height: `${v}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          {/* RIGHT RAIL — 4 compact KPIs in 2x2 grid */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4 auto-rows-fr">
             <KpiRow icon={Sparkles} accent="violet" label={T.kpi_leads[lang]}
                     value={String(metrics.activeLeads)} trendPct={metrics.leadsPctChange}
                     lang={lang} to="/portal/crm/leads" />
@@ -264,21 +316,17 @@ export default function CrmDashboardPage() {
                     value={`${metrics.winRate}%`} lang={lang} />
             <KpiRow icon={Clock} accent="amber" label={T.kpi_avgtime[lang]}
                     value={`${metrics.avgSalesDays} ${T.days[lang]}`} lang={lang} />
-            <KpiRow icon={ShoppingCart} accent="emerald" label={T.kpi_closed[lang]}
-                    value={fmtKrShort(metrics.closedValueThisMonth)}
-                    sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
-                    trendPct={metrics.closedPctChange} lang={lang}
-                    className="sm:col-span-2" />
           </div>
         </div>
 
-        {/* PIPELINE — bars + donut */}
+        {/* PIPELINE — bars + horizontal stacked bar legend */}
         <Card className="mb-6">
           <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
           {metrics.pipelineByStage.every(s => s.value === 0 && s.count === 0) ? (
             <EmptyState text={T.empty[lang]} />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: per-stage progress bars */}
               <div className="lg:col-span-2 space-y-3.5">
                 {(() => {
                   const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
@@ -311,52 +359,58 @@ export default function CrmDashboardPage() {
                   });
                 })()}
               </div>
-              <div className="flex flex-col items-center justify-center">
-                <div className="relative h-56 w-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={metrics.pipelineByStage.filter(s => s.count > 0).map(s => ({
-                          name: T[`stage_${s.key}`][lang], value: s.count, fill: s.hex,
-                        }))}
-                        dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={3}
-                        stroke="white" strokeWidth={3} isAnimationActive
-                      >
-                        {metrics.pipelineByStage.filter(s => s.count > 0).map((s, i) => (
-                          <Cell key={i} fill={s.hex} />
-                        ))}
-                      </Pie>
-                      <RTooltip
-                        cursor={false}
-                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
-                        contentStyle={{
-                          borderRadius: 12,
-                          border: '1px solid #e5e7eb',
-                          fontSize: 12,
-                          boxShadow: '0 10px 30px -10px rgba(15,23,42,0.25)',
-                          padding: '8px 12px',
-                        }}
-                        formatter={(v: number, name: string) => [`${v}`, name]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400 font-semibold">{T.pipeline_total[lang]}</span>
-                    <span className="text-xl font-bold text-slate-900 tabular-nums mt-1">{fmtKrShort(metrics.pipelineValue)}</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">
-                      {metrics.pipelineByStage.reduce((s, x) => s + x.count, 0)} {T.orders[lang]}
+
+              {/* Right: horizontal stacked bar + legend (replaces donut) */}
+              <div className="flex flex-col">
+                <div className="rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-5">
+                  <div className="flex items-baseline justify-between mb-4">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 font-semibold">
+                      {T.pipeline_total[lang]}
+                    </span>
+                    <span className="text-lg font-bold text-slate-900 tabular-nums">
+                      {fmtKrShort(metrics.pipelineValue)}
                     </span>
                   </div>
-                </div>
-                {/* Legend */}
-                <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-1.5 w-full max-w-[260px]">
-                  {metrics.pipelineByStage.filter(s => s.count > 0).map(s => (
-                    <div key={s.key} className="flex items-center gap-2 text-[11px] text-slate-600">
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.hex }} />
-                      <span className="truncate">{T[`stage_${s.key}`][lang]}</span>
-                      <span className="ml-auto tabular-nums font-semibold text-slate-700">{s.count}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const totalValue = Math.max(1, metrics.pipelineByStage.reduce((s, x) => s + x.value, 0));
+                    const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                    const segs = metrics.pipelineByStage.filter(s => s.value > 0);
+                    return (
+                      <>
+                        <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200/60">
+                          {segs.map((s, i) => {
+                            const pct = (s.value / totalValue) * 100;
+                            return (
+                              <div
+                                key={s.key}
+                                title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value)}`}
+                                className={`${s.bar} h-full ${i === 0 ? '' : 'border-l border-white/60'}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          {metrics.pipelineByStage.filter(s => s.count > 0).map(s => {
+                            const pct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                            return (
+                              <div key={s.key} className="flex items-center gap-2 text-[11.5px]">
+                                <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: s.hex }} />
+                                <span className="text-slate-700 font-medium truncate">{T[`stage_${s.key}`][lang]}</span>
+                                <span className="ml-auto text-slate-500 tabular-nums shrink-0">
+                                  <span className="font-semibold text-slate-700">{s.count}</span>
+                                  <span className="mx-1 text-slate-300">·</span>
+                                  <span>{fmtKrShort(s.value)}</span>
+                                  <span className="mx-1 text-slate-300">·</span>
+                                  <span>{pct}%</span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
