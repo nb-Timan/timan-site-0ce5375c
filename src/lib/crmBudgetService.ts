@@ -135,9 +135,9 @@ export function findProduct(key: string): BudgetProduct | undefined {
 
 // Storage (localStorage fallback)
 // Bump suffix when changing seed shape so previews refresh.
-const LS_LINES = "timan.crm.budget.lines.v3";
-const LS_FORECASTS = "timan.crm.budget.forecasts.v3";
-const LS_ACTUALS = "timan.crm.budget.actuals.v3";
+const LS_LINES = "timan.crm.budget.lines.v4";
+const LS_FORECASTS = "timan.crm.budget.forecasts.v4";
+const LS_ACTUALS = "timan.crm.budget.actuals.v4";
 
 function readLS<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || "[]") as T[]; } catch { return []; }
@@ -168,16 +168,21 @@ export interface BudgetSellerRef {
   email: string;
   country: string;
 }
+// Sellers compared in the seller-overview / performance reporting.
+// NOTE: BP also has Timan Backend access (sales manager) but his own
+// sales activity must still be tracked under seller initials "BP".
 export const BUDGET_SELLERS: BudgetSellerRef[] = [
+  { initials: "BP",  full_name: "BP",  email: "bp@timan.dk",  country: "DK" },
   { initials: "EM",  full_name: "EM",  email: "em@timan.dk",  country: "DK" },
-  { initials: "AKR", full_name: "AKR", email: "akr@timan.dk", country: "DE" },
   { initials: "JTN", full_name: "JTN", email: "jtn@timan.dk", country: "DK" },
+  { initials: "AKR", full_name: "AKR", email: "akr@timan.dk", country: "DE" },
 ];
-// Backend (Timan Backend) users — used for the seller-filter dropdown.
+// Backend (Timan Backend) users who can see the full seller overview.
+// BP appears here AND in BUDGET_SELLERS — backend for access, seller for performance.
 export const BUDGET_BACKEND_USERS: BudgetSellerRef[] = [
   { initials: "BP", full_name: "BP", email: "bp@timan.dk", country: "DK" },
+  { initials: "JA", full_name: "JA", email: "ja@timan.dk", country: "DK" },
   { initials: "NB", full_name: "NB", email: "nb@timan.dk", country: "DK" },
-  { initials: "JN", full_name: "JN", email: "jn@timan.dk", country: "DK" },
 ];
 
 // ---------- Seed (only if empty) ----------
@@ -217,9 +222,17 @@ function ensureSeed() {
   if (existing.length > 0) return;
   const year = 2026;
 
-  const EM  = BUDGET_SELLERS[0];
-  const AKR = BUDGET_SELLERS[1];
-  const JTN = BUDGET_SELLERS[2];
+  const BP  = BUDGET_SELLERS.find(s => s.initials === "BP")!;
+  const EM  = BUDGET_SELLERS.find(s => s.initials === "EM")!;
+  const JTN = BUDGET_SELLERS.find(s => s.initials === "JTN")!;
+  const AKR = BUDGET_SELLERS.find(s => s.initials === "AKR")!;
+
+  // BP — DK (sales manager, key accounts)
+  const bp: BudgetLine[] = [
+    makeLine(year, "RC-1000s",   "RC-1000s Basismaskine", "411000", BP, 6, 1_410_000, "Key accounts"),
+    makeLine(year, "Timan 3330", "Timan 3330",            "712000", BP, 5, 3_250_000),
+    makeLine(year, "Tool-Trac",  "Tool-Trac",             null,     BP, 3, 1_050_000),
+  ];
 
   // EM — DK (full portfolio, strong volume)
   const em: BudgetLine[] = [
@@ -245,11 +258,21 @@ function ensureSeed() {
     makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     JTN, 4,  1_400_000),
   ];
 
-  const seedLines: BudgetLine[] = [...em, ...akr, ...jtn];
+  const seedLines: BudgetLine[] = [...bp, ...em, ...akr, ...jtn];
   writeLS(LS_LINES, seedLines);
 
   // Forecast & sold seed values per seller (per machine key).
   type Pair = { qty: number; value: number };
+  const fcBP: Record<string, Pair> = {
+    "RC-1000s":   { qty: 7, value: 1_645_000 },
+    "Timan 3330": { qty: 6, value: 3_900_000 },
+    "Tool-Trac":  { qty: 3, value: 1_050_000 },
+  };
+  const acBP: Record<string, Pair> = {
+    "RC-1000s":   { qty: 2, value: 470_000 },
+    "Timan 3330": { qty: 1, value: 650_000 },
+    "Tool-Trac":  { qty: 1, value: 350_000 },
+  };
   const fcEM: Record<string, Pair> = {
     "RC-751":     { qty: 9, value: 1_260_000 },
     "RC-1000s":   { qty: 10, value: 2_350_000 },
@@ -298,6 +321,7 @@ function ensureSeed() {
       if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
     }
   }
+  pushForLines(bp, fcBP, acBP, 75);
   pushForLines(em, fcEM, acEM, 70);
   pushForLines(akr, fcAKR, acAKR, 60);
   pushForLines(jtn, fcJTN, acJTN, 65);
