@@ -161,12 +161,11 @@ const T3330_EQUIPMENT: EquipmentCategory[] = [
   { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available" },
 ];
 
-// Timan 2620: no configurator data yet → planning rows, no prices.
+// Timan 2620: planning-only budget rows (NOT in configurator catalog, no prices).
+// These are CRM Budget planning placeholders only.
 const T2620_EQUIPMENT: EquipmentCategory[] = [
-  { key: "T2620_SWEEP",  parent_machine_key: "Timan 2620", name: { da: "Feje/Sug Redskaber",   en: "Sweep/Vac implements", de: "Kehr-/Sauggeräte",      it: "Attrezzature spazzatura", hu: "Seprés/szívó eszközök" }, varenr: null, status: "preview" },
-  { key: "T2620_GRASS",  parent_machine_key: "Timan 2620", name: { da: "Græs opgaver",         en: "Grass tasks",          de: "Grasarbeiten",          it: "Lavori erba",             hu: "Fű feladatok" },          varenr: null, status: "preview" },
-  { key: "T2620_WINTER", parent_machine_key: "Timan 2620", name: { da: "Vinter redskaber",     en: "Winter implements",    de: "Wintergeräte",          it: "Attrezzature invernali",  hu: "Téli eszközök" },         varenr: null, status: "preview" },
-  { key: "T2620_OTHER",  parent_machine_key: "Timan 2620", name: { da: "Øvrige Redskaber",     en: "Other implements",     de: "Weitere Geräte",        it: "Altri attrezzi",          hu: "Egyéb eszközök" },        varenr: null, status: "preview" },
+  { key: "T2620_FEJESUG",     parent_machine_key: "Timan 2620", name: { da: "Feje sug 2620",        en: "Sweep/Vac 2620",      de: "Kehr-/Saug 2620",       it: "Spazzatrice/Asp. 2620",   hu: "Seprő-szívó 2620" },     varenr: "123456", status: "preview" },
+  { key: "T2620_GRAESKLIPPER", parent_machine_key: "Timan 2620", name: { da: "Græsklipper for 2620", en: "Mower for 2620",     de: "Rasenmäher für 2620",   it: "Tosaerba per 2620",       hu: "Fűnyíró 2620-hoz" },     varenr: "987654", status: "preview" },
 ];
 
 export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = {

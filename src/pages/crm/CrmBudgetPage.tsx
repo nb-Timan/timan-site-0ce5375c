@@ -348,6 +348,14 @@ export default function CrmBudgetPage() {
 
   // Group lines by product (machine model). Enforce required machine order.
   const MACHINE_ORDER = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+  // Visual color accent per main machine group (Tailwind tokens).
+  const MACHINE_COLORS: Record<string, { bar: string; gradient: string; row: string; text: string }> = {
+    "RC-751":     { bar: "bg-yellow-500", gradient: "from-yellow-50 to-white",  row: "bg-yellow-50/30",  text: "text-yellow-900" },
+    "RC-1000s":   { bar: "bg-red-500",    gradient: "from-red-50 to-white",     row: "bg-red-50/30",     text: "text-red-900" },
+    "Timan 3330": { bar: "bg-green-600",  gradient: "from-green-50 to-white",   row: "bg-green-50/30",   text: "text-green-900" },
+    "Timan 2620": { bar: "bg-blue-500",   gradient: "from-blue-50 to-white",    row: "bg-blue-50/30",    text: "text-blue-900" },
+  };
+  const defaultColor = { bar: "bg-emerald-500", gradient: "from-slate-100 to-slate-50", row: "", text: "text-slate-900" };
   const grouped = useMemo(() => {
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
@@ -996,6 +1004,7 @@ export default function CrmBudgetPage() {
                         const anyLocked = group.lines.some(l => l.locked);
                         const equipList = EQUIPMENT_BY_MACHINE[group.product_key] || [];
                         const expanded = expandedEquip[group.product_key] !== false;
+                        const colors = MACHINE_COLORS[group.product_key] || defaultColor;
 
                         return (
                           <Fragment key={group.product_key}>
@@ -1009,12 +1018,12 @@ export default function CrmBudgetPage() {
                             )}
                             {/* Machine title row */}
                             <tr key={`title-${group.product_key}`}>
-                              <td colSpan={15} className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300 border-b border-slate-200 px-3 py-3 shadow-sm">
+                              <td colSpan={15} className={cn("bg-gradient-to-r border-t-2 border-b border-slate-200 px-3 py-3 shadow-sm", colors.gradient, "border-t-slate-300")}>
                                 <div className="flex items-center justify-between gap-3 flex-wrap">
                                   <div className="flex items-center gap-2">
-                                    <span className="inline-block h-5 w-1 rounded bg-emerald-500" aria-hidden="true" />
-                                    <span className="font-semibold text-slate-900 text-base">{group.product_name}</span>
-                                    {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
+                                    <span className={cn("inline-block h-5 w-1.5 rounded", colors.bar)} aria-hidden="true" />
+                                    <span className={cn("font-semibold text-base", colors.text)}>{group.product_name}</span>
+                                    {group.item_number ? <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span> : <span className="text-xs text-slate-400 italic">· varenr. mangler</span>}
                                     {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
                                     {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
                                   </div>
@@ -1048,18 +1057,21 @@ export default function CrmBudgetPage() {
                             {equipList.length > 0 && (
                               <>
                                 <tr key={`equip-h-${group.product_key}`}>
-                                  <td colSpan={15} className="bg-slate-50 border-t border-slate-100 px-3 py-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
-                                      className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
-                                      aria-expanded={expanded}
-                                      title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
-                                    >
-                                      {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      <Wrench className="h-3.5 w-3.5 text-emerald-600" />
-                                      {T.equipment_for[lang]} {group.product_name}
-                                    </button>
+                                  <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1.5", colors.row || "bg-slate-50")}>
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn("inline-block h-3.5 w-1 rounded", colors.bar)} aria-hidden="true" />
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
+                                        className={cn("inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide hover:opacity-80", colors.text)}
+                                        aria-expanded={expanded}
+                                        title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
+                                      >
+                                        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        <Wrench className="h-3.5 w-3.5" />
+                                        {T.equipment_for[lang]} {group.product_name}
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
 
@@ -1071,11 +1083,12 @@ export default function CrmBudgetPage() {
                                     <Fragment key={`equip-frag-${eq.key}`}>
                                       {/* Equipment title sub-row */}
                                       <tr key={`equip-title-${eq.key}`}>
-                                        <td colSpan={15} className="bg-white border-t border-slate-100 px-3 py-1.5 pl-8">
+                                        <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1.5 pl-8", colors.row || "bg-white")}>
                                           <div className="flex items-center gap-2">
+                                            <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
                                             <Wrench className="h-3 w-3 text-slate-400" />
                                             <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
-                                            {eq.varenr && <span className="text-[10px] text-slate-400 tabular-nums">· {eq.varenr}</span>}
+                                            {eq.varenr ? <span className="text-[10px] text-slate-500 tabular-nums">· {eq.varenr}</span> : <span className="text-[10px] text-slate-400 italic">· varenr. mangler</span>}
                                             {isPreview && (
                                               <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                                                 {T.preview_row[lang]}
