@@ -324,7 +324,8 @@ export default function CrmBudgetPage() {
     return map;
   }, [visibleLines, year]);
 
-  // Group lines by product (machine model).
+  // Group lines by product (machine model). Enforce required machine order.
+  const MACHINE_ORDER = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
   const grouped = useMemo(() => {
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
@@ -332,7 +333,20 @@ export default function CrmBudgetPage() {
       prev.lines.push(l);
       m.set(l.product_key, prev);
     });
-    return Array.from(m.values());
+    // Ensure all 4 machines appear (even with empty lines) and in the required order.
+    const out: Array<{ product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }> = [];
+    for (const key of MACHINE_ORDER) {
+      if (m.has(key)) {
+        out.push(m.get(key)!);
+        m.delete(key);
+      } else {
+        const p = findProduct(key);
+        if (p) out.push({ product_key: key, product_name: p.name, item_number: p.varenr, lines: [] });
+      }
+    }
+    // Append any other product groups (filtered Tool-Trac removed in service).
+    m.forEach(v => out.push(v));
+    return out;
   }, [visibleLines]);
 
   // KPI totals
