@@ -336,6 +336,14 @@ export default function CrmBudgetPage() {
     }
     const unit = product.priceDKK || 0;
     const qty = Math.max(0, Number(newRow.qty_budget) || 0);
+    // Try to derive seller_email/initials from the typed seller name (matches a known seller)
+    // or fall back to the current user's identity.
+    const typedName = (newRow.seller_name || "").trim();
+    const known = BUDGET_SELLERS.find(
+      s => s.full_name.toLowerCase() === typedName.toLowerCase() || s.initials.toLowerCase() === typedName.toLowerCase(),
+    );
+    const seller_email = known?.email ?? (isAdmin ? null : (appUser?.email ?? null));
+    const seller_initials = known?.initials ?? (isAdmin ? (typedName || null) : (myInitialsFromName || null));
     const created = await createBudgetLine({
       year,
       product_key: product.key,
@@ -343,7 +351,9 @@ export default function CrmBudgetPage() {
       item_number: product.varenr,
       category: product.category,
       seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: newRow.seller_name || (appUser?.display_name ?? null),
+      seller_name: typedName || (appUser?.display_name ?? null),
+      seller_email,
+      seller_initials,
       country: newRow.country || null,
       qty_budget: qty,
       value_budget: qty * unit,
