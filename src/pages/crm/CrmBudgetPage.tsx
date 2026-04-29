@@ -16,12 +16,14 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
+  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock,
+  customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
+  type EquipmentCategory,
   findProduct,
 } from "@/lib/crmBudgetService";
 
@@ -116,6 +118,20 @@ const T: Record<string, Record<Language, string>> = {
                         it: 'Budget bloccato — chiedi al backend di aprirlo.',
                         hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
   row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
+  // "Nyt varenr." product creation flow
+  new_item:      { da: 'Nyt varenr.',           en: 'New item no.',            de: 'Neue Artikelnr.',         it: 'Nuovo cod. art.',         hu: 'Új cikkszám' },
+  new_item_title:{ da: 'Opret nyt varenummer til budget', en: 'Create new item number for budget', de: 'Neue Artikelnummer für Budget anlegen', it: 'Crea nuovo codice articolo per il budget', hu: 'Új cikkszám létrehozása a költségvetéshez' },
+  field_type:    { da: 'Type',                  en: 'Type',                    de: 'Typ',                     it: 'Tipo',                    hu: 'Típus' },
+  type_machine:  { da: 'Maskine',               en: 'Machine',                 de: 'Maschine',                it: 'Macchina',                hu: 'Gép' },
+  type_attach:   { da: 'Redskab',               en: 'Attachment',              de: 'Anbaugerät',              it: 'Attrezzatura',            hu: 'Tartozék' },
+  field_pname:   { da: 'Produktnavn',           en: 'Product name',            de: 'Produktname',             it: 'Nome prodotto',           hu: 'Terméknév' },
+  field_varenr:  { da: 'Varenummer',            en: 'Item number',             de: 'Artikelnummer',           it: 'Codice articolo',         hu: 'Cikkszám' },
+  field_owner:   { da: 'Sælger / ejer',         en: 'Seller / owner',          de: 'Verkäufer / Eigentümer',  it: 'Venditore / proprietario', hu: 'Értékesítő / tulajdonos' },
+  owner_all:     { da: 'Alle sælgere',          en: 'All sellers',             de: 'Alle Verkäufer',          it: 'Tutti i venditori',       hu: 'Összes értékesítő' },
+  field_parent:  { da: 'Tilhører maskine',      en: 'Belongs to machine',      de: 'Gehört zu Maschine',      it: 'Appartiene alla macchina', hu: 'Géphez tartozik' },
+  pick_parent:   { da: 'Vælg en hovedmaskine',  en: 'Select a main machine',   de: 'Hauptmaschine wählen',    it: 'Seleziona macchina principale', hu: 'Válasszon főgépet' },
+  validation_required: { da: 'Udfyld navn og varenummer.', en: 'Please fill in name and item number.', de: 'Bitte Name und Artikelnummer ausfüllen.', it: 'Inserisci nome e codice articolo.', hu: 'Kérjük, adja meg a nevet és a cikkszámot.' },
+  validation_parent: { da: 'Vælg en hovedmaskine for redskabet.', en: 'Select a parent machine for the attachment.', de: 'Hauptmaschine für das Anbaugerät auswählen.', it: 'Seleziona una macchina per l\'attrezzatura.', hu: 'Válasszon főgépet a tartozékhoz.' },
 };
 
 // Localized month labels.
@@ -257,12 +273,13 @@ function KpiCard({ label, value, sub, icon: Icon, tone = "neutral" }: { label: s
   );
 }
 
-interface NewRowState {
-  product_key: string;
-  seller_name: string;
+interface NewProductState {
+  type: "machine" | "attachment";
+  name: string;
+  varenr: string;
+  parent_machine_key: string; // required when type === "attachment"
+  seller_email: string;       // "" = all sellers
   country: string;
-  qty_budget: number;
-  notes: string;
 }
 
 // Per-machine working forecast monthly draft.
@@ -287,9 +304,11 @@ export default function CrmBudgetPage() {
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
   const [backendFilter, setBackendFilter] = useState<string>("all");
-  const [newRow, setNewRow] = useState<NewRowState>({
-    product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "",
+  const [newRow, setNewRow] = useState<NewProductState>({
+    type: "machine", name: "", varenr: "", parent_machine_key: "RC-1000s", seller_email: "", country: "DK",
   });
+  // Bumps to force re-read of custom products after creation.
+  const [customRev, setCustomRev] = useState(0);
   // Per-machine expand/collapse state for equipment sections.
   // Default: expanded so backend users see the structure.
   const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
@@ -356,6 +375,11 @@ export default function CrmBudgetPage() {
     "Timan 2620": { bar: "bg-blue-500",   gradient: "from-blue-50 to-white",    row: "bg-blue-50/30",    text: "text-blue-900" },
   };
   const defaultColor = { bar: "bg-emerald-500", gradient: "from-slate-100 to-slate-50", row: "", text: "text-slate-900" };
+
+  // Custom (Budget-only) machines + equipment, re-read on creation.
+  const customMachines = useMemo(() => customMachineProducts(), [customRev]);
+  const customEquip = useMemo(() => customEquipmentByMachine(), [customRev]);
+
   const grouped = useMemo(() => {
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
@@ -363,21 +387,30 @@ export default function CrmBudgetPage() {
       prev.lines.push(l);
       m.set(l.product_key, prev);
     });
-    // Ensure all 4 machines appear (even with empty lines) and in the required order.
     const out: Array<{ product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }> = [];
     for (const key of MACHINE_ORDER) {
-      if (m.has(key)) {
-        out.push(m.get(key)!);
-        m.delete(key);
-      } else {
+      if (m.has(key)) { out.push(m.get(key)!); m.delete(key); }
+      else {
         const p = findProduct(key);
         if (p) out.push({ product_key: key, product_name: p.name, item_number: p.varenr, lines: [] });
       }
     }
-    // Append any other product groups (filtered Tool-Trac removed in service).
+    // Append custom machines (Budget-only) — always show even with no lines.
+    for (const cm of customMachines) {
+      if (m.has(cm.key)) { out.push(m.get(cm.key)!); m.delete(cm.key); }
+      else out.push({ product_key: cm.key, product_name: cm.name, item_number: cm.varenr, lines: [] });
+    }
     m.forEach(v => out.push(v));
     return out;
-  }, [visibleLines]);
+  }, [visibleLines, customMachines]);
+
+  // Merged equipment map (stock + custom Budget-only equipment).
+  const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
+    const out: Record<string, EquipmentCategory[]> = {};
+    for (const k of Object.keys(EQUIPMENT_BY_MACHINE)) out[k] = [...EQUIPMENT_BY_MACHINE[k]];
+    for (const k of Object.keys(customEquip)) out[k] = [...(out[k] || []), ...customEquip[k]];
+    return out;
+  }, [customEquip]);
 
   // KPI totals
   const totals = useMemo(() => {
@@ -565,41 +598,30 @@ export default function CrmBudgetPage() {
     setLines(prev => prev.filter(l => l.id !== id));
   }
 
-  async function addLine() {
-    const product = findProduct(newRow.product_key);
-    if (!product) return;
-    if (product.status === "coming_soon") {
-      if (!confirm(`${product.name} ${T.cs_confirm[lang]}`)) return;
+  // Create a new Budget-only product (machine or attachment). Does NOT touch
+  // the configurator catalog, pricing, or order flow.
+  async function addProduct() {
+    const name = newRow.name.trim();
+    const varenr = newRow.varenr.trim();
+    if (!name || !varenr) {
+      alert(T.validation_required[lang]);
+      return;
     }
-    const unit = product.priceDKK || 0;
-    const qty = Math.max(0, Number(newRow.qty_budget) || 0);
-    // Try to derive seller_email/initials from the typed seller name (matches a known seller)
-    // or fall back to the current user's identity.
-    const typedName = (newRow.seller_name || "").trim();
-    const known = BUDGET_SELLERS.find(
-      s => s.full_name.toLowerCase() === typedName.toLowerCase() || s.initials.toLowerCase() === typedName.toLowerCase(),
-    );
-    const seller_email = known?.email ?? (isAdmin ? null : (appUser?.email ?? null));
-    const seller_initials = known?.initials ?? (isAdmin ? (typedName || null) : (myInitialsFromName || null));
-    const created = await createBudgetLine({
-      year,
-      product_key: product.key,
-      product_name: product.name,
-      item_number: product.varenr,
-      category: product.category,
-      seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: typedName || (appUser?.display_name ?? null),
-      seller_email,
-      seller_initials,
+    if (newRow.type === "attachment" && !newRow.parent_machine_key) {
+      alert(T.validation_parent[lang]);
+      return;
+    }
+    createCustomProduct({
+      type: newRow.type,
+      name,
+      varenr,
+      parent_machine_key: newRow.type === "attachment" ? newRow.parent_machine_key : null,
+      seller_email: newRow.seller_email || null,
       country: newRow.country || null,
-      qty_budget: qty,
-      value_budget: qty * unit,
-      monthly_split: EVEN,
-      notes: newRow.notes || null,
     });
-    setLines(prev => [...prev, created]);
+    setCustomRev(v => v + 1);
     setShowAdd(false);
-    setNewRow({ product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "" });
+    setNewRow({ type: "machine", name: "", varenr: "", parent_machine_key: "RC-1000s", seller_email: "", country: "DK" });
   }
 
   // void to silence unused warning for upsertBudgetLine import (kept for future inline edits)
@@ -696,14 +718,14 @@ export default function CrmBudgetPage() {
                   : null;
                 setNewRow(r => ({
                   ...r,
-                  seller_name: known?.initials ?? r.seller_name,
+                  seller_email: known?.email ?? r.seller_email,
                   country: known?.country ?? r.country,
                 }));
                 setShowAdd(true);
               }}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
             >
-              <Plus className="h-4 w-4" /> {T.new_line[lang]}
+              <Plus className="h-4 w-4" /> {T.new_item[lang]}
             </button>
           )}
         </div>
@@ -763,7 +785,17 @@ export default function CrmBudgetPage() {
                     // has no real line yet (e.g. RC-751 with no seed), build a
                     // synthetic seed line — `ensurePersistedLine` will persist it
                     // on the first stepper press.
-                    const primaryLine: BudgetLine = rowLines[0] ?? (() => {
+                    // Pick the primary line that the steppers act on.
+                    // Priority:
+                    //   1. The line owned by the currently selected seller (if any).
+                    //   2. The first existing line in the group.
+                    //   3. A synthetic seed line owned by selectedSellerEmail / myEmail.
+                    // This guarantees IDENTICAL behavior across all machine rows
+                    // (RC-751, RC-1000s, Timan 3330/2620 + custom machines).
+                    const matchSelected = selectedSellerEmail
+                      ? rowLines.find(l => (l.seller_email || "").toLowerCase() === selectedSellerEmail)
+                      : null;
+                    const primaryLine: BudgetLine = matchSelected ?? rowLines[0] ?? (() => {
                       const pkey = fallbackProductKey || keyPrefix;
                       const product = findProduct(pkey);
                       return {
@@ -787,9 +819,15 @@ export default function CrmBudgetPage() {
                       } as BudgetLine;
                     })();
                     const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+                    // Lock-check policy:
+                    //   - Backend admin viewing "All sellers": editing requires a
+                    //     specific seller selection, so the gray Budget row is
+                    //     read-only here (steppers hidden).
+                    //   - Otherwise, use the per-seller / per-year lock.
+                    const adminAllSellers = isAdmin && !selectedSellerEmail;
                     const blockLocked = isLineLocked(primaryLine);
-                    const canEditBudget = isAdmin && !blockLocked;
-                    const canEditWorking = !blockLocked && (isAdmin || isSeller);
+                    const canEditBudget  = isAdmin  && !adminAllSellers && !blockLocked;
+                    const canEditWorking = !adminAllSellers && !blockLocked && (isAdmin || isSeller);
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
@@ -1002,7 +1040,7 @@ export default function CrmBudgetPage() {
                         const product = findProduct(group.product_key);
                         const comingSoon = product?.status === "coming_soon";
                         const anyLocked = group.lines.some(l => l.locked);
-                        const equipList = EQUIPMENT_BY_MACHINE[group.product_key] || [];
+                        const equipList = equipmentMap[group.product_key] || [];
                         const expanded = expandedEquip[group.product_key] !== false;
                         const colors = MACHINE_COLORS[group.product_key] || defaultColor;
 
@@ -1120,44 +1158,79 @@ export default function CrmBudgetPage() {
         </div>
       </TooltipProvider>
 
-      {/* Add modal */}
+      {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">{T.modal_title[lang]} · {year}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{T.new_item_title[lang]} · {year}</h3>
               <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-slate-600">{T.field_product[lang]}</span>
-                <select className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.product_key} onChange={(e) => setNewRow(r => ({ ...r, product_key: e.target.value }))}>
-                  {BUDGET_PRODUCTS.map(p => (
-                    <option key={p.key} value={p.key}>
-                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? `(${T.coming_soon[lang]})` : ""}
-                    </option>
-                  ))}
+                <span className="text-xs text-slate-600">{T.field_type[lang]}</span>
+                <select
+                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  value={newRow.type}
+                  onChange={(e) => setNewRow(r => ({ ...r, type: e.target.value as "machine" | "attachment" }))}
+                >
+                  <option value="machine">{T.type_machine[lang]}</option>
+                  <option value="attachment">{T.type_attach[lang]}</option>
                 </select>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
+                  <span className="text-xs text-slate-600">{T.field_pname[lang]}</span>
+                  <input
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder={newRow.type === "machine" ? "RC-1500" : "Frontklipper"}
+                    value={newRow.name}
+                    onChange={(e) => setNewRow(r => ({ ...r, name: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_varenr[lang]}</span>
+                  <input
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm tabular-nums"
+                    placeholder={newRow.type === "machine" ? "999999" : "888111"}
+                    value={newRow.varenr}
+                    onChange={(e) => setNewRow(r => ({ ...r, varenr: e.target.value }))}
+                  />
+                </label>
+              </div>
+              {newRow.type === "attachment" && (
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_parent[lang]}</span>
                   <select
                     className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
-                    value={newRow.seller_name}
+                    value={newRow.parent_machine_key}
+                    onChange={(e) => setNewRow(r => ({ ...r, parent_machine_key: e.target.value }))}
+                  >
+                    <option value="">{T.pick_parent[lang]}</option>
+                    {["RC-1000s", "Timan 3330", "Timan 2620"].map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                    {customMachines.map(m => (
+                      <option key={m.key} value={m.key}>{m.name}{m.varenr ? ` · ${m.varenr}` : ""}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_owner[lang]}</span>
+                  <select
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    value={newRow.seller_email}
                     onChange={(e) => {
                       const val = e.target.value;
-                      const known = BUDGET_SELLERS.find(s => s.initials === val);
-                      setNewRow(r => ({
-                        ...r,
-                        seller_name: val,
-                        country: known?.country ?? r.country,
-                      }));
+                      const known = BUDGET_SELLERS.find(s => s.email === val);
+                      setNewRow(r => ({ ...r, seller_email: val, country: known?.country ?? r.country }));
                     }}
                   >
-                    <option value="">{T.placeholder_name[lang]}</option>
+                    <option value="">{T.owner_all[lang]}</option>
                     {BUDGET_SELLERS.map(s => (
-                      <option key={s.email} value={s.initials}>{s.initials} — {s.country}</option>
+                      <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
                     ))}
                   </select>
                 </label>
@@ -1166,18 +1239,10 @@ export default function CrmBudgetPage() {
                   <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.country} onChange={(e) => setNewRow(r => ({ ...r, country: e.target.value }))} />
                 </label>
               </div>
-              <label className="block">
-                <span className="text-xs text-slate-600">{T.field_qty[lang]}</span>
-                <input type="number" min={0} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.qty_budget} onChange={(e) => setNewRow(r => ({ ...r, qty_budget: Number(e.target.value) }))} />
-              </label>
-              <label className="block">
-                <span className="text-xs text-slate-600">{T.field_notes[lang]}</span>
-                <textarea rows={2} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.notes} onChange={(e) => setNewRow(r => ({ ...r, notes: e.target.value }))} />
-              </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">{T.cancel[lang]}</button>
-              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
+              <button onClick={addProduct} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
             </div>
           </div>
         </div>
