@@ -258,11 +258,21 @@ function ensureSeed() {
     makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     JTN, 4,  1_400_000),
   ];
 
-  const seedLines: BudgetLine[] = [...em, ...akr, ...jtn];
+  const seedLines: BudgetLine[] = [...bp, ...em, ...akr, ...jtn];
   writeLS(LS_LINES, seedLines);
 
   // Forecast & sold seed values per seller (per machine key).
   type Pair = { qty: number; value: number };
+  const fcBP: Record<string, Pair> = {
+    "RC-1000s":   { qty: 7, value: 1_645_000 },
+    "Timan 3330": { qty: 6, value: 3_900_000 },
+    "Tool-Trac":  { qty: 3, value: 1_050_000 },
+  };
+  const acBP: Record<string, Pair> = {
+    "RC-1000s":   { qty: 2, value: 470_000 },
+    "Timan 3330": { qty: 1, value: 650_000 },
+    "Tool-Trac":  { qty: 1, value: 350_000 },
+  };
   const fcEM: Record<string, Pair> = {
     "RC-751":     { qty: 9, value: 1_260_000 },
     "RC-1000s":   { qty: 10, value: 2_350_000 },
@@ -311,6 +321,7 @@ function ensureSeed() {
       if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
     }
   }
+  pushForLines(bp, fcBP, acBP, 75);
   pushForLines(em, fcEM, acEM, 70);
   pushForLines(akr, fcAKR, acAKR, 60);
   pushForLines(jtn, fcJTN, acJTN, 65);
