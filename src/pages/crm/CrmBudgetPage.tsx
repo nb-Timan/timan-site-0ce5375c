@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
-  Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench,
+  Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
 } from "lucide-react";
+import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -20,7 +21,8 @@ import {
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
-  getSellerYearLock, setSellerYearLock,
+  getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
+  appendBudgetAuditEntry,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type EquipmentCategory,
@@ -118,6 +120,20 @@ const T: Record<string, Record<Language, string>> = {
                         it: 'Budget bloccato — chiedi al backend di aprirlo.',
                         hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
   row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
+  // ----- Seller "edit working budget" mode + auto-lock -----
+  edit_working_btn: { da: 'Rediger arbejdsbudget', en: 'Edit working forecast', de: 'Arbeitsprognose bearbeiten', it: 'Modifica previsione', hu: 'Munka-előrejelzés szerkesztése' },
+  exit_edit:        { da: 'Afslut redigering',     en: 'Exit edit mode',        de: 'Bearbeitung beenden',     it: 'Esci dalla modifica',     hu: 'Szerkesztés befejezése' },
+  edit_active_hint: { da: 'Arbejdsbudget låses automatisk om {min} min.', en: 'Working forecast auto-locks in {min} min.', de: 'Arbeitsprognose sperrt automatisch in {min} Min.', it: 'Previsione si blocca automaticamente tra {min} min.', hu: 'Munka-előrejelzés automatikus zárolás {min} perc múlva.' },
+  edit_autolocked:  { da: 'Arbejdsbudget blev låst automatisk efter inaktivitet.',
+                      en: 'Working forecast was auto-locked after inactivity.',
+                      de: 'Arbeitsprognose wurde nach Inaktivität automatisch gesperrt.',
+                      it: 'Previsione bloccata automaticamente dopo inattività.',
+                      hu: 'Munka-előrejelzés inaktivitás után automatikusan zárolva.' },
+  // ----- Backend global (all-sellers) lock controls -----
+  unlock_all:    { da: 'Lås {year} op for alle', en: 'Unlock {year} for all',  de: '{year} für alle entsperren', it: 'Sblocca {year} per tutti', hu: '{year} feloldása mindenkinek' },
+  lock_all:      { da: 'Lås {year} for alle',    en: 'Lock {year} for all',    de: '{year} für alle sperren',    it: 'Blocca {year} per tutti', hu: '{year} zárolása mindenkinek' },
+  unlock_seller: { da: 'Lås {year} op for {who}', en: 'Unlock {year} for {who}', de: '{year} für {who} entsperren', it: 'Sblocca {year} per {who}', hu: '{year} feloldása {who} számára' },
+  lock_seller:   { da: 'Lås {year} for {who}',    en: 'Lock {year} for {who}',  de: '{year} für {who} sperren',    it: 'Blocca {year} per {who}', hu: '{year} zárolása {who} számára' },
   // "Nyt varenr." product creation flow
   new_item:      { da: 'Nyt varenr.',           en: 'New item no.',            de: 'Neue Artikelnr.',         it: 'Nuovo cod. art.',         hu: 'Új cikkszám' },
   new_item_title:{ da: 'Opret nyt varenummer til budget', en: 'Create new item number for budget', de: 'Neue Artikelnummer für Budget anlegen', it: 'Crea nuovo codice articolo per il budget', hu: 'Új cikkszám létrehozása a költségvetéshez' },
@@ -317,6 +333,41 @@ export default function CrmBudgetPage() {
   // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
   const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
+  // ─── Seller "Edit Arbejdsbudget" mode + 10-min inactivity auto-lock ───
+  // Only relevant for non-admin sellers; does NOT affect official Fastlagt
+  // Budget locks. Backend users always have edit access (not gated by this).
+  const EDIT_MODE_MS = 10 * 60 * 1000;
+  const [editModeUntil, setEditModeUntil] = useState<number | null>(null);
+  const [editCountdownMin, setEditCountdownMin] = useState<number>(0);
+  const editTickRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (editModeUntil == null) {
+      if (editTickRef.current) { window.clearInterval(editTickRef.current); editTickRef.current = null; }
+      setEditCountdownMin(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = editModeUntil - Date.now();
+      if (remaining <= 0) {
+        setEditModeUntil(null);
+        toast(T.edit_autolocked[lang]);
+      } else {
+        setEditCountdownMin(Math.max(1, Math.ceil(remaining / 60000)));
+      }
+    };
+    tick();
+    editTickRef.current = window.setInterval(tick, 30_000);
+    return () => { if (editTickRef.current) window.clearInterval(editTickRef.current); };
+  }, [editModeUntil, lang]);
+
+  function bumpEditActivity() {
+    if (editModeUntil == null) return;
+    setEditModeUntil(Date.now() + EDIT_MODE_MS);
+  }
+  function startEditMode() { setEditModeUntil(Date.now() + EDIT_MODE_MS); }
+  function endEditMode() { setEditModeUntil(null); }
+
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
   }, [appUser?.email]);
@@ -327,12 +378,15 @@ export default function CrmBudgetPage() {
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
       .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
       .finally(() => setBusy(false));
-    // Re-hydrate lock map for this year from storage.
+    // Re-hydrate effective lock map for this year (per-seller resolved against
+    // global ALL record so most-specific wins).
     const map: Record<string, SellerYearLock> = {};
     BUDGET_SELLERS.forEach(s => {
-      map[s.email.toLowerCase()] = getSellerYearLock(year, s.email);
+      map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
     });
     setSellerLocks(map);
+    // Always exit edit mode when year changes.
+    setEditModeUntil(null);
   }, [year, allowed]);
 
   // Resolve the current user's identity for scoping. We support multiple
@@ -449,19 +503,22 @@ export default function CrmBudgetPage() {
 
   function lockFor(email: string | null | undefined): SellerYearLock | null {
     if (!email) return null;
-    return sellerLocks[email.toLowerCase()] ?? getSellerYearLock(year, email);
+    return sellerLocks[email.toLowerCase()] ?? getEffectiveLock(year, email);
   }
 
+  /** True when the official Fastlagt Budget for this line's seller/year is
+   *  locked. Used to gate Backend's gray BUDGET row editing.
+   *  NOTE: Sellers' Arbejdsbudget editing is NOT gated by this — it is gated
+   *  by `editModeUntil` (per-session edit mode with auto-lock). */
   function isLineLocked(line: BudgetLine): boolean {
-    // Treat the per-seller/year lock as the source of truth.
-    // The legacy per-line `locked` flag is also honored for backwards compat.
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
     if (!email) return false;
     const sl = lockFor(email);
-    return sl ? sl.locked : true; // default = locked
+    return sl ? sl.locked : true;
   }
 
+  /** Per-seller official budget lock toggle (Backend only). */
   function toggleSellerLock(email: string) {
     if (!isAdmin || !email) return;
     const cur = lockFor(email);
@@ -470,6 +527,19 @@ export default function CrmBudgetPage() {
       appUser?.display_name || appUser?.email || "Backend",
     );
     setSellerLocks(prev => ({ ...prev, [email.toLowerCase()]: next }));
+  }
+
+  /** Lock/unlock the entire year for ALL sellers (Backend only).
+   *  Per-seller explicit records still win over this. After applying, refresh
+   *  every seller's effective lock so the UI reflects the change immediately. */
+  function toggleGlobalYearLock(nextLocked: boolean) {
+    if (!isAdmin) return;
+    setGlobalYearLock(year, nextLocked, appUser?.display_name || appUser?.email || "Backend");
+    const map: Record<string, SellerYearLock> = {};
+    BUDGET_SELLERS.forEach(s => {
+      map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
+    });
+    setSellerLocks(map);
   }
 
   // ---- Per-line monthly derivations ----
@@ -523,22 +593,24 @@ export default function CrmBudgetPage() {
 
   // ---- Working forecast handlers (auto-save) ----
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Block when this seller's budget is locked.
-    if (isLineLocked(line)) return;
+    // Sellers must be in active "Rediger arbejdsbudget" edit mode to change
+    // their own working forecast. Backend can always edit.
+    if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     const lineId = persisted.id;
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+    const prevDraft = workingDraft[lineId] ?? splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const oldVal = prevDraft[monthIdx] ?? 0;
+    const newVal = Math.max(0, oldVal + delta);
+    if (newVal === oldVal) return;
+
     setWorkingDraft(prev => {
-      const cur = prev[lineId] ?? (() => {
-        const fc = forecasts.find(f => f.budget_line_id === lineId);
-        const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-        return splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
-      })();
+      const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
-      next[monthIdx] = Math.max(0, (next[monthIdx] ?? 0) + delta);
-      // Auto-save forecast for this line
+      next[monthIdx] = newVal;
       const qty = next.reduce((a, b) => a + b, 0);
       const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
-      const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
       const fcNext: BudgetForecast = {
         id: fcExisting?.id || ("f_" + lineId),
         budget_line_id: lineId,
@@ -559,6 +631,21 @@ export default function CrmBudgetPage() {
       });
       return { ...prev, [lineId]: next };
     });
+
+    // Audit: who changed what, when. Visible to Timan Backend in audit log.
+    appendBudgetAuditEntry({
+      year,
+      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
+      seller_name: persisted.seller_name || appUser?.display_name || null,
+      product_name: persisted.product_name,
+      item_number: persisted.item_number,
+      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      old_value: oldVal,
+      new_value: newVal,
+    });
+
+    // Reset the 10-min inactivity timer on each successful change.
+    bumpEditActivity();
   }
 
   // ---- Gray BUDGET row editing (admin-only, when seller/year is unlocked). ----
@@ -710,6 +797,68 @@ export default function CrmBudgetPage() {
               </div>
             );
           })()}
+          {/* Backend: Global (all-sellers) lock controls for the active year. */}
+          {isAdmin && (() => {
+            const globalEffective = getEffectiveLock(year, "");
+            const globalLocked = globalEffective.locked;
+            const fmt = (s: string) => s.replace("{year}", String(year));
+            return (
+              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]} · alle</span>
+                <button
+                  type="button"
+                  onClick={() => toggleGlobalYearLock(false)}
+                  disabled={!globalLocked}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                    "border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed",
+                  )}
+                  title={fmt(T.unlock_all[lang])}
+                >
+                  <Unlock className="h-3 w-3" /> {fmt(T.unlock_all[lang])}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleGlobalYearLock(true)}
+                  disabled={globalLocked}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                    "border-sky-200 text-sky-700 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed",
+                  )}
+                  title={fmt(T.lock_all[lang])}
+                >
+                  <Lock className="h-3 w-3" /> {fmt(T.lock_all[lang])}
+                </button>
+              </div>
+            );
+          })()}
+          {/* Seller: Edit Arbejdsbudget mode toggle (10-min auto-lock). */}
+          {!isAdmin && isSeller && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              {editModeUntil == null ? (
+                <button
+                  type="button"
+                  onClick={startEditMode}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Pencil className="h-3 w-3" /> {T.edit_working_btn[lang]}
+                </button>
+              ) : (
+                <>
+                  <span className="text-xs text-slate-600">
+                    {T.edit_active_hint[lang].replace("{min}", String(editCountdownMin))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={endEditMode}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Lock className="h-3 w-3" /> {T.exit_edit[lang]}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {isAdmin && (
             <button
               onClick={() => {
@@ -826,8 +975,14 @@ export default function CrmBudgetPage() {
                     //   - Otherwise, use the per-seller / per-year lock.
                     const adminAllSellers = isAdmin && !selectedSellerEmail;
                     const blockLocked = isLineLocked(primaryLine);
+                    // Backend (admin) edits the gray Budget only when the official
+                    // lock for selectedSeller/year is OPEN. Sellers never edit it.
                     const canEditBudget  = isAdmin  && !adminAllSellers && !blockLocked;
-                    const canEditWorking = !adminAllSellers && !blockLocked && (isAdmin || isSeller);
+                    // Arbejdsbudget editing:
+                    //  • Admin: always allowed (when not in adminAllSellers view).
+                    //  • Seller: allowed when their personal edit-mode is active
+                    //    (10-min inactivity auto-lock). NOT gated by Fastlagt lock.
+                    const canEditWorking = !adminAllSellers && (isAdmin || (isSeller && editModeUntil != null));
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
