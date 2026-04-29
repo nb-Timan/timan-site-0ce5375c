@@ -333,6 +333,41 @@ export default function CrmBudgetPage() {
   // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
   const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
+  // ─── Seller "Edit Arbejdsbudget" mode + 10-min inactivity auto-lock ───
+  // Only relevant for non-admin sellers; does NOT affect official Fastlagt
+  // Budget locks. Backend users always have edit access (not gated by this).
+  const EDIT_MODE_MS = 10 * 60 * 1000;
+  const [editModeUntil, setEditModeUntil] = useState<number | null>(null);
+  const [editCountdownMin, setEditCountdownMin] = useState<number>(0);
+  const editTickRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (editModeUntil == null) {
+      if (editTickRef.current) { window.clearInterval(editTickRef.current); editTickRef.current = null; }
+      setEditCountdownMin(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = editModeUntil - Date.now();
+      if (remaining <= 0) {
+        setEditModeUntil(null);
+        toast(T.edit_autolocked[lang]);
+      } else {
+        setEditCountdownMin(Math.max(1, Math.ceil(remaining / 60000)));
+      }
+    };
+    tick();
+    editTickRef.current = window.setInterval(tick, 30_000);
+    return () => { if (editTickRef.current) window.clearInterval(editTickRef.current); };
+  }, [editModeUntil, lang]);
+
+  function bumpEditActivity() {
+    if (editModeUntil == null) return;
+    setEditModeUntil(Date.now() + EDIT_MODE_MS);
+  }
+  function startEditMode() { setEditModeUntil(Date.now() + EDIT_MODE_MS); }
+  function endEditMode() { setEditModeUntil(null); }
+
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
   }, [appUser?.email]);
@@ -343,12 +378,15 @@ export default function CrmBudgetPage() {
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
       .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
       .finally(() => setBusy(false));
-    // Re-hydrate lock map for this year from storage.
+    // Re-hydrate effective lock map for this year (per-seller resolved against
+    // global ALL record so most-specific wins).
     const map: Record<string, SellerYearLock> = {};
     BUDGET_SELLERS.forEach(s => {
-      map[s.email.toLowerCase()] = getSellerYearLock(year, s.email);
+      map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
     });
     setSellerLocks(map);
+    // Always exit edit mode when year changes.
+    setEditModeUntil(null);
   }, [year, allowed]);
 
   // Resolve the current user's identity for scoping. We support multiple
