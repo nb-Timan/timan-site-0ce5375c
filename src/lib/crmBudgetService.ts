@@ -155,12 +155,49 @@ function headerName(machineKey: string, headerId: string, fallback: string): Loc
   const h = list.find(a => a.id === headerId && a.isHeader);
   return nameOf(h?.name as LocalizedString | undefined, fallback);
 }
+// Each header is a visual sub-folder (no budget row); items below it are full budget rows.
+function t3330Item(varenr: string, daName: string, key: string): EquipmentCategory {
+  return {
+    key,
+    parent_machine_key: "Timan 3330",
+    name: { da: daName, en: daName, de: daName, it: daName, hu: daName },
+    varenr,
+    status: "available",
+  };
+}
 const T3330_EQUIPMENT: EquipmentCategory[] = [
-  { key: "T3330_SWEEP",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "SWEEP_HEADER",  "Feje/Sug Redskaber"), varenr: null, status: "available" },
-  { key: "T3330_WB",      parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WB_HEADER",     "Ukrudtsbørste"),      varenr: null, status: "available" },
-  { key: "T3330_GRASS",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "GRASS_HEADER",  "Græs opgaver"),       varenr: null, status: "available" },
-  { key: "T3330_WINTER",  parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WINTER_HEADER", "Vinter redskaber"),   varenr: null, status: "available" },
-  { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available" },
+  // — Feje/Sug Redskaber —
+  { key: "T3330_SWEEP",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "SWEEP_HEADER",  "Feje/Sug Redskaber"), varenr: null, status: "available", isHeader: true },
+  t3330Item("720125", "T2 Opsamlingstank uden højtryksslange",                                              "T3330_720125"),
+  t3330Item("720130", "T2 Opsamlingstank inkl. højtryksrenser",                                             "T3330_720130"),
+  t3330Item("720132", "T3 Opsamlingstank med tørsug",                                                       "T3330_720132"),
+  t3330Item("720133", "T3 Opsamlingstank med tørsug og højtryksrenser",                                     "T3330_720133"),
+  t3330Item("730030", "Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost",        "T3330_730030"),
+
+  // — Ukrudtsbørste —
+  { key: "T3330_WB",      parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WB_HEADER",     "Ukrudtsbørste"),      varenr: null, status: "available", isHeader: true },
+  t3330Item("730600", "WB-170 Ukrudtsbørste basisenhed", "T3330_730600"),
+
+  // — Græs opgaver —
+  { key: "T3330_GRASS",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "GRASS_HEADER",  "Græs opgaver"),       varenr: null, status: "available", isHeader: true },
+  t3330Item("730017",   "Rotorklipper med 3 gatorknive og tilt-up, 135 cm klippebredde",               "T3330_730017"),
+  t3330Item("HGM-2007", "Rotorklipper 150 cm med hydraulisk højdejustering og tilt-up",                "T3330_HGM2007"),
+  t3330Item("730130",   "Rotorklipper 120 cm for opsamling til fejesugtank (husk centersug)",          "T3330_730130"),
+
+  // — Vinter redskaber —
+  { key: "T3330_WINTER",  parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WINTER_HEADER", "Vinter redskaber"),   varenr: null, status: "available", isHeader: true },
+  t3330Item("730020", "Centerdrevet fejemaskine med reversering, 120 cm, Ø550 mm børster", "T3330_730020"),
+  t3330Item("730114", "V-plov 130-150 cm med gummiskær",                                   "T3330_730114"),
+  t3330Item("730105", "Dozerblad 130 cm med gummiskær",                                    "T3330_730105"),
+  t3330Item("730106", "Sneslynge, 110 cm arbejdsbredde",                                   "T3330_730106"),
+  t3330Item("725131", "CS-200 Valsespreder, manuel reg. (husk lad og vogn)",               "T3330_725131"),
+  t3330Item("725132", "CS-200 Combi, manuel reg. (husk lad og vogn)",                      "T3330_725132"),
+  t3330Item("725138", "CS-200 Combi, el reg. (husk lad og vogn)",                          "T3330_725138"),
+
+  // — Øvrige Redskaber —
+  { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available", isHeader: true },
+  t3330Item("HGM-20083", "Fingerklipper for Termit-arm", "T3330_HGM20083"),
+  t3330Item("HGM-20082", "Multitrimmer for Termit-arm",  "T3330_HGM20082"),
 ];
 
 // Timan 2620: planning-only budget rows (NOT in configurator catalog, no prices).
