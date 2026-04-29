@@ -168,6 +168,8 @@ export default function CrmBudgetPage() {
   const [editWorking, setEditWorking] = useState(false);
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
+  // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
+  const [backendFilter, setBackendFilter] = useState<string>("all");
   const [newRow, setNewRow] = useState<NewRowState>({
     product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "",
   });
@@ -184,13 +186,28 @@ export default function CrmBudgetPage() {
       .finally(() => setBusy(false));
   }, [year, allowed]);
 
+  // Resolve the current user's identity for scoping. We support multiple
+  // matching strategies because seed rows may have been created before the
+  // user's auth_user_id was linked, and because the preview-role switcher
+  // produces synthetic display_names like "[Preview] Timan Sælger".
+  const myEmail = (appUser?.email || "").toLowerCase().trim();
+  const myInitialsFromName = (appUser?.display_name || "").replace(/^\[Preview\]\s*/i, "").trim();
+
   const visibleLines = useMemo(() => {
-    if (isAdmin) return lines;
-    return lines.filter(l =>
-      (sellerId && l.seller_id === sellerId) ||
-      (!l.seller_id && appUser?.display_name && l.seller_name === appUser.display_name)
-    );
-  }, [lines, isAdmin, sellerId, appUser?.display_name]);
+    function belongsToMe(l: BudgetLine): boolean {
+      if (sellerId && l.seller_id === sellerId) return true;
+      if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
+      if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      if (myInitialsFromName && l.seller_name && l.seller_name.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      return false;
+    }
+    if (isAdmin) {
+      if (backendFilter === "all") return lines;
+      if (backendFilter === "mine") return lines.filter(belongsToMe);
+      return lines.filter(l => (l.seller_email || "").toLowerCase() === backendFilter.toLowerCase());
+    }
+    return lines.filter(belongsToMe);
+  }, [lines, isAdmin, sellerId, myEmail, myInitialsFromName, backendFilter]);
 
   // Pipeline per line.
   const pipelineByLine = useMemo(() => {
