@@ -569,20 +569,20 @@ export default function CrmBudgetPage() {
             <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-900 text-slate-100">
-                  <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">Model & Kategori</th>
+                  <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">{T.col_model[lang]}</th>
                   {monthCols.map(m => (
                     <th key={m} className="px-2 py-2.5 font-medium text-center w-16">{m}</th>
                   ))}
-                  <th className="px-2 py-2.5 font-semibold text-center w-20">Total</th>
-                  <th className="px-2 py-2.5 font-semibold text-center w-16">Score</th>
+                  <th className="px-2 py-2.5 font-semibold text-center w-20">{T.col_total[lang]}</th>
+                  <th className="px-2 py-2.5 font-semibold text-center w-16">{T.col_score[lang]}</th>
                 </tr>
               </thead>
               <tbody>
                 {busy && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">Indlæser budget…</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.loading[lang]}</td></tr>
                 )}
                 {!busy && grouped.length === 0 && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">Ingen budgetlinjer for dette år.</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
                 )}
 
                 {grouped.map(group => {
@@ -630,18 +630,18 @@ export default function CrmBudgetPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-slate-900">{group.product_name}</span>
                               {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
-                              {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Kommer snart</span>}
-                              {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> Låst</span>}
+                              {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
+                              {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
                             </div>
                             {isAdmin && (
                               <div className="flex items-center gap-1">
                                 {group.lines.map(l => (
                                   <span key={l.id} className="inline-flex items-center gap-1 text-xs text-slate-600">
                                     <span className="text-slate-500">{l.seller_name || "—"}</span>
-                                    <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? "Lås op" : "Lås"}>
+                                    <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? T.unlock[lang] : T.lock[lang]}>
                                       {l.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                                     </button>
-                                    <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title="Slet linje">
+                                    <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title={T.delete_line[lang]}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   </span>
@@ -654,7 +654,7 @@ export default function CrmBudgetPage() {
 
                       {/* BUDGET / ORDRER */}
                       <tr key={`bo-${group.product_key}`} className="bg-slate-50/60">
-                        <td className="sticky left-0 z-10 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">BUDGET / ORDRER</td>
+                        <td className="sticky left-0 z-10 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">{T.row_budget_orders[lang]}</td>
                         {budgetMonthly.map((b, i) => {
                           const o = ordersMonthly[i];
                           return (
@@ -675,7 +675,7 @@ export default function CrmBudgetPage() {
 
                       {/* PIPELINE */}
                       <tr key={`pipe-${group.product_key}`} className="bg-amber-50/40">
-                        <td className="sticky left-0 z-10 bg-amber-50/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">PIPELINE (TILBUD)</td>
+                        <td className="sticky left-0 z-10 bg-amber-50/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">{T.row_pipeline[lang]}</td>
                         {pipelineMonthly.map((offers, i) => {
                           const count = offers.length;
                           const sum = offers.reduce((a, b) => a + b.value, 0);
@@ -693,17 +693,17 @@ export default function CrmBudgetPage() {
                                 <TooltipContent side="top" className="max-w-sm">
                                   <div className="text-xs space-y-2">
                                     <div className="font-semibold border-b border-slate-200 pb-1">
-                                      {count} tilbud · {fmtDKK(sum)}
+                                      {count} {T.tip_quotes[lang]} · {fmtDKK(sum)}
                                     </div>
                                     {offers.map((o, idx) => (
                                       <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
                                         <div className="font-medium">{o.offer_no} · {o.status}</div>
                                         <div className="text-slate-600">{o.dealer}</div>
-                                        <div className="text-slate-600">Kunde: {o.customer}</div>
-                                        <div className="text-slate-600">Maskine: {group.product_name}</div>
-                                        <div className="text-slate-600">Redskab: {o.attachment}</div>
+                                        <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
+                                        <div className="text-slate-600">{T.tip_machine[lang]}: {group.product_name}</div>
+                                        <div className="text-slate-600">{T.tip_attach[lang]}: {o.attachment}</div>
                                         <div className="flex justify-between">
-                                          <span className="text-slate-500">Sendt: {fmtDate(o.sent_date)}</span>
+                                          <span className="text-slate-500">{T.tip_sent[lang]}: {fmtDate(o.sent_date, lang)}</span>
                                           <span className="font-semibold tabular-nums">{fmtDKK(o.value)}</span>
                                         </div>
                                       </div>
@@ -720,7 +720,7 @@ export default function CrmBudgetPage() {
 
                       {/* ARBEJDSBUDGET */}
                       <tr key={`work-${group.product_key}`} className="bg-slate-900 text-slate-100">
-                        <td className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200">ARBEJDSBUDGET</td>
+                        <td className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200">{T.row_working[lang]}</td>
                         {workingMonthly.map((w, i) => (
                           <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                             {editWorking ? (
@@ -755,7 +755,7 @@ export default function CrmBudgetPage() {
 
                       {/* PERFORMANCE */}
                       <tr key={`perf-${group.product_key}`} className="border-b-2 border-slate-200">
-                        <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">PERFORMANCE</td>
+                        <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{T.row_perf[lang]}</td>
                         {ordersMonthly.map((o, i) => {
                           const diff = o - budgetMonthly[i];
                           let cls = "text-slate-400";
@@ -790,42 +790,42 @@ export default function CrmBudgetPage() {
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Ny budgetlinje · {year}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{T.modal_title[lang]} · {year}</h3>
               <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-slate-600">Produkt</span>
+                <span className="text-xs text-slate-600">{T.field_product[lang]}</span>
                 <select className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.product_key} onChange={(e) => setNewRow(r => ({ ...r, product_key: e.target.value }))}>
                   {BUDGET_PRODUCTS.map(p => (
                     <option key={p.key} value={p.key}>
-                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? "(kommer snart)" : ""}
+                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? `(${T.coming_soon[lang]})` : ""}
                     </option>
                   ))}
                 </select>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs text-slate-600">Sælger</span>
-                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder="Navn" />
+                  <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
+                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder={T.placeholder_name[lang]} />
                 </label>
                 <label className="block">
-                  <span className="text-xs text-slate-600">Land</span>
+                  <span className="text-xs text-slate-600">{T.field_country[lang]}</span>
                   <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.country} onChange={(e) => setNewRow(r => ({ ...r, country: e.target.value }))} />
                 </label>
               </div>
               <label className="block">
-                <span className="text-xs text-slate-600">Antal (qty budget)</span>
+                <span className="text-xs text-slate-600">{T.field_qty[lang]}</span>
                 <input type="number" min={0} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.qty_budget} onChange={(e) => setNewRow(r => ({ ...r, qty_budget: Number(e.target.value) }))} />
               </label>
               <label className="block">
-                <span className="text-xs text-slate-600">Noter</span>
+                <span className="text-xs text-slate-600">{T.field_notes[lang]}</span>
                 <textarea rows={2} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.notes} onChange={(e) => setNewRow(r => ({ ...r, notes: e.target.value }))} />
               </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Annuller</button>
-              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> Opret</button>
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">{T.cancel[lang]}</button>
+              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
             </div>
           </div>
         </div>
