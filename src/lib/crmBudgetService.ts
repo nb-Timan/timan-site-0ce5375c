@@ -111,6 +111,8 @@ export interface EquipmentCategory {
   name: LocalizedString;
   varenr: string | null;      // representative varenr if available, else null
   status: ProductStatus;      // "preview" → planning row, no orders/forecasts
+  /** When true, this entry is only a visual sub-folder heading (no budget row). */
+  isHeader?: boolean;
 }
 
 // RC-1000s: pulled from existing configurator items (no manual prices).
