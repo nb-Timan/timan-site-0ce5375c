@@ -10,11 +10,12 @@
  * configurator pricing — we only read product names / item numbers.
  */
 import { supabase } from "@/lib/supabase";
-import { PRODUCTS } from "@/data/machines";
+import { PRODUCTS, ACCESSORIES } from "@/data/machines";
+import type { Language, LocalizedString } from "@/types/configurator";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
-export type ProductStatus = "available" | "coming_soon";
+export type ProductStatus = "available" | "coming_soon" | "preview";
 
 export interface BudgetProduct {
   key: string;            // stable id we use across budget rows
@@ -24,6 +25,8 @@ export interface BudgetProduct {
   status: ProductStatus;
   priceDKK?: number | null;
   priceEUR?: number | null;
+  /** For equipment rows: which machine they hang under. */
+  parent_machine_key?: string | null;
 }
 
 export type MonthlySplit = number[]; // length 12, Jan..Dec (qty or share)
@@ -35,6 +38,8 @@ export interface BudgetLine {
   product_name: string;
   item_number: string | null;
   category: BudgetCategory;
+  /** For attachment/equipment rows: the machine product_key they belong under. */
+  parent_machine_key?: string | null;
   seller_id: string | null;
   seller_name: string | null;
   /** Email of the assigned seller — used for scoping when seller_id is unknown
@@ -74,21 +79,95 @@ export interface SalesActual {
 
 // ---------- Product catalog ----------
 // Read from existing configurator data where possible. NEVER mutate.
+function stripBaseSuffix(name: string): string {
+  // Remove "Basismaskine" / "Base machine" / "Basismaschine" / "Macchina base" / "Alapgép"
+  // and any trailing whitespace/punctuation. Keep just the model name.
+  return name
+    .replace(/\s*[-–—]?\s*(Basismaskine|Basismaskin|Base machine|Basismaschine|Macchina base|Alapg[eé]p)\s*$/i, "")
+    .trim();
+}
+
 function readConfiguratorMachine(key: string): { name: string; varenr: string; priceDKK: number; priceEUR: number } | null {
   const m = PRODUCTS[key];
   if (!m) return null;
-  const name = typeof m.name === "string" ? m.name : (m.name?.da || m.name?.en || key);
-  return { name, varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
+  const rawName = typeof m.name === "string" ? m.name : (m.name?.da || m.name?.en || key);
+  return { name: stripBaseSuffix(rawName), varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
 }
 
 const RC1000 = readConfiguratorMachine("RC-1000S");
 const RC751  = readConfiguratorMachine("RC-751");
 const T3330  = readConfiguratorMachine("Timan 3330");
 
+// ---------- Equipment categories under machines ----------
+// Reads from the configurator ACCESSORIES catalog. We expose grouped
+// equipment "categories" (no manual prices) so the budget UI can plan
+// per category exactly as it does for machines.
+//
+// Keys are stable so localStorage seed/forecast/actuals stay consistent
+// across renders. Names use LocalizedString so the table can translate.
+export interface EquipmentCategory {
+  key: string;                // stable across renders
+  parent_machine_key: string; // RC-1000s | Timan 3330 | Timan 2620
+  name: LocalizedString;
+  varenr: string | null;      // representative varenr if available, else null
+  status: ProductStatus;      // "preview" → planning row, no orders/forecasts
+}
+
+// RC-1000s: pulled from existing configurator items (no manual prices).
+function findAcc(key: string, varenr: string) {
+  const list = ACCESSORIES[key] || [];
+  return list.find(a => String(a.varenr) === varenr && !a.isHeader) || null;
+}
+function nameOf(loc: LocalizedString | string | undefined, fallback: string): LocalizedString {
+  if (!loc) return { da: fallback, en: fallback };
+  if (typeof loc === "string") return { da: loc, en: loc };
+  return loc;
+}
+
+const RC1000_EQUIPMENT: EquipmentCategory[] = [
+  (() => { const a = findAcc("RC-1000S", "410910"); return { key: "RC1000_FLAIL",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Slagleklipper"),         varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411666"); return { key: "RC1000_ROTARY", parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Rotorklipper"),           varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411845"); return { key: "RC1000_SWEEP",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Fejemaskine"),            varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411742"); return { key: "RC1000_VPLOW",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Sneplov / V-plov"),       varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+];
+
+// Timan 3330: re-use the configurator section headers (already localized).
+function headerName(machineKey: string, headerId: string, fallback: string): LocalizedString {
+  const list = ACCESSORIES[machineKey] || [];
+  const h = list.find(a => a.id === headerId && a.isHeader);
+  return nameOf(h?.name as LocalizedString | undefined, fallback);
+}
+const T3330_EQUIPMENT: EquipmentCategory[] = [
+  { key: "T3330_SWEEP",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "SWEEP_HEADER",  "Feje/Sug Redskaber"), varenr: null, status: "available" },
+  { key: "T3330_WB",      parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WB_HEADER",     "Ukrudtsbørste"),      varenr: null, status: "available" },
+  { key: "T3330_GRASS",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "GRASS_HEADER",  "Græs opgaver"),       varenr: null, status: "available" },
+  { key: "T3330_WINTER",  parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WINTER_HEADER", "Vinter redskaber"),   varenr: null, status: "available" },
+  { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available" },
+];
+
+// Timan 2620: no configurator data yet → planning rows, no prices.
+const T2620_EQUIPMENT: EquipmentCategory[] = [
+  { key: "T2620_SWEEP",  parent_machine_key: "Timan 2620", name: { da: "Feje/Sug Redskaber",   en: "Sweep/Vac implements", de: "Kehr-/Sauggeräte",      it: "Attrezzature spazzatura", hu: "Seprés/szívó eszközök" }, varenr: null, status: "preview" },
+  { key: "T2620_GRASS",  parent_machine_key: "Timan 2620", name: { da: "Græs opgaver",         en: "Grass tasks",          de: "Grasarbeiten",          it: "Lavori erba",             hu: "Fű feladatok" },          varenr: null, status: "preview" },
+  { key: "T2620_WINTER", parent_machine_key: "Timan 2620", name: { da: "Vinter redskaber",     en: "Winter implements",    de: "Wintergeräte",          it: "Attrezzature invernali",  hu: "Téli eszközök" },         varenr: null, status: "preview" },
+  { key: "T2620_OTHER",  parent_machine_key: "Timan 2620", name: { da: "Øvrige Redskaber",     en: "Other implements",     de: "Weitere Geräte",        it: "Altri attrezzi",          hu: "Egyéb eszközök" },        varenr: null, status: "preview" },
+];
+
+export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = {
+  "RC-1000s":   RC1000_EQUIPMENT,
+  "Timan 3330": T3330_EQUIPMENT,
+  "Timan 2620": T2620_EQUIPMENT,
+};
+
+/** Localized name resolver — used by the page to render equipment rows. */
+export function localizedName(name: LocalizedString, lang: Language): string {
+  return name[lang] || name.da || name.en || "";
+}
+
 export const BUDGET_PRODUCTS: BudgetProduct[] = [
   {
     key: "RC-751",
-    name: RC751?.name || "RC-751 Basismaskine",
+    name: RC751?.name || "RC-751",
     varenr: RC751?.varenr || "410040",
     category: "machine",
     status: "available",
@@ -97,7 +176,7 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
   },
   {
     key: "RC-1000s",
-    name: RC1000?.name || "RC-1000s Basismaskine",
+    name: RC1000?.name || "RC-1000s",
     varenr: RC1000?.varenr || "411000",
     category: "machine",
     status: "available",
@@ -120,13 +199,6 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
     category: "machine",
     status: "coming_soon",
   },
-  {
-    key: "Tool-Trac",
-    name: "Tool-Trac",
-    varenr: null,
-    category: "machine",
-    status: "available",
-  },
 ];
 
 export function findProduct(key: string): BudgetProduct | undefined {
@@ -135,9 +207,9 @@ export function findProduct(key: string): BudgetProduct | undefined {
 
 // Storage (localStorage fallback)
 // Bump suffix when changing seed shape so previews refresh.
-const LS_LINES = "timan.crm.budget.lines.v4";
-const LS_FORECASTS = "timan.crm.budget.forecasts.v4";
-const LS_ACTUALS = "timan.crm.budget.actuals.v4";
+const LS_LINES = "timan.crm.budget.lines.v5";
+const LS_FORECASTS = "timan.crm.budget.forecasts.v5";
+const LS_ACTUALS = "timan.crm.budget.actuals.v5";
 
 function readLS<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || "[]") as T[]; } catch { return []; }
@@ -229,33 +301,29 @@ function ensureSeed() {
 
   // BP — DK (sales manager, key accounts)
   const bp: BudgetLine[] = [
-    makeLine(year, "RC-1000s",   "RC-1000s Basismaskine", "411000", BP, 6, 1_410_000, "Key accounts"),
-    makeLine(year, "Timan 3330", "Timan 3330",            "712000", BP, 5, 3_250_000),
-    makeLine(year, "Tool-Trac",  "Tool-Trac",             null,     BP, 3, 1_050_000),
+    makeLine(year, "RC-1000s",   "RC-1000s",   "411000", BP, 6, 1_410_000, "Key accounts"),
+    makeLine(year, "Timan 3330", "Timan 3330", "712000", BP, 5, 3_250_000),
   ];
 
   // EM — DK (full portfolio, strong volume)
   const em: BudgetLine[] = [
-    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", EM, 8,  1_120_000, "Hovedfokus DK"),
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", EM, 12, 2_820_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", EM, 6,  3_900_000),
-    makeLine(year, "Timan 2620",  "Timan 2620",            "563219", EM, 4,  1_600_000, "Coming soon — pre-budget"),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     EM, 5,  1_750_000),
+    makeLine(year, "RC-751",      "RC-751",     "410040", EM, 8,  1_120_000, "Hovedfokus DK"),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", EM, 12, 2_820_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", EM, 6,  3_900_000),
+    makeLine(year, "Timan 2620",  "Timan 2620", "563219", EM, 4,  1_600_000, "Coming soon — pre-budget"),
   ];
 
   // AKR — DE (eksport)
   const akr: BudgetLine[] = [
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", AKR, 6, 1_410_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", AKR, 4, 2_600_000),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     AKR, 3, 1_050_000),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", AKR, 6, 1_410_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", AKR, 4, 2_600_000),
   ];
 
   // JTN — DK (fokuseret portefølje)
   const jtn: BudgetLine[] = [
-    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", JTN, 5,  837_500),
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", JTN, 7,  1_645_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", JTN, 3,  1_950_000),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     JTN, 4,  1_400_000),
+    makeLine(year, "RC-751",      "RC-751",     "410040", JTN, 5,  837_500),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", JTN, 7,  1_645_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", JTN, 3,  1_950_000),
   ];
 
   const seedLines: BudgetLine[] = [...bp, ...em, ...akr, ...jtn];
@@ -266,48 +334,40 @@ function ensureSeed() {
   const fcBP: Record<string, Pair> = {
     "RC-1000s":   { qty: 7, value: 1_645_000 },
     "Timan 3330": { qty: 6, value: 3_900_000 },
-    "Tool-Trac":  { qty: 3, value: 1_050_000 },
   };
   const acBP: Record<string, Pair> = {
     "RC-1000s":   { qty: 2, value: 470_000 },
     "Timan 3330": { qty: 1, value: 650_000 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcEM: Record<string, Pair> = {
     "RC-751":     { qty: 9, value: 1_260_000 },
     "RC-1000s":   { qty: 10, value: 2_350_000 },
     "Timan 3330": { qty: 7, value: 4_550_000 },
     "Timan 2620": { qty: 3, value: 1_200_000 },
-    "Tool-Trac":  { qty: 5, value: 1_750_000 },
   };
   const acEM: Record<string, Pair> = {
     "RC-751":     { qty: 2, value: 280_000 },
     "RC-1000s":   { qty: 3, value: 705_000 },
     "Timan 3330": { qty: 1, value: 650_000 },
     "Timan 2620": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 7, value: 1_645_000 },
     "Timan 3330": { qty: 4, value: 2_600_000 },
-    "Tool-Trac":  { qty: 4, value: 1_400_000 },
   };
   const acAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 1, value: 235_000 },
     "Timan 3330": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcJTN: Record<string, Pair> = {
     "RC-751":     { qty: 6, value: 1_005_000 },
     "RC-1000s":   { qty: 8, value: 1_880_000 },
     "Timan 3330": { qty: 4, value: 2_600_000 },
-    "Tool-Trac":  { qty: 5, value: 1_750_000 },
   };
   const acJTN: Record<string, Pair> = {
     "RC-751":     { qty: 1, value: 167_500 },
     "RC-1000s":   { qty: 2, value: 470_000 },
     "Timan 3330": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
 
   const forecasts: BudgetForecast[] = [];
@@ -335,6 +395,14 @@ export interface ListBudgetParams {
   year: number;
 }
 
+function sanitizeLines(lines: BudgetLine[]): BudgetLine[] {
+  // Drop Tool-Trac from Budget (per spec) and strip any "Basismaskine"-style
+  // suffix that may still live in old persisted/Supabase rows.
+  return lines
+    .filter(l => l.product_key !== "Tool-Trac")
+    .map(l => ({ ...l, product_name: stripBaseSuffix(l.product_name || "") }));
+}
+
 export async function listBudgetLines({ year }: ListBudgetParams): Promise<BudgetLine[]> {
   // Try Supabase first. If table missing or any error → fallback.
   try {
@@ -343,11 +411,11 @@ export async function listBudgetLines({ year }: ListBudgetParams): Promise<Budge
       .select("*")
       .eq("year", year);
     if (!error && Array.isArray(data) && data.length > 0) {
-      return data as BudgetLine[];
+      return sanitizeLines(data as BudgetLine[]);
     }
   } catch { /* */ }
   ensureSeed();
-  return readLS<BudgetLine>(LS_LINES).filter(l => l.year === year);
+  return sanitizeLines(readLS<BudgetLine>(LS_LINES).filter(l => l.year === year));
 }
 
 export async function listForecasts(year: number): Promise<BudgetForecast[]> {
