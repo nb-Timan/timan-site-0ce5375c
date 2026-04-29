@@ -128,9 +128,10 @@ export function findProduct(key: string): BudgetProduct | undefined {
 }
 
 // ---------- Storage (localStorage fallback) ----------
-const LS_LINES = "timan.crm.budget.lines";
-const LS_FORECASTS = "timan.crm.budget.forecasts";
-const LS_ACTUALS = "timan.crm.budget.actuals";
+// Bump suffix when changing seed shape so previews refresh.
+const LS_LINES = "timan.crm.budget.lines.v2";
+const LS_FORECASTS = "timan.crm.budget.forecasts.v2";
+const LS_ACTUALS = "timan.crm.budget.actuals.v2";
 
 function readLS<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || "[]") as T[]; } catch { return []; }
@@ -145,42 +146,112 @@ function uid(): string {
 
 const EVEN_SPLIT: MonthlySplit = Array.from({ length: 12 }, () => 1 / 12);
 
+// Realistic seasonal split (machinery: stronger Q1/Q2, lighter summer, modest Q4).
+// Values are shares (sum ≈ 1.00).
+const SEASONAL_SPLIT: MonthlySplit = [
+  0.06, 0.08, 0.11, 0.12, 0.11, 0.09,
+  0.05, 0.06, 0.09, 0.10, 0.08, 0.05,
+];
+
 // ---------- Seed (only if empty) ----------
+function makeLine(
+  year: number,
+  product_key: string,
+  product_name: string,
+  item_number: string | null,
+  seller_name: string,
+  country: string,
+  qty_budget: number,
+  value_budget: number,
+  notes?: string | null,
+): BudgetLine {
+  return {
+    id: uid(),
+    year,
+    product_key,
+    product_name,
+    item_number,
+    category: "machine",
+    seller_id: null,
+    seller_name,
+    country,
+    qty_budget,
+    value_budget,
+    monthly_split: SEASONAL_SPLIT,
+    notes: notes ?? null,
+    locked: false,
+    created_at: new Date().toISOString(),
+  };
+}
+
 function ensureSeed() {
   const existing = readLS<BudgetLine>(LS_LINES);
   if (existing.length > 0) return;
-  const year = new Date().getFullYear() >= 2026 ? new Date().getFullYear() : 2026;
-  const seedLines: BudgetLine[] = [
-    {
-      id: uid(), year, product_key: "RC-1000s", product_name: "RC-1000s Basismaskine",
-      item_number: "411000", category: "machine",
-      seller_id: null, seller_name: "Esben Madsen", country: "DK",
-      qty_budget: 18, value_budget: 18 * 235000, monthly_split: EVEN_SPLIT,
-      notes: "Hovedfokus 2026", locked: false, created_at: new Date().toISOString(),
-    },
-    {
-      id: uid(), year, product_key: "RC-751", product_name: "RC-751 Basismaskine",
-      item_number: "410040", category: "machine",
-      seller_id: null, seller_name: "Anders Krogh", country: "DK",
-      qty_budget: 12, value_budget: 12 * 167500, monthly_split: EVEN_SPLIT,
-      notes: null, locked: false, created_at: new Date().toISOString(),
-    },
-    {
-      id: uid(), year, product_key: "Timan 3330", product_name: "Timan 3330",
-      item_number: "712000", category: "machine",
-      seller_id: null, seller_name: "Esben Madsen", country: "DK",
-      qty_budget: 8, value_budget: 8 * 361700, monthly_split: EVEN_SPLIT,
-      notes: null, locked: false, created_at: new Date().toISOString(),
-    },
-    {
-      id: uid(), year, product_key: "Tool-Trac", product_name: "Tool-Trac",
-      item_number: null, category: "machine",
-      seller_id: null, seller_name: "Anders Krogh", country: "DK",
-      qty_budget: 4, value_budget: 0, monthly_split: EVEN_SPLIT,
-      notes: "Pris fastsættes pr. ordre", locked: false, created_at: new Date().toISOString(),
-    },
+  const year = 2026;
+
+  // Esben Madsen / EM — DK
+  const em: BudgetLine[] = [
+    makeLine(year, "RC-751",      "RC-751 Basismaskine",  "410040", "Esben Madsen", "DK", 8,  1_120_000, "Hovedfokus DK"),
+    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine","411000", "Esben Madsen", "DK", 12, 2_820_000),
+    makeLine(year, "Timan 3330",  "Timan 3330",           "712000", "Esben Madsen", "DK", 6,  3_900_000),
+    makeLine(year, "Timan 2620",  "Timan 2620",           "563219", "Esben Madsen", "DK", 4,  1_600_000, "Coming soon — pre-budget"),
+    makeLine(year, "Tool-Trac",   "Tool-Trac",            null,     "Esben Madsen", "DK", 5,  1_750_000),
   ];
+
+  // Alexander Kirschner / AKR — DE
+  const akr: BudgetLine[] = [
+    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine","411000", "Alexander Kirschner", "DE", 6, 1_410_000),
+    makeLine(year, "Timan 3330",  "Timan 3330",           "712000", "Alexander Kirschner", "DE", 4, 2_600_000),
+    makeLine(year, "Tool-Trac",   "Tool-Trac",            null,     "Alexander Kirschner", "DE", 3, 1_050_000),
+  ];
+
+  const seedLines: BudgetLine[] = [...em, ...akr];
   writeLS(LS_LINES, seedLines);
+
+  // Forecast values (per spec — only EM has explicit forecasts; AKR mirrors budget).
+  const forecastByKeyEM: Record<string, { qty: number; value: number }> = {
+    "RC-751":     { qty: 9, value: 1_260_000 },
+    "RC-1000s":   { qty: 10, value: 2_350_000 },
+    "Timan 3330": { qty: 7, value: 4_550_000 },
+    "Timan 2620": { qty: 3, value: 1_200_000 },
+    "Tool-Trac":  { qty: 5, value: 1_750_000 },
+  };
+  const actualByKeyEM: Record<string, { qty: number; value: number }> = {
+    "RC-751":     { qty: 2, value: 280_000 },
+    "RC-1000s":   { qty: 3, value: 705_000 },
+    "Timan 3330": { qty: 1, value: 650_000 },
+    "Timan 2620": { qty: 0, value: 0 },
+    "Tool-Trac":  { qty: 1, value: 350_000 },
+  };
+  // AKR — light forecasts/actuals so seller view isn't empty.
+  const forecastByKeyAKR: Record<string, { qty: number; value: number }> = {
+    "RC-1000s":   { qty: 7, value: 1_645_000 },
+    "Timan 3330": { qty: 4, value: 2_600_000 },
+    "Tool-Trac":  { qty: 4, value: 1_400_000 },
+  };
+  const actualByKeyAKR: Record<string, { qty: number; value: number }> = {
+    "RC-1000s":   { qty: 1, value: 235_000 },
+    "Timan 3330": { qty: 0, value: 0 },
+    "Tool-Trac":  { qty: 1, value: 350_000 },
+  };
+
+  const forecasts: BudgetForecast[] = [];
+  const actuals: SalesActual[] = [];
+  const now = new Date().toISOString();
+  for (const line of em) {
+    const f = forecastByKeyEM[line.product_key];
+    if (f) forecasts.push({ id: uid(), budget_line_id: line.id, qty_forecast: f.qty, value_forecast: f.value, probability: 70, risk_level: "medium", updated_at: now });
+    const a = actualByKeyEM[line.product_key];
+    if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
+  }
+  for (const line of akr) {
+    const f = forecastByKeyAKR[line.product_key];
+    if (f) forecasts.push({ id: uid(), budget_line_id: line.id, qty_forecast: f.qty, value_forecast: f.value, probability: 60, risk_level: "medium", updated_at: now });
+    const a = actualByKeyAKR[line.product_key];
+    if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
+  }
+  writeLS(LS_FORECASTS, forecasts);
+  writeLS(LS_ACTUALS, actuals);
 }
 
 // ---------- Public API ----------
@@ -215,6 +286,7 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
       return (data as BudgetForecast[]).filter(f => ids.has(f.budget_line_id));
     }
   } catch { /* */ }
+  ensureSeed();
   return readLS<BudgetForecast>(LS_FORECASTS);
 }
 
@@ -229,6 +301,7 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
       return (data as SalesActual[]).filter(a => ids.has(a.budget_line_id));
     }
   } catch { /* */ }
+  ensureSeed();
   return readLS<SalesActual>(LS_ACTUALS);
 }
 
