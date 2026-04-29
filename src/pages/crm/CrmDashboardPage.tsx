@@ -324,6 +324,13 @@ export default function CrmDashboardPage() {
           </div>
         </div>
 
+        {/* SELLER COCKPIT — Lead focus + Budget focus + (backend) seller switcher/comparison/alerts */}
+        <SellerCockpitSection
+          isAdmin={isAdmin}
+          sellerEmail={appUser?.email ?? null}
+          sellerId={sellerId}
+        />
+
         {/* PIPELINE — bars + horizontal stacked bar legend */}
         <Card className="mb-6">
           <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
