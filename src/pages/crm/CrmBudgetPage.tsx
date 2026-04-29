@@ -1313,6 +1313,22 @@ export default function CrmBudgetPage() {
 
                                 {expanded && equipList.map(eq => {
                                   const fullLabel = localizedName(eq.name, lang);
+                                  const isPreview = eq.status === "preview";
+
+                                  // Visual sub-folder heading only — no budget row.
+                                  if (eq.isHeader) {
+                                    return (
+                                      <tr key={`equip-subhead-${eq.key}`}>
+                                        <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1 pl-8", colors.row || "bg-slate-50")}>
+                                          <div className="flex items-center gap-2">
+                                            <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
+                                            <span className={cn("text-[11px] font-semibold uppercase tracking-wide", colors.text)}>{fullLabel}</span>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
                                   const eqLabel = shortLabelFor(eq.varenr, fullLabel);
                                   const hasShort = eqLabel !== fullLabel;
                                   const synthetic = syntheticEquipLine(group.product_key, eq.key, eqLabel, eq.varenr);
