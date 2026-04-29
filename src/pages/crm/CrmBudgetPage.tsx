@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  Lock, Unlock, Plus, Trash2, Save, X, ShieldAlert, Calendar,
+  Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench,
 } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
