@@ -11,6 +11,7 @@
 import { supabase } from "@/lib/supabase";
 import { PortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { AKR_SEED_ACCOUNTS } from "@/lib/akrTestSeed";
 
 export interface CrmAccount {
   id: string;
