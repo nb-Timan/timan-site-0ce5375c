@@ -14,7 +14,7 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_PRODUCTS, MONTHS_DA, availableYears, fmtDKK,
+  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, MONTHS_DA, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
@@ -168,6 +168,8 @@ export default function CrmBudgetPage() {
   const [editWorking, setEditWorking] = useState(false);
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
+  // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
+  const [backendFilter, setBackendFilter] = useState<string>("all");
   const [newRow, setNewRow] = useState<NewRowState>({
     product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "",
   });
@@ -184,13 +186,28 @@ export default function CrmBudgetPage() {
       .finally(() => setBusy(false));
   }, [year, allowed]);
 
+  // Resolve the current user's identity for scoping. We support multiple
+  // matching strategies because seed rows may have been created before the
+  // user's auth_user_id was linked, and because the preview-role switcher
+  // produces synthetic display_names like "[Preview] Timan Sælger".
+  const myEmail = (appUser?.email || "").toLowerCase().trim();
+  const myInitialsFromName = (appUser?.display_name || "").replace(/^\[Preview\]\s*/i, "").trim();
+
   const visibleLines = useMemo(() => {
-    if (isAdmin) return lines;
-    return lines.filter(l =>
-      (sellerId && l.seller_id === sellerId) ||
-      (!l.seller_id && appUser?.display_name && l.seller_name === appUser.display_name)
-    );
-  }, [lines, isAdmin, sellerId, appUser?.display_name]);
+    function belongsToMe(l: BudgetLine): boolean {
+      if (sellerId && l.seller_id === sellerId) return true;
+      if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
+      if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      if (myInitialsFromName && l.seller_name && l.seller_name.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      return false;
+    }
+    if (isAdmin) {
+      if (backendFilter === "all") return lines;
+      if (backendFilter === "mine") return lines.filter(belongsToMe);
+      return lines.filter(l => (l.seller_email || "").toLowerCase() === backendFilter.toLowerCase());
+    }
+    return lines.filter(belongsToMe);
+  }, [lines, isAdmin, sellerId, myEmail, myInitialsFromName, backendFilter]);
 
   // Pipeline per line.
   const pipelineByLine = useMemo(() => {
@@ -319,6 +336,14 @@ export default function CrmBudgetPage() {
     }
     const unit = product.priceDKK || 0;
     const qty = Math.max(0, Number(newRow.qty_budget) || 0);
+    // Try to derive seller_email/initials from the typed seller name (matches a known seller)
+    // or fall back to the current user's identity.
+    const typedName = (newRow.seller_name || "").trim();
+    const known = BUDGET_SELLERS.find(
+      s => s.full_name.toLowerCase() === typedName.toLowerCase() || s.initials.toLowerCase() === typedName.toLowerCase(),
+    );
+    const seller_email = known?.email ?? (isAdmin ? null : (appUser?.email ?? null));
+    const seller_initials = known?.initials ?? (isAdmin ? (typedName || null) : (myInitialsFromName || null));
     const created = await createBudgetLine({
       year,
       product_key: product.key,
@@ -326,7 +351,9 @@ export default function CrmBudgetPage() {
       item_number: product.varenr,
       category: product.category,
       seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: newRow.seller_name || (appUser?.display_name ?? null),
+      seller_name: typedName || (appUser?.display_name ?? null),
+      seller_email,
+      seller_initials,
       country: newRow.country || null,
       qty_budget: qty,
       value_budget: qty * unit,
@@ -367,6 +394,27 @@ export default function CrmBudgetPage() {
               {availableYears().map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
+          {isAdmin && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Sælger</span>
+              <select
+                value={backendFilter}
+                onChange={(e) => setBackendFilter(e.target.value)}
+                className="text-sm bg-transparent outline-none"
+              >
+                <option value="all">Alle sælgere</option>
+                {BUDGET_SELLERS.map(s => (
+                  <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
+                ))}
+                <optgroup label="Backend">
+                  {BUDGET_BACKEND_USERS.map(s => (
+                    <option key={s.email} value={s.email}>{s.initials}</option>
+                  ))}
+                  <option value="mine">Min egen visning</option>
+                </optgroup>
+              </select>
+            </div>
+          )}
           {!editWorking ? (
             <button
               onClick={() => setEditWorking(true)}

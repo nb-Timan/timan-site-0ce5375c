@@ -37,6 +37,12 @@ export interface BudgetLine {
   category: BudgetCategory;
   seller_id: string | null;
   seller_name: string | null;
+  /** Email of the assigned seller — used for scoping when seller_id is unknown
+   *  (e.g. preview-role sessions or rows seeded before auth linking). */
+  seller_email: string | null;
+  /** Short initials (e.g. "EM", "AKR", "JTN") — used as the human-readable
+   *  identifier and for the backend filter dropdown. */
+  seller_initials: string | null;
   country: string | null;
   qty_budget: number;
   value_budget: number;       // currency-agnostic, DKK assumed for Phase 1
@@ -127,11 +133,11 @@ export function findProduct(key: string): BudgetProduct | undefined {
   return BUDGET_PRODUCTS.find(p => p.key === key);
 }
 
-// ---------- Storage (localStorage fallback) ----------
+// Storage (localStorage fallback)
 // Bump suffix when changing seed shape so previews refresh.
-const LS_LINES = "timan.crm.budget.lines.v2";
-const LS_FORECASTS = "timan.crm.budget.forecasts.v2";
-const LS_ACTUALS = "timan.crm.budget.actuals.v2";
+const LS_LINES = "timan.crm.budget.lines.v3";
+const LS_FORECASTS = "timan.crm.budget.forecasts.v3";
+const LS_ACTUALS = "timan.crm.budget.actuals.v3";
 
 function readLS<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || "[]") as T[]; } catch { return []; }
@@ -153,14 +159,34 @@ const SEASONAL_SPLIT: MonthlySplit = [
   0.05, 0.06, 0.09, 0.10, 0.08, 0.05,
 ];
 
+// ---------- Known sellers (matches app_users) ----------
+// Display name + initials + email so seed rows can be scoped to the real
+// user record once they log in or via the preview role switcher.
+export interface BudgetSellerRef {
+  initials: string;
+  full_name: string;
+  email: string;
+  country: string;
+}
+export const BUDGET_SELLERS: BudgetSellerRef[] = [
+  { initials: "EM",  full_name: "EM",  email: "em@timan.dk",  country: "DK" },
+  { initials: "AKR", full_name: "AKR", email: "akr@timan.dk", country: "DE" },
+  { initials: "JTN", full_name: "JTN", email: "jtn@timan.dk", country: "DK" },
+];
+// Backend (Timan Backend) users — used for the seller-filter dropdown.
+export const BUDGET_BACKEND_USERS: BudgetSellerRef[] = [
+  { initials: "BP", full_name: "BP", email: "bp@timan.dk", country: "DK" },
+  { initials: "NB", full_name: "NB", email: "nb@timan.dk", country: "DK" },
+  { initials: "JN", full_name: "JN", email: "jn@timan.dk", country: "DK" },
+];
+
 // ---------- Seed (only if empty) ----------
 function makeLine(
   year: number,
   product_key: string,
   product_name: string,
   item_number: string | null,
-  seller_name: string,
-  country: string,
+  seller: BudgetSellerRef,
   qty_budget: number,
   value_budget: number,
   notes?: string | null,
@@ -173,8 +199,10 @@ function makeLine(
     item_number,
     category: "machine",
     seller_id: null,
-    seller_name,
-    country,
+    seller_name: seller.full_name,
+    seller_email: seller.email,
+    seller_initials: seller.initials,
+    country: seller.country,
     qty_budget,
     value_budget,
     monthly_split: SEASONAL_SPLIT,
@@ -189,48 +217,72 @@ function ensureSeed() {
   if (existing.length > 0) return;
   const year = 2026;
 
-  // Esben Madsen / EM — DK
+  const EM  = BUDGET_SELLERS[0];
+  const AKR = BUDGET_SELLERS[1];
+  const JTN = BUDGET_SELLERS[2];
+
+  // EM — DK (full portfolio, strong volume)
   const em: BudgetLine[] = [
-    makeLine(year, "RC-751",      "RC-751 Basismaskine",  "410040", "Esben Madsen", "DK", 8,  1_120_000, "Hovedfokus DK"),
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine","411000", "Esben Madsen", "DK", 12, 2_820_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",           "712000", "Esben Madsen", "DK", 6,  3_900_000),
-    makeLine(year, "Timan 2620",  "Timan 2620",           "563219", "Esben Madsen", "DK", 4,  1_600_000, "Coming soon — pre-budget"),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",            null,     "Esben Madsen", "DK", 5,  1_750_000),
+    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", EM, 8,  1_120_000, "Hovedfokus DK"),
+    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", EM, 12, 2_820_000),
+    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", EM, 6,  3_900_000),
+    makeLine(year, "Timan 2620",  "Timan 2620",            "563219", EM, 4,  1_600_000, "Coming soon — pre-budget"),
+    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     EM, 5,  1_750_000),
   ];
 
-  // Alexander Kirschner / AKR — DE
+  // AKR — DE (eksport)
   const akr: BudgetLine[] = [
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine","411000", "Alexander Kirschner", "DE", 6, 1_410_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",           "712000", "Alexander Kirschner", "DE", 4, 2_600_000),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",            null,     "Alexander Kirschner", "DE", 3, 1_050_000),
+    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", AKR, 6, 1_410_000),
+    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", AKR, 4, 2_600_000),
+    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     AKR, 3, 1_050_000),
   ];
 
-  const seedLines: BudgetLine[] = [...em, ...akr];
+  // JTN — DK (fokuseret portefølje)
+  const jtn: BudgetLine[] = [
+    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", JTN, 5,  837_500),
+    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", JTN, 7,  1_645_000),
+    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", JTN, 3,  1_950_000),
+    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     JTN, 4,  1_400_000),
+  ];
+
+  const seedLines: BudgetLine[] = [...em, ...akr, ...jtn];
   writeLS(LS_LINES, seedLines);
 
-  // Forecast values (per spec — only EM has explicit forecasts; AKR mirrors budget).
-  const forecastByKeyEM: Record<string, { qty: number; value: number }> = {
+  // Forecast & sold seed values per seller (per machine key).
+  type Pair = { qty: number; value: number };
+  const fcEM: Record<string, Pair> = {
     "RC-751":     { qty: 9, value: 1_260_000 },
     "RC-1000s":   { qty: 10, value: 2_350_000 },
     "Timan 3330": { qty: 7, value: 4_550_000 },
     "Timan 2620": { qty: 3, value: 1_200_000 },
     "Tool-Trac":  { qty: 5, value: 1_750_000 },
   };
-  const actualByKeyEM: Record<string, { qty: number; value: number }> = {
+  const acEM: Record<string, Pair> = {
     "RC-751":     { qty: 2, value: 280_000 },
     "RC-1000s":   { qty: 3, value: 705_000 },
     "Timan 3330": { qty: 1, value: 650_000 },
     "Timan 2620": { qty: 0, value: 0 },
     "Tool-Trac":  { qty: 1, value: 350_000 },
   };
-  // AKR — light forecasts/actuals so seller view isn't empty.
-  const forecastByKeyAKR: Record<string, { qty: number; value: number }> = {
+  const fcAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 7, value: 1_645_000 },
     "Timan 3330": { qty: 4, value: 2_600_000 },
     "Tool-Trac":  { qty: 4, value: 1_400_000 },
   };
-  const actualByKeyAKR: Record<string, { qty: number; value: number }> = {
+  const acAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 1, value: 235_000 },
+    "Timan 3330": { qty: 0, value: 0 },
+    "Tool-Trac":  { qty: 1, value: 350_000 },
+  };
+  const fcJTN: Record<string, Pair> = {
+    "RC-751":     { qty: 6, value: 1_005_000 },
+    "RC-1000s":   { qty: 8, value: 1_880_000 },
+    "Timan 3330": { qty: 4, value: 2_600_000 },
+    "Tool-Trac":  { qty: 5, value: 1_750_000 },
+  };
+  const acJTN: Record<string, Pair> = {
+    "RC-751":     { qty: 1, value: 167_500 },
+    "RC-1000s":   { qty: 2, value: 470_000 },
     "Timan 3330": { qty: 0, value: 0 },
     "Tool-Trac":  { qty: 1, value: 350_000 },
   };
@@ -238,18 +290,18 @@ function ensureSeed() {
   const forecasts: BudgetForecast[] = [];
   const actuals: SalesActual[] = [];
   const now = new Date().toISOString();
-  for (const line of em) {
-    const f = forecastByKeyEM[line.product_key];
-    if (f) forecasts.push({ id: uid(), budget_line_id: line.id, qty_forecast: f.qty, value_forecast: f.value, probability: 70, risk_level: "medium", updated_at: now });
-    const a = actualByKeyEM[line.product_key];
-    if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
+  function pushForLines(lines: BudgetLine[], fc: Record<string, Pair>, ac: Record<string, Pair>, prob: number) {
+    for (const line of lines) {
+      const f = fc[line.product_key];
+      if (f) forecasts.push({ id: uid(), budget_line_id: line.id, qty_forecast: f.qty, value_forecast: f.value, probability: prob, risk_level: "medium", updated_at: now });
+      const a = ac[line.product_key];
+      if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
+    }
   }
-  for (const line of akr) {
-    const f = forecastByKeyAKR[line.product_key];
-    if (f) forecasts.push({ id: uid(), budget_line_id: line.id, qty_forecast: f.qty, value_forecast: f.value, probability: 60, risk_level: "medium", updated_at: now });
-    const a = actualByKeyAKR[line.product_key];
-    if (a) actuals.push({ budget_line_id: line.id, qty_sold: a.qty, value_sold: a.value });
-  }
+  pushForLines(em, fcEM, acEM, 70);
+  pushForLines(akr, fcAKR, acAKR, 60);
+  pushForLines(jtn, fcJTN, acJTN, 65);
+
   writeLS(LS_FORECASTS, forecasts);
   writeLS(LS_ACTUALS, actuals);
 }
