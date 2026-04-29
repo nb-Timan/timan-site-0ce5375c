@@ -207,10 +207,10 @@ function splitToMonthly(qty: number, split: number[]): number[] {
   return result;
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Language): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(LOCALE_BY_LANG[lang], { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // ---------- KPI ----------
@@ -246,6 +246,7 @@ type WorkingDraft = Record<string, number[]>; // budget_line_id -> 12 numbers
 
 export default function CrmBudgetPage() {
   const { appUser, loading } = useAppUser();
+  const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
