@@ -312,30 +312,53 @@ export default function CrmDashboardPage() {
                 })()}
               </div>
               <div className="flex flex-col items-center justify-center">
-                <div className="relative h-44 w-44">
+                <div className="relative h-56 w-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={metrics.pipelineByStage.filter(s => s.count > 0).map(s => ({
                           name: T[`stage_${s.key}`][lang], value: s.count, fill: s.hex,
                         }))}
-                        dataKey="value" innerRadius={52} outerRadius={78} paddingAngle={2}
-                        stroke="white" strokeWidth={2} isAnimationActive
+                        dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={3}
+                        stroke="white" strokeWidth={3} isAnimationActive
                       >
                         {metrics.pipelineByStage.filter(s => s.count > 0).map((s, i) => (
                           <Cell key={i} fill={s.hex} />
                         ))}
                       </Pie>
-                      <RTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                      <RTooltip
+                        cursor={false}
+                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb',
+                          fontSize: 12,
+                          boxShadow: '0 10px 30px -10px rgba(15,23,42,0.25)',
+                          padding: '8px 12px',
+                        }}
+                        formatter={(v: number, name: string) => [`${v}`, name]}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">{T.pipeline_total[lang]}</span>
-                    <span className="text-base font-bold text-gray-900">{fmtKrShort(metrics.pipelineValue)}</span>
+                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400 font-semibold">{T.pipeline_total[lang]}</span>
+                    <span className="text-xl font-bold text-slate-900 tabular-nums mt-1">{fmtKrShort(metrics.pipelineValue)}</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      {metrics.pipelineByStage.reduce((s, x) => s + x.count, 0)} {T.orders[lang]}
+                    </span>
                   </div>
                 </div>
+                {/* Legend */}
+                <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-1.5 w-full max-w-[260px]">
+                  {metrics.pipelineByStage.filter(s => s.count > 0).map(s => (
+                    <div key={s.key} className="flex items-center gap-2 text-[11px] text-slate-600">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.hex }} />
+                      <span className="truncate">{T[`stage_${s.key}`][lang]}</span>
+                      <span className="ml-auto tabular-nums font-semibold text-slate-700">{s.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
           )}
         </Card>
 
