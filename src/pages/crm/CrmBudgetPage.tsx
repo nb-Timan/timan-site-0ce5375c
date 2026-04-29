@@ -717,6 +717,12 @@ export default function CrmBudgetPage() {
   // ---- Render ----
   const monthCols = MONTHS_BY_LANG[lang];
 
+  // Highlight current month column when viewing the current calendar year.
+  // Column 1 is the sticky model name, so nth-child for month M (0-based) is M+2.
+  const now = new Date();
+  const currentMonthIdx = now.getFullYear() === year ? now.getMonth() : -1;
+  const currentMonthCol = currentMonthIdx >= 0 ? currentMonthIdx + 2 : -1;
+
   return (
     <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
