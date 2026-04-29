@@ -100,6 +100,8 @@ function classifyUrgency(lead: Pick<CrmLead, "next_followup_date">, now: Date): 
   return "later"; // very far future still counts as on-track
 }
 
+const OPEN_STAGES: ReadonlySet<string> = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
+
 const MACHINES: Array<{ key: string; label: string }> = [
   { key: "RC-751",     label: "RC-751" },
   { key: "RC-1000s",   label: "RC-1000s" },
