@@ -98,6 +98,10 @@ const T: Record<string, Record<Language, string>> = {
                    it: 'Il modulo budget è disponibile solo per Timan Backend e Timan Seller.',
                    hu: 'A költségvetés modul csak Timan Backend és Timan értékesítők számára érhető el.' },
   loading_short: { da: 'Indlæser…',             en: 'Loading…',                de: 'Wird geladen…',           it: 'Caricamento…',            hu: 'Betöltés…' },
+  equipment_for: { da: 'Redskaber til',         en: 'Equipment for',           de: 'Werkzeuge für',           it: 'Attrezzature per',        hu: 'Eszközök:' },
+  preview_row:   { da: 'Planlægning',           en: 'Preview',                 de: 'Planung',                 it: 'Pianificazione',          hu: 'Tervezés' },
+  show_equipment:{ da: 'Vis redskaber',         en: 'Show equipment',          de: 'Werkzeuge anzeigen',      it: 'Mostra attrezzature',     hu: 'Eszközök megjelenítése' },
+  hide_equipment:{ da: 'Skjul redskaber',       en: 'Hide equipment',          de: 'Werkzeuge ausblenden',    it: 'Nascondi attrezzature',   hu: 'Eszközök elrejtése' },
 };
 
 // Localized month labels.
