@@ -209,39 +209,67 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI CARDS — 4 cards: 2 single + 2 grouped duos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8 items-stretch auto-rows-fr animate-[fadeIn_.4s_ease-out]">
-          <Kpi accent="emerald" icon={Target} label={T.kpi_pipeline[lang]} value={fmtKr(metrics.pipelineValue)}
-               trendPct={metrics.pipelinePctChange} lang={lang} sparkline={trend30} to="/portal/crm/quotes" />
+        {/* TOP KPI HERO LAYOUT — Pipeline hero + compact KPI rail */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-8 items-stretch animate-[fadeIn_.4s_ease-out]">
+          {/* HERO — Pipeline value */}
+          <Link to="/portal/crm/quotes" className="lg:col-span-5 group block">
+            <div className="relative overflow-hidden h-full min-h-[300px] rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-7 flex flex-col">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full opacity-30 blur-3xl"
+                style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
+              />
+              <div className="flex items-start justify-between gap-3 relative">
+                <div className="h-11 w-11 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <Target className="h-5 w-5" strokeWidth={2} />
+                </div>
+                <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
+              </div>
+              <p className="mt-5 text-[11px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
+                {T.kpi_pipeline[lang]}
+              </p>
+              <p className="mt-2 text-[2.4rem] md:text-[2.6rem] leading-none font-bold tracking-tight tabular-nums">
+                {fmtKr(metrics.pipelineValue)}
+              </p>
+              <p className="text-[12px] text-emerald-100/70 mt-2">{T.vs_last_month[lang]}</p>
+              <div className="mt-auto" />
+              {trend30 && trend30.length > 1 && (
+                <div className="-mx-7 -mb-7 mt-6 h-24 opacity-90">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trend30} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
+                            fill="url(#heroGrad)" isAnimationActive />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </Link>
 
-          <KpiDuo
-            lang={lang}
-            left={{
-              icon: Sparkles, accent: 'violet', label: T.kpi_leads[lang],
-              value: String(metrics.activeLeads), trendPct: metrics.leadsPctChange, to: '/portal/crm/leads',
-            }}
-            right={{
-              icon: Trophy, accent: 'emerald', label: T.kpi_won[lang],
-              value: String(metrics.wonOrdersCount), trendPct: metrics.wonPctChange, to: '/portal/crm/orders',
-            }}
-          />
-
-          <KpiDuo
-            lang={lang}
-            left={{
-              icon: CheckCircle2, accent: 'sky', label: T.kpi_winrate[lang],
-              value: `${metrics.winRate}%`,
-            }}
-            right={{
-              icon: Clock, accent: 'amber', label: T.kpi_avgtime[lang],
-              value: `${metrics.avgSalesDays} ${T.days[lang]}`,
-            }}
-          />
-
-          <Kpi accent="emerald" icon={ShoppingCart} label={T.kpi_closed[lang]}
-               value={fmtKrShort(metrics.closedValueThisMonth)}
-               sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
-               trendPct={metrics.closedPctChange} lang={lang} />
+          {/* RIGHT RAIL — 5 compact KPIs */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <KpiRow icon={Sparkles} accent="violet" label={T.kpi_leads[lang]}
+                    value={String(metrics.activeLeads)} trendPct={metrics.leadsPctChange}
+                    lang={lang} to="/portal/crm/leads" />
+            <KpiRow icon={Trophy} accent="emerald" label={T.kpi_won[lang]}
+                    value={String(metrics.wonOrdersCount)} trendPct={metrics.wonPctChange}
+                    lang={lang} to="/portal/crm/orders" />
+            <KpiRow icon={CheckCircle2} accent="sky" label={T.kpi_winrate[lang]}
+                    value={`${metrics.winRate}%`} lang={lang} />
+            <KpiRow icon={Clock} accent="amber" label={T.kpi_avgtime[lang]}
+                    value={`${metrics.avgSalesDays} ${T.days[lang]}`} lang={lang} />
+            <KpiRow icon={ShoppingCart} accent="emerald" label={T.kpi_closed[lang]}
+                    value={fmtKrShort(metrics.closedValueThisMonth)}
+                    sub={`${metrics.closedCountThisMonth} ${T.orders[lang]}`}
+                    trendPct={metrics.closedPctChange} lang={lang}
+                    className="sm:col-span-2" />
+          </div>
         </div>
 
         {/* PIPELINE — bars + donut */}
@@ -284,27 +312,51 @@ export default function CrmDashboardPage() {
                 })()}
               </div>
               <div className="flex flex-col items-center justify-center">
-                <div className="relative h-44 w-44">
+                <div className="relative h-56 w-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={metrics.pipelineByStage.filter(s => s.count > 0).map(s => ({
                           name: T[`stage_${s.key}`][lang], value: s.count, fill: s.hex,
                         }))}
-                        dataKey="value" innerRadius={52} outerRadius={78} paddingAngle={2}
-                        stroke="white" strokeWidth={2} isAnimationActive
+                        dataKey="value" innerRadius={70} outerRadius={100} paddingAngle={3}
+                        stroke="white" strokeWidth={3} isAnimationActive
                       >
                         {metrics.pipelineByStage.filter(s => s.count > 0).map((s, i) => (
                           <Cell key={i} fill={s.hex} />
                         ))}
                       </Pie>
-                      <RTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                      <RTooltip
+                        cursor={false}
+                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb',
+                          fontSize: 12,
+                          boxShadow: '0 10px 30px -10px rgba(15,23,42,0.25)',
+                          padding: '8px 12px',
+                        }}
+                        formatter={(v: number, name: string) => [`${v}`, name]}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">{T.pipeline_total[lang]}</span>
-                    <span className="text-base font-bold text-gray-900">{fmtKrShort(metrics.pipelineValue)}</span>
+                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400 font-semibold">{T.pipeline_total[lang]}</span>
+                    <span className="text-xl font-bold text-slate-900 tabular-nums mt-1">{fmtKrShort(metrics.pipelineValue)}</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      {metrics.pipelineByStage.reduce((s, x) => s + x.count, 0)} {T.orders[lang]}
+                    </span>
                   </div>
+                </div>
+                {/* Legend */}
+                <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-1.5 w-full max-w-[260px]">
+                  {metrics.pipelineByStage.filter(s => s.count > 0).map(s => (
+                    <div key={s.key} className="flex items-center gap-2 text-[11px] text-slate-600">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.hex }} />
+                      <span className="truncate">{T[`stage_${s.key}`][lang]}</span>
+                      <span className="ml-auto tabular-nums font-semibold text-slate-700">{s.count}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -653,6 +705,61 @@ function KpiHalfBlock({
     </div>
   );
   return to ? <Link to={to} className="flex-1 flex min-w-0">{inner}</Link> : inner;
+}
+
+// Hero trend pill — used inside the dark Pipeline hero card
+function HeroTrend({ pct, lang }: { pct: number; lang: Language }) {
+  const TrendIcon = pct > 2 ? ArrowUpRight : pct < -2 ? ArrowDownRight : Minus;
+  const cls =
+    pct > 2 ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/30' :
+    pct < -2 ? 'bg-rose-400/20 text-rose-50 ring-rose-300/30' :
+    'bg-white/10 text-white/80 ring-white/20';
+  const label = Math.abs(pct) <= 2 ? T.stable[lang] : `${pct > 0 ? '+' : ''}${pct}%`;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 backdrop-blur-sm ${cls}`}>
+      <TrendIcon className="h-3.5 w-3.5" />{label}
+    </span>
+  );
+}
+
+// Compact horizontal KPI row card — premium, single-line layout
+function KpiRow({
+  icon: Icon, label, value, sub, trendPct, lang, accent = 'emerald', to, className = '',
+}: {
+  icon: typeof Building2; label: string; value: string; sub?: string;
+  trendPct?: number; lang: Language; accent?: keyof typeof ACCENTS;
+  to?: string; className?: string;
+}) {
+  const a = ACCENTS[accent];
+  const showTrend = typeof trendPct === 'number';
+  const TrendIcon = !showTrend ? ArrowRight : trendPct! > 2 ? ArrowUpRight : trendPct! < -2 ? ArrowDownRight : Minus;
+  const trendCls = !showTrend ? '' :
+    trendPct! > 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+    trendPct! < -2 ? 'bg-rose-50 text-rose-700 border-rose-200' :
+    'bg-gray-50 text-gray-600 border-gray-200';
+  const trendLabel = !showTrend ? '' :
+    Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
+
+  const inner = (
+    <div className="group h-full bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/80 transition-all duration-300 p-5 flex items-center gap-4 min-h-[96px]">
+      <div className={`h-11 w-11 shrink-0 rounded-xl ${a.icon} flex items-center justify-center`}>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">{label}</p>
+        <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+          <span className="text-[1.5rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none whitespace-nowrap">{value}</span>
+          {sub && <span className="text-xs text-slate-500 whitespace-nowrap">{sub}</span>}
+        </div>
+      </div>
+      {showTrend && (
+        <span className={`shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-1 rounded-full border ${trendCls}`}>
+          <TrendIcon className="h-3 w-3" />{trendLabel}
+        </span>
+      )}
+    </div>
+  );
+  return to ? <Link to={to} className={`block ${className}`}>{inner}</Link> : <div className={className}>{inner}</div>;
 }
 
 
