@@ -22,7 +22,7 @@ import {
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
-  type BudgetSellerRef, findProduct,
+  findProduct,
 } from "@/lib/crmBudgetService";
 
 // ────────────────────────────────────────────────────────────
