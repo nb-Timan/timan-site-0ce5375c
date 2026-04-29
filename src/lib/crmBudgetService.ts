@@ -37,6 +37,12 @@ export interface BudgetLine {
   category: BudgetCategory;
   seller_id: string | null;
   seller_name: string | null;
+  /** Email of the assigned seller — used for scoping when seller_id is unknown
+   *  (e.g. preview-role sessions or rows seeded before auth linking). */
+  seller_email: string | null;
+  /** Short initials (e.g. "EM", "AKR", "JTN") — used as the human-readable
+   *  identifier and for the backend filter dropdown. */
+  seller_initials: string | null;
   country: string | null;
   qty_budget: number;
   value_budget: number;       // currency-agnostic, DKK assumed for Phase 1
