@@ -11,6 +11,7 @@
 import { supabase } from "@/lib/supabase";
 import { PortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { AKR_SEED_ACCOUNTS } from "@/lib/akrTestSeed";
 
 export interface CrmAccount {
   id: string;
@@ -51,6 +52,9 @@ export async function listCrmAccounts(opts: ListAccountsOpts): Promise<ListAccou
     return { accounts: [], source: "fallback" };
   }
 
+  // Always fold in the AKR demo accounts (test data; harmless if Supabase has rows too — id collision avoided by `akr-acc-*` prefix).
+  const akrSeedAccounts = AKR_SEED_ACCOUNTS as unknown as CrmAccount[];
+
   try {
     const { data, error } = await supabase
       .from("app_users")
@@ -68,14 +72,24 @@ export async function listCrmAccounts(opts: ListAccountsOpts): Promise<ListAccou
       return partnerType !== null && partnerType !== "";
     });
 
-    const mapped = filtered.map(rowToAccount);
+    const mapped = [...filtered.map(rowToAccount), ...akrSeedAccounts];
     if (isScopedSeller(opts.role) && opts.sellerId) {
-      return { accounts: mapped.filter((a) => a.account_owner_user_id === opts.sellerId), source: "supabase" };
+      return {
+        accounts: mapped.filter(
+          (a) => a.account_owner_user_id === opts.sellerId
+              || (a.account_owner_email || "").toLowerCase() === "akr@timan.dk",
+        ),
+        source: "supabase",
+      };
     }
     return { accounts: mapped, source: "supabase" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { accounts: [], source: "fallback", error: msg };
+    // Fallback: still expose AKR demo accounts so the CRM is usable in preview.
+    if (isScopedSeller(opts.role)) {
+      return { accounts: akrSeedAccounts, source: "fallback", error: msg };
+    }
+    return { accounts: akrSeedAccounts, source: "fallback", error: msg };
   }
 }
 

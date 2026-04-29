@@ -45,6 +45,10 @@ import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
 import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
+import { ensureAkrSeed } from "./lib/akrTestSeed";
+
+// Seed AKR realistic test data once per browser (idempotent — versioned flag).
+ensureAkrSeed();
 
 const queryClient = new QueryClient();
 
