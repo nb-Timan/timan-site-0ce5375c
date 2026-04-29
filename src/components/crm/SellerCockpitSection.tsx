@@ -316,12 +316,12 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
       const ownLineIds = new Set(ownLines.map(l => l.id));
       const ownActuals = actuals.filter(a => ownLineIds.has(a.budget_line_id));
       const ordersQty = ownActivities.filter(a => a.activity_type === "order_sent" && (a.status || "").toLowerCase() !== "lost").length;
-      const ownPipeline = ownLeads.filter(l => openStages.has(l.pipeline_stage)).length;
+      const ownPipeline = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage)).length;
       const ownBudget = ownLines.reduce((s, l) => s + (l.qty_budget || 0), 0);
       const ownSold = ownActuals.reduce((s, a) => s + (a.qty_sold || 0), 0);
 
-      const overdue = ownLeads.filter(l => openStages.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
-      const noFollow = ownLeads.filter(l => openStages.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
+      const overdue = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
+      const noFollow = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
       const budgetScore = ownBudget === 0 ? 0 : Math.round((ownSold / ownBudget) * 100);
 
@@ -335,7 +335,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
         noFollow,
       };
     });
-  }, [isAdmin, allActivities, allLeads, budgetLines, actuals, ordersMap, openLeads.length, scopedBudget.lines, now, openStages]);
+  }, [isAdmin, allActivities, allLeads, budgetLines, actuals, ordersMap, openLeads.length, scopedBudget.lines, now]);
 
   const alerts = useMemo(() => {
     if (!isAdmin) return [];
