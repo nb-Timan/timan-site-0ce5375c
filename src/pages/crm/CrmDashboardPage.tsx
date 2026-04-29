@@ -683,6 +683,61 @@ function KpiHalfBlock({
   return to ? <Link to={to} className="flex-1 flex min-w-0">{inner}</Link> : inner;
 }
 
+// Hero trend pill — used inside the dark Pipeline hero card
+function HeroTrend({ pct, lang }: { pct: number; lang: Language }) {
+  const TrendIcon = pct > 2 ? ArrowUpRight : pct < -2 ? ArrowDownRight : Minus;
+  const cls =
+    pct > 2 ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/30' :
+    pct < -2 ? 'bg-rose-400/20 text-rose-50 ring-rose-300/30' :
+    'bg-white/10 text-white/80 ring-white/20';
+  const label = Math.abs(pct) <= 2 ? T.stable[lang] : `${pct > 0 ? '+' : ''}${pct}%`;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 backdrop-blur-sm ${cls}`}>
+      <TrendIcon className="h-3.5 w-3.5" />{label}
+    </span>
+  );
+}
+
+// Compact horizontal KPI row card — premium, single-line layout
+function KpiRow({
+  icon: Icon, label, value, sub, trendPct, lang, accent = 'emerald', to, className = '',
+}: {
+  icon: typeof Building2; label: string; value: string; sub?: string;
+  trendPct?: number; lang: Language; accent?: keyof typeof ACCENTS;
+  to?: string; className?: string;
+}) {
+  const a = ACCENTS[accent];
+  const showTrend = typeof trendPct === 'number';
+  const TrendIcon = !showTrend ? ArrowRight : trendPct! > 2 ? ArrowUpRight : trendPct! < -2 ? ArrowDownRight : Minus;
+  const trendCls = !showTrend ? '' :
+    trendPct! > 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+    trendPct! < -2 ? 'bg-rose-50 text-rose-700 border-rose-200' :
+    'bg-gray-50 text-gray-600 border-gray-200';
+  const trendLabel = !showTrend ? '' :
+    Math.abs(trendPct!) <= 2 ? T.stable[lang] : `${trendPct! > 0 ? '+' : ''}${trendPct}%`;
+
+  const inner = (
+    <div className="group h-full bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/80 transition-all duration-300 p-5 flex items-center gap-4 min-h-[96px]">
+      <div className={`h-11 w-11 shrink-0 rounded-xl ${a.icon} flex items-center justify-center`}>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">{label}</p>
+        <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+          <span className="text-[1.5rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none whitespace-nowrap">{value}</span>
+          {sub && <span className="text-xs text-slate-500 whitespace-nowrap">{sub}</span>}
+        </div>
+      </div>
+      {showTrend && (
+        <span className={`shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-1 rounded-full border ${trendCls}`}>
+          <TrendIcon className="h-3 w-3" />{trendLabel}
+        </span>
+      )}
+    </div>
+  );
+  return to ? <Link to={to} className={`block ${className}`}>{inner}</Link> : <div className={className}>{inner}</div>;
+}
+
 
 // ────────────────────────────────────────────────────────────
 // Metric derivation
