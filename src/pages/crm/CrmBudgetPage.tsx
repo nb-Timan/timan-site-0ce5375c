@@ -151,7 +151,12 @@ const SAMPLE_CUSTOMERS = [
   "Hamburg Grünflächen", "Hillerød Drift", "Aalborg Park & Natur",
 ];
 const SAMPLE_ATTACHMENTS = ["Slagleklipper 1500", "Krat-skærer", "Buskrydder XL", "Kost", "Sneskraber", "Saltspreder"];
-const SAMPLE_STATUSES = ["Sendt", "Sendt", "Sendt", "I dialog", "Forhandling"];
+const SAMPLE_STATUSES = ["sent", "sent", "sent", "dialog", "negotiation"] as const;
+const STATUS_LABELS: Record<typeof SAMPLE_STATUSES[number], Record<Language, string>> = {
+  sent:        { da: 'Sendt',       en: 'Sent',         de: 'Gesendet',     it: 'Inviato',       hu: 'Elküldve' },
+  dialog:      { da: 'I dialog',    en: 'In dialog',    de: 'Im Dialog',    it: 'In dialogo',    hu: 'Egyeztetés' },
+  negotiation: { da: 'Forhandling', en: 'Negotiation',  de: 'Verhandlung',  it: 'Negoziazione',  hu: 'Tárgyalás' },
+};
 
 function generatePipeline(line: BudgetLine, year: number): PipelineOffer[][] {
   const months: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
@@ -697,7 +702,7 @@ export default function CrmBudgetPage() {
                                     </div>
                                     {offers.map((o, idx) => (
                                       <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
-                                        <div className="font-medium">{o.offer_no} · {o.status}</div>
+                                        <div className="font-medium">{o.offer_no} · {(STATUS_LABELS as Record<string, Record<Language,string>>)[o.status]?.[lang] || o.status}</div>
                                         <div className="text-slate-600">{o.dealer}</div>
                                         <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
                                         <div className="text-slate-600">{T.tip_machine[lang]}: {group.product_name}</div>
