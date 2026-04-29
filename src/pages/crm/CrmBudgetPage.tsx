@@ -457,9 +457,34 @@ export default function CrmBudgetPage() {
   const customMachines = useMemo(() => customMachineProducts(), [customRev]);
   const customEquip = useMemo(() => customEquipmentByMachine(), [customRev]);
 
+  // Set of all known equipment keys across machines (used to detect persisted
+  // equipment-typed budget rows that must NOT render as standalone machine groups).
+  const equipmentKeySet = useMemo(() => {
+    const s = new Set<string>();
+    for (const arr of Object.values(EQUIPMENT_BY_MACHINE)) {
+      for (const e of arr) s.add(e.key);
+    }
+    return s;
+  }, []);
+
+  const customMachineKeySet = useMemo(
+    () => new Set(customMachines.map(m => m.key)),
+    [customMachines],
+  );
+
   const grouped = useMemo(() => {
+    const knownMachineKeys = new Set<string>([...MACHINE_ORDER, ...customMachineKeySet]);
     const m = new Map<string, { product_key: string; product_name: string; item_number: string | null; lines: BudgetLine[] }>();
     visibleLines.forEach(l => {
+      // Skip equipment-typed lines so they never appear as orphan machine groups
+      // at the bottom. Equipment is rendered exclusively inside its parent
+      // machine's equipment section via the synthetic-line path.
+      const isEquipmentLine =
+        l.category === "attachment" ||
+        (l.product_key || "").includes("::") ||
+        equipmentKeySet.has(l.product_key) ||
+        (!knownMachineKeys.has(l.product_key) && !!l.parent_machine_key);
+      if (isEquipmentLine) return;
       const prev = m.get(l.product_key) || { product_key: l.product_key, product_name: l.product_name, item_number: l.item_number, lines: [] };
       prev.lines.push(l);
       m.set(l.product_key, prev);
@@ -477,9 +502,11 @@ export default function CrmBudgetPage() {
       if (m.has(cm.key)) { out.push(m.get(cm.key)!); m.delete(cm.key); }
       else out.push({ product_key: cm.key, product_name: cm.name, item_number: cm.varenr, lines: [] });
     }
-    m.forEach(v => out.push(v));
+    // Any remaining unknown product_key is treated as an orphan and dropped.
+    // Equipment-style rows are already filtered above; everything left here would
+    // be a machine that no longer exists in the catalog.
     return out;
-  }, [visibleLines, customMachines]);
+  }, [visibleLines, customMachines, customMachineKeySet, equipmentKeySet]);
 
   // Merged equipment map (stock + custom Budget-only equipment).
   const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
