@@ -484,7 +484,11 @@ export default function CrmBudgetPage() {
   // Merged equipment map (stock + custom Budget-only equipment).
   const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
     const out: Record<string, EquipmentCategory[]> = {};
-    for (const k of Object.keys(EQUIPMENT_BY_MACHINE)) out[k] = [...EQUIPMENT_BY_MACHINE[k]];
+    // Hide the visual sub-category headings (Feje/Sug, Ukrudtsbørste, Græs, Vinter, Øvrige).
+    // Equipment items themselves remain — they now sit directly under the equipment folder.
+    for (const k of Object.keys(EQUIPMENT_BY_MACHINE)) {
+      out[k] = EQUIPMENT_BY_MACHINE[k].filter(e => !e.isHeader);
+    }
     for (const k of Object.keys(customEquip)) out[k] = [...(out[k] || []), ...customEquip[k]];
     return out;
   }, [customEquip]);
