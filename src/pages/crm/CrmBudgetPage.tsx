@@ -104,6 +104,18 @@ const T: Record<string, Record<Language, string>> = {
   preview_row:   { da: 'Planlægning',           en: 'Preview',                 de: 'Planung',                 it: 'Pianificazione',          hu: 'Tervezés' },
   show_equipment:{ da: 'Vis redskaber',         en: 'Show equipment',          de: 'Werkzeuge anzeigen',      it: 'Mostra attrezzature',     hu: 'Eszközök megjelenítése' },
   hide_equipment:{ da: 'Skjul redskaber',       en: 'Hide equipment',          de: 'Werkzeuge ausblenden',    it: 'Nascondi attrezzature',   hu: 'Eszközök elrejtése' },
+  budget_status: { da: 'Budgetstatus',          en: 'Budget status',           de: 'Budgetstatus',            it: 'Stato budget',            hu: 'Költségvetés állapota' },
+  status_locked: { da: 'Budget låst',           en: 'Budget locked',           de: 'Budget locked',           it: 'Budget bloccato',         hu: 'Költségvetés zárolva' },
+  status_open:   { da: 'Budget åbent',          en: 'Budget open',             de: 'Budget offen',            it: 'Budget aperto',           hu: 'Költségvetés nyitva' },
+  unlock_budget: { da: 'Lås op',                en: 'Unlock',                  de: 'Entsperren',              it: 'Sblocca',                 hu: 'Feloldás' },
+  lock_budget:   { da: 'Lås igen',              en: 'Lock again',              de: 'Erneut sperren',          it: 'Blocca di nuovo',         hu: 'Újra zárolás' },
+  pick_seller:   { da: 'Vælg en sælger for at låse op',  en: 'Select a seller to unlock', de: 'Wählen Sie einen Verkäufer zum Entsperren', it: 'Seleziona un venditore per sbloccare', hu: 'Válasszon értékesítőt a feloldáshoz' },
+  budget_locked_hint: { da: 'Budget er låst — kontakt backend for at åbne.',
+                        en: 'Budget is locked — ask backend to open it.',
+                        de: 'Budget ist gesperrt — bitten Sie das Backend, es zu öffnen.',
+                        it: 'Budget bloccato — chiedi al backend di aprirlo.',
+                        hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
+  row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
 };
 
 // Localized month labels.
