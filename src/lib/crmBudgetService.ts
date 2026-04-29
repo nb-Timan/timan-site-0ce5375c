@@ -11,6 +11,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { PRODUCTS, ACCESSORIES } from "@/data/machines";
+import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Language, LocalizedString } from "@/types/configurator";
 
 // ---------- Types ----------
