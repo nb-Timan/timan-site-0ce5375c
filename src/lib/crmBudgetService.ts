@@ -395,6 +395,14 @@ export interface ListBudgetParams {
   year: number;
 }
 
+function sanitizeLines(lines: BudgetLine[]): BudgetLine[] {
+  // Drop Tool-Trac from Budget (per spec) and strip any "Basismaskine"-style
+  // suffix that may still live in old persisted/Supabase rows.
+  return lines
+    .filter(l => l.product_key !== "Tool-Trac")
+    .map(l => ({ ...l, product_name: stripBaseSuffix(l.product_name || "") }));
+}
+
 export async function listBudgetLines({ year }: ListBudgetParams): Promise<BudgetLine[]> {
   // Try Supabase first. If table missing or any error → fallback.
   try {
@@ -403,11 +411,11 @@ export async function listBudgetLines({ year }: ListBudgetParams): Promise<Budge
       .select("*")
       .eq("year", year);
     if (!error && Array.isArray(data) && data.length > 0) {
-      return data as BudgetLine[];
+      return sanitizeLines(data as BudgetLine[]);
     }
   } catch { /* */ }
   ensureSeed();
-  return readLS<BudgetLine>(LS_LINES).filter(l => l.year === year);
+  return sanitizeLines(readLS<BudgetLine>(LS_LINES).filter(l => l.year === year));
 }
 
 export async function listForecasts(year: number): Promise<BudgetForecast[]> {
