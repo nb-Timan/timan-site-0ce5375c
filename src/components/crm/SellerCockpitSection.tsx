@@ -256,8 +256,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
 
   // ── Lead urgency buckets ──
   const now = new Date();
-  const openStages = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
-  const openLeads = scopedLeads.filter(l => openStages.has(l.pipeline_stage));
+  const openLeads = scopedLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage));
   const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
   for (const l of openLeads) buckets[classifyUrgency(l, now)].push(l);
   const totalLeads = openLeads.length;
