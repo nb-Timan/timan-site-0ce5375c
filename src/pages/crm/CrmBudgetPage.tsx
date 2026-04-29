@@ -295,6 +295,8 @@ export default function CrmBudgetPage() {
   const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
     "RC-1000s": true, "Timan 3330": true, "Timan 2620": true,
   });
+  // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
+  const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
@@ -306,6 +308,12 @@ export default function CrmBudgetPage() {
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
       .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
       .finally(() => setBusy(false));
+    // Re-hydrate lock map for this year from storage.
+    const map: Record<string, SellerYearLock> = {};
+    BUDGET_SELLERS.forEach(s => {
+      map[s.email.toLowerCase()] = getSellerYearLock(year, s.email);
+    });
+    setSellerLocks(map);
   }, [year, allowed]);
 
   // Resolve the current user's identity for scoping. We support multiple
