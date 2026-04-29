@@ -17,6 +17,7 @@ import CrmNewLeadPage from "./pages/crm/CrmNewLeadPage";
 import CrmDemoLeadsPage from "./pages/crm/CrmDemoLeadsPage";
 import CrmNewDemoLeadPage from "./pages/crm/CrmNewDemoLeadPage";
 import CrmDemoLeadDetailPage from "./pages/crm/CrmDemoLeadDetailPage";
+import CrmBudgetPage from "./pages/crm/CrmBudgetPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
 import VideoCategoryPage from "./pages/VideoCategoryPage";
@@ -71,6 +72,7 @@ const App = () => (
               <Route path="/portal/crm/demo-leads"     element={<CrmDemoLeadsPage />} />
               <Route path="/portal/crm/demo-leads/new" element={<CrmNewDemoLeadPage />} />
               <Route path="/portal/crm/demo-leads/:id" element={<CrmDemoLeadDetailPage />} />
+              <Route path="/portal/crm/budget"     element={<CrmBudgetPage />} />
               <Route path="/portal/crm/quotes"     element={<CrmComingSoonPage titleKey="quotes" />} />
               <Route path="/portal/crm/orders"     element={<CrmComingSoonPage titleKey="orders" />} />
               <Route path="/portal/crm/reports"    element={<CrmComingSoonPage titleKey="reports" />} />
