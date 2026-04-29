@@ -276,6 +276,11 @@ export default function CrmBudgetPage() {
   const [newRow, setNewRow] = useState<NewRowState>({
     product_key: BUDGET_PRODUCTS[0].key, seller_name: "", country: "DK", qty_budget: 1, notes: "",
   });
+  // Per-machine expand/collapse state for equipment sections.
+  // Default: expanded so backend users see the structure.
+  const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
+    "RC-1000s": true, "Timan 3330": true, "Timan 2620": true,
+  });
 
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
