@@ -791,6 +791,63 @@ export default function CrmBudgetPage() {
                           </span>
                         </td>
                       </tr>
+
+                      {/* Equipment categories under this machine (RC-1000s / 3330 / 2620 only) */}
+                      {(() => {
+                        const equipList = EQUIPMENT_BY_MACHINE[group.product_key] || [];
+                        if (equipList.length === 0) return null;
+                        const expanded = expandedEquip[group.product_key] !== false;
+                        return (
+                          <>
+                            {/* Equipment section header */}
+                            <tr key={`equip-h-${group.product_key}`}>
+                              <td colSpan={15} className="bg-slate-50 border-t border-slate-100 px-3 py-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedEquip(prev => ({ ...prev, [group.product_key]: !expanded }))}
+                                  className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:text-slate-900"
+                                  aria-expanded={expanded}
+                                  title={expanded ? T.hide_equipment[lang] : T.show_equipment[lang]}
+                                >
+                                  {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                  <Wrench className="h-3.5 w-3.5 text-emerald-600" />
+                                  {T.equipment_for[lang]} {group.product_name}
+                                </button>
+                              </td>
+                            </tr>
+
+                            {/* One row per equipment category — same columns, no data yet */}
+                            {expanded && equipList.map(eq => {
+                              const eqLabel = localizedName(eq.name, lang);
+                              const isPreview = eq.status === "preview";
+                              return (
+                                <tr key={`equip-${eq.key}`} className="border-b border-slate-100">
+                                  <td className="sticky left-0 z-10 bg-white px-3 py-2">
+                                    <div className="flex items-center gap-2 pl-5">
+                                      <span className="text-slate-700 text-sm">{eqLabel}</span>
+                                      {eq.varenr && <span className="text-[10px] text-slate-400 tabular-nums">· {eq.varenr}</span>}
+                                      {isPreview && (
+                                        <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                          {T.preview_row[lang]}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {monthCols.map((_, i) => (
+                                    <td key={i} className="px-2 py-2 text-center text-slate-300 text-xs tabular-nums">−</td>
+                                  ))}
+                                  <td className="px-2 py-2 text-center text-slate-400 text-xs tabular-nums">−</td>
+                                  <td className="px-2 py-2 text-center">
+                                    <span className="inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums bg-slate-100 text-slate-500 border-slate-200">
+                                      −
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </Fragment>
                   );
                 })}
