@@ -165,6 +165,28 @@ const LOCALE_BY_LANG: Record<Language, string> = { da: 'da-DK', en: 'en-GB', de:
 
 const EVEN: number[] = Array.from({ length: 12 }, () => 1 / 12);
 
+// Budget-only short display labels keyed by item number (varenr).
+// Keeps full product records intact; only affects how labels render in the matrix.
+const BUDGET_SHORT_LABELS: Record<string, string> = {
+  "720125":   "T2 u. højtryk",
+  "720130":   "T2 m. højtryk",
+  "720132":   "T3 u. højtryk",
+  "720133":   "T3 m. højtryk",
+  "730030":   "Forkoste med 2 koste",
+  "730017":   "Rotorklipper 3 knive 135 cm",
+  "HGM-2007": "Rotorklipper 150 cm",
+  "730130":   "Rotorklipper 120 cm for T3",
+  "730114":   "V-plov 130-150 cm",
+  "730105":   "Dozerblad 130 cm",
+  "725131":   "CS-200 Valsespreder, manuel reg.",
+  "725132":   "CS-200 Combi, manuel reg.",
+  "725138":   "CS-200 Combi, el reg.",
+};
+function shortLabelFor(varenr: string | null | undefined, fallback: string): string {
+  if (!varenr) return fallback;
+  return BUDGET_SHORT_LABELS[varenr] ?? fallback;
+}
+
 // ---------- Pipeline (sent offers) mock ----------
 interface PipelineOffer {
   offer_no: string;
@@ -1290,7 +1312,7 @@ export default function CrmBudgetPage() {
                                 </tr>
 
                                 {expanded && equipList.map(eq => {
-                                  const eqLabel = localizedName(eq.name, lang);
+                                  const fullLabel = localizedName(eq.name, lang);
                                   const isPreview = eq.status === "preview";
 
                                   // Visual sub-folder heading only — no budget row.
@@ -1300,13 +1322,15 @@ export default function CrmBudgetPage() {
                                         <td colSpan={15} className={cn("border-t border-slate-100 px-3 py-1 pl-8", colors.row || "bg-slate-50")}>
                                           <div className="flex items-center gap-2">
                                             <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
-                                            <span className={cn("text-[11px] font-semibold uppercase tracking-wide", colors.text)}>{eqLabel}</span>
+                                            <span className={cn("text-[11px] font-semibold uppercase tracking-wide", colors.text)}>{fullLabel}</span>
                                           </div>
                                         </td>
                                       </tr>
                                     );
                                   }
 
+                                  const eqLabel = shortLabelFor(eq.varenr, fullLabel);
+                                  const hasShort = eqLabel !== fullLabel;
                                   const synthetic = syntheticEquipLine(group.product_key, eq.key, eqLabel, eq.varenr);
                                   return (
                                     <Fragment key={`equip-frag-${eq.key}`}>
@@ -1316,7 +1340,18 @@ export default function CrmBudgetPage() {
                                           <div className="flex items-center gap-2">
                                             <span className={cn("inline-block h-3 w-0.5 rounded", colors.bar)} aria-hidden="true" />
                                             <Wrench className="h-3 w-3 text-slate-400" />
-                                            <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
+                                            {hasShort ? (
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <span className="font-medium text-slate-800 text-sm cursor-help">{eqLabel}</span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="max-w-xs">
+                                                  <span className="text-xs">{fullLabel}</span>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            ) : (
+                                              <span className="font-medium text-slate-800 text-sm">{eqLabel}</span>
+                                            )}
                                             {eq.varenr ? <span className="text-[10px] text-slate-500 tabular-nums">· {eq.varenr}</span> : <span className="text-[10px] text-slate-400 italic">· varenr. mangler</span>}
                                             {isPreview && (
                                               <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
