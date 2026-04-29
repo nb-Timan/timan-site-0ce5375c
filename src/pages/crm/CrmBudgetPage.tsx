@@ -399,6 +399,38 @@ export default function CrmBudgetPage() {
     );
   }
 
+  // ---- Lock helpers (per seller / per year) ----
+  // The "selected seller" for backend admin == backendFilter (only when it's
+  // an actual seller email). For sellers it's their own email.
+  const selectedSellerEmail: string | null = isAdmin
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (myEmail || null);
+
+  function lockFor(email: string | null | undefined): SellerYearLock | null {
+    if (!email) return null;
+    return sellerLocks[email.toLowerCase()] ?? getSellerYearLock(year, email);
+  }
+
+  function isLineLocked(line: BudgetLine): boolean {
+    // Treat the per-seller/year lock as the source of truth.
+    // The legacy per-line `locked` flag is also honored for backwards compat.
+    if (line.locked) return true;
+    const email = (line.seller_email || "").toLowerCase();
+    if (!email) return false;
+    const sl = lockFor(email);
+    return sl ? sl.locked : true; // default = locked
+  }
+
+  function toggleSellerLock(email: string) {
+    if (!isAdmin || !email) return;
+    const cur = lockFor(email);
+    const next = setSellerYearLock(
+      year, email, !(cur?.locked ?? true),
+      appUser?.display_name || appUser?.email || "Backend",
+    );
+    setSellerLocks(prev => ({ ...prev, [email.toLowerCase()]: next }));
+  }
+
   // ---- Per-line monthly derivations ----
   function lineMonthly(line: BudgetLine) {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
@@ -411,19 +443,103 @@ export default function CrmBudgetPage() {
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
-  // ---- Working forecast handlers ----
-  function adjustWorking(lineId: string, monthIdx: number, delta: number) {
+  // Ensure a real budget line exists for the current seller / product. Used by
+  // the working-forecast steppers so that RC-751 (or any machine without a
+  // pre-existing seed row for the seller) becomes editable on first click.
+  // Synthetic equipment ids (eq_YEAR_MACHINE_EQUIPKEY) are also persisted.
+  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine> {
+    // Already in lines store → nothing to do.
+    if (lines.some(l => l.id === line.id)) return line;
+
+    // For seller users we always own the line. For backend, attribute to the
+    // currently selected seller (backendFilter) if any, else leave seller_email null.
+    const targetEmail: string | null = isAdmin
+      ? (selectedSellerEmail || line.seller_email || null)
+      : (myEmail || null);
+    const known = BUDGET_SELLERS.find(s => s.email.toLowerCase() === (targetEmail || "").toLowerCase());
+
+    const product = productKeyOverride ? findProduct(productKeyOverride) : findProduct(line.product_key);
+    const persisted = await createBudgetLine({
+      year,
+      product_key: line.product_key,
+      product_name: line.product_name || product?.name || line.product_key,
+      item_number: line.item_number ?? product?.varenr ?? null,
+      category: line.category,
+      parent_machine_key: line.parent_machine_key ?? null,
+      seller_id: !isAdmin && sellerId ? sellerId : null,
+      seller_name: known?.full_name ?? (isAdmin ? null : (appUser?.display_name ?? null)),
+      seller_email: known?.email ?? targetEmail,
+      seller_initials: known?.initials ?? (isAdmin ? null : (myInitialsFromName || null)),
+      country: known?.country ?? line.country ?? null,
+      qty_budget: 0,
+      value_budget: 0,
+      monthly_split: EVEN,
+      notes: null,
+    });
+    setLines(prev => [...prev, persisted]);
+    return persisted;
+  }
+
+  // ---- Working forecast handlers (auto-save) ----
+  async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
+    // Block when this seller's budget is locked.
+    if (isLineLocked(line)) return;
+    const persisted = await ensurePersistedLine(line);
+    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? (() => {
-        const l = visibleLines.find(x => x.id === lineId)!;
         const fc = forecasts.find(f => f.budget_line_id === lineId);
-        const split = (l.monthly_split && l.monthly_split.length === 12) ? l.monthly_split : EVEN;
-        return splitToMonthly(fc?.qty_forecast ?? l.qty_budget, split);
+        const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+        return splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
       })();
       const next = [...cur];
       next[monthIdx] = Math.max(0, (next[monthIdx] ?? 0) + delta);
+      // Auto-save forecast for this line
+      const qty = next.reduce((a, b) => a + b, 0);
+      const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
+      const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+      const fcNext: BudgetForecast = {
+        id: fcExisting?.id || ("f_" + lineId),
+        budget_line_id: lineId,
+        qty_forecast: qty,
+        value_forecast: Math.round(qty * unit),
+        comments: fcExisting?.comments ?? null,
+        expected_timing: fcExisting?.expected_timing ?? null,
+        risk_level: fcExisting?.risk_level ?? null,
+        probability: fcExisting?.probability ?? null,
+        updated_at: new Date().toISOString(),
+      };
+      void upsertForecast(fcNext).then(saved => {
+        setForecasts(prevF => {
+          const map = new Map(prevF.map(f => [f.budget_line_id, f]));
+          map.set(saved.budget_line_id, saved);
+          return Array.from(map.values());
+        });
+      });
       return { ...prev, [lineId]: next };
     });
+  }
+
+  // ---- Gray BUDGET row editing (admin-only, when seller/year is unlocked). ----
+  async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
+    if (!isAdmin) return;
+    if (isLineLocked(line)) return;
+    const persisted = await ensurePersistedLine(line);
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
+    const newQty = monthlyQty.reduce((a, b) => a + b, 0);
+    const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;
+    const product = findProduct(persisted.product_key);
+    const unit = product?.priceDKK || (persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : 0);
+    const updated: BudgetLine = {
+      ...persisted,
+      qty_budget: newQty,
+      value_budget: Math.round(newQty * unit),
+      monthly_split: newSplit,
+    };
+    await upsertBudgetLine(updated);
+    setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
   }
 
   async function saveWorkingForecast() {
