@@ -785,7 +785,17 @@ export default function CrmBudgetPage() {
                     // has no real line yet (e.g. RC-751 with no seed), build a
                     // synthetic seed line — `ensurePersistedLine` will persist it
                     // on the first stepper press.
-                    const primaryLine: BudgetLine = rowLines[0] ?? (() => {
+                    // Pick the primary line that the steppers act on.
+                    // Priority:
+                    //   1. The line owned by the currently selected seller (if any).
+                    //   2. The first existing line in the group.
+                    //   3. A synthetic seed line owned by selectedSellerEmail / myEmail.
+                    // This guarantees IDENTICAL behavior across all machine rows
+                    // (RC-751, RC-1000s, Timan 3330/2620 + custom machines).
+                    const matchSelected = selectedSellerEmail
+                      ? rowLines.find(l => (l.seller_email || "").toLowerCase() === selectedSellerEmail)
+                      : null;
+                    const primaryLine: BudgetLine = matchSelected ?? rowLines[0] ?? (() => {
                       const pkey = fallbackProductKey || keyPrefix;
                       const product = findProduct(pkey);
                       return {
@@ -809,9 +819,15 @@ export default function CrmBudgetPage() {
                       } as BudgetLine;
                     })();
                     const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+                    // Lock-check policy:
+                    //   - Backend admin viewing "All sellers": editing requires a
+                    //     specific seller selection, so the gray Budget row is
+                    //     read-only here (steppers hidden).
+                    //   - Otherwise, use the per-seller / per-year lock.
+                    const adminAllSellers = isAdmin && !selectedSellerEmail;
                     const blockLocked = isLineLocked(primaryLine);
-                    const canEditBudget = isAdmin && !blockLocked;
-                    const canEditWorking = !blockLocked && (isAdmin || isSeller);
+                    const canEditBudget  = isAdmin  && !adminAllSellers && !blockLocked;
+                    const canEditWorking = !adminAllSellers && !blockLocked && (isAdmin || isSeller);
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
