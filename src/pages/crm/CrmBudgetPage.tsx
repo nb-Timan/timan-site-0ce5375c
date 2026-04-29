@@ -1142,44 +1142,79 @@ export default function CrmBudgetPage() {
         </div>
       </TooltipProvider>
 
-      {/* Add modal */}
+      {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">{T.modal_title[lang]} · {year}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{T.new_item_title[lang]} · {year}</h3>
               <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-slate-600">{T.field_product[lang]}</span>
-                <select className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.product_key} onChange={(e) => setNewRow(r => ({ ...r, product_key: e.target.value }))}>
-                  {BUDGET_PRODUCTS.map(p => (
-                    <option key={p.key} value={p.key}>
-                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? `(${T.coming_soon[lang]})` : ""}
-                    </option>
-                  ))}
+                <span className="text-xs text-slate-600">{T.field_type[lang]}</span>
+                <select
+                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  value={newRow.type}
+                  onChange={(e) => setNewRow(r => ({ ...r, type: e.target.value as "machine" | "attachment" }))}
+                >
+                  <option value="machine">{T.type_machine[lang]}</option>
+                  <option value="attachment">{T.type_attach[lang]}</option>
                 </select>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
+                  <span className="text-xs text-slate-600">{T.field_pname[lang]}</span>
+                  <input
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder={newRow.type === "machine" ? "RC-1500" : "Frontklipper"}
+                    value={newRow.name}
+                    onChange={(e) => setNewRow(r => ({ ...r, name: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_varenr[lang]}</span>
+                  <input
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm tabular-nums"
+                    placeholder={newRow.type === "machine" ? "999999" : "888111"}
+                    value={newRow.varenr}
+                    onChange={(e) => setNewRow(r => ({ ...r, varenr: e.target.value }))}
+                  />
+                </label>
+              </div>
+              {newRow.type === "attachment" && (
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_parent[lang]}</span>
                   <select
                     className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
-                    value={newRow.seller_name}
+                    value={newRow.parent_machine_key}
+                    onChange={(e) => setNewRow(r => ({ ...r, parent_machine_key: e.target.value }))}
+                  >
+                    <option value="">{T.pick_parent[lang]}</option>
+                    {["RC-1000s", "Timan 3330", "Timan 2620"].map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                    {customMachines.map(m => (
+                      <option key={m.key} value={m.key}>{m.name}{m.varenr ? ` · ${m.varenr}` : ""}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-slate-600">{T.field_owner[lang]}</span>
+                  <select
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    value={newRow.seller_email}
                     onChange={(e) => {
                       const val = e.target.value;
-                      const known = BUDGET_SELLERS.find(s => s.initials === val);
-                      setNewRow(r => ({
-                        ...r,
-                        seller_name: val,
-                        country: known?.country ?? r.country,
-                      }));
+                      const known = BUDGET_SELLERS.find(s => s.email === val);
+                      setNewRow(r => ({ ...r, seller_email: val, country: known?.country ?? r.country }));
                     }}
                   >
-                    <option value="">{T.placeholder_name[lang]}</option>
+                    <option value="">{T.owner_all[lang]}</option>
                     {BUDGET_SELLERS.map(s => (
-                      <option key={s.email} value={s.initials}>{s.initials} — {s.country}</option>
+                      <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
                     ))}
                   </select>
                 </label>
@@ -1188,18 +1223,10 @@ export default function CrmBudgetPage() {
                   <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.country} onChange={(e) => setNewRow(r => ({ ...r, country: e.target.value }))} />
                 </label>
               </div>
-              <label className="block">
-                <span className="text-xs text-slate-600">{T.field_qty[lang]}</span>
-                <input type="number" min={0} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.qty_budget} onChange={(e) => setNewRow(r => ({ ...r, qty_budget: Number(e.target.value) }))} />
-              </label>
-              <label className="block">
-                <span className="text-xs text-slate-600">{T.field_notes[lang]}</span>
-                <textarea rows={2} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.notes} onChange={(e) => setNewRow(r => ({ ...r, notes: e.target.value }))} />
-              </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">{T.cancel[lang]}</button>
-              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
+              <button onClick={addProduct} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
             </div>
           </div>
         </div>
