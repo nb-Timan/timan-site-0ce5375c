@@ -908,12 +908,27 @@ export default function CrmBudgetPage() {
       <TooltipProvider delayDuration={150}>
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-separate border-spacing-0">
+            {currentMonthCol > 0 && (
+              <style>{`
+                .crm-budget-matrix tbody tr > td:nth-child(${currentMonthCol}),
+                .crm-budget-matrix thead tr > th:nth-child(${currentMonthCol}) {
+                  background-image: linear-gradient(hsl(217 91% 60% / 0.08), hsl(217 91% 60% / 0.08));
+                  box-shadow: inset 1px 0 0 hsl(217 91% 60% / 0.35), inset -1px 0 0 hsl(217 91% 60% / 0.35);
+                }
+                .crm-budget-matrix thead tr > th:nth-child(${currentMonthCol}) {
+                  background-image: linear-gradient(hsl(217 91% 60% / 0.25), hsl(217 91% 60% / 0.25));
+                }
+              `}</style>
+            )}
+            <table className="crm-budget-matrix w-full text-sm border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-900 text-slate-100">
                   <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">{T.col_model[lang]}</th>
-                  {monthCols.map(m => (
-                    <th key={m} className="px-2 py-2.5 font-medium text-center w-16">{m}</th>
+                  {monthCols.map((m, i) => (
+                    <th key={m} className={`px-2 py-2.5 font-medium text-center w-16 ${i === currentMonthIdx ? 'relative' : ''}`}>
+                      {m}
+                      {i === currentMonthIdx && <span className="ml-1 text-[9px] uppercase tracking-wide opacity-70">•</span>}
+                    </th>
                   ))}
                   <th className="px-2 py-2.5 font-semibold text-center w-20">{T.col_total[lang]}</th>
                   <th className="px-2 py-2.5 font-semibold text-center w-16">{T.col_score[lang]}</th>
