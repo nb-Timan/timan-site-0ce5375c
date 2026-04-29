@@ -301,6 +301,7 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
       return (data as SalesActual[]).filter(a => ids.has(a.budget_line_id));
     }
   } catch { /* */ }
+  ensureSeed();
   return readLS<SalesActual>(LS_ACTUALS);
 }
 
