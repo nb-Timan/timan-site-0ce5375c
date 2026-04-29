@@ -1004,6 +1004,7 @@ export default function CrmBudgetPage() {
                         const anyLocked = group.lines.some(l => l.locked);
                         const equipList = EQUIPMENT_BY_MACHINE[group.product_key] || [];
                         const expanded = expandedEquip[group.product_key] !== false;
+                        const colors = MACHINE_COLORS[group.product_key] || defaultColor;
 
                         return (
                           <Fragment key={group.product_key}>
