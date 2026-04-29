@@ -479,7 +479,7 @@ export default function CrmBudgetPage() {
                   const anyLocked = group.lines.some(l => l.locked);
 
                   return (
-                    <>
+                    <Fragment key={group.product_key}>
                       {/* Machine title row */}
                       <tr key={`title-${group.product_key}`}>
                         <td colSpan={15} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
@@ -633,7 +633,7 @@ export default function CrmBudgetPage() {
                           </span>
                         </td>
                       </tr>
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
