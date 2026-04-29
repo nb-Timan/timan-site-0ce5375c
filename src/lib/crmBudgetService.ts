@@ -10,11 +10,12 @@
  * configurator pricing — we only read product names / item numbers.
  */
 import { supabase } from "@/lib/supabase";
-import { PRODUCTS } from "@/data/machines";
+import { PRODUCTS, ACCESSORIES } from "@/data/machines";
+import type { Language, LocalizedString } from "@/types/configurator";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
-export type ProductStatus = "available" | "coming_soon";
+export type ProductStatus = "available" | "coming_soon" | "preview";
 
 export interface BudgetProduct {
   key: string;            // stable id we use across budget rows
@@ -24,6 +25,8 @@ export interface BudgetProduct {
   status: ProductStatus;
   priceDKK?: number | null;
   priceEUR?: number | null;
+  /** For equipment rows: which machine they hang under. */
+  parent_machine_key?: string | null;
 }
 
 export type MonthlySplit = number[]; // length 12, Jan..Dec (qty or share)
