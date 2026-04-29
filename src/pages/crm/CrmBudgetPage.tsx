@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  Lock, Unlock, Plus, Trash2, Save, X, ShieldAlert, Calendar,
-  Wallet, Sparkles, Edit3, Minus, ChevronDown, ChevronRight, Wrench,
+  Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
+  Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench,
 } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
@@ -20,7 +20,9 @@ import {
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
-  type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
+  getSellerYearLock, setSellerYearLock,
+  type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
+  findProduct,
 } from "@/lib/crmBudgetService";
 
 // ────────────────────────────────────────────────────────────
@@ -102,6 +104,18 @@ const T: Record<string, Record<Language, string>> = {
   preview_row:   { da: 'Planlægning',           en: 'Preview',                 de: 'Planung',                 it: 'Pianificazione',          hu: 'Tervezés' },
   show_equipment:{ da: 'Vis redskaber',         en: 'Show equipment',          de: 'Werkzeuge anzeigen',      it: 'Mostra attrezzature',     hu: 'Eszközök megjelenítése' },
   hide_equipment:{ da: 'Skjul redskaber',       en: 'Hide equipment',          de: 'Werkzeuge ausblenden',    it: 'Nascondi attrezzature',   hu: 'Eszközök elrejtése' },
+  budget_status: { da: 'Budgetstatus',          en: 'Budget status',           de: 'Budgetstatus',            it: 'Stato budget',            hu: 'Költségvetés állapota' },
+  status_locked: { da: 'Budget låst',           en: 'Budget locked',           de: 'Budget locked',           it: 'Budget bloccato',         hu: 'Költségvetés zárolva' },
+  status_open:   { da: 'Budget åbent',          en: 'Budget open',             de: 'Budget offen',            it: 'Budget aperto',           hu: 'Költségvetés nyitva' },
+  unlock_budget: { da: 'Lås op',                en: 'Unlock',                  de: 'Entsperren',              it: 'Sblocca',                 hu: 'Feloldás' },
+  lock_budget:   { da: 'Lås igen',              en: 'Lock again',              de: 'Erneut sperren',          it: 'Blocca di nuovo',         hu: 'Újra zárolás' },
+  pick_seller:   { da: 'Vælg en sælger for at låse op',  en: 'Select a seller to unlock', de: 'Wählen Sie einen Verkäufer zum Entsperren', it: 'Seleziona un venditore per sbloccare', hu: 'Válasszon értékesítőt a feloldáshoz' },
+  budget_locked_hint: { da: 'Budget er låst — kontakt backend for at åbne.',
+                        en: 'Budget is locked — ask backend to open it.',
+                        de: 'Budget ist gesperrt — bitten Sie das Backend, es zu öffnen.',
+                        it: 'Budget bloccato — chiedi al backend di aprirlo.',
+                        hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
+  row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
 };
 
 // Localized month labels.
@@ -268,7 +282,7 @@ export default function CrmBudgetPage() {
   const [actuals, setActuals] = useState<SalesActual[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [editWorking, setEditWorking] = useState(false);
+  // Working-forecast monthly drafts per line (used as live override; auto-saved).
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
@@ -281,6 +295,8 @@ export default function CrmBudgetPage() {
   const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
     "RC-1000s": true, "Timan 3330": true, "Timan 2620": true,
   });
+  // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
+  const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
@@ -292,6 +308,12 @@ export default function CrmBudgetPage() {
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
       .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
       .finally(() => setBusy(false));
+    // Re-hydrate lock map for this year from storage.
+    const map: Record<string, SellerYearLock> = {};
+    BUDGET_SELLERS.forEach(s => {
+      map[s.email.toLowerCase()] = getSellerYearLock(year, s.email);
+    });
+    setSellerLocks(map);
   }, [year, allowed]);
 
   // Resolve the current user's identity for scoping. We support multiple
@@ -377,6 +399,38 @@ export default function CrmBudgetPage() {
     );
   }
 
+  // ---- Lock helpers (per seller / per year) ----
+  // The "selected seller" for backend admin == backendFilter (only when it's
+  // an actual seller email). For sellers it's their own email.
+  const selectedSellerEmail: string | null = isAdmin
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (myEmail || null);
+
+  function lockFor(email: string | null | undefined): SellerYearLock | null {
+    if (!email) return null;
+    return sellerLocks[email.toLowerCase()] ?? getSellerYearLock(year, email);
+  }
+
+  function isLineLocked(line: BudgetLine): boolean {
+    // Treat the per-seller/year lock as the source of truth.
+    // The legacy per-line `locked` flag is also honored for backwards compat.
+    if (line.locked) return true;
+    const email = (line.seller_email || "").toLowerCase();
+    if (!email) return false;
+    const sl = lockFor(email);
+    return sl ? sl.locked : true; // default = locked
+  }
+
+  function toggleSellerLock(email: string) {
+    if (!isAdmin || !email) return;
+    const cur = lockFor(email);
+    const next = setSellerYearLock(
+      year, email, !(cur?.locked ?? true),
+      appUser?.display_name || appUser?.email || "Backend",
+    );
+    setSellerLocks(prev => ({ ...prev, [email.toLowerCase()]: next }));
+  }
+
   // ---- Per-line monthly derivations ----
   function lineMonthly(line: BudgetLine) {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
@@ -389,53 +443,106 @@ export default function CrmBudgetPage() {
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
-  // ---- Working forecast handlers ----
-  function adjustWorking(lineId: string, monthIdx: number, delta: number) {
+  // Ensure a real budget line exists for the current seller / product. Used by
+  // the working-forecast steppers so that RC-751 (or any machine without a
+  // pre-existing seed row for the seller) becomes editable on first click.
+  // Synthetic equipment ids (eq_YEAR_MACHINE_EQUIPKEY) are also persisted.
+  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine> {
+    // Already in lines store → nothing to do.
+    if (lines.some(l => l.id === line.id)) return line;
+
+    // For seller users we always own the line. For backend, attribute to the
+    // currently selected seller (backendFilter) if any, else leave seller_email null.
+    const targetEmail: string | null = isAdmin
+      ? (selectedSellerEmail || line.seller_email || null)
+      : (myEmail || null);
+    const known = BUDGET_SELLERS.find(s => s.email.toLowerCase() === (targetEmail || "").toLowerCase());
+
+    const product = productKeyOverride ? findProduct(productKeyOverride) : findProduct(line.product_key);
+    const persisted = await createBudgetLine({
+      year,
+      product_key: line.product_key,
+      product_name: line.product_name || product?.name || line.product_key,
+      item_number: line.item_number ?? product?.varenr ?? null,
+      category: line.category,
+      parent_machine_key: line.parent_machine_key ?? null,
+      seller_id: !isAdmin && sellerId ? sellerId : null,
+      seller_name: known?.full_name ?? (isAdmin ? null : (appUser?.display_name ?? null)),
+      seller_email: known?.email ?? targetEmail,
+      seller_initials: known?.initials ?? (isAdmin ? null : (myInitialsFromName || null)),
+      country: known?.country ?? line.country ?? null,
+      qty_budget: 0,
+      value_budget: 0,
+      monthly_split: EVEN,
+      notes: null,
+    });
+    setLines(prev => [...prev, persisted]);
+    return persisted;
+  }
+
+  // ---- Working forecast handlers (auto-save) ----
+  async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
+    // Block when this seller's budget is locked.
+    if (isLineLocked(line)) return;
+    const persisted = await ensurePersistedLine(line);
+    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? (() => {
-        const l = visibleLines.find(x => x.id === lineId)!;
         const fc = forecasts.find(f => f.budget_line_id === lineId);
-        const split = (l.monthly_split && l.monthly_split.length === 12) ? l.monthly_split : EVEN;
-        return splitToMonthly(fc?.qty_forecast ?? l.qty_budget, split);
+        const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+        return splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
       })();
       const next = [...cur];
       next[monthIdx] = Math.max(0, (next[monthIdx] ?? 0) + delta);
+      // Auto-save forecast for this line
+      const qty = next.reduce((a, b) => a + b, 0);
+      const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
+      const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+      const fcNext: BudgetForecast = {
+        id: fcExisting?.id || ("f_" + lineId),
+        budget_line_id: lineId,
+        qty_forecast: qty,
+        value_forecast: Math.round(qty * unit),
+        comments: fcExisting?.comments ?? null,
+        expected_timing: fcExisting?.expected_timing ?? null,
+        risk_level: fcExisting?.risk_level ?? null,
+        probability: fcExisting?.probability ?? null,
+        updated_at: new Date().toISOString(),
+      };
+      void upsertForecast(fcNext).then(saved => {
+        setForecasts(prevF => {
+          const map = new Map(prevF.map(f => [f.budget_line_id, f]));
+          map.set(saved.budget_line_id, saved);
+          return Array.from(map.values());
+        });
+      });
       return { ...prev, [lineId]: next };
     });
   }
 
-  async function saveWorkingForecast() {
-    const updates: BudgetForecast[] = [];
-    for (const line of visibleLines) {
-      const draft = workingDraft[line.id];
-      if (!draft) continue;
-      const fc = forecasts.find(f => f.budget_line_id === line.id);
-      const qty = draft.reduce((a, b) => a + b, 0);
-      const unit = line.qty_budget > 0 ? line.value_budget / line.qty_budget : 0;
-      const next: BudgetForecast = {
-        id: fc?.id || ("f_" + line.id),
-        budget_line_id: line.id,
-        qty_forecast: qty,
-        value_forecast: Math.round(qty * unit),
-        comments: fc?.comments ?? null,
-        expected_timing: fc?.expected_timing ?? null,
-        risk_level: fc?.risk_level ?? null,
-        probability: fc?.probability ?? null,
-        updated_at: new Date().toISOString(),
-      };
-      const saved = await upsertForecast(next);
-      updates.push(saved);
-    }
-    if (updates.length) {
-      setForecasts(prev => {
-        const map = new Map(prev.map(f => [f.budget_line_id, f]));
-        updates.forEach(u => map.set(u.budget_line_id, u));
-        return Array.from(map.values());
-      });
-    }
-    setWorkingDraft({});
-    setEditWorking(false);
+  // ---- Gray BUDGET row editing (admin-only, when seller/year is unlocked). ----
+  async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
+    if (!isAdmin) return;
+    if (isLineLocked(line)) return;
+    const persisted = await ensurePersistedLine(line);
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
+    const newQty = monthlyQty.reduce((a, b) => a + b, 0);
+    const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;
+    const product = findProduct(persisted.product_key);
+    const unit = product?.priceDKK || (persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : 0);
+    const updated: BudgetLine = {
+      ...persisted,
+      qty_budget: newQty,
+      value_budget: Math.round(newQty * unit),
+      monthly_split: newSplit,
+    };
+    await upsertBudgetLine(updated);
+    setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
   }
+
+  // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
   async function toggleLock(line: BudgetLine) {
     if (!isAdmin) return;
@@ -539,32 +646,53 @@ export default function CrmBudgetPage() {
               </select>
             </div>
           )}
-          {!editWorking ? (
-            <button
-              onClick={() => setEditWorking(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
-            >
-              <Edit3 className="h-4 w-4" /> {T.edit_working[lang]}
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => { setWorkingDraft({}); setEditWorking(false); }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
-              >
-                <X className="h-4 w-4" /> {T.cancel[lang]}
-              </button>
-              <button
-                onClick={saveWorkingForecast}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 shadow-sm"
-              >
-                <Save className="h-4 w-4" /> {T.save_working[lang]}
-              </button>
-            </>
-          )}
+          {/* Lock status + lock/unlock controls.
+              Backend: requires a single seller selected in the filter to act.
+              Sellers: status only, read-only. */}
+          {(() => {
+            const email = selectedSellerEmail;
+            const sl = lockFor(email);
+            const locked = sl ? sl.locked : true;
+            const badgeLabel = locked ? T.status_locked[lang] : T.status_open[lang];
+            const badgeCls = locked
+              ? "bg-sky-100 text-sky-800 border-sky-200"
+              : "bg-emerald-100 text-emerald-800 border-emerald-200";
+            return (
+              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]}</span>
+                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold", badgeCls)}>
+                  {locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                  {email ? badgeLabel : T.pick_seller[lang]}
+                </span>
+                {isAdmin && email && (
+                  <button
+                    onClick={() => toggleSellerLock(email)}
+                    className={cn(
+                      "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                      locked
+                        ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        : "border-sky-200 text-sky-700 hover:bg-sky-50",
+                    )}
+                  >
+                    {locked ? <><Unlock className="h-3 w-3" /> {T.unlock_budget[lang]}</> : <><Lock className="h-3 w-3" /> {T.lock_budget[lang]}</>}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           {isAdmin && (
             <button
-              onClick={() => setShowAdd(true)}
+              onClick={() => {
+                const known = selectedSellerEmail
+                  ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)
+                  : null;
+                setNewRow(r => ({
+                  ...r,
+                  seller_name: known?.initials ?? r.seller_name,
+                  country: known?.country ?? r.country,
+                }));
+                setShowAdd(true);
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
             >
               <Plus className="h-4 w-4" /> {T.new_line[lang]}
@@ -618,18 +746,53 @@ export default function CrmBudgetPage() {
                     productName: string;
                     rowLines: BudgetLine[]; // lines used for budget/orders/working aggregation
                     indent?: boolean;       // visually nest under a machine
+                    /** Fallback product key used when rowLines is empty so we can
+                     *  still synthesize a primary line for editing (RC-751 fix). */
+                    fallbackProductKey?: string;
                   }) {
-                    const { keyPrefix, productName, rowLines, indent } = opts;
+                    const { keyPrefix, productName, rowLines, indent, fallbackProductKey } = opts;
+                    // The "primary" line that the steppers act on. If the seller
+                    // has no real line yet (e.g. RC-751 with no seed), build a
+                    // synthetic seed line — `ensurePersistedLine` will persist it
+                    // on the first stepper press.
+                    const primaryLine: BudgetLine = rowLines[0] ?? (() => {
+                      const pkey = fallbackProductKey || keyPrefix;
+                      const product = findProduct(pkey);
+                      return {
+                        id: `seed_${year}_${pkey}_${(selectedSellerEmail || myEmail || "anon").replace(/[^a-z0-9]/gi, "")}`,
+                        year,
+                        product_key: pkey,
+                        product_name: product?.name || pkey,
+                        item_number: product?.varenr ?? null,
+                        category: product?.category || "machine",
+                        seller_id: null,
+                        seller_name: null,
+                        seller_email: selectedSellerEmail || myEmail || null,
+                        seller_initials: null,
+                        country: null,
+                        qty_budget: 0,
+                        value_budget: 0,
+                        monthly_split: EVEN,
+                        notes: null,
+                        locked: false,
+                        created_at: new Date().toISOString(),
+                      } as BudgetLine;
+                    })();
+                    const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+                    const blockLocked = isLineLocked(primaryLine);
+                    const canEditBudget = isAdmin && !blockLocked;
+                    const canEditWorking = !blockLocked && (isAdmin || isSeller);
+
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
-                      rowLines.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
+                      linesForAgg.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
                       return arr;
                     };
                     const budgetMonthly = agg("budgetMonthly");
                     const ordersMonthly = agg("ordersMonthly");
                     const workingMonthly = agg("workingMonthly");
                     const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
-                    rowLines.forEach(l => {
+                    linesForAgg.forEach(l => {
                       const p = pipelineByLine[l.id] || [];
                       p.forEach((arr, i) => { pipelineMonthly[i].push(...arr); });
                     });
@@ -647,16 +810,36 @@ export default function CrmBudgetPage() {
                     const stickyPad = indent ? "pl-8" : "px-3";
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
-                        {/* BUDGET / ORDERS */}
+                        {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
                         <tr key={`bo-${keyPrefix}`} className="bg-slate-50/60">
                           <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
                           {budgetMonthly.map((b, i) => {
                             const o = ordersMonthly[i];
                             return (
-                              <td key={i} className="px-2 py-2 text-center tabular-nums text-xs">
-                                <span className="text-slate-500">{b}</span>
-                                <span className="text-slate-400 mx-0.5">/</span>
-                                <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                              <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {canEditBudget ? (
+                                  <div className="inline-flex items-center gap-0.5 bg-white border border-slate-200 rounded px-0.5 hover:border-slate-400 transition">
+                                    <button
+                                      onClick={() => adjustBudget(primaryLine, i, -1)}
+                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                                      title="−1"
+                                    ><Minus className="h-3 w-3" /></button>
+                                    <span className="min-w-[14px] text-center font-semibold text-slate-700">{b}</span>
+                                    <button
+                                      onClick={() => adjustBudget(primaryLine, i, +1)}
+                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                                      title="+1"
+                                    ><Plus className="h-3 w-3" /></button>
+                                    <span className="text-slate-400 mx-0.5">/</span>
+                                    <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-slate-500">{b}</span>
+                                    <span className="text-slate-400 mx-0.5">/</span>
+                                    <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                  </>
+                                )}
                               </td>
                             );
                           })}
@@ -713,21 +896,21 @@ export default function CrmBudgetPage() {
                           <td className="px-2 py-2"></td>
                         </tr>
 
-                        {/* WORKING */}
+                        {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
                           <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
                           {workingMonthly.map((w, i) => (
                             <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                              {editWorking && rowLines.length > 0 ? (
+                              {canEditWorking ? (
                                 <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
                                   <button
-                                    onClick={() => adjustWorking(rowLines[0].id, i, -1)}
+                                    onClick={() => adjustWorking(primaryLine, i, -1)}
                                     className="p-0.5 hover:bg-slate-700 rounded"
                                     title="−1"
                                   ><Minus className="h-3 w-3" /></button>
                                   <span className="min-w-[16px] text-center font-semibold">{w}</span>
                                   <button
-                                    onClick={() => adjustWorking(rowLines[0].id, i, +1)}
+                                    onClick={() => adjustWorking(primaryLine, i, +1)}
                                     className="p-0.5 hover:bg-slate-700 rounded"
                                     title="+1"
                                   ><Plus className="h-3 w-3" /></button>
@@ -858,6 +1041,7 @@ export default function CrmBudgetPage() {
                               keyPrefix: group.product_key,
                               productName: group.product_name,
                               rowLines: group.lines,
+                              fallbackProductKey: group.product_key,
                             })}
 
                             {/* Equipment section */}
@@ -945,7 +1129,24 @@ export default function CrmBudgetPage() {
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
-                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder={T.placeholder_name[lang]} />
+                  <select
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    value={newRow.seller_name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const known = BUDGET_SELLERS.find(s => s.initials === val);
+                      setNewRow(r => ({
+                        ...r,
+                        seller_name: val,
+                        country: known?.country ?? r.country,
+                      }));
+                    }}
+                  >
+                    <option value="">{T.placeholder_name[lang]}</option>
+                    {BUDGET_SELLERS.map(s => (
+                      <option key={s.email} value={s.initials}>{s.initials} — {s.country}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="block">
                   <span className="text-xs text-slate-600">{T.field_country[lang]}</span>
