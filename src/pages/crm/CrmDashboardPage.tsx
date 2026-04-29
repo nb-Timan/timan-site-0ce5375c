@@ -78,6 +78,9 @@ const REASON_HEX: Record<'price'|'lead'|'comp'|'other', string> = {
   price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', other: '#64748b',
 };
 
+// Mini bar chart heights (%) for the Closed Orders hero card
+const CLOSED_BARS: number[] = [38, 52, 44, 65, 48, 72, 60, 80, 70, 92];
+
 // ────────────────────────────────────────────────────────────
 // Utilities
 // ────────────────────────────────────────────────────────────
