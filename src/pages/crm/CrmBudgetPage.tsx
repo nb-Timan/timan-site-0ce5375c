@@ -593,22 +593,24 @@ export default function CrmBudgetPage() {
 
   // ---- Working forecast handlers (auto-save) ----
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Block when this seller's budget is locked.
-    if (isLineLocked(line)) return;
+    // Sellers must be in active "Rediger arbejdsbudget" edit mode to change
+    // their own working forecast. Backend can always edit.
+    if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     const lineId = persisted.id;
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+    const prevDraft = workingDraft[lineId] ?? splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const oldVal = prevDraft[monthIdx] ?? 0;
+    const newVal = Math.max(0, oldVal + delta);
+    if (newVal === oldVal) return;
+
     setWorkingDraft(prev => {
-      const cur = prev[lineId] ?? (() => {
-        const fc = forecasts.find(f => f.budget_line_id === lineId);
-        const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-        return splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
-      })();
+      const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
-      next[monthIdx] = Math.max(0, (next[monthIdx] ?? 0) + delta);
-      // Auto-save forecast for this line
+      next[monthIdx] = newVal;
       const qty = next.reduce((a, b) => a + b, 0);
       const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
-      const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
       const fcNext: BudgetForecast = {
         id: fcExisting?.id || ("f_" + lineId),
         budget_line_id: lineId,
@@ -629,6 +631,21 @@ export default function CrmBudgetPage() {
       });
       return { ...prev, [lineId]: next };
     });
+
+    // Audit: who changed what, when. Visible to Timan Backend in audit log.
+    appendBudgetAuditEntry({
+      year,
+      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
+      seller_name: persisted.seller_name || appUser?.display_name || null,
+      product_name: persisted.product_name,
+      item_number: persisted.item_number,
+      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      old_value: oldVal,
+      new_value: newVal,
+    });
+
+    // Reset the 10-min inactivity timer on each successful change.
+    bumpEditActivity();
   }
 
   // ---- Gray BUDGET row editing (admin-only, when seller/year is unlocked). ----
