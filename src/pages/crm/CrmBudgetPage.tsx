@@ -334,15 +334,15 @@ export default function CrmBudgetPage() {
     return { annualBudget, annualQty, sold, fc, score };
   }, [visibleLines, actuals, forecasts]);
 
-  if (loading) return <CrmLayout pageTitle="Budget"><div className="text-sm text-slate-500">Indlæser…</div></CrmLayout>;
+  if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!allowed) {
     return (
-      <CrmLayout pageTitle="Budget">
+      <CrmLayout pageTitle={T.page_title[lang]}>
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
           <ShieldAlert className="h-8 w-8 text-amber-500 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-slate-900">Ingen adgang</h2>
-          <p className="text-sm text-slate-500 mt-1">Budgetmodulet er kun tilgængeligt for Timan Backend og Timan Sælger.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{T.no_access[lang]}</h2>
+          <p className="text-sm text-slate-500 mt-1">{T.no_access_msg[lang]}</p>
         </div>
       </CrmLayout>
     );
@@ -416,7 +416,7 @@ export default function CrmBudgetPage() {
 
   async function removeLine(id: string) {
     if (!isAdmin) return;
-    if (!confirm("Slet denne budgetlinje?")) return;
+    if (!confirm(T.delete_confirm[lang])) return;
     await deleteBudgetLine(id);
     setLines(prev => prev.filter(l => l.id !== id));
   }
@@ -425,7 +425,7 @@ export default function CrmBudgetPage() {
     const product = findProduct(newRow.product_key);
     if (!product) return;
     if (product.status === "coming_soon") {
-      if (!confirm(`${product.name} er markeret som "Kommer snart". Tilføj alligevel?`)) return;
+      if (!confirm(`${product.name} ${T.cs_confirm[lang]}`)) return;
     }
     const unit = product.priceDKK || 0;
     const qty = Math.max(0, Number(newRow.qty_budget) || 0);
@@ -462,10 +462,10 @@ export default function CrmBudgetPage() {
   void upsertBudgetLine;
 
   // ---- Render ----
-  const monthCols = MONTHS_DA;
+  const monthCols = MONTHS_BY_LANG[lang];
 
   return (
-    <CrmLayout pageTitle="Budget">
+    <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
