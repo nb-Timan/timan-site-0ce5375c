@@ -359,6 +359,7 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
               </div>
+            </div>
           )}
         </Card>
 
