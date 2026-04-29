@@ -6,19 +6,111 @@ import {
 } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { cn } from "@/lib/utils";
+import { Language } from "@/types/configurator";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, MONTHS_DA, availableYears, fmtDKK,
+  BUDGET_PRODUCTS, BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   type BudgetLine, type BudgetForecast, type SalesActual, findProduct,
 } from "@/lib/crmBudgetService";
+
+// ────────────────────────────────────────────────────────────
+// i18n — all visible UI strings for the Budget module
+// ────────────────────────────────────────────────────────────
+const T: Record<string, Record<Language, string>> = {
+  page_title:    { da: 'Budget',                en: 'Budget',                  de: 'Budget',                  it: 'Budget',                  hu: 'Költségvetés' },
+  annual_budget: { da: 'Årligt budget',         en: 'Annual budget',           de: 'Jahresbudget',            it: 'Budget annuale',          hu: 'Éves költségvetés' },
+  subtitle_admin:{ da: 'Administrer officielle budgetter, lås og se forecast på tværs af sælgere.',
+                   en: 'Manage official budgets, lock entries and view forecasts across sellers.',
+                   de: 'Offizielle Budgets verwalten, sperren und Prognosen über Verkäufer hinweg sehen.',
+                   it: 'Gestisci i budget ufficiali, blocca le voci e visualizza le previsioni per venditore.',
+                   hu: 'Hivatalos költségvetések kezelése, zárolása és előrejelzések megtekintése értékesítőnként.' },
+  subtitle_seller:{da: 'Se dit eget budget og opdater dit working forecast.',
+                   en: 'View your own budget and update your working forecast.',
+                   de: 'Eigenes Budget einsehen und Arbeitsprognose aktualisieren.',
+                   it: 'Visualizza il tuo budget e aggiorna la previsione di lavoro.',
+                   hu: 'Tekintse meg saját költségvetését és frissítse a munka-előrejelzést.' },
+  seller_label:  { da: 'Sælger',                en: 'Seller',                  de: 'Verkäufer',               it: 'Venditore',               hu: 'Értékesítő' },
+  all_sellers:   { da: 'Alle sælgere',          en: 'All sellers',             de: 'Alle Verkäufer',          it: 'Tutti i venditori',       hu: 'Összes értékesítő' },
+  my_view:       { da: 'Min egen visning',      en: 'My own view',             de: 'Eigene Ansicht',          it: 'La mia vista',            hu: 'Saját nézet' },
+  backend_group: { da: 'Backend',               en: 'Backend',                 de: 'Backend',                 it: 'Backend',                 hu: 'Backend' },
+  edit_working:  { da: 'Rediger arbejdsbudget', en: 'Edit working forecast',   de: 'Arbeitsprognose bearbeiten', it: 'Modifica previsione',  hu: 'Munka-előrejelzés szerkesztése' },
+  cancel:        { da: 'Annuller',              en: 'Cancel',                  de: 'Abbrechen',               it: 'Annulla',                 hu: 'Mégse' },
+  save_working:  { da: 'Gem arbejdsbudget',     en: 'Save working forecast',   de: 'Arbeitsprognose speichern', it: 'Salva previsione',      hu: 'Munka-előrejelzés mentése' },
+  new_line:      { da: 'Ny budgetlinje',        en: 'New budget line',         de: 'Neue Budgetzeile',        it: 'Nuova riga budget',       hu: 'Új költségvetés-sor' },
+  kpi_budget:    { da: 'Budget (stk.)',         en: 'Budget (qty)',            de: 'Budget (Stk.)',           it: 'Budget (pz)',             hu: 'Költségvetés (db)' },
+  kpi_orders:    { da: 'Ordrer (stk.)',         en: 'Orders (qty)',            de: 'Aufträge (Stk.)',         it: 'Ordini (pz)',             hu: 'Rendelések (db)' },
+  kpi_working:   { da: 'Arbejdsbudget',         en: 'Working forecast',        de: 'Arbeitsprognose',         it: 'Previsione lavoro',       hu: 'Munka-előrejelzés' },
+  kpi_score:     { da: 'Score',                 en: 'Score',                   de: 'Score',                   it: 'Punteggio',               hu: 'Pontszám' },
+  pcs:           { da: 'stk.',                  en: 'pcs',                     de: 'Stk.',                    it: 'pz',                      hu: 'db' },
+  legend_budget: { da: 'Budget',                en: 'Budget',                  de: 'Budget',                  it: 'Budget',                  hu: 'Költségvetés' },
+  legend_orders: { da: 'Ordrer',                en: 'Orders',                  de: 'Aufträge',                it: 'Ordini',                  hu: 'Rendelések' },
+  legend_pipe:   { da: 'Pipeline / tilbud',     en: 'Pipeline / quotes',       de: 'Pipeline / Angebote',     it: 'Pipeline / preventivi',   hu: 'Pipeline / ajánlatok' },
+  legend_work:   { da: 'Arbejdsbudget',         en: 'Working forecast',        de: 'Arbeitsprognose',         it: 'Previsione lavoro',       hu: 'Munka-előrejelzés' },
+  legend_perf_n: { da: 'Performance −',         en: 'Performance −',           de: 'Performance −',           it: 'Performance −',           hu: 'Teljesítmény −' },
+  legend_perf_p: { da: 'Performance +',         en: 'Performance +',           de: 'Performance +',           it: 'Performance +',           hu: 'Teljesítmény +' },
+  col_model:     { da: 'Model & Kategori',      en: 'Model & Category',        de: 'Modell & Kategorie',      it: 'Modello e categoria',     hu: 'Modell és kategória' },
+  col_total:     { da: 'Total',                 en: 'Total',                   de: 'Gesamt',                  it: 'Totale',                  hu: 'Összesen' },
+  col_score:     { da: 'Score',                 en: 'Score',                   de: 'Score',                   it: 'Punteggio',               hu: 'Pontszám' },
+  loading:       { da: 'Indlæser budget…',      en: 'Loading budget…',         de: 'Budget wird geladen…',    it: 'Caricamento budget…',     hu: 'Költségvetés betöltése…' },
+  empty_year:    { da: 'Ingen budgetlinjer for dette år.', en: 'No budget lines for this year.', de: 'Keine Budgetzeilen für dieses Jahr.', it: 'Nessuna riga budget per questo anno.', hu: 'Nincsenek költségvetés-sorok ebben az évben.' },
+  coming_soon:   { da: 'Kommer snart',          en: 'Coming soon',             de: 'Demnächst',               it: 'In arrivo',               hu: 'Hamarosan' },
+  locked:        { da: 'Låst',                  en: 'Locked',                  de: 'Gesperrt',                it: 'Bloccato',                hu: 'Zárolt' },
+  unlock:        { da: 'Lås op',                en: 'Unlock',                  de: 'Entsperren',              it: 'Sblocca',                 hu: 'Feloldás' },
+  lock:          { da: 'Lås',                   en: 'Lock',                    de: 'Sperren',                 it: 'Blocca',                  hu: 'Zárolás' },
+  delete_line:   { da: 'Slet linje',            en: 'Delete line',             de: 'Zeile löschen',           it: 'Elimina riga',            hu: 'Sor törlése' },
+  delete_confirm:{ da: 'Slet denne budgetlinje?', en: 'Delete this budget line?', de: 'Diese Budgetzeile löschen?', it: 'Eliminare questa riga di budget?', hu: 'Törli ezt a költségvetés-sort?' },
+  row_budget_orders:{ da: 'BUDGET / ORDRER',    en: 'BUDGET / ORDERS',         de: 'BUDGET / AUFTRÄGE',       it: 'BUDGET / ORDINI',         hu: 'KÖLTSÉGVETÉS / RENDELÉSEK' },
+  row_pipeline:  { da: 'PIPELINE (TILBUD)',     en: 'PIPELINE (QUOTES)',       de: 'PIPELINE (ANGEBOTE)',     it: 'PIPELINE (PREVENTIVI)',   hu: 'PIPELINE (AJÁNLATOK)' },
+  row_working:   { da: 'ARBEJDSBUDGET',         en: 'WORKING FORECAST',        de: 'ARBEITSPROGNOSE',         it: 'PREVISIONE DI LAVORO',    hu: 'MUNKA-ELŐREJELZÉS' },
+  row_perf:      { da: 'PERFORMANCE',           en: 'PERFORMANCE',             de: 'PERFORMANCE',             it: 'PERFORMANCE',             hu: 'TELJESÍTMÉNY' },
+  tip_quotes:    { da: 'tilbud',                en: 'quotes',                  de: 'Angebote',                it: 'preventivi',              hu: 'ajánlat' },
+  tip_customer:  { da: 'Kunde',                 en: 'Customer',                de: 'Kunde',                   it: 'Cliente',                 hu: 'Ügyfél' },
+  tip_machine:   { da: 'Maskine',               en: 'Machine',                 de: 'Maschine',                it: 'Macchina',                hu: 'Gép' },
+  tip_attach:    { da: 'Redskab',               en: 'Attachment',              de: 'Anbaugerät',              it: 'Attrezzatura',            hu: 'Tartozék' },
+  tip_sent:      { da: 'Sendt',                 en: 'Sent',                    de: 'Gesendet',                it: 'Inviato',                 hu: 'Elküldve' },
+  modal_title:   { da: 'Ny budgetlinje',        en: 'New budget line',         de: 'Neue Budgetzeile',        it: 'Nuova riga budget',       hu: 'Új költségvetés-sor' },
+  field_product: { da: 'Produkt',               en: 'Product',                 de: 'Produkt',                 it: 'Prodotto',                hu: 'Termék' },
+  field_seller:  { da: 'Sælger',                en: 'Seller',                  de: 'Verkäufer',               it: 'Venditore',               hu: 'Értékesítő' },
+  field_country: { da: 'Land',                  en: 'Country',                 de: 'Land',                    it: 'Paese',                   hu: 'Ország' },
+  field_qty:     { da: 'Antal (qty budget)',    en: 'Quantity (budget qty)',   de: 'Menge (Budget-Menge)',    it: 'Quantità (budget)',       hu: 'Mennyiség (költségvetés)' },
+  field_notes:   { da: 'Noter',                 en: 'Notes',                   de: 'Notizen',                 it: 'Note',                    hu: 'Megjegyzések' },
+  placeholder_name:{ da: 'Navn',                en: 'Name',                    de: 'Name',                    it: 'Nome',                    hu: 'Név' },
+  create:        { da: 'Opret',                 en: 'Create',                  de: 'Erstellen',               it: 'Crea',                    hu: 'Létrehozás' },
+  cs_confirm:    { da: 'er markeret som "Kommer snart". Tilføj alligevel?',
+                   en: 'is marked as "Coming soon". Add anyway?',
+                   de: 'ist als "Demnächst" markiert. Trotzdem hinzufügen?',
+                   it: 'è contrassegnato come "In arrivo". Aggiungere comunque?',
+                   hu: '"Hamarosan" jelölésű. Mégis hozzáadja?' },
+  no_access:     { da: 'Ingen adgang',          en: 'No access',               de: 'Kein Zugriff',            it: 'Nessun accesso',          hu: 'Nincs hozzáférés' },
+  no_access_msg: { da: 'Budgetmodulet er kun tilgængeligt for Timan Backend og Timan Sælger.',
+                   en: 'The budget module is only available to Timan Backend and Timan Sellers.',
+                   de: 'Das Budgetmodul ist nur für Timan Backend und Timan Verkäufer verfügbar.',
+                   it: 'Il modulo budget è disponibile solo per Timan Backend e Timan Seller.',
+                   hu: 'A költségvetés modul csak Timan Backend és Timan értékesítők számára érhető el.' },
+  loading_short: { da: 'Indlæser…',             en: 'Loading…',                de: 'Wird geladen…',           it: 'Caricamento…',            hu: 'Betöltés…' },
+};
+
+// Localized month labels.
+const MONTHS_BY_LANG: Record<Language, string[]> = {
+  da: ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'],
+  en: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  de: ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],
+  it: ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'],
+  hu: ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Szep','Okt','Nov','Dec'],
+};
+
+// Locale tag for date formatting.
+const LOCALE_BY_LANG: Record<Language, string> = { da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
+
 
 const EVEN: number[] = Array.from({ length: 12 }, () => 1 / 12);
 
@@ -59,7 +151,12 @@ const SAMPLE_CUSTOMERS = [
   "Hamburg Grünflächen", "Hillerød Drift", "Aalborg Park & Natur",
 ];
 const SAMPLE_ATTACHMENTS = ["Slagleklipper 1500", "Krat-skærer", "Buskrydder XL", "Kost", "Sneskraber", "Saltspreder"];
-const SAMPLE_STATUSES = ["Sendt", "Sendt", "Sendt", "I dialog", "Forhandling"];
+const SAMPLE_STATUSES = ["sent", "sent", "sent", "dialog", "negotiation"] as const;
+const STATUS_LABELS: Record<typeof SAMPLE_STATUSES[number], Record<Language, string>> = {
+  sent:        { da: 'Sendt',       en: 'Sent',         de: 'Gesendet',     it: 'Inviato',       hu: 'Elküldve' },
+  dialog:      { da: 'I dialog',    en: 'In dialog',    de: 'Im Dialog',    it: 'In dialogo',    hu: 'Egyeztetés' },
+  negotiation: { da: 'Forhandling', en: 'Negotiation',  de: 'Verhandlung',  it: 'Negoziazione',  hu: 'Tárgyalás' },
+};
 
 function generatePipeline(line: BudgetLine, year: number): PipelineOffer[][] {
   const months: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
@@ -115,10 +212,10 @@ function splitToMonthly(qty: number, split: number[]): number[] {
   return result;
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Language): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(LOCALE_BY_LANG[lang], { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // ---------- KPI ----------
@@ -154,6 +251,7 @@ type WorkingDraft = Record<string, number[]>; // budget_line_id -> 12 numbers
 
 export default function CrmBudgetPage() {
   const { appUser, loading } = useAppUser();
+  const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
@@ -241,15 +339,15 @@ export default function CrmBudgetPage() {
     return { annualBudget, annualQty, sold, fc, score };
   }, [visibleLines, actuals, forecasts]);
 
-  if (loading) return <CrmLayout pageTitle="Budget"><div className="text-sm text-slate-500">Indlæser…</div></CrmLayout>;
+  if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!allowed) {
     return (
-      <CrmLayout pageTitle="Budget">
+      <CrmLayout pageTitle={T.page_title[lang]}>
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
           <ShieldAlert className="h-8 w-8 text-amber-500 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-slate-900">Ingen adgang</h2>
-          <p className="text-sm text-slate-500 mt-1">Budgetmodulet er kun tilgængeligt for Timan Backend og Timan Sælger.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{T.no_access[lang]}</h2>
+          <p className="text-sm text-slate-500 mt-1">{T.no_access_msg[lang]}</p>
         </div>
       </CrmLayout>
     );
@@ -323,7 +421,7 @@ export default function CrmBudgetPage() {
 
   async function removeLine(id: string) {
     if (!isAdmin) return;
-    if (!confirm("Slet denne budgetlinje?")) return;
+    if (!confirm(T.delete_confirm[lang])) return;
     await deleteBudgetLine(id);
     setLines(prev => prev.filter(l => l.id !== id));
   }
@@ -332,7 +430,7 @@ export default function CrmBudgetPage() {
     const product = findProduct(newRow.product_key);
     if (!product) return;
     if (product.status === "coming_soon") {
-      if (!confirm(`${product.name} er markeret som "Kommer snart". Tilføj alligevel?`)) return;
+      if (!confirm(`${product.name} ${T.cs_confirm[lang]}`)) return;
     }
     const unit = product.priceDKK || 0;
     const qty = Math.max(0, Number(newRow.qty_budget) || 0);
@@ -369,18 +467,18 @@ export default function CrmBudgetPage() {
   void upsertBudgetLine;
 
   // ---- Render ----
-  const monthCols = MONTHS_DA;
+  const monthCols = MONTHS_BY_LANG[lang];
 
   return (
-    <CrmLayout pageTitle="Budget">
+    <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-emerald-600" /> Årligt budget {year}
+            <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            {isAdmin ? "Administrer officielle budgetter, lås og se forecast på tværs af sælgere." : "Se dit eget budget og opdater dit working forecast."}
+            {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -396,23 +494,23 @@ export default function CrmBudgetPage() {
           </div>
           {isAdmin && (
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Sælger</span>
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.seller_label[lang]}</span>
               <select
                 value={backendFilter}
                 onChange={(e) => setBackendFilter(e.target.value)}
                 className="text-sm bg-transparent outline-none"
               >
-                <option value="all">Alle sælgere</option>
+                <option value="all">{T.all_sellers[lang]}</option>
                 {BUDGET_SELLERS.map(s => (
                   <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
                 ))}
-                <optgroup label="Backend">
+                <optgroup label={T.backend_group[lang]}>
                   {BUDGET_BACKEND_USERS
                     .filter(s => !BUDGET_SELLERS.some(x => x.email.toLowerCase() === s.email.toLowerCase()))
                     .map(s => (
                       <option key={s.email} value={s.email}>{s.initials}</option>
                     ))}
-                  <option value="mine">Min egen visning</option>
+                  <option value="mine">{T.my_view[lang]}</option>
                 </optgroup>
               </select>
             </div>
@@ -422,7 +520,7 @@ export default function CrmBudgetPage() {
               onClick={() => setEditWorking(true)}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
             >
-              <Edit3 className="h-4 w-4" /> Rediger arbejdsbudget
+              <Edit3 className="h-4 w-4" /> {T.edit_working[lang]}
             </button>
           ) : (
             <>
@@ -430,13 +528,13 @@ export default function CrmBudgetPage() {
                 onClick={() => { setWorkingDraft({}); setEditWorking(false); }}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
               >
-                <X className="h-4 w-4" /> Annuller
+                <X className="h-4 w-4" /> {T.cancel[lang]}
               </button>
               <button
                 onClick={saveWorkingForecast}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 shadow-sm"
               >
-                <Save className="h-4 w-4" /> Gem arbejdsbudget
+                <Save className="h-4 w-4" /> {T.save_working[lang]}
               </button>
             </>
           )}
@@ -445,7 +543,7 @@ export default function CrmBudgetPage() {
               onClick={() => setShowAdd(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
             >
-              <Plus className="h-4 w-4" /> Ny budgetlinje
+              <Plus className="h-4 w-4" /> {T.new_line[lang]}
             </button>
           )}
         </div>
@@ -453,20 +551,20 @@ export default function CrmBudgetPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-        <KpiCard label="Budget (stk.)" value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
-        <KpiCard label="Ordrer (stk.)" value={`${totals.sold.qty}`} sub={fmtDKK(totals.sold.value)} icon={Wallet} tone="ok" />
-        <KpiCard label="Arbejdsbudget" value={`${totals.fc.qty}`} sub={fmtDKK(totals.fc.value)} icon={Wallet} tone="warn" />
-        <KpiCard label="Score" value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} stk.`} icon={Wallet} />
+        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
+        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={fmtDKK(totals.sold.value)} icon={Wallet} tone="ok" />
+        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={fmtDKK(totals.fc.value)} icon={Wallet} tone="warn" />
+        <KpiCard label={T.kpi_score[lang]} value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} ${T.pcs[lang]}`} icon={Wallet} />
       </div>
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-slate-600">
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-300" /> Budget</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Ordrer</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-400" /> Pipeline / tilbud</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-900" /> Arbejdsbudget</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500" /> Performance −</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Performance +</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-300" /> {T.legend_budget[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> {T.legend_orders[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-400" /> {T.legend_pipe[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-900" /> {T.legend_work[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500" /> {T.legend_perf_n[lang]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> {T.legend_perf_p[lang]}</span>
       </div>
 
       {/* Matrix */}
@@ -476,20 +574,20 @@ export default function CrmBudgetPage() {
             <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-900 text-slate-100">
-                  <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">Model & Kategori</th>
+                  <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">{T.col_model[lang]}</th>
                   {monthCols.map(m => (
                     <th key={m} className="px-2 py-2.5 font-medium text-center w-16">{m}</th>
                   ))}
-                  <th className="px-2 py-2.5 font-semibold text-center w-20">Total</th>
-                  <th className="px-2 py-2.5 font-semibold text-center w-16">Score</th>
+                  <th className="px-2 py-2.5 font-semibold text-center w-20">{T.col_total[lang]}</th>
+                  <th className="px-2 py-2.5 font-semibold text-center w-16">{T.col_score[lang]}</th>
                 </tr>
               </thead>
               <tbody>
                 {busy && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">Indlæser budget…</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.loading[lang]}</td></tr>
                 )}
                 {!busy && grouped.length === 0 && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">Ingen budgetlinjer for dette år.</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
                 )}
 
                 {grouped.map(group => {
@@ -537,18 +635,18 @@ export default function CrmBudgetPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-slate-900">{group.product_name}</span>
                               {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
-                              {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Kommer snart</span>}
-                              {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> Låst</span>}
+                              {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
+                              {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
                             </div>
                             {isAdmin && (
                               <div className="flex items-center gap-1">
                                 {group.lines.map(l => (
                                   <span key={l.id} className="inline-flex items-center gap-1 text-xs text-slate-600">
                                     <span className="text-slate-500">{l.seller_name || "—"}</span>
-                                    <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? "Lås op" : "Lås"}>
+                                    <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? T.unlock[lang] : T.lock[lang]}>
                                       {l.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                                     </button>
-                                    <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title="Slet linje">
+                                    <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title={T.delete_line[lang]}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   </span>
@@ -561,7 +659,7 @@ export default function CrmBudgetPage() {
 
                       {/* BUDGET / ORDRER */}
                       <tr key={`bo-${group.product_key}`} className="bg-slate-50/60">
-                        <td className="sticky left-0 z-10 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">BUDGET / ORDRER</td>
+                        <td className="sticky left-0 z-10 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">{T.row_budget_orders[lang]}</td>
                         {budgetMonthly.map((b, i) => {
                           const o = ordersMonthly[i];
                           return (
@@ -582,7 +680,7 @@ export default function CrmBudgetPage() {
 
                       {/* PIPELINE */}
                       <tr key={`pipe-${group.product_key}`} className="bg-amber-50/40">
-                        <td className="sticky left-0 z-10 bg-amber-50/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">PIPELINE (TILBUD)</td>
+                        <td className="sticky left-0 z-10 bg-amber-50/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">{T.row_pipeline[lang]}</td>
                         {pipelineMonthly.map((offers, i) => {
                           const count = offers.length;
                           const sum = offers.reduce((a, b) => a + b.value, 0);
@@ -600,17 +698,17 @@ export default function CrmBudgetPage() {
                                 <TooltipContent side="top" className="max-w-sm">
                                   <div className="text-xs space-y-2">
                                     <div className="font-semibold border-b border-slate-200 pb-1">
-                                      {count} tilbud · {fmtDKK(sum)}
+                                      {count} {T.tip_quotes[lang]} · {fmtDKK(sum)}
                                     </div>
                                     {offers.map((o, idx) => (
                                       <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
-                                        <div className="font-medium">{o.offer_no} · {o.status}</div>
+                                        <div className="font-medium">{o.offer_no} · {(STATUS_LABELS as Record<string, Record<Language,string>>)[o.status]?.[lang] || o.status}</div>
                                         <div className="text-slate-600">{o.dealer}</div>
-                                        <div className="text-slate-600">Kunde: {o.customer}</div>
-                                        <div className="text-slate-600">Maskine: {group.product_name}</div>
-                                        <div className="text-slate-600">Redskab: {o.attachment}</div>
+                                        <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
+                                        <div className="text-slate-600">{T.tip_machine[lang]}: {group.product_name}</div>
+                                        <div className="text-slate-600">{T.tip_attach[lang]}: {o.attachment}</div>
                                         <div className="flex justify-between">
-                                          <span className="text-slate-500">Sendt: {fmtDate(o.sent_date)}</span>
+                                          <span className="text-slate-500">{T.tip_sent[lang]}: {fmtDate(o.sent_date, lang)}</span>
                                           <span className="font-semibold tabular-nums">{fmtDKK(o.value)}</span>
                                         </div>
                                       </div>
@@ -627,7 +725,7 @@ export default function CrmBudgetPage() {
 
                       {/* ARBEJDSBUDGET */}
                       <tr key={`work-${group.product_key}`} className="bg-slate-900 text-slate-100">
-                        <td className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200">ARBEJDSBUDGET</td>
+                        <td className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200">{T.row_working[lang]}</td>
                         {workingMonthly.map((w, i) => (
                           <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                             {editWorking ? (
@@ -662,7 +760,7 @@ export default function CrmBudgetPage() {
 
                       {/* PERFORMANCE */}
                       <tr key={`perf-${group.product_key}`} className="border-b-2 border-slate-200">
-                        <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">PERFORMANCE</td>
+                        <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{T.row_perf[lang]}</td>
                         {ordersMonthly.map((o, i) => {
                           const diff = o - budgetMonthly[i];
                           let cls = "text-slate-400";
@@ -697,42 +795,42 @@ export default function CrmBudgetPage() {
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Ny budgetlinje · {year}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{T.modal_title[lang]} · {year}</h3>
               <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-slate-600">Produkt</span>
+                <span className="text-xs text-slate-600">{T.field_product[lang]}</span>
                 <select className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.product_key} onChange={(e) => setNewRow(r => ({ ...r, product_key: e.target.value }))}>
                   {BUDGET_PRODUCTS.map(p => (
                     <option key={p.key} value={p.key}>
-                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? "(kommer snart)" : ""}
+                      {p.name} {p.varenr ? `· ${p.varenr}` : ""} {p.status === "coming_soon" ? `(${T.coming_soon[lang]})` : ""}
                     </option>
                   ))}
                 </select>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs text-slate-600">Sælger</span>
-                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder="Navn" />
+                  <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
+                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder={T.placeholder_name[lang]} />
                 </label>
                 <label className="block">
-                  <span className="text-xs text-slate-600">Land</span>
+                  <span className="text-xs text-slate-600">{T.field_country[lang]}</span>
                   <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.country} onChange={(e) => setNewRow(r => ({ ...r, country: e.target.value }))} />
                 </label>
               </div>
               <label className="block">
-                <span className="text-xs text-slate-600">Antal (qty budget)</span>
+                <span className="text-xs text-slate-600">{T.field_qty[lang]}</span>
                 <input type="number" min={0} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.qty_budget} onChange={(e) => setNewRow(r => ({ ...r, qty_budget: Number(e.target.value) }))} />
               </label>
               <label className="block">
-                <span className="text-xs text-slate-600">Noter</span>
+                <span className="text-xs text-slate-600">{T.field_notes[lang]}</span>
                 <textarea rows={2} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.notes} onChange={(e) => setNewRow(r => ({ ...r, notes: e.target.value }))} />
               </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Annuller</button>
-              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> Opret</button>
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">{T.cancel[lang]}</button>
+              <button onClick={addLine} className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"><Plus className="h-4 w-4" /> {T.create[lang]}</button>
             </div>
           </div>
         </div>
