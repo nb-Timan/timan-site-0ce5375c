@@ -756,18 +756,53 @@ export default function CrmBudgetPage() {
                     productName: string;
                     rowLines: BudgetLine[]; // lines used for budget/orders/working aggregation
                     indent?: boolean;       // visually nest under a machine
+                    /** Fallback product key used when rowLines is empty so we can
+                     *  still synthesize a primary line for editing (RC-751 fix). */
+                    fallbackProductKey?: string;
                   }) {
-                    const { keyPrefix, productName, rowLines, indent } = opts;
+                    const { keyPrefix, productName, rowLines, indent, fallbackProductKey } = opts;
+                    // The "primary" line that the steppers act on. If the seller
+                    // has no real line yet (e.g. RC-751 with no seed), build a
+                    // synthetic seed line — `ensurePersistedLine` will persist it
+                    // on the first stepper press.
+                    const primaryLine: BudgetLine = rowLines[0] ?? (() => {
+                      const pkey = fallbackProductKey || keyPrefix;
+                      const product = findProduct(pkey);
+                      return {
+                        id: `seed_${year}_${pkey}_${(selectedSellerEmail || myEmail || "anon").replace(/[^a-z0-9]/gi, "")}`,
+                        year,
+                        product_key: pkey,
+                        product_name: product?.name || pkey,
+                        item_number: product?.varenr ?? null,
+                        category: product?.category || "machine",
+                        seller_id: null,
+                        seller_name: null,
+                        seller_email: selectedSellerEmail || myEmail || null,
+                        seller_initials: null,
+                        country: null,
+                        qty_budget: 0,
+                        value_budget: 0,
+                        monthly_split: EVEN,
+                        notes: null,
+                        locked: false,
+                        created_at: new Date().toISOString(),
+                      } as BudgetLine;
+                    })();
+                    const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+                    const blockLocked = isLineLocked(primaryLine);
+                    const canEditBudget = isAdmin && !blockLocked;
+                    const canEditWorking = !blockLocked && (isAdmin || isSeller);
+
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
-                      rowLines.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
+                      linesForAgg.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
                       return arr;
                     };
                     const budgetMonthly = agg("budgetMonthly");
                     const ordersMonthly = agg("ordersMonthly");
                     const workingMonthly = agg("workingMonthly");
                     const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
-                    rowLines.forEach(l => {
+                    linesForAgg.forEach(l => {
                       const p = pipelineByLine[l.id] || [];
                       p.forEach((arr, i) => { pipelineMonthly[i].push(...arr); });
                     });
@@ -785,16 +820,36 @@ export default function CrmBudgetPage() {
                     const stickyPad = indent ? "pl-8" : "px-3";
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
-                        {/* BUDGET / ORDERS */}
+                        {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
                         <tr key={`bo-${keyPrefix}`} className="bg-slate-50/60">
                           <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
                           {budgetMonthly.map((b, i) => {
                             const o = ordersMonthly[i];
                             return (
-                              <td key={i} className="px-2 py-2 text-center tabular-nums text-xs">
-                                <span className="text-slate-500">{b}</span>
-                                <span className="text-slate-400 mx-0.5">/</span>
-                                <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                              <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {canEditBudget ? (
+                                  <div className="inline-flex items-center gap-0.5 bg-white border border-slate-200 rounded px-0.5 hover:border-slate-400 transition">
+                                    <button
+                                      onClick={() => adjustBudget(primaryLine, i, -1)}
+                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                                      title="−1"
+                                    ><Minus className="h-3 w-3" /></button>
+                                    <span className="min-w-[14px] text-center font-semibold text-slate-700">{b}</span>
+                                    <button
+                                      onClick={() => adjustBudget(primaryLine, i, +1)}
+                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
+                                      title="+1"
+                                    ><Plus className="h-3 w-3" /></button>
+                                    <span className="text-slate-400 mx-0.5">/</span>
+                                    <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-slate-500">{b}</span>
+                                    <span className="text-slate-400 mx-0.5">/</span>
+                                    <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                  </>
+                                )}
                               </td>
                             );
                           })}
@@ -851,21 +906,21 @@ export default function CrmBudgetPage() {
                           <td className="px-2 py-2"></td>
                         </tr>
 
-                        {/* WORKING */}
+                        {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
                           <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
                           {workingMonthly.map((w, i) => (
                             <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                              {editWorking && rowLines.length > 0 ? (
+                              {canEditWorking ? (
                                 <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
                                   <button
-                                    onClick={() => adjustWorking(rowLines[0].id, i, -1)}
+                                    onClick={() => adjustWorking(primaryLine, i, -1)}
                                     className="p-0.5 hover:bg-slate-700 rounded"
                                     title="−1"
                                   ><Minus className="h-3 w-3" /></button>
                                   <span className="min-w-[16px] text-center font-semibold">{w}</span>
                                   <button
-                                    onClick={() => adjustWorking(rowLines[0].id, i, +1)}
+                                    onClick={() => adjustWorking(primaryLine, i, +1)}
                                     className="p-0.5 hover:bg-slate-700 rounded"
                                     title="+1"
                                   ><Plus className="h-3 w-3" /></button>
