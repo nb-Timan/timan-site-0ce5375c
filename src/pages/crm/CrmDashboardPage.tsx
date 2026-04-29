@@ -8,6 +8,7 @@ import {
 import CrmLayout from '@/components/crm/CrmLayout';
 import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection';
 import SellerOverviewSection from '@/components/crm/SellerOverviewSection';
+import SellerCockpitSection from '@/components/crm/SellerCockpitSection';
 import DemoStatsSection from '@/components/crm/DemoStatsSection';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
