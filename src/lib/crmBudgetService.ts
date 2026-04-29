@@ -38,6 +38,8 @@ export interface BudgetLine {
   product_name: string;
   item_number: string | null;
   category: BudgetCategory;
+  /** For attachment/equipment rows: the machine product_key they belong under. */
+  parent_machine_key?: string | null;
   seller_id: string | null;
   seller_name: string | null;
   /** Email of the assigned seller — used for scoping when seller_id is unknown
