@@ -174,14 +174,16 @@ export default function CrmDashboardPage() {
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
+  const [sellerId, setSellerId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const sellerId = await resolveSellerId(appUser?.email);
-      const acc = await listCrmAccounts({ role: portalRole, sellerId });
-      const act = await listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 });
+      const sid = await resolveSellerId(appUser?.email);
+      const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
+      const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
       if (cancelled) return;
+      setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
     })();
