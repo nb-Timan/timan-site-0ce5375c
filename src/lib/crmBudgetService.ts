@@ -71,7 +71,8 @@ export interface SalesActual {
 function readConfiguratorMachine(key: string): { name: string; varenr: string; priceDKK: number; priceEUR: number } | null {
   const m = PRODUCTS[key];
   if (!m) return null;
-  return { name: m.name, varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
+  const name = typeof m.name === "string" ? m.name : (m.name?.da || m.name?.en || key);
+  return { name, varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
 }
 
 const RC1000 = readConfiguratorMachine("RC-1000S");
