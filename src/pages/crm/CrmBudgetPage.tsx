@@ -607,12 +607,7 @@ export default function CrmBudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {busy && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.loading[lang]}</td></tr>
-                )}
-                {!busy && grouped.length === 0 && (
-                  <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
-                )}
+
 
                 {(() => {
                   // Reusable 4-row block (BUDGET/ORDERS, PIPELINE, WORKING, PERFORMANCE)
