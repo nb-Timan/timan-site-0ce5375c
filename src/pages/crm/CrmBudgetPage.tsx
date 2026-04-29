@@ -807,7 +807,7 @@ export default function CrmBudgetPage() {
                         <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-500">{T.empty_year[lang]}</td></tr>
                       )}
 
-                      {grouped.map(group => {
+                      {grouped.map((group, gIdx) => {
                         const product = findProduct(group.product_key);
                         const comingSoon = product?.status === "coming_soon";
                         const anyLocked = group.lines.some(l => l.locked);
@@ -816,12 +816,21 @@ export default function CrmBudgetPage() {
 
                         return (
                           <Fragment key={group.product_key}>
+                            {/* Section spacer between machine groups */}
+                            {gIdx > 0 && (
+                              <tr key={`spacer-${group.product_key}`} aria-hidden="true">
+                                <td colSpan={15} className="p-0">
+                                  <div className="h-5 bg-slate-100 border-y border-slate-200" />
+                                </td>
+                              </tr>
+                            )}
                             {/* Machine title row */}
                             <tr key={`title-${group.product_key}`}>
-                              <td colSpan={15} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
+                              <td colSpan={15} className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300 border-b border-slate-200 px-3 py-3 shadow-sm">
                                 <div className="flex items-center justify-between gap-3 flex-wrap">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-slate-900">{group.product_name}</span>
+                                    <span className="inline-block h-5 w-1 rounded bg-emerald-500" aria-hidden="true" />
+                                    <span className="font-semibold text-slate-900 text-base">{group.product_name}</span>
                                     {group.item_number && <span className="text-xs text-slate-500 tabular-nums">· {group.item_number}</span>}
                                     {comingSoon && <span className="inline-flex items-center text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">{T.coming_soon[lang]}</span>}
                                     {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
