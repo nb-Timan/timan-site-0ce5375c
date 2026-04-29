@@ -79,21 +79,95 @@ export interface SalesActual {
 
 // ---------- Product catalog ----------
 // Read from existing configurator data where possible. NEVER mutate.
+function stripBaseSuffix(name: string): string {
+  // Remove "Basismaskine" / "Base machine" / "Basismaschine" / "Macchina base" / "Alapgép"
+  // and any trailing whitespace/punctuation. Keep just the model name.
+  return name
+    .replace(/\s*[-–—]?\s*(Basismaskine|Basismaskin|Base machine|Basismaschine|Macchina base|Alapg[eé]p)\s*$/i, "")
+    .trim();
+}
+
 function readConfiguratorMachine(key: string): { name: string; varenr: string; priceDKK: number; priceEUR: number } | null {
   const m = PRODUCTS[key];
   if (!m) return null;
-  const name = typeof m.name === "string" ? m.name : (m.name?.da || m.name?.en || key);
-  return { name, varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
+  const rawName = typeof m.name === "string" ? m.name : (m.name?.da || m.name?.en || key);
+  return { name: stripBaseSuffix(rawName), varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
 }
 
 const RC1000 = readConfiguratorMachine("RC-1000S");
 const RC751  = readConfiguratorMachine("RC-751");
 const T3330  = readConfiguratorMachine("Timan 3330");
 
+// ---------- Equipment categories under machines ----------
+// Reads from the configurator ACCESSORIES catalog. We expose grouped
+// equipment "categories" (no manual prices) so the budget UI can plan
+// per category exactly as it does for machines.
+//
+// Keys are stable so localStorage seed/forecast/actuals stay consistent
+// across renders. Names use LocalizedString so the table can translate.
+export interface EquipmentCategory {
+  key: string;                // stable across renders
+  parent_machine_key: string; // RC-1000s | Timan 3330 | Timan 2620
+  name: LocalizedString;
+  varenr: string | null;      // representative varenr if available, else null
+  status: ProductStatus;      // "preview" → planning row, no orders/forecasts
+}
+
+// RC-1000s: pulled from existing configurator items (no manual prices).
+function findAcc(key: string, varenr: string) {
+  const list = ACCESSORIES[key] || [];
+  return list.find(a => String(a.varenr) === varenr && !a.isHeader) || null;
+}
+function nameOf(loc: LocalizedString | string | undefined, fallback: string): LocalizedString {
+  if (!loc) return { da: fallback, en: fallback };
+  if (typeof loc === "string") return { da: loc, en: loc };
+  return loc;
+}
+
+const RC1000_EQUIPMENT: EquipmentCategory[] = [
+  (() => { const a = findAcc("RC-1000S", "410910"); return { key: "RC1000_FLAIL",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Slagleklipper"),         varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411666"); return { key: "RC1000_ROTARY", parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Rotorklipper"),           varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411845"); return { key: "RC1000_SWEEP",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Fejemaskine"),            varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  (() => { const a = findAcc("RC-1000S", "411742"); return { key: "RC1000_VPLOW",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Sneplov / V-plov"),       varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+];
+
+// Timan 3330: re-use the configurator section headers (already localized).
+function headerName(machineKey: string, headerId: string, fallback: string): LocalizedString {
+  const list = ACCESSORIES[machineKey] || [];
+  const h = list.find(a => a.id === headerId && a.isHeader);
+  return nameOf(h?.name as LocalizedString | undefined, fallback);
+}
+const T3330_EQUIPMENT: EquipmentCategory[] = [
+  { key: "T3330_SWEEP",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "SWEEP_HEADER",  "Feje/Sug Redskaber"), varenr: null, status: "available" },
+  { key: "T3330_WB",      parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WB_HEADER",     "Ukrudtsbørste"),      varenr: null, status: "available" },
+  { key: "T3330_GRASS",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "GRASS_HEADER",  "Græs opgaver"),       varenr: null, status: "available" },
+  { key: "T3330_WINTER",  parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WINTER_HEADER", "Vinter redskaber"),   varenr: null, status: "available" },
+  { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available" },
+];
+
+// Timan 2620: no configurator data yet → planning rows, no prices.
+const T2620_EQUIPMENT: EquipmentCategory[] = [
+  { key: "T2620_SWEEP",  parent_machine_key: "Timan 2620", name: { da: "Feje/Sug Redskaber",   en: "Sweep/Vac implements", de: "Kehr-/Sauggeräte",      it: "Attrezzature spazzatura", hu: "Seprés/szívó eszközök" }, varenr: null, status: "preview" },
+  { key: "T2620_GRASS",  parent_machine_key: "Timan 2620", name: { da: "Græs opgaver",         en: "Grass tasks",          de: "Grasarbeiten",          it: "Lavori erba",             hu: "Fű feladatok" },          varenr: null, status: "preview" },
+  { key: "T2620_WINTER", parent_machine_key: "Timan 2620", name: { da: "Vinter redskaber",     en: "Winter implements",    de: "Wintergeräte",          it: "Attrezzature invernali",  hu: "Téli eszközök" },         varenr: null, status: "preview" },
+  { key: "T2620_OTHER",  parent_machine_key: "Timan 2620", name: { da: "Øvrige Redskaber",     en: "Other implements",     de: "Weitere Geräte",        it: "Altri attrezzi",          hu: "Egyéb eszközök" },        varenr: null, status: "preview" },
+];
+
+export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = {
+  "RC-1000s":   RC1000_EQUIPMENT,
+  "Timan 3330": T3330_EQUIPMENT,
+  "Timan 2620": T2620_EQUIPMENT,
+};
+
+/** Localized name resolver — used by the page to render equipment rows. */
+export function localizedName(name: LocalizedString, lang: Language): string {
+  return name[lang] || name.da || name.en || "";
+}
+
 export const BUDGET_PRODUCTS: BudgetProduct[] = [
   {
     key: "RC-751",
-    name: RC751?.name || "RC-751 Basismaskine",
+    name: RC751?.name || "RC-751",
     varenr: RC751?.varenr || "410040",
     category: "machine",
     status: "available",
@@ -102,7 +176,7 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
   },
   {
     key: "RC-1000s",
-    name: RC1000?.name || "RC-1000s Basismaskine",
+    name: RC1000?.name || "RC-1000s",
     varenr: RC1000?.varenr || "411000",
     category: "machine",
     status: "available",
@@ -124,13 +198,6 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
     varenr: "563219",
     category: "machine",
     status: "coming_soon",
-  },
-  {
-    key: "Tool-Trac",
-    name: "Tool-Trac",
-    varenr: null,
-    category: "machine",
-    status: "available",
   },
 ];
 
