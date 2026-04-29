@@ -407,9 +407,11 @@ export default function CrmBudgetPage() {
                   <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
                 ))}
                 <optgroup label="Backend">
-                  {BUDGET_BACKEND_USERS.map(s => (
-                    <option key={s.email} value={s.email}>{s.initials}</option>
-                  ))}
+                  {BUDGET_BACKEND_USERS
+                    .filter(s => !BUDGET_SELLERS.some(x => x.email.toLowerCase() === s.email.toLowerCase()))
+                    .map(s => (
+                      <option key={s.email} value={s.email}>{s.initials}</option>
+                    ))}
                   <option value="mine">Min egen visning</option>
                 </optgroup>
               </select>
