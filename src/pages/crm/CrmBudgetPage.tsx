@@ -677,29 +677,40 @@ export default function CrmBudgetPage() {
               </select>
             </div>
           )}
-          {!editWorking ? (
-            <button
-              onClick={() => setEditWorking(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
-            >
-              <Edit3 className="h-4 w-4" /> {T.edit_working[lang]}
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => { setWorkingDraft({}); setEditWorking(false); }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 shadow-sm"
-              >
-                <X className="h-4 w-4" /> {T.cancel[lang]}
-              </button>
-              <button
-                onClick={saveWorkingForecast}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 shadow-sm"
-              >
-                <Save className="h-4 w-4" /> {T.save_working[lang]}
-              </button>
-            </>
-          )}
+          {/* Lock status + lock/unlock controls.
+              Backend: requires a single seller selected in the filter to act.
+              Sellers: status only, read-only. */}
+          {(() => {
+            const email = selectedSellerEmail;
+            const sl = lockFor(email);
+            const locked = sl ? sl.locked : true;
+            const badgeLabel = locked ? T.status_locked[lang] : T.status_open[lang];
+            const badgeCls = locked
+              ? "bg-sky-100 text-sky-800 border-sky-200"
+              : "bg-emerald-100 text-emerald-800 border-emerald-200";
+            return (
+              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]}</span>
+                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold", badgeCls)}>
+                  {locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                  {email ? badgeLabel : T.pick_seller[lang]}
+                </span>
+                {isAdmin && email && (
+                  <button
+                    onClick={() => toggleSellerLock(email)}
+                    className={cn(
+                      "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                      locked
+                        ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        : "border-sky-200 text-sky-700 hover:bg-sky-50",
+                    )}
+                  >
+                    {locked ? <><Unlock className="h-3 w-3" /> {T.unlock_budget[lang]}</> : <><Lock className="h-3 w-3" /> {T.lock_budget[lang]}</>}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           {isAdmin && (
             <button
               onClick={() => setShowAdd(true)}
