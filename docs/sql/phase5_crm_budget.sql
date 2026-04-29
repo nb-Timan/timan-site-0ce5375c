@@ -63,3 +63,36 @@ alter table public.crm_budget_sales_actuals enable row level security;
 --   for all using (public.has_portal_role(auth.uid(), 'timan_backend'));
 -- create policy "seller can read own budget lines" on public.crm_budget_lines
 --   for select using (seller_id = (select id from public.app_users where auth_user_id = auth.uid()));
+
+-- ─────────────────────────────────────────────────────────────
+-- Phase 5b — Per-seller / per-year budget lock (extension)
+-- Mirrors the localStorage fallback used by src/lib/crmBudgetService.ts
+-- (getSellerYearLock / setSellerYearLock). Each seller has their own
+-- lock state for a given year so backend can unlock EM 2026 without
+-- affecting AKR 2026.
+-- Run this in your Supabase SQL editor.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.crm_budget_seller_locks (
+  id uuid primary key default gen_random_uuid(),
+  year int not null,
+  seller_email text not null,
+  locked boolean not null default true,
+  locked_by text,
+  locked_at timestamptz,
+  unlocked_by text,
+  unlocked_at timestamptz,
+  updated_at timestamptz not null default now(),
+  unique (year, seller_email)
+);
+
+alter table public.crm_budget_seller_locks enable row level security;
+
+-- Example policies (adjust to your has_portal_role helper):
+-- create policy "backend manages seller-year locks"
+--   on public.crm_budget_seller_locks
+--   for all using (public.has_portal_role(auth.uid(), 'timan_backend'));
+-- create policy "sellers can read their own lock"
+--   on public.crm_budget_seller_locks
+--   for select using (
+--     seller_email = (select lower(email) from public.app_users where auth_user_id = auth.uid())
+--   );
