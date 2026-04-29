@@ -797,6 +797,68 @@ export default function CrmBudgetPage() {
               </div>
             );
           })()}
+          {/* Backend: Global (all-sellers) lock controls for the active year. */}
+          {isAdmin && (() => {
+            const globalEffective = getEffectiveLock(year, "");
+            const globalLocked = globalEffective.locked;
+            const fmt = (s: string) => s.replace("{year}", String(year));
+            return (
+              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]} · alle</span>
+                <button
+                  type="button"
+                  onClick={() => toggleGlobalYearLock(false)}
+                  disabled={!globalLocked}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                    "border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed",
+                  )}
+                  title={fmt(T.unlock_all[lang])}
+                >
+                  <Unlock className="h-3 w-3" /> {fmt(T.unlock_all[lang])}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleGlobalYearLock(true)}
+                  disabled={globalLocked}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
+                    "border-sky-200 text-sky-700 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed",
+                  )}
+                  title={fmt(T.lock_all[lang])}
+                >
+                  <Lock className="h-3 w-3" /> {fmt(T.lock_all[lang])}
+                </button>
+              </div>
+            );
+          })()}
+          {/* Seller: Edit Arbejdsbudget mode toggle (10-min auto-lock). */}
+          {!isAdmin && isSeller && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              {editModeUntil == null ? (
+                <button
+                  type="button"
+                  onClick={startEditMode}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Pencil className="h-3 w-3" /> {T.edit_working_btn[lang]}
+                </button>
+              ) : (
+                <>
+                  <span className="text-xs text-slate-600">
+                    {T.edit_active_hint[lang].replace("{min}", String(editCountdownMin))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={endEditMode}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Lock className="h-3 w-3" /> {T.exit_edit[lang]}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {isAdmin && (
             <button
               onClick={() => {
