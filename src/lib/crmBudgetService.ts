@@ -301,33 +301,29 @@ function ensureSeed() {
 
   // BP — DK (sales manager, key accounts)
   const bp: BudgetLine[] = [
-    makeLine(year, "RC-1000s",   "RC-1000s Basismaskine", "411000", BP, 6, 1_410_000, "Key accounts"),
-    makeLine(year, "Timan 3330", "Timan 3330",            "712000", BP, 5, 3_250_000),
-    makeLine(year, "Tool-Trac",  "Tool-Trac",             null,     BP, 3, 1_050_000),
+    makeLine(year, "RC-1000s",   "RC-1000s",   "411000", BP, 6, 1_410_000, "Key accounts"),
+    makeLine(year, "Timan 3330", "Timan 3330", "712000", BP, 5, 3_250_000),
   ];
 
   // EM — DK (full portfolio, strong volume)
   const em: BudgetLine[] = [
-    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", EM, 8,  1_120_000, "Hovedfokus DK"),
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", EM, 12, 2_820_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", EM, 6,  3_900_000),
-    makeLine(year, "Timan 2620",  "Timan 2620",            "563219", EM, 4,  1_600_000, "Coming soon — pre-budget"),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     EM, 5,  1_750_000),
+    makeLine(year, "RC-751",      "RC-751",     "410040", EM, 8,  1_120_000, "Hovedfokus DK"),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", EM, 12, 2_820_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", EM, 6,  3_900_000),
+    makeLine(year, "Timan 2620",  "Timan 2620", "563219", EM, 4,  1_600_000, "Coming soon — pre-budget"),
   ];
 
   // AKR — DE (eksport)
   const akr: BudgetLine[] = [
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", AKR, 6, 1_410_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", AKR, 4, 2_600_000),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     AKR, 3, 1_050_000),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", AKR, 6, 1_410_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", AKR, 4, 2_600_000),
   ];
 
   // JTN — DK (fokuseret portefølje)
   const jtn: BudgetLine[] = [
-    makeLine(year, "RC-751",      "RC-751 Basismaskine",   "410040", JTN, 5,  837_500),
-    makeLine(year, "RC-1000s",    "RC-1000s Basismaskine", "411000", JTN, 7,  1_645_000),
-    makeLine(year, "Timan 3330",  "Timan 3330",            "712000", JTN, 3,  1_950_000),
-    makeLine(year, "Tool-Trac",   "Tool-Trac",             null,     JTN, 4,  1_400_000),
+    makeLine(year, "RC-751",      "RC-751",     "410040", JTN, 5,  837_500),
+    makeLine(year, "RC-1000s",    "RC-1000s",   "411000", JTN, 7,  1_645_000),
+    makeLine(year, "Timan 3330",  "Timan 3330", "712000", JTN, 3,  1_950_000),
   ];
 
   const seedLines: BudgetLine[] = [...bp, ...em, ...akr, ...jtn];
@@ -338,48 +334,40 @@ function ensureSeed() {
   const fcBP: Record<string, Pair> = {
     "RC-1000s":   { qty: 7, value: 1_645_000 },
     "Timan 3330": { qty: 6, value: 3_900_000 },
-    "Tool-Trac":  { qty: 3, value: 1_050_000 },
   };
   const acBP: Record<string, Pair> = {
     "RC-1000s":   { qty: 2, value: 470_000 },
     "Timan 3330": { qty: 1, value: 650_000 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcEM: Record<string, Pair> = {
     "RC-751":     { qty: 9, value: 1_260_000 },
     "RC-1000s":   { qty: 10, value: 2_350_000 },
     "Timan 3330": { qty: 7, value: 4_550_000 },
     "Timan 2620": { qty: 3, value: 1_200_000 },
-    "Tool-Trac":  { qty: 5, value: 1_750_000 },
   };
   const acEM: Record<string, Pair> = {
     "RC-751":     { qty: 2, value: 280_000 },
     "RC-1000s":   { qty: 3, value: 705_000 },
     "Timan 3330": { qty: 1, value: 650_000 },
     "Timan 2620": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 7, value: 1_645_000 },
     "Timan 3330": { qty: 4, value: 2_600_000 },
-    "Tool-Trac":  { qty: 4, value: 1_400_000 },
   };
   const acAKR: Record<string, Pair> = {
     "RC-1000s":   { qty: 1, value: 235_000 },
     "Timan 3330": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
   const fcJTN: Record<string, Pair> = {
     "RC-751":     { qty: 6, value: 1_005_000 },
     "RC-1000s":   { qty: 8, value: 1_880_000 },
     "Timan 3330": { qty: 4, value: 2_600_000 },
-    "Tool-Trac":  { qty: 5, value: 1_750_000 },
   };
   const acJTN: Record<string, Pair> = {
     "RC-751":     { qty: 1, value: 167_500 },
     "RC-1000s":   { qty: 2, value: 470_000 },
     "Timan 3330": { qty: 0, value: 0 },
-    "Tool-Trac":  { qty: 1, value: 350_000 },
   };
 
   const forecasts: BudgetForecast[] = [];
