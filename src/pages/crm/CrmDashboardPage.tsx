@@ -316,45 +316,6 @@ export default function CrmDashboardPage() {
           </div>
         </div>
 
-        {/* PIPELINE — bars + donut */}
-        <Card className="mb-6">
-          <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
-          {metrics.pipelineByStage.every(s => s.value === 0 && s.count === 0) ? (
-            <EmptyState text={T.empty[lang]} />
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-3.5">
-                {(() => {
-                  const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
-                  const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
-                  return metrics.pipelineByStage.map(s => {
-                    const pct = Math.round((s.value / max) * 100);
-                    const sharePct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
-                    return (
-                      <div key={s.key}>
-                        <div className="flex items-center justify-between text-sm mb-1.5">
-                          <span className="inline-flex items-center gap-2 font-medium text-gray-800">
-                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold ${s.ring}`}>
-                              {s.count}
-                            </span>
-                            {T[`stage_${s.key}`][lang]}
-                          </span>
-                          <span className="text-xs text-gray-500 tabular-nums">
-                            <span className="font-semibold text-gray-700">{fmtKr(s.value)}</span>
-                            <span className="mx-1.5 text-gray-300">·</span>{sharePct}%
-                          </span>
-                        </div>
-                        <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                          <div
-                            className={`${s.bar} h-full rounded-full transition-[width] duration-700 ease-out`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
         {/* PIPELINE — bars + horizontal stacked bar legend */}
         <Card className="mb-6">
           <CardHeader icon={Layers} title={T.pipeline_dist[lang]} />
