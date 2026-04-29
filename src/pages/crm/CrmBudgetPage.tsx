@@ -1150,7 +1150,24 @@ export default function CrmBudgetPage() {
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs text-slate-600">{T.field_seller[lang]}</span>
-                  <input className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" value={newRow.seller_name} onChange={(e) => setNewRow(r => ({ ...r, seller_name: e.target.value }))} placeholder={T.placeholder_name[lang]} />
+                  <select
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    value={newRow.seller_name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const known = BUDGET_SELLERS.find(s => s.initials === val);
+                      setNewRow(r => ({
+                        ...r,
+                        seller_name: val,
+                        country: known?.country ?? r.country,
+                      }));
+                    }}
+                  >
+                    <option value="">{T.placeholder_name[lang]}</option>
+                    {BUDGET_SELLERS.map(s => (
+                      <option key={s.email} value={s.initials}>{s.initials} — {s.country}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="block">
                   <span className="text-xs text-slate-600">{T.field_country[lang]}</span>
