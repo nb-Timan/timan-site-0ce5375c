@@ -124,11 +124,27 @@ function nameOf(loc: LocalizedString | string | undefined, fallback: string): Lo
   return loc;
 }
 
+function rc1000Item(varenr: string, fallback: string, key: string): EquipmentCategory {
+  const a = findAcc("RC-1000S", varenr);
+  return {
+    key,
+    parent_machine_key: "RC-1000s",
+    name: nameOf(a?.name as LocalizedString | undefined, fallback),
+    varenr: a?.varenr ?? varenr,
+    status: "available",
+  };
+}
+
 const RC1000_EQUIPMENT: EquipmentCategory[] = [
-  (() => { const a = findAcc("RC-1000S", "410910"); return { key: "RC1000_FLAIL",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Slagleklipper"),         varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
-  (() => { const a = findAcc("RC-1000S", "411666"); return { key: "RC1000_ROTARY", parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Rotorklipper"),           varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
-  (() => { const a = findAcc("RC-1000S", "411845"); return { key: "RC1000_SWEEP",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Fejemaskine"),            varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
-  (() => { const a = findAcc("RC-1000S", "411742"); return { key: "RC1000_VPLOW",  parent_machine_key: "RC-1000s", name: nameOf(a?.name as LocalizedString, "Sneplov / V-plov"),       varenr: a?.varenr ?? null, status: "available" as ProductStatus }; })(),
+  rc1000Item("410910",   "Slagleklipper inkl Y-slagle sæt",     "RC1000_410910"),
+  rc1000Item("411666",   "Rotorklipper 1350 mm",                "RC1000_411666"),
+  rc1000Item("411800",   "Fingerklipper 1700 mm",               "RC1000_411800"),
+  rc1000Item("412040",   "Skivehøster 1150 mm",                 "RC1000_412040"),
+  rc1000Item("HFS-1012", "Stubfræser m/hydraulisk sving",       "RC1000_HFS1012"),
+  rc1000Item("411742",   "V-plov m/gummiskær",                  "RC1000_411742"),
+  rc1000Item("411845",   "Centerdrevet fejemaskine",            "RC1000_411845"),
+  rc1000Item("418000",   "Sneslynge 1100 mm",                   "RC1000_418000"),
+  rc1000Item("730600",   "WB-170 Ukrudtsbørste basisenhed",     "RC1000_730600"),
 ];
 
 // Timan 3330: re-use the configurator section headers (already localized).
