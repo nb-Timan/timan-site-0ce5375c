@@ -120,6 +120,20 @@ const T: Record<string, Record<Language, string>> = {
                         it: 'Budget bloccato — chiedi al backend di aprirlo.',
                         hu: 'A költségvetés zárolva — kérje a backendet a megnyitásra.' },
   row_budget:    { da: 'BUDGET',                en: 'BUDGET',                  de: 'BUDGET',                  it: 'BUDGET',                  hu: 'KÖLTSÉGVETÉS' },
+  // ----- Seller "edit working budget" mode + auto-lock -----
+  edit_working_btn: { da: 'Rediger arbejdsbudget', en: 'Edit working forecast', de: 'Arbeitsprognose bearbeiten', it: 'Modifica previsione', hu: 'Munka-előrejelzés szerkesztése' },
+  exit_edit:        { da: 'Afslut redigering',     en: 'Exit edit mode',        de: 'Bearbeitung beenden',     it: 'Esci dalla modifica',     hu: 'Szerkesztés befejezése' },
+  edit_active_hint: { da: 'Arbejdsbudget låses automatisk om {min} min.', en: 'Working forecast auto-locks in {min} min.', de: 'Arbeitsprognose sperrt automatisch in {min} Min.', it: 'Previsione si blocca automaticamente tra {min} min.', hu: 'Munka-előrejelzés automatikus zárolás {min} perc múlva.' },
+  edit_autolocked:  { da: 'Arbejdsbudget blev låst automatisk efter inaktivitet.',
+                      en: 'Working forecast was auto-locked after inactivity.',
+                      de: 'Arbeitsprognose wurde nach Inaktivität automatisch gesperrt.',
+                      it: 'Previsione bloccata automaticamente dopo inattività.',
+                      hu: 'Munka-előrejelzés inaktivitás után automatikusan zárolva.' },
+  // ----- Backend global (all-sellers) lock controls -----
+  unlock_all:    { da: 'Lås {year} op for alle', en: 'Unlock {year} for all',  de: '{year} für alle entsperren', it: 'Sblocca {year} per tutti', hu: '{year} feloldása mindenkinek' },
+  lock_all:      { da: 'Lås {year} for alle',    en: 'Lock {year} for all',    de: '{year} für alle sperren',    it: 'Blocca {year} per tutti', hu: '{year} zárolása mindenkinek' },
+  unlock_seller: { da: 'Lås {year} op for {who}', en: 'Unlock {year} for {who}', de: '{year} für {who} entsperren', it: 'Sblocca {year} per {who}', hu: '{year} feloldása {who} számára' },
+  lock_seller:   { da: 'Lås {year} for {who}',    en: 'Lock {year} for {who}',  de: '{year} für {who} sperren',    it: 'Blocca {year} per {who}', hu: '{year} zárolása {who} számára' },
   // "Nyt varenr." product creation flow
   new_item:      { da: 'Nyt varenr.',           en: 'New item no.',            de: 'Neue Artikelnr.',         it: 'Nuovo cod. art.',         hu: 'Új cikkszám' },
   new_item_title:{ da: 'Opret nyt varenummer til budget', en: 'Create new item number for budget', de: 'Neue Artikelnummer für Budget anlegen', it: 'Crea nuovo codice articolo per il budget', hu: 'Új cikkszám létrehozása a költségvetéshez' },
