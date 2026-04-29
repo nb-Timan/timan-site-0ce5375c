@@ -503,19 +503,22 @@ export default function CrmBudgetPage() {
 
   function lockFor(email: string | null | undefined): SellerYearLock | null {
     if (!email) return null;
-    return sellerLocks[email.toLowerCase()] ?? getSellerYearLock(year, email);
+    return sellerLocks[email.toLowerCase()] ?? getEffectiveLock(year, email);
   }
 
+  /** True when the official Fastlagt Budget for this line's seller/year is
+   *  locked. Used to gate Backend's gray BUDGET row editing.
+   *  NOTE: Sellers' Arbejdsbudget editing is NOT gated by this — it is gated
+   *  by `editModeUntil` (per-session edit mode with auto-lock). */
   function isLineLocked(line: BudgetLine): boolean {
-    // Treat the per-seller/year lock as the source of truth.
-    // The legacy per-line `locked` flag is also honored for backwards compat.
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
     if (!email) return false;
     const sl = lockFor(email);
-    return sl ? sl.locked : true; // default = locked
+    return sl ? sl.locked : true;
   }
 
+  /** Per-seller official budget lock toggle (Backend only). */
   function toggleSellerLock(email: string) {
     if (!isAdmin || !email) return;
     const cur = lockFor(email);
@@ -524,6 +527,19 @@ export default function CrmBudgetPage() {
       appUser?.display_name || appUser?.email || "Backend",
     );
     setSellerLocks(prev => ({ ...prev, [email.toLowerCase()]: next }));
+  }
+
+  /** Lock/unlock the entire year for ALL sellers (Backend only).
+   *  Per-seller explicit records still win over this. After applying, refresh
+   *  every seller's effective lock so the UI reflects the change immediately. */
+  function toggleGlobalYearLock(nextLocked: boolean) {
+    if (!isAdmin) return;
+    setGlobalYearLock(year, nextLocked, appUser?.display_name || appUser?.email || "Backend");
+    const map: Record<string, SellerYearLock> = {};
+    BUDGET_SELLERS.forEach(s => {
+      map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
+    });
+    setSellerLocks(map);
   }
 
   // ---- Per-line monthly derivations ----
