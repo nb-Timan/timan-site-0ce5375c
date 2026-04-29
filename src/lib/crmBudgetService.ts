@@ -128,9 +128,10 @@ export function findProduct(key: string): BudgetProduct | undefined {
 }
 
 // ---------- Storage (localStorage fallback) ----------
-const LS_LINES = "timan.crm.budget.lines";
-const LS_FORECASTS = "timan.crm.budget.forecasts";
-const LS_ACTUALS = "timan.crm.budget.actuals";
+// Bump suffix when changing seed shape so previews refresh.
+const LS_LINES = "timan.crm.budget.lines.v2";
+const LS_FORECASTS = "timan.crm.budget.forecasts.v2";
+const LS_ACTUALS = "timan.crm.budget.actuals.v2";
 
 function readLS<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || "[]") as T[]; } catch { return []; }
