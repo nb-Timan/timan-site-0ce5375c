@@ -394,6 +394,27 @@ export default function CrmBudgetPage() {
               {availableYears().map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
+          {isAdmin && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Sælger</span>
+              <select
+                value={backendFilter}
+                onChange={(e) => setBackendFilter(e.target.value)}
+                className="text-sm bg-transparent outline-none"
+              >
+                <option value="all">Alle sælgere</option>
+                {BUDGET_SELLERS.map(s => (
+                  <option key={s.email} value={s.email}>{s.initials} — {s.country}</option>
+                ))}
+                <optgroup label="Backend">
+                  {BUDGET_BACKEND_USERS.map(s => (
+                    <option key={s.email} value={s.email}>{s.initials}</option>
+                  ))}
+                  <option value="mine">Min egen visning</option>
+                </optgroup>
+              </select>
+            </div>
+          )}
           {!editWorking ? (
             <button
               onClick={() => setEditWorking(true)}
