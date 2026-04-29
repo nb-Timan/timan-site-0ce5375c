@@ -690,12 +690,33 @@ function lockKey(year: number, email: string): string {
   return `${year}|${email.toLowerCase()}`;
 }
 
-/** Returns the lock status for a given (year, sellerEmail). Default = locked. */
+/** Sentinel used in `seller_email` for global (year-wide, all-sellers) lock. */
+export const GLOBAL_LOCK_SCOPE = "ALL";
+
+/** Returns the lock status for a given (year, sellerEmail). Default = locked.
+ *  This is the RAW per-seller record — does NOT consider the global ALL lock.
+ *  Use `getEffectiveLock` for the resolved status used by the UI. */
 export function getSellerYearLock(year: number, sellerEmail: string | null | undefined): SellerYearLock {
   if (!sellerEmail) return { year, seller_email: "", locked: true };
   const map = readSellerLocks();
   const k = lockKey(year, sellerEmail);
   return map[k] ?? { year, seller_email: sellerEmail.toLowerCase(), locked: true };
+}
+
+/** Resolve the effective lock status for (year, seller). Most specific wins:
+ *   1. seller/year explicit record
+ *   2. global/year (ALL) record
+ *   3. default = locked
+ */
+export function getEffectiveLock(year: number, sellerEmail: string | null | undefined): SellerYearLock {
+  const map = readSellerLocks();
+  if (sellerEmail) {
+    const k = lockKey(year, sellerEmail);
+    if (map[k]) return map[k];
+  }
+  const g = map[lockKey(year, GLOBAL_LOCK_SCOPE)];
+  if (g) return { ...g, seller_email: (sellerEmail || "").toLowerCase() };
+  return { year, seller_email: (sellerEmail || "").toLowerCase(), locked: true };
 }
 
 export function setSellerYearLock(
@@ -721,4 +742,60 @@ export function setSellerYearLock(
   writeSellerLocks(map);
   return next;
 }
+
+/** Lock/unlock a whole year for ALL sellers (global override).
+ *  Per-seller explicit records still win over this when present. */
+export function setGlobalYearLock(
+  year: number,
+  locked: boolean,
+  who: string | null,
+): SellerYearLock {
+  return setSellerYearLock(year, GLOBAL_LOCK_SCOPE, locked, who);
+}
+
+/** Clear the global (ALL) record for a year — falls back to per-seller / default. */
+export function clearGlobalYearLock(year: number) {
+  const map = readSellerLocks();
+  delete map[lockKey(year, GLOBAL_LOCK_SCOPE)];
+  writeSellerLocks(map);
+}
+
+// ---------- Budget audit entry helper ----------
+// Writes a "arbejdsbudget_change" entry into the existing audit log store so
+// Timan Backend can review who changed what in the budget module.
+export interface BudgetAuditPayload {
+  year: number;
+  seller_initials: string | null;
+  seller_name: string | null;
+  product_name: string;
+  item_number: string | null;
+  month: string;          // localized short month label e.g. "Apr"
+  old_value: number;
+  new_value: number;
+}
+
+export function appendBudgetAuditEntry(p: BudgetAuditPayload) {
+  if (typeof window === "undefined") return;
+  try {
+    // Lazy import to avoid a hard dep cycle at module load time.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require("@/lib/audit-log-store") as typeof import("@/lib/audit-log-store");
+    if (typeof mod.appendAuditEntry === "function") {
+      const diff = p.new_value - p.old_value;
+      const sign = diff >= 0 ? `+${diff}` : `${diff}`;
+      const who = p.seller_initials || p.seller_name || "ukendt";
+      mod.appendAuditEntry({
+        user: p.seller_name || p.seller_initials || "ukendt",
+        action: "update",
+        module: "Budget · Arbejdsbudget",
+        record: `${p.year} · ${p.product_name}${p.item_number ? ` (${p.item_number})` : ""} · ${p.month}`,
+        old_value: `qty: ${p.old_value}`,
+        new_value: `qty: ${p.new_value} (${sign}) — ${who}`,
+        ip: "internal",
+        status: "success",
+      });
+    }
+  } catch { /* audit log is best-effort */ }
+}
+
 
