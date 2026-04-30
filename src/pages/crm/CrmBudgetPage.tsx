@@ -1054,14 +1054,16 @@ export default function CrmBudgetPage() {
                     //   - Otherwise, use the per-seller / per-year lock.
                     const adminAllSellers = isAdmin && !selectedSellerEmail;
                     const blockLocked = isLineLocked(primaryLine);
-                    // Backend (admin) edits the gray Budget only when the official
-                    // lock for selectedSeller/year is OPEN. Sellers never edit it.
-                    const canEditBudget  = isAdmin  && !adminAllSellers && !blockLocked;
+                    // Backend (admin) can edit the gray Official Budget whenever
+                    // the relevant lock (per-seller, or global "ALL" in Alle view)
+                    // is OPEN. Sellers never edit it.
+                    const canEditBudget  = isAdmin && !blockLocked;
                     // Arbejdsbudget editing:
-                    //  • Admin: always allowed (when not in adminAllSellers view).
+                    //  • Admin: always allowed (also in "Alle" view).
                     //  • Seller: allowed when their personal edit-mode is active
                     //    (10-min inactivity auto-lock). NOT gated by Fastlagt lock.
-                    const canEditWorking = !adminAllSellers && (isAdmin || (isSeller && editModeUntil != null));
+                    const canEditWorking = isAdmin || (isSeller && editModeUntil != null);
+                    void adminAllSellers;
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
