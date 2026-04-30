@@ -1206,17 +1206,34 @@ export default function CrmBudgetPage() {
                           <td className="px-2 py-2"></td>
                         </tr>
 
-                        {/* PERFORMANCE */}
+                        {/* PERFORMANCE — Orders − Official Budget. Tooltip shows
+                            secondary Orders+Pipeline vs Budget context. */}
                         <tr key={`perf-${keyPrefix}`} className="border-b-2 border-slate-200">
                           <td className={cn("sticky left-0 z-10 bg-white py-2 text-xs font-semibold uppercase tracking-wide text-slate-500", stickyPad)}>{T.row_perf[lang]}</td>
                           {ordersMonthly.map((o, i) => {
-                            const diff = o - budgetMonthly[i];
+                            const b = budgetMonthly[i];
+                            const diff = o - b;
+                            const pipeCount = pipelineMonthly[i].length;
+                            const combined = o + pipeCount;
                             let cls = "text-slate-400";
                             let label: string = "•";
                             if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
                             else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
                             return (
-                              <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>{label}</td>
+                              <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default">{label}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="text-xs space-y-0.5">
+                                      <div className="font-semibold">{MONTHS_BY_LANG[lang][i]} · {productName}</div>
+                                      <div>Orders − Budget: <span className="font-semibold tabular-nums">{o} − {b} = {diff > 0 ? `+${diff}` : diff}</span></div>
+                                      <div className="text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
                             );
                           })}
                           <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
