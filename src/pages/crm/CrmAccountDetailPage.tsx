@@ -363,7 +363,7 @@ export default function CrmAccountDetailPage() {
         account_id: account.id,
         account_name: accountDisplayName(account),
         created_by_user_id: null,
-        created_by_name: appUser?.full_name || appUser?.email || null,
+        created_by_name: appUser?.display_name || appUser?.email || null,
         assigned_owner_user_id: account.account_owner_user_id,
         assigned_owner_name: account.account_owner_name,
         title: noteDraft.trim().slice(0, 120),
