@@ -567,7 +567,11 @@ export default function CrmBudgetPage() {
   function isLineLocked(line: BudgetLine): boolean {
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
-    if (!email) return false;
+    if (!email) {
+      // No seller bound (e.g. admin "Alle" view, synthetic seed line):
+      // fall back to the global year lock.
+      return getEffectiveLock(year, "").locked;
+    }
     const sl = lockFor(email);
     return sl ? sl.locked : true;
   }
@@ -1050,14 +1054,16 @@ export default function CrmBudgetPage() {
                     //   - Otherwise, use the per-seller / per-year lock.
                     const adminAllSellers = isAdmin && !selectedSellerEmail;
                     const blockLocked = isLineLocked(primaryLine);
-                    // Backend (admin) edits the gray Budget only when the official
-                    // lock for selectedSeller/year is OPEN. Sellers never edit it.
-                    const canEditBudget  = isAdmin  && !adminAllSellers && !blockLocked;
+                    // Backend (admin) can edit the gray Official Budget whenever
+                    // the relevant lock (per-seller, or global "ALL" in Alle view)
+                    // is OPEN. Sellers never edit it.
+                    const canEditBudget  = isAdmin && !blockLocked;
                     // Arbejdsbudget editing:
-                    //  • Admin: always allowed (when not in adminAllSellers view).
+                    //  • Admin: always allowed (also in "Alle" view).
                     //  • Seller: allowed when their personal edit-mode is active
                     //    (10-min inactivity auto-lock). NOT gated by Fastlagt lock.
-                    const canEditWorking = !adminAllSellers && (isAdmin || (isSeller && editModeUntil != null));
+                    const canEditWorking = isAdmin || (isSeller && editModeUntil != null);
+                    void adminAllSellers;
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
                       const arr = Array.from({ length: 12 }, () => 0);
@@ -1200,17 +1206,34 @@ export default function CrmBudgetPage() {
                           <td className="px-2 py-2"></td>
                         </tr>
 
-                        {/* PERFORMANCE */}
+                        {/* PERFORMANCE — Orders − Official Budget. Tooltip shows
+                            secondary Orders+Pipeline vs Budget context. */}
                         <tr key={`perf-${keyPrefix}`} className="border-b-2 border-slate-200">
                           <td className={cn("sticky left-0 z-10 bg-white py-2 text-xs font-semibold uppercase tracking-wide text-slate-500", stickyPad)}>{T.row_perf[lang]}</td>
                           {ordersMonthly.map((o, i) => {
-                            const diff = o - budgetMonthly[i];
+                            const b = budgetMonthly[i];
+                            const diff = o - b;
+                            const pipeCount = pipelineMonthly[i].length;
+                            const combined = o + pipeCount;
                             let cls = "text-slate-400";
                             let label: string = "•";
                             if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
                             else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
                             return (
-                              <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>{label}</td>
+                              <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default">{label}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="text-xs space-y-0.5">
+                                      <div className="font-semibold">{MONTHS_BY_LANG[lang][i]} · {productName}</div>
+                                      <div>Orders − Budget: <span className="font-semibold tabular-nums">{o} − {b} = {diff > 0 ? `+${diff}` : diff}</span></div>
+                                      <div className="text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
                             );
                           })}
                           <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
