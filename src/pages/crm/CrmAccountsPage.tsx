@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -31,6 +32,7 @@ const ROLE_LABEL: Record<string, string> = {
 export default function CrmAccountsPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
+  const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
 
@@ -107,7 +109,9 @@ export default function CrmAccountsPage() {
             </thead>
             <tbody>
               {filtered.map(a => (
-                <tr key={a.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={a.id}
+                    onClick={() => navigate(`/portal/crm/accounts/${a.id}`)}
+                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer">
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{accountDisplayName(a)}</div>
                     {a.full_name && a.company && <div className="text-xs text-gray-500">{a.full_name}</div>}
