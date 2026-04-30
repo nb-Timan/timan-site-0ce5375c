@@ -567,7 +567,11 @@ export default function CrmBudgetPage() {
   function isLineLocked(line: BudgetLine): boolean {
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
-    if (!email) return false;
+    if (!email) {
+      // No seller bound (e.g. admin "Alle" view, synthetic seed line):
+      // fall back to the global year lock.
+      return getEffectiveLock(year, "").locked;
+    }
     const sl = lockFor(email);
     return sl ? sl.locked : true;
   }
