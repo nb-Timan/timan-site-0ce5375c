@@ -80,6 +80,7 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'roles',     title: { da: 'Roller', en: 'Roles', de: 'Rollen', it: 'Ruoli', hu: 'Szerepkörök' } },
       { key: 'module_access', title: { da: 'Modul-adgang', en: 'Module access', de: 'Modulzugriff', it: 'Accesso ai moduli', hu: 'Modul-hozzáférés' } },
       { key: 'audit',     title: { da: 'Audit log', en: 'Audit log', de: 'Audit-Log', it: 'Registro di controllo', hu: 'Audit napló' } },
+      { key: 'portal_analytics', title: { da: 'Portal Analytics', en: 'Portal Analytics', de: 'Portal-Analytik', it: 'Analisi Portale', hu: 'Portál analitika' } },
     ],
   },
 ];
