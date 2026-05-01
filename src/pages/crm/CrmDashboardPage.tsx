@@ -194,16 +194,11 @@ export default function CrmDashboardPage() {
   const realMetrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
-  // Use preview/mock data when there is no real CRM data yet, so the dashboard
-  // never looks empty in preview environments.
-  const isPreview =
-    activities.length === 0 &&
-    realMetrics.pipelineValue === 0 &&
-    realMetrics.wonOrdersCount === 0;
-
-  const metrics = isPreview ? PREVIEW_METRICS : realMetrics;
-  const trend30 = isPreview ? PREVIEW_TREND : realTrend30;
-  const previewActivities = isPreview ? buildPreviewActivities() : activities;
+  // Demo cleanup: never substitute mock data. Show real values (and the
+  // built-in empty states) when there is no CRM data yet.
+  const metrics = realMetrics;
+  const trend30 = realTrend30;
+  const previewActivities = activities;
 
   return (
     <CrmLayout pageTitle="Dashboard">
@@ -1023,95 +1018,6 @@ function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; v
 // Suppress unused warnings for lucide imports kept for future widgets.
 void Flame; void Users; void FileText;
 
-// ────────────────────────────────────────────────────────────
-// Preview / mock data — used when no real CRM data is available
-// so the dashboard always looks alive in preview environments.
-// ────────────────────────────────────────────────────────────
-const PREVIEW_METRICS: DerivedMetrics = {
-  pipelineValue: 1_475_000,
-  pipelinePctChange: 14,
-  activeLeads: 4,
-  leadsPctChange: 25,
-  wonOrdersCount: 3,
-  wonPctChange: 50,
-  winRate: 50,
-  avgSalesDays: 20,
-  closedValueThisMonth: 425_000,
-  closedCountThisMonth: 12,
-  closedPctChange: 18,
-  pipelineByStage: [
-    { key: 'lead',  bar: PIPELINE_STAGES[0].bar, hex: PIPELINE_STAGES[0].hex, ring: PIPELINE_STAGES[0].ring, value: 125_000, count: 4 },
-    { key: 'demo',  bar: PIPELINE_STAGES[1].bar, hex: PIPELINE_STAGES[1].hex, ring: PIPELINE_STAGES[1].ring, value: 480_000, count: 3 },
-    { key: 'quote', bar: PIPELINE_STAGES[2].bar, hex: PIPELINE_STAGES[2].hex, ring: PIPELINE_STAGES[2].ring, value: 450_000, count: 5 },
-    { key: 'neg',   bar: PIPELINE_STAGES[3].bar, hex: PIPELINE_STAGES[3].hex, ring: PIPELINE_STAGES[3].ring, value: 420_000, count: 2 },
-    { key: 'won',   bar: PIPELINE_STAGES[4].bar, hex: PIPELINE_STAGES[4].hex, ring: PIPELINE_STAGES[4].ring, value: 300_000, count: 3 },
-    { key: 'lost',  bar: PIPELINE_STAGES[5].bar, hex: PIPELINE_STAGES[5].hex, ring: PIPELINE_STAGES[5].ring, value: 100_000, count: 7 },
-  ],
-  lostReasons: {
-    total: 7,
-    items: {
-      price: { count: 3 },
-      lead:  { count: 1 },
-      comp:  { count: 2 },
-      other: { count: 1 },
-    },
-  },
-  inactiveAccounts: () => [],
-  bestAccounts: () => [],
-};
+// (Preview/mock dashboard data removed during demo cleanup — empty states
+// are rendered by the existing checks above.)
 
-const PREVIEW_TREND: Array<{ label: string; value: number }> = (() => {
-  const days = 30;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const out: Array<{ label: string; value: number }> = [];
-  let acc = 0;
-  for (let i = 0; i < days; i++) {
-    const step = 35_000 + Math.round(Math.sin(i / 3) * 12_000) + (i % 5 === 0 ? 25_000 : 0);
-    acc += step;
-    const d = new Date(today); d.setDate(d.getDate() - (days - 1 - i));
-    out.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, value: acc });
-  }
-  return out;
-})();
-
-function buildPreviewActivities(): CrmActivity[] {
-  const now = Date.now();
-  const minutes = (m: number) => new Date(now - m * 60_000).toISOString();
-  const mk = (
-    id: string,
-    activity_type: CrmActivityType,
-    title: string,
-    account_name: string,
-    created_by_name: string,
-    minsAgo: number,
-    value?: number,
-    status?: string,
-  ): CrmActivity => ({
-    id,
-    activity_type,
-    title,
-    description: null,
-    account_id: null,
-    account_name,
-    configuration_id: null,
-    assigned_owner_id: null,
-    assigned_owner_name: created_by_name,
-    created_by_id: null,
-    created_by_name,
-    activity_date: minutes(minsAgo),
-    value: value ?? null,
-    status: status ?? null,
-    meta: null,
-  } as unknown as CrmActivity);
-
-  return [
-    mk('p1', 'quote_created', 'Esben oprettede tilbud',           'Have & Park Svendborg', 'Esben',    25, 180_000, 'sent'),
-    mk('p2', 'order_sent',    'Esben vandt ordre',                 'Lyngfeldt',             'Esben',    95, 245_000, 'won'),
-    mk('p3', 'quote_sent',    'Esben opfølgning',                  'WJ Maskinservice',      'Esben',   240, 120_000, 'negotiating'),
-    mk('p4', 'lead_viewed',   'Nicolai opdaterede kundeprofil',    'Grøn Service A/S',      'Nicolai', 360),
-    mk('p5', 'order_sent',    'Janni lukkede ordre i UK',          'Garden Pro Ltd.',       'Janni',   480, 312_000, 'won'),
-    mk('p6', 'quote_created', 'Esben sendte tilbud',               'Park & Vej Aalborg',    'Esben',   720,  98_000, 'sent'),
-    mk('p7', 'lead_created',  'Nyt lead modtaget',                 'Skov & Have ApS',       'Nicolai', 900),
-    mk('p8', 'quote_sent',    'Forhandling i gang',                'Maskinhuset Vest',      'Janni',  1320, 210_000, 'negotiating'),
-  ];
-}
