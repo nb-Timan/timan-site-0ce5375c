@@ -272,8 +272,9 @@ export default function BackendUsersPage() {
                   <Td className="text-slate-500 text-xs whitespace-nowrap">
                     {(() => { try { return new Date(u.created_at).toLocaleDateString("da-DK"); } catch { return "—"; } })()}
                   </Td>
+                  <Td>{authBadge(u)}</Td>
                   <Td>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {!u.approved && (
                         <button
                           type="button"
@@ -289,6 +290,26 @@ export default function BackendUsersPage() {
                           <Check className="h-3.5 w-3.5" /> Approve
                         </button>
                       )}
+                      <button
+                        type="button"
+                        disabled={pendingAction === `${u.id}:invite`}
+                        onClick={() => void runAdminAction(u, "invite")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+                        title="Opret/inviter Supabase Auth bruger og send invitationsemail"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        {pendingAction === `${u.id}:invite` ? "Sender…" : "Inviter"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingAction === `${u.id}:reset`}
+                        onClick={() => void runAdminAction(u, "reset")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+                        title="Send password reset email"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        {pendingAction === `${u.id}:reset` ? "Sender…" : "Reset password"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(u.id)}
