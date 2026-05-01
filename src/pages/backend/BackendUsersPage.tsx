@@ -39,6 +39,7 @@ import {
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
