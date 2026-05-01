@@ -231,6 +231,7 @@ export default function BackendUsersPage() {
                 <Th>Active</Th>
                 <Th>Role</Th>
                 <Th>Created</Th>
+                <Th>Auth</Th>
                 <Th>Actions</Th>
               </tr>
             </thead>
@@ -300,7 +301,7 @@ export default function BackendUsersPage() {
                 </tr>
               );})}
               {users.length === 0 && !loadingUsers && (
-                <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
+                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
               )}
             </tbody>
           </table>
