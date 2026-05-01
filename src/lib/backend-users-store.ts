@@ -91,10 +91,13 @@ function seedUser(
   return {
     ...partial,
     company: "Timan",
+    postal_code: null,
     language: "da",
     dealer_number: null,
     notes: null,
     status: "active",
+    approved: true,
+    is_active: true,
     allowed_areas: allowedAreas,
     allowed_modules: allowedModules,
     backend_modules: isBackend ? [...BACKEND_META_MODULES] : [],
