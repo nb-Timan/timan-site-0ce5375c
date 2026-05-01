@@ -67,12 +67,14 @@ export default function BackendDealerAccountsPage() {
   if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
 
   const countries = Array.from(new Set(rows.map((r) => r.country).filter(Boolean))).sort() as string[];
-  const customerTypes = Array.from(new Set(rows.map((r) => r.customer_type).filter(Boolean))).sort() as string[];
+  const customerTypes = Array.from(
+    new Set(rows.map((r) => r.customer_type_label || r.customer_type).filter(Boolean)),
+  ).sort() as string[];
   const sellerInitials = Array.from(new Set(rows.map((r) => r.assigned_seller_initials).filter(Boolean))).sort() as string[];
 
   const filtered = rows.filter((r) => {
     if (country && r.country !== country) return false;
-    if (customerType && r.customer_type !== customerType) return false;
+    if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
     if (seller && r.assigned_seller_initials !== seller) return false;
     if (unassignedOnly && r.assigned_seller_initials) return false;
     if (q) {
@@ -164,7 +166,7 @@ export default function BackendDealerAccountsPage() {
                 <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <Td className="font-semibold text-slate-900">{r.company_name}</Td>
                   <Td>{r.account_number}</Td>
-                  <Td>{r.customer_type || "—"}</Td>
+                  <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
                   <Td>{r.country || "—"}</Td>
                   <Td>
                     {r.assigned_seller_initials
