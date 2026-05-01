@@ -162,6 +162,7 @@ export default function CrmAccountDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<CrmAccount | null>(null);
+  const [allAccounts, setAllAccounts] = useState<CrmAccount[]>([]);
   const [accessDenied, setAccessDenied] = useState(false);
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
@@ -183,6 +184,7 @@ export default function CrmAccountDetailPage() {
       const accRes = await listCrmAccounts({ role: portalRole, sellerId });
       const found = accRes.accounts.find((a) => a.id === id) || null;
       if (cancelled) return;
+      setAllAccounts(accRes.accounts);
 
       if (!found) {
         setAccount(null);
