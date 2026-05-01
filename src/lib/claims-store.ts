@@ -186,7 +186,7 @@ export function claimNeedsTimanAttention(claim: ClaimRecord): boolean {
   return false;
 }
 
-const NORDIC_DEALER = "Nordic Machinery Aps";
+// (NORDIC_DEALER demo constant removed — no demo claims seeded.)
 
 // Entries may omit groupId/subIndex; they are backfilled below so each
 // standalone claim becomes its own single-machine group.
