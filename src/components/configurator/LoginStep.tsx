@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
+import { startAuthenticatedSession } from '@/lib/visitorTracking';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
@@ -81,6 +83,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
+  const [showGuestPopup, setShowGuestPopup] = useState(false);
+  const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setError('');
@@ -162,6 +166,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
       trackLogin(authEmail, 'login');
+      // Visitor tracking: register authenticated session
+      startAuthenticatedSession(authEmail, language);
 
       // Link Supabase Auth uid to app_users.auth_user_id so RLS policies
       // (e.g. Timan Backend update) can identify this user.
@@ -261,28 +267,37 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
   const handleGuestContinue = () => {
     const trimmed = guestEmail.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    // Email is now optional for the guest flow — popup collects country/postal.
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setGuestError(tx('guestEmailRequired', language));
       return;
     }
-    // Sync guest to app_users
-    supabase.from('app_users').upsert({
-      email: trimmed.toLowerCase(),
-      full_name: trimmed.toLowerCase(),
-      role: 'slutkunde',
-      is_active: true,
-      approved: false,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-      if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
-      else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
-    });
+    setPendingGuestEmail(trimmed ? trimmed.toLowerCase() : null);
+    setShowGuestPopup(true);
+  };
 
-    trackLogin(trimmed.toLowerCase(), 'guest');
+  const finalizeGuestEntry = () => {
+    const guestEmailLc = pendingGuestEmail;
+    setShowGuestPopup(false);
+
+    if (guestEmailLc) {
+      // Sync guest email to app_users (best-effort)
+      supabase.from('app_users').upsert({
+        email: guestEmailLc,
+        full_name: guestEmailLc,
+        role: 'slutkunde',
+        is_active: true,
+        approved: false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+        if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
+      });
+      trackLogin(guestEmailLc, 'guest');
+    }
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
-      email: trimmed.toLowerCase(),
+      email: guestEmailLc || `guest-${Date.now()}@anonymous.local`,
       display_name: undefined,
     });
   };
@@ -459,6 +474,14 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </button>
         </div>
       </div>
+
+      <GuestVisitorPopup
+        open={showGuestPopup}
+        language={language as never}
+        email={pendingGuestEmail}
+        onCancel={() => setShowGuestPopup(false)}
+        onConfirm={finalizeGuestEntry}
+      />
     </div>
   );
 }

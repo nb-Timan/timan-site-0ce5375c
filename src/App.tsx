@@ -47,6 +47,8 @@ import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
 import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
+import VisitorTracker from "./components/portal/VisitorTracker";
+import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
 // Seed AKR realistic test data once per browser (idempotent — versioned flag).
@@ -113,11 +115,13 @@ const App = () => (
               <Route path="/portal/backend/roles" element={<BackendRolesPage />} />
               <Route path="/portal/backend/module-access" element={<BackendModuleAccessPage />} />
               <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
+              <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <VisitorTracker />
             <PreviewRoleSwitcher />
           </LanguageProvider>
         </AppUserProvider>
