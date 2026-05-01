@@ -384,20 +384,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </p>
           <div className="space-y-3">
             <button
-              onClick={() => {
-                onResolved({
-                  ...SLUTKUNDE_DEFAULTS,
-                  email: signupEmail.toLowerCase(),
-                  display_name: undefined,
-                });
-              }}
-              className="w-full py-3 rounded-xl text-base font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg transition"
-            >
-              {tx('continueAsGuest', language)}
-            </button>
-            <button
               onClick={() => { setView('main'); setEmail(''); setPassword(''); setError(''); }}
-              className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 transition"
+              className="w-full py-3 rounded-xl text-base font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg transition"
             >
               {tx('backToLogin', language)}
             </button>
