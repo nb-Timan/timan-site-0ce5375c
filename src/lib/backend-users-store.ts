@@ -45,11 +45,14 @@ export interface BackendUser {
   email: string;
   company: string;
   country: string;         // ISO-2 (DK, GB, DE...)
+  postal_code: string | null;
   language: "da" | "en" | "de" | "it" | "hu";
   dealer_number: string | null;
   notes: string | null;
   role: PortalRole;
   status: UserStatus;
+  approved: boolean;
+  is_active: boolean;
   allowed_areas: AreaKey[];
   allowed_modules: ModuleAccessKey[];
   backend_modules: BackendMetaModule[];
@@ -88,10 +91,13 @@ function seedUser(
   return {
     ...partial,
     company: "Timan",
+    postal_code: null,
     language: "da",
     dealer_number: null,
     notes: null,
     status: "active",
+    approved: true,
+    is_active: true,
     allowed_areas: allowedAreas,
     allowed_modules: allowedModules,
     backend_modules: isBackend ? [...BACKEND_META_MODULES] : [],

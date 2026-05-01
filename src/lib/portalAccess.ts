@@ -21,7 +21,8 @@ export type PortalRole =
   | 'timan_importer'
   | 'timan_dealer'
   | 'timan_service_partner'
-  | 'dealer_user';
+  | 'dealer_user'
+  | 'pending';
 
 export const PORTAL_ROLES: PortalRole[] = [
   'timan_backend',
@@ -31,6 +32,7 @@ export const PORTAL_ROLES: PortalRole[] = [
   'timan_dealer',
   'timan_service_partner',
   'dealer_user',
+  'pending',
 ];
 
 // Danish business UI labels
@@ -42,6 +44,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
   timan_dealer:          { da: 'Timan Forhandler',      en: 'Timan Dealer',          de: 'Timan Händler',         it: 'Rivenditore Timan',     hu: 'Timan Kereskedő' },
   timan_service_partner: { da: 'Timan Service Partner', en: 'Timan Service Partner', de: 'Timan Service-Partner', it: 'Partner di Servizio',   hu: 'Timan Szervizpartner' },
   dealer_user:           { da: 'Dealer User',           en: 'Dealer User',           de: 'Händler-Nutzer',        it: 'Utente Rivenditore',    hu: 'Kereskedői Felhasználó' },
+  pending:               { da: 'Afventer godkendelse',  en: 'Pending approval',      de: 'Wartet auf Genehmigung',it: 'In attesa di approvazione', hu: 'Jóváhagyásra vár' },
 };
 
 // ---------- Module access keys ----------
@@ -96,6 +99,8 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'teknik_service', 'salg_marketing',
     'service_information', 'byg_din_timan', 'resources', 'sales_tools',
   ],
+  // Awaiting admin approval — no module access until approved.
+  pending: [],
 };
 
 // ---------- Action permissions per role ----------

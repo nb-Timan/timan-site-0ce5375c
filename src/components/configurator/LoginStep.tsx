@@ -4,6 +4,8 @@ import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
 import { startAuthenticatedSession } from '@/lib/visitorTracking';
+import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import type { Language } from '@/types/configurator';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
@@ -60,12 +62,21 @@ const T: Record<string, Record<string, string>> = {
   notApproved: { da: 'Din konto er ikke godkendt endnu. Kontakt Timan.', en: 'Your account is not approved yet. Contact Timan.', de: 'Ihr Konto ist noch nicht genehmigt. Kontaktieren Sie Timan.', it: 'Il tuo account non è ancora approvato. Contatta Timan.', hu: 'Fiókja még nincs jóváhagyva. Lépjen kapcsolatba a Timan-nal.' },
   notActive: { da: 'Din konto er deaktiveret. Kontakt Timan.', en: 'Your account is deactivated. Contact Timan.', de: 'Ihr Konto ist deaktiviert. Kontaktieren Sie Timan.', it: 'Il tuo account è disattivato. Contatta Timan.', hu: 'Fiókja inaktív. Lépjen kapcsolatba a Timan-nal.' },
   loading: { da: 'Vent venligst...', en: 'Please wait...', de: 'Bitte warten...', it: 'Attendere...', hu: 'Kérem, várjon...' },
-  signupSuccess: { da: 'Din konto er oprettet og afventer godkendelse. Indtil da har du begrænset adgang.', en: 'Your account has been created and is awaiting approval. Until then you have limited access.', de: 'Ihr Konto wurde erstellt und wartet auf Genehmigung. Bis dahin haben Sie eingeschränkten Zugang.', it: 'Il tuo account è stato creato ed è in attesa di approvazione. Fino ad allora hai accesso limitato.', hu: 'Fiókja létrejött és jóváhagyásra vár. Addig korlátozott hozzáféréssel rendelkezik.' },
+  signupSuccess: { da: 'Din konto er oprettet og afventer godkendelse.', en: 'Your account has been created and is awaiting approval.', de: 'Ihr Konto wurde erstellt und wartet auf Genehmigung.', it: 'Il tuo account è stato creato ed è in attesa di approvazione.', hu: 'Fiókja létrejött és jóváhagyásra vár.' },
   signupError: { da: 'Kunne ikke oprette konto. Prøv igen.', en: 'Could not create account. Please try again.', de: 'Konto konnte nicht erstellt werden.', it: 'Impossibile creare l\'account.', hu: 'Nem sikerült létrehozni a fiókot.' },
   signupEmailExists: { da: 'Denne email er allerede registreret. Prøv at logge ind.', en: 'This email is already registered. Try logging in.', de: 'Diese E-Mail ist bereits registriert.', it: 'Questa email è già registrata.', hu: 'Ez az e-mail már regisztrálva van.' },
   passwordTooShort: { da: 'Adgangskoden skal være mindst 6 tegn', en: 'Password must be at least 6 characters', de: 'Passwort muss mindestens 6 Zeichen lang sein', it: 'La password deve avere almeno 6 caratteri', hu: 'A jelszónak legalább 6 karakter hosszúnak kell lennie' },
   backToLogin: { da: 'Tilbage til log ind', en: 'Back to log in', de: 'Zurück zur Anmeldung', it: 'Torna al login', hu: 'Vissza a bejelentkezéshez' },
   continueAsGuest: { da: 'Fortsæt med begrænset adgang', en: 'Continue with limited access', de: 'Mit eingeschränktem Zugang fortfahren', it: 'Continua con accesso limitato', hu: 'Folytatás korlátozott hozzáféréssel' },
+  firstName:    { da: 'Fornavn', en: 'First name', de: 'Vorname', it: 'Nome', hu: 'Keresztnév' },
+  lastName:     { da: 'Efternavn', en: 'Last name', de: 'Nachname', it: 'Cognome', hu: 'Vezetéknév' },
+  company:      { da: 'Firma', en: 'Company', de: 'Firma', it: 'Azienda', hu: 'Cég' },
+  address:      { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
+  city:         { da: 'By', en: 'City', de: 'Stadt', it: 'Città', hu: 'Város' },
+  postalCode:   { da: 'Postnr.', en: 'Postal code', de: 'PLZ', it: 'CAP', hu: 'Irányítószám' },
+  country:      { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  preferredLang:{ da: 'Foretrukket sprog', en: 'Preferred language', de: 'Bevorzugte Sprache', it: 'Lingua preferita', hu: 'Preferált nyelv' },
+  required:     { da: 'Udfyld alle felter', en: 'Please fill in all fields', de: 'Bitte alle Felder ausfüllen', it: 'Compila tutti i campi', hu: 'Töltse ki az összes mezőt' },
 };
 
 function tx(key: string, lang: string): string {
@@ -85,6 +96,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [signupEmail, setSignupEmail] = useState('');
   const [showGuestPopup, setShowGuestPopup] = useState(false);
   const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
+
+  // Full signup form state
+  const [suFirstName, setSuFirstName] = useState('');
+  const [suLastName, setSuLastName] = useState('');
+  const [suCompany, setSuCompany] = useState('');
+  const [suAddress, setSuAddress] = useState('');
+  const [suCity, setSuCity] = useState('');
+  const [suPostal, setSuPostal] = useState('');
+  const [suCountry, setSuCountry] = useState('DK');
+  const [suLanguage, setSuLanguage] = useState<Language>((language as Language) || 'da');
+  const [suEmail, setSuEmail] = useState('');
+  const [suPassword, setSuPassword] = useState('');
 
   const handleLogin = async () => {
     setError('');
@@ -214,38 +237,72 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
   const handleSignup = async () => {
     setError('');
-    if (!email.trim()) return;
-    if (password.length < 6) {
+    const emailTrim = suEmail.trim().toLowerCase();
+    const firstName = suFirstName.trim();
+    const lastName = suLastName.trim();
+    const company = suCompany.trim();
+    const address = suAddress.trim();
+    const city = suCity.trim();
+    const postal = suPostal.trim();
+    const country = (suCountry || '').trim().toUpperCase();
+
+    if (!firstName || !lastName || !company || !address || !city || !postal || !country || !emailTrim) {
+      setError(tx('required', language));
+      return;
+    }
+    if (suPassword.length < 6) {
       setError(tx('passwordTooShort', language));
       return;
     }
     setLoading(true);
 
     try {
+      // 1) Create the Supabase Auth user — they choose their own password.
       const { data, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
+        email: emailTrim,
+        password: suPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/portal`,
+          data: {
+            full_name: `${firstName} ${lastName}`.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            company,
+            country,
+            preferred_language: suLanguage,
+          },
+        },
       });
 
       if (authError) {
-        if (authError.message?.toLowerCase().includes('already registered')) {
+        if (authError.message?.toLowerCase().includes('already registered') || authError.message?.toLowerCase().includes('already been registered')) {
           setError(tx('signupEmailExists', language));
         } else {
           setError(tx('signupError', language));
+          console.error('[signup] auth error:', authError);
         }
         setLoading(false);
         return;
       }
 
-      const newEmail = (data.user?.email || email.trim()).toLowerCase();
-
-      // Auto-create app_users row with default limited access
-      await supabase.from('app_users').upsert({
-        email: newEmail,
+      // 2) Insert/update the user in public.app_users — pending approval.
+      const { error: upsertErr } = await supabase.from('app_users').upsert({
+        email: emailTrim,
+        full_name: `${firstName} ${lastName}`.trim(),
+        first_name: firstName,
+        last_name: lastName,
+        company,
+        address,
+        city,
+        postal_code: postal,
+        country,
+        preferred_language: suLanguage,
         role: 'slutkunde',
+        portal_role: 'pending',
         partner_type: null,
         approved: false,
-        is_active: true,
+        is_active: false,
+        status: 'pending',
         start_step: 1,
         max_step: 1,
         can_view_prices: false,
@@ -253,12 +310,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         can_edit_discount: false,
         can_switch_customer_mode: false,
         working_for: null,
-        display_name: null,
+        display_name: `${firstName} ${lastName}`.trim(),
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'email' });
 
-      setSignupEmail(newEmail);
+      if (upsertErr) {
+        console.error('[signup] app_users upsert failed:', upsertErr);
+      }
+
+      setSignupEmail(emailTrim);
       setView('signup-done');
     } catch (err) {
+      console.error('[signup] error:', err);
       setError(tx('signupError', language));
     } finally {
       setLoading(false);
@@ -321,20 +384,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </p>
           <div className="space-y-3">
             <button
-              onClick={() => {
-                onResolved({
-                  ...SLUTKUNDE_DEFAULTS,
-                  email: signupEmail.toLowerCase(),
-                  display_name: undefined,
-                });
-              }}
-              className="w-full py-3 rounded-xl text-base font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg transition"
-            >
-              {tx('continueAsGuest', language)}
-            </button>
-            <button
               onClick={() => { setView('main'); setEmail(''); setPassword(''); setError(''); }}
-              className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 transition"
+              className="w-full py-3 rounded-xl text-base font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg transition"
             >
               {tx('backToLogin', language)}
             </button>
@@ -346,37 +397,67 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
   // --- Signup form view ---
   if (view === 'signup') {
+    const inputCls = 'w-full p-2.5 border-2 border-gray-200 rounded-lg text-sm focus:border-emerald-500 focus:outline-none transition';
+    const labelCls = 'block text-xs font-semibold text-gray-700 mb-1';
     return (
-      <div className="max-w-md mx-auto">
+      <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow p-6 md:p-8">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">{tx('createAccount', language)}</h2>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('email', language)}</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setError(''); }}
-                onKeyDown={e => handleKeyDown(e, handleSignup)}
-                className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-emerald-500 focus:outline-none transition"
-                placeholder="din@email.dk"
-                autoFocus
-              />
+              <label className={labelCls}>{tx('firstName', language)} *</label>
+              <input value={suFirstName} onChange={e => { setSuFirstName(e.target.value); setError(''); }} className={inputCls} autoFocus />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 text-center">{tx('password', language)}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setError(''); }}
-                onKeyDown={e => handleKeyDown(e, handleSignup)}
-                className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-emerald-500 focus:outline-none transition"
-              />
+              <label className={labelCls}>{tx('lastName', language)} *</label>
+              <input value={suLastName} onChange={e => { setSuLastName(e.target.value); setError(''); }} className={inputCls} />
             </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>{tx('company', language)} *</label>
+              <input value={suCompany} onChange={e => { setSuCompany(e.target.value); setError(''); }} className={inputCls} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>{tx('address', language)} *</label>
+              <input value={suAddress} onChange={e => { setSuAddress(e.target.value); setError(''); }} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>{tx('postalCode', language)} *</label>
+              <input value={suPostal} onChange={e => { setSuPostal(e.target.value); setError(''); }} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>{tx('city', language)} *</label>
+              <input value={suCity} onChange={e => { setSuCity(e.target.value); setError(''); }} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>{tx('country', language)} *</label>
+              <input value={suCountry} onChange={e => { setSuCountry(e.target.value.toUpperCase().slice(0, 2)); setError(''); }} className={inputCls} placeholder="DK" maxLength={2} />
+            </div>
+            <div>
+              <label className={labelCls}>{tx('preferredLang', language)} *</label>
+              <select
+                value={suLanguage}
+                onChange={e => setSuLanguage(e.target.value as Language)}
+                className={inputCls}
+              >
+                {PORTAL_LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>{l.flag} — {l.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>{tx('email', language)} *</label>
+              <input type="email" value={suEmail} onChange={e => { setSuEmail(e.target.value); setError(''); }} className={inputCls} placeholder="din@email.dk" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>{tx('password', language)} *</label>
+              <input type="password" value={suPassword} onChange={e => { setSuPassword(e.target.value); setError(''); }} onKeyDown={e => handleKeyDown(e, handleSignup)} className={inputCls} />
+            </div>
+          </div>
 
-            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+          {error && <p className="text-red-500 text-xs text-center mt-4">{error}</p>}
 
+          <div className="mt-6 space-y-3">
             <button
               onClick={handleSignup}
               disabled={loading}
@@ -396,8 +477,6 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       </div>
     );
   }
-
-  // --- Main view: Log ind / Fortsæt uden login / Opret bruger ---
   return (
     <div className="max-w-md mx-auto">
       <div className="bg-white rounded-2xl shadow p-6 md:p-8">

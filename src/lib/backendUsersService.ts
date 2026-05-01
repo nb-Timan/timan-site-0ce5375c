@@ -114,11 +114,14 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     email: (row.email as string) || "",
     company: (row.company as string) || ((row.email as string)?.endsWith("@timan.dk") ? "Timan" : ""),
     country: ((row.country as string) || "DK").toUpperCase().slice(0, 2),
+    postal_code: (row.postal_code as string | null) ?? null,
     language: ((row.preferred_language as BackendUser["language"]) || "da"),
     dealer_number: (row.dealer_number as string | null) ?? null,
     notes: (row.notes as string | null) ?? null,
     role,
     status: deriveStatus(row),
+    approved: row.approved !== false,
+    is_active: row.is_active !== false,
     allowed_areas,
     allowed_modules,
     backend_modules,
@@ -171,7 +174,14 @@ export interface SaveResult {
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
-  const { status, approved, is_active } = statusToColumns(draft.status);
+  // Prefer explicit toggle values from the draft (admin can flip them
+  // independently); fall back to status-derived defaults otherwise.
+  const fromStatus = statusToColumns(draft.status);
+  const status = draft.status === "pending" ? "pending"
+               : draft.status === "blocked" ? "blocked"
+               : "active";
+  const approved = typeof draft.approved === "boolean" ? draft.approved : fromStatus.approved;
+  const is_active = typeof draft.is_active === "boolean" ? draft.is_active : fromStatus.is_active;
 
   const fullPatch: Record<string, unknown> = {
     full_name: draft.name,
@@ -179,6 +189,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     initials: draft.initials,
     company: draft.company || null,
     country: draft.country || null,
+    postal_code: draft.postal_code,
     preferred_language: draft.language,
     dealer_number: draft.dealer_number,
     notes: draft.notes,

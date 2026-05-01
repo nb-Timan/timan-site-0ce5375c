@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { Language } from '@/types/configurator';
+import { PORTAL_LANGUAGE_CODES, FALLBACK_LANGUAGE } from '@/lib/portalLanguages';
 
 const STORAGE_KEY = 'timan.language';
-const SUPPORTED: Language[] = ['da', 'en', 'de', 'it', 'hu'];
-const FALLBACK: Language = 'da';
+const SUPPORTED: Language[] = PORTAL_LANGUAGE_CODES;
+const FALLBACK: Language = FALLBACK_LANGUAGE;
 
 function loadFromStorage(): Language {
   try {
