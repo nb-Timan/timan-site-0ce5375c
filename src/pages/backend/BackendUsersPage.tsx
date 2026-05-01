@@ -39,6 +39,7 @@ import {
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
@@ -309,6 +310,41 @@ function EditUserModal({
   onSave: (patch: BackendUser) => void;
 }) {
   const [draft, setDraft] = useState<BackendUser>(user);
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealerQuery, setDealerQuery] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await fetchDealerAccounts();
+      if (!cancelled) setDealers(res.rows);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  function applyDealer(dealerId: string) {
+    if (!dealerId) {
+      setDraft({ ...draft, dealer_number: null, company_dealer: null, seller_initials: null, seller_email: null });
+      return;
+    }
+    const d = dealers.find((x) => x.id === dealerId);
+    if (!d) return;
+    setDraft({
+      ...draft,
+      dealer_number: d.account_number,
+      company_dealer: d.company_name,
+      company: draft.company || d.company_name,
+      country: draft.country || (d.country ?? ""),
+      postal_code: draft.postal_code || d.postal_code,
+      seller_initials: d.assigned_seller_initials,
+      seller_email: d.assigned_seller_email,
+    });
+  }
+
+  const matchingDealer = dealers.find((d) => d.account_number === draft.dealer_number);
+  const filteredDealers = dealerQuery
+    ? dealers.filter((d) => `${d.company_name} ${d.account_number} ${d.city ?? ""}`.toLowerCase().includes(dealerQuery.toLowerCase())).slice(0, 100)
+    : dealers.slice(0, 100);
 
   function toggle<T extends string>(arr: T[], value: T): T[] {
     return arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
@@ -380,7 +416,42 @@ function EditUserModal({
             </Grid>
           </Section>
 
-          {/* Role */}
+          {/* Dealer account link — copies dealer info into app_users */}
+          <Section title="Dealer account (forhandler)">
+            <p className="text-[11px] text-slate-500 mb-2">
+              Vælg en forhandler fra <code>dealer_accounts</code>. Flere brugere kan tilhøre samme forhandler.
+              Felterne nedenfor (kontonr, firma, sælger) bliver kopieret til brugerens profil.
+            </p>
+            <input
+              type="text"
+              placeholder="Søg på firma, kontonr eller by…"
+              value={dealerQuery}
+              onChange={(e) => setDealerQuery(e.target.value)}
+              className="w-full mb-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+            <select
+              value={matchingDealer?.id ?? ""}
+              onChange={(e) => applyDealer(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">— ingen forhandler tilknyttet —</option>
+              {filteredDealers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.account_number} · {d.company_name}{d.country ? ` (${d.country})` : ""}
+                  {d.assigned_seller_initials ? ` — sælger: ${d.assigned_seller_initials}` : " — uden sælger"}
+                </option>
+              ))}
+            </select>
+            {(draft.dealer_number || draft.company_dealer || draft.seller_initials) && (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                <div><span className="font-semibold text-slate-500">Kontonr:</span> {draft.dealer_number || "—"}</div>
+                <div><span className="font-semibold text-slate-500">Firma:</span> {draft.company_dealer || "—"}</div>
+                <div><span className="font-semibold text-slate-500">Sælger initialer:</span> {draft.seller_initials || "—"}</div>
+                <div><span className="font-semibold text-slate-500">Sælger email:</span> {draft.seller_email || "—"}</div>
+              </div>
+            )}
+          </Section>
+
           <Section title="Role">
             <Select
               label="Portal role"

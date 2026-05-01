@@ -48,6 +48,12 @@ export interface BackendUser {
   postal_code: string | null;
   language: "da" | "en" | "de" | "it" | "hu";
   dealer_number: string | null;
+  /** Mirrored from dealer_accounts.company_name when admin links a dealer. */
+  company_dealer: string | null;
+  /** Mirrored from dealer_accounts.assigned_seller_initials. */
+  seller_initials: string | null;
+  /** Mirrored from dealer_accounts.assigned_seller_email. */
+  seller_email: string | null;
   notes: string | null;
   role: PortalRole;
   status: UserStatus;
@@ -94,6 +100,9 @@ function seedUser(
     postal_code: null,
     language: "da",
     dealer_number: null,
+    company_dealer: null,
+    seller_initials: null,
+    seller_email: null,
     notes: null,
     status: "active",
     approved: true,
