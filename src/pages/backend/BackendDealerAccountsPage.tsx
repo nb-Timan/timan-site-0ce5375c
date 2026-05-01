@@ -132,7 +132,28 @@ export default function BackendDealerAccountsPage() {
           </button>
         </div>
 
-        {(loadError || saveError) && (
+        {authChecked && !hasSupabaseSession && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-900 flex items-start gap-3">
+            <Lock className="h-5 w-5 mt-0.5 text-rose-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Supabase-login påkrævet</p>
+              <p className="mt-1 text-rose-800">
+                Forhandler-data er beskyttet af Row Level Security og kan kun læses af godkendte
+                Timan Backend brugere. Du har en lokal session, men ingen aktiv Supabase Auth session.
+                Log ind igen med din email og adgangskode for at se data.
+              </p>
+              <button
+                type="button"
+                onClick={async () => { await logout(); navigate("/configurator", { replace: true }); }}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
+              >
+                Log ind igen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(loadError || saveError) && hasSupabaseSession && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {loadError && <div>{loadError}</div>}
             {saveError && <div className="mt-1">{saveError}</div>}
