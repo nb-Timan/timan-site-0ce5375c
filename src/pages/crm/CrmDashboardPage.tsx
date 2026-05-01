@@ -194,16 +194,11 @@ export default function CrmDashboardPage() {
   const realMetrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
-  // Use preview/mock data when there is no real CRM data yet, so the dashboard
-  // never looks empty in preview environments.
-  const isPreview =
-    activities.length === 0 &&
-    realMetrics.pipelineValue === 0 &&
-    realMetrics.wonOrdersCount === 0;
-
-  const metrics = isPreview ? PREVIEW_METRICS : realMetrics;
-  const trend30 = isPreview ? PREVIEW_TREND : realTrend30;
-  const previewActivities = isPreview ? buildPreviewActivities() : activities;
+  // Demo cleanup: never substitute mock data. Show real values (and the
+  // built-in empty states) when there is no CRM data yet.
+  const metrics = realMetrics;
+  const trend30 = realTrend30;
+  const previewActivities = activities;
 
   return (
     <CrmLayout pageTitle="Dashboard">
