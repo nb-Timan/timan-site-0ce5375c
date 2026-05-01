@@ -37,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import DealerActivitiesSection from "@/components/crm/DealerActivitiesSection";
 import { cn } from "@/lib/utils";
 import type { Language } from "@/types/configurator";
 
@@ -650,6 +651,11 @@ export default function CrmAccountDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Forhandler aktiviteter (CRM Calendar) */}
+      <div className="mt-6">
+        <DealerActivitiesSection account={account} accounts={allAccounts} />
+      </div>
     </CrmLayout>
   );
 }
