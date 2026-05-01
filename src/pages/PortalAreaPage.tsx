@@ -77,6 +77,8 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/backend/audit-log';
             } else if (p.key === 'portal_analytics') {
               href = '/portal/backend/portal-analytics';
+            } else if (p.key === 'dealer_accounts') {
+              href = '/portal/backend/dealer-accounts';
             }
             return (
               <PlaceholderCard
