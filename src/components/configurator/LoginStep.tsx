@@ -68,6 +68,15 @@ const T: Record<string, Record<string, string>> = {
   passwordTooShort: { da: 'Adgangskoden skal være mindst 6 tegn', en: 'Password must be at least 6 characters', de: 'Passwort muss mindestens 6 Zeichen lang sein', it: 'La password deve avere almeno 6 caratteri', hu: 'A jelszónak legalább 6 karakter hosszúnak kell lennie' },
   backToLogin: { da: 'Tilbage til log ind', en: 'Back to log in', de: 'Zurück zur Anmeldung', it: 'Torna al login', hu: 'Vissza a bejelentkezéshez' },
   continueAsGuest: { da: 'Fortsæt med begrænset adgang', en: 'Continue with limited access', de: 'Mit eingeschränktem Zugang fortfahren', it: 'Continua con accesso limitato', hu: 'Folytatás korlátozott hozzáféréssel' },
+  firstName:    { da: 'Fornavn', en: 'First name', de: 'Vorname', it: 'Nome', hu: 'Keresztnév' },
+  lastName:     { da: 'Efternavn', en: 'Last name', de: 'Nachname', it: 'Cognome', hu: 'Vezetéknév' },
+  company:      { da: 'Firma', en: 'Company', de: 'Firma', it: 'Azienda', hu: 'Cég' },
+  address:      { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
+  city:         { da: 'By', en: 'City', de: 'Stadt', it: 'Città', hu: 'Város' },
+  postalCode:   { da: 'Postnr.', en: 'Postal code', de: 'PLZ', it: 'CAP', hu: 'Irányítószám' },
+  country:      { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  preferredLang:{ da: 'Foretrukket sprog', en: 'Preferred language', de: 'Bevorzugte Sprache', it: 'Lingua preferita', hu: 'Preferált nyelv' },
+  required:     { da: 'Udfyld alle felter', en: 'Please fill in all fields', de: 'Bitte alle Felder ausfüllen', it: 'Compila tutti i campi', hu: 'Töltse ki az összes mezőt' },
 };
 
 function tx(key: string, lang: string): string {
