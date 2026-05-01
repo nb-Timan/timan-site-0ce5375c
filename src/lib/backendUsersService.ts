@@ -174,7 +174,14 @@ export interface SaveResult {
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
-  const { status, approved, is_active } = statusToColumns(draft.status);
+  // Prefer explicit toggle values from the draft (admin can flip them
+  // independently); fall back to status-derived defaults otherwise.
+  const fromStatus = statusToColumns(draft.status);
+  const status = draft.status === "pending" ? "pending"
+               : draft.status === "blocked" ? "blocked"
+               : "active";
+  const approved = typeof draft.approved === "boolean" ? draft.approved : fromStatus.approved;
+  const is_active = typeof draft.is_active === "boolean" ? draft.is_active : fromStatus.is_active;
 
   const fullPatch: Record<string, unknown> = {
     full_name: draft.name,
