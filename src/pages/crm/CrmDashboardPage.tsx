@@ -10,6 +10,7 @@ import SellerPerformanceSection from '@/components/crm/SellerPerformanceSection'
 import SellerOverviewSection from '@/components/crm/SellerOverviewSection';
 import SellerCockpitSection from '@/components/crm/SellerCockpitSection';
 import DemoStatsSection from '@/components/crm/DemoStatsSection';
+import UpcomingActivitiesWidget from '@/components/crm/UpcomingActivitiesWidget';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
