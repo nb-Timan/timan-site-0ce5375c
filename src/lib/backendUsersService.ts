@@ -182,6 +182,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     initials: draft.initials,
     company: draft.company || null,
     country: draft.country || null,
+    postal_code: draft.postal_code,
     preferred_language: draft.language,
     dealer_number: draft.dealer_number,
     notes: draft.notes,
