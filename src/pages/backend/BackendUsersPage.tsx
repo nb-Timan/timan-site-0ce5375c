@@ -11,7 +11,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { callAdminUserAction } from "@/lib/adminUserActions";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -98,6 +99,8 @@ export default function BackendUsersPage() {
   const [source, setSource] = useState<BackendUsersSource>("supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
   const reload = useMemo(
