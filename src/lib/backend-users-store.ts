@@ -74,6 +74,10 @@ export interface BackendUser {
   account_owner_initials: string | null;
   account_owner_email: string | null;
   last_login_at: string | null; // ISO
+  /** Auth lifecycle, written by the admin-user-actions Edge Function. */
+  auth_status?: "app_only" | "invited" | "auth_exists" | null;
+  last_invited_at?: string | null;
+  last_password_reset_at?: string | null;
   created_at: string;
   updated_at: string;
 }

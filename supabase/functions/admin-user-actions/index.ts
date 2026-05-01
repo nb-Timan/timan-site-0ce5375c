@@ -1,0 +1,222 @@
+// supabase/functions/admin-user-actions/index.ts
+//
+// Secure admin actions for Timan Backend → Brugere.
+//
+// Capabilities:
+//   • action = "invite"  → creates the Supabase Auth user (if missing) and
+//                          sends the official "invite" email so the user can
+//                          set their own password.
+//   • action = "reset"   → sends a password-reset email if the user already
+//                          has a Supabase Auth account.
+//
+// Security model:
+//   • Never returns or accepts passwords.
+//   • Caller MUST send their Supabase Auth JWT in the Authorization header.
+//   • The function verifies that the caller exists in public.app_users with
+//     portal_role = 'timan_backend' AND approved = true AND is_active = true
+//     before doing anything.
+//   • The service-role key is only used inside this function — never exposed
+//     to the browser.
+//
+// Required environment variables (auto-injected by Supabase for functions in
+// your own project — no manual setup needed):
+//   • SUPABASE_URL
+//   • SUPABASE_SERVICE_ROLE_KEY
+//   • SUPABASE_ANON_KEY
+//
+// Optional:
+//   • PORTAL_SITE_URL  (defaults to https://timan-portal.lovable.app)
+//
+// Deploy with: supabase functions deploy admin-user-actions
+// or via the Lovable / Supabase dashboard.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const PORTAL_SITE_URL =
+  Deno.env.get("PORTAL_SITE_URL") ?? "https://timan-portal.lovable.app";
+
+interface RequestBody {
+  action: "invite" | "reset";
+  email: string;
+  app_user_id?: string | null;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!SUPABASE_URL || !SERVICE_ROLE || !ANON_KEY) {
+    return json(
+      { error: "Edge Function mangler SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY." },
+      500,
+    );
+  }
+
+  // ---- 1) Authenticate the caller ----
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.toLowerCase().startsWith("bearer ")) {
+    return json({ error: "Manglende Authorization header." }, 401);
+  }
+
+  // Use the anon-keyed client *with* the caller's JWT so RLS sees the right user.
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userData.user?.email) {
+    return json({ error: "Ugyldig eller udløbet session." }, 401);
+  }
+  const callerEmail = userData.user.email.toLowerCase();
+
+  // ---- 2) Authorize: caller must be an active Timan Backend user ----
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: callerRow, error: callerErr } = await admin
+    .from("app_users")
+    .select("portal_role, approved, is_active")
+    .eq("email", callerEmail)
+    .maybeSingle();
+  if (callerErr) {
+    return json({ error: `Kunne ikke verificere caller: ${callerErr.message}` }, 500);
+  }
+  if (
+    !callerRow ||
+    callerRow.portal_role !== "timan_backend" ||
+    callerRow.approved !== true ||
+    callerRow.is_active !== true
+  ) {
+    return json(
+      { error: "Adgang nægtet. Kun godkendte Timan Backend brugere må udføre denne handling." },
+      403,
+    );
+  }
+
+  // ---- 3) Parse + validate body ----
+  let body: RequestBody;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Ugyldig JSON body." }, 400);
+  }
+  const action = body?.action;
+  const targetEmail = (body?.email ?? "").trim().toLowerCase();
+  if (!targetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+    return json({ error: "Ugyldig email." }, 400);
+  }
+  if (action !== "invite" && action !== "reset") {
+    return json({ error: "Ukendt action — brug 'invite' eller 'reset'." }, 400);
+  }
+
+  // ---- 4) Look up auth user (paginated lookup; admin API has no by-email helper) ----
+  async function findAuthUserByEmail(email: string) {
+    const perPage = 200;
+    for (let page = 1; page <= 50; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+      if (error) throw error;
+      const hit = data.users.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (hit) return hit;
+      if (data.users.length < perPage) break;
+    }
+    return null;
+  }
+
+  let authUser;
+  try {
+    authUser = await findAuthUserByEmail(targetEmail);
+  } catch (e) {
+    return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
+  }
+
+  // ---- 5) Execute the action ----
+  const redirectTo = `${PORTAL_SITE_URL}/portal`;
+
+  try {
+    if (action === "invite") {
+      if (authUser) {
+        // Already exists → cannot invite again. Send a password reset instead
+        // (admin intent is "let the user into the portal").
+        const { error } = await admin.auth.resetPasswordForEmail(targetEmail, {
+          redirectTo: `${PORTAL_SITE_URL}/reset-password`,
+        });
+        if (error) throw error;
+        await touchAppUser(admin, body.app_user_id ?? null, targetEmail, {
+          auth_status: "auth_exists",
+          last_password_reset_at: new Date().toISOString(),
+        });
+        return json({
+          ok: true,
+          action: "reset",
+          message: "Brugeren findes allerede i Supabase Auth — password reset email sendt i stedet.",
+        });
+      }
+      const { error } = await admin.auth.admin.inviteUserByEmail(targetEmail, {
+        redirectTo,
+      });
+      if (error) throw error;
+      await touchAppUser(admin, body.app_user_id ?? null, targetEmail, {
+        auth_status: "invited",
+        last_invited_at: new Date().toISOString(),
+      });
+      return json({ ok: true, action: "invite", message: "Invitationsemail sendt." });
+    }
+
+    // action === "reset"
+    if (!authUser) {
+      return json(
+        { error: "Brugeren findes ikke i Supabase Auth endnu — send en invitation først." },
+        409,
+      );
+    }
+    const { error } = await admin.auth.resetPasswordForEmail(targetEmail, {
+      redirectTo: `${PORTAL_SITE_URL}/reset-password`,
+    });
+    if (error) throw error;
+    await touchAppUser(admin, body.app_user_id ?? null, targetEmail, {
+      auth_status: "auth_exists",
+      last_password_reset_at: new Date().toISOString(),
+    });
+    return json({ ok: true, action: "reset", message: "Password reset email sendt." });
+  } catch (e) {
+    return json({ error: `Handlingen fejlede: ${(e as Error).message}` }, 500);
+  }
+});
+
+async function touchAppUser(
+  admin: ReturnType<typeof createClient>,
+  appUserId: string | null,
+  email: string,
+  patch: Record<string, unknown>,
+) {
+  const fullPatch = { ...patch, updated_at: new Date().toISOString() };
+  // Try by id first (more precise), then by email. Ignore "column does not
+  // exist" errors so this still works before the SQL migration is applied.
+  if (appUserId) {
+    const { error } = await admin.from("app_users").update(fullPatch).eq("id", appUserId);
+    if (!error) return;
+  }
+  await admin.from("app_users").update(fullPatch).eq("email", email);
+}

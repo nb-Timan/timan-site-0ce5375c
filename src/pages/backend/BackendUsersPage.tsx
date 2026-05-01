@@ -11,7 +11,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { callAdminUserAction } from "@/lib/adminUserActions";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -98,6 +99,8 @@ export default function BackendUsersPage() {
   const [source, setSource] = useState<BackendUsersSource>("supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
   const reload = useMemo(
@@ -130,6 +133,36 @@ export default function BackendUsersPage() {
   if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
 
   const editing = editingId ? users.find((u) => u.id === editingId) : null;
+
+  async function runAdminAction(u: BackendUser, action: "invite" | "reset") {
+    setActionMsg(null);
+    setPendingAction(`${u.id}:${action}`);
+    const res = await callAdminUserAction(action, u.email, u.id);
+    setPendingAction(null);
+    if (!res.ok) {
+      setActionMsg({ kind: "err", text: res.error ?? "Handlingen fejlede." });
+      return;
+    }
+    setActionMsg({ kind: "ok", text: `${u.email}: ${res.message ?? "Sendt."}` });
+    await reload();
+  }
+
+  function authBadge(u: BackendUser) {
+    const s = u.auth_status ?? "app_only";
+    if (s === "auth_exists") {
+      const reset = u.last_password_reset_at
+        ? `Reset sendt ${new Date(u.last_password_reset_at).toLocaleDateString("da-DK")}`
+        : "Auth bruger findes";
+      return <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800" title={reset}>{reset}</span>;
+    }
+    if (s === "invited") {
+      const inv = u.last_invited_at
+        ? `Invitation sendt ${new Date(u.last_invited_at).toLocaleDateString("da-DK")}`
+        : "Invitation sendt";
+      return <span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800" title={inv}>{inv}</span>;
+    }
+    return <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700" title="Kun i app_users — ingen Supabase Auth bruger endnu">Kun app_users</span>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -170,6 +203,15 @@ export default function BackendUsersPage() {
             {saveError && <div className="mt-1">{saveError}</div>}
           </div>
         )}
+        {actionMsg && (
+          <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+            actionMsg.kind === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border-rose-200 bg-rose-50 text-rose-900"
+          }`}>
+            {actionMsg.text}
+          </div>
+        )}
         {loadingUsers && (
           <div className="mb-4 text-xs text-slate-500">Henter brugere…</div>
         )}
@@ -189,6 +231,7 @@ export default function BackendUsersPage() {
                 <Th>Active</Th>
                 <Th>Role</Th>
                 <Th>Created</Th>
+                <Th>Auth</Th>
                 <Th>Actions</Th>
               </tr>
             </thead>
@@ -229,8 +272,9 @@ export default function BackendUsersPage() {
                   <Td className="text-slate-500 text-xs whitespace-nowrap">
                     {(() => { try { return new Date(u.created_at).toLocaleDateString("da-DK"); } catch { return "—"; } })()}
                   </Td>
+                  <Td>{authBadge(u)}</Td>
                   <Td>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {!u.approved && (
                         <button
                           type="button"
@@ -248,6 +292,26 @@ export default function BackendUsersPage() {
                       )}
                       <button
                         type="button"
+                        disabled={pendingAction === `${u.id}:invite`}
+                        onClick={() => void runAdminAction(u, "invite")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+                        title="Opret/inviter Supabase Auth bruger og send invitationsemail"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        {pendingAction === `${u.id}:invite` ? "Sender…" : "Inviter"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingAction === `${u.id}:reset`}
+                        onClick={() => void runAdminAction(u, "reset")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+                        title="Send password reset email"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        {pendingAction === `${u.id}:reset` ? "Sender…" : "Reset password"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setEditingId(u.id)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
                       >
@@ -258,7 +322,7 @@ export default function BackendUsersPage() {
                 </tr>
               );})}
               {users.length === 0 && !loadingUsers && (
-                <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
+                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
               )}
             </tbody>
           </table>
