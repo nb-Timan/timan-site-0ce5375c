@@ -45,11 +45,14 @@ export interface BackendUser {
   email: string;
   company: string;
   country: string;         // ISO-2 (DK, GB, DE...)
+  postal_code: string | null;
   language: "da" | "en" | "de" | "it" | "hu";
   dealer_number: string | null;
   notes: string | null;
   role: PortalRole;
   status: UserStatus;
+  approved: boolean;
+  is_active: boolean;
   allowed_areas: AreaKey[];
   allowed_modules: ModuleAccessKey[];
   backend_modules: BackendMetaModule[];
