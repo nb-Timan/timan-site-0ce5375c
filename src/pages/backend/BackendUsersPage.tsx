@@ -368,17 +368,12 @@ function EditUserModal({
               <Input label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
               <Input label="Company" value={draft.company} onChange={(v) => setDraft({ ...draft, company: v })} />
               <Input label="Country" value={draft.country} onChange={(v) => setDraft({ ...draft, country: v.toUpperCase().slice(0, 2) })} />
+              <Input label="Postal code" value={draft.postal_code ?? ""} onChange={(v) => setDraft({ ...draft, postal_code: v || null })} />
               <Select
-                label="Language"
+                label="Preferred language"
                 value={draft.language}
                 onChange={(v) => setDraft({ ...draft, language: v as BackendUser["language"] })}
-                options={[
-                  { value: "da", label: "Dansk" },
-                  { value: "en", label: "English" },
-                  { value: "de", label: "Deutsch" },
-                  { value: "it", label: "Italiano" },
-                  { value: "hu", label: "Magyar" },
-                ]}
+                options={PORTAL_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} — ${l.label}` }))}
               />
               <Input label="Dealer number" value={draft.dealer_number ?? ""} onChange={(v) => setDraft({ ...draft, dealer_number: v || null })} />
               <Input label="Notes" value={draft.notes ?? ""} onChange={(v) => setDraft({ ...draft, notes: v || null })} />
