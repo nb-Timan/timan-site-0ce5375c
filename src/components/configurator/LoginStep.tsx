@@ -97,6 +97,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [showGuestPopup, setShowGuestPopup] = useState(false);
   const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
 
+  // Full signup form state
+  const [suFirstName, setSuFirstName] = useState('');
+  const [suLastName, setSuLastName] = useState('');
+  const [suCompany, setSuCompany] = useState('');
+  const [suAddress, setSuAddress] = useState('');
+  const [suCity, setSuCity] = useState('');
+  const [suPostal, setSuPostal] = useState('');
+  const [suCountry, setSuCountry] = useState('DK');
+  const [suLanguage, setSuLanguage] = useState<Language>((language as Language) || 'da');
+  const [suEmail, setSuEmail] = useState('');
+  const [suPassword, setSuPassword] = useState('');
+
   const handleLogin = async () => {
     setError('');
     if (!email.trim()) return;
