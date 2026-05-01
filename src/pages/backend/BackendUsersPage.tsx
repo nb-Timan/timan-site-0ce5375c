@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { ArrowLeft, Check, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -38,6 +38,7 @@ import {
   saveBackendUser,
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
+import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
