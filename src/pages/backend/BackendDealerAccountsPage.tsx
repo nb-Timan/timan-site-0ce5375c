@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Pencil, RotateCcw, Search, X } from "lucide-react";
+import { ArrowLeft, Building2, Lock, Pencil, RotateCcw, Search, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
+import { supabase } from "@/lib/supabase";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -39,6 +40,8 @@ export default function BackendDealerAccountsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editing, setEditing] = useState<DealerAccount | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
 
   // Filters
   const [q, setQ] = useState("");
@@ -46,6 +49,21 @@ export default function BackendDealerAccountsPage() {
   const [customerType, setCustomerType] = useState<string>("");
   const [seller, setSeller] = useState<string>("");
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+
+  // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      setHasSupabaseSession(!!data.session);
+      setAuthChecked(true);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setHasSupabaseSession(!!session);
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+  }, []);
 
   const reload = useMemo(() => async () => {
     setLoadingRows(true);
@@ -56,7 +74,10 @@ export default function BackendDealerAccountsPage() {
     setLoadingRows(false);
   }, []);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    if (authChecked && hasSupabaseSession) void reload();
+    else if (authChecked) setLoadingRows(false);
+  }, [authChecked, hasSupabaseSession, reload]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
