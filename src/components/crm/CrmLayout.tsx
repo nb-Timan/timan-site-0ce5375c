@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -21,6 +21,7 @@ const T: Record<string, Record<Language, string>> = {
   quotes:     { da: 'Tilbud',        en: 'Quotes',     de: 'Angebote',   it: 'Preventivi', hu: 'Árajánlatok' },
   orders:     { da: 'Ordrer',        en: 'Orders',     de: 'Aufträge',   it: 'Ordini',     hu: 'Rendelések' },
   activities: { da: 'Aktiviteter',   en: 'Activities', de: 'Aktivitäten',it: 'Attività',   hu: 'Tevékenységek' },
+  calendar:   { da: 'Kalender',      en: 'Calendar',   de: 'Kalender',   it: 'Calendario', hu: 'Naptár' },
   budget:     { da: 'Budget',        en: 'Budget',     de: 'Budget',     it: 'Budget',     hu: 'Költségvetés' },
   reports:    { da: 'Rapporter',     en: 'Reports',    de: 'Berichte',   it: 'Report',     hu: 'Riportok' },
   scope_all:    { da: 'Ser alle CRM-data', en: 'Viewing all CRM data', de: 'Alle CRM-Daten', it: 'Tutti i dati CRM', hu: 'Összes CRM adat' },
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { key: 'quotes',     to: '/portal/crm/quotes',     icon: FileText },
   { key: 'orders',     to: '/portal/crm/orders',     icon: ShoppingCart },
   { key: 'activities', to: '/portal/crm/activities', icon: Activity },
+  { key: 'calendar',   to: '/portal/crm/calendar',   icon: CalendarDays },
   { key: 'budget',     to: '/portal/crm/budget',     icon: Wallet },
   { key: 'reports',    to: '/portal/crm/reports',    icon: BarChart3 },
 ];

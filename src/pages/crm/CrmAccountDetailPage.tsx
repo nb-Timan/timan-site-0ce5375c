@@ -37,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import DealerActivitiesSection from "@/components/crm/DealerActivitiesSection";
 import { cn } from "@/lib/utils";
 import type { Language } from "@/types/configurator";
 
@@ -162,6 +163,7 @@ export default function CrmAccountDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<CrmAccount | null>(null);
+  const [allAccounts, setAllAccounts] = useState<CrmAccount[]>([]);
   const [accessDenied, setAccessDenied] = useState(false);
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
@@ -183,6 +185,7 @@ export default function CrmAccountDetailPage() {
       const accRes = await listCrmAccounts({ role: portalRole, sellerId });
       const found = accRes.accounts.find((a) => a.id === id) || null;
       if (cancelled) return;
+      setAllAccounts(accRes.accounts);
 
       if (!found) {
         setAccount(null);
@@ -648,6 +651,11 @@ export default function CrmAccountDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Forhandler aktiviteter (CRM Calendar) */}
+      <div className="mt-6">
+        <DealerActivitiesSection account={account} accounts={allAccounts} />
+      </div>
     </CrmLayout>
   );
 }
