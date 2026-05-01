@@ -15,6 +15,7 @@ export interface DealerAccount {
   account_number: string;
   company_name: string;
   customer_type: string | null;
+  customer_type_label: string | null;
   country: string | null;
   postal_code: string | null;
   city: string | null;
@@ -44,6 +45,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     account_number: (row.account_number as string) || "",
     company_name: (row.company_name as string) || "",
     customer_type: (row.customer_type as string | null) ?? null,
+    customer_type_label: (row.customer_type_label as string | null) ?? null,
     country: (row.country as string | null) ?? null,
     postal_code: (row.postal_code as string | null) ?? null,
     city: (row.city as string | null) ?? null,
@@ -62,15 +64,26 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
 
 export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
   try {
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from("dealer_accounts")
       .select("*")
       .order("company_name", { ascending: true });
     if (error) throw error;
-    return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
+    const rows = (data ?? []).map(rowToDealer);
+    if (rows.length === 0) {
+      return {
+        source: "supabase",
+        rows,
+        error:
+          `Supabase returnerede 0 rækker fra public.dealer_accounts (HTTP ${status}). ` +
+          `Hvis tabellen indeholder data, skyldes det sandsynligvis Row Level Security — ` +
+          `tilføj en SELECT-policy der tillader 'anon' og 'authenticated' (se docs/sql/phase9b_dealer_accounts_rls_anon.sql).`,
+      };
+    }
+    return { source: "supabase", rows };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { source: "fallback", rows: [], error: `Supabase ikke tilgængelig (${msg}).` };
+    return { source: "fallback", rows: [], error: `Supabase fejl ved hentning af dealer_accounts: ${msg}` };
   }
 }
 
