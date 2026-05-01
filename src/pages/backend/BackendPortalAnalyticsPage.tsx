@@ -148,14 +148,6 @@ export default function BackendPortalAnalyticsPage() {
     return { sessionsToday, sessions7, sessions30, firstTime, returning, avgDur, guestSessions, authSessions, topModules, topCountries, topPostals, topLangs };
   }, [sessions, visitors, activity]);
 
-  const recent = useMemo(() => {
-    return sessions.slice(0, 50).map(s => {
-      const acts = activity.filter(a => a.session_id_match === s.id);
-      // session_id is on activity.session_id but typed loosely above; do separate match:
-      return s;
-    });
-  }, [sessions, activity]);
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (portalRole !== "timan_backend") return <Navigate to="/portal" replace />;
