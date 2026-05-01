@@ -265,28 +265,37 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
   const handleGuestContinue = () => {
     const trimmed = guestEmail.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    // Email is now optional for the guest flow — popup collects country/postal.
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setGuestError(tx('guestEmailRequired', language));
       return;
     }
-    // Sync guest to app_users
-    supabase.from('app_users').upsert({
-      email: trimmed.toLowerCase(),
-      full_name: trimmed.toLowerCase(),
-      role: 'slutkunde',
-      is_active: true,
-      approved: false,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-      if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
-      else console.log('[app_users sync] guest synced:', trimmed.toLowerCase());
-    });
+    setPendingGuestEmail(trimmed ? trimmed.toLowerCase() : null);
+    setShowGuestPopup(true);
+  };
 
-    trackLogin(trimmed.toLowerCase(), 'guest');
+  const finalizeGuestEntry = () => {
+    const guestEmailLc = pendingGuestEmail;
+    setShowGuestPopup(false);
+
+    if (guestEmailLc) {
+      // Sync guest email to app_users (best-effort)
+      supabase.from('app_users').upsert({
+        email: guestEmailLc,
+        full_name: guestEmailLc,
+        role: 'slutkunde',
+        is_active: true,
+        approved: false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
+        if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
+      });
+      trackLogin(guestEmailLc, 'guest');
+    }
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
-      email: trimmed.toLowerCase(),
+      email: guestEmailLc || `guest-${Date.now()}@anonymous.local`,
       display_name: undefined,
     });
   };
