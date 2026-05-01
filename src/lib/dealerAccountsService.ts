@@ -64,23 +64,25 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
 
 export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
   try {
-    const { data, error, status } = await supabase
+    // Require an active Supabase Auth session — dealer_accounts RLS is
+    // restricted to authenticated Timan Backend users.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      return {
+        source: "fallback",
+        rows: [],
+        error:
+          "Du er ikke logget ind med Supabase Auth. Forhandler-data kræver, at " +
+          "du logger ind med email og adgangskode som godkendt Timan Backend bruger.",
+      };
+    }
+
+    const { data, error } = await supabase
       .from("dealer_accounts")
       .select("*")
       .order("company_name", { ascending: true });
     if (error) throw error;
-    const rows = (data ?? []).map(rowToDealer);
-    if (rows.length === 0) {
-      return {
-        source: "supabase",
-        rows,
-        error:
-          `Supabase returnerede 0 rækker fra public.dealer_accounts (HTTP ${status}). ` +
-          `Hvis tabellen indeholder data, skyldes det sandsynligvis Row Level Security — ` +
-          `tilføj en SELECT-policy der tillader 'anon' og 'authenticated' (se docs/sql/phase9b_dealer_accounts_rls_anon.sql).`,
-      };
-    }
-    return { source: "supabase", rows };
+    return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { source: "fallback", rows: [], error: `Supabase fejl ved hentning af dealer_accounts: ${msg}` };
