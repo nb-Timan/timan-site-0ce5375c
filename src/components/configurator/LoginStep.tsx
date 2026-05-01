@@ -237,38 +237,72 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
   const handleSignup = async () => {
     setError('');
-    if (!email.trim()) return;
-    if (password.length < 6) {
+    const emailTrim = suEmail.trim().toLowerCase();
+    const firstName = suFirstName.trim();
+    const lastName = suLastName.trim();
+    const company = suCompany.trim();
+    const address = suAddress.trim();
+    const city = suCity.trim();
+    const postal = suPostal.trim();
+    const country = (suCountry || '').trim().toUpperCase();
+
+    if (!firstName || !lastName || !company || !address || !city || !postal || !country || !emailTrim) {
+      setError(tx('required', language));
+      return;
+    }
+    if (suPassword.length < 6) {
       setError(tx('passwordTooShort', language));
       return;
     }
     setLoading(true);
 
     try {
+      // 1) Create the Supabase Auth user — they choose their own password.
       const { data, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
+        email: emailTrim,
+        password: suPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/portal`,
+          data: {
+            full_name: `${firstName} ${lastName}`.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            company,
+            country,
+            preferred_language: suLanguage,
+          },
+        },
       });
 
       if (authError) {
-        if (authError.message?.toLowerCase().includes('already registered')) {
+        if (authError.message?.toLowerCase().includes('already registered') || authError.message?.toLowerCase().includes('already been registered')) {
           setError(tx('signupEmailExists', language));
         } else {
           setError(tx('signupError', language));
+          console.error('[signup] auth error:', authError);
         }
         setLoading(false);
         return;
       }
 
-      const newEmail = (data.user?.email || email.trim()).toLowerCase();
-
-      // Auto-create app_users row with default limited access
-      await supabase.from('app_users').upsert({
-        email: newEmail,
+      // 2) Insert/update the user in public.app_users — pending approval.
+      const { error: upsertErr } = await supabase.from('app_users').upsert({
+        email: emailTrim,
+        full_name: `${firstName} ${lastName}`.trim(),
+        first_name: firstName,
+        last_name: lastName,
+        company,
+        address,
+        city,
+        postal_code: postal,
+        country,
+        preferred_language: suLanguage,
         role: 'slutkunde',
+        portal_role: 'pending',
         partner_type: null,
         approved: false,
-        is_active: true,
+        is_active: false,
+        status: 'pending',
         start_step: 1,
         max_step: 1,
         can_view_prices: false,
@@ -276,12 +310,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         can_edit_discount: false,
         can_switch_customer_mode: false,
         working_for: null,
-        display_name: null,
+        display_name: `${firstName} ${lastName}`.trim(),
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'email' });
 
-      setSignupEmail(newEmail);
+      if (upsertErr) {
+        console.error('[signup] app_users upsert failed:', upsertErr);
+      }
+
+      setSignupEmail(emailTrim);
       setView('signup-done');
     } catch (err) {
+      console.error('[signup] error:', err);
       setError(tx('signupError', language));
     } finally {
       setLoading(false);
