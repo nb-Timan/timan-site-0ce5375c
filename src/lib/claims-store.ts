@@ -447,10 +447,8 @@ export function addDealerComment(
 export function getDealerClaims(dealerName: string): ClaimRecord[] {
   if (!dealerName) return RECORDS;
   const needle = dealerName.toLowerCase();
-  const scoped = RECORDS.filter((c) => c.dealer.toLowerCase() === needle);
-  // In preview, if the current dealer has no records yet, fall back to the
-  // demo dealer so the page is not empty.
-  return scoped.length > 0 ? scoped : RECORDS.filter((c) => c.dealer === NORDIC_DEALER);
+  // No demo fallback — return only real claims belonging to this dealer.
+  return RECORDS.filter((c) => c.dealer.toLowerCase() === needle);
 }
 
 export interface DealerClaimsSummary {
