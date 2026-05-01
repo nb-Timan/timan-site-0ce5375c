@@ -134,6 +134,36 @@ export default function BackendUsersPage() {
 
   const editing = editingId ? users.find((u) => u.id === editingId) : null;
 
+  async function runAdminAction(u: BackendUser, action: "invite" | "reset") {
+    setActionMsg(null);
+    setPendingAction(`${u.id}:${action}`);
+    const res = await callAdminUserAction(action, u.email, u.id);
+    setPendingAction(null);
+    if (!res.ok) {
+      setActionMsg({ kind: "err", text: res.error ?? "Handlingen fejlede." });
+      return;
+    }
+    setActionMsg({ kind: "ok", text: `${u.email}: ${res.message ?? "Sendt."}` });
+    await reload();
+  }
+
+  function authBadge(u: BackendUser) {
+    const s = u.auth_status ?? "app_only";
+    if (s === "auth_exists") {
+      const reset = u.last_password_reset_at
+        ? `Reset sendt ${new Date(u.last_password_reset_at).toLocaleDateString("da-DK")}`
+        : "Auth bruger findes";
+      return <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800" title={reset}>{reset}</span>;
+    }
+    if (s === "invited") {
+      const inv = u.last_invited_at
+        ? `Invitation sendt ${new Date(u.last_invited_at).toLocaleDateString("da-DK")}`
+        : "Invitation sendt";
+      return <span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800" title={inv}>{inv}</span>;
+    }
+    return <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700" title="Kun i app_users — ingen Supabase Auth bruger endnu">Kun app_users</span>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
@@ -171,6 +201,15 @@ export default function BackendUsersPage() {
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {loadError && <div>{loadError}</div>}
             {saveError && <div className="mt-1">{saveError}</div>}
+          </div>
+        )}
+        {actionMsg && (
+          <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+            actionMsg.kind === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border-rose-200 bg-rose-50 text-rose-900"
+          }`}>
+            {actionMsg.text}
           </div>
         )}
         {loadingUsers && (
