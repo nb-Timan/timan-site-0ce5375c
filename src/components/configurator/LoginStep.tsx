@@ -474,6 +474,14 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </button>
         </div>
       </div>
+
+      <GuestVisitorPopup
+        open={showGuestPopup}
+        language={language as never}
+        email={pendingGuestEmail}
+        onCancel={() => setShowGuestPopup(false)}
+        onConfirm={finalizeGuestEntry}
+      />
     </div>
   );
 }
