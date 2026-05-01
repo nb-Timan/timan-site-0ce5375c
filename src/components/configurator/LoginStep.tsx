@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
+import { startAuthenticatedSession } from '@/lib/visitorTracking';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
@@ -81,6 +83,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
+  const [showGuestPopup, setShowGuestPopup] = useState(false);
+  const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setError('');
