@@ -99,6 +99,8 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'teknik_service', 'salg_marketing',
     'service_information', 'byg_din_timan', 'resources', 'sales_tools',
   ],
+  // Awaiting admin approval — no module access until approved.
+  pending: [],
 };
 
 // ---------- Action permissions per role ----------
