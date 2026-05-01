@@ -64,52 +64,9 @@ export interface ServiceClaim {
   created_by_email?: string | null;
 }
 
-const MOCK_CLAIMS: ServiceClaim[] = [
-  {
-    id: 'mock-1',
-    claim_number: 'CLM-2026-0042',
-    machine_serial: 'TM-RC50-001234',
-    machine_model: 'RC50',
-    customer_name: 'Jongshøj Maskiner',
-    description: 'Hydraulisk lækage på løftearm efter 120 driftstimer.',
-    status: 'in_review',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-    created_by_email: 'thomas@jongshoej-maskiner.dk',
-  },
-  {
-    id: 'mock-2',
-    claim_number: 'CLM-2026-0041',
-    machine_serial: 'TM-3330-000987',
-    machine_model: '3330',
-    customer_name: 'Nordic Greens A/S',
-    description: 'Defekt startmotor — udskiftet under garanti.',
-    status: 'approved',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    created_by_email: 'demo-dealer@timan.dk',
-  },
-  {
-    id: 'mock-3',
-    claim_number: 'CLM-2026-0040',
-    machine_serial: 'TM-RC30-000771',
-    machine_model: 'RC30',
-    customer_name: 'Park & Vej Kommune',
-    description: 'Display viser fejlkode E12 ved opstart.',
-    status: 'open',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
-    created_by_email: 'demo-dealer@timan.dk',
-  },
-  {
-    id: 'mock-4',
-    claim_number: 'CLM-2025-0398',
-    machine_serial: 'TM-RC50-001102',
-    machine_model: 'RC50',
-    customer_name: 'GreenLine Service',
-    description: 'Slidskinner ønskes vurderet — slid ud over normalt.',
-    status: 'closed',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    created_by_email: 'demo-dealer@timan.dk',
-  },
-];
+// Demo claims removed — Service / Claims now reads only from Supabase
+// (table `service_claims`) and any locally drafted claims. Empty when none.
+const MOCK_CLAIMS: ServiceClaim[] = [];
 
 // ---------- Local fallback store (preview-safe) ----------
 const LOCAL_KEY = 'timan.claims.local';
