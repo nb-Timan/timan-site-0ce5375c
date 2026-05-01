@@ -4,6 +4,8 @@ import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
 import { startAuthenticatedSession } from '@/lib/visitorTracking';
+import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import type { Language } from '@/types/configurator';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
