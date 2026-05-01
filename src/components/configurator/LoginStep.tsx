@@ -166,6 +166,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
       trackLogin(authEmail, 'login');
+      // Visitor tracking: register authenticated session
+      startAuthenticatedSession(authEmail, language);
 
       // Link Supabase Auth uid to app_users.auth_user_id so RLS policies
       // (e.g. Timan Backend update) can identify this user.
