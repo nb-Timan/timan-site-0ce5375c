@@ -177,72 +177,88 @@ export default function BackendUsersPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
               <tr>
-                <Th>Initials</Th>
                 <Th>Name</Th>
                 <Th>Email</Th>
                 <Th>Company</Th>
                 <Th>Country</Th>
-                <Th>Role</Th>
+                <Th>Postnr.</Th>
+                <Th>Sprog</Th>
                 <Th>Status</Th>
-                <Th>Allowed Areas</Th>
-                <Th>Allowed Modules</Th>
-                <Th>Last Login</Th>
+                <Th>Approved</Th>
+                <Th>Active</Th>
+                <Th>Role</Th>
+                <Th>Created</Th>
                 <Th>Actions</Th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {users.map((u) => {
+                const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
+                return (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <Td>
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white text-[11px] font-bold">
-                      {u.initials}
-                    </span>
+                  <Td className="font-semibold text-slate-900">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">
+                        {u.initials}
+                      </span>
+                      {u.name}
+                    </div>
                   </Td>
-                  <Td className="font-semibold text-slate-900">{u.name}</Td>
                   <Td className="text-slate-600">{u.email}</Td>
-                  <Td>{u.company}</Td>
-                  <Td>{u.country}</Td>
-                  <Td>{PORTAL_ROLE_LABELS[u.role].da}</Td>
+                  <Td>{u.company || "—"}</Td>
+                  <Td>{u.country || "—"}</Td>
+                  <Td>{u.postal_code || "—"}</Td>
+                  <Td>{langOpt ? `${langOpt.flag}` : u.language?.toUpperCase()}</Td>
                   <Td>
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_PILL[u.status]}`}>
                       {STATUS_LABEL[u.status]}
                     </span>
                   </Td>
                   <Td>
-                    <div className="flex flex-wrap gap-1 max-w-[220px]">
-                      {u.allowed_areas.map((a) => (
-                        <span key={a} className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                          {AREA_LABEL[a]}
-                        </span>
-                      ))}
-                    </div>
+                    {u.approved
+                      ? <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Yes</span>
+                      : <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">No</span>}
                   </Td>
                   <Td>
-                    <div className="flex flex-wrap gap-1 max-w-[260px]">
-                      {u.allowed_modules.map((m) => (
-                        <span key={m} className="inline-flex rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
-                          {MODULE_LABEL[m] || m}
-                        </span>
-                      ))}
-                      {u.backend_modules.map((m) => (
-                        <span key={m} className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                          {BACKEND_MODULE_LABEL[m]}
-                        </span>
-                      ))}
-                    </div>
+                    {u.is_active
+                      ? <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Yes</span>
+                      : <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">No</span>}
                   </Td>
-                  <Td className="text-slate-500 text-xs">{formatLastLogin(u.last_login_at)}</Td>
+                  <Td>{PORTAL_ROLE_LABELS[u.role]?.da ?? u.role}</Td>
+                  <Td className="text-slate-500 text-xs whitespace-nowrap">
+                    {(() => { try { return new Date(u.created_at).toLocaleDateString("da-DK"); } catch { return "—"; } })()}
+                  </Td>
                   <Td>
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(u.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {!u.approved && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setSaveError(null);
+                            const patch: BackendUser = { ...u, approved: true, is_active: true, status: "active" };
+                            const res = await saveBackendUser(u.id, patch);
+                            if (!res.ok) setSaveError(res.error ?? "Kunne ikke godkende.");
+                            await reload();
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Approve
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(u.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    </div>
                   </Td>
                 </tr>
-              ))}
+              );})}
+              {users.length === 0 && !loadingUsers && (
+                <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
