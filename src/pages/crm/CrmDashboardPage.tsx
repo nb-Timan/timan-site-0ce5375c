@@ -626,6 +626,11 @@ export default function CrmDashboardPage() {
             })()}
           </Card>
         </div>
+
+        {/* CRM Calendar — upcoming planned dealer activities */}
+        <div className="mt-6">
+          <UpcomingActivitiesWidget />
+        </div>
       </div>
     </CrmLayout>
   );
