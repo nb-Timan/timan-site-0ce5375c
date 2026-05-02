@@ -57,6 +57,9 @@ export default function BackendDealerAccountsPage() {
   const [customerType, setCustomerType] = useState<string>("");
   const [seller, setSeller] = useState<string>("");
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
