@@ -46,6 +46,7 @@ function loadFromStorage(): SessionUser | null {
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
   const [loading, setLoading] = useState(true);
+  const [dealerStatus, setDealerStatus] = useState<DealerAccessStatus | null>(null);
 
   const setAppUser = useCallback((user: SessionUser | null) => {
     setAppUserState(user);
@@ -53,8 +54,29 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(user));
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
+      setDealerStatus(null);
     }
   }, []);
+
+  // Refresh dealer block/delete status whenever the user (and their dealer link) changes.
+  useEffect(() => {
+    let cancelled = false;
+    const dn = appUser?.dealer_number ?? null;
+    if (!appUser || !dn) {
+      setDealerStatus(null);
+      return;
+    }
+    (async () => {
+      const res = await fetchDealerStatusForUser(dn);
+      if (cancelled) return;
+      if (res.linked) {
+        setDealerStatus({ isBlocked: res.isBlocked, isDeleted: res.isDeleted, companyName: res.companyName });
+      } else {
+        setDealerStatus(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [appUser]);
 
   // Re-hydrate from Supabase session on mount: if a session exists but no cached user, look up app_users.
   useEffect(() => {
