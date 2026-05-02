@@ -33,6 +33,9 @@ export interface DealerAccount {
   is_deleted: boolean;
   deleted_at: string | null;
   deleted_by: string | null;
+  parent_account_number: string | null;
+  is_main_account: boolean;
+  branch_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +72,9 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     is_deleted: Boolean(row.is_deleted ?? false),
     deleted_at: (row.deleted_at as string | null) ?? null,
     deleted_by: (row.deleted_by as string | null) ?? null,
+    parent_account_number: (row.parent_account_number as string | null) ?? null,
+    is_main_account: Boolean(row.is_main_account ?? false),
+    branch_name: (row.branch_name as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
@@ -747,4 +753,165 @@ export async function upsertDealerAccountsBulk(
   } catch (e) {
     return { ok: false, error: describeSupabaseError("CSV import fejlede", e) };
   }
+}
+
+// ============================================================
+// Phase 15 — Parent / child dealer relationships
+// ------------------------------------------------------------
+// Both helpers call SECURITY DEFINER RPCs added in
+// docs/sql/phase15_dealer_parent_child.sql. Authorization
+// (timan_backend only) is enforced inside the database.
+// ============================================================
+
+/** Set or clear a dealer's parent account. Pass parent=null to detach. */
+export async function setDealerParent(
+  childAccountNumber: string,
+  parentAccountNumber: string | null,
+  markParentAsMain: boolean = true,
+): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
+  try {
+    const { data, error } = await supabase.rpc("set_dealer_parent", {
+      child_account_number: childAccountNumber,
+      parent_account_number: parentAccountNumber ?? null,
+      mark_parent_as_main: markParentAsMain,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown> | null);
+    return { ok: true, row: row ? rowToDealer(row) : undefined };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("Kunne ikke opdatere forhandler-relation", e) };
+  }
+}
+
+/** Toggle the is_main_account flag. */
+export async function setDealerMain(
+  accountNumber: string,
+  isMain: boolean,
+): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
+  try {
+    const { data, error } = await supabase.rpc("set_dealer_main", {
+      p_account_number: accountNumber,
+      p_is_main: isMain,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown> | null);
+    return { ok: true, row: row ? rowToDealer(row) : undefined };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("Kunne ikke opdatere hovedstatus", e) };
+  }
+}
+
+/** Update the branch_name label on a dealer (e.g. "Nordjylland", "Hovedkontor"). */
+export async function updateDealerBranchName(
+  id: string,
+  branchName: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from("dealer_accounts")
+      .update({ branch_name: branchName, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("Kunne ikke opdatere branch_name", e) };
+  }
+}
+
+// ----------------------------------------------------------------
+// Grouping helpers (UI-side aggregation, no DB roundtrip needed)
+// ----------------------------------------------------------------
+
+export interface DealerGroup {
+  /** The "anchor" account: explicit main, or self if standalone. */
+  main: DealerAccount;
+  /** Branches whose parent_account_number === main.account_number. */
+  branches: DealerAccount[];
+}
+
+/**
+ * Group dealers into main + branches.
+ *   • Branch rows (parent_account_number set) attach to their parent.
+ *   • Orphan branches (parent points to missing/deleted dealer) are
+ *     surfaced as standalone groups so they remain visible.
+ *   • Dealers with is_main_account=true but no children still appear.
+ */
+export function groupDealersByParent(rows: DealerAccount[]): DealerGroup[] {
+  const byAcct = new Map<string, DealerAccount>();
+  for (const r of rows) byAcct.set(r.account_number, r);
+
+  const groups = new Map<string, DealerGroup>();
+  // First pass: create a group for every potential main account.
+  for (const r of rows) {
+    if (!r.parent_account_number) {
+      groups.set(r.account_number, { main: r, branches: [] });
+    }
+  }
+  // Second pass: attach branches to parents.
+  for (const r of rows) {
+    if (!r.parent_account_number) continue;
+    const parent = byAcct.get(r.parent_account_number);
+    if (parent && groups.has(parent.account_number)) {
+      groups.get(parent.account_number)!.branches.push(r);
+    } else {
+      // Orphan branch — show on its own.
+      groups.set(r.account_number, { main: r, branches: [] });
+    }
+  }
+  // Sort branches alphabetically.
+  for (const g of groups.values()) {
+    g.branches.sort((a, b) =>
+      (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"),
+    );
+  }
+  return Array.from(groups.values()).sort((a, b) =>
+    a.main.company_name.localeCompare(b.main.company_name, "da"),
+  );
+}
+
+/** Aggregate stats across a main dealer + its branches. */
+export function aggregateGroupStats(
+  group: DealerGroup,
+  statsById: Record<string, DealerAccountStats>,
+): { user_count: number; quote_count: number; order_count: number; activity_count: number; last_activity_at: string | null } {
+  const all = [group.main, ...group.branches];
+  let user_count = 0, quote_count = 0, order_count = 0, activity_count = 0;
+  let last: string | null = null;
+  for (const d of all) {
+    const s = statsById[d.id];
+    if (!s) continue;
+    user_count     += s.user_count;
+    quote_count    += s.quote_count;
+    order_count    += s.order_count;
+    activity_count += s.activity_count;
+    if (s.last_activity_at && (!last || s.last_activity_at > last)) last = s.last_activity_at;
+  }
+  return { user_count, quote_count, order_count, activity_count, last_activity_at: last };
+}
+
+/** Resolve effective seller (with inheritance from parent). */
+export function resolveEffectiveSeller(
+  dealer: DealerAccount,
+  byAcct: Map<string, DealerAccount>,
+): { initials: string | null; name: string | null; email: string | null; inherited: boolean } {
+  if (dealer.assigned_seller_initials || dealer.assigned_seller_email) {
+    return {
+      initials: dealer.assigned_seller_initials,
+      name: dealer.assigned_seller_name,
+      email: dealer.assigned_seller_email,
+      inherited: false,
+    };
+  }
+  if (dealer.parent_account_number) {
+    const parent = byAcct.get(dealer.parent_account_number);
+    if (parent && (parent.assigned_seller_initials || parent.assigned_seller_email)) {
+      return {
+        initials: parent.assigned_seller_initials,
+        name: parent.assigned_seller_name,
+        email: parent.assigned_seller_email,
+        inherited: true,
+      };
+    }
+  }
+  return { initials: null, name: null, email: null, inherited: false };
 }
