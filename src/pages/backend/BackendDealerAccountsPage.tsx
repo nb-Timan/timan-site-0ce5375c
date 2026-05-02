@@ -502,6 +502,16 @@ function EditSellerModal({
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
+          {dealer.is_deleted && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              <strong>Slettet</strong> — denne forhandler er soft-deleted{dealer.deleted_at ? ` ${fmtDate(dealer.deleted_at)}` : ""}{dealer.deleted_by ? ` af ${dealer.deleted_by}` : ""}. Linkede brugere kan ikke logge på portalen.
+            </div>
+          )}
+          {dealer.is_blocked && !dealer.is_deleted && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>Spærret</strong> — denne forhandler er blokeret{dealer.blocked_at ? ` ${fmtDate(dealer.blocked_at)}` : ""}{dealer.blocked_by ? ` af ${dealer.blocked_by}` : ""}. Linkede brugere kan ikke logge på portalen.
+            </div>
+          )}
           <label className="block">
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Vælg sælger</span>
             <select value={matched?.id ?? ""} onChange={(e) => applySeller(e.target.value)}
