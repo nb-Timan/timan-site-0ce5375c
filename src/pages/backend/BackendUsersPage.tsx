@@ -95,6 +95,7 @@ export default function BackendUsersPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [users, setUsers] = useState<BackendUser[]>([]);
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [source, setSource] = useState<BackendUsersSource>("supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,10 +107,11 @@ export default function BackendUsersPage() {
   const reload = useMemo(
     () => async () => {
       setLoadingUsers(true);
-      const res = await fetchBackendUsers();
-      setUsers(res.users);
-      setSource(res.source);
-      setLoadError(res.error ?? null);
+      const [uRes, dRes] = await Promise.all([fetchBackendUsers(), fetchDealerAccounts()]);
+      setUsers(uRes.users);
+      setSource(uRes.source);
+      setLoadError(uRes.error ?? null);
+      setDealers(dRes.rows);
       setLoadingUsers(false);
     },
     [],
