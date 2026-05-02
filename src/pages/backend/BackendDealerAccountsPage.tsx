@@ -205,45 +205,106 @@ export default function BackendDealerAccountsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
               <tr>
+                <Th>{""}</Th>
                 <Th>Firmanavn</Th>
                 <Th>Kontonr</Th>
                 <Th>Kundetype</Th>
                 <Th>Land</Th>
                 <Th>Tildelt sælger</Th>
-                <Th>Sælger email</Th>
-                <Th>Oprettet (kilde)</Th>
-                <Th>Ændret (kilde)</Th>
+                <Th>Brugere</Th>
+                <Th>Tilbud</Th>
+                <Th>Ordrer</Th>
+                <Th>Sidste aktivitet</Th>
                 <Th>Handlinger</Th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <Td className="font-semibold text-slate-900">{r.company_name}</Td>
-                  <Td>{r.account_number}</Td>
-                  <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
-                  <Td>{r.country || "—"}</Td>
-                  <Td>
-                    {r.assigned_seller_initials
-                      ? <span className="inline-flex items-center gap-1.5"><span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{r.assigned_seller_initials}</span>{r.assigned_seller_name}</span>
-                      : <span className="text-rose-600 text-xs font-semibold">Ikke tildelt</span>}
-                  </Td>
-                  <Td className="text-slate-600">{r.assigned_seller_email || "—"}</Td>
-                  <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(r.source_created_at)}</Td>
-                  <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(r.source_changed_at)}</Td>
-                  <Td>
-                    <button type="button" onClick={() => setEditing(r)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
-                      <Pencil className="h-3.5 w-3.5" /> Rediger
-                    </button>
-                  </Td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const s = stats[r.id];
+                const userCount = s?.user_count ?? 0;
+                const isOpen = expanded.has(r.id);
+                const linkedUsers = s?.user_ids
+                  ? allUsers.filter((u) => s.user_ids.includes(u.id))
+                  : allUsers.filter((u) => u.dealer_number === r.account_number);
+                return (
+                  <>
+                    <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                      <Td>
+                        <button
+                          type="button"
+                          aria-label={isOpen ? "Skjul brugere" : "Vis brugere"}
+                          onClick={() => setExpanded((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                            return next;
+                          })}
+                          className="rounded-md p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                          disabled={userCount === 0 && linkedUsers.length === 0}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      </Td>
+                      <Td className="font-semibold text-slate-900">{r.company_name}</Td>
+                      <Td>{r.account_number}</Td>
+                      <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
+                      <Td>{r.country || "—"}</Td>
+                      <Td>
+                        {r.assigned_seller_initials
+                          ? <span className="inline-flex items-center gap-1.5"><span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{r.assigned_seller_initials}</span>{r.assigned_seller_name}</span>
+                          : <span className="text-rose-600 text-xs font-semibold">Ikke tildelt</span>}
+                      </Td>
+                      <Td>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${userCount > 0 || linkedUsers.length > 0 ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                          {Math.max(userCount, linkedUsers.length)}
+                        </span>
+                      </Td>
+                      <Td className="text-slate-700">{s?.quote_count ?? 0}</Td>
+                      <Td className="text-slate-700">{s?.order_count ?? 0}</Td>
+                      <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(s?.last_activity_at ?? null)}</Td>
+                      <Td>
+                        <button type="button" onClick={() => setEditing(r)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
+                          <Pencil className="h-3.5 w-3.5" /> Rediger
+                        </button>
+                      </Td>
+                    </tr>
+                    {isOpen && linkedUsers.length > 0 && (
+                      <tr className="bg-slate-50/60">
+                        <td colSpan={11} className="px-6 py-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                            {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} tilknyttet {r.company_name}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {linkedUsers.map((u) => (
+                              <Link
+                                key={u.id}
+                                to="/portal/backend/users"
+                                className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs hover:border-slate-400"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{u.initials}</span>
+                                  <div>
+                                    <div className="font-semibold text-slate-900">{u.name}</div>
+                                    <div className="text-slate-500">{u.email}</div>
+                                  </div>
+                                </div>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                                  {u.approved ? "Approved" : "Pending"}
+                                </span>
+                              </Link>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
               {filtered.length === 0 && !loadingRows && (
-                <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">Ingen forhandlere fundet.</td></tr>
+                <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">Ingen forhandlere fundet.</td></tr>
               )}
               {loadingRows && (
-                <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">Henter forhandlere…</td></tr>
+                <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">Henter forhandlere…</td></tr>
               )}
             </tbody>
           </table>
