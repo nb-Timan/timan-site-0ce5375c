@@ -27,6 +27,12 @@ export interface DealerAccount {
   assigned_seller_email: string | null;
   source_created_at: string | null;
   source_changed_at: string | null;
+  is_blocked: boolean;
+  blocked_at: string | null;
+  blocked_by: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  deleted_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,12 +63,18 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
     source_created_at: (row.source_created_at as string | null) ?? null,
     source_changed_at: (row.source_changed_at as string | null) ?? null,
+    is_blocked: Boolean(row.is_blocked ?? false),
+    blocked_at: (row.blocked_at as string | null) ?? null,
+    blocked_by: (row.blocked_by as string | null) ?? null,
+    is_deleted: Boolean(row.is_deleted ?? false),
+    deleted_at: (row.deleted_at as string | null) ?? null,
+    deleted_by: (row.deleted_by as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
 }
 
-export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
+export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {}): Promise<DealerAccountsResult> {
   try {
     // Require an active Supabase Auth session — dealer_accounts RLS is
     // restricted to authenticated Timan Backend users.
@@ -77,10 +89,14 @@ export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
       };
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("dealer_accounts")
       .select("*")
       .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) {
+      query = query.or("is_deleted.is.null,is_deleted.eq.false");
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
   } catch (e) {
@@ -137,6 +153,8 @@ export interface DealerAccountStats {
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
+  is_blocked: boolean;
+  is_deleted: boolean;
   user_count: number;
   activity_count: number;
   quote_count: number;
@@ -162,6 +180,8 @@ function rowToStats(row: Record<string, unknown>): DealerAccountStats {
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
+    is_blocked: Boolean(row.is_blocked ?? false),
+    is_deleted: Boolean(row.is_deleted ?? false),
     user_count: Number(row.user_count ?? 0),
     activity_count: Number(row.activity_count ?? 0),
     quote_count: Number(row.quote_count ?? 0),
@@ -244,6 +264,8 @@ export async function fetchDealerAccountStats(): Promise<{
       assigned_seller_initials: dealer.assigned_seller_initials,
       assigned_seller_name: dealer.assigned_seller_name,
       assigned_seller_email: dealer.assigned_seller_email,
+      is_blocked: dealer.is_blocked,
+      is_deleted: dealer.is_deleted,
       user_count: linked.length,
       activity_count: a?.total ?? 0,
       quote_count: a?.quote ?? 0,
@@ -299,3 +321,111 @@ export async function fetchPendingUserCount(): Promise<number> {
   }
 }
 
+
+// ============================================================
+// Block / unblock / soft-delete / restore — Phase 12
+// ------------------------------------------------------------
+// These helpers never touch user data, quotes, orders or pricing.
+// They flip flags on dealer_accounts only. Access is restricted by
+// RLS to portal_role = 'timan_backend'.
+// ============================================================
+
+export async function setDealerBlocked(
+  id: string,
+  blocked: boolean,
+  adminEmail: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const patch: Record<string, unknown> = blocked
+      ? { is_blocked: true, blocked_at: new Date().toISOString(), blocked_by: adminEmail ?? null }
+      : { is_blocked: false, blocked_at: null, blocked_by: null };
+    patch.updated_at = new Date().toISOString();
+    const { error } = await supabase.from("dealer_accounts").update(patch).eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function softDeleteDealer(
+  id: string,
+  adminEmail: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from("dealer_accounts")
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by: adminEmail ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function restoreDealer(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from("dealer_accounts")
+      .update({
+        is_deleted: false,
+        deleted_at: null,
+        deleted_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Look up the block/delete status of the dealer linked to a given user
+ * (by app_users.dealer_number → dealer_accounts.account_number).
+ *
+ * Returns { linked: false } when the user has no dealer link — in that
+ * case access is NOT denied here (admins / Timan staff have no dealer).
+ */
+export async function fetchDealerStatusForUser(
+  dealerNumber: string | null | undefined,
+): Promise<{
+  linked: boolean;
+  isBlocked: boolean;
+  isDeleted: boolean;
+  companyName: string | null;
+  error?: string;
+}> {
+  const dn = (dealerNumber ?? "").trim();
+  if (!dn) return { linked: false, isBlocked: false, isDeleted: false, companyName: null };
+  try {
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .select("company_name, is_blocked, is_deleted")
+      .eq("account_number", dn)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { linked: false, isBlocked: false, isDeleted: false, companyName: null };
+    return {
+      linked: true,
+      isBlocked: Boolean((data as Record<string, unknown>).is_blocked ?? false),
+      isDeleted: Boolean((data as Record<string, unknown>).is_deleted ?? false),
+      companyName: ((data as Record<string, unknown>).company_name as string | null) ?? null,
+    };
+  } catch (e) {
+    return {
+      linked: false,
+      isBlocked: false,
+      isDeleted: false,
+      companyName: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}

@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, ChevronDown, ChevronRight, Lock, Pencil, RotateCcw, Search, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -20,6 +20,9 @@ import {
   DealerAccountStats,
   fetchDealerAccountStats,
   fetchDealerAccounts,
+  restoreDealer,
+  setDealerBlocked,
+  softDeleteDealer,
   updateDealerSeller,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
@@ -54,6 +57,9 @@ export default function BackendDealerAccountsPage() {
   const [customerType, setCustomerType] = useState<string>("");
   const [seller, setSeller] = useState<string>("");
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
@@ -73,7 +79,7 @@ export default function BackendDealerAccountsPage() {
   const reload = useMemo(() => async () => {
     setLoadingRows(true);
     const [dRes, uRes, sRes] = await Promise.all([
-      fetchDealerAccounts(),
+      fetchDealerAccounts({ includeDeleted: showDeleted }),
       fetchBackendUsers(),
       fetchDealerAccountStats(),
     ]);
@@ -85,7 +91,7 @@ export default function BackendDealerAccountsPage() {
     for (const s of sRes.rows) map[s.id] = s;
     setStats(map);
     setLoadingRows(false);
-  }, []);
+  }, [showDeleted]);
 
   useEffect(() => {
     if (authChecked && hasSupabaseSession) void reload();
@@ -195,9 +201,13 @@ export default function BackendDealerAccountsPage() {
             <option value="">Alle sælgere</option>
             {sellerInitials.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <label className="md:col-span-5 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <label className="md:col-span-3 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
             <input type="checkbox" checked={unassignedOnly} onChange={(e) => setUnassignedOnly(e.target.checked)} className="h-4 w-4" />
             Vis kun forhandlere uden tildelt sælger
+          </label>
+          <label className="md:col-span-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} className="h-4 w-4" />
+            Vis slettede forhandlere
           </label>
         </div>
 
@@ -228,7 +238,7 @@ export default function BackendDealerAccountsPage() {
                   : allUsers.filter((u) => u.dealer_number === r.account_number);
                 return (
                   <React.Fragment key={r.id}>
-                    <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <tr key={r.id} className={`border-t border-slate-100 hover:bg-slate-50/60 ${r.is_deleted ? "bg-rose-50/40" : r.is_blocked ? "bg-amber-50/40" : ""}`}>
                       <Td>
                         <button
                           type="button"
@@ -244,7 +254,21 @@ export default function BackendDealerAccountsPage() {
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                       </Td>
-                      <Td className="font-semibold text-slate-900">{r.company_name}</Td>
+                      <Td className={`font-semibold ${(r.is_blocked || r.is_deleted) ? "text-rose-700" : "text-slate-900"}`}>
+                        <span className="inline-flex items-center gap-2">
+                          {r.company_name}
+                          {r.is_blocked && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                              <Ban className="h-3 w-3" /> Spærret
+                            </span>
+                          )}
+                          {r.is_deleted && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                              <Trash2 className="h-3 w-3" /> Slettet
+                            </span>
+                          )}
+                        </span>
+                      </Td>
                       <Td>{r.account_number}</Td>
                       <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
                       <Td>{r.country || "—"}</Td>
@@ -262,10 +286,43 @@ export default function BackendDealerAccountsPage() {
                       <Td className="text-slate-700">{s?.order_count ?? 0}</Td>
                       <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(s?.last_activity_at ?? null)}</Td>
                       <Td>
-                        <button type="button" onClick={() => setEditing(r)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
-                          <Pencil className="h-3.5 w-3.5" /> Rediger
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button type="button" onClick={() => setEditing(r)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
+                            <Pencil className="h-3 w-3" /> Rediger
+                          </button>
+                          {r.is_deleted ? (
+                            <button type="button" disabled={busyId === r.id}
+                              onClick={async () => {
+                                setBusyId(r.id); setSaveError(null);
+                                const res = await restoreDealer(r.id);
+                                setBusyId(null);
+                                if (!res.ok) { setSaveError(res.error ?? "Kunne ikke gendanne."); return; }
+                                await reload();
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                              <RotateCcw className="h-3 w-3" /> Gendan
+                            </button>
+                          ) : (
+                            <>
+                              <button type="button" disabled={busyId === r.id}
+                                onClick={async () => {
+                                  setBusyId(r.id); setSaveError(null);
+                                  const res = await setDealerBlocked(r.id, !r.is_blocked, appUser?.email ?? null);
+                                  setBusyId(null);
+                                  if (!res.ok) { setSaveError(res.error ?? "Kunne ikke opdatere."); return; }
+                                  await reload();
+                                }}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-50 ${r.is_blocked ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                                {r.is_blocked ? (<><CheckCircle2 className="h-3 w-3" /> Ophæv</>) : (<><Ban className="h-3 w-3" /> Spær</>)}
+                              </button>
+                              <button type="button" onClick={() => setConfirmDelete(r)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
+                                <Trash2 className="h-3 w-3" /> Slet
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </Td>
                     </tr>
                     {isOpen && linkedUsers.length > 0 && (
@@ -331,6 +388,77 @@ export default function BackendDealerAccountsPage() {
           }}
         />
       )}
+
+      {confirmDelete && (
+        <ConfirmDeleteDealerModal
+          dealer={confirmDelete}
+          linkedUserCount={stats[confirmDelete.id]?.user_count ?? 0}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            setSaveError(null);
+            const res = await softDeleteDealer(confirmDelete.id, appUser?.email ?? null);
+            if (!res.ok) { setSaveError(res.error ?? "Kunne ikke slette."); return; }
+            setConfirmDelete(null);
+            await reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmDeleteDealerModal({
+  dealer, linkedUserCount, onClose, onConfirm,
+}: {
+  dealer: DealerAccount;
+  linkedUserCount: number;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const ok = text.trim().toUpperCase() === "DELETE" || text.trim().toUpperCase() === "SLET";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full">
+        <div className="flex items-start gap-3 border-b border-slate-200 px-6 py-4">
+          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-slate-900">Slet forhandler</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{dealer.company_name} · {dealer.account_number}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-slate-700">
+            Are you sure you want to delete this dealer account? This will hide
+            the dealer from the portal and may affect <strong>{linkedUserCount}</strong> linked
+            user{linkedUserCount === 1 ? "" : "s"}. Normally you should <strong>block</strong>
+            {" "}the dealer instead.
+          </p>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+            Soft delete only — data is preserved and can be restored from the
+            "Vis slettede" filter.
+          </div>
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">
+              Skriv <code className="bg-slate-100 px-1 rounded">DELETE</code> eller <code className="bg-slate-100 px-1 rounded">SLET</code> for at bekræfte
+            </span>
+            <input value={text} onChange={(e) => setText(e.target.value)} autoFocus
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm uppercase tracking-wider" />
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
+          <button
+            onClick={() => { if (ok) void onConfirm(); }}
+            disabled={!ok}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            Slet forhandler
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -374,6 +502,16 @@ function EditSellerModal({
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
+          {dealer.is_deleted && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              <strong>Slettet</strong> — denne forhandler er soft-deleted{dealer.deleted_at ? ` ${fmtDate(dealer.deleted_at)}` : ""}{dealer.deleted_by ? ` af ${dealer.deleted_by}` : ""}. Linkede brugere kan ikke logge på portalen.
+            </div>
+          )}
+          {dealer.is_blocked && !dealer.is_deleted && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>Spærret</strong> — denne forhandler er blokeret{dealer.blocked_at ? ` ${fmtDate(dealer.blocked_at)}` : ""}{dealer.blocked_by ? ` af ${dealer.blocked_by}` : ""}. Linkede brugere kan ikke logge på portalen.
+            </div>
+          )}
           <label className="block">
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Vælg sælger</span>
             <select value={matched?.id ?? ""} onChange={(e) => applySeller(e.target.value)}

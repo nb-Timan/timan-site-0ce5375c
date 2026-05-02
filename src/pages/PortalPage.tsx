@@ -33,7 +33,7 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
 };
 
 export default function PortalPage() {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
@@ -73,6 +73,43 @@ export default function PortalPage() {
   }
 
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+
+  // Dealer block / soft-delete gate. Timan staff (no dealer link) are unaffected.
+  if (dealerStatus?.isDeleted || dealerStatus?.isBlocked) {
+    const isDeleted = dealerStatus.isDeleted;
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
+          onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
+        <main className="max-w-xl mx-auto px-4 py-16 flex-grow w-full">
+          <div className="bg-white border border-rose-200 rounded-2xl shadow-sm p-8 text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-rose-100 flex items-center justify-center mb-4">
+              <svg className="h-7 w-7 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900">
+              {isDeleted ? 'Forhandlerkonto er ikke længere aktiv' : 'Forhandlerkonto er spærret'}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
+              {isDeleted
+                ? 'This dealer account is no longer active. Please contact Timan.'
+                : 'This dealer account is blocked. Please contact Timan.'}
+            </p>
+            {dealerStatus.companyName && (
+              <p className="mt-3 text-xs text-slate-500">{dealerStatus.companyName}</p>
+            )}
+            <button
+              type="button"
+              onClick={async () => { await logout(); navigate('/portal', { replace: true }); }}
+              className="mt-6 inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+            >
+              Log ud
+            </button>
+          </div>
+        </main>
+        <PortalFooter language={lang} />
+      </div>
+    );
+  }
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, appUser));
 

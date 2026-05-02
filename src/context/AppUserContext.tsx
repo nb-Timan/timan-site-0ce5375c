@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -11,13 +12,21 @@ export type SessionUser = AppUser & {
   company_dealer?: string | null;
   module_access?: string[] | null;
   status?: string | null;
+  dealer_number?: string | null;
 };
+
+export interface DealerAccessStatus {
+  isBlocked: boolean;
+  isDeleted: boolean;
+  companyName: string | null;
+}
 
 interface AppUserContextValue {
   appUser: SessionUser | null;
   loading: boolean;
   setAppUser: (user: SessionUser | null) => void;
   logout: () => Promise<void>;
+  dealerStatus: DealerAccessStatus | null;
 }
 
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
@@ -37,6 +46,7 @@ function loadFromStorage(): SessionUser | null {
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
   const [loading, setLoading] = useState(true);
+  const [dealerStatus, setDealerStatus] = useState<DealerAccessStatus | null>(null);
 
   const setAppUser = useCallback((user: SessionUser | null) => {
     setAppUserState(user);
@@ -44,8 +54,29 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(user));
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
+      setDealerStatus(null);
     }
   }, []);
+
+  // Refresh dealer block/delete status whenever the user (and their dealer link) changes.
+  useEffect(() => {
+    let cancelled = false;
+    const dn = appUser?.dealer_number ?? null;
+    if (!appUser || !dn) {
+      setDealerStatus(null);
+      return;
+    }
+    (async () => {
+      const res = await fetchDealerStatusForUser(dn);
+      if (cancelled) return;
+      if (res.linked) {
+        setDealerStatus({ isBlocked: res.isBlocked, isDeleted: res.isDeleted, companyName: res.companyName });
+      } else {
+        setDealerStatus(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [appUser]);
 
   // Re-hydrate from Supabase session on mount: if a session exists but no cached user, look up app_users.
   useEffect(() => {
@@ -59,10 +90,11 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           return;
         }
         const cached = loadFromStorage();
-        // Refresh from DB if cache is missing portal_role (stale pre-Phase 1B cache).
+        // Refresh from DB if cache is missing portal_role or dealer_number (stale cache).
         const cacheIsFresh = cached
           && cached.email.toLowerCase() === session.user.email.toLowerCase()
-          && Object.prototype.hasOwnProperty.call(cached, 'portal_role');
+          && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
+          && Object.prototype.hasOwnProperty.call(cached, 'dealer_number');
         if (cacheIsFresh) {
           setLoading(false);
           return;
@@ -99,6 +131,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
             company_dealer: row.company_dealer ?? null,
             module_access: row.module_access ?? null,
             status: row.status ?? null,
+            dealer_number: row.dealer_number ?? null,
           });
         } else {
           // Session present but not approved → treat as guest with limited access
@@ -125,7 +158,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   return (
-    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout }}>
+    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout, dealerStatus }}>
       {children}
     </AppUserContext.Provider>
   );
