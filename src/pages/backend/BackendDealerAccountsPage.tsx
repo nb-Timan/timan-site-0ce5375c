@@ -238,7 +238,7 @@ export default function BackendDealerAccountsPage() {
                   : allUsers.filter((u) => u.dealer_number === r.account_number);
                 return (
                   <React.Fragment key={r.id}>
-                    <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <tr key={r.id} className={`border-t border-slate-100 hover:bg-slate-50/60 ${r.is_deleted ? "bg-rose-50/40" : r.is_blocked ? "bg-amber-50/40" : ""}`}>
                       <Td>
                         <button
                           type="button"
@@ -254,7 +254,21 @@ export default function BackendDealerAccountsPage() {
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                       </Td>
-                      <Td className="font-semibold text-slate-900">{r.company_name}</Td>
+                      <Td className={`font-semibold ${(r.is_blocked || r.is_deleted) ? "text-rose-700" : "text-slate-900"}`}>
+                        <span className="inline-flex items-center gap-2">
+                          {r.company_name}
+                          {r.is_blocked && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                              <Ban className="h-3 w-3" /> Spærret
+                            </span>
+                          )}
+                          {r.is_deleted && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                              <Trash2 className="h-3 w-3" /> Slettet
+                            </span>
+                          )}
+                        </span>
+                      </Td>
                       <Td>{r.account_number}</Td>
                       <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
                       <Td>{r.country || "—"}</Td>
@@ -272,10 +286,43 @@ export default function BackendDealerAccountsPage() {
                       <Td className="text-slate-700">{s?.order_count ?? 0}</Td>
                       <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(s?.last_activity_at ?? null)}</Td>
                       <Td>
-                        <button type="button" onClick={() => setEditing(r)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
-                          <Pencil className="h-3.5 w-3.5" /> Rediger
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button type="button" onClick={() => setEditing(r)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
+                            <Pencil className="h-3 w-3" /> Rediger
+                          </button>
+                          {r.is_deleted ? (
+                            <button type="button" disabled={busyId === r.id}
+                              onClick={async () => {
+                                setBusyId(r.id); setSaveError(null);
+                                const res = await restoreDealer(r.id);
+                                setBusyId(null);
+                                if (!res.ok) { setSaveError(res.error ?? "Kunne ikke gendanne."); return; }
+                                await reload();
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                              <RotateCcw className="h-3 w-3" /> Gendan
+                            </button>
+                          ) : (
+                            <>
+                              <button type="button" disabled={busyId === r.id}
+                                onClick={async () => {
+                                  setBusyId(r.id); setSaveError(null);
+                                  const res = await setDealerBlocked(r.id, !r.is_blocked, appUser?.email ?? null);
+                                  setBusyId(null);
+                                  if (!res.ok) { setSaveError(res.error ?? "Kunne ikke opdatere."); return; }
+                                  await reload();
+                                }}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-50 ${r.is_blocked ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                                {r.is_blocked ? (<><CheckCircle2 className="h-3 w-3" /> Ophæv</>) : (<><Ban className="h-3 w-3" /> Spær</>)}
+                              </button>
+                              <button type="button" onClick={() => setConfirmDelete(r)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
+                                <Trash2 className="h-3 w-3" /> Slet
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </Td>
                     </tr>
                     {isOpen && linkedUsers.length > 0 && (
