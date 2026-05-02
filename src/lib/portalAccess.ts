@@ -198,22 +198,32 @@ export function getWarrantyViewVariant(role: PortalRole | null): WarrantyViewVar
 // ---------- Mapping from existing AppUser → PortalRole ----------
 // Keeps backward compat with current UserRole/PartnerType so we don't break
 // configurator, pricing or auth.
-export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
+export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { email?: string | null; portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
   if (!user) return null;
-  if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
-    return user.portal_role as PortalRole;
-  }
-  if (user.role === 'timan_saelger') return 'timan_seller';
-  if (user.role === 'partner') {
-    switch (user.partner_type) {
-      case 'forhandler':      return 'timan_dealer';
-      case 'service_partner': return user.module_access?.includes('tsb') ? 'timan_service' : 'timan_service_partner';
-      case 'importoer':       return 'timan_importer';
-      default:                return 'dealer_user';
+  const baseRole: PortalRole | null = (() => {
+    if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
+      return user.portal_role as PortalRole;
     }
+    if (user.role === 'timan_saelger') return 'timan_seller';
+    if (user.role === 'partner') {
+      switch (user.partner_type) {
+        case 'forhandler':      return 'timan_dealer';
+        case 'service_partner': return user.module_access?.includes('tsb') ? 'timan_service' : 'timan_service_partner';
+        case 'importoer':       return 'timan_importer';
+        default:                return 'dealer_user';
+      }
+    }
+    return null;
+  })();
+
+  // Active-mode override: backend users explicitly opted-in (BP/NB) can act
+  // as a Timan Sælger in the UI. The DB role is unchanged — this only
+  // controls navigation, area visibility, claims/warranty view variant
+  // and CRM scoping. Backend pages remain reachable via switching back.
+  if (baseRole === 'timan_backend' && user.email && canSwitchMode(user.email)) {
+    if (getActiveMode(user.email) === 'seller') return 'timan_seller';
   }
-  // slutkunde and unknowns → no portal role
-  return null;
+  return baseRole;
 }
 
 // ---------- Helpers ----------
