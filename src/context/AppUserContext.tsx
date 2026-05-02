@@ -157,7 +157,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   return (
-    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout }}>
+    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout, dealerStatus }}>
       {children}
     </AppUserContext.Provider>
   );
