@@ -1,7 +1,11 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
 import { Bell, LogOut } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
+import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
+import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -33,6 +37,24 @@ function getInitials(name: string): string {
 export default function PortalHeader({ user, language, onLanguageChange, onLogout }: Props) {
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  // Backend users see a notification badge when new users are awaiting
+  // approval. Polled lightly every 60s.
+  const portalRole = derivePortalRole(user);
+  const isBackend = portalRole ? !!getPortalPermissions(portalRole)?.isBackend : false;
+
+  useEffect(() => {
+    if (!isBackend) { setPendingCount(0); return; }
+    let cancelled = false;
+    const tick = async () => {
+      const n = await fetchPendingUserCount();
+      if (!cancelled) setPendingCount(n);
+    };
+    void tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [isBackend]);
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -62,9 +84,25 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               ))}
             </div>
 
-            <button className="p-2 text-gray-400 hover:text-[#2d5a27]" aria-label="Notifications">
-              <Bell className="h-6 w-6" />
-            </button>
+            {isBackend ? (
+              <Link
+                to="/portal/backend/users"
+                className="relative p-2 text-gray-400 hover:text-[#2d5a27]"
+                aria-label={pendingCount > 0 ? `${pendingCount} brugere afventer godkendelse` : 'Notifikationer'}
+                title={pendingCount > 0 ? `${pendingCount} bruger(e) afventer godkendelse` : 'Ingen nye brugere'}
+              >
+                <Bell className="h-6 w-6" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <button className="p-2 text-gray-400 hover:text-[#2d5a27]" aria-label="Notifications">
+                <Bell className="h-6 w-6" />
+              </button>
+            )}
 
             <div className="ml-4 flex items-center">
               <div className="h-8 w-8 rounded-full bg-[#2d5a27] flex items-center justify-center text-white text-xs font-bold">

@@ -95,6 +95,7 @@ export default function BackendUsersPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [users, setUsers] = useState<BackendUser[]>([]);
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [source, setSource] = useState<BackendUsersSource>("supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,10 +107,11 @@ export default function BackendUsersPage() {
   const reload = useMemo(
     () => async () => {
       setLoadingUsers(true);
-      const res = await fetchBackendUsers();
-      setUsers(res.users);
-      setSource(res.source);
-      setLoadError(res.error ?? null);
+      const [uRes, dRes] = await Promise.all([fetchBackendUsers(), fetchDealerAccounts()]);
+      setUsers(uRes.users);
+      setSource(uRes.source);
+      setLoadError(uRes.error ?? null);
+      setDealers(dRes.rows);
       setLoadingUsers(false);
     },
     [],
@@ -184,7 +186,17 @@ export default function BackendUsersPage() {
               <UsersIcon className="h-6 w-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Brugere</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                Brugere
+                {users.filter((u) => !u.approved).length > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800"
+                    title="Antal brugere der venter på godkendelse"
+                  >
+                    {users.filter((u) => !u.approved).length} afventer godkendelse
+                  </span>
+                )}
+              </h1>
               <p className="text-slate-500 mt-1 text-sm">Administrer brugere, roller, områder og modul-adgang.</p>
             </div>
           </div>
@@ -222,15 +234,15 @@ export default function BackendUsersPage() {
               <tr>
                 <Th>Name</Th>
                 <Th>Email</Th>
-                <Th>Company</Th>
+                <Th>Dealer</Th>
+                <Th>Type</Th>
+                <Th>Tildelt sælger</Th>
                 <Th>Country</Th>
-                <Th>Postnr.</Th>
                 <Th>Sprog</Th>
                 <Th>Status</Th>
                 <Th>Approved</Th>
                 <Th>Active</Th>
                 <Th>Role</Th>
-                <Th>Created</Th>
                 <Th>Auth</Th>
                 <Th>Actions</Th>
               </tr>
@@ -238,6 +250,10 @@ export default function BackendUsersPage() {
             <tbody>
               {users.map((u) => {
                 const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
+                const dealer = u.dealer_number ? dealers.find((d) => d.account_number === u.dealer_number) : undefined;
+                const dealerType = dealer?.customer_type_label || dealer?.customer_type || null;
+                const inheritedSellerInitials = dealer?.assigned_seller_initials || u.seller_initials || null;
+                const inheritedSellerName = dealer?.assigned_seller_name || null;
                 return (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <Td className="font-semibold text-slate-900">
@@ -249,9 +265,32 @@ export default function BackendUsersPage() {
                     </div>
                   </Td>
                   <Td className="text-slate-600">{u.email}</Td>
-                  <Td>{u.company || "—"}</Td>
+                  <Td>
+                    {u.dealer_number ? (
+                      <div className="text-xs">
+                        <div className="font-semibold text-slate-900">{dealer?.company_name || u.company_dealer || u.company || "—"}</div>
+                        <div className="text-slate-500">{u.dealer_number}</div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 text-xs">— ikke tilknyttet —</span>
+                    )}
+                  </Td>
+                  <Td>
+                    {dealerType
+                      ? <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{dealerType}</span>
+                      : <span className="text-slate-400 text-xs">—</span>}
+                  </Td>
+                  <Td>
+                    {inheritedSellerInitials ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{inheritedSellerInitials}</span>
+                        <span className="text-xs text-slate-700">{inheritedSellerName || ""}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </Td>
                   <Td>{u.country || "—"}</Td>
-                  <Td>{u.postal_code || "—"}</Td>
                   <Td>{langOpt ? `${langOpt.flag}` : u.language?.toUpperCase()}</Td>
                   <Td>
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_PILL[u.status]}`}>
@@ -269,9 +308,6 @@ export default function BackendUsersPage() {
                       : <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">No</span>}
                   </Td>
                   <Td>{PORTAL_ROLE_LABELS[u.role]?.da ?? u.role}</Td>
-                  <Td className="text-slate-500 text-xs whitespace-nowrap">
-                    {(() => { try { return new Date(u.created_at).toLocaleDateString("da-DK"); } catch { return "—"; } })()}
-                  </Td>
                   <Td>{authBadge(u)}</Td>
                   <Td>
                     <div className="flex items-center gap-2 flex-wrap">
