@@ -63,6 +63,12 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
     source_created_at: (row.source_created_at as string | null) ?? null,
     source_changed_at: (row.source_changed_at as string | null) ?? null,
+    is_blocked: Boolean(row.is_blocked ?? false),
+    blocked_at: (row.blocked_at as string | null) ?? null,
+    blocked_by: (row.blocked_by as string | null) ?? null,
+    is_deleted: Boolean(row.is_deleted ?? false),
+    deleted_at: (row.deleted_at as string | null) ?? null,
+    deleted_by: (row.deleted_by as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
