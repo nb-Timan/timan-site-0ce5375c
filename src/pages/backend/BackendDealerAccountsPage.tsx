@@ -485,9 +485,393 @@ function ConfirmDeleteDealerModal({
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">{children}</th>;
 }
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-3 py-3 align-middle ${className}`}>{children}</td>;
+
+
+// ============================================================
+// Render one dealer row (used both for main accounts and branches)
+// ============================================================
+type RenderRowOpts = {
+  r: DealerAccount;
+  depth: 0 | 1;
+  stats: Record<string, DealerAccountStats>;
+  allUsers: BackendUser[];
+  expanded: Set<string>;
+  setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  busyId: string | null;
+  setBusyId: React.Dispatch<React.SetStateAction<string | null>>;
+  setSaveError: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditing: React.Dispatch<React.SetStateAction<DealerAccount | null>>;
+  setConfirmDelete: React.Dispatch<React.SetStateAction<DealerAccount | null>>;
+  appUserEmail: string | null;
+  reload: () => Promise<void>;
+  dealersByAcct: Map<string, DealerAccount>;
+  isMainGroup?: boolean;
+  branchCount?: number;
+  groupOpen?: boolean;
+  onToggleGroup?: () => void;
+  groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
+};
+
+function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
+  const {
+    r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
+    setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
+    dealersByAcct, isMainGroup, branchCount, groupOpen, onToggleGroup, groupAgg,
+  } = opts;
+  const s = stats[r.id];
+  const userCount = s?.user_count ?? 0;
+  const isOpen = expanded.has(r.id);
+  const linkedUsers = s?.user_ids
+    ? allUsers.filter((u) => s.user_ids.includes(u.id))
+    : allUsers.filter((u) => u.dealer_number === r.account_number);
+  const eff = resolveEffectiveSeller(r, dealersByAcct);
+  const isBranch = depth === 1 || !!r.parent_account_number;
+
+  return (
+    <React.Fragment key={r.id}>
+      <tr className={`border-t border-slate-100 hover:bg-slate-50/60 ${r.is_deleted ? "bg-rose-50/40" : r.is_blocked ? "bg-amber-50/40" : ""} ${isBranch ? "bg-slate-50/30" : ""}`}>
+        <Td>
+          <div className="flex items-center gap-1">
+            {onToggleGroup && (
+              <button type="button" aria-label={groupOpen ? "Skjul filialer" : "Vis filialer"}
+                onClick={onToggleGroup}
+                className="rounded-md p-1 text-indigo-700 hover:bg-indigo-50">
+                {groupOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label={isOpen ? "Skjul brugere" : "Vis brugere"}
+              onClick={() => setExpanded((prev) => {
+                const next = new Set(prev);
+                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                return next;
+              })}
+              className="rounded-md p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+              disabled={userCount === 0 && linkedUsers.length === 0}
+            >
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
+        </Td>
+        <Td className={`font-semibold ${(r.is_blocked || r.is_deleted) ? "text-rose-700" : "text-slate-900"}`}>
+          <span className={`inline-flex items-center gap-2 ${depth === 1 ? "pl-6" : ""}`}>
+            {isBranch && <GitBranch className="h-3.5 w-3.5 text-slate-400" />}
+            {!isBranch && isMainGroup && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />}
+            <span>
+              {r.company_name}
+              {r.branch_name && <span className="ml-1 text-xs font-normal text-slate-500">— {r.branch_name}</span>}
+            </span>
+            {!isBranch && isMainGroup && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                Hoved {branchCount ? `(${branchCount})` : ""}
+              </span>
+            )}
+            {isBranch && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                Filial
+              </span>
+            )}
+            {r.is_blocked && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                <Ban className="h-3 w-3" /> Spærret
+              </span>
+            )}
+            {r.is_deleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                <Trash2 className="h-3 w-3" /> Slettet
+              </span>
+            )}
+          </span>
+        </Td>
+        <Td>{r.account_number}</Td>
+        <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
+        <Td>{r.country || "—"}</Td>
+        <Td>
+          {eff.initials
+            ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{eff.initials}</span>
+                {eff.name}
+                {eff.inherited && (
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600" title="Arvet fra hovedforhandler">Arvet</span>
+                )}
+              </span>
+            )
+            : <span className="text-rose-600 text-xs font-semibold">Ikke tildelt</span>}
+        </Td>
+        <Td>
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${userCount > 0 || linkedUsers.length > 0 ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+            {Math.max(userCount, linkedUsers.length)}
+          </span>
+          {groupAgg && (
+            <span className="ml-1 text-[10px] text-amber-700" title="Inkl. filialer">
+              (Σ {groupAgg.user_count})
+            </span>
+          )}
+        </Td>
+        <Td className="text-slate-700">
+          {s?.quote_count ?? 0}
+          {groupAgg && <span className="ml-1 text-[10px] text-amber-700">(Σ {groupAgg.quote_count})</span>}
+        </Td>
+        <Td className="text-slate-700">
+          {s?.order_count ?? 0}
+          {groupAgg && <span className="ml-1 text-[10px] text-amber-700">(Σ {groupAgg.order_count})</span>}
+        </Td>
+        <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate((groupAgg?.last_activity_at ?? s?.last_activity_at) ?? null)}</Td>
+        <Td>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button type="button" onClick={() => setEditing(r)}
+              className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
+              <Pencil className="h-3 w-3" /> Rediger
+            </button>
+            {r.is_deleted ? (
+              <button type="button" disabled={busyId === r.id}
+                onClick={async () => {
+                  setBusyId(r.id); setSaveError(null);
+                  const res = await restoreDealer(r.id);
+                  setBusyId(null);
+                  if (!res.ok) { setSaveError(res.error ?? "Kunne ikke gendanne."); return; }
+                  await reload();
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                <RotateCcw className="h-3 w-3" /> Gendan
+              </button>
+            ) : (
+              <>
+                <button type="button" disabled={busyId === r.id}
+                  onClick={async () => {
+                    setBusyId(r.id); setSaveError(null);
+                    const res = await setDealerBlocked(r.id, !r.is_blocked, appUserEmail);
+                    setBusyId(null);
+                    if (!res.ok) { setSaveError(res.error ?? "Kunne ikke opdatere."); return; }
+                    await reload();
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-50 ${r.is_blocked ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                  {r.is_blocked ? (<><CheckCircle2 className="h-3 w-3" /> Ophæv</>) : (<><Ban className="h-3 w-3" /> Spær</>)}
+                </button>
+                <button type="button" onClick={() => setConfirmDelete(r)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
+                  <Trash2 className="h-3 w-3" /> Slet
+                </button>
+              </>
+            )}
+          </div>
+        </Td>
+      </tr>
+      {isOpen && linkedUsers.length > 0 && (
+        <tr className="bg-slate-50/60">
+          <td colSpan={11} className="px-6 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+              {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} tilknyttet {r.company_name} ({r.account_number})
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {linkedUsers.map((u) => (
+                <Link
+                  key={u.id}
+                  to="/portal/backend/users"
+                  className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs hover:border-slate-400"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{u.initials}</span>
+                    <div>
+                      <div className="font-semibold text-slate-900">{u.name}</div>
+                      <div className="text-slate-500">{u.email}</div>
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                    {u.approved ? "Approved" : "Pending"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
+    </React.Fragment>
+  );
 }
+
+// ============================================================
+// EditDealerModal — seller + parent/main/branch_name
+// ============================================================
+function EditDealerModal({
+  dealer, sellers, allDealers, dealersByAcct, onClose, onSaved, onError,
+}: {
+  dealer: DealerAccount;
+  sellers: BackendUser[];
+  allDealers: DealerAccount[];
+  dealersByAcct: Map<string, DealerAccount>;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const [initials, setInitials] = useState(dealer.assigned_seller_initials ?? "");
+  const [name, setName] = useState(dealer.assigned_seller_name ?? "");
+  const [email, setEmail] = useState(dealer.assigned_seller_email ?? "");
+  const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
+  const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
+  const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function applySeller(id: string) {
+    if (!id) { setInitials(""); setName(""); setEmail(""); return; }
+    const s = sellers.find((u) => u.id === id);
+    if (!s) return;
+    setInitials(s.initials); setName(s.name); setEmail(s.email);
+  }
+  const matched = sellers.find((s) => s.email.toLowerCase() === email.toLowerCase());
+  const eligibleParents = allDealers.filter((d) =>
+    d.account_number !== dealer.account_number &&
+    d.parent_account_number !== dealer.account_number, // avoid obvious 2-cycle
+  );
+  const inheritedSeller = !initials && parent
+    ? resolveEffectiveSeller({ ...dealer, parent_account_number: parent, assigned_seller_initials: null, assigned_seller_email: null, assigned_seller_name: null }, dealersByAcct)
+    : null;
+
+  async function save() {
+    setErr(null); setBusy(true);
+    try {
+      // 1. Seller
+      const sellerRes = await updateDealerSeller(dealer.id, {
+        assigned_seller_initials: initials.trim() || null,
+        assigned_seller_name: name.trim() || null,
+        assigned_seller_email: email.trim() || null,
+      });
+      if (!sellerRes.ok) throw new Error(sellerRes.error ?? "Kunne ikke gemme sælger");
+
+      // 2. Branch name
+      if ((dealer.branch_name ?? "") !== branchName) {
+        const r = await updateDealerBranchName(dealer.id, branchName.trim() || null);
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme branch_name");
+      }
+
+      // 3. Main flag
+      if (dealer.is_main_account !== isMain) {
+        const r = await setDealerMain(dealer.account_number, isMain);
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedstatus");
+      }
+
+      // 4. Parent
+      const newParent = parent.trim() || null;
+      if ((dealer.parent_account_number ?? null) !== newParent) {
+        const r = await setDealerParent(dealer.account_number, newParent, true);
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedforhandler");
+      }
+      await onSaved();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); onError(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full my-8">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Rediger forhandler</h2>
+            <p className="text-xs text-slate-500">{dealer.company_name} · {dealer.account_number}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {err && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 font-mono whitespace-pre-wrap">{err}</div>}
+          {dealer.is_deleted && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              <strong>Slettet</strong> — denne forhandler er soft-deleted.
+            </div>
+          )}
+          {dealer.is_blocked && !dealer.is_deleted && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>Spærret</strong> — linkede brugere kan ikke logge på portalen.
+            </div>
+          )}
+
+          {/* Parent / structure */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700">
+              <Network className="h-3.5 w-3.5" /> Forhandlerstruktur
+            </div>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-600 mb-1">Hovedforhandler (parent)</span>
+              <select value={parent} onChange={(e) => setParent(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <option value="">— ingen (selvstændig / hoved) —</option>
+                {eligibleParents.map((d) => (
+                  <option key={d.id} value={d.account_number}>
+                    {d.account_number} · {d.company_name}{d.is_main_account ? " ★" : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Vælg en anden forhandler som denne filial hører under. Vælg "ingen" for at gøre den selvstændig.
+              </p>
+            </label>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-600 mb-1">Filialnavn (valgfri)</span>
+              <input value={branchName} onChange={(e) => setBranchName(e.target.value)}
+                placeholder="fx Hovedkontor, Nordjylland, Aarhus afd."
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+              <input type="checkbox" checked={isMain} onChange={(e) => setIsMain(e.target.checked)} className="h-4 w-4" />
+              Markér som hovedforhandler (samler statistik for filialer)
+            </label>
+            {inheritedSeller && inheritedSeller.initials && (
+              <p className="text-[11px] text-indigo-700">
+                Hvis ingen sælger sættes, arves sælger fra hoved: <strong>{inheritedSeller.initials} · {inheritedSeller.name}</strong>
+              </p>
+            )}
+          </div>
+
+          {/* Seller */}
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Tildelt sælger</span>
+            <select value={matched?.id ?? ""} onChange={(e) => applySeller(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+              <option value="">— vælg fra Timan brugere (eller arv fra hoved) —</option>
+              {sellers.map((s) => <option key={s.id} value={s.id}>{s.initials} · {s.name} ({s.email})</option>)}
+            </select>
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block col-span-1">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Initialer</span>
+              <input value={initials} onChange={(e) => setInitials(e.target.value.toUpperCase().slice(0, 4))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+            </label>
+            <label className="block col-span-2">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Navn</span>
+              <input value={name} onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+            </label>
+          </div>
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Email</span>
+            <input value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+          </label>
+          <button type="button"
+            onClick={() => { setInitials(""); setName(""); setEmail(""); }}
+            className="text-xs font-semibold text-rose-600 hover:underline">
+            Fjern direkte tildeling (arv fra hoved)
+          </button>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
+          <button onClick={() => void save()} disabled={busy}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+            {busy ? "Gemmer…" : "Gem ændringer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function EditSellerModal({
   dealer, sellers, onClose, onSave,
