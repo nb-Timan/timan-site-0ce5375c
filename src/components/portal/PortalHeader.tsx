@@ -2,10 +2,17 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
-import { Bell, LogOut } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
+import {
+  canSwitchMode,
+  getActiveMode,
+  setActiveMode,
+  getSellerInitials,
+  type ActiveMode,
+} from '@/lib/activeMode';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -16,8 +23,11 @@ const LANGS: { code: Language; flag: string }[] = [
 ];
 
 const T: Record<string, Record<Language, string>> = {
-  portal:  { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
-  logout:  { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+  portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
+  logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+  backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
+  sellerMode:    { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
+  switchMode:    { da: 'Skift tilstand', en: 'Switch mode', de: 'Modus wechseln', it: 'Cambia modalità', hu: 'Mód váltás' },
 };
 
 interface Props {
