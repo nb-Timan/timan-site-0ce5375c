@@ -76,6 +76,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     setActiveMode(user.email, mode);
     setActiveModeState(mode);
     setModeMenuOpen(false);
+    // Clear any per-user cached seller-id mapping so the next CRM page
+    // re-resolves against the newly selected seller view.
+    try {
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
+      });
+    } catch { /* ignore */ }
     // Force a full reload so all role-derived UI (areas, CRM scope,
     // navigation guards) picks up the new mode cleanly.
     window.location.reload();
