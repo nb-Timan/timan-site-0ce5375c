@@ -10,7 +10,7 @@ import {
   canSwitchMode,
   getActiveMode,
   setActiveMode,
-  getSellerInitials,
+  SELLER_VIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
 
@@ -26,8 +26,9 @@ const T: Record<string, Record<Language, string>> = {
   portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
   logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
   backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
-  sellerMode:    { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
-  switchMode:    { da: 'Skift tilstand', en: 'Switch mode', de: 'Modus wechseln', it: 'Cambia modalità', hu: 'Mód váltás' },
+  switchMode:    { da: 'Vis som sælger', en: 'View as seller', de: 'Als Verkäufer ansehen', it: 'Visualizza come venditore', hu: 'Megtekintés értékesítőként' },
+  viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
+  filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
 };
 
 interface Props {
@@ -54,9 +55,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const portalRole = derivePortalRole(user);
   const isBackend = portalRole ? !!getPortalPermissions(portalRole)?.isBackend : false;
 
-  const showModeSwitch = canSwitchMode(user.email);
-  const sellerInitials = getSellerInitials(user.email);
+  const showModeSwitch = canSwitchMode(user);
   const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
+  const activeSellerView = activeMode === 'backend' ? null : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
