@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -75,11 +75,13 @@ export default function BackendDealerAccountsPage() {
   const [seller, setSeller] = useState<string>("");
   const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [structureFilter, setStructureFilter] = useState<"all" | "main" | "branch">("all");
   const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
