@@ -184,7 +184,17 @@ export default function BackendUsersPage() {
               <UsersIcon className="h-6 w-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Brugere</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                Brugere
+                {users.filter((u) => !u.approved).length > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800"
+                    title="Antal brugere der venter på godkendelse"
+                  >
+                    {users.filter((u) => !u.approved).length} afventer godkendelse
+                  </span>
+                )}
+              </h1>
               <p className="text-slate-500 mt-1 text-sm">Administrer brugere, roller, områder og modul-adgang.</p>
             </div>
           </div>
