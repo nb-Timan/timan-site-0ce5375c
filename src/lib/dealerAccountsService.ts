@@ -501,3 +501,250 @@ export async function fetchDealerStatusForUser(
     };
   }
 }
+
+// ============================================================
+// Phase 14 — Create dealer + CSV import
+// ------------------------------------------------------------
+// Both helpers call SECURITY DEFINER RPCs added in
+// docs/sql/phase14_dealer_create_import.sql. Authorization
+// (timan_backend only) is enforced inside the database.
+// ============================================================
+
+export const TIMAN_SELLERS = [
+  { initials: "BP",  name: "Birger Pedersen",   email: "bp@timan.dk"  },
+  { initials: "JTN", name: "Jens Thorsen",      email: "jtn@timan.dk" },
+  { initials: "EM",  name: "Esben Madsen",      email: "em@timan.dk"  },
+  { initials: "AKR", name: "Alexander Kirschner", email: "akr@timan.dk" },
+  { initials: "NB",  name: "NB Sælger",         email: "nb@timan.dk"  },
+] as const;
+
+export type TimanSeller = (typeof TIMAN_SELLERS)[number];
+
+export const DEALER_TYPE_OPTIONS = [
+  { value: "Forhandler",     label: "Forhandler (Dealer)" },
+  { value: "Service partner", label: "Service Partner" },
+  { value: "Importør",        label: "Importør" },
+] as const;
+
+/** Map CSV A_B_KUNDE numeric value to dealer type label. */
+export function mapDealerTypeFromCode(raw: string | null | undefined): string | null {
+  const v = (raw ?? "").trim();
+  if (v === "1") return "Forhandler";
+  if (v === "2") return "Service partner";
+  if (v === "3") return "Importør";
+  // Allow text passthrough if already a label
+  if (/forhandler/i.test(v)) return "Forhandler";
+  if (/service/i.test(v))   return "Service partner";
+  if (/import/i.test(v))    return "Importør";
+  return null;
+}
+
+/** Map CSV country to a Timan seller per business rules. */
+export function mapSellerFromCountry(country: string | null | undefined): TimanSeller {
+  const c = (country ?? "").trim().toLowerCase();
+  const dk = ["dk", "denmark", "danmark"];
+  const akr = [
+    "de", "germany", "tyskland",
+    "ch", "switzerland", "schweiz",
+    "hu", "hungary", "ungarn",
+    "it", "italy", "italien",
+    "at", "austria", "østrig", "oestrig",
+  ];
+  if (dk.includes(c))  return TIMAN_SELLERS.find((s) => s.initials === "EM")!;
+  if (akr.includes(c)) return TIMAN_SELLERS.find((s) => s.initials === "AKR")!;
+  return TIMAN_SELLERS.find((s) => s.initials === "BP")!;
+}
+
+export interface CreateDealerInput {
+  account_number: string;
+  company_name: string;
+  customer_type: string | null;          // "Forhandler" | "Service partner" | "Importør"
+  country: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  address?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  assigned_seller_initials: string | null;
+  assigned_seller_name: string | null;
+  assigned_seller_email: string | null;
+}
+
+export async function createDealerAccount(
+  input: CreateDealerInput,
+): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
+  try {
+    const payload = {
+      ...input,
+      customer_type_label: input.customer_type,
+    };
+    const { data, error } = await supabase.rpc("create_dealer_account", { payload });
+    if (error) throw error;
+    const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown> | null);
+    return { ok: true, row: row ? rowToDealer(row) : undefined };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("Kunne ikke oprette forhandler", e) };
+  }
+}
+
+export interface CsvParsedRow {
+  account_number: string;
+  company_name: string;
+  customer_type: string | null;
+  country: string | null;
+  assigned_seller_initials: string;
+  assigned_seller_name: string;
+  assigned_seller_email: string;
+  // For preview only:
+  willUpdate: boolean;
+  existing?: DealerAccount;
+}
+
+export interface CsvImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { account_number: string | null; error: string }[];
+}
+
+/**
+ * Parse CSV text into raw rows. Handles quoted fields (commas inside quotes)
+ * and detects ; or , as delimiter automatically.
+ */
+export function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
+  const clean = text.replace(/^\uFEFF/, ""); // strip BOM
+  const lines: string[] = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (ch === '"' ) {
+      if (inQ && clean[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+      cur += ch;
+      continue;
+    }
+    if ((ch === "\n" || ch === "\r") && !inQ) {
+      if (cur.length > 0) { lines.push(cur); cur = ""; }
+      if (ch === "\r" && clean[i + 1] === "\n") i++;
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.length > 0) lines.push(cur);
+  if (lines.length === 0) return { headers: [], rows: [] };
+
+  const sample = lines[0];
+  const semis = (sample.match(/;/g) ?? []).length;
+  const commas = (sample.match(/,/g) ?? []).length;
+  const delim = semis > commas ? ";" : ",";
+
+  function splitLine(line: string): string[] {
+    const out: string[] = [];
+    let buf = "";
+    let q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (q && line[i + 1] === '"') { buf += '"'; i++; }
+        else q = !q;
+        continue;
+      }
+      if (ch === delim && !q) { out.push(buf); buf = ""; continue; }
+      buf += ch;
+    }
+    out.push(buf);
+    return out.map((s) => s.trim());
+  }
+
+  const headers = splitLine(lines[0]);
+  const rows: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitLine(lines[i]);
+    if (cols.every((c) => c === "")) continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = cols[idx] ?? ""; });
+    rows.push(obj);
+  }
+  return { headers, rows };
+}
+
+/** Find a header value case-insensitively from a list of candidates. */
+function pick(row: Record<string, string>, keys: string[]): string {
+  const lc: Record<string, string> = {};
+  for (const k of Object.keys(row)) lc[k.toLowerCase()] = row[k];
+  for (const k of keys) {
+    const v = lc[k.toLowerCase()];
+    if (v != null && v.trim() !== "") return v.trim();
+  }
+  return "";
+}
+
+/**
+ * Map raw CSV rows into normalized dealer rows + preview metadata.
+ * Requires the existing dealer list to determine create vs update.
+ */
+export function buildCsvPreview(
+  rawRows: Record<string, string>[],
+  existing: DealerAccount[],
+): CsvParsedRow[] {
+  const byAcct = new Map<string, DealerAccount>();
+  for (const d of existing) byAcct.set(d.account_number.trim(), d);
+
+  const out: CsvParsedRow[] = [];
+  for (const r of rawRows) {
+    const account_number = pick(r, ["account", "Account", "account_number", "AccountNumber", "Kontonr"]);
+    if (!account_number) continue;
+    const company_name   = pick(r, ["title", "Titel", "Title", "company_name", "CompanyName", "Firmanavn"]);
+    const country        = pick(r, ["Country", "COUNTRY", "country", "Land"]) || null;
+    const typeRaw        = pick(r, ["A_B_Kunde", "A_B_KUNDE", "a_b_kunde", "Kundetype", "customer_type"]);
+    const customer_type  = mapDealerTypeFromCode(typeRaw);
+    const seller         = mapSellerFromCountry(country);
+    const existingRow    = byAcct.get(account_number.trim());
+    out.push({
+      account_number: account_number.trim(),
+      company_name,
+      customer_type,
+      country,
+      assigned_seller_initials: seller.initials,
+      assigned_seller_name:     seller.name,
+      assigned_seller_email:    seller.email,
+      willUpdate: !!existingRow,
+      existing:   existingRow,
+    });
+  }
+  return out;
+}
+
+export async function upsertDealerAccountsBulk(
+  rows: CsvParsedRow[],
+): Promise<{ ok: boolean; result?: CsvImportResult; error?: string }> {
+  try {
+    const payload = {
+      rows: rows.map((r) => ({
+        account_number: r.account_number,
+        company_name: r.company_name,
+        customer_type: r.customer_type,
+        customer_type_label: r.customer_type,
+        country: r.country,
+        assigned_seller_initials: r.assigned_seller_initials,
+        assigned_seller_name: r.assigned_seller_name,
+        assigned_seller_email: r.assigned_seller_email,
+      })),
+    };
+    const { data, error } = await supabase.rpc("upsert_dealer_accounts", { payload });
+    if (error) throw error;
+    const d = (data ?? {}) as Record<string, unknown>;
+    return {
+      ok: true,
+      result: {
+        created: Number(d.created ?? 0),
+        updated: Number(d.updated ?? 0),
+        skipped: Number(d.skipped ?? 0),
+        errors:  Array.isArray(d.errors) ? (d.errors as CsvImportResult["errors"]) : [],
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("CSV import fejlede", e) };
+  }
+}
