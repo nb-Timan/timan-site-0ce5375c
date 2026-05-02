@@ -54,6 +54,32 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const portalRole = derivePortalRole(user);
   const isBackend = portalRole ? !!getPortalPermissions(portalRole)?.isBackend : false;
 
+  const showModeSwitch = canSwitchMode(user.email);
+  const sellerInitials = getSellerInitials(user.email);
+  const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+
+  // Keep local state in sync with cross-tab/in-tab mode changes.
+  useEffect(() => {
+    if (!showModeSwitch) return;
+    const handler = () => setActiveModeState(getActiveMode(user.email));
+    window.addEventListener('timan:active-mode-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('timan:active-mode-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, [showModeSwitch, user.email]);
+
+  function chooseMode(mode: ActiveMode) {
+    setActiveMode(user.email, mode);
+    setActiveModeState(mode);
+    setModeMenuOpen(false);
+    // Force a full reload so all role-derived UI (areas, CRM scope,
+    // navigation guards) picks up the new mode cleanly.
+    window.location.reload();
+  }
+
   useEffect(() => {
     if (!isBackend) { setPendingCount(0); return; }
     let cancelled = false;
