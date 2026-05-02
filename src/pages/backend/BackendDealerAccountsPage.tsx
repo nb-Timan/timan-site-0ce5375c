@@ -227,7 +227,7 @@ export default function BackendDealerAccountsPage() {
                   ? allUsers.filter((u) => s.user_ids.includes(u.id))
                   : allUsers.filter((u) => u.dealer_number === r.account_number);
                 return (
-                  <>
+                  <React.Fragment key={r.id}>
                     <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                       <Td>
                         <button
@@ -297,7 +297,7 @@ export default function BackendDealerAccountsPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
               {filtered.length === 0 && !loadingRows && (
