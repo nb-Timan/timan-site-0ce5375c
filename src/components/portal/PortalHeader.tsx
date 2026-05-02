@@ -2,10 +2,17 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
-import { Bell, LogOut } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
+import {
+  canSwitchMode,
+  getActiveMode,
+  setActiveMode,
+  getSellerInitials,
+  type ActiveMode,
+} from '@/lib/activeMode';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -16,8 +23,11 @@ const LANGS: { code: Language; flag: string }[] = [
 ];
 
 const T: Record<string, Record<Language, string>> = {
-  portal:  { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
-  logout:  { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+  portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
+  logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
+  backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
+  sellerMode:    { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
+  switchMode:    { da: 'Skift tilstand', en: 'Switch mode', de: 'Modus wechseln', it: 'Cambia modalità', hu: 'Mód váltás' },
 };
 
 interface Props {
@@ -43,6 +53,32 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   // approval. Polled lightly every 60s.
   const portalRole = derivePortalRole(user);
   const isBackend = portalRole ? !!getPortalPermissions(portalRole)?.isBackend : false;
+
+  const showModeSwitch = canSwitchMode(user.email);
+  const sellerInitials = getSellerInitials(user.email);
+  const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+
+  // Keep local state in sync with cross-tab/in-tab mode changes.
+  useEffect(() => {
+    if (!showModeSwitch) return;
+    const handler = () => setActiveModeState(getActiveMode(user.email));
+    window.addEventListener('timan:active-mode-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('timan:active-mode-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, [showModeSwitch, user.email]);
+
+  function chooseMode(mode: ActiveMode) {
+    setActiveMode(user.email, mode);
+    setActiveModeState(mode);
+    setModeMenuOpen(false);
+    // Force a full reload so all role-derived UI (areas, CRM scope,
+    // navigation guards) picks up the new mode cleanly.
+    window.location.reload();
+  }
 
   useEffect(() => {
     if (!isBackend) { setPendingCount(0); return; }
@@ -104,13 +140,57 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               </button>
             )}
 
-            <div className="ml-4 flex items-center">
+            <div className="ml-4 flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-[#2d5a27] flex items-center justify-center text-white text-xs font-bold">
                 {initials}
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-700 hidden md:inline truncate max-w-[200px]">
+              <span className="text-sm font-medium text-gray-700 hidden md:inline truncate max-w-[200px]">
                 {displayName}
               </span>
+
+              {showModeSwitch && (
+                <div className="relative ml-1">
+                  <button
+                    type="button"
+                    onClick={() => setModeMenuOpen(o => !o)}
+                    onBlur={() => setTimeout(() => setModeMenuOpen(false), 120)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
+                      activeMode === 'seller'
+                        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                        : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
+                    }`}
+                    title={T.switchMode[language]}
+                    aria-haspopup="menu"
+                    aria-expanded={modeMenuOpen}
+                  >
+                    <span>{sellerInitials} {activeMode === 'seller' ? T.sellerMode[language] : T.backendMode[language]}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {modeMenuOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {(['backend', 'seller'] as ActiveMode[]).map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={activeMode === m}
+                          onClick={() => chooseMode(m)}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="font-medium">
+                            {sellerInitials} {m === 'seller' ? T.sellerMode[language] : T.backendMode[language]}
+                          </span>
+                          {activeMode === m && <Check className="w-4 h-4 text-[#2d5a27]" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
@@ -124,6 +204,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
+      {showModeSwitch && activeMode === 'seller' && (
+        <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            <span className="font-bold uppercase tracking-wide">{sellerInitials} {T.sellerMode[language]}</span>
+            <span className="opacity-80">— filtreret sælger-visning. Skift til Backend for global visning.</span>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
