@@ -264,6 +264,8 @@ export async function fetchDealerAccountStats(): Promise<{
       assigned_seller_initials: dealer.assigned_seller_initials,
       assigned_seller_name: dealer.assigned_seller_name,
       assigned_seller_email: dealer.assigned_seller_email,
+      is_blocked: dealer.is_blocked,
+      is_deleted: dealer.is_deleted,
       user_count: linked.length,
       activity_count: a?.total ?? 0,
       quote_count: a?.quote ?? 0,
