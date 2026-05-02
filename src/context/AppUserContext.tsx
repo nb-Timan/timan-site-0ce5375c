@@ -130,6 +130,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
             company_dealer: row.company_dealer ?? null,
             module_access: row.module_access ?? null,
             status: row.status ?? null,
+            dealer_number: row.dealer_number ?? null,
           });
         } else {
           // Session present but not approved → treat as guest with limited access
