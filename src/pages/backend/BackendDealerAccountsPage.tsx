@@ -37,6 +37,8 @@ export default function BackendDealerAccountsPage() {
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<DealerAccount[]>([]);
+  const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
+  const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
   const [sellers, setSellers] = useState<BackendUser[]>([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export default function BackendDealerAccountsPage() {
   const [editing, setEditing] = useState<DealerAccount | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Filters
   const [q, setQ] = useState("");
