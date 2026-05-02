@@ -204,6 +204,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
+      {showModeSwitch && activeMode === 'seller' && (
+        <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            <span className="font-bold uppercase tracking-wide">{sellerInitials} {T.sellerMode[language]}</span>
+            <span className="opacity-80">— filtreret sælger-visning. Skift til Backend for global visning.</span>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
