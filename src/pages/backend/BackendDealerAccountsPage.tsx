@@ -485,6 +485,9 @@ function ConfirmDeleteDealerModal({
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">{children}</th>;
 }
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-3 py-3 align-middle ${className}`}>{children}</td>;
+}
 
 
 // ============================================================
