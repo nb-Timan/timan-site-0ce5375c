@@ -27,6 +27,12 @@ export interface DealerAccount {
   assigned_seller_email: string | null;
   source_created_at: string | null;
   source_changed_at: string | null;
+  is_blocked: boolean;
+  blocked_at: string | null;
+  blocked_by: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  deleted_by: string | null;
   created_at: string;
   updated_at: string;
 }
