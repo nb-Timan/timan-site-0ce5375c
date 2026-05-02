@@ -458,6 +458,23 @@ export default function BackendDealerAccountsPage() {
           }}
         />
       )}
+
+      {showCreate && (
+        <CreateDealerModal
+          onClose={() => setShowCreate(false)}
+          onCreated={async () => { setShowCreate(false); await reload(); }}
+          onError={(msg) => setSaveError(msg)}
+        />
+      )}
+
+      {showImport && (
+        <ImportCsvModal
+          existing={rows}
+          onClose={() => setShowImport(false)}
+          onDone={async () => { setShowImport(false); await reload(); }}
+          onError={(msg) => setSaveError(msg)}
+        />
+      )}
     </div>
   );
 }
