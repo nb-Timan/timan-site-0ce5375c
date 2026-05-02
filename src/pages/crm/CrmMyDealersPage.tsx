@@ -26,6 +26,7 @@ import { DealerAccountStats, fetchDealerAccountStatsForSeller, fetchDealerAccoun
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
 import { Language } from "@/types/configurator";
+import { getEffectiveSellerEmail, getEffectiveSellerInitials } from "@/lib/activeMode";
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
@@ -69,14 +70,13 @@ export default function CrmMyDealersPage() {
     (async () => {
       setLoadingRows(true);
       try {
-        // Derive seller initials from display_name if present (e.g. "NB (Timan)")
-        const dn = appUser.display_name || "";
-        const m = dn.match(/^([A-ZÆØÅ]{2,4})/);
-        const initials = m?.[1] || null;
+        // Use effective seller (honors backend "view as <seller>" mode).
+        const initials = getEffectiveSellerInitials(appUser);
+        const effEmail = getEffectiveSellerEmail(appUser);
 
         const dealersRes = admin
           ? await fetchDealerAccountStats()
-          : await fetchDealerAccountStatsForSeller({ initials, email: appUser.email });
+          : await fetchDealerAccountStatsForSeller({ initials, email: effEmail });
         const usersRes = await fetchBackendUsers();
         if (cancelled) return;
         setRows(dealersRes.rows);

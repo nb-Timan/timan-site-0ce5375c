@@ -10,7 +10,7 @@ import {
   canSwitchMode,
   getActiveMode,
   setActiveMode,
-  getSellerInitials,
+  SELLER_VIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
 
@@ -26,8 +26,9 @@ const T: Record<string, Record<Language, string>> = {
   portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
   logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
   backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
-  sellerMode:    { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
-  switchMode:    { da: 'Skift tilstand', en: 'Switch mode', de: 'Modus wechseln', it: 'Cambia modalità', hu: 'Mód váltás' },
+  switchMode:    { da: 'Vis som sælger', en: 'View as seller', de: 'Als Verkäufer ansehen', it: 'Visualizza come venditore', hu: 'Megtekintés értékesítőként' },
+  viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
+  filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
 };
 
 interface Props {
@@ -54,9 +55,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const portalRole = derivePortalRole(user);
   const isBackend = portalRole ? !!getPortalPermissions(portalRole)?.isBackend : false;
 
-  const showModeSwitch = canSwitchMode(user.email);
-  const sellerInitials = getSellerInitials(user.email);
+  const showModeSwitch = canSwitchMode(user);
   const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
+  const activeSellerView = activeMode === 'backend' ? null : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
@@ -75,6 +76,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     setActiveMode(user.email, mode);
     setActiveModeState(mode);
     setModeMenuOpen(false);
+    // Clear any per-user cached seller-id mapping so the next CRM page
+    // re-resolves against the newly selected seller view.
+    try {
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
+      });
+    } catch { /* ignore */ }
     // Force a full reload so all role-derived UI (areas, CRM scope,
     // navigation guards) picks up the new mode cleanly.
     window.location.reload();
@@ -155,7 +163,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     onClick={() => setModeMenuOpen(o => !o)}
                     onBlur={() => setTimeout(() => setModeMenuOpen(false), 120)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
-                      activeMode === 'seller'
+                      activeSellerView
                         ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
                         : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
                     }`}
@@ -163,28 +171,44 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     aria-haspopup="menu"
                     aria-expanded={modeMenuOpen}
                   >
-                    <span>{sellerInitials} {activeMode === 'seller' ? T.sellerMode[language] : T.backendMode[language]}</span>
+                    <span>
+                      {activeSellerView
+                        ? `${activeSellerView.initials} ${T.viewingAs[language] === 'Vis som' ? 'Sælger' : ''}`.trim() || `${activeSellerView.initials}`
+                        : T.backendMode[language]}
+                    </span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
                   {modeMenuOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                      className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
                       onMouseDown={(e) => e.preventDefault()}
                     >
-                      {(['backend', 'seller'] as ActiveMode[]).map(m => (
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={activeMode === 'backend'}
+                        onClick={() => chooseMode('backend')}
+                        className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="font-medium">{T.backendMode[language]}</span>
+                        {activeMode === 'backend' && <Check className="w-4 h-4 text-[#2d5a27]" />}
+                      </button>
+                      <div className="my-1 border-t border-gray-100" />
+                      <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                        {T.switchMode[language]}
+                      </div>
+                      {SELLER_VIEWS.map(v => (
                         <button
-                          key={m}
+                          key={v.key}
                           type="button"
                           role="menuitemradio"
-                          aria-checked={activeMode === m}
-                          onClick={() => chooseMode(m)}
+                          aria-checked={activeMode === v.key}
+                          onClick={() => chooseMode(v.key)}
                           className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                         >
-                          <span className="font-medium">
-                            {sellerInitials} {m === 'seller' ? T.sellerMode[language] : T.backendMode[language]}
-                          </span>
-                          {activeMode === m && <Check className="w-4 h-4 text-[#2d5a27]" />}
+                          <span className="font-medium">{v.label}</span>
+                          {activeMode === v.key && <Check className="w-4 h-4 text-amber-600" />}
                         </button>
                       ))}
                     </div>
@@ -204,11 +228,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
-      {showModeSwitch && activeMode === 'seller' && (
+      {showModeSwitch && activeSellerView && (
         <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-            <span className="font-bold uppercase tracking-wide">{sellerInitials} {T.sellerMode[language]}</span>
-            <span className="opacity-80">— filtreret sælger-visning. Skift til Backend for global visning.</span>
+            <span className="font-bold uppercase tracking-wide">
+              {T.viewingAs[language]} {activeSellerView.label}
+            </span>
+            <span className="opacity-80">— {T.filteredNote[language]}</span>
           </div>
         </div>
       )}
