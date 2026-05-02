@@ -74,7 +74,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
   };
 }
 
-export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
+export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {}): Promise<DealerAccountsResult> {
   try {
     // Require an active Supabase Auth session — dealer_accounts RLS is
     // restricted to authenticated Timan Backend users.
@@ -89,10 +89,14 @@ export async function fetchDealerAccounts(): Promise<DealerAccountsResult> {
       };
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("dealer_accounts")
       .select("*")
       .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) {
+      query = query.or("is_deleted.is.null,is_deleted.eq.false");
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
   } catch (e) {
