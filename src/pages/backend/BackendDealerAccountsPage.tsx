@@ -388,6 +388,77 @@ export default function BackendDealerAccountsPage() {
           }}
         />
       )}
+
+      {confirmDelete && (
+        <ConfirmDeleteDealerModal
+          dealer={confirmDelete}
+          linkedUserCount={stats[confirmDelete.id]?.user_count ?? 0}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            setSaveError(null);
+            const res = await softDeleteDealer(confirmDelete.id, appUser?.email ?? null);
+            if (!res.ok) { setSaveError(res.error ?? "Kunne ikke slette."); return; }
+            setConfirmDelete(null);
+            await reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmDeleteDealerModal({
+  dealer, linkedUserCount, onClose, onConfirm,
+}: {
+  dealer: DealerAccount;
+  linkedUserCount: number;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const ok = text.trim().toUpperCase() === "DELETE" || text.trim().toUpperCase() === "SLET";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full">
+        <div className="flex items-start gap-3 border-b border-slate-200 px-6 py-4">
+          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-slate-900">Slet forhandler</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{dealer.company_name} · {dealer.account_number}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-slate-700">
+            Are you sure you want to delete this dealer account? This will hide
+            the dealer from the portal and may affect <strong>{linkedUserCount}</strong> linked
+            user{linkedUserCount === 1 ? "" : "s"}. Normally you should <strong>block</strong>
+            {" "}the dealer instead.
+          </p>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+            Soft delete only — data is preserved and can be restored from the
+            "Vis slettede" filter.
+          </div>
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">
+              Skriv <code className="bg-slate-100 px-1 rounded">DELETE</code> eller <code className="bg-slate-100 px-1 rounded">SLET</code> for at bekræfte
+            </span>
+            <input value={text} onChange={(e) => setText(e.target.value)} autoFocus
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm uppercase tracking-wider" />
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
+          <button
+            onClick={() => { if (ok) void onConfirm(); }}
+            disabled={!ok}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            Slet forhandler
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
