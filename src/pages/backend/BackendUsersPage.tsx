@@ -234,15 +234,15 @@ export default function BackendUsersPage() {
               <tr>
                 <Th>Name</Th>
                 <Th>Email</Th>
-                <Th>Company</Th>
+                <Th>Dealer</Th>
+                <Th>Type</Th>
+                <Th>Tildelt sælger</Th>
                 <Th>Country</Th>
-                <Th>Postnr.</Th>
                 <Th>Sprog</Th>
                 <Th>Status</Th>
                 <Th>Approved</Th>
                 <Th>Active</Th>
                 <Th>Role</Th>
-                <Th>Created</Th>
                 <Th>Auth</Th>
                 <Th>Actions</Th>
               </tr>
@@ -250,6 +250,10 @@ export default function BackendUsersPage() {
             <tbody>
               {users.map((u) => {
                 const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
+                const dealer = u.dealer_number ? dealers.find((d) => d.account_number === u.dealer_number) : undefined;
+                const dealerType = dealer?.customer_type_label || dealer?.customer_type || null;
+                const inheritedSellerInitials = dealer?.assigned_seller_initials || u.seller_initials || null;
+                const inheritedSellerName = dealer?.assigned_seller_name || null;
                 return (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <Td className="font-semibold text-slate-900">
@@ -261,9 +265,32 @@ export default function BackendUsersPage() {
                     </div>
                   </Td>
                   <Td className="text-slate-600">{u.email}</Td>
-                  <Td>{u.company || "—"}</Td>
+                  <Td>
+                    {u.dealer_number ? (
+                      <div className="text-xs">
+                        <div className="font-semibold text-slate-900">{dealer?.company_name || u.company_dealer || u.company || "—"}</div>
+                        <div className="text-slate-500">{u.dealer_number}</div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 text-xs">— ikke tilknyttet —</span>
+                    )}
+                  </Td>
+                  <Td>
+                    {dealerType
+                      ? <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{dealerType}</span>
+                      : <span className="text-slate-400 text-xs">—</span>}
+                  </Td>
+                  <Td>
+                    {inheritedSellerInitials ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{inheritedSellerInitials}</span>
+                        <span className="text-xs text-slate-700">{inheritedSellerName || ""}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </Td>
                   <Td>{u.country || "—"}</Td>
-                  <Td>{u.postal_code || "—"}</Td>
                   <Td>{langOpt ? `${langOpt.flag}` : u.language?.toUpperCase()}</Td>
                   <Td>
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_PILL[u.status]}`}>
