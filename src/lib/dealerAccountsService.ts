@@ -256,6 +256,27 @@ export async function fetchDealerAccountStats(): Promise<{
   return { source: "supabase", rows };
 }
 
+/**
+ * Fetch dealer stats filtered to a specific seller (by initials and/or email).
+ * Used by the seller-facing "Mine forhandlere" page so only assigned dealers
+ * are returned — both in the UI and the underlying query.
+ */
+export async function fetchDealerAccountStatsForSeller(opts: {
+  initials?: string | null;
+  email?: string | null;
+}): Promise<{ rows: DealerAccountStats[]; error?: string }> {
+  const all = await fetchDealerAccountStats();
+  if (all.error) return { rows: [], error: all.error };
+  const initials = opts.initials?.trim().toUpperCase() || null;
+  const email = opts.email?.trim().toLowerCase() || null;
+  const filtered = all.rows.filter((r) => {
+    const ri = r.assigned_seller_initials?.trim().toUpperCase() || null;
+    const re = r.assigned_seller_email?.trim().toLowerCase() || null;
+    return (initials && ri === initials) || (email && re === email);
+  });
+  return { rows: filtered };
+}
+
 // ============================================================
 // Pending user count — for the notification bell
 // ============================================================
