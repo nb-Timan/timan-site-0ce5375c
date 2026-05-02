@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -26,6 +26,14 @@ import {
   setDealerBlocked,
   softDeleteDealer,
   updateDealerSeller,
+  createDealerAccount,
+  parseCsv,
+  buildCsvPreview,
+  upsertDealerAccountsBulk,
+  TIMAN_SELLERS,
+  DEALER_TYPE_OPTIONS,
+  type CsvParsedRow,
+  type CsvImportResult,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
