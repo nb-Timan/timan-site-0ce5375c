@@ -20,6 +20,8 @@ import {
   DealerAccountStats,
   fetchDealerAccountStats,
   fetchDealerAccounts,
+  fetchBackendAuthCheck,
+  type BackendAuthCheck,
   restoreDealer,
   setDealerBlocked,
   softDeleteDealer,
@@ -60,6 +62,7 @@ export default function BackendDealerAccountsPage() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
@@ -91,6 +94,14 @@ export default function BackendDealerAccountsPage() {
     for (const s of sRes.rows) map[s.id] = s;
     setStats(map);
     setLoadingRows(false);
+
+    // If we got an error or 0 rows, run the diagnostic so the user can see why.
+    if (dRes.error || dRes.rows.length === 0) {
+      const diag = await fetchBackendAuthCheck();
+      setAuthDiag(diag.check);
+    } else {
+      setAuthDiag(null);
+    }
   }, [showDeleted]);
 
   useEffect(() => {
@@ -174,8 +185,32 @@ export default function BackendDealerAccountsPage() {
 
         {(loadError || saveError) && hasSupabaseSession && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {loadError && <div>{loadError}</div>}
-            {saveError && <div className="mt-1">{saveError}</div>}
+            {loadError && <div className="font-mono whitespace-pre-wrap break-words">{loadError}</div>}
+            {saveError && <div className="mt-1 font-mono whitespace-pre-wrap break-words">{saveError}</div>}
+            <div className="mt-2 text-[11px] text-amber-700">
+              Se browser-konsollen for fuldt fejlobjekt (message · code · details · hint).
+            </div>
+          </div>
+        )}
+
+        {authDiag && hasSupabaseSession && !authDiag.is_backend && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <p className="font-semibold">Adgang nægtet — du genkendes ikke som Timan Backend bruger.</p>
+            <ul className="mt-2 space-y-0.5 text-xs font-mono">
+              <li>session: {String(authDiag.has_session)}</li>
+              <li>jwt_email: {authDiag.jwt_email || "—"}</li>
+              <li>jwt_uid: {authDiag.jwt_uid || "—"}</li>
+              <li>matched_app_user: {String(authDiag.matched_app_user)}</li>
+              <li>app_user_email: {authDiag.app_user_email || "—"}</li>
+              <li>app_user_role: {authDiag.app_user_role || "—"}</li>
+              <li>is_active: {String(authDiag.is_active)}</li>
+              <li>approved: {String(authDiag.approved)}</li>
+              <li>is_backend: {String(authDiag.is_backend)}</li>
+            </ul>
+            <p className="mt-2 text-xs">
+              Sørg for at <code>app_users</code>-rækken har <code>portal_role = 'timan_backend'</code>,
+              <code> is_active = true</code>, <code>approved = true</code>, og at email matcher den, du logger ind med.
+            </p>
           </div>
         )}
 

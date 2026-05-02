@@ -74,21 +74,43 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
   };
 }
 
-export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {}): Promise<DealerAccountsResult> {
-  try {
-    // Require an active Supabase Auth session — dealer_accounts RLS is
-    // restricted to authenticated Timan Backend users.
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      return {
-        source: "fallback",
-        rows: [],
-        error:
-          "Du er ikke logget ind med Supabase Auth. Forhandler-data kræver, at " +
-          "du logger ind med email og adgangskode som godkendt Timan Backend bruger.",
-      };
-    }
+/**
+ * Format a Supabase / PostgrestError-like object into a useful, human-readable string.
+ * Logs the full object so it can be inspected in the browser console.
+ */
+function describeSupabaseError(label: string, err: unknown): string {
+  // eslint-disable-next-line no-console
+  console.error(`[dealerAccountsService] ${label}:`, err);
+  if (!err) return `${label}: ukendt fejl`;
+  if (typeof err === "string") return `${label}: ${err}`;
+  const e = err as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+  const parts: string[] = [];
+  if (typeof e.message === "string" && e.message) parts.push(e.message);
+  if (e.code != null) parts.push(`code=${String(e.code)}`);
+  if (typeof e.details === "string" && e.details) parts.push(`details=${e.details}`);
+  if (typeof e.hint === "string" && e.hint) parts.push(`hint=${e.hint}`);
+  if (parts.length === 0) {
+    try { return `${label}: ${JSON.stringify(err)}`; } catch { return `${label}: [unserialiserbar fejl]`; }
+  }
+  return `${label}: ${parts.join(" · ")}`;
+}
 
+export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {}): Promise<DealerAccountsResult> {
+  // Require an active Supabase Auth session — dealer_accounts RLS is
+  // restricted to authenticated Timan Backend users.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    return {
+      source: "fallback",
+      rows: [],
+      error:
+        "Du er ikke logget ind med Supabase Auth. Forhandler-data kræver, at " +
+        "du logger ind med email og adgangskode som godkendt Timan Backend bruger.",
+    };
+  }
+
+  // Try direct SELECT first (relies on the dealer_accounts_select_backend RLS policy).
+  try {
     let query = supabase
       .from("dealer_accounts")
       .select("*")
@@ -98,10 +120,60 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
     }
     const { data, error } = await query;
     if (error) throw error;
-    return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
+    if (data && data.length > 0) {
+      return { source: "supabase", rows: data.map(rowToDealer) };
+    }
+    // 0 rows could mean "no data" OR "RLS hid them" — try the RPC fallback.
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { source: "fallback", rows: [], error: `Supabase fejl ved hentning af dealer_accounts: ${msg}` };
+    // Direct select failed — log and fall through to RPC.
+    describeSupabaseError("Direct SELECT på dealer_accounts fejlede", e);
+  }
+
+  // Fallback: SECURITY DEFINER RPC that authorizes inside the function.
+  // Phase 13 SQL: public.list_dealer_accounts_for_backend().
+  try {
+    const { data, error } = await supabase.rpc("list_dealer_accounts_for_backend");
+    if (error) throw error;
+    const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+    const mapped = rows
+      .map(rowToDealer)
+      .filter((r) => opts.includeDeleted || !r.is_deleted);
+    return { source: "supabase", rows: mapped };
+  } catch (e) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Supabase fejl ved hentning af dealer_accounts", e),
+    };
+  }
+}
+
+/**
+ * Diagnostic helper — calls the SECURITY DEFINER RPC public.backend_auth_check()
+ * which returns what the database thinks of the current session: jwt email,
+ * uid, matched app_user, role, is_backend. Used by the Forhandlere page to
+ * show a clear explanation when access is denied.
+ */
+export interface BackendAuthCheck {
+  has_session: boolean;
+  jwt_email: string | null;
+  jwt_uid: string | null;
+  matched_app_user: boolean;
+  app_user_email: string | null;
+  app_user_role: string | null;
+  is_active: boolean | null;
+  approved: boolean | null;
+  is_backend: boolean;
+}
+
+export async function fetchBackendAuthCheck(): Promise<{ check: BackendAuthCheck | null; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc("backend_auth_check");
+    if (error) throw error;
+    const row = Array.isArray(data) ? (data[0] as BackendAuthCheck | undefined) : (data as BackendAuthCheck | null);
+    return { check: row ?? null };
+  } catch (e) {
+    return { check: null, error: describeSupabaseError("backend_auth_check fejlede", e) };
   }
 }
 
