@@ -20,6 +20,8 @@ import {
   DealerAccountStats,
   fetchDealerAccountStats,
   fetchDealerAccounts,
+  fetchBackendAuthCheck,
+  type BackendAuthCheck,
   restoreDealer,
   setDealerBlocked,
   softDeleteDealer,
@@ -60,6 +62,7 @@ export default function BackendDealerAccountsPage() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
@@ -91,6 +94,14 @@ export default function BackendDealerAccountsPage() {
     for (const s of sRes.rows) map[s.id] = s;
     setStats(map);
     setLoadingRows(false);
+
+    // If we got an error or 0 rows, run the diagnostic so the user can see why.
+    if (dRes.error || dRes.rows.length === 0) {
+      const diag = await fetchBackendAuthCheck();
+      setAuthDiag(diag.check);
+    } else {
+      setAuthDiag(null);
+    }
   }, [showDeleted]);
 
   useEffect(() => {
