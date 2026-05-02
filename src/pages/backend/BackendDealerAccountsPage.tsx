@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, Lock, Pencil, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -26,6 +26,14 @@ import {
   setDealerBlocked,
   softDeleteDealer,
   updateDealerSeller,
+  createDealerAccount,
+  parseCsv,
+  buildCsvPreview,
+  upsertDealerAccountsBulk,
+  TIMAN_SELLERS,
+  DEALER_TYPE_OPTIONS,
+  type CsvParsedRow,
+  type CsvImportResult,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
@@ -63,6 +71,8 @@ export default function BackendDealerAccountsPage() {
   const [confirmDelete, setConfirmDelete] = useState<DealerAccount | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
@@ -156,10 +166,20 @@ export default function BackendDealerAccountsPage() {
               <p className="text-slate-500 mt-1 text-sm">Dealer accounts — kilden til forhandler/kontodata.</p>
             </div>
           </div>
-          <button type="button" onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
+              <Plus className="h-3.5 w-3.5" /> Opret forhandler
+            </button>
+            <button type="button" onClick={() => setShowImport(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+              <Upload className="h-3.5 w-3.5" /> Importér CSV
+            </button>
+            <button type="button" onClick={() => void reload()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
+            </button>
+          </div>
         </div>
 
         {authChecked && !hasSupabaseSession && (
@@ -438,6 +458,23 @@ export default function BackendDealerAccountsPage() {
           }}
         />
       )}
+
+      {showCreate && (
+        <CreateDealerModal
+          onClose={() => setShowCreate(false)}
+          onCreated={async () => { setShowCreate(false); await reload(); }}
+          onError={(msg) => setSaveError(msg)}
+        />
+      )}
+
+      {showImport && (
+        <ImportCsvModal
+          existing={rows}
+          onClose={() => setShowImport(false)}
+          onDone={async () => { setShowImport(false); await reload(); }}
+          onError={(msg) => setSaveError(msg)}
+        />
+      )}
     </div>
   );
 }
@@ -589,6 +626,279 @@ function EditSellerModal({
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
             Gem
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Create Dealer Modal ----------------
+
+function CreateDealerModal({
+  onClose, onCreated, onError,
+}: {
+  onClose: () => void;
+  onCreated: () => void | Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [d, setD] = useState({
+    company_name: "",
+    account_number: "",
+    customer_type: "Forhandler",
+    country: "",
+    address: "",
+    city: "",
+    postal_code: "",
+    email: "",
+    phone: "",
+    seller_initials: "EM",
+  });
+  const seller = TIMAN_SELLERS.find((s) => s.initials === d.seller_initials)!;
+
+  async function submit() {
+    setErr(null);
+    if (!d.company_name.trim() || !d.account_number.trim()) {
+      setErr("Firmanavn og kontonummer er påkrævet.");
+      return;
+    }
+    setBusy(true);
+    const res = await createDealerAccount({
+      account_number: d.account_number.trim(),
+      company_name: d.company_name.trim(),
+      customer_type: d.customer_type,
+      country: d.country.trim() || null,
+      address: d.address.trim() || null,
+      city: d.city.trim() || null,
+      postal_code: d.postal_code.trim() || null,
+      email: d.email.trim() || null,
+      phone: d.phone.trim() || null,
+      assigned_seller_initials: seller.initials,
+      assigned_seller_name: seller.name,
+      assigned_seller_email: seller.email,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const msg = res.error ?? "Kunne ikke oprette forhandler.";
+      setErr(msg); onError(msg);
+      return;
+    }
+    await onCreated();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full my-8">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 className="text-lg font-bold text-slate-900">Opret forhandler</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          {err && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 font-mono whitespace-pre-wrap">{err}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Firmanavn *"><input value={d.company_name} onChange={(e) => setD({ ...d, company_name: e.target.value })} className={inp} /></Field>
+            <Field label="Kontonummer *"><input value={d.account_number} onChange={(e) => setD({ ...d, account_number: e.target.value })} className={inp} /></Field>
+            <Field label="Forhandlertype">
+              <select value={d.customer_type} onChange={(e) => setD({ ...d, customer_type: e.target.value })} className={inp}>
+                {DEALER_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Land (ISO-2 eller navn)"><input value={d.country} onChange={(e) => setD({ ...d, country: e.target.value })} className={inp} /></Field>
+            <Field label="Adresse"><input value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} className={inp} /></Field>
+            <Field label="By"><input value={d.city} onChange={(e) => setD({ ...d, city: e.target.value })} className={inp} /></Field>
+            <Field label="Postnr"><input value={d.postal_code} onChange={(e) => setD({ ...d, postal_code: e.target.value })} className={inp} /></Field>
+            <Field label="Email"><input value={d.email} onChange={(e) => setD({ ...d, email: e.target.value })} className={inp} /></Field>
+            <Field label="Telefon"><input value={d.phone} onChange={(e) => setD({ ...d, phone: e.target.value })} className={inp} /></Field>
+            <Field label="Tildelt Timan sælger">
+              <select value={d.seller_initials} onChange={(e) => setD({ ...d, seller_initials: e.target.value })} className={inp}>
+                {TIMAN_SELLERS.map((s) => <option key={s.initials} value={s.initials}>{s.initials} · {s.name}</option>)}
+              </select>
+            </Field>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Sælger: <strong>{seller.initials} · {seller.name}</strong> ({seller.email})
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
+          <button onClick={() => void submit()} disabled={busy}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+            {busy ? "Opretter…" : "Opret forhandler"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inp = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// ---------------- CSV Import Modal ----------------
+
+function ImportCsvModal({
+  existing, onClose, onDone, onError,
+}: {
+  existing: DealerAccount[];
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CsvParsedRow[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<CsvImportResult | null>(null);
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setErr(null); setPreview(null); setResult(null);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileName(f.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result ?? "");
+        const { rows } = parseCsv(text);
+        const mapped = buildCsvPreview(rows, existing);
+        if (mapped.length === 0) { setErr("Ingen gyldige rækker fundet i CSV (mangler kontonummer?)."); return; }
+        setPreview(mapped);
+      } catch (e) {
+        setErr("Kunne ikke parse CSV: " + (e instanceof Error ? e.message : String(e)));
+      }
+    };
+    reader.readAsText(f, "utf-8");
+  }
+
+  async function runImport() {
+    if (!preview) return;
+    setBusy(true); setErr(null);
+    const res = await upsertDealerAccountsBulk(preview);
+    setBusy(false);
+    if (!res.ok || !res.result) {
+      const msg = res.error ?? "Import fejlede.";
+      setErr(msg); onError(msg);
+      return;
+    }
+    setResult(res.result);
+  }
+
+  const willCreate = preview?.filter((r) => !r.willUpdate).length ?? 0;
+  const willUpdate = preview?.filter((r) => r.willUpdate).length ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full my-8 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 className="text-lg font-bold text-slate-900">Importér forhandlere fra CSV</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="px-6 py-4 space-y-3 overflow-y-auto">
+          <div className="text-xs text-slate-600">
+            <p>Forventede kolonner (case-insensitive):</p>
+            <ul className="list-disc pl-5 mt-1 space-y-0.5">
+              <li><code>title</code> / <code>Titel</code> → firmanavn</li>
+              <li><code>account</code> / <code>Account</code> → kontonummer (nøgle for upsert)</li>
+              <li><code>A_B_Kunde</code> / <code>A_B_KUNDE</code> → 1=Forhandler, 2=Service Partner, 3=Importør</li>
+              <li><code>Country</code> / <code>COUNTRY</code> → land (bestemmer sælger)</li>
+            </ul>
+            <p className="mt-2">Sælger-tildeling: DK→EM · DE/CH/HU/IT/AT→AKR · alle andre→BP.</p>
+          </div>
+
+          <input type="file" accept=".csv,text/csv" onChange={onFile}
+            className="block text-sm" />
+          {fileName && <p className="text-[11px] text-slate-500">Fil: {fileName}</p>}
+
+          {err && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 font-mono whitespace-pre-wrap">{err}</div>}
+
+          {preview && !result && (
+            <>
+              <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-900">
+                Forhåndsvisning: <strong>{preview.length}</strong> rækker —
+                {" "}<strong>{willCreate}</strong> oprettes,
+                {" "}<strong>{willUpdate}</strong> opdateres.
+              </div>
+              <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-1 text-left">Status</th>
+                      <th className="px-2 py-1 text-left">Kontonr</th>
+                      <th className="px-2 py-1 text-left">Firma</th>
+                      <th className="px-2 py-1 text-left">Type</th>
+                      <th className="px-2 py-1 text-left">Land</th>
+                      <th className="px-2 py-1 text-left">Sælger</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.slice(0, 200).map((r, i) => (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-2 py-1">
+                          {r.willUpdate
+                            ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Opdater</span>
+                            : <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Ny</span>}
+                        </td>
+                        <td className="px-2 py-1 font-mono">{r.account_number}</td>
+                        <td className="px-2 py-1">{r.company_name}</td>
+                        <td className="px-2 py-1">{r.customer_type ?? "—"}</td>
+                        <td className="px-2 py-1">{r.country ?? "—"}</td>
+                        <td className="px-2 py-1">{r.assigned_seller_initials}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {preview.length > 200 && (
+                  <p className="px-2 py-1 text-[11px] text-slate-500">Viser de første 200 af {preview.length} rækker.</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {result && (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-3 text-sm text-emerald-900">
+              <p className="font-bold">Import gennemført</p>
+              <ul className="mt-1 text-xs space-y-0.5">
+                <li>Oprettet: <strong>{result.created}</strong></li>
+                <li>Opdateret: <strong>{result.updated}</strong></li>
+                <li>Sprunget over / fejl: <strong>{result.skipped}</strong></li>
+              </ul>
+              {result.errors.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-semibold">Vis fejl ({result.errors.length})</summary>
+                  <ul className="mt-1 text-[11px] font-mono max-h-40 overflow-y-auto">
+                    {result.errors.map((e, i) => <li key={i}>{e.account_number ?? "—"}: {e.error}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            {result ? "Luk" : "Annuller"}
+          </button>
+          {!result && preview && (
+            <button onClick={() => void runImport()} disabled={busy}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+              {busy ? "Importerer…" : `Bekræft import (${preview.length})`}
+            </button>
+          )}
+          {result && (
+            <button onClick={() => void onDone()}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
+              Færdig & genindlæs
+            </button>
+          )}
         </div>
       </div>
     </div>
