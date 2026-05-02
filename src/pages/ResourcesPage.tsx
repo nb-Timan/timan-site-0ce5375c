@@ -110,12 +110,12 @@ export default function ResourcesPage() {
             onClick={() => navigate('/portal/resources/co2')}
             className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
           >
-            <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center text-white mb-6">
+            <div className="w-12 h-12 bg-[#2d5a27] rounded-lg flex items-center justify-center text-white mb-6">
               <Leaf className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold mb-2 text-gray-900">{T.co2Title[lang]}</h3>
             <p className="text-gray-500 text-sm mb-4">{T.co2Desc[lang]}</p>
-            <span className="text-emerald-600 font-bold text-sm uppercase">{T.co2Cta[lang]}</span>
+            <span className="text-[#2d5a27] font-bold text-sm uppercase">{T.co2Cta[lang]}</span>
           </button>
         </div>
       </main>
