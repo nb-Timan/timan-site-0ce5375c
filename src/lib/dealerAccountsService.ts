@@ -33,6 +33,9 @@ export interface DealerAccount {
   is_deleted: boolean;
   deleted_at: string | null;
   deleted_by: string | null;
+  parent_account_number: string | null;
+  is_main_account: boolean;
+  branch_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +72,9 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     is_deleted: Boolean(row.is_deleted ?? false),
     deleted_at: (row.deleted_at as string | null) ?? null,
     deleted_by: (row.deleted_by as string | null) ?? null,
+    parent_account_number: (row.parent_account_number as string | null) ?? null,
+    is_main_account: Boolean(row.is_main_account ?? false),
+    branch_name: (row.branch_name as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
