@@ -380,17 +380,14 @@ export default function BackendDealerAccountsPage() {
       <PortalFooter language={lang} />
 
       {editing && (
-        <EditSellerModal
+        <EditDealerModal
           dealer={editing}
           sellers={sellers}
+          allDealers={allMainsForPicker}
+          dealersByAcct={dealersByAcct}
           onClose={() => setEditing(null)}
-          onSave={async (patch) => {
-            setSaveError(null);
-            const res = await updateDealerSeller(editing.id, patch);
-            if (!res.ok) { setSaveError(res.error ?? "Kunne ikke gemme."); return; }
-            setEditing(null);
-            await reload();
-          }}
+          onSaved={async () => { setEditing(null); await reload(); }}
+          onError={(msg) => setSaveError(msg)}
         />
       )}
 
