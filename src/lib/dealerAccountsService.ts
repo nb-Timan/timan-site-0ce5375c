@@ -180,6 +180,8 @@ function rowToStats(row: Record<string, unknown>): DealerAccountStats {
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
+    is_blocked: Boolean(row.is_blocked ?? false),
+    is_deleted: Boolean(row.is_deleted ?? false),
     user_count: Number(row.user_count ?? 0),
     activity_count: Number(row.activity_count ?? 0),
     quote_count: Number(row.quote_count ?? 0),
