@@ -90,10 +90,11 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           return;
         }
         const cached = loadFromStorage();
-        // Refresh from DB if cache is missing portal_role (stale pre-Phase 1B cache).
+        // Refresh from DB if cache is missing portal_role or dealer_number (stale cache).
         const cacheIsFresh = cached
           && cached.email.toLowerCase() === session.user.email.toLowerCase()
-          && Object.prototype.hasOwnProperty.call(cached, 'portal_role');
+          && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
+          && Object.prototype.hasOwnProperty.call(cached, 'dealer_number');
         if (cacheIsFresh) {
           setLoading(false);
           return;
