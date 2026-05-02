@@ -282,7 +282,13 @@ export default function BackendDealerAccountsPage() {
             <option value="">Alle sælgere</option>
             {sellerInitials.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <label className="md:col-span-3 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <select value={structureFilter} onChange={(e) => setStructureFilter(e.target.value as "all" | "main" | "branch")}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <option value="all">Alle (hoved + filialer)</option>
+            <option value="main">Kun hovedforhandlere</option>
+            <option value="branch">Kun filialer</option>
+          </select>
+          <label className="md:col-span-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
             <input type="checkbox" checked={unassignedOnly} onChange={(e) => setUnassignedOnly(e.target.checked)} className="h-4 w-4" />
             Vis kun forhandlere uden tildelt sælger
           </label>
