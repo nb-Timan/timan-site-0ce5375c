@@ -256,8 +256,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     }
     setLoading(true);
 
+    // Normalize language to lowercase ISO code (da/en/de/it/hu).
+    // The PORTAL_LANGUAGES list already uses lowercase codes, but guard
+    // against anything that may have leaked through (DK/GB/etc.).
+    const LANG_MAP: Record<string, string> = {
+      DK: 'da', GB: 'en', UK: 'en', US: 'en', DE: 'de', IT: 'it', HU: 'hu',
+      da: 'da', en: 'en', de: 'de', it: 'it', hu: 'hu',
+    };
+    const normalizedLanguage = LANG_MAP[suLanguage] || LANG_MAP[String(suLanguage).toUpperCase()] || 'da';
+
     try {
       // 1) Create the Supabase Auth user — they choose their own password.
+      console.log('[signup] calling supabase.auth.signUp for', emailTrim);
       const { data, error: authError } = await supabase.auth.signUp({
         email: emailTrim,
         password: suPassword,
@@ -269,24 +279,38 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             last_name: lastName,
             company,
             country,
-            preferred_language: suLanguage,
+            preferred_language: normalizedLanguage,
           },
         },
       });
 
       if (authError) {
-        if (authError.message?.toLowerCase().includes('already registered') || authError.message?.toLowerCase().includes('already been registered')) {
+        const msg = authError.message || 'Unknown auth error';
+        console.error('[signup] auth error:', authError);
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered') || msg.toLowerCase().includes('user already')) {
           setError(tx('signupEmailExists', language));
         } else {
-          setError(tx('signupError', language));
-          console.error('[signup] auth error:', authError);
+          // Surface the real error so the user sees what went wrong.
+          setError(`Auth: ${msg}`);
         }
         setLoading(false);
         return;
       }
 
+      if (!data?.user) {
+        console.error('[signup] auth returned no user', data);
+        setError('Auth: no user returned from signUp');
+        setLoading(false);
+        return;
+      }
+
+      console.log('[signup] auth user created:', data.user.id, 'session?', !!data.session);
+
       // 2) Insert/update the user in public.app_users — pending approval.
-      const { error: upsertErr } = await supabase.from('app_users').upsert({
+      // NOTE: when email confirmation is required, there is no active session
+      // here, so this insert runs as the `anon` role and depends on the
+      // `app_users_anon_insert` RLS policy from phase8.
+      const upsertPayload = {
         email: emailTrim,
         full_name: `${firstName} ${lastName}`.trim(),
         first_name: firstName,
@@ -296,7 +320,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         city,
         postal_code: postal,
         country,
-        preferred_language: suLanguage,
+        preferred_language: normalizedLanguage,
         role: 'slutkunde',
         portal_role: 'pending',
         partner_type: null,
@@ -312,17 +336,43 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         working_for: null,
         display_name: `${firstName} ${lastName}`.trim(),
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' });
+      };
+      console.log('[signup] upserting app_users row:', upsertPayload);
+
+      const { data: upsertData, error: upsertErr } = await supabase
+        .from('app_users')
+        .upsert(upsertPayload, { onConflict: 'email' })
+        .select();
 
       if (upsertErr) {
-        console.error('[signup] app_users upsert failed:', upsertErr);
+        const code = (upsertErr as { code?: string }).code || '';
+        const details = (upsertErr as { details?: string }).details || '';
+        const hint = (upsertErr as { hint?: string }).hint || '';
+        console.error('[signup] app_users upsert failed:', { message: upsertErr.message, code, details, hint });
+
+        if (code === '42501' || /row-level security|policy/i.test(upsertErr.message)) {
+          console.error('[signup] RLS policy error — anon INSERT into public.app_users is blocked. Check phase8 SQL (app_users_anon_insert policy).');
+          setError(`DB (RLS): ${upsertErr.message}. Auth user blev oprettet, men profil kunne ikke gemmes.`);
+        } else if (code === '23514' || /check constraint/i.test(upsertErr.message)) {
+          console.error('[signup] check constraint violated — likely portal_role enum missing "pending" or invalid status.');
+          setError(`DB (constraint): ${upsertErr.message}`);
+        } else if (code === '23502') {
+          setError(`DB (not null): ${upsertErr.message}`);
+        } else {
+          setError(`DB: ${upsertErr.message}${details ? ' — ' + details : ''}`);
+        }
+        setLoading(false);
+        return;
       }
+
+      console.log('[signup] app_users upserted OK:', upsertData);
 
       setSignupEmail(emailTrim);
       setView('signup-done');
     } catch (err) {
-      console.error('[signup] error:', err);
-      setError(tx('signupError', language));
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[signup] unexpected error:', err);
+      setError(`Signup: ${message}`);
     } finally {
       setLoading(false);
     }
