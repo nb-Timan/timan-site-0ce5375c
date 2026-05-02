@@ -579,8 +579,8 @@ export default function DriftberegnerPage() {
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-2 font-bold text-gray-700">
               {t.commonHeader}
             </div>
-            <div className="p-4 flex flex-wrap items-end gap-x-4 gap-y-3">
-              <div className="flex-shrink-0">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="min-w-0">
                 <label
                   className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
                   title={`${t.fuelPrice} (${loc.currency})`}
@@ -591,7 +591,7 @@ export default function DriftberegnerPage() {
                   type="number"
                   value={common.fuelPrice}
                   onChange={(e) => updateCommon('fuelPrice', e.target.value)}
-                  className="drift-num-input w-28 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
               {([
@@ -600,7 +600,7 @@ export default function DriftberegnerPage() {
                 { key: 'depreciationYears', label: t.depreciation },
                 { key: 'interestRate', label: t.interest },
               ] as { key: keyof Common; label: string }[]).map(({ key, label }) => (
-                <div key={key} className="flex-shrink-0">
+                <div key={key} className="min-w-0">
                   <label
                     className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
                     title={label}
@@ -611,7 +611,7 @@ export default function DriftberegnerPage() {
                     type="number"
                     value={common[key]}
                     onChange={(e) => updateCommon(key, e.target.value)}
-                    className="drift-num-input w-24 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                   />
                 </div>
               ))}
