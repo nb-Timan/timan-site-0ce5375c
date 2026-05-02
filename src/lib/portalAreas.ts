@@ -82,6 +82,7 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'audit',     title: { da: 'Audit log', en: 'Audit log', de: 'Audit-Log', it: 'Registro di controllo', hu: 'Audit napló' } },
       { key: 'portal_analytics', title: { da: 'Portal Analytics', en: 'Portal Analytics', de: 'Portal-Analytik', it: 'Analisi Portale', hu: 'Portál analitika' } },
       { key: 'dealer_accounts', title: { da: 'Forhandlere', en: 'Dealer accounts', de: 'Händlerkonten', it: 'Account rivenditori', hu: 'Kereskedői fiókok' } },
+      { key: 'sellers', title: { da: 'Timan sælgere', en: 'Timan sellers', de: 'Timan Verkäufer', it: 'Venditori Timan', hu: 'Timan értékesítők' } },
     ],
   },
 ];
