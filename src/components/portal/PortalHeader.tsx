@@ -140,13 +140,57 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               </button>
             )}
 
-            <div className="ml-4 flex items-center">
+            <div className="ml-4 flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-[#2d5a27] flex items-center justify-center text-white text-xs font-bold">
                 {initials}
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-700 hidden md:inline truncate max-w-[200px]">
+              <span className="text-sm font-medium text-gray-700 hidden md:inline truncate max-w-[200px]">
                 {displayName}
               </span>
+
+              {showModeSwitch && (
+                <div className="relative ml-1">
+                  <button
+                    type="button"
+                    onClick={() => setModeMenuOpen(o => !o)}
+                    onBlur={() => setTimeout(() => setModeMenuOpen(false), 120)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
+                      activeMode === 'seller'
+                        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                        : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
+                    }`}
+                    title={T.switchMode[language]}
+                    aria-haspopup="menu"
+                    aria-expanded={modeMenuOpen}
+                  >
+                    <span>{sellerInitials} {activeMode === 'seller' ? T.sellerMode[language] : T.backendMode[language]}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {modeMenuOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {(['backend', 'seller'] as ActiveMode[]).map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={activeMode === m}
+                          onClick={() => chooseMode(m)}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="font-medium">
+                            {sellerInitials} {m === 'seller' ? T.sellerMode[language] : T.backendMode[language]}
+                          </span>
+                          {activeMode === m && <Check className="w-4 h-4 text-[#2d5a27]" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
