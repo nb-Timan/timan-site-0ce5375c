@@ -33,7 +33,7 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
 };
 
 export default function PortalPage() {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
