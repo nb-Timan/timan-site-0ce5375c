@@ -201,9 +201,13 @@ export default function BackendDealerAccountsPage() {
             <option value="">Alle sælgere</option>
             {sellerInitials.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <label className="md:col-span-5 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <label className="md:col-span-3 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
             <input type="checkbox" checked={unassignedOnly} onChange={(e) => setUnassignedOnly(e.target.checked)} className="h-4 w-4" />
             Vis kun forhandlere uden tildelt sælger
+          </label>
+          <label className="md:col-span-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} className="h-4 w-4" />
+            Vis slettede forhandlere
           </label>
         </div>
 
