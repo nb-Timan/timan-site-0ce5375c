@@ -79,7 +79,7 @@ export default function BackendDealerAccountsPage() {
   const reload = useMemo(() => async () => {
     setLoadingRows(true);
     const [dRes, uRes, sRes] = await Promise.all([
-      fetchDealerAccounts(),
+      fetchDealerAccounts({ includeDeleted: showDeleted }),
       fetchBackendUsers(),
       fetchDealerAccountStats(),
     ]);
@@ -91,7 +91,7 @@ export default function BackendDealerAccountsPage() {
     for (const s of sRes.rows) map[s.id] = s;
     setStats(map);
     setLoadingRows(false);
-  }, []);
+  }, [showDeleted]);
 
   useEffect(() => {
     if (authChecked && hasSupabaseSession) void reload();
