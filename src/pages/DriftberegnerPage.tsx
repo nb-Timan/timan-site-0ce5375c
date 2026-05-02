@@ -579,16 +579,19 @@ export default function DriftberegnerPage() {
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-2 font-bold text-gray-700">
               {t.commonHeader}
             </div>
-            <div className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+            <div className="p-4 flex flex-wrap items-end gap-x-4 gap-y-3">
+              <div className="flex-shrink-0">
+                <label
+                  className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                  title={`${t.fuelPrice} (${loc.currency})`}
+                >
                   {t.fuelPrice} ({loc.currency})
                 </label>
                 <input
                   type="number"
                   value={common.fuelPrice}
                   onChange={(e) => updateCommon('fuelPrice', e.target.value)}
-                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  className="drift-num-input w-28 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
               {([
@@ -597,13 +600,18 @@ export default function DriftberegnerPage() {
                 { key: 'depreciationYears', label: t.depreciation },
                 { key: 'interestRate', label: t.interest },
               ] as { key: keyof Common; label: string }[]).map(({ key, label }) => (
-                <div key={key}>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{label}</label>
+                <div key={key} className="flex-shrink-0">
+                  <label
+                    className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                    title={label}
+                  >
+                    {label}
+                  </label>
                   <input
                     type="number"
                     value={common[key]}
                     onChange={(e) => updateCommon(key, e.target.value)}
-                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-base font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                    className="drift-num-input w-24 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                   />
                 </div>
               ))}
