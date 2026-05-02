@@ -153,6 +153,8 @@ export interface DealerAccountStats {
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
+  is_blocked: boolean;
+  is_deleted: boolean;
   user_count: number;
   activity_count: number;
   quote_count: number;
