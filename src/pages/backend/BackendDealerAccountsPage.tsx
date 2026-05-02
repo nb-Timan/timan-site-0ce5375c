@@ -72,10 +72,18 @@ export default function BackendDealerAccountsPage() {
 
   const reload = useMemo(() => async () => {
     setLoadingRows(true);
-    const [dRes, uRes] = await Promise.all([fetchDealerAccounts(), fetchBackendUsers()]);
+    const [dRes, uRes, sRes] = await Promise.all([
+      fetchDealerAccounts(),
+      fetchBackendUsers(),
+      fetchDealerAccountStats(),
+    ]);
     setRows(dRes.rows);
-    setLoadError(dRes.error ?? null);
+    setLoadError(dRes.error ?? sRes.error ?? null);
+    setAllUsers(uRes.users);
     setSellers(uRes.users.filter((u) => u.role === "timan_seller" || u.role === "timan_backend"));
+    const map: Record<string, DealerAccountStats> = {};
+    for (const s of sRes.rows) map[s.id] = s;
+    setStats(map);
     setLoadingRows(false);
   }, []);
 
