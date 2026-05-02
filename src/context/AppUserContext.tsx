@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -11,13 +12,21 @@ export type SessionUser = AppUser & {
   company_dealer?: string | null;
   module_access?: string[] | null;
   status?: string | null;
+  dealer_number?: string | null;
 };
+
+export interface DealerAccessStatus {
+  isBlocked: boolean;
+  isDeleted: boolean;
+  companyName: string | null;
+}
 
 interface AppUserContextValue {
   appUser: SessionUser | null;
   loading: boolean;
   setAppUser: (user: SessionUser | null) => void;
   logout: () => Promise<void>;
+  dealerStatus: DealerAccessStatus | null;
 }
 
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
