@@ -308,9 +308,6 @@ export default function BackendUsersPage() {
                       : <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">No</span>}
                   </Td>
                   <Td>{PORTAL_ROLE_LABELS[u.role]?.da ?? u.role}</Td>
-                  <Td className="text-slate-500 text-xs whitespace-nowrap">
-                    {(() => { try { return new Date(u.created_at).toLocaleDateString("da-DK"); } catch { return "—"; } })()}
-                  </Td>
                   <Td>{authBadge(u)}</Td>
                   <Td>
                     <div className="flex items-center gap-2 flex-wrap">
