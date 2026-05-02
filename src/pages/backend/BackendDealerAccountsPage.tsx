@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Lock, Pencil, RotateCcw, Search, X } from "lucide-react";
+import { ArrowLeft, Building2, ChevronDown, ChevronRight, Lock, Pencil, RotateCcw, Search, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -17,6 +17,8 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
 import {
   DealerAccount,
+  DealerAccountStats,
+  fetchDealerAccountStats,
   fetchDealerAccounts,
   updateDealerSeller,
 } from "@/lib/dealerAccountsService";
