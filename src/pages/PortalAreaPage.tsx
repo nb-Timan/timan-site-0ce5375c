@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -59,6 +59,8 @@ export default function PortalAreaPage({ areaId }: Props) {
           {areaModules.map(m => <ModuleCard key={m.id} module={m} language={lang} />)}
           {area.placeholders.map(p => {
             let href: string | undefined;
+            let icon: LucideIcon | undefined;
+            let description: string | undefined;
             if (p.key === 'tsb_portal') {
               // TSB is internal-only — hide card entirely for roles without access
               if (!canAccessTsb(portalRole)) return null;
@@ -69,18 +71,34 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/service/information';
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
+              icon = Users;
+              description = lang === 'da' ? 'Administrer alle portal-brugere, godkend nye signups og tildel roller.' : 'Manage all portal users, approve signups and assign roles.';
             } else if (p.key === 'roles') {
               href = '/portal/backend/roles';
+              icon = ShieldCheck;
+              description = lang === 'da' ? 'Definér portal-roller og standard-rettigheder.' : 'Define portal roles and default permissions.';
             } else if (p.key === 'module_access') {
               href = '/portal/backend/module-access';
+              icon = KeyRound;
+              description = lang === 'da' ? 'Styr hvilke moduler hver rolle har adgang til.' : 'Control which modules each role can access.';
             } else if (p.key === 'audit') {
               href = '/portal/backend/audit-log';
+              icon = ScrollText;
+              description = lang === 'da' ? 'Se ændringer på brugere, roller og adgang.' : 'See changes to users, roles and access.';
             } else if (p.key === 'portal_analytics') {
               href = '/portal/backend/portal-analytics';
+              icon = BarChart3;
+              description = lang === 'da' ? 'Brug af portalen — besøg, sessioner og moduler.' : 'Portal usage — visits, sessions and modules.';
             } else if (p.key === 'dealer_accounts') {
               href = '/portal/backend/dealer-accounts';
+              icon = Building2;
+              description = lang === 'da'
+                ? 'Master-overblik over alle forhandlere, service partnere og importører — med tildelt sælger, brugere, tilbud og ordrer.'
+                : 'Master overview of all dealers, service partners and importers — with assigned seller, users, quotes and orders.';
             } else if (p.key === 'sellers') {
               href = '/portal/backend/sellers';
+              icon = UserCog;
+              description = lang === 'da' ? 'Timan sælgere og deres tildelte forhandlere.' : 'Timan sellers and their assigned dealers.';
             }
             return (
               <PlaceholderCard
@@ -88,6 +106,8 @@ export default function PortalAreaPage({ areaId }: Props) {
                 title={p.title[lang] || p.title.en}
                 language={lang}
                 to={href}
+                icon={icon}
+                description={description}
               />
             );
           })}

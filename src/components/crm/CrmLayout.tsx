@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -16,6 +16,7 @@ const T: Record<string, Record<Language, string>> = {
   back_crm:   { da: 'Tilbage til CRM', en: 'Back to CRM', de: 'Zurück zum CRM', it: 'Torna al CRM', hu: 'Vissza a CRM-hez' },
   title:      { da: 'Timan CRM', en: 'Timan CRM', de: 'Timan CRM', it: 'Timan CRM', hu: 'Timan CRM' },
   dashboard:  { da: 'Dashboard',     en: 'Dashboard',  de: 'Dashboard',  it: 'Dashboard',  hu: 'Irányítópult' },
+  my_dealers: { da: 'Mine forhandlere', en: 'My dealers', de: 'Meine Händler', it: 'I miei rivenditori', hu: 'Kereskedőim' },
   accounts:   { da: 'Konti',         en: 'Accounts',   de: 'Konten',     it: 'Account',    hu: 'Fiókok' },
   leads:      { da: 'Leads',         en: 'Leads',      de: 'Leads',      it: 'Lead',       hu: 'Leadek' },
   quotes:     { da: 'Tilbud',        en: 'Quotes',     de: 'Angebote',   it: 'Preventivi', hu: 'Árajánlatok' },
@@ -31,6 +32,7 @@ const T: Record<string, Record<Language, string>> = {
 interface NavItem { key: keyof typeof T; to: string; icon: typeof LayoutDashboard }
 const NAV: NavItem[] = [
   { key: 'dashboard',  to: '/portal/crm/dashboard',  icon: LayoutDashboard },
+  { key: 'my_dealers', to: '/portal/crm/my-dealers', icon: Store },
   { key: 'accounts',   to: '/portal/crm/accounts',   icon: Building2 },
   { key: 'leads',      to: '/portal/crm/leads',      icon: Sparkles },
   { key: 'quotes',     to: '/portal/crm/quotes',     icon: FileText },

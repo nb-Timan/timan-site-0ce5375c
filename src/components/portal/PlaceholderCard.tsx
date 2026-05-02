@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Sparkles, LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
@@ -16,9 +16,13 @@ interface Props {
   language: Language;
   /** When provided, the card becomes a real link (used for live modules like TSB). */
   to?: string;
+  /** Optional custom icon (defaults to Sparkles). */
+  icon?: LucideIcon;
+  /** Optional short description shown below the title. */
+  description?: string;
 }
 
-export default function PlaceholderCard({ title, language, to }: Props) {
+export default function PlaceholderCard({ title, language, to, icon: Icon = Sparkles, description }: Props) {
   const live = !!to;
   const inner = (
     <div
@@ -31,7 +35,7 @@ export default function PlaceholderCard({ title, language, to }: Props) {
         'w-14 h-14 rounded-xl flex items-center justify-center mb-6',
         live ? 'bg-[#2d5a27]/10' : 'bg-gray-50',
       )}>
-        <Sparkles
+        <Icon
           className={cn('h-8 w-8', live ? 'text-[#2d5a27]' : 'text-gray-400')}
           strokeWidth={2}
         />
@@ -39,7 +43,7 @@ export default function PlaceholderCard({ title, language, to }: Props) {
 
       <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
 
-      <p className="text-gray-600 text-sm mb-6 flex-grow" />
+      <p className="text-gray-600 text-sm mb-6 flex-grow">{description ?? ''}</p>
 
       <div className="mb-4 flex items-center gap-2">
         <span className={cn(
