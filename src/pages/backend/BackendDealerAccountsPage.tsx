@@ -147,13 +147,30 @@ export default function BackendDealerAccountsPage() {
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
     if (seller && r.assigned_seller_initials !== seller) return false;
     if (unassignedOnly && r.assigned_seller_initials) return false;
+    if (structureFilter === "main" && !(r.is_main_account || (!r.parent_account_number && rows.some((x) => x.parent_account_number === r.account_number)))) return false;
+    if (structureFilter === "branch" && !r.parent_account_number) return false;
     if (q) {
       const needle = q.toLowerCase();
-      const hay = `${r.company_name} ${r.account_number} ${r.city ?? ""} ${r.email ?? ""}`.toLowerCase();
+      const hay = `${r.company_name} ${r.account_number} ${r.city ?? ""} ${r.email ?? ""} ${r.branch_name ?? ""}`.toLowerCase();
       if (!hay.includes(needle)) return false;
     }
     return true;
   });
+
+  // Build groups for the "All" view. We always group children under their main
+  // so the table reflects parent/child structure. When the user filters by
+  // "branch" we render branches flat. When filtering by "main", branches are
+  // hidden but we still expose them via the expand chevron.
+  const groups = useMemo(() => groupDealersByParent(filtered), [filtered]);
+  const dealersByAcct = useMemo(() => {
+    const m = new Map<string, DealerAccount>();
+    for (const r of rows) m.set(r.account_number, r);
+    return m;
+  }, [rows]);
+  const allMainsForPicker = useMemo(
+    () => rows.filter((r) => !r.is_deleted).sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
+    [rows],
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
