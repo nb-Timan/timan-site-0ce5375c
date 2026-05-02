@@ -10,6 +10,7 @@ import PortalAreaPage from "./pages/PortalAreaPage";
 import PortalCrmPage from "./pages/PortalCrmPage";
 import CrmDashboardPage from "./pages/crm/CrmDashboardPage";
 import CrmAccountsPage from "./pages/crm/CrmAccountsPage";
+import CrmMyDealersPage from "./pages/crm/CrmMyDealersPage";
 import CrmAccountDetailPage from "./pages/crm/CrmAccountDetailPage";
 import CrmActivitiesPage from "./pages/crm/CrmActivitiesPage";
 import CrmComingSoonPage from "./pages/crm/CrmComingSoonPage";
@@ -76,6 +77,7 @@ const App = () => (
               <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
               <Route path="/portal/crm/accounts"   element={<CrmAccountsPage />} />
+              <Route path="/portal/crm/my-dealers" element={<CrmMyDealersPage />} />
               <Route path="/portal/crm/accounts/:id" element={<CrmAccountDetailPage />} />
               <Route path="/portal/crm/activities" element={<CrmActivitiesPage />} />
               <Route path="/portal/crm/leads"          element={<CrmLeadsPage />} />
