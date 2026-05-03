@@ -21,7 +21,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -74,6 +74,7 @@ function fmtDate(iso: string | null): string {
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
+  const navigate = useNavigate();
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
@@ -254,6 +255,7 @@ export default function CrmMyDealersPage() {
                     dealersByAcct,
                     usersExpanded,
                     setUsersExpanded,
+                    onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
@@ -261,6 +263,7 @@ export default function CrmMyDealersPage() {
                         r: b, depth: 1, isMain: false, branchCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
+                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
                   ))}
@@ -291,6 +294,7 @@ interface RowProps {
   dealersByAcct: Map<string, DealerAccount>;
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  onOpenDetail?: (d: DealerAccount) => void;
 }
 
 function renderRow(p: RowProps) {
@@ -308,11 +312,15 @@ function renderRow(p: RowProps) {
   const usersOpen = p.usersExpanded.has(p.r.id);
   return (
     <>
-      <tr className="border-t border-slate-100 hover:bg-slate-50/60">
+      <tr
+        className="border-t border-slate-100 hover:bg-emerald-50/40 cursor-pointer"
+        onClick={() => p.onOpenDetail?.(p.r)}
+      >
         <Td>
           <div className="flex items-center gap-1">
             {p.onToggle ? (
-              <button type="button" onClick={p.onToggle}
+              <button type="button"
+                onClick={(e) => { e.stopPropagation(); p.onToggle?.(); }}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
                 aria-label={p.open ? "Skjul filialer" : "Vis filialer"}>
                 {p.open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -322,9 +330,9 @@ function renderRow(p: RowProps) {
             )}
             {linkedUsers.length > 0 && (
               <button type="button"
-                onClick={() => p.setUsersExpanded((prev) => {
+                onClick={(e) => { e.stopPropagation(); p.setUsersExpanded((prev) => {
                   const n = new Set(prev); if (n.has(p.r.id)) n.delete(p.r.id); else n.add(p.r.id); return n;
-                })}
+                }); }}
                 className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700"
                 aria-label="Vis brugere">
                 {usersOpen ? "−" : "+"}
