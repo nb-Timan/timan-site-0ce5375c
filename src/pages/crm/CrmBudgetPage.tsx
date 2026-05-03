@@ -581,7 +581,8 @@ export default function CrmBudgetPage() {
   // mode behaves as that seller for window/lock resolution and countdown).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _activeModeRev = activeModeRev; // re-evaluated when mode changes
-  const activeSellerView = isAdmin ? getActiveSellerView(appUser?.email) : null;
+  // NOTE: activeSellerContext is intentionally NOT used in backend mode for
+  // filtering — backend mode aggregates across all sellers regardless.
   const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
 
   // The "selected seller" for backend admin == backendFilter (only when it's
