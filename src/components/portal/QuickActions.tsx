@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Plus, FlaskConical, Calendar, Users } from 'lucide-react';
+import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { getActiveSellerView } from '@/lib/activeMode';
+import { getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
 
 interface Action {
   label: string;
@@ -9,26 +9,61 @@ interface Action {
   icon: typeof Plus;
 }
 
-const ACTIONS: Action[] = [
+const INTERNAL_ACTIONS: Action[] = [
   { label: 'Opret nyt lead',       to: '/portal/crm/leads/new',      icon: Plus },
   { label: 'Ny demo-registrering', to: '/portal/crm/demo-leads/new', icon: FlaskConical },
   { label: 'Kalender',             to: '/portal/crm/calendar',       icon: Calendar },
   { label: 'Mine forhandlere',     to: '/portal/crm/my-dealers',     icon: Users },
 ];
 
+const SERVICE_ACTIONS: Action[] = [
+  { label: 'Registrerede garantibeviser', to: '/portal/service/warranty/registrations', icon: ShieldCheck },
+  { label: 'Alle claims',                 to: '/portal/service/claims',                 icon: FileWarning },
+];
+
+const DEALER_ACTIONS: Action[] = [
+  { label: 'Driftberegner',   to: '/portal/resources/driftberegner', icon: Gauge },
+  { label: 'CO2 Kalkulator',  to: '/portal/resources/co2',           icon: Leaf },
+];
+
 export default function QuickActions() {
   const { appUser } = useAppUser();
   if (!appUser) return null;
 
-  const role = (appUser.portal_role || '').toLowerCase();
-  const isBackend = role === 'timan_backend';
-  const isSeller = role === 'timan_seller';
-  if (!isBackend && !isSeller) return null;
+  const realRole = (appUser.portal_role || '').toLowerCase();
+  const isBackend = realRole === 'timan_backend';
+  const isSeller = realRole === 'timan_seller' || realRole === 'timan_saelger';
 
-  const activeSeller = isBackend ? getActiveSellerView(appUser.email) : null;
-  const contextLabel = activeSeller
-    ? `Som ${activeSeller.label}`
-    : isBackend ? 'Backend' : 'Sælger';
+  // Resolve effective role honoring backend role-preview
+  let effectiveRole = realRole;
+  if (isBackend) {
+    const preview = getActiveRolePreview(appUser.email);
+    if (preview) effectiveRole = preview.key;
+  }
+
+  let actions: Action[] = [];
+  let contextLabel = '';
+
+  if (effectiveRole === 'timan_service') {
+    actions = SERVICE_ACTIONS;
+    contextLabel = 'Service';
+  } else if (
+    effectiveRole === 'timan_dealer' ||
+    effectiveRole === 'timan_service_partner' ||
+    effectiveRole === 'timan_importer' ||
+    effectiveRole === 'dealer_user'
+  ) {
+    actions = DEALER_ACTIONS;
+    contextLabel = 'Forhandler';
+  } else if (isBackend || isSeller) {
+    actions = INTERNAL_ACTIONS;
+    const activeSeller = isBackend ? getActiveSellerView(appUser.email) : null;
+    contextLabel = activeSeller ? `Som ${activeSeller.label}` : isBackend ? 'Backend' : 'Sælger';
+  } else {
+    return null;
+  }
+
+  if (actions.length === 0) return null;
 
   return (
     <section className="mt-12">
@@ -37,7 +72,7 @@ export default function QuickActions() {
         <span className="text-xs text-slate-500">{contextLabel}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {ACTIONS.map(({ label, to, icon: Icon }) => (
+        {actions.map(({ label, to, icon: Icon }) => (
           <Link
             key={to}
             to={to}
