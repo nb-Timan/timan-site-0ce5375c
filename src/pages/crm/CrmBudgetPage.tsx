@@ -763,9 +763,13 @@ export default function CrmBudgetPage() {
     bumpEditActivity();
   }
 
-  // ---- Gray BUDGET row editing (admin-only, when seller/year is unlocked). ----
+  // ---- Gray BUDGET row editing ----
+  // Editable for: backend (admin) when not locked, OR a seller whose
+  // effective email is covered by an active access window for this year.
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
-    if (!isAdmin) return;
+    const sellerHasWindow =
+      isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
+    if (!isAdmin && !sellerHasWindow) return;
     if (isLineLocked(line)) return;
     const persisted = await ensurePersistedLine(line);
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
@@ -1192,7 +1196,11 @@ export default function CrmBudgetPage() {
                     // Backend (admin) can edit the gray Official Budget whenever
                     // the relevant lock (per-seller, or global "ALL" in Alle view)
                     // is OPEN. Sellers never edit it.
-                    const canEditBudget  = isAdmin && !blockLocked;
+                    // Sellers can edit the gray Budget row when an active
+                    // access window covers their effective seller email.
+                    const sellerWindowEdit =
+                      isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
+                    const canEditBudget  = (isAdmin || sellerWindowEdit) && !blockLocked;
                     // Arbejdsbudget editing:
                     //  • Admin: always allowed (also in "Alle" view).
                     //  • Seller: allowed when their personal edit-mode is active
