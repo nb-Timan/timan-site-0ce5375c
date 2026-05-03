@@ -12,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 export type AuditAction =
   | "create" | "update" | "delete" | "approve" | "reject" | "login";
 
+export type AuditValue = string | number | boolean | null | { [k: string]: unknown } | unknown[];
+
 export interface AuditEntry {
   id: string;
   ts: string;            // ISO (alias for created_at)
@@ -19,8 +21,8 @@ export interface AuditEntry {
   action: AuditAction;
   module: string;
   record: string;        // record_label || record_id
-  old_value: string | null;
-  new_value: string | null;
+  old_value: AuditValue;
+  new_value: AuditValue;
   ip: string;
   status: "success" | "failure";
 
