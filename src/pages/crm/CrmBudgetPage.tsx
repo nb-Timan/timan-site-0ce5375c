@@ -755,6 +755,7 @@ export default function CrmBudgetPage() {
     if (!isAdmin && !sellerHasWindow) return;
     if (isLineLocked(line)) return;
     const persisted = await ensurePersistedLine(line);
+    if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
     monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
