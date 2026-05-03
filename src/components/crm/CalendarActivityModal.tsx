@@ -193,7 +193,7 @@ export default function CalendarActivityModal(props: Props) {
     }
     setNote(initial?.note || "");
     setStatus((initial?.status as CalendarActivity["status"]) || "planned");
-  }, [open, initial, defaultAccountId, defaultDateIso, currentSeller]);
+  }, [open, initial, defaultAccountId, defaultDateIso, currentSeller, isAdmin]);
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
   // when dealer_accounts isn't accessible (e.g. seller without backend RLS).
