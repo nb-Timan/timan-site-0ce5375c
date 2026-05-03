@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
-import { getEffectiveSellerEmail, getEffectiveSellerInitials, getActiveSellerView } from "@/lib/activeMode";
+import { getEffectiveSellerEmail, getActiveSellerView } from "@/lib/activeMode";
 import { cn } from "@/lib/utils";
 import { Language } from "@/types/configurator";
 import {
