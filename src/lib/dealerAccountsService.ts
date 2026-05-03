@@ -377,6 +377,61 @@ export async function fetchDealerAccountStatsForSeller(opts: {
   return { rows: filtered };
 }
 
+/**
+ * Fetch dealer rows + stats scoped to a seller, including parent main rows
+ * needed for parent/child grouping. A dealer is considered "for this seller"
+ * if its own assigned seller matches, OR (it's a branch and) its parent's
+ * assigned seller matches (seller inheritance). When a branch matches, its
+ * parent main row is included as an anchor even if the main itself is
+ * unassigned. Used by "Mine forhandlere" so backend users in seller-view
+ * see the same grouped structure as Timan Backend → Forhandlere.
+ */
+export async function fetchDealerAccountsForSeller(opts: {
+  initials?: string | null;
+  email?: string | null;
+}): Promise<{ dealers: DealerAccount[]; stats: Record<string, DealerAccountStats>; error?: string }> {
+  const initials = opts.initials?.trim().toUpperCase() || null;
+  const email = opts.email?.trim().toLowerCase() || null;
+  if (!initials && !email) return { dealers: [], stats: {} };
+
+  const [dRes, sRes] = await Promise.all([
+    fetchDealerAccounts({ includeDeleted: false }),
+    fetchDealerAccountStats(),
+  ]);
+  if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
+
+  const matches = (d: DealerAccount): boolean => {
+    const ri = d.assigned_seller_initials?.trim().toUpperCase() || null;
+    const re = d.assigned_seller_email?.trim().toLowerCase() || null;
+    return (initials != null && ri === initials) || (email != null && re === email);
+  };
+
+  const byAcct = new Map<string, DealerAccount>();
+  for (const d of dRes.rows) byAcct.set(d.account_number, d);
+
+  // Direct matches + inherited matches (branches whose parent matches).
+  const keep = new Set<string>();
+  for (const d of dRes.rows) {
+    if (matches(d)) { keep.add(d.id); continue; }
+    if (d.parent_account_number) {
+      const parent = byAcct.get(d.parent_account_number);
+      if (parent && matches(parent)) keep.add(d.id);
+    }
+  }
+  // Add anchor mains for any kept branch whose parent isn't already kept.
+  for (const d of dRes.rows) {
+    if (!keep.has(d.id)) continue;
+    if (!d.parent_account_number) continue;
+    const parent = byAcct.get(d.parent_account_number);
+    if (parent) keep.add(parent.id);
+  }
+
+  const dealers = dRes.rows.filter((d) => keep.has(d.id));
+  const statsMap: Record<string, DealerAccountStats> = {};
+  for (const s of sRes.rows) if (keep.has(s.id)) statsMap[s.id] = s;
+  return { dealers, stats: statsMap, error: sRes.error };
+}
+
 // ============================================================
 // Pending user count — for the notification bell
 // ============================================================
