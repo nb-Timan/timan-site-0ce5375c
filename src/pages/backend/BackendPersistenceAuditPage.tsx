@@ -149,11 +149,11 @@ export default function BackendPersistenceAuditPage() {
   if (!allowed) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <PortalHeader />
+        <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
         <main className="mx-auto max-w-3xl px-4 py-12">
           <p className="text-sm text-slate-600">Kun Timan Backend kan se persistens-revisionen.</p>
         </main>
-        <PortalFooter />
+        <PortalFooter language={lang} />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function BackendPersistenceAuditPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalHeader />
+      <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-4 flex items-center justify-between">
           <Link to="/portal/backend" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
@@ -255,7 +255,7 @@ export default function BackendPersistenceAuditPage() {
           </p>
         </div>
       </main>
-      <PortalFooter />
+      <PortalFooter language={lang} />
     </div>
   );
 }
