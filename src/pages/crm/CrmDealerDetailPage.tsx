@@ -263,7 +263,7 @@ export default function CrmDealerDetailPage() {
     const note = await createDealerNote({
       dealer_number: dealer.account_number,
       dealer_name: dealer.branch_name || dealer.company_name,
-      created_by_user_id: appUser?.id ?? null,
+      created_by_user_id: null,
       created_by_email: appUser?.email ?? null,
       seller_initials: effInitials || null,
       note_type: input.note_type,
@@ -282,8 +282,8 @@ export default function CrmDealerDetailPage() {
         dealer_assigned_seller_initials: dealer.assigned_seller_initials,
         dealer_assigned_seller_email: dealer.assigned_seller_email,
         seller_initials: effInitials || null,
-        seller_name: sellerCtx?.label || appUser?.name || null,
-        created_by_user_id: appUser?.id ?? null,
+        seller_name: sellerCtx?.label || appUser?.display_name || null,
+        created_by_user_id: null,
         created_by_email: effEmail || appUser?.email || null,
         note: input.note_text,
         status: "planned",
@@ -293,7 +293,7 @@ export default function CrmDealerDetailPage() {
       await createDealerNote({
         dealer_number: dealer.account_number,
         dealer_name: dealer.branch_name || dealer.company_name,
-        created_by_user_id: appUser?.id ?? null,
+        created_by_user_id: null,
         created_by_email: appUser?.email ?? null,
         seller_initials: effInitials || null,
         note_type: "follow_up",
