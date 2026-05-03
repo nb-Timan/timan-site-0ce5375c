@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
-  Clock, XCircle,
+  Clock, XCircle, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
