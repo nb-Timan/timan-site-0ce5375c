@@ -667,36 +667,87 @@ export function clearGlobalYearLock(year: number) {
 }
 
 // ---------- Budget audit entry helper ----------
-// Writes a "arbejdsbudget_change" entry into the existing audit log store so
-// Timan Backend can review who changed what in the budget module.
+// Writes a structured audit entry (record_type='crm_budget') with jsonb
+// old/new value snapshots. The cell_key uniquely identifies the cell so the
+// CRM Budget cell-history popover can match exactly the right row.
+export type BudgetType = "budget" | "arbejdsbudget";
+
 export interface BudgetAuditPayload {
   year: number;
   seller_initials: string | null;
   seller_name: string | null;
+  seller_email?: string | null;
+  product_key?: string | null;
   product_name: string;
   item_number: string | null;
-  month: string;          // localized short month label e.g. "Apr"
+  month_idx: number;       // 0..11
+  month: string;           // localized short month label e.g. "Apr"
+  budget_type: BudgetType;
   old_value: number;
   new_value: number;
+  actor_email?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+  active_mode?: string | null;
+}
+
+export function budgetCellKey(p: {
+  year: number;
+  seller_initials: string | null;
+  product_code: string | null;
+  month_idx: number;
+  budget_type: BudgetType;
+}): string {
+  const seller = (p.seller_initials || "—").toUpperCase();
+  const code = (p.product_code || "—").toUpperCase();
+  return `${p.year}|${seller}|${code}|${String(p.month_idx).padStart(2, "0")}|${p.budget_type}`;
 }
 
 export function appendBudgetAuditEntry(p: BudgetAuditPayload) {
   if (typeof window === "undefined") return;
   try {
-    const diff = p.new_value - p.old_value;
-    const sign = diff >= 0 ? `+${diff}` : `${diff}`;
-    const who = p.seller_initials || p.seller_name || "ukendt";
+    const product_code = p.item_number || p.product_key || p.product_name;
+    const cell_key = budgetCellKey({
+      year: p.year,
+      seller_initials: p.seller_initials,
+      product_code,
+      month_idx: p.month_idx,
+      budget_type: p.budget_type,
+    });
+    const typeLabel = p.budget_type === "budget" ? "Budget" : "Arbejdsbudget";
+    const sellerLabel = p.seller_initials || p.seller_name || "—";
+    const codeLabel = p.item_number || p.product_name;
+    const record_label = `${p.year} · ${sellerLabel} · ${codeLabel} · ${p.month} · ${typeLabel}`;
+    const snapshot = {
+      cell_key,
+      year: p.year,
+      seller_initials: p.seller_initials,
+      seller_name: p.seller_name,
+      product_key: p.product_key ?? null,
+      product_name: p.product_name,
+      item_number: p.item_number,
+      month_idx: p.month_idx,
+      month: p.month,
+      budget_type: p.budget_type,
+    };
     appendAuditEntry({
-      user: p.seller_name || p.seller_initials || "ukendt",
       action: "update",
-      module: "Budget · Arbejdsbudget",
-      record: `${p.year} · ${p.product_name}${p.item_number ? ` (${p.item_number})` : ""} · ${p.month}`,
-      old_value: `qty: ${p.old_value}`,
-      new_value: `qty: ${p.new_value} (${sign}) — ${who}`,
-      ip: "internal",
+      module: "Budget",
+      record_type: "crm_budget",
+      record_id: cell_key,
+      record_label,
+      seller_context: p.seller_email || p.seller_initials || null,
+      actor_email: p.actor_email ?? null,
+      actor_name: p.actor_name ?? p.seller_name ?? p.seller_initials ?? null,
+      actor_role: p.actor_role ?? null,
+      active_mode: p.active_mode ?? null,
+      old_value: { ...snapshot, value: p.old_value },
+      new_value: { ...snapshot, value: p.new_value, change: p.new_value - p.old_value },
       status: "success",
     });
   } catch { /* audit log is best-effort */ }
 }
+
+
 
 

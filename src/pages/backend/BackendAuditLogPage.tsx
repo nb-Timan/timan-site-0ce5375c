@@ -116,8 +116,8 @@ export default function BackendAuditLogPage() {
                   <Td><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${ACTION_PILL[e.action]}`}>{e.action}</span></Td>
                   <Td className="whitespace-nowrap">{e.module}</Td>
                   <Td className="text-slate-700 whitespace-nowrap">{e.record}</Td>
-                  <Td className="text-slate-500">{e.old_value ?? "—"}</Td>
-                  <Td className="text-slate-700">{e.new_value ?? "—"}</Td>
+                  <Td className="text-slate-500">{e.old_value == null ? "—" : typeof e.old_value === "object" ? JSON.stringify(e.old_value) : String(e.old_value)}</Td>
+                  <Td className="text-slate-700">{e.new_value == null ? "—" : typeof e.new_value === "object" ? JSON.stringify(e.new_value) : String(e.new_value)}</Td>
                   <Td className="text-slate-500 whitespace-nowrap">{e.ip}</Td>
                   <Td>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${e.status === "success" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>

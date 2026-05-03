@@ -25,16 +25,20 @@ import {
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
-  appendBudgetAuditEntry,
+  appendBudgetAuditEntry, budgetCellKey,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
-  type EquipmentCategory,
+  type EquipmentCategory, type BudgetType,
   findProduct,
 } from "@/lib/crmBudgetService";
 import {
   listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
   type BudgetAccessWindow,
 } from "@/lib/budgetAccessWindows";
+import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
+import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
+import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
+import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 
 
 // ────────────────────────────────────────────────────────────
@@ -349,6 +353,13 @@ export default function CrmBudgetPage() {
   const [accessWindows, setAccessWindows] = useState<BudgetAccessWindow[]>([]);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
+  // Large-change confirm dialog state.
+  const [largeChange, setLargeChange] = useState<{ ctx: LargeChangeContext; run: () => void | Promise<void> } | null>(null);
+  // Bumped after each audit-write so the latest-changes panel + indicators refresh.
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
+  // Map of cell_key → latest AuditEntry for the current scope (used for the
+  // changed indicator + tooltip). Backend sees all sellers; sellers see own.
+  const [latestAuditByCell, setLatestAuditByCell] = useState<Record<string, AuditEntry>>({});
   // Re-render every 30s so the countdown ticks.
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -437,6 +448,31 @@ export default function CrmBudgetPage() {
   const activeSellerForFilter = !isAdmin ? getActiveSellerView(appUser?.email) : null;
   const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
   const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
+
+  // Compact audit context (used as seller_context for sellers; backend = null).
+  const auditSellerContext = isAdmin ? null : (sellerCtxEmail || sellerCtxInitials || null);
+
+  // Hydrate latest-changed map for the current year/scope. Cheap (one query).
+  useEffect(() => {
+    if (!allowed) return;
+    let alive = true;
+    fetchBudgetAuditEntries({
+      year,
+      seller_context: auditSellerContext || undefined,
+      limit: 200,
+    }).then((rows) => {
+      if (!alive) return;
+      const map: Record<string, AuditEntry> = {};
+      for (const r of rows) {
+        const nv = r.new_value as Record<string, unknown> | null;
+        const ck = nv && typeof nv === "object" ? (nv.cell_key as string) : null;
+        if (ck && !map[ck]) map[ck] = r;
+      }
+      setLatestAuditByCell(map);
+    }).catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [year, allowed, auditSellerContext, auditRefreshKey]);
+
 
   const visibleLines = useMemo(() => {
     function belongsToActiveSeller(l: BudgetLine): boolean {
@@ -708,8 +744,6 @@ export default function CrmBudgetPage() {
 
   // ---- Working forecast handlers (auto-save) ----
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Sellers must be in active "Rediger arbejdsbudget" edit mode to change
-    // their own working forecast. Backend can always edit.
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
@@ -721,6 +755,28 @@ export default function CrmBudgetPage() {
     const newVal = Math.max(0, oldVal + delta);
     if (newVal === oldVal) return;
 
+    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
+    if (isLargeBudgetChange(oldVal, newVal)) {
+      setLargeChange({
+        ctx: {
+          oldValue: oldVal, newValue: newVal,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: monthLabel,
+          budget_type: "arbejdsbudget",
+        },
+        run: () => commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft),
+      });
+      return;
+    }
+    await commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft);
+  }
+
+  async function commitWorking(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+    fcExisting: BudgetForecast | undefined, prevDraft: number[],
+  ) {
+    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
@@ -748,25 +804,11 @@ export default function CrmBudgetPage() {
       return { ...prev, [lineId]: next };
     });
 
-    // Audit: who changed what, when. Visible to Timan Backend in audit log.
-    appendBudgetAuditEntry({
-      year,
-      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
-      seller_name: persisted.seller_name || appUser?.display_name || null,
-      product_name: persisted.product_name,
-      item_number: persisted.item_number,
-      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-      old_value: oldVal,
-      new_value: newVal,
-    });
-
-    // Reset the 10-min inactivity timer on each successful change.
+    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "arbejdsbudget");
     bumpEditActivity();
   }
 
   // ---- Gray BUDGET row editing ----
-  // Editable for: backend (admin) when not locked, OR a seller whose
-  // effective email is covered by an active access window for this year.
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
@@ -776,7 +818,32 @@ export default function CrmBudgetPage() {
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
-    monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
+    const oldVal = monthlyQty[monthIdx] ?? 0;
+    const newVal = Math.max(0, oldVal + delta);
+    if (newVal === oldVal) return;
+    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
+    if (isLargeBudgetChange(oldVal, newVal)) {
+      setLargeChange({
+        ctx: {
+          oldValue: oldVal, newValue: newVal,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: monthLabel,
+          budget_type: "budget",
+        },
+        run: () => commitBudget(persisted, monthIdx, oldVal, newVal),
+      });
+      return;
+    }
+    await commitBudget(persisted, monthIdx, oldVal, newVal);
+  }
+
+  async function commitBudget(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+  ) {
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    monthlyQty[monthIdx] = newVal;
     const newQty = monthlyQty.reduce((a, b) => a + b, 0);
     const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;
     const product = findProduct(persisted.product_key);
@@ -789,7 +856,34 @@ export default function CrmBudgetPage() {
     };
     await upsertBudgetLine(updated);
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
+    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
   }
+
+  function logBudgetAudit(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+    budget_type: BudgetType,
+  ) {
+    appendBudgetAuditEntry({
+      year,
+      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
+      seller_name: persisted.seller_name || appUser?.display_name || null,
+      seller_email: persisted.seller_email || null,
+      product_key: persisted.product_key,
+      product_name: persisted.product_name,
+      item_number: persisted.item_number,
+      month_idx: monthIdx,
+      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      budget_type,
+      old_value: oldVal,
+      new_value: newVal,
+      actor_email: appUser?.email || null,
+      actor_name: appUser?.display_name || null,
+      actor_role: portalRole || null,
+      active_mode: isAdmin ? "backend" : (activeSellerForFilter ? `seller:${activeSellerForFilter.initials}` : "seller"),
+    });
+    setAuditRefreshKey(k => k + 1);
+  }
+
 
   // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
@@ -1364,6 +1458,13 @@ export default function CrmBudgetPage() {
                       totalBudget === 0 ? "bg-slate-100 text-slate-500 border-slate-200" :
                                         "bg-rose-100 text-rose-800 border-rose-200";
                     const stickyPad = indent ? "pl-8" : "px-3";
+                    const cellKeyFor = (i: number, type: BudgetType) => budgetCellKey({
+                      year,
+                      seller_initials: primaryLine.seller_initials || (auditSellerContext ? auditSellerContext.toUpperCase() : null),
+                      product_code: primaryLine.item_number || primaryLine.product_key,
+                      month_idx: i,
+                      budget_type: type,
+                    });
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
                         {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
@@ -1371,6 +1472,8 @@ export default function CrmBudgetPage() {
                           <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
                           {budgetMonthly.map((b, i) => {
                             const o = ordersMonthly[i];
+                            const ck = cellKeyFor(i, "budget");
+                            const latest = latestAuditByCell[ck];
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {canEditBudget ? (
@@ -1388,6 +1491,7 @@ export default function CrmBudgetPage() {
                                     ><Plus className="h-3 w-3" /></button>
                                     <span className="text-slate-400 mx-0.5">/</span>
                                     <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <>
@@ -1455,27 +1559,32 @@ export default function CrmBudgetPage() {
                         {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
                           <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
-                          {workingMonthly.map((w, i) => (
-                            <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                              {canEditWorking ? (
-                                <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
-                                  <button
-                                    onClick={() => adjustWorking(primaryLine, i, -1)}
-                                    className="p-0.5 hover:bg-slate-700 rounded"
-                                    title="−1"
-                                  ><Minus className="h-3 w-3" /></button>
-                                  <span className="min-w-[16px] text-center font-semibold">{w}</span>
-                                  <button
-                                    onClick={() => adjustWorking(primaryLine, i, +1)}
-                                    className="p-0.5 hover:bg-slate-700 rounded"
-                                    title="+1"
-                                  ><Plus className="h-3 w-3" /></button>
-                                </div>
-                              ) : (
-                                <span className="font-semibold">{w}</span>
-                              )}
-                            </td>
-                          ))}
+                          {workingMonthly.map((w, i) => {
+                            const ck = cellKeyFor(i, "arbejdsbudget");
+                            const latest = latestAuditByCell[ck];
+                            return (
+                              <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {canEditWorking ? (
+                                  <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
+                                    <button
+                                      onClick={() => adjustWorking(primaryLine, i, -1)}
+                                      className="p-0.5 hover:bg-slate-700 rounded"
+                                      title="−1"
+                                    ><Minus className="h-3 w-3" /></button>
+                                    <span className="min-w-[16px] text-center font-semibold">{w}</span>
+                                    <button
+                                      onClick={() => adjustWorking(primaryLine, i, +1)}
+                                      className="p-0.5 hover:bg-slate-700 rounded"
+                                      title="+1"
+                                    ><Plus className="h-3 w-3" /></button>
+                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold">{w}</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">{totalWorking}</td>
                           <td className="px-2 py-2"></td>
                         </tr>
@@ -1704,6 +1813,27 @@ export default function CrmBudgetPage() {
           </div>
         </div>
       </TooltipProvider>
+
+      {/* Latest budget changes (audit) */}
+      {allowed && (
+        <LatestBudgetChangesPanel
+          year={year}
+          sellerContext={auditSellerContext}
+          refreshKey={auditRefreshKey}
+        />
+      )}
+
+      {/* Large change confirmation */}
+      <BudgetLargeChangeDialog
+        open={largeChange != null}
+        ctx={largeChange?.ctx ?? null}
+        onCancel={() => setLargeChange(null)}
+        onConfirm={async () => {
+          const job = largeChange;
+          setLargeChange(null);
+          if (job) await job.run();
+        }}
+      />
 
       {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
