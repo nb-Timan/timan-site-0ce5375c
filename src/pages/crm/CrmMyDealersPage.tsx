@@ -255,6 +255,7 @@ export default function CrmMyDealersPage() {
                     dealersByAcct,
                     usersExpanded,
                     setUsersExpanded,
+                    onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
@@ -262,6 +263,7 @@ export default function CrmMyDealersPage() {
                         r: b, depth: 1, isMain: false, branchCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
+                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
                   ))}
