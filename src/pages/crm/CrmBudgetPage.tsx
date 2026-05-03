@@ -579,14 +579,33 @@ export default function CrmBudgetPage() {
   }
 
   // ---- Lock helpers (per seller / per year) ----
+  // Active "view as <seller>" mode for backend users (so a backend in seller
+  // mode behaves as that seller for window/lock resolution and countdown).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _activeModeRev = activeModeRev; // re-evaluated when mode changes
+  const activeSellerView = isAdmin ? getActiveSellerView(appUser?.email) : null;
+  const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
+
   // The "selected seller" for backend admin == backendFilter (only when it's
-  // an actual seller email). For sellers it's their own email.
+  // an actual seller email). For sellers it's their own email. When a backend
+  // user is in seller-view mode we use the active seller's email.
   const selectedSellerEmail: string | null = isAdmin
-    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    ? (activeSellerView
+        ? activeSellerView.email.toLowerCase()
+        : (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null))
     : (myEmail || null);
+
+  /** Active access window for the given seller (or "all"-scope) right now. */
+  function activeWindowFor(email: string | null | undefined): BudgetAccessWindow | null {
+    return findActiveWindow(accessWindows, year, email || null);
+  }
 
   function lockFor(email: string | null | undefined): SellerYearLock | null {
     if (!email) return null;
+    // A live access window OVERRIDES any per-seller "official" lock record.
+    if (activeWindowFor(email)) {
+      return { year, seller_email: email.toLowerCase(), locked: false };
+    }
     return sellerLocks[email.toLowerCase()] ?? getEffectiveLock(year, email);
   }
 
@@ -598,13 +617,13 @@ export default function CrmBudgetPage() {
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
     if (!email) {
-      // No seller bound (e.g. admin "Alle" view, synthetic seed line):
-      // fall back to the global year lock.
+      if (activeWindowFor(null) || activeWindowFor(selectedSellerEmail)) return false;
       return getEffectiveLock(year, "").locked;
     }
     const sl = lockFor(email);
     return sl ? sl.locked : true;
   }
+
 
   /** Per-seller official budget lock toggle (Backend only). */
   function toggleSellerLock(email: string) {
