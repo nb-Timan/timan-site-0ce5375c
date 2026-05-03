@@ -180,7 +180,17 @@ export default function CalendarActivityModal(props: Props) {
     setType((initial?.activity_type as CalendarActivityType) || "demo");
     setStart(toLocalInputValue(initial?.start_datetime || defaultDateIso || new Date().toISOString()));
     setEnd(toLocalInputValue(initial?.end_datetime ?? null));
-    setSellerInitials(initial?.seller_initials || currentSeller?.initials || "BP");
+    // Seller field: in seller mode (non-admin), always force to activeSellerContext.
+    // In backend/admin mode, prefer the existing activity seller, otherwise activeSellerContext.
+    if (!isAdmin) {
+      if (!currentSeller?.initials) {
+        // eslint-disable-next-line no-console
+        console.warn("Missing activeSellerContext for activity modal");
+      }
+      setSellerInitials(currentSeller?.initials || initial?.seller_initials || "");
+    } else {
+      setSellerInitials(initial?.seller_initials || currentSeller?.initials || "");
+    }
     setNote(initial?.note || "");
     setStatus((initial?.status as CalendarActivity["status"]) || "planned");
   }, [open, initial, defaultAccountId, defaultDateIso, currentSeller]);
