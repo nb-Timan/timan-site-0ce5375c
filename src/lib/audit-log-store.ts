@@ -101,6 +101,41 @@ export async function fetchAuditEntries(limit = 500): Promise<AuditEntry[]> {
   return readLocal().slice().sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
+/** Fetch budget audit entries (record_type = 'crm_budget'). Optionally filter
+ *  by year, seller_context (email or initials), and/or cell_key. */
+export async function fetchBudgetAuditEntries(opts: {
+  year?: number;
+  seller_context?: string | null;
+  cell_key?: string | null;
+  limit?: number;
+} = {}): Promise<AuditEntry[]> {
+  const limit = opts.limit ?? 50;
+  try {
+    let q = supabase
+      .from("audit_log")
+      .select("*")
+      .eq("record_type", "crm_budget")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (opts.seller_context) q = q.ilike("seller_context", opts.seller_context);
+    if (opts.cell_key) q = q.eq("new_value->>cell_key", opts.cell_key);
+    const { data, error } = await q;
+    if (error) throw error;
+    let rows = (data || []) as Record<string, unknown>[];
+    if (opts.year != null) {
+      rows = rows.filter((r) => {
+        const nv = r.new_value as Record<string, unknown> | null;
+        const ov = r.old_value as Record<string, unknown> | null;
+        return Number((nv?.year ?? ov?.year)) === opts.year;
+      });
+    }
+    return rows.map(rowToEntry);
+  } catch (err) {
+    console.warn("[audit_log.fetchBudget] supabase failed:", err);
+    return [];
+  }
+}
+
 /** Sync legacy accessor — local only. Kept for compatibility. */
 export function listAuditEntries(): AuditEntry[] {
   return readLocal().slice().sort((a, b) => b.ts.localeCompare(a.ts));
