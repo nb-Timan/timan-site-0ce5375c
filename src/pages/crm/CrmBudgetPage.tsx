@@ -356,11 +356,19 @@ export default function CrmBudgetPage() {
   });
   // Bumps to force re-read of custom products after creation.
   const [customRev, setCustomRev] = useState(0);
-  // Per-machine expand/collapse state for equipment sections.
-  // Default: expanded so backend users see the structure.
-  const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>({
-    "RC-1000s": true, "Timan 3330": true, "Timan 2620": true,
+  // Per-machine expand/collapse state for equipment/accessory sections.
+  // Default: collapsed for a clearer overview. Persisted in sessionStorage.
+  const EQUIP_EXPAND_KEY = "crm_budget_expanded_equip_v1";
+  const [expandedEquip, setExpandedEquip] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(EQUIP_EXPAND_KEY) : null;
+      if (raw) return JSON.parse(raw) as Record<string, boolean>;
+    } catch { /* ignore */ }
+    return {};
   });
+  useEffect(() => {
+    try { window.sessionStorage.setItem(EQUIP_EXPAND_KEY, JSON.stringify(expandedEquip)); } catch { /* ignore */ }
+  }, [expandedEquip]);
   // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
   const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
