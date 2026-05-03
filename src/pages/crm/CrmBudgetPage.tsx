@@ -353,6 +353,13 @@ export default function CrmBudgetPage() {
   const [accessWindows, setAccessWindows] = useState<BudgetAccessWindow[]>([]);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
+  // Large-change confirm dialog state.
+  const [largeChange, setLargeChange] = useState<{ ctx: LargeChangeContext; run: () => void | Promise<void> } | null>(null);
+  // Bumped after each audit-write so the latest-changes panel + indicators refresh.
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
+  // Map of cell_key → latest AuditEntry for the current scope (used for the
+  // changed indicator + tooltip). Backend sees all sellers; sellers see own.
+  const [latestAuditByCell, setLatestAuditByCell] = useState<Record<string, AuditEntry>>({});
   // Re-render every 30s so the countdown ticks.
   const [, setNowTick] = useState(0);
   useEffect(() => {
