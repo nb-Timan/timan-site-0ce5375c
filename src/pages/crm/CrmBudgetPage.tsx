@@ -694,6 +694,7 @@ export default function CrmBudgetPage() {
     // their own working forecast. Backend can always edit.
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
+    if (!persisted) return;
     const lineId = persisted.id;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
