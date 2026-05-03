@@ -294,6 +294,7 @@ interface RowProps {
   dealersByAcct: Map<string, DealerAccount>;
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  onOpenDetail?: (d: DealerAccount) => void;
 }
 
 function renderRow(p: RowProps) {
