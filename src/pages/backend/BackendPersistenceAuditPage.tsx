@@ -123,11 +123,14 @@ function StatusBadge({ r }: { r: AuditResult }) {
 }
 
 export default function BackendPersistenceAuditPage() {
-  const { appUser } = useAppUser();
+  const { appUser, logout } = useAppUser();
+  const { language: lang, setLanguage } = useLanguage();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<AuditResult[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const allowed = useMemo(() => isCrmAdmin(appUser), [appUser]);
+  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+  const allowed = useMemo(() => isCrmAdmin(portalRole), [portalRole]);
 
   async function run() {
     setLoading(true);
