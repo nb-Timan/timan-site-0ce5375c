@@ -131,7 +131,7 @@ export default function BackendAuditLogPage() {
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
-          Mock-data i preview. Produktion vil bruge Supabase-tabellen <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">audit_log</code> når den er klar.
+          Læser fra Supabase-tabellen <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">audit_log</code>. Kun Timan Backend kan se posterne.
         </p>
       </main>
 
