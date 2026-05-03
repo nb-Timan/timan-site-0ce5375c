@@ -1,77 +1,200 @@
 /**
- * Timan Backend → Audit log store (localStorage in preview).
- * Mock data only; safe if Supabase audit_log table is missing.
+ * Timan Backend → Audit log store.
+ *
+ * Source of truth: public.audit_log (Phase 20 SQL — see
+ * docs/sql/phase20_audit_log.sql). Falls back to localStorage so the UI
+ * still works if the table doesn't exist yet.
+ *
+ * Read access is restricted to Timan Backend users via RLS.
  */
+import { supabase } from "@/lib/supabase";
+
+export type AuditAction =
+  | "create" | "update" | "delete" | "approve" | "reject" | "login";
 
 export interface AuditEntry {
   id: string;
-  ts: string;            // ISO
-  user: string;          // display name or email
-  action: "create" | "update" | "delete" | "approve" | "reject" | "login";
+  ts: string;            // ISO (alias for created_at)
+  user: string;          // display name or email (derived: actor_name || actor_email)
+  action: AuditAction;
   module: string;
-  record: string;
+  record: string;        // record_label || record_id
   old_value: string | null;
   new_value: string | null;
   ip: string;
   status: "success" | "failure";
+
+  // Extended fields (Phase 20)
+  actor_email?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+  active_mode?: string | null;
+  seller_context?: string | null;
+  record_type?: string | null;
+  record_id?: string | null;
+  user_agent?: string | null;
 }
 
 const STORAGE_KEY = "timan.audit_log.v1";
 
-// Demo audit entries removed — log starts empty and grows from real
-// user actions via appendAuditEntry().
-const SEED: AuditEntry[] = [];
-
-function readAll(): AuditEntry[] {
-  if (typeof window === "undefined") return SEED;
+function readLocal(): AuditEntry[] {
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED));
-      return SEED;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as AuditEntry[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return SEED;
-    return parsed;
-  } catch {
-    return SEED;
-  }
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function writeLocal(rows: AuditEntry[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.slice(0, 500)));
+    window.dispatchEvent(new CustomEvent("timan.audit_log.changed"));
+  } catch { /* */ }
 }
 
+function rowToEntry(r: Record<string, unknown>): AuditEntry {
+  const actor_email = (r.actor_email as string) ?? null;
+  const actor_name = (r.actor_name as string) ?? null;
+  const record_label = (r.record_label as string) ?? null;
+  const record_id = (r.record_id as string) ?? null;
+  return {
+    id: String(r.id),
+    ts: String(r.created_at ?? new Date().toISOString()),
+    user: actor_name || actor_email || "—",
+    action: (r.action as AuditAction) || "update",
+    module: String(r.module ?? ""),
+    record: record_label || record_id || "—",
+    old_value: (r.old_value as string) ?? null,
+    new_value: (r.new_value as string) ?? null,
+    ip: (r.ip_address as string) || "internal",
+    status: ((r.status as string) === "failure" ? "failure" : "success"),
+    actor_email,
+    actor_name,
+    actor_role: (r.actor_role as string) ?? null,
+    active_mode: (r.active_mode as string) ?? null,
+    seller_context: (r.seller_context as string) ?? null,
+    record_type: (r.record_type as string) ?? null,
+    record_id,
+    user_agent: (r.user_agent as string) ?? null,
+  };
+}
+
+/** Async — preferred. Reads from Supabase, falls back to local. */
+export async function fetchAuditEntries(limit = 500): Promise<AuditEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    if (data && data.length > 0) {
+      return (data as Record<string, unknown>[]).map(rowToEntry);
+    }
+  } catch (err) {
+    console.warn("[audit_log.fetch] supabase failed → local fallback:", err);
+  }
+  return readLocal().slice().sort((a, b) => b.ts.localeCompare(a.ts));
+}
+
+/** Sync legacy accessor — local only. Kept for compatibility. */
 export function listAuditEntries(): AuditEntry[] {
-  return readAll().slice().sort((a, b) => b.ts.localeCompare(a.ts));
+  return readLocal().slice().sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
 export function resetAuditLog() {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED));
-  window.dispatchEvent(new CustomEvent("timan.audit_log.changed"));
+  writeLocal([]);
 }
 
-/** Append a single audit entry (used by Budget module for arbejdsbudget changes). */
-export function appendAuditEntry(
-  entry: Omit<AuditEntry, "id" | "ts"> & Partial<Pick<AuditEntry, "ts">>,
-): AuditEntry {
-  const all = readAll();
-  const next: AuditEntry = {
-    id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    ts: entry.ts || new Date().toISOString(),
-    user: entry.user,
-    action: entry.action,
-    module: entry.module,
-    record: entry.record,
-    old_value: entry.old_value ?? null,
-    new_value: entry.new_value ?? null,
-    ip: entry.ip || "internal",
-    status: entry.status || "success",
+export interface AppendAuditInput {
+  user?: string;          // legacy
+  action: AuditAction;
+  module: string;
+  record?: string;        // legacy → record_label
+  old_value?: string | null;
+  new_value?: string | null;
+  ip?: string;
+  status?: "success" | "failure";
+  ts?: string;
+
+  actor_email?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+  active_mode?: string | null;
+  seller_context?: string | null;
+  record_type?: string | null;
+  record_id?: string | null;
+  record_label?: string | null;
+  user_agent?: string | null;
+}
+
+/** Append one audit entry — fire-and-forget Supabase insert + local cache. */
+export function appendAuditEntry(input: AppendAuditInput): AuditEntry {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const ts = input.ts || new Date().toISOString();
+  const actor_name = input.actor_name ?? input.user ?? null;
+  const actor_email = input.actor_email ?? null;
+  const record_label = input.record_label ?? input.record ?? null;
+  const ip = input.ip || "internal";
+  const ua =
+    input.user_agent ?? (typeof navigator !== "undefined" ? navigator.userAgent : null);
+
+  const entry: AuditEntry = {
+    id,
+    ts,
+    user: actor_name || actor_email || input.user || "—",
+    action: input.action,
+    module: input.module,
+    record: record_label || input.record_id || "—",
+    old_value: input.old_value ?? null,
+    new_value: input.new_value ?? null,
+    ip,
+    status: input.status || "success",
+    actor_email,
+    actor_name,
+    actor_role: input.actor_role ?? null,
+    active_mode: input.active_mode ?? null,
+    seller_context: input.seller_context ?? null,
+    record_type: input.record_type ?? null,
+    record_id: input.record_id ?? null,
+    user_agent: ua,
   };
-  const updated = [next, ...all].slice(0, 500); // keep storage bounded
-  if (typeof window !== "undefined") {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent("timan.audit_log.changed"));
-    } catch { /* */ }
-  }
-  return next;
-}
 
+  // Local cache (immediate)
+  writeLocal([entry, ...readLocal()]);
+
+  // Supabase insert (best-effort)
+  void (async () => {
+    try {
+      const { error } = await supabase.from("audit_log").insert({
+        id,
+        created_at: ts,
+        actor_email,
+        actor_name,
+        actor_role: entry.actor_role,
+        active_mode: entry.active_mode,
+        seller_context: entry.seller_context,
+        action: entry.action,
+        module: entry.module,
+        record_type: entry.record_type,
+        record_id: entry.record_id,
+        record_label,
+        old_value: entry.old_value,
+        new_value: entry.new_value,
+        status: entry.status,
+        ip_address: ip,
+        user_agent: ua,
+      });
+      if (error) console.warn("[audit_log.insert] supabase failed (kept local):", error.message);
+    } catch (err) {
+      console.warn("[audit_log.insert] unexpected:", err);
+    }
+  })();
+
+  return entry;
+}

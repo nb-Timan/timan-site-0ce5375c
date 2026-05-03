@@ -12,7 +12,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
-import { AuditEntry, listAuditEntries } from "@/lib/audit-log-store";
+import { AuditEntry, fetchAuditEntries } from "@/lib/audit-log-store";
 
 const ACTION_PILL: Record<AuditEntry["action"], string> = {
   create:  "bg-blue-100 text-blue-800",
@@ -33,7 +33,9 @@ export default function BackendAuditLogPage() {
   const [moduleFilter, setModuleFilter] = useState<string>("all");
 
   useEffect(() => {
-    try { setEntries(listAuditEntries()); } catch { setEntries([]); }
+    let alive = true;
+    fetchAuditEntries().then((rows) => { if (alive) setEntries(rows); }).catch(() => { if (alive) setEntries([]); });
+    return () => { alive = false; };
   }, []);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
@@ -129,7 +131,7 @@ export default function BackendAuditLogPage() {
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
-          Mock-data i preview. Produktion vil bruge Supabase-tabellen <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">audit_log</code> når den er klar.
+          Læser fra Supabase-tabellen <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">audit_log</code>. Kun Timan Backend kan se posterne.
         </p>
       </main>
 
