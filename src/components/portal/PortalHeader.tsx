@@ -60,7 +60,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   const showModeSwitch = canSwitchMode(user);
   const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
-  const activeSellerView = activeMode === 'backend' ? null : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
+  const activeSellerView = activeMode === 'backend' || (typeof activeMode === 'string' && activeMode.startsWith('role:'))
+    ? null
+    : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
+  const activeRolePreview = typeof activeMode === 'string' && activeMode.startsWith('role:')
+    ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
+    : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
