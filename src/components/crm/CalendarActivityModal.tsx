@@ -145,7 +145,7 @@ export default function CalendarActivityModal(props: Props) {
   const [type, setType] = useState<CalendarActivityType>("demo");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "BP");
+  const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<CalendarActivity["status"]>("planned");
   const [error, setError] = useState<string | null>(null);
