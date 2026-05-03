@@ -270,6 +270,16 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       )}
+      {showModeSwitch && activeRolePreview && (
+        <div className="bg-purple-50 border-t border-purple-200 text-purple-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            <span className="font-bold uppercase tracking-wide">
+              {T.viewingAs[language]} {activeRolePreview.label}
+            </span>
+            <span className="opacity-80">— {T.rolePreviewNote[language]}</span>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
