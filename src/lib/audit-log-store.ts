@@ -115,8 +115,8 @@ export interface AppendAuditInput {
   action: AuditAction;
   module: string;
   record?: string;        // legacy → record_label
-  old_value?: string | null;
-  new_value?: string | null;
+  old_value?: AuditValue;
+  new_value?: AuditValue;
   ip?: string;
   status?: "success" | "failure";
   ts?: string;
