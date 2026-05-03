@@ -1002,6 +1002,75 @@ export default function CrmBudgetPage() {
         </div>
       </div>
 
+      {/* Time-limited access window: countdown / locked banner */}
+      {(() => {
+        if (activeWin) {
+          const remaining = new Date(activeWin.open_until).getTime() - Date.now();
+          const scopeLabel = activeWin.scope === "all"
+            ? "alle sælgere"
+            : (activeWin.seller_initials || activeWin.seller_email || "sælger");
+          return (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-emerald-900">
+                <Clock className="h-4 w-4" />
+                <span className="font-semibold">Budget åbent</span>
+                <span>· {scopeLabel}</span>
+                <span>· lukker om <strong>{formatRemaining(remaining)}</strong></span>
+                <span className="text-emerald-700">({new Date(activeWin.open_until).toLocaleString("da-DK")})</span>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => handleCloseWindow(activeWin.id)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  <XCircle className="h-3 w-3" /> Luk nu
+                </button>
+              )}
+            </div>
+          );
+        }
+        // No active window for the current seller → show "locked" cue.
+        if (!isAdmin) {
+          return (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <Lock className="h-4 w-4 text-slate-500" />
+              <span>Budget låst — kontakt backend for at åbne et tidsvindue.</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Backend: list of currently-open windows for this year */}
+      {isAdmin && openWindows.length > 0 && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+            Aktive åbningsvinduer {year}
+          </div>
+          <ul className="space-y-1.5">
+            {openWindows.map((w) => {
+              const remaining = new Date(w.open_until).getTime() - Date.now();
+              return (
+                <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-slate-800">
+                    <strong>{w.scope === "all" ? "Alle sælgere" : (w.seller_initials || w.seller_email)}</strong>
+                    <span className="text-slate-500"> · indtil {new Date(w.open_until).toLocaleString("da-DK")} ({formatRemaining(remaining)})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCloseWindow(w.id)}
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                  >
+                    <XCircle className="h-3 w-3" /> Luk
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
