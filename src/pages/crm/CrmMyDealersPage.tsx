@@ -312,7 +312,10 @@ function renderRow(p: RowProps) {
   const usersOpen = p.usersExpanded.has(p.r.id);
   return (
     <>
-      <tr className="border-t border-slate-100 hover:bg-slate-50/60">
+      <tr
+        className="border-t border-slate-100 hover:bg-emerald-50/40 cursor-pointer"
+        onClick={() => p.onOpenDetail?.(p.r)}
+      >
         <Td>
           <div className="flex items-center gap-1">
             {p.onToggle ? (
