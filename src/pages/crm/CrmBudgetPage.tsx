@@ -587,11 +587,11 @@ export default function CrmBudgetPage() {
   // The "selected seller" for backend admin == backendFilter (only when it's
   // an actual seller email). For sellers it's their own email. When a backend
   // user is in seller-view mode we use the active seller's email.
+  // Backend mode: selected seller comes ONLY from the seller selector (never
+  // from activeSellerContext). Seller mode: use the effective seller context.
   const selectedSellerEmail: string | null = isAdmin
-    ? (activeSellerView
-        ? activeSellerView.email.toLowerCase()
-        : (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null))
-    : (myEmail || null);
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (sellerCtxEmail || null);
 
   /** Active access window for the given seller (or "all"-scope) right now. */
   function activeWindowFor(email: string | null | undefined): BudgetAccessWindow | null {
