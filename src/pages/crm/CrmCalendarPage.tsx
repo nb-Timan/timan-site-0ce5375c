@@ -16,6 +16,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import { getActiveSellerView } from "@/lib/activeMode";
 import { listCrmAccounts, type CrmAccount } from "@/lib/crmAccountsService";
 import {
   listActivities,
