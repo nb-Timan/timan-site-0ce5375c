@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import CalendarActivityModal from "@/components/crm/CalendarActivityModal";
+import WeekOverviewPanel from "@/components/crm/WeekOverviewPanel";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
