@@ -1472,6 +1472,8 @@ export default function CrmBudgetPage() {
                           <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
                           {budgetMonthly.map((b, i) => {
                             const o = ordersMonthly[i];
+                            const ck = cellKeyFor(i, "budget");
+                            const latest = latestAuditByCell[ck];
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {canEditBudget ? (
@@ -1489,6 +1491,7 @@ export default function CrmBudgetPage() {
                                     ><Plus className="h-3 w-3" /></button>
                                     <span className="text-slate-400 mx-0.5">/</span>
                                     <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <>
