@@ -51,6 +51,7 @@ import NotFound from "./pages/NotFound.tsx";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
+import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
