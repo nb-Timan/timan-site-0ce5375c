@@ -44,7 +44,7 @@ export default function PortalAreaPage({ areaId }: Props) {
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
+      <main className={`${areaId === 'timan_backend' ? 'max-w-[1700px] xl:px-12' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full`}>
         <Link to="/portal" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
           {T.back[lang]}
