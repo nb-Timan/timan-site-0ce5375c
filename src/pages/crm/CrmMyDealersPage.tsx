@@ -74,6 +74,7 @@ function fmtDate(iso: string | null): string {
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
+  const navigate = useNavigate();
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
