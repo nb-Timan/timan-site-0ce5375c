@@ -11,6 +11,7 @@ import {
   getActiveMode,
   setActiveMode,
   SELLER_VIEWS,
+  ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
 
