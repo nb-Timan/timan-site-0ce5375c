@@ -936,10 +936,40 @@ export default function CrmBudgetPage() {
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
-          </p>
-        </div>
+          {(() => {
+            // Scope label: "Samlet budget – alle sælgere" vs "Budget for XX"
+            const scopeInitials = selectedSellerEmail
+              ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)?.initials
+                  || selectedSellerEmail.split("@")[0].toUpperCase())
+              : (!isAdmin
+                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail)?.initials
+                      || myInitialsFromName
+                      || null)
+                  : null);
+            const scopeLabel = scopeInitials
+              ? `Budget for ${scopeInitials}`
+              : "Samlet budget – alle sælgere";
+            // Orphan rows = lines without a recognised seller_email matching a known seller.
+            const knownEmails = new Set(BUDGET_SELLERS.map(s => s.email.toLowerCase()));
+            const orphanCount = (isAdmin && !selectedSellerEmail)
+              ? lines.filter(l => {
+                  const e = (l.seller_email || "").toLowerCase();
+                  return !e || !knownEmails.has(e);
+                }).length
+              : 0;
+            return (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mt-1">{scopeLabel}</p>
+                <p className="text-sm text-slate-500 mt-1">{isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}</p>
+                {orphanCount > 0 && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Budgetdata uden sælger fundet ({orphanCount} {orphanCount === 1 ? "linje" : "linjer"})
+                  </p>
+                )}
+              </>
+            );
+          })()}
 
         <div className="flex items-center gap-2">
           <button
