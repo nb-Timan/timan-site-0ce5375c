@@ -364,6 +364,26 @@ export default function CrmBudgetPage() {
   // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
   const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
+  // Time-limited budget access windows for this year (Phase 17).
+  const [accessWindows, setAccessWindows] = useState<BudgetAccessWindow[]>([]);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
+  // Re-render every 30s so the countdown ticks.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  // Listen to active-mode changes so backend-in-seller-mode reflects the
+  // correct seller context for window resolution + countdown.
+  const [activeModeRev, setActiveModeRev] = useState(0);
+  useEffect(() => {
+    const onChange = () => setActiveModeRev((n) => n + 1);
+    window.addEventListener("timan:active-mode-changed", onChange);
+    return () => window.removeEventListener("timan:active-mode-changed", onChange);
+  }, []);
+
+
   // ─── Seller "Edit Arbejdsbudget" mode + 10-min inactivity auto-lock ───
   // Only relevant for non-admin sellers; does NOT affect official Fastlagt
   // Budget locks. Backend users always have edit access (not gated by this).
