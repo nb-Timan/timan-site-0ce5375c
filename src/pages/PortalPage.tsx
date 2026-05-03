@@ -7,6 +7,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
+import QuickActions from '@/components/portal/QuickActions';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users } from 'lucide-react';
@@ -155,6 +156,8 @@ export default function PortalPage() {
             );
           })}
         </div>
+
+        <QuickActions />
 
         <LatestFromTiman language={lang} />
       </main>
