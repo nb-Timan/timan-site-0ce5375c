@@ -12,7 +12,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
-import { AuditEntry, listAuditEntries } from "@/lib/audit-log-store";
+import { AuditEntry, fetchAuditEntries } from "@/lib/audit-log-store";
 
 const ACTION_PILL: Record<AuditEntry["action"], string> = {
   create:  "bg-blue-100 text-blue-800",
