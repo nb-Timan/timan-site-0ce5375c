@@ -386,6 +386,7 @@ export const BUDGET_SELLERS: BudgetSellerRef[] = [
   { initials: "EM",  full_name: "EM",  email: "em@timan.dk",  country: "DK" },
   { initials: "JTN", full_name: "JTN", email: "jtn@timan.dk", country: "DK" },
   { initials: "AKR", full_name: "AKR", email: "akr@timan.dk", country: "DE" },
+  { initials: "NB",  full_name: "NB",  email: "nb@timan.dk",  country: "DK" },
 ];
 // Backend (Timan Backend) users who can see the full seller overview.
 // BP appears here AND in BUDGET_SELLERS — backend for access, seller for performance.
