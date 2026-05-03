@@ -1655,6 +1655,21 @@ export default function CrmBudgetPage() {
           </div>
         </div>
       )}
+
+      {isAdmin && (
+        <BudgetUnlockModal
+          open={unlockOpen}
+          onOpenChange={setUnlockOpen}
+          year={year}
+          defaultSellerEmail={unlockDefaultEmail}
+          createdBy={appUser?.display_name || appUser?.email || "Backend"}
+          onCreated={async () => {
+            const fresh = await listBudgetAccessWindows(year);
+            setAccessWindows(fresh);
+            toast.success(`Budget ${year} åbnet`);
+          }}
+        />
+      )}
     </CrmLayout>
   );
 }
