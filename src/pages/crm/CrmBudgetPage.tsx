@@ -830,10 +830,30 @@ export default function CrmBudgetPage() {
   const currentMonthIdx = now.getFullYear() === year ? now.getMonth() : -1;
   const currentMonthCol = currentMonthIdx >= 0 ? currentMonthIdx + 2 : -1;
 
+  // Resolve countdown context: the seller email whose window matters most.
+  const countdownEmail = isAdmin
+    ? (selectedSellerEmail || effectiveSellerEmail || null)
+    : (effectiveSellerEmail || myEmail || null);
+  const activeWin = countdownEmail ? activeWindowFor(countdownEmail) : null;
+  // Distinct list of currently-open windows for this year (for the admin overview).
+  const openWindows = accessWindows.filter((w) => {
+    if (w.budget_year !== year || w.status !== "open") return false;
+    const t = Date.now();
+    return new Date(w.open_from).getTime() <= t && new Date(w.open_until).getTime() >= t;
+  });
+
+  async function handleCloseWindow(id: string) {
+    if (!isAdmin) return;
+    if (!confirm("Luk dette åbningsvindue nu?")) return;
+    await closeBudgetAccessWindow(id, appUser?.display_name || appUser?.email || "Backend");
+    const fresh = await listBudgetAccessWindows(year);
+    setAccessWindows(fresh);
+  }
+
   return (
     <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
@@ -842,6 +862,7 @@ export default function CrmBudgetPage() {
             {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
             <Calendar className="h-4 w-4 text-slate-500" />
