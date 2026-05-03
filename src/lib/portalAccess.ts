@@ -12,7 +12,7 @@
 
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
-import { canSwitchMode, getActiveSellerView } from '@/lib/activeMode';
+import { canSwitchMode, getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
 
 // ---------- Portal roles (internal English keys) ----------
 export type PortalRole =
@@ -222,6 +222,8 @@ export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> &
   // visibility, claims/warranty view variant and CRM scoping. Backend
   // pages remain reachable by switching back to Backend mode.
   if (baseRole === 'timan_backend' && canSwitchMode(user)) {
+    const rolePreview = getActiveRolePreview(user.email);
+    if (rolePreview) return rolePreview.key as PortalRole;
     if (getActiveSellerView(user.email)) return 'timan_seller';
   }
   return baseRole;

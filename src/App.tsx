@@ -47,7 +47,7 @@ import BackendRolesPage from "./pages/backend/BackendRolesPage";
 import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
 import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
-import PreviewRoleSwitcher from "./components/dev/PreviewRoleSwitcher";
+
 import VisitorTracker from "./components/portal/VisitorTracker";
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
@@ -128,7 +128,6 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <VisitorTracker />
-            <PreviewRoleSwitcher />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>

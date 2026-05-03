@@ -45,7 +45,30 @@ export const SELLER_VIEWS: readonly SellerView[] = [
  * Legacy values 'seller' (from the old BP/NB-only switch) are migrated on
  * read into the seller view matching the user's own email when possible.
  */
-export type ActiveMode = 'backend' | SellerViewKey;
+export type RolePreviewKey =
+  | 'timan_dealer'
+  | 'timan_service'
+  | 'timan_importer'
+  | 'timan_service_partner'
+  | 'dealer_user';
+
+export interface RolePreview {
+  key: RolePreviewKey;
+  label: string;
+}
+
+/** External role preview modes available to backend users. */
+export const ROLE_PREVIEWS: readonly RolePreview[] = [
+  { key: 'timan_dealer',          label: 'Timan Forhandler' },
+  { key: 'timan_service',         label: 'Timan Service' },
+  { key: 'timan_importer',        label: 'Timan Importør' },
+  { key: 'timan_service_partner', label: 'Timan ServicePartner' },
+  { key: 'dealer_user',           label: 'Dealer User' },
+];
+
+const ROLE_PREVIEW_KEYS = ROLE_PREVIEWS.map((r) => r.key) as readonly string[];
+
+export type ActiveMode = 'backend' | SellerViewKey | `role:${RolePreviewKey}`;
 
 const STORAGE_PREFIX = 'timan.activeMode.';
 
@@ -89,7 +112,10 @@ export function getActiveMode(email: string | null | undefined): ActiveMode {
     const v = localStorage.getItem(STORAGE_PREFIX + e);
     if (!v) return 'backend';
     if (v === 'backend') return 'backend';
-    // Legacy: previous switch only had 'seller' meaning "view as myself"
+    if (v.startsWith('role:')) {
+      const key = v.slice(5);
+      return ROLE_PREVIEW_KEYS.includes(key) ? (`role:${key}` as ActiveMode) : 'backend';
+    }
     if (v === 'seller') {
       const own = getSellerViewByEmail(e);
       return own ? own.key : 'backend';
@@ -106,18 +132,25 @@ export function setActiveMode(email: string | null | undefined, mode: ActiveMode
   if (!e) return;
   try {
     localStorage.setItem(STORAGE_PREFIX + e, mode);
-    // Notify listeners in this tab (storage event only fires across tabs).
     window.dispatchEvent(new CustomEvent('timan:active-mode-changed', { detail: { email: e, mode } }));
   } catch {
     /* ignore */
   }
 }
 
-/** Resolve the SellerView the given backend user is currently viewing as, or null when in Backend mode. */
+/** Resolve the SellerView the given backend user is currently viewing as, or null when in Backend or role-preview mode. */
 export function getActiveSellerView(email: string | null | undefined): SellerView | null {
   const mode = getActiveMode(email);
-  if (mode === 'backend') return null;
+  if (mode === 'backend' || (typeof mode === 'string' && mode.startsWith('role:'))) return null;
   return getSellerViewByKey(mode);
+}
+
+/** Resolve the active external role preview, or null. */
+export function getActiveRolePreview(email: string | null | undefined): RolePreview | null {
+  const mode = getActiveMode(email);
+  if (typeof mode !== 'string' || !mode.startsWith('role:')) return null;
+  const key = mode.slice(5) as RolePreviewKey;
+  return ROLE_PREVIEWS.find((r) => r.key === key) || null;
 }
 
 /**

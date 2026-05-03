@@ -11,6 +11,7 @@ import {
   getActiveMode,
   setActiveMode,
   SELLER_VIEWS,
+  ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
 
@@ -27,8 +28,10 @@ const T: Record<string, Record<Language, string>> = {
   logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
   backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
   switchMode:    { da: 'Vis som sælger', en: 'View as seller', de: 'Als Verkäufer ansehen', it: 'Visualizza come venditore', hu: 'Megtekintés értékesítőként' },
+  rolePreview:   { da: 'Vis som rolle', en: 'View as role', de: 'Als Rolle ansehen', it: 'Visualizza come ruolo', hu: 'Megtekintés szerepként' },
   viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
   filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
+  rolePreviewNote: { da: 'rolle-forhåndsvisning. Destruktive backend-handlinger er deaktiveret.', en: 'role preview. Destructive backend actions are disabled.', de: 'Rollenvorschau. Destruktive Backend-Aktionen sind deaktiviert.', it: 'anteprima ruolo. Le azioni distruttive sono disattivate.', hu: 'szerep-előnézet. A destruktív műveletek le vannak tiltva.' },
 };
 
 interface Props {
@@ -57,7 +60,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   const showModeSwitch = canSwitchMode(user);
   const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
-  const activeSellerView = activeMode === 'backend' ? null : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
+  const activeSellerView = activeMode === 'backend' || (typeof activeMode === 'string' && activeMode.startsWith('role:'))
+    ? null
+    : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
+  const activeRolePreview = typeof activeMode === 'string' && activeMode.startsWith('role:')
+    ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
+    : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
@@ -163,7 +171,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     onClick={() => setModeMenuOpen(o => !o)}
                     onBlur={() => setTimeout(() => setModeMenuOpen(false), 120)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
-                      activeSellerView
+                      activeRolePreview
+                        ? 'bg-purple-50 border-purple-300 text-purple-800 hover:bg-purple-100'
+                        : activeSellerView
                         ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
                         : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
                     }`}
@@ -172,7 +182,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     aria-expanded={modeMenuOpen}
                   >
                     <span>
-                      {activeSellerView
+                      {activeRolePreview
+                        ? activeRolePreview.label
+                        : activeSellerView
                         ? `${activeSellerView.initials} ${T.viewingAs[language] === 'Vis som' ? 'Sælger' : ''}`.trim() || `${activeSellerView.initials}`
                         : T.backendMode[language]}
                     </span>
@@ -181,7 +193,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                   {modeMenuOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                      className="absolute right-0 mt-1 w-60 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <button
@@ -211,6 +223,26 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                           {activeMode === v.key && <Check className="w-4 h-4 text-amber-600" />}
                         </button>
                       ))}
+                      <div className="my-1 border-t border-gray-100" />
+                      <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                        {T.rolePreview[language]}
+                      </div>
+                      {ROLE_PREVIEWS.map(r => {
+                        const modeKey = `role:${r.key}` as ActiveMode;
+                        return (
+                          <button
+                            key={r.key}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={activeMode === modeKey}
+                            onClick={() => chooseMode(modeKey)}
+                            className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <span className="font-medium">{r.label}</span>
+                            {activeMode === modeKey && <Check className="w-4 h-4 text-purple-600" />}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -235,6 +267,16 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               {T.viewingAs[language]} {activeSellerView.label}
             </span>
             <span className="opacity-80">— {T.filteredNote[language]}</span>
+          </div>
+        </div>
+      )}
+      {showModeSwitch && activeRolePreview && (
+        <div className="bg-purple-50 border-t border-purple-200 text-purple-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            <span className="font-bold uppercase tracking-wide">
+              {T.viewingAs[language]} {activeRolePreview.label}
+            </span>
+            <span className="opacity-80">— {T.rolePreviewNote[language]}</span>
           </div>
         </div>
       )}
