@@ -646,16 +646,25 @@ export default function CrmBudgetPage() {
   // the working-forecast steppers so that RC-751 (or any machine without a
   // pre-existing seed row for the seller) becomes editable on first click.
   // Synthetic equipment ids (eq_YEAR_MACHINE_EQUIPKEY) are also persisted.
-  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine> {
+  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine | null> {
     // Already in lines store → nothing to do.
     if (lines.some(l => l.id === line.id)) return line;
 
-    // For seller users we always own the line. For backend, attribute to the
-    // currently selected seller (backendFilter) if any, else leave seller_email null.
+    // Resolve a real seller owner. Backend MUST have a selected seller (filter
+    // or active "view as seller" mode). Sellers always own their own rows.
+    // We never persist a budget row without a known seller — that would create
+    // an orphan that the backend total includes but no seller view shows.
     const targetEmail: string | null = isAdmin
-      ? (selectedSellerEmail || line.seller_email || null)
-      : (myEmail || null);
-    const known = BUDGET_SELLERS.find(s => s.email.toLowerCase() === (targetEmail || "").toLowerCase());
+      ? (selectedSellerEmail || null)
+      : (effectiveSellerEmail || myEmail || null);
+    const known = targetEmail
+      ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === targetEmail.toLowerCase())
+      : null;
+    if (!known) {
+      console.warn("[budget] refusing to save row without seller owner", { isAdmin, targetEmail, selectedSellerEmail });
+      toast.error("Vælg en sælger først – budgetdata skal tilhøre en sælger");
+      return null;
+    }
 
     const product = productKeyOverride ? findProduct(productKeyOverride) : findProduct(line.product_key);
     const persisted = await createBudgetLine({
@@ -666,10 +675,10 @@ export default function CrmBudgetPage() {
       category: line.category,
       parent_machine_key: line.parent_machine_key ?? null,
       seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: known?.full_name ?? (isAdmin ? null : (appUser?.display_name ?? null)),
-      seller_email: known?.email ?? targetEmail,
-      seller_initials: known?.initials ?? (isAdmin ? null : (myInitialsFromName || null)),
-      country: known?.country ?? line.country ?? null,
+      seller_name: known.full_name,
+      seller_email: known.email,
+      seller_initials: known.initials,
+      country: known.country ?? line.country ?? null,
       qty_budget: 0,
       value_budget: 0,
       monthly_split: EVEN,
