@@ -26,6 +26,10 @@ export interface CalendarActivity {
   end_datetime: string | null;
   account_id: string | null;
   dealer_name: string | null;
+  /** Snapshot of selected dealer_accounts row — does NOT reassign ownership. */
+  dealer_account_number: string | null;
+  dealer_assigned_seller_initials: string | null;
+  dealer_assigned_seller_email: string | null;
   seller_user_id: string | null;
   seller_initials: string | null;
   seller_name: string | null;
@@ -36,6 +40,7 @@ export interface CalendarActivity {
   outlook_sync_status: string | null;
   outlook_last_synced_at: string | null;
   created_by_user_id: string | null;
+  created_by_email: string | null;
   updated_by_user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -47,6 +52,9 @@ export interface NewCalendarActivity {
   end_datetime?: string | null;
   account_id?: string | null;
   dealer_name?: string | null;
+  dealer_account_number?: string | null;
+  dealer_assigned_seller_initials?: string | null;
+  dealer_assigned_seller_email?: string | null;
   seller_user_id?: string | null;
   seller_initials?: string | null;
   seller_name?: string | null;
@@ -54,6 +62,7 @@ export interface NewCalendarActivity {
   note?: string | null;
   status?: "planned" | "done" | "canceled";
   created_by_user_id?: string | null;
+  created_by_email?: string | null;
 }
 
 const LS_KEY = "timan.crm.calendar.v1";
