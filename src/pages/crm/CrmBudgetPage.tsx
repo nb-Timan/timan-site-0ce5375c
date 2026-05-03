@@ -1559,27 +1559,32 @@ export default function CrmBudgetPage() {
                         {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
                           <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
-                          {workingMonthly.map((w, i) => (
-                            <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                              {canEditWorking ? (
-                                <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
-                                  <button
-                                    onClick={() => adjustWorking(primaryLine, i, -1)}
-                                    className="p-0.5 hover:bg-slate-700 rounded"
-                                    title="−1"
-                                  ><Minus className="h-3 w-3" /></button>
-                                  <span className="min-w-[16px] text-center font-semibold">{w}</span>
-                                  <button
-                                    onClick={() => adjustWorking(primaryLine, i, +1)}
-                                    className="p-0.5 hover:bg-slate-700 rounded"
-                                    title="+1"
-                                  ><Plus className="h-3 w-3" /></button>
-                                </div>
-                              ) : (
-                                <span className="font-semibold">{w}</span>
-                              )}
-                            </td>
-                          ))}
+                          {workingMonthly.map((w, i) => {
+                            const ck = cellKeyFor(i, "arbejdsbudget");
+                            const latest = latestAuditByCell[ck];
+                            return (
+                              <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {canEditWorking ? (
+                                  <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
+                                    <button
+                                      onClick={() => adjustWorking(primaryLine, i, -1)}
+                                      className="p-0.5 hover:bg-slate-700 rounded"
+                                      title="−1"
+                                    ><Minus className="h-3 w-3" /></button>
+                                    <span className="min-w-[16px] text-center font-semibold">{w}</span>
+                                    <button
+                                      onClick={() => adjustWorking(primaryLine, i, +1)}
+                                      className="p-0.5 hover:bg-slate-700 rounded"
+                                      title="+1"
+                                    ><Plus className="h-3 w-3" /></button>
+                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold">{w}</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">{totalWorking}</td>
                           <td className="px-2 py-2"></td>
                         </tr>
