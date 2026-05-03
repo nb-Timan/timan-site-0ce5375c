@@ -16,6 +16,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import { getActiveSellerView } from "@/lib/activeMode";
 import { listCrmAccounts, type CrmAccount } from "@/lib/crmAccountsService";
 import {
   listActivities,
@@ -99,6 +100,9 @@ export default function CrmCalendarPage() {
 
   const currentSellerInitials = useMemo(() => {
     const email = (appUser?.email || "").toLowerCase();
+    // Active seller context: backend "view as seller" mode wins over real email mapping.
+    const view = getActiveSellerView(appUser?.email);
+    if (view) return view.initials;
     return BUDGET_SELLERS.find(s => s.email.toLowerCase() === email)?.initials || null;
   }, [appUser?.email]);
 

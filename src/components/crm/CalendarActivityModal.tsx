@@ -145,7 +145,7 @@ export default function CalendarActivityModal(props: Props) {
   const [type, setType] = useState<CalendarActivityType>("demo");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "BP");
+  const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<CalendarActivity["status"]>("planned");
   const [error, setError] = useState<string | null>(null);
@@ -180,10 +180,20 @@ export default function CalendarActivityModal(props: Props) {
     setType((initial?.activity_type as CalendarActivityType) || "demo");
     setStart(toLocalInputValue(initial?.start_datetime || defaultDateIso || new Date().toISOString()));
     setEnd(toLocalInputValue(initial?.end_datetime ?? null));
-    setSellerInitials(initial?.seller_initials || currentSeller?.initials || "BP");
+    // Seller field: in seller mode (non-admin), always force to activeSellerContext.
+    // In backend/admin mode, prefer the existing activity seller, otherwise activeSellerContext.
+    if (!isAdmin) {
+      if (!currentSeller?.initials) {
+        // eslint-disable-next-line no-console
+        console.warn("Missing activeSellerContext for activity modal");
+      }
+      setSellerInitials(currentSeller?.initials || initial?.seller_initials || "");
+    } else {
+      setSellerInitials(initial?.seller_initials || currentSeller?.initials || "");
+    }
     setNote(initial?.note || "");
     setStatus((initial?.status as CalendarActivity["status"]) || "planned");
-  }, [open, initial, defaultAccountId, defaultDateIso, currentSeller]);
+  }, [open, initial, defaultAccountId, defaultDateIso, currentSeller, isAdmin]);
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
   // when dealer_accounts isn't accessible (e.g. seller without backend RLS).
@@ -224,7 +234,12 @@ export default function CalendarActivityModal(props: Props) {
     const startIso = fromLocalInputValue(start);
     if (!title.trim() || !startIso) { setError(T.required[lang]); return; }
     setSaving(true);
-    const seller = BUDGET_SELLERS.find(s => s.initials === sellerInitials) || currentSeller;
+    // In seller mode, ALWAYS use the active seller context (ignore form value).
+    // In backend mode, use the manually selected seller.
+    const effectiveInitials = isAdmin ? sellerInitials : (currentSeller?.initials || sellerInitials);
+    const seller = BUDGET_SELLERS.find(s => s.initials === effectiveInitials)
+      || (!isAdmin ? currentSeller : null)
+      || currentSeller;
     const opt = selectedOption;
     const payload = {
       title: title.trim(),
