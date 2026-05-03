@@ -95,6 +95,7 @@ export default function CrmCalendarPage() {
   const [editing, setEditing] = useState<CalendarActivity | null>(null);
   const [defaultDate, setDefaultDate] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
 
   const currentSellerInitials = useMemo(() => {
     const email = (appUser?.email || "").toLowerCase();
