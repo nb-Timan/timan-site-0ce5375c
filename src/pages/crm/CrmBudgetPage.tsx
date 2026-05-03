@@ -248,7 +248,7 @@ function generatePipeline(_line: BudgetLine, _year: number): PipelineOffer[][] {
   return Array.from({ length: 12 }, () => [] as PipelineOffer[]);
 }
 // Keep references to mock data referenced elsewhere happy.
-void SAMPLE_DEALERS; void SAMPLE_CUSTOMERS; void SAMPLE_ATTACHMENTS; void SAMPLE_STATUSES;
+void SAMPLE_DEALERS; void SAMPLE_CUSTOMERS; void SAMPLE_ATTACHMENTS; void SAMPLE_STATUSES; void seedRand;
 
 // ---------- Helpers ----------
 function splitToMonthly(qty: number, split: number[]): number[] {
