@@ -28,8 +28,10 @@ const T: Record<string, Record<Language, string>> = {
   logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
   backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
   switchMode:    { da: 'Vis som sælger', en: 'View as seller', de: 'Als Verkäufer ansehen', it: 'Visualizza come venditore', hu: 'Megtekintés értékesítőként' },
+  rolePreview:   { da: 'Vis som rolle', en: 'View as role', de: 'Als Rolle ansehen', it: 'Visualizza come ruolo', hu: 'Megtekintés szerepként' },
   viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
   filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
+  rolePreviewNote: { da: 'rolle-forhåndsvisning. Destruktive backend-handlinger er deaktiveret.', en: 'role preview. Destructive backend actions are disabled.', de: 'Rollenvorschau. Destruktive Backend-Aktionen sind deaktiviert.', it: 'anteprima ruolo. Le azioni distruttive sono disattivate.', hu: 'szerep-előnézet. A destruktív műveletek le vannak tiltva.' },
 };
 
 interface Props {
