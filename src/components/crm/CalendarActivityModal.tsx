@@ -234,7 +234,12 @@ export default function CalendarActivityModal(props: Props) {
     const startIso = fromLocalInputValue(start);
     if (!title.trim() || !startIso) { setError(T.required[lang]); return; }
     setSaving(true);
-    const seller = BUDGET_SELLERS.find(s => s.initials === sellerInitials) || currentSeller;
+    // In seller mode, ALWAYS use the active seller context (ignore form value).
+    // In backend mode, use the manually selected seller.
+    const effectiveInitials = isAdmin ? sellerInitials : (currentSeller?.initials || sellerInitials);
+    const seller = BUDGET_SELLERS.find(s => s.initials === effectiveInitials)
+      || (!isAdmin ? currentSeller : null)
+      || currentSeller;
     const opt = selectedOption;
     const payload = {
       title: title.trim(),
