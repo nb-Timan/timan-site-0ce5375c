@@ -319,7 +319,8 @@ function renderRow(p: RowProps) {
         <Td>
           <div className="flex items-center gap-1">
             {p.onToggle ? (
-              <button type="button" onClick={p.onToggle}
+              <button type="button"
+                onClick={(e) => { e.stopPropagation(); p.onToggle?.(); }}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
                 aria-label={p.open ? "Skjul filialer" : "Vis filialer"}>
                 {p.open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -329,9 +330,9 @@ function renderRow(p: RowProps) {
             )}
             {linkedUsers.length > 0 && (
               <button type="button"
-                onClick={() => p.setUsersExpanded((prev) => {
+                onClick={(e) => { e.stopPropagation(); p.setUsersExpanded((prev) => {
                   const n = new Set(prev); if (n.has(p.r.id)) n.delete(p.r.id); else n.add(p.r.id); return n;
-                })}
+                }); }}
                 className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700"
                 aria-label="Vis brugere">
                 {usersOpen ? "−" : "+"}
