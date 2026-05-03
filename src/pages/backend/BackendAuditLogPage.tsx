@@ -33,7 +33,9 @@ export default function BackendAuditLogPage() {
   const [moduleFilter, setModuleFilter] = useState<string>("all");
 
   useEffect(() => {
-    try { setEntries(listAuditEntries()); } catch { setEntries([]); }
+    let alive = true;
+    fetchAuditEntries().then((rows) => { if (alive) setEntries(rows); }).catch(() => { if (alive) setEntries([]); });
+    return () => { alive = false; };
   }, []);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
