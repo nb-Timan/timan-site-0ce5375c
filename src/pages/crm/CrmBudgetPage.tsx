@@ -3,14 +3,17 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
+  Clock, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
+import BudgetUnlockModal from "@/components/crm/BudgetUnlockModal";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import { getEffectiveSellerEmail, getEffectiveSellerInitials, getActiveSellerView } from "@/lib/activeMode";
 import { cn } from "@/lib/utils";
 import { Language } from "@/types/configurator";
 import {
@@ -28,6 +31,11 @@ import {
   type EquipmentCategory,
   findProduct,
 } from "@/lib/crmBudgetService";
+import {
+  listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
+  type BudgetAccessWindow,
+} from "@/lib/budgetAccessWindows";
+
 
 // ────────────────────────────────────────────────────────────
 // i18n — all visible UI strings for the Budget module
