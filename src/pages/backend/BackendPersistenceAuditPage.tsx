@@ -14,6 +14,9 @@ import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "luci
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { useNavigate } from "react-router-dom";
+import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin } from "@/lib/crmScope";
 import { supabase } from "@/lib/supabase";
 
