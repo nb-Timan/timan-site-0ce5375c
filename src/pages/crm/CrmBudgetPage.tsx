@@ -25,16 +25,20 @@ import {
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
-  appendBudgetAuditEntry,
+  appendBudgetAuditEntry, budgetCellKey,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
-  type EquipmentCategory,
+  type EquipmentCategory, type BudgetType,
   findProduct,
 } from "@/lib/crmBudgetService";
 import {
   listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
   type BudgetAccessWindow,
 } from "@/lib/budgetAccessWindows";
+import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
+import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
+import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
+import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 
 
 // ────────────────────────────────────────────────────────────
