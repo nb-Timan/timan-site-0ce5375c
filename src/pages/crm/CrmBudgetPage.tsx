@@ -3,14 +3,17 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
+  Clock, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
+import BudgetUnlockModal from "@/components/crm/BudgetUnlockModal";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import { getEffectiveSellerEmail, getActiveSellerView } from "@/lib/activeMode";
 import { cn } from "@/lib/utils";
 import { Language } from "@/types/configurator";
 import {
@@ -28,6 +31,11 @@ import {
   type EquipmentCategory,
   findProduct,
 } from "@/lib/crmBudgetService";
+import {
+  listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
+  type BudgetAccessWindow,
+} from "@/lib/budgetAccessWindows";
+
 
 // ────────────────────────────────────────────────────────────
 // i18n — all visible UI strings for the Budget module
@@ -356,6 +364,26 @@ export default function CrmBudgetPage() {
   // Seller/year lock map (key = sellerEmail.toLowerCase()) for the active year.
   const [sellerLocks, setSellerLocks] = useState<Record<string, SellerYearLock>>({});
 
+  // Time-limited budget access windows for this year (Phase 17).
+  const [accessWindows, setAccessWindows] = useState<BudgetAccessWindow[]>([]);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
+  // Re-render every 30s so the countdown ticks.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  // Listen to active-mode changes so backend-in-seller-mode reflects the
+  // correct seller context for window resolution + countdown.
+  const [activeModeRev, setActiveModeRev] = useState(0);
+  useEffect(() => {
+    const onChange = () => setActiveModeRev((n) => n + 1);
+    window.addEventListener("timan:active-mode-changed", onChange);
+    return () => window.removeEventListener("timan:active-mode-changed", onChange);
+  }, []);
+
+
   // ─── Seller "Edit Arbejdsbudget" mode + 10-min inactivity auto-lock ───
   // Only relevant for non-admin sellers; does NOT affect official Fastlagt
   // Budget locks. Backend users always have edit access (not gated by this).
@@ -408,6 +436,8 @@ export default function CrmBudgetPage() {
       map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
     });
     setSellerLocks(map);
+    // Load active access windows for this year.
+    listBudgetAccessWindows(year).then(setAccessWindows).catch(() => setAccessWindows([]));
     // Always exit edit mode when year changes.
     setEditModeUntil(null);
   }, [year, allowed]);
@@ -549,14 +579,33 @@ export default function CrmBudgetPage() {
   }
 
   // ---- Lock helpers (per seller / per year) ----
+  // Active "view as <seller>" mode for backend users (so a backend in seller
+  // mode behaves as that seller for window/lock resolution and countdown).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _activeModeRev = activeModeRev; // re-evaluated when mode changes
+  const activeSellerView = isAdmin ? getActiveSellerView(appUser?.email) : null;
+  const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
+
   // The "selected seller" for backend admin == backendFilter (only when it's
-  // an actual seller email). For sellers it's their own email.
+  // an actual seller email). For sellers it's their own email. When a backend
+  // user is in seller-view mode we use the active seller's email.
   const selectedSellerEmail: string | null = isAdmin
-    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    ? (activeSellerView
+        ? activeSellerView.email.toLowerCase()
+        : (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null))
     : (myEmail || null);
+
+  /** Active access window for the given seller (or "all"-scope) right now. */
+  function activeWindowFor(email: string | null | undefined): BudgetAccessWindow | null {
+    return findActiveWindow(accessWindows, year, email || null);
+  }
 
   function lockFor(email: string | null | undefined): SellerYearLock | null {
     if (!email) return null;
+    // A live access window OVERRIDES any per-seller "official" lock record.
+    if (activeWindowFor(email)) {
+      return { year, seller_email: email.toLowerCase(), locked: false };
+    }
     return sellerLocks[email.toLowerCase()] ?? getEffectiveLock(year, email);
   }
 
@@ -568,13 +617,13 @@ export default function CrmBudgetPage() {
     if (line.locked) return true;
     const email = (line.seller_email || "").toLowerCase();
     if (!email) {
-      // No seller bound (e.g. admin "Alle" view, synthetic seed line):
-      // fall back to the global year lock.
+      if (activeWindowFor(null) || activeWindowFor(selectedSellerEmail)) return false;
       return getEffectiveLock(year, "").locked;
     }
     const sl = lockFor(email);
     return sl ? sl.locked : true;
   }
+
 
   /** Per-seller official budget lock toggle (Backend only). */
   function toggleSellerLock(email: string) {
@@ -781,10 +830,30 @@ export default function CrmBudgetPage() {
   const currentMonthIdx = now.getFullYear() === year ? now.getMonth() : -1;
   const currentMonthCol = currentMonthIdx >= 0 ? currentMonthIdx + 2 : -1;
 
+  // Resolve countdown context: the seller email whose window matters most.
+  const countdownEmail = isAdmin
+    ? (selectedSellerEmail || effectiveSellerEmail || null)
+    : (effectiveSellerEmail || myEmail || null);
+  const activeWin = countdownEmail ? activeWindowFor(countdownEmail) : null;
+  // Distinct list of currently-open windows for this year (for the admin overview).
+  const openWindows = accessWindows.filter((w) => {
+    if (w.budget_year !== year || w.status !== "open") return false;
+    const t = Date.now();
+    return new Date(w.open_from).getTime() <= t && new Date(w.open_until).getTime() >= t;
+  });
+
+  async function handleCloseWindow(id: string) {
+    if (!isAdmin) return;
+    if (!confirm("Luk dette åbningsvindue nu?")) return;
+    await closeBudgetAccessWindow(id, appUser?.display_name || appUser?.email || "Backend");
+    const fresh = await listBudgetAccessWindows(year);
+    setAccessWindows(fresh);
+  }
+
   return (
     <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
@@ -793,6 +862,7 @@ export default function CrmBudgetPage() {
             {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
             <Calendar className="h-4 w-4 text-slate-500" />
@@ -847,7 +917,16 @@ export default function CrmBudgetPage() {
                 </span>
                 {isAdmin && email && (
                   <button
-                    onClick={() => toggleSellerLock(email)}
+                    onClick={() => {
+                      if (locked) {
+                        // Open the confirmation modal pre-filled with this seller.
+                        setUnlockDefaultEmail(email);
+                        setUnlockOpen(true);
+                      } else {
+                        // Currently open via legacy lock — fall back to legacy toggle.
+                        toggleSellerLock(email);
+                      }
+                    }}
                     className={cn(
                       "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
                       locked
@@ -861,41 +940,20 @@ export default function CrmBudgetPage() {
               </div>
             );
           })()}
-          {/* Backend: Global (all-sellers) lock controls for the active year. */}
-          {isAdmin && (() => {
-            const globalEffective = getEffectiveLock(year, "");
-            const globalLocked = globalEffective.locked;
-            const fmt = (s: string) => s.replace("{year}", String(year));
-            return (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]} · alle</span>
-                <button
-                  type="button"
-                  onClick={() => toggleGlobalYearLock(false)}
-                  disabled={!globalLocked}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
-                    "border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed",
-                  )}
-                  title={fmt(T.unlock_all[lang])}
-                >
-                  <Unlock className="h-3 w-3" /> {fmt(T.unlock_all[lang])}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleGlobalYearLock(true)}
-                  disabled={globalLocked}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
-                    "border-sky-200 text-sky-700 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed",
-                  )}
-                  title={fmt(T.lock_all[lang])}
-                >
-                  <Lock className="h-3 w-3" /> {fmt(T.lock_all[lang])}
-                </button>
-              </div>
-            );
-          })()}
+          {/* Backend: time-limited "Åbn budget…" launcher + active windows list. */}
+          {isAdmin && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Åbningsvindue</span>
+              <button
+                type="button"
+                onClick={() => { setUnlockDefaultEmail(null); setUnlockOpen(true); }}
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <Unlock className="h-3 w-3" /> Åbn budget {year}…
+              </button>
+            </div>
+          )}
+
           {/* Seller: Edit Arbejdsbudget mode toggle (10-min auto-lock). */}
           {!isAdmin && isSeller && (
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
@@ -943,6 +1001,75 @@ export default function CrmBudgetPage() {
           )}
         </div>
       </div>
+
+      {/* Time-limited access window: countdown / locked banner */}
+      {(() => {
+        if (activeWin) {
+          const remaining = new Date(activeWin.open_until).getTime() - Date.now();
+          const scopeLabel = activeWin.scope === "all"
+            ? "alle sælgere"
+            : (activeWin.seller_initials || activeWin.seller_email || "sælger");
+          return (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-emerald-900">
+                <Clock className="h-4 w-4" />
+                <span className="font-semibold">Budget åbent</span>
+                <span>· {scopeLabel}</span>
+                <span>· lukker om <strong>{formatRemaining(remaining)}</strong></span>
+                <span className="text-emerald-700">({new Date(activeWin.open_until).toLocaleString("da-DK")})</span>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => handleCloseWindow(activeWin.id)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  <XCircle className="h-3 w-3" /> Luk nu
+                </button>
+              )}
+            </div>
+          );
+        }
+        // No active window for the current seller → show "locked" cue.
+        if (!isAdmin) {
+          return (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <Lock className="h-4 w-4 text-slate-500" />
+              <span>Budget låst — kontakt backend for at åbne et tidsvindue.</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Backend: list of currently-open windows for this year */}
+      {isAdmin && openWindows.length > 0 && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+            Aktive åbningsvinduer {year}
+          </div>
+          <ul className="space-y-1.5">
+            {openWindows.map((w) => {
+              const remaining = new Date(w.open_until).getTime() - Date.now();
+              return (
+                <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-slate-800">
+                    <strong>{w.scope === "all" ? "Alle sælgere" : (w.seller_initials || w.seller_email)}</strong>
+                    <span className="text-slate-500"> · indtil {new Date(w.open_until).toLocaleString("da-DK")} ({formatRemaining(remaining)})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCloseWindow(w.id)}
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                  >
+                    <XCircle className="h-3 w-3" /> Luk
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -1527,6 +1654,21 @@ export default function CrmBudgetPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isAdmin && (
+        <BudgetUnlockModal
+          open={unlockOpen}
+          onOpenChange={setUnlockOpen}
+          year={year}
+          defaultSellerEmail={unlockDefaultEmail}
+          createdBy={appUser?.display_name || appUser?.email || "Backend"}
+          onCreated={async () => {
+            const fresh = await listBudgetAccessWindows(year);
+            setAccessWindows(fresh);
+            toast.success(`Budget ${year} åbnet`);
+          }}
+        />
       )}
     </CrmLayout>
   );
