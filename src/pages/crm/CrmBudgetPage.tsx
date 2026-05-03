@@ -775,18 +775,10 @@ export default function CrmBudgetPage() {
 
   // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
-  async function toggleLock(line: BudgetLine) {
-    if (!isAdmin) return;
-    const updated = await setLineLock(line.id, !line.locked, appUser?.display_name || appUser?.email || "Backend");
-    if (updated) setLines(prev => prev.map(l => l.id === line.id ? updated : l));
-  }
-
-  async function removeLine(id: string) {
-    if (!isAdmin) return;
-    if (!confirm(T.delete_confirm[lang])) return;
-    await deleteBudgetLine(id);
-    setLines(prev => prev.filter(l => l.id !== id));
-  }
+  // Per-row lock/delete actions removed — central Budgetstatus / Åbningsvindue
+  // controls are now the single source of truth. (deleteBudgetLine + setLineLock
+  // service helpers remain available for future admin tooling.)
+  void deleteBudgetLine; void setLineLock;
 
   // Create a new Budget-only product (machine or attachment). Does NOT touch
   // the configurator catalog, pricing, or order flow.
