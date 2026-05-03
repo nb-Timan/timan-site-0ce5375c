@@ -12,7 +12,7 @@
 
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
-import { canSwitchMode, getActiveSellerView } from '@/lib/activeMode';
+import { canSwitchMode, getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
 
 // ---------- Portal roles (internal English keys) ----------
 export type PortalRole =
