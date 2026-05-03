@@ -862,6 +862,88 @@ export default function CrmBudgetPage() {
     setAccessWindows(fresh);
   }
 
+  // ─── CSV export (semicolon-separated, UTF-8 BOM) ───
+  function handleExportCsv() {
+    const rows: string[][] = [];
+    rows.push(["Year", "Seller", "Model", "Category", "Month", "Budget", "Pipeline", "Orders", "Performance"]);
+
+    // Group visibleLines by (sellerEmail, productKey) so categories aggregate
+    // budget/orders/pipeline in the same way the table renders them.
+    type GroupKey = string;
+    const groups = new Map<GroupKey, {
+      sellerLabel: string;
+      model: string;
+      category: "machine" | "accessory";
+      lines: BudgetLine[];
+    }>();
+    visibleLines.forEach(l => {
+      const sellerLabel = l.seller_initials || l.seller_name || l.seller_email || "—";
+      const model = l.product_name || l.product_key;
+      const cat: "machine" | "accessory" = l.category === "machine" ? "machine" : "accessory";
+      const key = `${(l.seller_email || sellerLabel).toLowerCase()}||${l.product_key}||${cat}`;
+      const g = groups.get(key);
+      if (g) g.lines.push(l);
+      else groups.set(key, { sellerLabel, model, category: cat, lines: [l] });
+    });
+
+    const monthLabels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    groups.forEach(g => {
+      const budgetMonthly = Array.from({ length: 12 }, () => 0);
+      const ordersMonthly = Array.from({ length: 12 }, () => 0);
+      const pipelineMonthly = Array.from({ length: 12 }, () => 0);
+      g.lines.forEach(l => {
+        const lm = lineMonthly(l);
+        lm.budgetMonthly.forEach((v, i) => { budgetMonthly[i] += v; });
+        lm.ordersMonthly.forEach((v, i) => { ordersMonthly[i] += v; });
+        const p = pipelineByLine[l.id] || [];
+        p.forEach((arr, i) => { pipelineMonthly[i] += arr.length; });
+      });
+      for (let i = 0; i < 12; i++) {
+        rows.push([
+          String(year),
+          g.sellerLabel,
+          g.model,
+          g.category,
+          monthLabels[i],
+          String(budgetMonthly[i]),
+          String(pipelineMonthly[i]),
+          String(ordersMonthly[i]),
+          String(ordersMonthly[i] - budgetMonthly[i]),
+        ]);
+      }
+    });
+
+    const escape = (v: string) => {
+      const s = String(v ?? "");
+      return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = rows.map(r => r.map(escape).join(";")).join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+
+    let suffix = "all-sellers";
+    if (selectedSellerEmail) {
+      const known = BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail);
+      suffix = (known?.initials || selectedSellerEmail.split("@")[0]).toUpperCase();
+    } else if (isAdmin && backendFilter !== "all" && backendFilter !== "mine") {
+      suffix = backendFilter.split("@")[0].toUpperCase();
+    } else if (!isAdmin) {
+      const me = BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail);
+      suffix = (me?.initials || (myEmail ? myEmail.split("@")[0] : "me")).toUpperCase();
+    }
+    const filename = `timan-budget-${year}-${suffix}.csv`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filename}`);
+  }
+
   return (
     <CrmLayout pageTitle={T.page_title[lang]}>
       {/* Header bar */}
