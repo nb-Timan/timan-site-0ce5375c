@@ -896,7 +896,16 @@ export default function CrmBudgetPage() {
                 </span>
                 {isAdmin && email && (
                   <button
-                    onClick={() => toggleSellerLock(email)}
+                    onClick={() => {
+                      if (locked) {
+                        // Open the confirmation modal pre-filled with this seller.
+                        setUnlockDefaultEmail(email);
+                        setUnlockOpen(true);
+                      } else {
+                        // Currently open via legacy lock — fall back to legacy toggle.
+                        toggleSellerLock(email);
+                      }
+                    }}
                     className={cn(
                       "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
                       locked
@@ -910,41 +919,20 @@ export default function CrmBudgetPage() {
               </div>
             );
           })()}
-          {/* Backend: Global (all-sellers) lock controls for the active year. */}
-          {isAdmin && (() => {
-            const globalEffective = getEffectiveLock(year, "");
-            const globalLocked = globalEffective.locked;
-            const fmt = (s: string) => s.replace("{year}", String(year));
-            return (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{T.budget_status[lang]} · alle</span>
-                <button
-                  type="button"
-                  onClick={() => toggleGlobalYearLock(false)}
-                  disabled={!globalLocked}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
-                    "border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed",
-                  )}
-                  title={fmt(T.unlock_all[lang])}
-                >
-                  <Unlock className="h-3 w-3" /> {fmt(T.unlock_all[lang])}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleGlobalYearLock(true)}
-                  disabled={globalLocked}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition",
-                    "border-sky-200 text-sky-700 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed",
-                  )}
-                  title={fmt(T.lock_all[lang])}
-                >
-                  <Lock className="h-3 w-3" /> {fmt(T.lock_all[lang])}
-                </button>
-              </div>
-            );
-          })()}
+          {/* Backend: time-limited "Åbn budget…" launcher + active windows list. */}
+          {isAdmin && (
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Åbningsvindue</span>
+              <button
+                type="button"
+                onClick={() => { setUnlockDefaultEmail(null); setUnlockOpen(true); }}
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <Unlock className="h-3 w-3" /> Åbn budget {year}…
+              </button>
+            </div>
+          )}
+
           {/* Seller: Edit Arbejdsbudget mode toggle (10-min auto-lock). */}
           {!isAdmin && isSeller && (
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
