@@ -1458,6 +1458,13 @@ export default function CrmBudgetPage() {
                       totalBudget === 0 ? "bg-slate-100 text-slate-500 border-slate-200" :
                                         "bg-rose-100 text-rose-800 border-rose-200";
                     const stickyPad = indent ? "pl-8" : "px-3";
+                    const cellKeyFor = (i: number, type: BudgetType) => budgetCellKey({
+                      year,
+                      seller_initials: primaryLine.seller_initials || (auditSellerContext ? auditSellerContext.toUpperCase() : null),
+                      product_code: primaryLine.item_number || primaryLine.product_key,
+                      month_idx: i,
+                      budget_type: type,
+                    });
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
                         {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
