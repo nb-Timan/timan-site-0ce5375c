@@ -646,16 +646,25 @@ export default function CrmBudgetPage() {
   // the working-forecast steppers so that RC-751 (or any machine without a
   // pre-existing seed row for the seller) becomes editable on first click.
   // Synthetic equipment ids (eq_YEAR_MACHINE_EQUIPKEY) are also persisted.
-  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine> {
+  async function ensurePersistedLine(line: BudgetLine, productKeyOverride?: string): Promise<BudgetLine | null> {
     // Already in lines store → nothing to do.
     if (lines.some(l => l.id === line.id)) return line;
 
-    // For seller users we always own the line. For backend, attribute to the
-    // currently selected seller (backendFilter) if any, else leave seller_email null.
+    // Resolve a real seller owner. Backend MUST have a selected seller (filter
+    // or active "view as seller" mode). Sellers always own their own rows.
+    // We never persist a budget row without a known seller — that would create
+    // an orphan that the backend total includes but no seller view shows.
     const targetEmail: string | null = isAdmin
-      ? (selectedSellerEmail || line.seller_email || null)
-      : (myEmail || null);
-    const known = BUDGET_SELLERS.find(s => s.email.toLowerCase() === (targetEmail || "").toLowerCase());
+      ? (selectedSellerEmail || null)
+      : (effectiveSellerEmail || myEmail || null);
+    const known = targetEmail
+      ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === targetEmail.toLowerCase())
+      : null;
+    if (!known) {
+      console.warn("[budget] refusing to save row without seller owner", { isAdmin, targetEmail, selectedSellerEmail });
+      toast.error("Vælg en sælger først – budgetdata skal tilhøre en sælger");
+      return null;
+    }
 
     const product = productKeyOverride ? findProduct(productKeyOverride) : findProduct(line.product_key);
     const persisted = await createBudgetLine({
@@ -666,10 +675,10 @@ export default function CrmBudgetPage() {
       category: line.category,
       parent_machine_key: line.parent_machine_key ?? null,
       seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: known?.full_name ?? (isAdmin ? null : (appUser?.display_name ?? null)),
-      seller_email: known?.email ?? targetEmail,
-      seller_initials: known?.initials ?? (isAdmin ? null : (myInitialsFromName || null)),
-      country: known?.country ?? line.country ?? null,
+      seller_name: known.full_name,
+      seller_email: known.email,
+      seller_initials: known.initials,
+      country: known.country ?? line.country ?? null,
       qty_budget: 0,
       value_budget: 0,
       monthly_split: EVEN,
@@ -685,6 +694,7 @@ export default function CrmBudgetPage() {
     // their own working forecast. Backend can always edit.
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
+    if (!persisted) return;
     const lineId = persisted.id;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
@@ -745,6 +755,7 @@ export default function CrmBudgetPage() {
     if (!isAdmin && !sellerHasWindow) return;
     if (isLineLocked(line)) return;
     const persisted = await ensurePersistedLine(line);
+    if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
     monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
@@ -925,9 +936,40 @@ export default function CrmBudgetPage() {
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            {isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}
-          </p>
+          {(() => {
+            // Scope label: "Samlet budget – alle sælgere" vs "Budget for XX"
+            const scopeInitials = selectedSellerEmail
+              ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)?.initials
+                  || selectedSellerEmail.split("@")[0].toUpperCase())
+              : (!isAdmin
+                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail)?.initials
+                      || myInitialsFromName
+                      || null)
+                  : null);
+            const scopeLabel = scopeInitials
+              ? `Budget for ${scopeInitials}`
+              : "Samlet budget – alle sælgere";
+            // Orphan rows = lines without a recognised seller_email matching a known seller.
+            const knownEmails = new Set(BUDGET_SELLERS.map(s => s.email.toLowerCase()));
+            const orphanCount = (isAdmin && !selectedSellerEmail)
+              ? lines.filter(l => {
+                  const e = (l.seller_email || "").toLowerCase();
+                  return !e || !knownEmails.has(e);
+                }).length
+              : 0;
+            return (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mt-1">{scopeLabel}</p>
+                <p className="text-sm text-slate-500 mt-1">{isAdmin ? T.subtitle_admin[lang] : T.subtitle_seller[lang]}</p>
+                {orphanCount > 0 && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Budgetdata uden sælger fundet ({orphanCount} {orphanCount === 1 ? "linje" : "linjer"})
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         <div className="flex items-center gap-2">
