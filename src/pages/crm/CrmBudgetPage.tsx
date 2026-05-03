@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
+  Lock, Unlock, Plus, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
   Clock, XCircle, Download,
 } from "lucide-react";
