@@ -429,22 +429,39 @@ export default function CrmBudgetPage() {
   // produces synthetic display_names like "[Preview] Timan Sælger".
   const myEmail = (appUser?.email || "").toLowerCase().trim();
   const myInitialsFromName = (appUser?.display_name || "").replace(/^\[Preview\]\s*/i, "").trim();
+  // Effective seller context for filtering in seller mode. For a backend user
+  // who selected "VIS SOM SÆLGER" → JTN, derivePortalRole returns 'timan_seller'
+  // and this resolves to JTN's email/initials (NOT the logged-in user's).
+  // In pure backend mode (admin), this is unused — backend must NOT filter by
+  // activeSellerContext per spec.
+  const activeSellerForFilter = !isAdmin ? getActiveSellerView(appUser?.email) : null;
+  const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
+  const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
 
   const visibleLines = useMemo(() => {
-    function belongsToMe(l: BudgetLine): boolean {
+    function belongsToActiveSeller(l: BudgetLine): boolean {
       if (sellerId && l.seller_id === sellerId) return true;
-      if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
-      if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
-      if (myInitialsFromName && l.seller_name && l.seller_name.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      if (sellerCtxEmail && l.seller_email && l.seller_email.toLowerCase() === sellerCtxEmail) return true;
+      if (sellerCtxInitials && l.seller_initials && l.seller_initials.toLowerCase() === sellerCtxInitials) return true;
+      if (sellerCtxInitials && l.seller_name && l.seller_name.toLowerCase() === sellerCtxInitials) return true;
       return false;
     }
     if (isAdmin) {
+      // Backend mode: never apply activeSellerContext as a filter.
       if (backendFilter === "all") return lines;
-      if (backendFilter === "mine") return lines.filter(belongsToMe);
+      if (backendFilter === "mine") {
+        // "Min egen visning" matches the logged-in backend user's own rows.
+        return lines.filter(l => {
+          if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
+          if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+          return false;
+        });
+      }
       return lines.filter(l => (l.seller_email || "").toLowerCase() === backendFilter.toLowerCase());
     }
-    return lines.filter(belongsToMe);
-  }, [lines, isAdmin, sellerId, myEmail, myInitialsFromName, backendFilter]);
+    // Seller mode (incl. backend in "view as seller"): filter by active seller context.
+    return lines.filter(belongsToActiveSeller);
+  }, [lines, isAdmin, sellerId, sellerCtxEmail, sellerCtxInitials, myEmail, myInitialsFromName, backendFilter]);
 
   // Pipeline per line.
   const pipelineByLine = useMemo(() => {
@@ -564,17 +581,18 @@ export default function CrmBudgetPage() {
   // mode behaves as that seller for window/lock resolution and countdown).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _activeModeRev = activeModeRev; // re-evaluated when mode changes
-  const activeSellerView = isAdmin ? getActiveSellerView(appUser?.email) : null;
+  // NOTE: activeSellerContext is intentionally NOT used in backend mode for
+  // filtering — backend mode aggregates across all sellers regardless.
   const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
 
   // The "selected seller" for backend admin == backendFilter (only when it's
   // an actual seller email). For sellers it's their own email. When a backend
   // user is in seller-view mode we use the active seller's email.
+  // Backend mode: selected seller comes ONLY from the seller selector (never
+  // from activeSellerContext). Seller mode: use the effective seller context.
   const selectedSellerEmail: string | null = isAdmin
-    ? (activeSellerView
-        ? activeSellerView.email.toLowerCase()
-        : (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null))
-    : (myEmail || null);
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (sellerCtxEmail || null);
 
   /** Active access window for the given seller (or "all"-scope) right now. */
   function activeWindowFor(email: string | null | undefined): BudgetAccessWindow | null {
@@ -934,21 +952,30 @@ export default function CrmBudgetPage() {
               ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)?.initials
                   || selectedSellerEmail.split("@")[0].toUpperCase())
               : (!isAdmin
-                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail)?.initials
-                      || myInitialsFromName
-                      || null)
+                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === sellerCtxEmail)?.initials
+                      || (sellerCtxInitials ? sellerCtxInitials.toUpperCase() : null))
                   : null);
             const scopeLabel = scopeInitials
               ? `Budget for ${scopeInitials}`
               : "Samlet budget – alle sælgere";
             // Orphan rows = lines without a recognised seller_email matching a known seller.
             const knownEmails = new Set(BUDGET_SELLERS.map(s => s.email.toLowerCase()));
-            const orphanCount = (isAdmin && !selectedSellerEmail)
+            const isBackendAll = isAdmin && !selectedSellerEmail;
+            const orphanCount = isBackendAll
               ? lines.filter(l => {
                   const e = (l.seller_email || "").toLowerCase();
                   return !e || !knownEmails.has(e);
                 }).length
               : 0;
+            // Backend "Alle sælgere" total must equal sum of the 5 known sellers.
+            let mismatch = false;
+            if (isBackendAll) {
+              const totalAll = lines.reduce((s, l) => s + (l.qty_budget || 0), 0);
+              const totalKnown = lines
+                .filter(l => knownEmails.has((l.seller_email || "").toLowerCase()))
+                .reduce((s, l) => s + (l.qty_budget || 0), 0);
+              mismatch = totalAll !== totalKnown;
+            }
             return (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mt-1">{scopeLabel}</p>
@@ -957,6 +984,12 @@ export default function CrmBudgetPage() {
                   <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
                     <ShieldAlert className="h-3.5 w-3.5" />
                     Budgetdata uden sælger fundet ({orphanCount} {orphanCount === 1 ? "linje" : "linjer"})
+                  </p>
+                )}
+                {mismatch && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Budget mismatch detected
                   </p>
                 )}
               </>
