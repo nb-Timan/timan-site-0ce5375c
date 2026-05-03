@@ -951,21 +951,30 @@ export default function CrmBudgetPage() {
               ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)?.initials
                   || selectedSellerEmail.split("@")[0].toUpperCase())
               : (!isAdmin
-                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail)?.initials
-                      || myInitialsFromName
-                      || null)
+                  ? (BUDGET_SELLERS.find(s => s.email.toLowerCase() === sellerCtxEmail)?.initials
+                      || (sellerCtxInitials ? sellerCtxInitials.toUpperCase() : null))
                   : null);
             const scopeLabel = scopeInitials
               ? `Budget for ${scopeInitials}`
               : "Samlet budget – alle sælgere";
             // Orphan rows = lines without a recognised seller_email matching a known seller.
             const knownEmails = new Set(BUDGET_SELLERS.map(s => s.email.toLowerCase()));
-            const orphanCount = (isAdmin && !selectedSellerEmail)
+            const isBackendAll = isAdmin && !selectedSellerEmail;
+            const orphanCount = isBackendAll
               ? lines.filter(l => {
                   const e = (l.seller_email || "").toLowerCase();
                   return !e || !knownEmails.has(e);
                 }).length
               : 0;
+            // Backend "Alle sælgere" total must equal sum of the 5 known sellers.
+            let mismatch = false;
+            if (isBackendAll) {
+              const totalAll = lines.reduce((s, l) => s + (l.qty_budget || 0), 0);
+              const totalKnown = lines
+                .filter(l => knownEmails.has((l.seller_email || "").toLowerCase()))
+                .reduce((s, l) => s + (l.qty_budget || 0), 0);
+              mismatch = totalAll !== totalKnown;
+            }
             return (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mt-1">{scopeLabel}</p>
@@ -974,6 +983,12 @@ export default function CrmBudgetPage() {
                   <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
                     <ShieldAlert className="h-3.5 w-3.5" />
                     Budgetdata uden sælger fundet ({orphanCount} {orphanCount === 1 ? "linje" : "linjer"})
+                  </p>
+                )}
+                {mismatch && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Budget mismatch detected
                   </p>
                 )}
               </>
