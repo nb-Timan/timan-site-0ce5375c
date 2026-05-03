@@ -436,6 +436,8 @@ export default function CrmBudgetPage() {
       map[s.email.toLowerCase()] = getEffectiveLock(year, s.email);
     });
     setSellerLocks(map);
+    // Load active access windows for this year.
+    listBudgetAccessWindows(year).then(setAccessWindows).catch(() => setAccessWindows([]));
     // Always exit edit mode when year changes.
     setEditModeUntil(null);
   }, [year, allowed]);
