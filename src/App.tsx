@@ -51,6 +51,7 @@ import NotFound from "./pages/NotFound.tsx";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
+import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
               <Route path="/portal/backend/sellers" element={<BackendSellersPage />} />
+              <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
