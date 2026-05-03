@@ -958,6 +958,15 @@ export default function CrmBudgetPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            title="Export current view as CSV"
+          >
+            <Download className="h-4 w-4 text-slate-500" />
+            Export CSV
+          </button>
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
             <Calendar className="h-4 w-4 text-slate-500" />
             <select
