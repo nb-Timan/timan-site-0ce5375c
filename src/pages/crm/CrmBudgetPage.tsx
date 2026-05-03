@@ -712,8 +712,6 @@ export default function CrmBudgetPage() {
 
   // ---- Working forecast handlers (auto-save) ----
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Sellers must be in active "Rediger arbejdsbudget" edit mode to change
-    // their own working forecast. Backend can always edit.
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
@@ -725,6 +723,28 @@ export default function CrmBudgetPage() {
     const newVal = Math.max(0, oldVal + delta);
     if (newVal === oldVal) return;
 
+    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
+    if (isLargeBudgetChange(oldVal, newVal)) {
+      setLargeChange({
+        ctx: {
+          oldValue: oldVal, newValue: newVal,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: monthLabel,
+          budget_type: "arbejdsbudget",
+        },
+        run: () => commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft),
+      });
+      return;
+    }
+    await commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft);
+  }
+
+  async function commitWorking(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+    fcExisting: BudgetForecast | undefined, prevDraft: number[],
+  ) {
+    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
@@ -752,25 +772,11 @@ export default function CrmBudgetPage() {
       return { ...prev, [lineId]: next };
     });
 
-    // Audit: who changed what, when. Visible to Timan Backend in audit log.
-    appendBudgetAuditEntry({
-      year,
-      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
-      seller_name: persisted.seller_name || appUser?.display_name || null,
-      product_name: persisted.product_name,
-      item_number: persisted.item_number,
-      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-      old_value: oldVal,
-      new_value: newVal,
-    });
-
-    // Reset the 10-min inactivity timer on each successful change.
+    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "arbejdsbudget");
     bumpEditActivity();
   }
 
   // ---- Gray BUDGET row editing ----
-  // Editable for: backend (admin) when not locked, OR a seller whose
-  // effective email is covered by an active access window for this year.
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
@@ -780,7 +786,32 @@ export default function CrmBudgetPage() {
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
-    monthlyQty[monthIdx] = Math.max(0, (monthlyQty[monthIdx] ?? 0) + delta);
+    const oldVal = monthlyQty[monthIdx] ?? 0;
+    const newVal = Math.max(0, oldVal + delta);
+    if (newVal === oldVal) return;
+    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
+    if (isLargeBudgetChange(oldVal, newVal)) {
+      setLargeChange({
+        ctx: {
+          oldValue: oldVal, newValue: newVal,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: monthLabel,
+          budget_type: "budget",
+        },
+        run: () => commitBudget(persisted, monthIdx, oldVal, newVal),
+      });
+      return;
+    }
+    await commitBudget(persisted, monthIdx, oldVal, newVal);
+  }
+
+  async function commitBudget(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+  ) {
+    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    monthlyQty[monthIdx] = newVal;
     const newQty = monthlyQty.reduce((a, b) => a + b, 0);
     const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;
     const product = findProduct(persisted.product_key);
@@ -793,7 +824,34 @@ export default function CrmBudgetPage() {
     };
     await upsertBudgetLine(updated);
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
+    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
   }
+
+  function logBudgetAudit(
+    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+    budget_type: BudgetType,
+  ) {
+    appendBudgetAuditEntry({
+      year,
+      seller_initials: persisted.seller_initials || (isAdmin ? null : (myInitialsFromName || null)),
+      seller_name: persisted.seller_name || appUser?.display_name || null,
+      seller_email: persisted.seller_email || null,
+      product_key: persisted.product_key,
+      product_name: persisted.product_name,
+      item_number: persisted.item_number,
+      month_idx: monthIdx,
+      month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      budget_type,
+      old_value: oldVal,
+      new_value: newVal,
+      actor_email: appUser?.email || null,
+      actor_name: appUser?.display_name || null,
+      actor_role: portalRole || null,
+      active_mode: isAdmin ? "backend" : (activeSellerForFilter ? `seller:${activeSellerForFilter.initials}` : "seller"),
+    });
+    setAuditRefreshKey(k => k + 1);
+  }
+
 
   // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
