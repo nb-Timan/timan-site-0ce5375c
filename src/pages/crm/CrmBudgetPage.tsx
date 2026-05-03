@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  Lock, Unlock, Plus, Trash2, X, ShieldAlert, Calendar,
+  Lock, Unlock, Plus, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
   Clock, XCircle, Download,
 } from "lucide-react";
@@ -775,18 +775,10 @@ export default function CrmBudgetPage() {
 
   // (Working forecast is auto-saved on each stepper press in adjustWorking.)
 
-  async function toggleLock(line: BudgetLine) {
-    if (!isAdmin) return;
-    const updated = await setLineLock(line.id, !line.locked, appUser?.display_name || appUser?.email || "Backend");
-    if (updated) setLines(prev => prev.map(l => l.id === line.id ? updated : l));
-  }
-
-  async function removeLine(id: string) {
-    if (!isAdmin) return;
-    if (!confirm(T.delete_confirm[lang])) return;
-    await deleteBudgetLine(id);
-    setLines(prev => prev.filter(l => l.id !== id));
-  }
+  // Per-row lock/delete actions removed — central Budgetstatus / Åbningsvindue
+  // controls are now the single source of truth. (deleteBudgetLine + setLineLock
+  // service helpers remain available for future admin tooling.)
+  void deleteBudgetLine; void setLineLock;
 
   // Create a new Budget-only product (machine or attachment). Does NOT touch
   // the configurator catalog, pricing, or order flow.
@@ -1568,17 +1560,9 @@ export default function CrmBudgetPage() {
                                     {anyLocked && <span className="inline-flex items-center gap-1 text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200"><Lock className="h-3 w-3" /> {T.locked[lang]}</span>}
                                   </div>
                                   {isAdmin && group.lines.length > 0 && (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
                                       {group.lines.map(l => (
-                                        <span key={l.id} className="inline-flex items-center gap-1 text-xs text-slate-600">
-                                          <span className="text-slate-500">{l.seller_name || "—"}</span>
-                                          <button onClick={() => toggleLock(l)} className="p-1 rounded hover:bg-slate-200" title={l.locked ? T.unlock[lang] : T.lock[lang]}>
-                                            {l.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                                          </button>
-                                          <button onClick={() => removeLine(l.id)} className="p-1 rounded hover:bg-rose-100 text-rose-600" title={T.delete_line[lang]}>
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </button>
-                                        </span>
+                                        <span key={l.id}>{l.seller_initials || l.seller_name || "—"}</span>
                                       ))}
                                     </div>
                                   )}
