@@ -45,7 +45,30 @@ export const SELLER_VIEWS: readonly SellerView[] = [
  * Legacy values 'seller' (from the old BP/NB-only switch) are migrated on
  * read into the seller view matching the user's own email when possible.
  */
-export type ActiveMode = 'backend' | SellerViewKey;
+export type RolePreviewKey =
+  | 'timan_dealer'
+  | 'timan_service'
+  | 'timan_importer'
+  | 'timan_service_partner'
+  | 'dealer_user';
+
+export interface RolePreview {
+  key: RolePreviewKey;
+  label: string;
+}
+
+/** External role preview modes available to backend users. */
+export const ROLE_PREVIEWS: readonly RolePreview[] = [
+  { key: 'timan_dealer',          label: 'Timan Forhandler' },
+  { key: 'timan_service',         label: 'Timan Service' },
+  { key: 'timan_importer',        label: 'Timan Importør' },
+  { key: 'timan_service_partner', label: 'Timan ServicePartner' },
+  { key: 'dealer_user',           label: 'Dealer User' },
+];
+
+const ROLE_PREVIEW_KEYS = ROLE_PREVIEWS.map((r) => r.key) as readonly string[];
+
+export type ActiveMode = 'backend' | SellerViewKey | `role:${RolePreviewKey}`;
 
 const STORAGE_PREFIX = 'timan.activeMode.';
 
