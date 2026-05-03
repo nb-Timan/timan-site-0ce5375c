@@ -128,7 +128,6 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <VisitorTracker />
-            <PreviewRoleSwitcher />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>
