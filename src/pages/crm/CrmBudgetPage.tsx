@@ -429,22 +429,39 @@ export default function CrmBudgetPage() {
   // produces synthetic display_names like "[Preview] Timan Sælger".
   const myEmail = (appUser?.email || "").toLowerCase().trim();
   const myInitialsFromName = (appUser?.display_name || "").replace(/^\[Preview\]\s*/i, "").trim();
+  // Effective seller context for filtering in seller mode. For a backend user
+  // who selected "VIS SOM SÆLGER" → JTN, derivePortalRole returns 'timan_seller'
+  // and this resolves to JTN's email/initials (NOT the logged-in user's).
+  // In pure backend mode (admin), this is unused — backend must NOT filter by
+  // activeSellerContext per spec.
+  const activeSellerForFilter = !isAdmin ? getActiveSellerView(appUser?.email) : null;
+  const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
+  const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
 
   const visibleLines = useMemo(() => {
-    function belongsToMe(l: BudgetLine): boolean {
+    function belongsToActiveSeller(l: BudgetLine): boolean {
       if (sellerId && l.seller_id === sellerId) return true;
-      if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
-      if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
-      if (myInitialsFromName && l.seller_name && l.seller_name.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+      if (sellerCtxEmail && l.seller_email && l.seller_email.toLowerCase() === sellerCtxEmail) return true;
+      if (sellerCtxInitials && l.seller_initials && l.seller_initials.toLowerCase() === sellerCtxInitials) return true;
+      if (sellerCtxInitials && l.seller_name && l.seller_name.toLowerCase() === sellerCtxInitials) return true;
       return false;
     }
     if (isAdmin) {
+      // Backend mode: never apply activeSellerContext as a filter.
       if (backendFilter === "all") return lines;
-      if (backendFilter === "mine") return lines.filter(belongsToMe);
+      if (backendFilter === "mine") {
+        // "Min egen visning" matches the logged-in backend user's own rows.
+        return lines.filter(l => {
+          if (myEmail && l.seller_email && l.seller_email.toLowerCase() === myEmail) return true;
+          if (myInitialsFromName && l.seller_initials && l.seller_initials.toLowerCase() === myInitialsFromName.toLowerCase()) return true;
+          return false;
+        });
+      }
       return lines.filter(l => (l.seller_email || "").toLowerCase() === backendFilter.toLowerCase());
     }
-    return lines.filter(belongsToMe);
-  }, [lines, isAdmin, sellerId, myEmail, myInitialsFromName, backendFilter]);
+    // Seller mode (incl. backend in "view as seller"): filter by active seller context.
+    return lines.filter(belongsToActiveSeller);
+  }, [lines, isAdmin, sellerId, sellerCtxEmail, sellerCtxInitials, myEmail, myInitialsFromName, backendFilter]);
 
   // Pipeline per line.
   const pipelineByLine = useMemo(() => {
