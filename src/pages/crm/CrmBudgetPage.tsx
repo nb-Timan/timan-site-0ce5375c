@@ -240,42 +240,15 @@ const STATUS_LABELS: Record<typeof SAMPLE_STATUSES[number], Record<Language, str
   negotiation: { da: 'Forhandling', en: 'Negotiation',  de: 'Verhandlung',  it: 'Negoziazione',  hu: 'Tárgyalás' },
 };
 
-function generatePipeline(line: BudgetLine, year: number): PipelineOffer[][] {
-  const months: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
-  const rnd = seedRand(`${line.id}|${year}|pipe`);
-  // Roughly 0..2 sent offers per machine per month, weighted by season.
-  const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
-  const unit = line.qty_budget > 0 ? line.value_budget / line.qty_budget : 0;
-  let counter = 1;
-  for (let m = 0; m < 12; m++) {
-    const intensity = split[m] * 12; // ~1 on average
-    const draw = rnd();
-    let count = 0;
-    if (draw < 0.15 * intensity) count = 0;
-    else if (draw < 0.55 * intensity) count = 1;
-    else if (draw < 0.85 * intensity) count = 2;
-    else count = rnd() < 0.4 ? 3 : 1;
-    for (let i = 0; i < count; i++) {
-      const dealer = SAMPLE_DEALERS[Math.floor(rnd() * SAMPLE_DEALERS.length)];
-      const customer = SAMPLE_CUSTOMERS[Math.floor(rnd() * SAMPLE_CUSTOMERS.length)];
-      const attachment = SAMPLE_ATTACHMENTS[Math.floor(rnd() * SAMPLE_ATTACHMENTS.length)];
-      const status = SAMPLE_STATUSES[Math.floor(rnd() * SAMPLE_STATUSES.length)];
-      const variance = 0.85 + rnd() * 0.3;
-      months[m].push({
-        offer_no: `T-${year}-${String(line.id.slice(-3)).toUpperCase()}-${String(counter).padStart(3, "0")}`,
-        dealer,
-        machine_key: line.product_key,
-        attachment,
-        customer,
-        value: Math.round(unit * variance),
-        sent_date: new Date(year, m, 5 + Math.floor(rnd() * 22)).toISOString(),
-        status,
-      });
-      counter++;
-    }
-  }
-  return months;
+function generatePipeline(_line: BudgetLine, _year: number): PipelineOffer[][] {
+  // Pipeline must ONLY reflect actual quotes from the configurator.
+  // It must NEVER depend on budget input. Until a real quote feed is wired
+  // into the Budget view, return 12 empty months so Pipeline shows 0 and is
+  // unaffected by Budget plus/minus actions.
+  return Array.from({ length: 12 }, () => [] as PipelineOffer[]);
 }
+// Keep references to mock data referenced elsewhere happy.
+void SAMPLE_DEALERS; void SAMPLE_CUSTOMERS; void SAMPLE_ATTACHMENTS; void SAMPLE_STATUSES; void seedRand;
 
 // ---------- Helpers ----------
 function splitToMonthly(qty: number, split: number[]): number[] {
