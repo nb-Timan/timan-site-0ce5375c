@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import CalendarActivityModal from "@/components/crm/CalendarActivityModal";
+import WeekOverviewPanel from "@/components/crm/WeekOverviewPanel";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
@@ -94,6 +95,7 @@ export default function CrmCalendarPage() {
   const [editing, setEditing] = useState<CalendarActivity | null>(null);
   const [defaultDate, setDefaultDate] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
 
   const currentSellerInitials = useMemo(() => {
     const email = (appUser?.email || "").toLowerCase();
@@ -149,7 +151,18 @@ export default function CrmCalendarPage() {
 
   return (
     <CrmLayout pageTitle={T.page_title[lang]}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <div className="lg:hidden mb-4">
+        <WeekOverviewPanel
+          lang={lang}
+          weekAnchor={weekAnchor}
+          activities={activities}
+          onSelectDay={(d) => { setMonth(startOfMonth(d)); setWeekAnchor(d); }}
+          onSelectActivity={openEdit}
+          collapsible
+        />
+      </div>
+      <div className="flex gap-4 items-start">
+       <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 shadow-sm">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -260,6 +273,16 @@ export default function CrmCalendarPage() {
             </span>
           ))}
         </div>
+       </div>
+
+       <WeekOverviewPanel
+         lang={lang}
+         weekAnchor={weekAnchor}
+         activities={activities}
+         onSelectDay={(d) => { setMonth(startOfMonth(d)); setWeekAnchor(d); }}
+         onSelectActivity={openEdit}
+         className="hidden lg:block w-[320px] shrink-0 sticky top-4"
+       />
       </div>
 
       <CalendarActivityModal
