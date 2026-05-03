@@ -449,6 +449,31 @@ export default function CrmBudgetPage() {
   const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
   const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
 
+  // Compact audit context (used as seller_context for sellers; backend = null).
+  const auditSellerContext = isAdmin ? null : (sellerCtxEmail || sellerCtxInitials || null);
+
+  // Hydrate latest-changed map for the current year/scope. Cheap (one query).
+  useEffect(() => {
+    if (!allowed) return;
+    let alive = true;
+    fetchBudgetAuditEntries({
+      year,
+      seller_context: auditSellerContext || undefined,
+      limit: 200,
+    }).then((rows) => {
+      if (!alive) return;
+      const map: Record<string, AuditEntry> = {};
+      for (const r of rows) {
+        const nv = r.new_value as Record<string, unknown> | null;
+        const ck = nv && typeof nv === "object" ? (nv.cell_key as string) : null;
+        if (ck && !map[ck]) map[ck] = r;
+      }
+      setLatestAuditByCell(map);
+    }).catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [year, allowed, auditSellerContext, auditRefreshKey]);
+
+
   const visibleLines = useMemo(() => {
     function belongsToActiveSeller(l: BudgetLine): boolean {
       if (sellerId && l.seller_id === sellerId) return true;
