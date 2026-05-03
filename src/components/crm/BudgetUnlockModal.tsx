@@ -2,7 +2,7 @@
  * BudgetUnlockModal — Backend confirmation dialog for opening a budget
  * year for a limited time. Supports scope (all sellers / single seller),
  * preset durations (1h / 4h / 1d / custom), and requires the literal
- * confirmation text "ÅBN ALLE" before opening for ALL sellers.
+ * confirmation text "OPEN ALL" before opening for ALL sellers.
  *
  * Save action calls createBudgetAccessWindow() — it does NOT modify
  * dealer_accounts, configurator pricing, or existing budget rows.
@@ -91,7 +91,7 @@ export default function BudgetUnlockModal(props: Props) {
   }, [duration, openUntilCustom, baseDate]);
 
   const requiresExtraConfirm = scope === "all";
-  const extraConfirmOk = !requiresExtraConfirm || confirmText.trim().toUpperCase() === "ÅBN ALLE";
+  const extraConfirmOk = !requiresExtraConfirm || confirmText.trim().toUpperCase() === "OPEN ALL";
 
   async function handleSubmit() {
     setError(null);
@@ -100,7 +100,7 @@ export default function BudgetUnlockModal(props: Props) {
     const from = openFromMode === "now" ? new Date() : fromLocalInput(openFromCustom);
     if (!from) { setError("Ugyldig startdato."); return; }
     if (computedUntil.getTime() <= from.getTime()) { setError("Slut skal ligge efter start."); return; }
-    if (!extraConfirmOk) { setError('Skriv "ÅBN ALLE" for at bekræfte.'); return; }
+    if (!extraConfirmOk) { setError('Type OPEN ALL to confirm.'); return; }
 
     setSaving(true);
     const sellerOpt = SELLER_OPTIONS.find((s) => s.email.toLowerCase() === sellerEmail.toLowerCase());
@@ -213,12 +213,12 @@ export default function BudgetUnlockModal(props: Props) {
                 Du åbner budgettet for ALLE sælgere
               </div>
               <p className="text-xs text-amber-800 mt-1">
-                Skriv <strong>ÅBN ALLE</strong> for at bekræfte:
+                Type <strong>OPEN ALL</strong> to confirm:
               </p>
               <Input
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder="ÅBN ALLE"
+                placeholder="OPEN ALL"
                 className="mt-2"
               />
             </div>
