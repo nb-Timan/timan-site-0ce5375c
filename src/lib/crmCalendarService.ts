@@ -26,6 +26,10 @@ export interface CalendarActivity {
   end_datetime: string | null;
   account_id: string | null;
   dealer_name: string | null;
+  /** Snapshot of selected dealer_accounts row — does NOT reassign ownership. */
+  dealer_account_number: string | null;
+  dealer_assigned_seller_initials: string | null;
+  dealer_assigned_seller_email: string | null;
   seller_user_id: string | null;
   seller_initials: string | null;
   seller_name: string | null;
@@ -36,6 +40,7 @@ export interface CalendarActivity {
   outlook_sync_status: string | null;
   outlook_last_synced_at: string | null;
   created_by_user_id: string | null;
+  created_by_email: string | null;
   updated_by_user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -47,6 +52,9 @@ export interface NewCalendarActivity {
   end_datetime?: string | null;
   account_id?: string | null;
   dealer_name?: string | null;
+  dealer_account_number?: string | null;
+  dealer_assigned_seller_initials?: string | null;
+  dealer_assigned_seller_email?: string | null;
   seller_user_id?: string | null;
   seller_initials?: string | null;
   seller_name?: string | null;
@@ -54,6 +62,7 @@ export interface NewCalendarActivity {
   note?: string | null;
   status?: "planned" | "done" | "canceled";
   created_by_user_id?: string | null;
+  created_by_email?: string | null;
 }
 
 const LS_KEY = "timan.crm.calendar.v1";
@@ -108,6 +117,9 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     end_datetime: input.end_datetime ?? null,
     account_id: input.account_id ?? null,
     dealer_name: input.dealer_name ?? null,
+    dealer_account_number: input.dealer_account_number ?? null,
+    dealer_assigned_seller_initials: input.dealer_assigned_seller_initials ?? null,
+    dealer_assigned_seller_email: input.dealer_assigned_seller_email ?? null,
     seller_user_id: input.seller_user_id ?? null,
     seller_initials: input.seller_initials ?? null,
     seller_name: input.seller_name ?? null,
@@ -118,6 +130,7 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     outlook_sync_status: null,
     outlook_last_synced_at: null,
     created_by_user_id: input.created_by_user_id ?? null,
+    created_by_email: input.created_by_email ?? null,
     updated_by_user_id: input.created_by_user_id ?? null,
     created_at: now,
     updated_at: now,
@@ -153,6 +166,9 @@ export async function updateActivity(id: string, patch: Partial<NewCalendarActiv
       end_datetime: next.end_datetime,
       account_id: next.account_id,
       dealer_name: next.dealer_name,
+      dealer_account_number: next.dealer_account_number,
+      dealer_assigned_seller_initials: next.dealer_assigned_seller_initials,
+      dealer_assigned_seller_email: next.dealer_assigned_seller_email,
       seller_user_id: next.seller_user_id,
       seller_initials: next.seller_initials,
       seller_name: next.seller_name,
