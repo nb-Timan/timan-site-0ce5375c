@@ -1814,6 +1814,27 @@ export default function CrmBudgetPage() {
         </div>
       </TooltipProvider>
 
+      {/* Latest budget changes (audit) */}
+      {allowed && (
+        <LatestBudgetChangesPanel
+          year={year}
+          sellerContext={auditSellerContext}
+          refreshKey={auditRefreshKey}
+        />
+      )}
+
+      {/* Large change confirmation */}
+      <BudgetLargeChangeDialog
+        open={largeChange != null}
+        ctx={largeChange?.ctx ?? null}
+        onCancel={() => setLargeChange(null)}
+        onConfirm={async () => {
+          const job = largeChange;
+          setLargeChange(null);
+          if (job) await job.run();
+        }}
+      />
+
       {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
