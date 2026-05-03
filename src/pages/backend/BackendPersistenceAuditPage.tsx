@@ -86,7 +86,7 @@ async function probe(t: AuditTarget): Promise<AuditResult> {
           .select(t.updatedColumn)
           .order(t.updatedColumn, { ascending: false })
           .limit(1);
-        const row = (data?.[0] ?? null) as Record<string, unknown> | null;
+        const row = (data?.[0] ?? null) as unknown as Record<string, unknown> | null;
         lastUpdated = (row?.[t.updatedColumn] as string | null | undefined) ?? null;
       } catch { /* missing column — ignore */ }
     }
