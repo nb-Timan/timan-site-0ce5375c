@@ -273,6 +273,16 @@ export default function CrmCalendarPage() {
             </span>
           ))}
         </div>
+       </div>
+
+       <WeekOverviewPanel
+         lang={lang}
+         weekAnchor={weekAnchor}
+         activities={activities}
+         onSelectDay={(d) => { setMonth(startOfMonth(d)); setWeekAnchor(d); }}
+         onSelectActivity={openEdit}
+         className="hidden lg:block w-[320px] shrink-0 sticky top-4"
+       />
       </div>
 
       <CalendarActivityModal
