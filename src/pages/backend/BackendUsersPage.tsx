@@ -320,6 +320,12 @@ export default function BackendUsersPage() {
                             const patch: BackendUser = { ...u, approved: true, is_active: true, status: "active" };
                             const res = await saveBackendUser(u.id, patch);
                             if (!res.ok) setSaveError(res.error ?? "Kunne ikke godkende.");
+                            // Bust any cached sellerId for this email and refresh the
+                            // logged-in app user if the approved row is the current user.
+                            clearSellerIdCache(u.email);
+                            if (appUser && appUser.email.toLowerCase() === u.email.toLowerCase()) {
+                              await refreshAppUser();
+                            }
                             await reload();
                           }}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
