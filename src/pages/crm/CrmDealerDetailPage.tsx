@@ -44,6 +44,12 @@ import {
   getEffectiveSellerInitials, getEffectiveSellerEmail,
   getActiveSellerView, getActiveMode,
 } from "@/lib/activeMode";
+import {
+  listCrmConfigurations,
+  listScopedOrdersWithValue,
+  type CrmConfigurationRow,
+  type CrmOrderWithValue,
+} from "@/lib/crmConfigurationsService";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
@@ -114,6 +120,12 @@ export default function CrmDealerDetailPage() {
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [busy, setBusy] = useState(true);
+  // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
+  // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
+  // — instead of dealer_account_stats which can lag for newly-created orders
+  // and only counts via created_by_user_id (misses backend/seller-created ones).
+  const [dealerQuotes, setDealerQuotes] = useState<CrmConfigurationRow[]>([]);
+  const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
@@ -151,10 +163,32 @@ export default function CrmDealerDetailPage() {
       const cal = await listCalendarActivities({});
       if (cancelled) return;
       setCalendar(cal);
+      // Fetch live quotes + orders for ALL accessible scopes — backend admin
+      // fetches everything (no scoping), seller fetches their own. We then
+      // filter client-side by dealer_number so branch/group toggle works.
+      try {
+        const filterBase = {
+          role: portalRole,
+          sellerId: null,
+          sellerInitials: null,
+          sellerEmail: null,
+          dealerNumber: appUser?.dealer_number ?? null,
+        } as const;
+        const [qRes, oRes] = await Promise.all([
+          listCrmConfigurations({ ...filterBase, documentType: 'quote' }),
+          listScopedOrdersWithValue(filterBase),
+        ]);
+        if (!cancelled) {
+          setDealerQuotes(qRes.rows);
+          setDealerOrders(oRes.rows);
+        }
+      } catch (e) {
+        console.warn('[CrmDealerDetailPage] failed to fetch CRM configurations:', e);
+      }
       setBusy(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, accountNumber]);
+  }, [appUser, accountNumber, portalRole]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
@@ -239,16 +273,30 @@ export default function CrmDealerDetailPage() {
         ? { date: upcomingNote.follow_up_date!, title: NOTE_TYPE_LABEL[upcomingNote.note_type], seller: upcomingNote.seller_initials, status: "planned", kind: "note" as const }
         : null;
 
-  // Stats from dealer_account_stats view
+  // Stats from dealer_account_stats view (legacy fallback only).
   const ownStats = stats[dealer.id];
-  const groupStats = scopeNumbers
-    .map(n => dealers.find(d => d.account_number === n)?.id)
-    .filter((x): x is string => Boolean(x))
-    .map(id => stats[id])
-    .filter(Boolean);
-  const totalQuotes = groupStats.reduce((s, x) => s + (x.quote_count || 0), 0);
-  const totalOrders = groupStats.reduce((s, x) => s + (x.order_count || 0), 0);
-  // Pipeline / leads / won not yet wired — show placeholders.
+
+  // Live counts from CRM → Tilbud / Ordrer source (crm_configurations_view).
+  // Match by dealer_number across the in-scope numbers (branch or group).
+  // This is the SAME source as CRM → Ordrer, so any visible row there is
+  // counted here too — including new orders not yet picked up by the
+  // dealer_account_stats aggregation view.
+  const scopeNumberSet = new Set(scopeNumbers.map((n) => String(n)));
+  const dealerQuotesInScope = dealerQuotes.filter(
+    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
+  );
+  const dealerOrdersInScope = dealerOrders.filter(
+    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
+  );
+  const wonOrdersInScope = dealerOrdersInScope.filter((r) => {
+    const s = (r.case_status || '').toLowerCase();
+    return s === 'ordre_afgivet' || !!r.order_sent_at || !!r.submitted_at;
+  });
+  const liveQuoteCount = dealerQuotesInScope.length;
+  const liveOrderCount = dealerOrdersInScope.length;
+  const liveWonCount = wonOrdersInScope.length;
+  const livePipelineValue = dealerOrdersInScope.reduce((s, r) => s + (r.total_value || 0), 0);
+  const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
@@ -391,10 +439,10 @@ export default function CrmDealerDetailPage() {
         <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(lastDoneAct?.start_datetime ?? ownStats?.last_activity_at ?? null)} />
         <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
         <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_leads")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={scope === "group" ? totalQuotes : (ownStats?.quote_count ?? 0)} />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={scope === "group" ? totalOrders : (ownStats?.order_count ?? 0)} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={"—"} hint="Kommer snart" />
+        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={liveQuoteCount} />
+        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={liveOrderCount} />
+        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
+        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={liveWonCount} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

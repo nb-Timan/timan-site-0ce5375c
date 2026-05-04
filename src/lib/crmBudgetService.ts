@@ -528,17 +528,19 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
     const lines = await listBudgetLines({ year });
     if (lines.length === 0) return [];
 
-    // Build flexible lookup index per budget line. We register the line
-    // under multiple owner keys (email + initials) and multiple product
-    // keys (product_key + varenr), all lowercased / normalized, so we can
-    // match a configurator order regardless of which fields it has set.
-    //
-    // Owner keys: "email:<lower>"  AND/OR  "ini:<UPPER>"
-    // Product keys: "key:<lower>"  AND     "vnr:<lower>"  (when present)
-    type Idx = Map<string, BudgetLine>;
-    const idx: Idx = new Map();
+    // Normalization: strip non-alphanumerics, lowercase. So "RC-751",
+    // "RC 751", "rc751", "Rc-751" all collapse to "rc751".
+    const normKey = (s: string | null | undefined) =>
+      (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
     const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
+
+    // Build flexible lookup index per budget line. We register the line
+    // under multiple owner keys (email + initials) and multiple product
+    // keys (normalized product_key + normalized varenr), so we can match
+    // a configurator order regardless of which fields it has set.
+    type Idx = Map<string, BudgetLine>;
+    const idx: Idx = new Map();
     for (const l of lines) {
       const ownerKeys: string[] = [];
       if (l.seller_email)    ownerKeys.push(`email:${norm(l.seller_email)}`);
@@ -546,8 +548,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       if (ownerKeys.length === 0) continue;
 
       const prodKeys: string[] = [];
-      if (l.product_key) prodKeys.push(`key:${norm(l.product_key)}`);
-      if (l.item_number) prodKeys.push(`vnr:${norm(l.item_number)}`);
+      if (l.product_key) prodKeys.push(`key:${normKey(l.product_key)}`);
+      if (l.item_number) prodKeys.push(`vnr:${normKey(l.item_number)}`);
       if (prodKeys.length === 0) continue;
 
       for (const ok of ownerKeys) {
@@ -564,8 +566,9 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
     // line.seller_email/initials, so we don't apply user scope here.
     const fromIso = new Date(year, 0, 1).toISOString();
     const toIso = new Date(year + 1, 0, 1).toISOString();
-    // Try with state_json first; if column missing on this DB, retry without
-    // it (we always have `note`, which carries the same configurator state).
+    // Try with state_json + title first; if column missing on this DB,
+    // retry without it (we always have `note`, which carries the same
+    // configurator state).
     let data: Array<Record<string, unknown>> | null = null;
     {
       const trySel = async (cols: string) => supabase
@@ -576,12 +579,34 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         .gte("created_at", fromIso)
         .lt("created_at", toIso)
         .limit(2000);
-      let res = await trySel("id, state_json, note, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
+      let res = await trySel("id, title, state_json, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
       if (res.error && /state_json/.test(res.error.message || "")) {
-        res = await trySel("id, note, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
+        res = await trySel("id, title, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
       }
       if (res.error) throw res.error;
       data = (res.data ?? []) as unknown as Array<Record<string, unknown>>;
+    }
+
+    // Pre-compute a normalized lookup of known product keys by varenr and
+    // by their own key, so we can resolve a machine type from a title or
+    // varenr if state_json/note is missing.
+    const productByNormKey = new Map<string, string>();
+    for (const [key, p] of Object.entries(PRODUCTS)) {
+      productByNormKey.set(normKey(key), key);
+      if (p.varenr) productByNormKey.set(normKey(p.varenr), key);
+    }
+    function resolveMachineKeyFromTitle(title: string | null | undefined): string | null {
+      if (!title) return null;
+      const t = normKey(title);
+      // Prefer the longest match.
+      let best: string | null = null;
+      for (const [nk, key] of productByNormKey.entries()) {
+        if (nk.length < 4) continue; // avoid trivial 2-char matches
+        if (t.includes(nk)) {
+          if (!best || nk.length > normKey(best).length) best = key;
+        }
+      }
+      return best;
     }
 
     const totals = new Map<string, SalesActual>();
@@ -611,19 +636,35 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           }
         } catch { /* ignore */ }
       }
-      if (!state) continue;
 
-      const finalPrice = (() => {
-        try { return calcConfigurationTotals(state!).finalPrice || 0; } catch { return 0; }
-      })();
+      // Compute final price: prefer calcConfigurationTotals(state); fall back
+      // to persisted total_price column if state is missing/empty.
+      let finalPrice = 0;
+      if (state) {
+        try { finalPrice = calcConfigurationTotals(state).finalPrice || 0; } catch { /* */ }
+      }
+      if (!finalPrice) {
+        const tp = Number(row.total_price ?? 0);
+        if (Number.isFinite(tp) && tp > 0) finalPrice = tp;
+      }
 
-      // Aggregate per machine type.
+      // Aggregate per machine type. If state has no machineConfigs, fall
+      // back to deriving a single machine key from the row's title.
       const qtyByKey: Record<string, number> = {};
       let totalQty = 0;
-      for (const mc of state.machineConfigs ?? []) {
-        if (!mc?.type) continue;
-        qtyByKey[mc.type] = (qtyByKey[mc.type] || 0) + (mc.qty || 0);
-        totalQty += (mc.qty || 0);
+      if (state) {
+        for (const mc of state.machineConfigs ?? []) {
+          if (!mc?.type) continue;
+          qtyByKey[mc.type] = (qtyByKey[mc.type] || 0) + (mc.qty || 0);
+          totalQty += (mc.qty || 0);
+        }
+      }
+      if (totalQty === 0) {
+        const fromTitle = resolveMachineKeyFromTitle(row.title as string | null);
+        if (fromTitle) {
+          qtyByKey[fromTitle] = 1;
+          totalQty = 1;
+        }
       }
       if (totalQty === 0) continue;
 
@@ -635,8 +676,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
 
         // Resolve product key + varenr from the configurator catalog.
         const product = PRODUCTS[machineKey];
-        const productVarenr = product?.varenr ? norm(product.varenr) : "";
-        const prodVariants: string[] = [`key:${norm(machineKey)}`];
+        const productVarenr = product?.varenr ? normKey(product.varenr) : "";
+        const prodVariants: string[] = [`key:${normKey(machineKey)}`];
         if (productVarenr) prodVariants.push(`vnr:${productVarenr}`);
 
         let line: BudgetLine | undefined;
