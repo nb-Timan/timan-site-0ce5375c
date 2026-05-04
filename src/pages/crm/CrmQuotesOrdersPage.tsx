@@ -7,10 +7,11 @@
  *
  * No pricing, configurator, PDF or webhook logic is touched here.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil } from 'lucide-react';
 import CrmLayout from '@/components/crm/CrmLayout';
+import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
