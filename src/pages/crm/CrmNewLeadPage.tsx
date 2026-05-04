@@ -344,24 +344,24 @@ export default function CrmNewLeadPage() {
   }
 
   return (
-    <CrmLayout pageTitle="Nyt lead">
+    <CrmLayout pageTitle={tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Nyt lead</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Opret et nyt lead i CRM. Aktivitet logges automatisk.</p>
+            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> Tilbage til leads
+            <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
           </Link>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Section title="Grundinformation" subtitle="Hvem og hvornår">
-            <Field label="Titel" required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Fx 'Aalborg Kommune – RC-1000s'" />
+          <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
+            <Field label={tt('lbl_title', lang)} required full>
+              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
-            <Field label="Ansvarlig sælger" required>
+            <Field label={tt('lbl_seller', lang)} required>
               <select
                 className={inputCls}
                 value={responsibleSellerId}
@@ -372,7 +372,7 @@ export default function CrmNewLeadPage() {
                   setResponsibleName(s ? (s.name || s.email) : '');
                 }}
               >
-                <option value="">Vælg sælger…</option>
+                <option value="">{tt('ph_seller', lang)}</option>
                 {sellers.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
@@ -380,7 +380,7 @@ export default function CrmNewLeadPage() {
                 ))}
               </select>
             </Field>
-            <Field label="Linket forhandler" required>
+            <Field label={tt('lbl_dealer', lang)} required>
               {lockedDealerNumber ? (
                 <div className={cn(inputCls, 'flex items-center justify-between bg-gray-50 text-gray-700')}>
                   <span className="truncate">{selectedDealer?.label || lockedDealerNumber}</span>
@@ -410,12 +410,12 @@ export default function CrmNewLeadPage() {
                         return hay.includes(search.toLowerCase()) ? 1 : 0;
                       }}
                     >
-                      <CommandInput placeholder="Søg forhandler, nr., by, land…" />
+                      <CommandInput placeholder={tt('search_dealer', lang)} />
                       <CommandList>
-                        <CommandEmpty>{dealersLoading ? 'Henter forhandlere…' : 'Ingen match'}</CommandEmpty>
+                        <CommandEmpty>{dealersLoading ? tt('loading_dealers', lang) : tt('no_match', lang)}</CommandEmpty>
 
                         {mineOptions.length > 0 && (
-                          <CommandGroup heading="Mine forhandlere">
+                          <CommandGroup heading={tt('mine_dealers', lang)}>
                             {mineOptions.map(o => (
                               <CommandItem
                                 key={o.value}
@@ -430,7 +430,7 @@ export default function CrmNewLeadPage() {
                         )}
 
                         {otherOptions.length > 0 && (
-                          <CommandGroup heading="Andre forhandlere">
+                          <CommandGroup heading={tt('other_dealers', lang)}>
                             {otherOptions.map(o => (
                               <CommandItem
                                 key={o.value}
@@ -449,88 +449,88 @@ export default function CrmNewLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label="Første kontakt" required>
+            <Field label={tt('lbl_first_contact', lang)} required>
               <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
             </Field>
-            <Field label="Forventet lukkedato" required>
+            <Field label={tt('lbl_expected_close', lang)} required>
               <input type="date" className={inputCls} value={expectedClose} onChange={e=>setExpectedClose(e.target.value)} />
             </Field>
-            <Field label="Næste opfølgning" required full>
+            <Field label={tt('lbl_next_followup', lang)} required full>
               <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title="Maskine-interesse" subtitle="Vælg en eller flere maskiner kunden er interesseret i">
+          <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
               <MultiChip options={MACHINE_TYPE_OPTIONS} value={machineTypes} onChange={setMachineTypes} />
             </div>
           </Section>
 
-          <Section title="Næste aktivitet">
-            <Field label="Næste aktivitet" required full>
+          <Section title={tt('sec_next_act', lang)}>
+            <Field label={tt('lbl_next_activity', lang)} required full>
               <select className={inputCls} value={nextActivity} onChange={e=>setNextActivity(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
           </Section>
 
-          <Section title="Demo">
-            <Field label="Demo afholdt?">
+          <Section title={tt('sec_demo', lang)}>
+            <Field label={tt('lbl_demo_held', lang)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setDemoHasRun(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       demoHasRun===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes'?'Ja':'Nej'}
+                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
                   </button>
                 ))}
               </div>
             </Field>
             {demoHasRun === 'yes' && (
-              <Field label="Konvertering">
+              <Field label={tt('lbl_convert', lang)}>
                 <Link to="/portal/crm/demo-leads/new" className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1">
-                  Convert to Demo Lead →
+                  {tt('cta_convert', lang)}
                 </Link>
               </Field>
             )}
           </Section>
 
-          <Section title="Kontakttype & kundetype">
-            <Field label="Kontakttype" required>
+          <Section title={tt('sec_contact_cust', lang)}>
+            <Field label={tt('lbl_contact_type', lang)} required>
               <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Kundetype" required>
+            <Field label={tt('lbl_customer_type', lang)} required>
               <select className={inputCls} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
           </Section>
 
-          <Section title="Detaljer">
-            <Field label="Kontaktinformation" full>
-              <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder="Navn, telefon, email, virksomhed…" />
+          <Section title={tt('sec_details', lang)}>
+            <Field label={tt('lbl_contact_info', lang)} full>
+              <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder={tt('ph_contact_info', lang)} />
             </Field>
-            <Field label="Messe (TradeFair)">
+            <Field label={tt('lbl_tradefair', lang)}>
               <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} />
             </Field>
-            <Field label="Land">
+            <Field label={tt('lbl_country', lang)}>
               <input className={inputCls} value={country} onChange={e=>setCountry(e.target.value)} />
             </Field>
-            <Field label="Noter" full>
+            <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
-            <Field label="Budget-estimat (DKK)">
+            <Field label={tt('lbl_budget', lang)}>
               <input type="number" min={0} className={inputCls} value={estimatedValue} onChange={e=>setEstimatedValue(e.target.value)} placeholder="0" />
             </Field>
-            <Field label="Sandsynlighed (%)">
+            <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
-            <Field label="Pipeline-stage" full>
+            <Field label={tt('lbl_pipeline', lang)} full>
               <div className="flex flex-wrap gap-2">
                 {PIPELINE_STAGES.map(s => (
                   <button type="button" key={s} onClick={()=>setStage(s)}
@@ -548,38 +548,38 @@ export default function CrmNewLeadPage() {
             <section className="bg-rose-50/40 rounded-2xl border border-rose-100 shadow-sm p-6 mb-5">
               <header className="mb-5 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-rose-600" />
-                <h3 className="text-[15px] font-semibold text-rose-900">Lost Deal Analysis</h3>
+                <h3 className="text-[15px] font-semibold text-rose-900">{tt('sec_lost', lang)}</h3>
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                <Field label="Lost to competitor">
+                <Field label={tt('lbl_lost_to', lang)}>
                   <select className={inputCls} value={lostCompetitor} onChange={e=>setLostCompetitor(e.target.value)}>
-                    <option value="">Vælg…</option>
+                    <option value="">{tt('pick', lang)}</option>
                     {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </Field>
                 {lostCompetitor === 'Andre' && (
-                  <Field label="Anden konkurrent (custom)">
+                  <Field label={tt('lbl_lost_other', lang)}>
                     <input className={inputCls} value={lostCompetitorCustom} onChange={e=>setLostCompetitorCustom(e.target.value)} />
                   </Field>
                 )}
-                <Field label="Why we lost the order" full>
+                <Field label={tt('lbl_lost_reason', lang)} full>
                   <select className={inputCls} value={lostReason} onChange={e=>setLostReason(e.target.value)}>
-                    <option value="">Vælg…</option>
+                    <option value="">{tt('pick', lang)}</option>
                     {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </Field>
-                <Field label="Kommentar" full>
+                <Field label={tt('lbl_lost_comment', lang)} full>
                   <textarea className={taCls} value={lostComment} onChange={e=>setLostComment(e.target.value)} />
                 </Field>
               </div>
             </section>
           )}
 
-          <Section title="Filer" subtitle="Vedhæft tilbud, billeder eller PDF (gemmes som metadata i preview)">
+          <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
                 <Upload className="h-4 w-4 text-gray-500" />
-                <span className="text-gray-600">Klik for at vælge filer eller træk dem hertil</span>
+                <span className="text-gray-600">{tt('pick_files', lang)}</span>
                 <input type="file" multiple className="hidden" onChange={e => {
                   const list = Array.from(e.target.files || []).map(f => ({ name: f.name, size: f.size }));
                   setFiles(prev => [...prev, ...list]);
@@ -601,11 +601,11 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">Annuller</Link>
+            <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? 'Gemmer…' : 'Gem lead'}
+              {submitting ? tt('saving', lang) : tt('save', lang)}
             </button>
           </div>
         </form>
