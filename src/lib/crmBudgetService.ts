@@ -528,23 +528,45 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
     const lines = await listBudgetLines({ year });
     if (lines.length === 0) return [];
 
-    // Index lines by seller_email|product_key for fast lookup.
-    const lineIdx = new Map<string, BudgetLine>();
+    // Build flexible lookup index per budget line. We register the line
+    // under multiple owner keys (email + initials) and multiple product
+    // keys (product_key + varenr), all lowercased / normalized, so we can
+    // match a configurator order regardless of which fields it has set.
+    //
+    // Owner keys: "email:<lower>"  AND/OR  "ini:<UPPER>"
+    // Product keys: "key:<lower>"  AND     "vnr:<lower>"  (when present)
+    type Idx = Map<string, BudgetLine>;
+    const idx: Idx = new Map();
+    const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
+    const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
     for (const l of lines) {
-      const sellerKey = (l.seller_email || "").toLowerCase();
-      lineIdx.set(`${sellerKey}|${l.product_key}`, l);
+      const ownerKeys: string[] = [];
+      if (l.seller_email)    ownerKeys.push(`email:${norm(l.seller_email)}`);
+      if (l.seller_initials) ownerKeys.push(`ini:${upper(l.seller_initials)}`);
+      if (ownerKeys.length === 0) continue;
+
+      const prodKeys: string[] = [];
+      if (l.product_key) prodKeys.push(`key:${norm(l.product_key)}`);
+      if (l.item_number) prodKeys.push(`vnr:${norm(l.item_number)}`);
+      if (prodKeys.length === 0) continue;
+
+      for (const ok of ownerKeys) {
+        for (const pk of prodKeys) {
+          // First write wins — we don't aggregate two budget lines on the
+          // same (owner, product). The first one defined is used.
+          const k = `${ok}||${pk}`;
+          if (!idx.has(k)) idx.set(k, l);
+        }
+      }
     }
 
-    // Pull all orders for the year, scoped to backend-wide (Budget itself
-    // already filters per seller in the UI). We must NOT apply per-user
-    // scope here because the Budget page aggregates across all sellers in
-    // backend mode and per-seller in seller mode — the filter is applied
-    // at row level via line.seller_email.
+    // Pull all orders for the year. Budget UI scopes per-seller via
+    // line.seller_email/initials, so we don't apply user scope here.
     const fromIso = new Date(year, 0, 1).toISOString();
     const toIso = new Date(year + 1, 0, 1).toISOString();
     const { data, error } = await supabase
       .from("configurations")
-      .select("id, state_json, seller_email, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type")
+      .select("id, state_json, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type")
       .or("document_type.eq.order,case_type.eq.order")
       .neq("case_status", "deleted")
       .gte("created_at", fromIso)
@@ -554,8 +576,10 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
 
     const totals = new Map<string, SalesActual>();
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
-      const sellerEmail = ((row.seller_email as string | null) || "").toLowerCase();
-      if (!sellerEmail) continue; // unowned legacy rows are skipped
+      const sellerEmail = norm(row.seller_email as string | null);
+      const sellerInitials = upper(row.seller_initials as string | null);
+      // Skip unowned legacy rows (no seller info at all).
+      if (!sellerEmail && !sellerInitials) continue;
 
       let state: ConfiguratorState | null = null;
       try {
@@ -569,6 +593,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         try { return calcConfigurationTotals(state!).finalPrice || 0; } catch { return 0; }
       })();
 
+      // Aggregate per machine type.
       const qtyByKey: Record<string, number> = {};
       let totalQty = 0;
       for (const mc of state.machineConfigs ?? []) {
@@ -578,9 +603,27 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       }
       if (totalQty === 0) continue;
 
-      for (const [productKey, qty] of Object.entries(qtyByKey)) {
-        const line = lineIdx.get(`${sellerEmail}|${productKey}`);
+      for (const [machineKey, qty] of Object.entries(qtyByKey)) {
+        // Try every (owner, product) variant for a match.
+        const ownerVariants: string[] = [];
+        if (sellerEmail)    ownerVariants.push(`email:${sellerEmail}`);
+        if (sellerInitials) ownerVariants.push(`ini:${sellerInitials}`);
+
+        // Resolve product key + varenr from the configurator catalog.
+        const product = PRODUCTS[machineKey];
+        const productVarenr = product?.varenr ? norm(product.varenr) : "";
+        const prodVariants: string[] = [`key:${norm(machineKey)}`];
+        if (productVarenr) prodVariants.push(`vnr:${productVarenr}`);
+
+        let line: BudgetLine | undefined;
+        outer: for (const ov of ownerVariants) {
+          for (const pv of prodVariants) {
+            const cand = idx.get(`${ov}||${pv}`);
+            if (cand) { line = cand; break outer; }
+          }
+        }
         if (!line) continue;
+
         const value = finalPrice * (qty / totalQty);
         const prev = totals.get(line.id) || { budget_line_id: line.id, qty_sold: 0, value_sold: 0 };
         prev.qty_sold += qty;
