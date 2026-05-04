@@ -35,6 +35,8 @@ interface Props {
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string) => void;
   onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
+  /** Optional pre-built ownership payload (from the in-configurator picker). */
+  ownershipOverride?: () => Promise<ConfiguratorOwnership>;
 }
 
 function getRoleBadge(role: string, lang: Language) {
