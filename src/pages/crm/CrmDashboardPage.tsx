@@ -234,13 +234,13 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI HERO LAYOUT — strict 2-column grid: ~2/3 left (Pipeline + Closed orders) / ~1/3 right (combined KPI + Upcoming activities). */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
-          {/* LEFT COLUMN — Pipeline + Closed Orders (widest, 5/12) */}
-          <div className="lg:col-span-5 min-w-0 flex flex-col gap-3">
+        {/* TOP KPI HERO LAYOUT — strict 3-column grid. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(0,4fr)] gap-3 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
+          {/* LEFT COLUMN — Pipeline + Closed Orders */}
+          <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 min-h-[84px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[78px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -266,7 +266,7 @@ export default function CrmDashboardPage() {
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:block w-20">
+                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:block w-16">
                   {trend30 && trend30.length > 1 && (
                     <div className="absolute inset-0 opacity-90">
                       <ResponsiveContainer width="100%" height="100%">
@@ -285,7 +285,7 @@ export default function CrmDashboardPage() {
                   )}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-3 border-l border-white/15 w-28">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-4 border-l border-white/15 w-[7.75rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -304,7 +304,7 @@ export default function CrmDashboardPage() {
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
             <Link to="/portal/crm/orders" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 min-h-[84px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[78px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -330,7 +330,7 @@ export default function CrmDashboardPage() {
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:flex items-end gap-1 opacity-90 w-20">
+                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:flex items-end gap-1 opacity-90 w-14">
                   {CLOSED_BARS.map((v, i) => (
                     <div
                       key={i}
@@ -340,7 +340,7 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-3 border-l border-white/15 w-28">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-4 border-l border-white/15 w-[7.75rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
@@ -358,11 +358,11 @@ export default function CrmDashboardPage() {
             </Link>
           </div>
 
-          {/* MIDDLE COLUMN — Win rate stacked over Gns. salgstid (narrow, 3/12) */}
-          <div className="lg:col-span-3 min-w-0 flex flex-col gap-3">
+          {/* MIDDLE COLUMN — Win rate stacked over Gns. salgstid */}
+          <div className="min-w-0 flex flex-col gap-3">
             {/* Win rate — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-center gap-2.5 min-h-[84px]">
-              <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[78px]">
+              <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
                 <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
@@ -376,8 +376,8 @@ export default function CrmDashboardPage() {
             </div>
 
             {/* Gns. salgstid — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-center gap-2.5 min-h-[84px]">
-              <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[78px]">
+              <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
                 <Clock className="h-4 w-4" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
@@ -391,8 +391,8 @@ export default function CrmDashboardPage() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid (medium, 4/12) */}
-          <div className="lg:col-span-4 min-w-0 flex flex-col gap-3">
+          {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
+          <div className="min-w-0 flex flex-col gap-3">
             <UpcomingActivitiesWidget statsLayout="grid2x2" />
           </div>
         </div>
