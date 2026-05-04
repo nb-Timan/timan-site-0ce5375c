@@ -234,11 +234,11 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI HERO LAYOUT — Two stacked dark cards on left + 4 KPI rail on right */}
+        {/* TOP KPI HERO LAYOUT — green Pipeline (with Aktive leads) + blue Closed orders (with Vundne ordrer) on the left, Win rate / Avg sales time on the right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-stretch animate-[fadeIn_.4s_ease-out]">
           {/* LEFT COLUMN — compact Pipeline + Closed Orders */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            {/* Pipeline value — compact dark green */}
+          <div className="lg:col-span-8 flex flex-col gap-4">
+            {/* Pipeline value — compact dark green (now also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
               <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[120px]">
                 <div
@@ -279,10 +279,27 @@ export default function CrmDashboardPage() {
                     </ResponsiveContainer>
                   </div>
                 )}
+                {/* Aktive leads — embedded compact chip */}
+                <div className="relative shrink-0 self-stretch flex items-center pl-4 ml-2 border-l border-white/15">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-100/80" strokeWidth={2} />
+                      <p className="text-[10.5px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold whitespace-nowrap">
+                        {T.kpi_leads[lang]}
+                      </p>
+                    </div>
+                    <p className="text-[1.5rem] leading-none font-bold tracking-tight tabular-nums">
+                      {metrics.activeLeads}
+                    </p>
+                    <div className="mt-1.5">
+                      <HeroTrend pct={metrics.leadsPctChange} lang={lang} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </Link>
 
-            {/* Closed Orders — compact dark navy */}
+            {/* Closed Orders — compact dark navy (now also shows Vundne ordrer) */}
             <Link to="/portal/crm/orders" className="group block">
               <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[120px]">
                 <div
@@ -322,46 +339,53 @@ export default function CrmDashboardPage() {
                     />
                   ))}
                 </div>
+                {/* Vundne ordrer — embedded compact chip */}
+                <div className="relative shrink-0 self-stretch flex items-center pl-4 ml-2 border-l border-white/15">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Trophy className="h-3.5 w-3.5 text-sky-100/80" strokeWidth={2} />
+                      <p className="text-[10.5px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold whitespace-nowrap">
+                        {T.kpi_won[lang]}
+                      </p>
+                    </div>
+                    <p className="text-[1.5rem] leading-none font-bold tracking-tight tabular-nums">
+                      {metrics.wonOrdersCount}
+                    </p>
+                    <div className="mt-1.5">
+                      <HeroTrend pct={metrics.wonPctChange} lang={lang} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </Link>
           </div>
 
-          {/* RIGHT RAIL — compact: 2 single KPIs on top, combined Win rate / Avg time below */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3 auto-rows-fr">
-            <KpiRow icon={Sparkles} accent="violet" label={T.kpi_leads[lang]}
-                    value={String(metrics.activeLeads)} trendPct={metrics.leadsPctChange}
-                    lang={lang} to="/portal/crm/leads" />
-            <KpiRow icon={Trophy} accent="emerald" label={T.kpi_won[lang]}
-                    value={String(metrics.wonOrdersCount)} trendPct={metrics.wonPctChange}
-                    lang={lang} to="/portal/crm/orders" />
-
-            {/* Combined Win rate + Avg sales time */}
-            <div className="sm:col-span-2 group bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/80 transition-all duration-300 p-4 flex items-stretch divide-x divide-slate-200/70">
-              <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                  <CheckCircle2 className="h-[18px] w-[18px]" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_winrate[lang]}
-                  </p>
-                  <p className="text-[1.4rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                    {metrics.winRate}%
-                  </p>
-                </div>
+          {/* RIGHT RAIL — Win rate + Gns. salgstid stacked, filling the freed space */}
+          <div className="lg:col-span-4 flex flex-col gap-4">
+            <div className="group bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/80 transition-all duration-300 p-5 flex items-center gap-4 flex-1 min-h-[120px]">
+              <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
               </div>
-              <div className="flex items-center gap-3 flex-1 min-w-0 pl-4">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                  <Clock className="h-[18px] w-[18px]" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_avgtime[lang]}
-                  </p>
-                  <p className="text-[1.4rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                    {metrics.avgSalesDays} <span className="text-sm font-medium text-slate-500">{T.days[lang]}</span>
-                  </p>
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_winrate[lang]}
+                </p>
+                <p className="text-[1.7rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1.5">
+                  {metrics.winRate}%
+                </p>
+              </div>
+            </div>
+            <div className="group bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 hover:border-slate-300/80 transition-all duration-300 p-5 flex items-center gap-4 flex-1 min-h-[120px]">
+              <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+                <Clock className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_avgtime[lang]}
+                </p>
+                <p className="text-[1.7rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1.5">
+                  {metrics.avgSalesDays} <span className="text-sm font-medium text-slate-500">{T.days[lang]}</span>
+                </p>
               </div>
             </div>
           </div>
