@@ -123,6 +123,7 @@ export default function ConfiguratorPage() {
     });
   }, [appUser, ownership]);
 
+  const lang = state.language;
   const T = (key: string) => t(key, lang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
