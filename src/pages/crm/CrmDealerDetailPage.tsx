@@ -273,16 +273,30 @@ export default function CrmDealerDetailPage() {
         ? { date: upcomingNote.follow_up_date!, title: NOTE_TYPE_LABEL[upcomingNote.note_type], seller: upcomingNote.seller_initials, status: "planned", kind: "note" as const }
         : null;
 
-  // Stats from dealer_account_stats view
+  // Stats from dealer_account_stats view (legacy fallback only).
   const ownStats = stats[dealer.id];
-  const groupStats = scopeNumbers
-    .map(n => dealers.find(d => d.account_number === n)?.id)
-    .filter((x): x is string => Boolean(x))
-    .map(id => stats[id])
-    .filter(Boolean);
-  const totalQuotes = groupStats.reduce((s, x) => s + (x.quote_count || 0), 0);
-  const totalOrders = groupStats.reduce((s, x) => s + (x.order_count || 0), 0);
-  // Pipeline / leads / won not yet wired — show placeholders.
+
+  // Live counts from CRM → Tilbud / Ordrer source (crm_configurations_view).
+  // Match by dealer_number across the in-scope numbers (branch or group).
+  // This is the SAME source as CRM → Ordrer, so any visible row there is
+  // counted here too — including new orders not yet picked up by the
+  // dealer_account_stats aggregation view.
+  const scopeNumberSet = new Set(scopeNumbers.map((n) => String(n)));
+  const dealerQuotesInScope = dealerQuotes.filter(
+    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
+  );
+  const dealerOrdersInScope = dealerOrders.filter(
+    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
+  );
+  const wonOrdersInScope = dealerOrdersInScope.filter((r) => {
+    const s = (r.case_status || '').toLowerCase();
+    return s === 'ordre_afgivet' || !!r.order_sent_at || !!r.submitted_at;
+  });
+  const liveQuoteCount = dealerQuotesInScope.length;
+  const liveOrderCount = dealerOrdersInScope.length;
+  const liveWonCount = wonOrdersInScope.length;
+  const livePipelineValue = dealerOrdersInScope.reduce((s, r) => s + (r.total_value || 0), 0);
+  const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
