@@ -18,6 +18,7 @@ import {
   buildConfiguratorOwnership,
   isExternalDealerRole,
   externalDealerHasLink,
+  ConfiguratorOwnership,
 } from '@/lib/configuratorOwnership';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useAppUser } from '@/context/AppUserContext';
