@@ -622,6 +622,8 @@ export default function ConfiguratorPage() {
         }
       } catch (saveErr) {
         console.error('Failed to save before PDF download:', saveErr);
+        toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+        return;
       }
     } else if (activeCaseId) {
       try {
@@ -733,6 +735,8 @@ export default function ConfiguratorPage() {
             }
           } catch (saveErr) {
             console.error('Failed to save before webhook:', saveErr);
+            toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+            return;
           }
         } else if (activeCaseId && !activeOrderNumber) {
           // Existing case but no order number yet — ensure one exists
@@ -875,6 +879,8 @@ export default function ConfiguratorPage() {
             }
           } catch (saveErr) {
             console.error('Failed to save before quote webhook:', saveErr);
+            toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+            return;
           }
         } else if (activeCaseId && !activeQuoteNumber) {
           try {
