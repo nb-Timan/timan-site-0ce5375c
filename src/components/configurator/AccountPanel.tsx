@@ -18,6 +18,7 @@ import {
   buildConfiguratorOwnership,
   isExternalDealerRole,
   externalDealerHasLink,
+  ConfiguratorOwnership,
 } from '@/lib/configuratorOwnership';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useAppUser } from '@/context/AppUserContext';
@@ -34,6 +35,8 @@ interface Props {
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string) => void;
   onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
+  /** Optional pre-built ownership payload (from the in-configurator picker). */
+  ownershipOverride?: () => Promise<ConfiguratorOwnership>;
 }
 
 function getRoleBadge(role: string, lang: Language) {
@@ -77,7 +80,7 @@ function statusColor(status: SavedStatus): string {
   return 'bg-blue-100 text-blue-700';
 }
 
-export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration }: Props) {
+export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration, ownershipOverride }: Props) {
   const { appUser: sessionUser } = useAppUser();
   const [open, setOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
@@ -116,7 +119,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
         return;
       }
 
-      const ownership = await buildConfiguratorOwnership(sessionUser);
+      const ownership = ownershipOverride ? await ownershipOverride() : await buildConfiguratorOwnership(sessionUser);
       const result = await saveConfiguration(
         currentState,
         saveLabel.trim(),

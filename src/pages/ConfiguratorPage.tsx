@@ -9,6 +9,8 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/components/configurator/OwnershipPicker';
+import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -93,6 +95,33 @@ export default function ConfiguratorPage() {
     canSetDiscount: appUser?.can_edit_discount ?? false,
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
+
+  // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
+  // Single source of truth for both the Step 4 form picker and the basket
+  // panel picker. Re-derived whenever the logged-in user (or their active
+  // "view as" mode) changes.
+  const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+  useEffect(() => {
+    setOwnership(deriveInitialOwnership(appUser));
+  }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
+
+  // Build the ownership payload sent to saveConfiguration / order webhook.
+  // Picker selections override active "view as" mode when the internal
+  // user explicitly chose a different seller / dealer.
+  const buildOwnershipPayload = useCallback(async () => {
+    return buildConfiguratorOwnership(appUser, {
+      seller: ownership.sellerInitials
+        ? { initials: ownership.sellerInitials, email: ownership.sellerEmail, name: ownership.sellerName }
+        : null,
+      dealer: ownership.dealerAccountId || ownership.dealerNumber
+        ? {
+            account_id: ownership.dealerAccountId,
+            account_number: ownership.dealerNumber,
+            company_name: ownership.dealerCompanyName,
+          }
+        : null,
+    });
+  }, [appUser, ownership]);
 
   const lang = state.language;
   const T = (key: string) => t(key, lang);
@@ -568,7 +597,8 @@ export default function ConfiguratorPage() {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+        const ownershipPayload = await buildOwnershipPayload();
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
         if (result.id) {
           activeCaseId = result.id;
           activeQuoteNumber = result.quote_number;
@@ -678,7 +708,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+            const ownershipPayload = await buildOwnershipPayload();
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -819,7 +850,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+            const ownershipPayload = await buildOwnershipPayload();
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -1649,6 +1681,9 @@ export default function ConfiguratorPage() {
               <div className="bg-white rounded-2xl shadow p-6">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
+                <div className="max-w-lg mx-auto mb-5">
+                  <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
+                </div>
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
@@ -1722,10 +1757,12 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
+            <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
             <AccountPanel
               appUser={appUser}
               language={lang}
               currentState={state}
+              ownershipOverride={buildOwnershipPayload}
               onSavedConfiguration={(configId, quoteNumber, orderNumber) => {
                 setSavedConfigurationId(configId);
                 setSavedQuoteNumber(quoteNumber ?? null);
@@ -1936,7 +1973,8 @@ export default function ConfiguratorPage() {
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase());
+                const ownershipPayload = await buildOwnershipPayload();
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {

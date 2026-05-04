@@ -50,19 +50,33 @@ function initialsFromDisplayName(displayName: string | null | undefined): string
  * Build the ownership payload for a save.
  *
  * @param appUser  the SessionUser from AppUserContext
- * @param dealer   optional explicit dealer override (e.g. internal user picked
- *                 a different dealer in the configurator). External users
- *                 must always pass null and rely on the auto-fill from
- *                 their own profile.
+ * @param overrides optional explicit seller / dealer chosen via the
+ *                  in-configurator pickers. `seller` is only honoured for
+ *                  backend / timan_seller users; external dealer roles
+ *                  always fall back to their own profile dealer.
  */
 export async function buildConfiguratorOwnership(
   appUser: SessionUser | null | undefined,
-  dealer?: {
-    account_id?: string | null;
-    account_number?: string | null;
-    company_name?: string | null;
+  overrides?: {
+    seller?: {
+      initials?: string | null;
+      email?: string | null;
+      name?: string | null;
+    } | null;
+    dealer?: {
+      account_id?: string | null;
+      account_number?: string | null;
+      company_name?: string | null;
+    } | null;
   } | null,
 ): Promise<ConfiguratorOwnership> {
+  // Backwards compatibility: previous callers passed the dealer object as
+  // the second positional argument directly.
+  const dealer = overrides?.dealer
+    ?? (overrides && ('account_id' in overrides || 'account_number' in overrides || 'company_name' in overrides)
+      ? (overrides as unknown as { account_id?: string | null; account_number?: string | null; company_name?: string | null })
+      : undefined);
+  const sellerOverride = overrides?.seller ?? null;
   const empty: ConfiguratorOwnership = {
     seller_initials: null,
     seller_email: null,
@@ -111,9 +125,34 @@ export async function buildConfiguratorOwnership(
   }
   // External roles (dealer/importer/service-partner/dealer_user) do not set a seller.
 
+  // ── Seller override (from in-configurator picker) ────────────────────
+  // Only honoured for backend / timan_seller users. For external roles the
+  // override is ignored: their cases are not "sold by" anyone in Timan
+  // unless a backend user later reassigns.
+  const allowSellerOverride = portalRole === 'timan_backend' || portalRole === 'timan_seller';
+  let assignedSellerIdOverride: string | null = null;
+  if (allowSellerOverride && sellerOverride) {
+    if (sellerOverride.initials) sellerInitials = sellerOverride.initials.toUpperCase();
+    if (sellerOverride.email)    sellerEmail = sellerOverride.email.toLowerCase();
+    if (sellerOverride.name)     sellerName = sellerOverride.name;
+
+    // Resolve the chosen seller's app_users.id so dashboard/orders filters
+    // for that seller include this case.
+    if (sellerOverride.email) {
+      try {
+        const { data } = await supabase
+          .from('app_users')
+          .select('id')
+          .eq('email', sellerOverride.email.toLowerCase())
+          .maybeSingle();
+        if (data?.id) assignedSellerIdOverride = data.id as string;
+      } catch { /* ignore */ }
+    }
+  }
+
   // assigned_seller_id (app_users.id of the responsible seller). resolveSellerId
   // already honours active "view as" mode for backend users.
-  const assignedSellerId = await resolveSellerId(appUser.email);
+  const assignedSellerId = assignedSellerIdOverride ?? await resolveSellerId(appUser.email);
 
   // ── Dealer resolution ────────────────────────────────────────────────
   let dealerNumber: string | null = null;
