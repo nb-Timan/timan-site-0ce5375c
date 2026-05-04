@@ -80,7 +80,7 @@ function statusColor(status: SavedStatus): string {
   return 'bg-blue-100 text-blue-700';
 }
 
-export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration }: Props) {
+export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration, ownershipOverride }: Props) {
   const { appUser: sessionUser } = useAppUser();
   const [open, setOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
@@ -119,7 +119,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
         return;
       }
 
-      const ownership = await buildConfiguratorOwnership(sessionUser);
+      const ownership = ownershipOverride ? await ownershipOverride() : await buildConfiguratorOwnership(sessionUser);
       const result = await saveConfiguration(
         currentState,
         saveLabel.trim(),
