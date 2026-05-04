@@ -44,6 +44,12 @@ import {
   getEffectiveSellerInitials, getEffectiveSellerEmail,
   getActiveSellerView, getActiveMode,
 } from "@/lib/activeMode";
+import {
+  listCrmConfigurations,
+  listScopedOrdersWithValue,
+  type CrmConfigurationRow,
+  type CrmOrderWithValue,
+} from "@/lib/crmConfigurationsService";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
