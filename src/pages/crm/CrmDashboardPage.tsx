@@ -285,7 +285,7 @@ export default function CrmDashboardPage() {
                   )}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-4 border-l border-white/15 w-[7.75rem]">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-5 ml-5 border-l border-white/15 w-[8rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -340,7 +340,7 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-4 border-l border-white/15 w-[7.75rem]">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-5 ml-5 border-l border-white/15 w-[8rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
@@ -392,7 +392,7 @@ export default function CrmDashboardPage() {
           </div>
 
           {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
-          <div className="min-w-0 flex flex-col gap-3">
+          <div className="min-w-0 flex flex-col gap-3 h-full [&>div]:h-full [&>div]:flex [&>div]:flex-col">
             <UpcomingActivitiesWidget statsLayout="grid2x2" />
           </div>
         </div>
