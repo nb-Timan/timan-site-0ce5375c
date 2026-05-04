@@ -97,8 +97,6 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setSavedItems(items);
   }, [userEmail]);
 
-  const handleSave = async () => {
-
   useEffect(() => {
     if (open) refreshItems();
   }, [open, refreshItems]);
@@ -109,7 +107,22 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setSaving(true);
 
     try {
-      const result = await saveConfiguration(currentState, saveLabel.trim(), userEmail);
+      // Phase 23 — block external dealer users without a linked dealer.
+      const portalRole = derivePortalRole(sessionUser);
+      if (sessionUser && isExternalDealerRole(portalRole) && !externalDealerHasLink(sessionUser)) {
+        toast.error(tx('saveFailed'), {
+          description: tx('noDealerLinked'),
+        });
+        return;
+      }
+
+      const ownership = await buildConfiguratorOwnership(sessionUser);
+      const result = await saveConfiguration(
+        currentState,
+        saveLabel.trim(),
+        userEmail,
+        { ownership },
+      );
 
       if (result.error) {
         console.error('handleSave failed:', result.error);
