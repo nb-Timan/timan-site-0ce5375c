@@ -439,10 +439,10 @@ export default function CrmDealerDetailPage() {
         <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(lastDoneAct?.start_datetime ?? ownStats?.last_activity_at ?? null)} />
         <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
         <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_leads")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={scope === "group" ? totalQuotes : (ownStats?.quote_count ?? 0)} />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={scope === "group" ? totalOrders : (ownStats?.order_count ?? 0)} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={"—"} hint="Kommer snart" />
+        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={liveQuoteCount} />
+        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={liveOrderCount} />
+        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
+        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={liveWonCount} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
