@@ -700,6 +700,36 @@ export default function CrmBudgetPage() {
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
+  // Per-seller breakdown for a set of lines + month index, returning totals
+  // grouped by seller_initials. Used for the hover tooltips on Budget /
+  // Arbejdsbudget / Performance numbers in backend "Alle sælgere" mode.
+  function sellerBreakdownFor(
+    linesIn: BudgetLine[],
+    monthIdx: number | null,
+    kind: "budget" | "orders" | "working",
+  ): { initials: string; value: number }[] {
+    const map = new Map<string, number>();
+    for (const l of linesIn) {
+      const init = (l.seller_initials || "—").toUpperCase();
+      const m = lineMonthly(l);
+      const arr = kind === "budget" ? m.budgetMonthly
+        : kind === "orders" ? m.ordersMonthly
+        : m.workingMonthly;
+      const v = monthIdx == null ? arr.reduce((a, b) => a + b, 0) : (arr[monthIdx] ?? 0);
+      map.set(init, (map.get(init) || 0) + v);
+    }
+    // Order by canonical seller list, then any extras alphabetically.
+    const order = BUDGET_SELLERS.map(s => s.initials.toUpperCase());
+    const seen = new Set<string>();
+    const out: { initials: string; value: number }[] = [];
+    for (const ini of order) {
+      if (map.has(ini)) { out.push({ initials: ini, value: map.get(ini) || 0 }); seen.add(ini); }
+    }
+    for (const [ini, v] of map.entries()) if (!seen.has(ini)) out.push({ initials: ini, value: v });
+    return out;
+  }
+
+
   // Ensure a real budget line exists for the current seller / product. Used by
   // the working-forecast steppers so that RC-751 (or any machine without a
   // pre-existing seed row for the seller) becomes editable on first click.
