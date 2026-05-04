@@ -11,6 +11,8 @@ import {
   PipelineStage,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { fetchBackendUsers } from '@/lib/backendUsersService';
+import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock } from 'lucide-react';
@@ -98,6 +100,8 @@ export default function CrmNewLeadPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [title, setTitle] = useState('');
+  // Responsible seller is now a dropdown (app_users id). Default = logged-in user.
+  const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
   const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
   const [linkedDealer, setLinkedDealer] = useState<string>(lockedDealerNumber || '');
   const [firstContact, setFirstContact] = useState(today);
@@ -131,11 +135,14 @@ export default function CrmNewLeadPage() {
   const [dealersLoading, setDealersLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
+  const [sellers, setSellers] = useState<BackendUser[]>([]);
+
   useEffect(() => {
     if (appUser && !responsibleName) setResponsibleName(appUser.display_name || appUser.email);
   }, [appUser, responsibleName]);
 
-  // Load dealer_accounts (same as Calendar)
+  // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
     let cancelled = false;
     setDealersLoading(true);
@@ -143,21 +150,43 @@ export default function CrmNewLeadPage() {
       .then(res => { if (!cancelled) setDealers(res.rows); })
       .catch(() => { /* keep empty */ })
       .finally(() => { if (!cancelled) setDealersLoading(false); });
+    fetchBackendUsers()
+      .then(res => {
+        if (cancelled) return;
+        const list = res.users
+          .filter(u => (u.role === 'timan_seller' || u.role === 'timan_backend') && u.status === 'active')
+          .sort((a, b) => (a.initials || '').localeCompare(b.initials || ''));
+        setSellers(list);
+      })
+      .catch(() => { /* keep empty */ });
     return () => { cancelled = true; };
   }, []);
 
+  // Auto-select the logged-in user as responsible seller once sellers load.
+  useEffect(() => {
+    if (responsibleSellerId) return;
+    if (!sellers.length || !appUser?.email) return;
+    const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
+    if (me) {
+      setResponsibleSellerId(me.id);
+      setResponsibleName(me.name || me.email);
+    }
+  }, [sellers, appUser?.email, responsibleSellerId]);
+
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
-    const mineInitials = ''; // we don't have seller initials on appUser; rely on email
-    const mineEmail = (appUser?.email || '').toLowerCase();
+    const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
+    const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
+    const mineInitials = (selectedSeller?.initials || '').toUpperCase();
     const opts: DealerOption[] = dealers.map(d => {
       const de = (d.assigned_seller_email || '').toLowerCase();
-      const mine = mineEmail !== '' && de === mineEmail;
+      const di = (d.assigned_seller_initials || '').toUpperCase();
+      const mine = (mineEmail !== '' && de === mineEmail) || (mineInitials !== '' && di === mineInitials);
       return dealerToOption(d, mine);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, appUser]);
+  }, [dealers, appUser, sellers, responsibleSellerId]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const dealerTriggerLabel = selectedDealer
@@ -170,19 +199,26 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())   { toast.error('Titel er påkrævet'); return; }
-    if (!linkedDealer)   { toast.error('Vælg en linket forhandler.'); return; }
-    if (!contactType)    { toast.error('Vælg kontakttype.'); return; }
-    if (!customerType)   { toast.error('Vælg kundetype.'); return; }
-    if (!nextActivity)   { toast.error('Vælg næste aktivitet.'); return; }
+    if (!title.trim())       { toast.error('Titel er påkrævet'); return; }
+    if (!responsibleSellerId){ toast.error('Vælg en ansvarlig sælger.'); return; }
+    if (!linkedDealer)       { toast.error('Vælg en linket forhandler.'); return; }
+    if (!firstContact)       { toast.error('Vælg dato for første kontakt.'); return; }
+    if (!expectedClose)      { toast.error('Vælg forventet lukkedato.'); return; }
+    if (!nextFollowup)       { toast.error('Vælg næste opfølgning.'); return; }
+    if (!contactType)        { toast.error('Vælg kontakttype.'); return; }
+    if (!customerType)       { toast.error('Vælg kundetype.'); return; }
+    if (!nextActivity)       { toast.error('Vælg næste aktivitet.'); return; }
 
     setSubmitting(true);
     try {
-      const sellerId = await resolveSellerId(appUser?.email);
+      // Use the explicitly chosen responsible seller (allows handover),
+      // fall back to the logged-in user if for some reason it's missing.
+      const chosen = sellers.find(s => s.id === responsibleSellerId);
+      const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
       await createLead({
         title: title.trim(),
         owner_user_id: sellerId,
-        owner_name: responsibleName || null,
+        owner_name: chosen?.name || responsibleName || null,
         linked_dealer_id: linkedDealer,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,
@@ -233,8 +269,24 @@ export default function CrmNewLeadPage() {
             <Field label="Titel" required full>
               <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Fx 'Aalborg Kommune – RC-1000s'" />
             </Field>
-            <Field label="Ansvarlig sælger">
-              <input className={inputCls} value={responsibleName} onChange={e=>setResponsibleName(e.target.value)} />
+            <Field label="Ansvarlig sælger" required>
+              <select
+                className={inputCls}
+                value={responsibleSellerId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setResponsibleSellerId(id);
+                  const s = sellers.find(x => x.id === id);
+                  setResponsibleName(s ? (s.name || s.email) : '');
+                }}
+              >
+                <option value="">Vælg sælger…</option>
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Linket forhandler" required>
               {lockedDealerNumber ? (
@@ -305,13 +357,13 @@ export default function CrmNewLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label="Første kontakt">
+            <Field label="Første kontakt" required>
               <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
             </Field>
-            <Field label="Forventet lukkedato">
+            <Field label="Forventet lukkedato" required>
               <input type="date" className={inputCls} value={expectedClose} onChange={e=>setExpectedClose(e.target.value)} />
             </Field>
-            <Field label="Næste opfølgning" full>
+            <Field label="Næste opfølgning" required full>
               <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
             </Field>
           </Section>
