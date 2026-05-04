@@ -234,10 +234,10 @@ export default function CrmDashboardPage() {
           }}
         />
 
-        {/* TOP KPI HERO LAYOUT — left: compact Pipeline + Closed orders, right: combined Win rate/Avg time + Upcoming activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
-          {/* LEFT COLUMN — compact Pipeline + Closed Orders */}
-          <div className="lg:col-span-8 flex flex-col gap-3">
+        {/* TOP KPI HERO LAYOUT — strict 2-column grid: ~2/3 left (Pipeline + Closed orders) / ~1/3 right (combined KPI + Upcoming activities). */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
+          {/* LEFT COLUMN — compact Pipeline + Closed Orders (2/3 width) */}
+          <div className="lg:col-span-2 min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
               <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 min-h-[84px]">
@@ -246,6 +246,7 @@ export default function CrmDashboardPage() {
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
                   style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
                 />
+                {/* Main metric */}
                 <div className="relative flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -265,25 +266,28 @@ export default function CrmDashboardPage() {
                     <span className="text-[10.5px] text-emerald-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
-                {trend30 && trend30.length > 1 && (
-                  <div className="relative w-24 h-10 shrink-0 opacity-90 hidden sm:block">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={trend30} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-                        <defs>
-                          <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
-                            <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
-                              fill="url(#heroGrad)" isAnimationActive />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-                {/* Aktive leads — compact right-aligned metric */}
-                <div className="relative shrink-0 self-stretch flex items-center pl-3 ml-1 border-l border-white/15">
-                  <div className="min-w-0 text-right">
+                {/* Chart slot — fixed width so divider lines up across cards */}
+                <div className="relative w-24 h-10 shrink-0 hidden sm:block">
+                  {trend30 && trend30.length > 1 && (
+                    <div className="absolute inset-0 opacity-90">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={trend30} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                          <defs>
+                            <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
+                              <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
+                                fill="url(#heroGrad)" isAnimationActive />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+                {/* Embedded KPI slot — fixed width so divider + content align with the blue card */}
+                <div className="relative shrink-0 self-stretch flex items-center pl-3 border-l border-white/15 w-24">
+                  <div className="min-w-0 w-full text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                       <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -306,6 +310,7 @@ export default function CrmDashboardPage() {
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
                   style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
                 />
+                {/* Main metric */}
                 <div className="relative flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -328,8 +333,8 @@ export default function CrmDashboardPage() {
                     <span className="text-[10.5px] text-sky-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
-                {/* Mini bar chart */}
-                <div className="relative w-24 h-10 shrink-0 opacity-90 hidden sm:flex items-end gap-1">
+                {/* Chart slot — same fixed width as green card */}
+                <div className="relative w-24 h-10 shrink-0 hidden sm:flex items-end gap-1 opacity-90">
                   {CLOSED_BARS.map((v, i) => (
                     <div
                       key={i}
@@ -338,9 +343,9 @@ export default function CrmDashboardPage() {
                     />
                   ))}
                 </div>
-                {/* Vundne ordrer — compact right-aligned metric */}
-                <div className="relative shrink-0 self-stretch flex items-center pl-3 ml-1 border-l border-white/15">
-                  <div className="min-w-0 text-right">
+                {/* Embedded KPI slot — same fixed width as green card */}
+                <div className="relative shrink-0 self-stretch flex items-center pl-3 border-l border-white/15 w-24">
+                  <div className="min-w-0 w-full text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                       <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
@@ -356,8 +361,8 @@ export default function CrmDashboardPage() {
             </Link>
           </div>
 
-          {/* RIGHT COLUMN — combined Win rate / Avg sales time + Upcoming activities */}
-          <div className="lg:col-span-4 flex flex-col gap-3">
+          {/* RIGHT COLUMN — combined Win rate / Avg sales time + Upcoming activities (1/3 width) */}
+          <div className="lg:col-span-1 min-w-0 flex flex-col gap-3">
             {/* Combined Win rate + Gns. salgstid — single horizontal card, 50/50 split */}
             <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-stretch divide-x divide-slate-200/70 min-h-[84px]">
               <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-3">
@@ -388,7 +393,7 @@ export default function CrmDashboardPage() {
               </div>
             </div>
 
-            {/* Upcoming seller activities — moved here, into the freed right-side area */}
+            {/* Upcoming seller activities */}
             <UpcomingActivitiesWidget />
           </div>
         </div>
