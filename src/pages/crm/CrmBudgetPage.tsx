@@ -1508,6 +1508,23 @@ export default function CrmBudgetPage() {
                             const o = ordersMonthly[i];
                             const ck = cellKeyFor(i, "budget");
                             const latest = latestAuditByCell[ck];
+                            const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
+                            const budgetRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
+                            const tipTitle = `${monthLabel} · ${productName}`;
+                            const refCtx: BudgetReferenceContext = {
+                              cell_key: ck, budget_year: year,
+                              seller_initials: primaryLine.seller_initials,
+                              seller_email: primaryLine.seller_email,
+                              product_code: primaryLine.item_number || primaryLine.product_key,
+                              model_name: productName,
+                              category: primaryLine.category,
+                              month: monthLabel, month_idx: i,
+                              budget_type: "budget",
+                              old_value: b, new_value: b,
+                              actor_email: appUser?.email || null,
+                              actor_name: appUser?.display_name || null,
+                            };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {canEditBudget ? (
@@ -1517,30 +1534,64 @@ export default function CrmBudgetPage() {
                                       className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
                                       title="−1"
                                     ><Minus className="h-3 w-3" /></button>
-                                    <span className="min-w-[14px] text-center font-semibold text-slate-700">{b}</span>
+                                    <BudgetCellInsight
+                                      title={`Budget · ${tipTitle}`}
+                                      total={b}
+                                      rows={budgetRows}
+                                    >
+                                      <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block">{b}</span>
+                                    </BudgetCellInsight>
                                     <button
                                       onClick={() => adjustBudget(primaryLine, i, +1)}
                                       className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
                                       title="+1"
                                     ><Plus className="h-3 w-3" /></button>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    <BudgetCellInsight
+                                      title={`Ordrer · ${tipTitle}`}
+                                      total={o}
+                                      rows={ordersRows}
+                                    >
+                                      <span className={cn("font-semibold pr-1 inline-block", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    </BudgetCellInsight>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRefModal(refCtx)}
+                                      className="p-0.5 ml-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                      title="Tilføj reference (forhandler / lead / demo)"
+                                    ><Link2 className="h-3 w-3" /></button>
                                     {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="text-slate-500">{b}</span>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows}>
+                                      <span className="text-slate-500">{b}</span>
+                                    </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    <BudgetCellInsight title={`Ordrer · ${tipTitle}`} total={o} rows={ordersRows}>
+                                      <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    </BudgetCellInsight>
                                   </>
                                 )}
                               </td>
                             );
                           })}
                           <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">
-                            <span className="text-slate-600">{totalBudget}</span>
+                            <BudgetCellInsight
+                              title={`Budget total · ${productName}`}
+                              total={totalBudget}
+                              rows={sellerBreakdownFor(linesForAgg, null, "budget")}
+                            >
+                              <span className="text-slate-600">{totalBudget}</span>
+                            </BudgetCellInsight>
                             <span className="text-slate-400 mx-0.5">/</span>
-                            <span className="text-emerald-700">{totalOrders}</span>
+                            <BudgetCellInsight
+                              title={`Ordrer total · ${productName}`}
+                              total={totalOrders}
+                              rows={sellerBreakdownFor(linesForAgg, null, "orders")}
+                            >
+                              <span className="text-emerald-700">{totalOrders}</span>
+                            </BudgetCellInsight>
                           </td>
                           <td className="px-2 py-2"></td>
                         </tr>
