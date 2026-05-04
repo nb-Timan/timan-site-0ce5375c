@@ -29,7 +29,7 @@ const T: Record<string, Record<Language, string>> = {
   today:        { da: "I dag",                       en: "Today",                      de: "Heute",                                it: "Oggi",                          hu: "Ma" },
 };
 
-export default function UpcomingActivitiesWidget() {
+export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { statsLayout?: "row" | "grid2x2" } = {}) {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const isAdmin = isCrmAdmin(derivePortalRole(appUser));
