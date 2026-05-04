@@ -269,8 +269,24 @@ export default function CrmNewLeadPage() {
             <Field label="Titel" required full>
               <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Fx 'Aalborg Kommune – RC-1000s'" />
             </Field>
-            <Field label="Ansvarlig sælger">
-              <input className={inputCls} value={responsibleName} onChange={e=>setResponsibleName(e.target.value)} />
+            <Field label="Ansvarlig sælger" required>
+              <select
+                className={inputCls}
+                value={responsibleSellerId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setResponsibleSellerId(id);
+                  const s = sellers.find(x => x.id === id);
+                  setResponsibleName(s ? (s.name || s.email) : '');
+                }}
+              >
+                <option value="">Vælg sælger…</option>
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Linket forhandler" required>
               {lockedDealerNumber ? (
