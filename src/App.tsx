@@ -73,6 +73,8 @@ const App = () => (
             <Routes>
               {/* Portal is the new landing page after login */}
               <Route path="/" element={<Navigate to="/portal" replace />} />
+              <Route path="/update-password" element={<UpdatePasswordPage />} />
+              <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalPage />} />
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
