@@ -96,7 +96,33 @@ export default function ConfiguratorPage() {
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
-  const lang = state.language;
+  // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
+  // Single source of truth for both the Step 4 form picker and the basket
+  // panel picker. Re-derived whenever the logged-in user (or their active
+  // "view as" mode) changes.
+  const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+  useEffect(() => {
+    setOwnership(deriveInitialOwnership(appUser));
+  }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
+
+  // Build the ownership payload sent to saveConfiguration / order webhook.
+  // Picker selections override active "view as" mode when the internal
+  // user explicitly chose a different seller / dealer.
+  const buildOwnershipPayload = useCallback(async () => {
+    return buildConfiguratorOwnership(appUser, {
+      seller: ownership.sellerInitials
+        ? { initials: ownership.sellerInitials, email: ownership.sellerEmail, name: ownership.sellerName }
+        : null,
+      dealer: ownership.dealerAccountId || ownership.dealerNumber
+        ? {
+            account_id: ownership.dealerAccountId,
+            account_number: ownership.dealerNumber,
+            company_name: ownership.dealerCompanyName,
+          }
+        : null,
+    });
+  }, [appUser, ownership]);
+
   const T = (key: string) => t(key, lang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
