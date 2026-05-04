@@ -361,40 +361,42 @@ export default function CrmDashboardPage() {
             </Link>
           </div>
 
-          {/* RIGHT COLUMN — combined Win rate / Avg sales time + Upcoming activities (1/3 width) */}
-          <div className="lg:col-span-1 min-w-0 flex flex-col gap-3">
-            {/* Combined Win rate + Gns. salgstid — single horizontal card, 50/50 split */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-stretch divide-x divide-slate-200/70 min-h-[84px]">
-              <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-3">
-                <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                  <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_winrate[lang]}
-                  </p>
-                  <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                    {metrics.winRate}%
-                  </p>
-                </div>
+          {/* MIDDLE COLUMN — Win rate stacked over Gns. salgstid (narrow, 3/12) */}
+          <div className="lg:col-span-3 min-w-0 flex flex-col gap-3">
+            {/* Win rate — compact vertical card */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-center gap-2.5 min-h-[84px]">
+              <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
               </div>
-              <div className="flex items-center gap-2.5 flex-1 min-w-0 pl-3">
-                <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                  <Clock className="h-4 w-4" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_avgtime[lang]}
-                  </p>
-                  <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                    {metrics.avgSalesDays} <span className="text-xs font-medium text-slate-500">{T.days[lang]}</span>
-                  </p>
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_winrate[lang]}
+                </p>
+                <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
+                  {metrics.winRate}%
+                </p>
               </div>
             </div>
 
-            {/* Upcoming seller activities */}
-            <UpcomingActivitiesWidget />
+            {/* Gns. salgstid — compact vertical card */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-3 flex items-center gap-2.5 min-h-[84px]">
+              <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
+                <Clock className="h-4 w-4" strokeWidth={2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_avgtime[lang]}
+                </p>
+                <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
+                  {metrics.avgSalesDays} <span className="text-xs font-medium text-slate-500">{T.days[lang]}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid (medium, 4/12) */}
+          <div className="lg:col-span-4 min-w-0 flex flex-col gap-3">
+            <UpcomingActivitiesWidget statsLayout="grid2x2" />
           </div>
         </div>
 
