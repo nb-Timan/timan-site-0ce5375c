@@ -594,9 +594,23 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       let state: ConfiguratorState | null = null;
       try {
         const raw = row.state_json;
-        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+        if (raw) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+        }
       } catch { state = null; }
+      // Fallback: parse state from `note` (stored payload format).
+      if (!state || !Array.isArray(state.machineConfigs) || state.machineConfigs.length === 0) {
+        try {
+          const noteRaw = row.note;
+          const noteParsed = typeof noteRaw === "string" ? JSON.parse(noteRaw) : noteRaw;
+          if (noteParsed && typeof noteParsed === "object") {
+            const inner = (noteParsed as Record<string, unknown>).state ?? noteParsed;
+            const ns = normalizeConfiguratorState(inner as Partial<ConfiguratorState>);
+            if (Array.isArray(ns.machineConfigs) && ns.machineConfigs.length > 0) state = ns;
+          }
+        } catch { /* ignore */ }
+      }
       if (!state) continue;
 
       const finalPrice = (() => {
