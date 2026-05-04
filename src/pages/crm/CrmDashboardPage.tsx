@@ -880,7 +880,7 @@ interface DerivedMetrics {
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
 }
 
-function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMetrics {
+function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
   void _isAdmin;
   const now = new Date();
   const monthStart = startOfMonth(now);
