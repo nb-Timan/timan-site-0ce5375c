@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
@@ -593,6 +594,7 @@ export interface SaveOwnership {
   dealer_number?: string | null;
   dealer_name?: string | null;
   dealer_account_id?: string | null;
+  created_by_email?: string | null;
   created_by_role?: string | null;
   active_mode?: string | null;
   owner_status?: string | null;
@@ -639,10 +641,17 @@ export async function saveConfiguration(
   const sourceQuoteId = options?.sourceQuoteId;
   const sourceQuoteNumber = options?.sourceQuoteNumber;
 
+  if (!options?.ownership?.seller_initials || !options.ownership.seller_email || !options.ownership.assigned_seller_id || !options.ownership.dealer_number || !options.ownership.dealer_account_id) {
+    return {
+      data: null, id: null, error: OWNERSHIP_REQUIRED_MESSAGE, itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
+    };
+  }
+
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
   const row: Record<string, unknown> = {
-    created_by_email: user.email?.toLowerCase() || ownerEmail.toLowerCase(),
+    created_by_email: options.ownership.created_by_email ?? user.email?.toLowerCase() ?? ownerEmail.toLowerCase(),
     created_by_user_id: user.id,
     title: label,
     document_type: documentType,
