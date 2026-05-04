@@ -14,6 +14,18 @@ const L: Record<string, Record<Language, string>> = {
   none:      { da: "Ingen aktiviteter", en: "No activities", de: "Keine Aktivitäten", it: "Nessuna attività", hu: "Nincs tevékenység" },
 };
 
+const MONTHS_SHORT: Record<Language, string[]> = {
+  da: ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"],
+  en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  de: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"],
+  it: ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"],
+  hu: ["jan","feb","már","ápr","máj","jún","júl","aug","szept","okt","nov","dec"],
+};
+
+function fmtDayMonth(d: Date, lang: Language) {
+  return `${d.getDate()}. ${MONTHS_SHORT[lang][d.getMonth()]}`;
+}
+
 const DAY_NAMES: Record<Language, string[]> = {
   da: ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"],
   en: ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
