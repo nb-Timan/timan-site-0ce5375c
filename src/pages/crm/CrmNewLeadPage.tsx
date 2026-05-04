@@ -100,6 +100,8 @@ export default function CrmNewLeadPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [title, setTitle] = useState('');
+  // Responsible seller is now a dropdown (app_users id). Default = logged-in user.
+  const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
   const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
   const [linkedDealer, setLinkedDealer] = useState<string>(lockedDealerNumber || '');
   const [firstContact, setFirstContact] = useState(today);
@@ -133,11 +135,14 @@ export default function CrmNewLeadPage() {
   const [dealersLoading, setDealersLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
+  const [sellers, setSellers] = useState<BackendUser[]>([]);
+
   useEffect(() => {
     if (appUser && !responsibleName) setResponsibleName(appUser.display_name || appUser.email);
   }, [appUser, responsibleName]);
 
-  // Load dealer_accounts (same as Calendar)
+  // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
     let cancelled = false;
     setDealersLoading(true);
@@ -145,8 +150,28 @@ export default function CrmNewLeadPage() {
       .then(res => { if (!cancelled) setDealers(res.rows); })
       .catch(() => { /* keep empty */ })
       .finally(() => { if (!cancelled) setDealersLoading(false); });
+    fetchBackendUsers()
+      .then(res => {
+        if (cancelled) return;
+        const list = res.users
+          .filter(u => (u.role === 'timan_seller' || u.role === 'timan_backend') && u.status === 'active')
+          .sort((a, b) => (a.initials || '').localeCompare(b.initials || ''));
+        setSellers(list);
+      })
+      .catch(() => { /* keep empty */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Auto-select the logged-in user as responsible seller once sellers load.
+  useEffect(() => {
+    if (responsibleSellerId) return;
+    if (!sellers.length || !appUser?.email) return;
+    const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
+    if (me) {
+      setResponsibleSellerId(me.id);
+      setResponsibleName(me.name || me.email);
+    }
+  }, [sellers, appUser?.email, responsibleSellerId]);
 
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const mineInitials = ''; // we don't have seller initials on appUser; rely on email
