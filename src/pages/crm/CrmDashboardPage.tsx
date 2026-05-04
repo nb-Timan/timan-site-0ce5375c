@@ -334,8 +334,8 @@ export default function CrmDashboardPage() {
                     <span className="text-[10.5px] text-sky-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
-                {/* Chart slot — same fixed width as green card */}
-                <div className="relative w-24 h-10 shrink-0 hidden sm:flex items-end gap-1 opacity-90">
+                {/* Chart slot — flexible, never overlaps KPI */}
+                <div className="relative flex-1 min-w-0 h-10 shrink overflow-hidden hidden sm:flex items-end gap-1 opacity-90 max-w-[110px]">
                   {CLOSED_BARS.map((v, i) => (
                     <div
                       key={i}
@@ -344,18 +344,19 @@ export default function CrmDashboardPage() {
                     />
                   ))}
                 </div>
-                {/* Embedded KPI slot — same fixed width as green card */}
-                <div className="relative shrink-0 self-stretch flex items-center pl-3 border-l border-white/15 w-24">
-                  <div className="min-w-0 w-full text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
-                      <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
-                        {T.kpi_won[lang]}
-                      </p>
-                    </div>
-                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums mt-1">
+                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-3 ml-1 border-l border-white/15 w-28">
+                  <div className="flex items-center justify-end gap-1 w-full">
+                    <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
+                    <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
+                      {T.kpi_won[lang]}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5 w-full">
+                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.wonOrdersCount}
                     </p>
+                    <MiniTrend pct={metrics.wonPctChange} lang={lang} />
                   </div>
                 </div>
               </div>
