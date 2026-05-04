@@ -981,6 +981,17 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     last_saved_at: downloadedAt,
   };
 
+  // Keep subtotal/total_price up-to-date on every PDF save (orders + quotes).
+  // Unknown columns are stripped by updateConfigurationRow's retry.
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(state);
+    patch.subtotal = Math.round(totals.subtotal || 0);
+    patch.total_price = Math.round(totals.finalPrice || 0);
+  } catch (e) {
+    console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+  }
+
   // Stamp quote_sent_at only for quotes, and only the first time
   const effectiveFlow = flowType ?? (row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote');
   const isFirstQuoteSend = effectiveFlow === 'quote' && !row.quote_sent_at;
