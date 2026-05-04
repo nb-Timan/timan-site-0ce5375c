@@ -120,6 +120,12 @@ export default function CrmDealerDetailPage() {
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [busy, setBusy] = useState(true);
+  // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
+  // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
+  // — instead of dealer_account_stats which can lag for newly-created orders
+  // and only counts via created_by_user_id (misses backend/seller-created ones).
+  const [dealerQuotes, setDealerQuotes] = useState<CrmConfigurationRow[]>([]);
+  const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
@@ -157,10 +163,32 @@ export default function CrmDealerDetailPage() {
       const cal = await listCalendarActivities({});
       if (cancelled) return;
       setCalendar(cal);
+      // Fetch live quotes + orders for ALL accessible scopes — backend admin
+      // fetches everything (no scoping), seller fetches their own. We then
+      // filter client-side by dealer_number so branch/group toggle works.
+      try {
+        const filterBase = {
+          role: portalRole,
+          sellerId: null,
+          sellerInitials: null,
+          sellerEmail: null,
+          dealerNumber: appUser?.dealer_number ?? null,
+        } as const;
+        const [qRes, oRes] = await Promise.all([
+          listCrmConfigurations({ ...filterBase, documentType: 'quote' }),
+          listScopedOrdersWithValue(filterBase),
+        ]);
+        if (!cancelled) {
+          setDealerQuotes(qRes.rows);
+          setDealerOrders(oRes.rows);
+        }
+      } catch (e) {
+        console.warn('[CrmDealerDetailPage] failed to fetch CRM configurations:', e);
+      }
       setBusy(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, accountNumber]);
+  }, [appUser, accountNumber, portalRole]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
