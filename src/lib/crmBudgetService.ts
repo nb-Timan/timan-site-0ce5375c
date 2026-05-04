@@ -564,15 +564,25 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
     // line.seller_email/initials, so we don't apply user scope here.
     const fromIso = new Date(year, 0, 1).toISOString();
     const toIso = new Date(year + 1, 0, 1).toISOString();
-    const { data, error } = await supabase
-      .from("configurations")
-      .select("id, state_json, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type")
-      .or("document_type.eq.order,case_type.eq.order")
-      .neq("case_status", "deleted")
-      .gte("created_at", fromIso)
-      .lt("created_at", toIso)
-      .limit(2000);
-    if (error) throw error;
+    // Try with state_json first; if column missing on this DB, retry without
+    // it (we always have `note`, which carries the same configurator state).
+    let data: Array<Record<string, unknown>> | null = null;
+    {
+      const trySel = async (cols: string) => supabase
+        .from("configurations")
+        .select(cols)
+        .or("document_type.eq.order,case_type.eq.order")
+        .neq("case_status", "deleted")
+        .gte("created_at", fromIso)
+        .lt("created_at", toIso)
+        .limit(2000);
+      let res = await trySel("id, state_json, note, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
+      if (res.error && /state_json/.test(res.error.message || "")) {
+        res = await trySel("id, note, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
+      }
+      if (res.error) throw res.error;
+      data = (res.data ?? []) as unknown as Array<Record<string, unknown>>;
+    }
 
     const totals = new Map<string, SalesActual>();
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
@@ -584,9 +594,23 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       let state: ConfiguratorState | null = null;
       try {
         const raw = row.state_json;
-        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+        if (raw) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+        }
       } catch { state = null; }
+      // Fallback: parse state from `note` (stored payload format).
+      if (!state || !Array.isArray(state.machineConfigs) || state.machineConfigs.length === 0) {
+        try {
+          const noteRaw = row.note;
+          const noteParsed = typeof noteRaw === "string" ? JSON.parse(noteRaw) : noteRaw;
+          if (noteParsed && typeof noteParsed === "object") {
+            const inner = (noteParsed as Record<string, unknown>).state ?? noteParsed;
+            const ns = normalizeConfiguratorState(inner as Partial<ConfiguratorState>);
+            if (Array.isArray(ns.machineConfigs) && ns.machineConfigs.length > 0) state = ns;
+          }
+        } catch { /* ignore */ }
+      }
       if (!state) continue;
 
       const finalPrice = (() => {

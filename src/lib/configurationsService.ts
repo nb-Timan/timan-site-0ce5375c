@@ -650,6 +650,19 @@ export async function saveConfiguration(
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
+
+  // Pre-compute subtotal/total_price so even drafts and the initial save carry
+  // monetary values (matters for legacy DBs that have these columns but no
+  // state_json column for downstream calc).
+  let initialSubtotal = 0;
+  let initialTotal = 0;
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(state);
+    initialSubtotal = Math.round(totals.subtotal || 0);
+    initialTotal = Math.round(totals.finalPrice || 0);
+  } catch { /* ignore */ }
+
   const row: Record<string, unknown> = {
     created_by_email: options.ownership.created_by_email ?? user.email?.toLowerCase() ?? ownerEmail.toLowerCase(),
     created_by_user_id: user.id,
@@ -657,6 +670,9 @@ export async function saveConfiguration(
     document_type: documentType,
     case_type: documentType,
     case_status: 'aktiv' as SavedStatus,
+    status: isOrder ? 'aktiv' : 'aktiv',
+    subtotal: initialSubtotal,
+    total_price: initialTotal,
     language: state.language,
     delivery_date: state.date || null,
     delivery_method: state.deliveryMethod || null,
@@ -898,9 +914,32 @@ export async function markAsOrderSubmitted(id: string) {
     if (row?.order_sent_at) orderSentAt = row.order_sent_at as string;
   }
 
+  // Compute totals from the persisted state so subtotal/total_price stay in
+  // sync with what the user actually saw. Falls back gracefully if the
+  // state can't be parsed.
+  let subtotal = 0;
+  let totalPrice = 0;
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
+    const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
+    if (state) {
+      const totals = calcConfigurationTotals(state);
+      subtotal = Math.round(totals.subtotal || 0);
+      totalPrice = Math.round(totals.finalPrice || 0);
+    }
+  } catch (e) {
+    console.warn('[markAsOrderSubmitted] totals calc failed (ignored):', e);
+  }
+
   const { error } = await updateConfigurationRow(id, {
     case_type: 'order',
     case_status: 'ordre_afgivet' as SavedStatus,
+    // Mirror status away from "draft" using the same submitted token.
+    // Unknown columns are stripped automatically by updateConfigurationRow.
+    status: 'ordre_afgivet',
+    subtotal,
+    total_price: totalPrice,
     submitted_at: nowIso,
     order_sent_at: orderSentAt,
     last_saved_at: nowIso,
@@ -957,6 +996,17 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     note: serializeStoredConfigurationPayload(state, row.internal_note ?? storedPayload?.internalNote ?? '', true, downloadedAt),
     last_saved_at: downloadedAt,
   };
+
+  // Keep subtotal/total_price up-to-date on every PDF save (orders + quotes).
+  // Unknown columns are stripped by updateConfigurationRow's retry.
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(state);
+    patch.subtotal = Math.round(totals.subtotal || 0);
+    patch.total_price = Math.round(totals.finalPrice || 0);
+  } catch (e) {
+    console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+  }
 
   // Stamp quote_sent_at only for quotes, and only the first time
   const effectiveFlow = flowType ?? (row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote');
