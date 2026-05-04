@@ -1681,6 +1681,9 @@ export default function ConfiguratorPage() {
               <div className="bg-white rounded-2xl shadow p-6">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
+                <div className="max-w-lg mx-auto mb-5">
+                  <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
+                </div>
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
@@ -1754,6 +1757,7 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
+            <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
             <AccountPanel
               appUser={appUser}
               language={lang}
