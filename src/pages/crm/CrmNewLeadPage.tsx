@@ -199,19 +199,26 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())   { toast.error('Titel er påkrævet'); return; }
-    if (!linkedDealer)   { toast.error('Vælg en linket forhandler.'); return; }
-    if (!contactType)    { toast.error('Vælg kontakttype.'); return; }
-    if (!customerType)   { toast.error('Vælg kundetype.'); return; }
-    if (!nextActivity)   { toast.error('Vælg næste aktivitet.'); return; }
+    if (!title.trim())       { toast.error('Titel er påkrævet'); return; }
+    if (!responsibleSellerId){ toast.error('Vælg en ansvarlig sælger.'); return; }
+    if (!linkedDealer)       { toast.error('Vælg en linket forhandler.'); return; }
+    if (!firstContact)       { toast.error('Vælg dato for første kontakt.'); return; }
+    if (!expectedClose)      { toast.error('Vælg forventet lukkedato.'); return; }
+    if (!nextFollowup)       { toast.error('Vælg næste opfølgning.'); return; }
+    if (!contactType)        { toast.error('Vælg kontakttype.'); return; }
+    if (!customerType)       { toast.error('Vælg kundetype.'); return; }
+    if (!nextActivity)       { toast.error('Vælg næste aktivitet.'); return; }
 
     setSubmitting(true);
     try {
-      const sellerId = await resolveSellerId(appUser?.email);
+      // Use the explicitly chosen responsible seller (allows handover),
+      // fall back to the logged-in user if for some reason it's missing.
+      const chosen = sellers.find(s => s.id === responsibleSellerId);
+      const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
       await createLead({
         title: title.trim(),
         owner_user_id: sellerId,
-        owner_name: responsibleName || null,
+        owner_name: chosen?.name || responsibleName || null,
         linked_dealer_id: linkedDealer,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,
