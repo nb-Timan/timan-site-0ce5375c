@@ -40,20 +40,26 @@ function fmtDateTime(iso: string) {
 
 export default function LatestBudgetChangesPanel({ year, sellerContext, refreshKey }: Props) {
   const [rows, setRows] = useState<AuditEntry[]>([]);
+  const [refs, setRefs] = useState<BudgetReference[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setBusy(true);
-    fetchBudgetAuditEntries({
-      year,
-      seller_context: sellerContext || undefined,
-      limit: 10,
-    })
-      .then((r) => { if (alive) setRows(r); })
+    Promise.all([
+      fetchBudgetAuditEntries({ year, seller_context: sellerContext || undefined, limit: 10 }),
+      listBudgetReferences({ year, seller_email: sellerContext || undefined, limit: 100 }),
+    ])
+      .then(([r, ref]) => { if (alive) { setRows(r); setRefs(ref); } })
       .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [year, sellerContext, refreshKey]);
+
+  const refByCell = useMemo(() => {
+    const m = new Map<string, BudgetReference>();
+    for (const r of refs) if (!m.has(r.cell_key)) m.set(r.cell_key, r);
+    return m;
+  }, [refs]);
 
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -80,6 +86,9 @@ export default function LatestBudgetChangesPanel({ year, sellerContext, refreshK
               {rows.map((r) => {
                 const o = snap(r.old_value);
                 const n = snap(r.new_value);
+                const nv = r.new_value as { cell_key?: string } | null;
+                const ck = nv && typeof nv === "object" ? nv.cell_key || "" : "";
+                const ref = ck ? refByCell.get(ck) : undefined;
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/60">
                     <Td className="text-slate-500 whitespace-nowrap">{fmtDateTime(r.ts)}</Td>
@@ -89,7 +98,25 @@ export default function LatestBudgetChangesPanel({ year, sellerContext, refreshK
                     <Td className="capitalize">{(n.type || o.type) === "budget" ? "Budget" : "Arbejdsbudget"}</Td>
                     <Td className="text-right tabular-nums text-slate-500">{o.value ?? "—"}</Td>
                     <Td className="text-right tabular-nums font-semibold">{n.value ?? "—"}</Td>
-                    <Td className="text-slate-600">{r.actor_name || r.actor_email || r.user}</Td>
+                    <Td className="text-slate-600">
+                      <div className="flex items-center gap-1">
+                        <span>{r.actor_name || r.actor_email || r.user}</span>
+                        {ref && (
+                          <span
+                            title={[
+                              ref.dealer_name && `Forhandler: ${ref.dealer_name}`,
+                              ref.contact_name && `Kontakt: ${ref.contact_name}`,
+                              ref.lead_id && `Lead: ${ref.lead_id}`,
+                              ref.demo_id && `Demo: ${ref.demo_id}`,
+                              ref.note && `Note: ${ref.note}`,
+                            ].filter(Boolean).join("\n")}
+                            className="inline-flex items-center text-amber-600"
+                          >
+                            <Link2 className="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
+                    </Td>
                   </tr>
                 );
               })}
