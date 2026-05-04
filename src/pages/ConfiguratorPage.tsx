@@ -719,8 +719,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const ownershipPayload = await buildOwnershipPayload();
             const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -861,8 +861,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const ownershipPayload = await buildOwnershipPayload();
             const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -1984,7 +1984,8 @@ export default function ConfiguratorPage() {
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
-                const ownershipPayload = await buildOwnershipPayload();
+                const ownershipPayload = await getRequiredOwnershipPayload();
+                if (!ownershipPayload) { setSavingBeforeReset(false); return; }
                 const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
