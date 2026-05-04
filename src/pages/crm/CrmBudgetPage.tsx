@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
-  Clock, XCircle, Download,
+  Clock, XCircle, Download, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
@@ -38,6 +38,8 @@ import {
 import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
 import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
+import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
+import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 
 
