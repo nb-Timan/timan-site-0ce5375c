@@ -125,9 +125,34 @@ export async function buildConfiguratorOwnership(
   }
   // External roles (dealer/importer/service-partner/dealer_user) do not set a seller.
 
+  // ── Seller override (from in-configurator picker) ────────────────────
+  // Only honoured for backend / timan_seller users. For external roles the
+  // override is ignored: their cases are not "sold by" anyone in Timan
+  // unless a backend user later reassigns.
+  const allowSellerOverride = portalRole === 'timan_backend' || portalRole === 'timan_seller';
+  let assignedSellerIdOverride: string | null = null;
+  if (allowSellerOverride && sellerOverride) {
+    if (sellerOverride.initials) sellerInitials = sellerOverride.initials.toUpperCase();
+    if (sellerOverride.email)    sellerEmail = sellerOverride.email.toLowerCase();
+    if (sellerOverride.name)     sellerName = sellerOverride.name;
+
+    // Resolve the chosen seller's app_users.id so dashboard/orders filters
+    // for that seller include this case.
+    if (sellerOverride.email) {
+      try {
+        const { data } = await supabase
+          .from('app_users')
+          .select('id')
+          .eq('email', sellerOverride.email.toLowerCase())
+          .maybeSingle();
+        if (data?.id) assignedSellerIdOverride = data.id as string;
+      } catch { /* ignore */ }
+    }
+  }
+
   // assigned_seller_id (app_users.id of the responsible seller). resolveSellerId
   // already honours active "view as" mode for backend users.
-  const assignedSellerId = await resolveSellerId(appUser.email);
+  const assignedSellerId = assignedSellerIdOverride ?? await resolveSellerId(appUser.email);
 
   // ── Dealer resolution ────────────────────────────────────────────────
   let dealerNumber: string | null = null;
