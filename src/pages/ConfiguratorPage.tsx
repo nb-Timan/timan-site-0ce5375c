@@ -165,12 +165,14 @@ export default function ConfiguratorPage() {
   const [wantRecommendation, setWantRecommendation] = useState(false);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
-  const handleSetFlowType = useCallback((ft: 'quote' | 'order') => {
+  const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
     if (state.flowType === ft) return;
     setFlowType(ft);
     if (savedConfigurationId) {
       console.info('[flowType] persisting change to saved case', { id: savedConfigurationId, flowType: ft });
-      updateConfigurationFlowType(savedConfigurationId, ft).then(res => {
+      const ownershipPayload = await getRequiredOwnershipPayload();
+      if (!ownershipPayload) return;
+      updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload).then(res => {
         if (res.error) {
           console.error('[flowType] failed to persist:', res.error);
           toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
@@ -180,7 +182,7 @@ export default function ConfiguratorPage() {
         if (res.order_number) setSavedOrderNumber(res.order_number);
       });
     }
-  }, [state.flowType, setFlowType, savedConfigurationId, lang]);
+  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload]);
 
   // Auto-fill email fields when entering step 4
   useEffect(() => {
