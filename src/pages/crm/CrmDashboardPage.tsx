@@ -263,11 +263,10 @@ export default function CrmDashboardPage() {
                     <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.pipelineValue)}
                     </p>
-                    <span className="text-[10.5px] text-emerald-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative flex-1 min-w-0 h-10 shrink overflow-hidden hidden sm:block max-w-[110px]">
+                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:block w-20">
                   {trend30 && trend30.length > 1 && (
                     <div className="absolute inset-0 opacity-90">
                       <ResponsiveContainer width="100%" height="100%">
@@ -286,7 +285,7 @@ export default function CrmDashboardPage() {
                   )}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-3 ml-1 border-l border-white/15 w-28">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-3 border-l border-white/15 w-28">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -328,14 +327,10 @@ export default function CrmDashboardPage() {
                     <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.closedValueThisMonth)}
                     </p>
-                    <span className="text-[10.5px] text-sky-100/80 font-medium">
-                      · {metrics.closedCountThisMonth} {T.orders[lang]}
-                    </span>
-                    <span className="text-[10.5px] text-sky-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative flex-1 min-w-0 h-10 shrink overflow-hidden hidden sm:flex items-end gap-1 opacity-90 max-w-[110px]">
+                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:flex items-end gap-1 opacity-90 w-20">
                   {CLOSED_BARS.map((v, i) => (
                     <div
                       key={i}
@@ -345,7 +340,7 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
                 {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-3 ml-1 border-l border-white/15 w-28">
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-4 ml-3 border-l border-white/15 w-28">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
