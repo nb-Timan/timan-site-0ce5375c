@@ -1762,6 +1762,7 @@ export default function ConfiguratorPage() {
               appUser={appUser}
               language={lang}
               currentState={state}
+              ownershipOverride={buildOwnershipPayload}
               onSavedConfiguration={(configId, quoteNumber, orderNumber) => {
                 setSavedConfigurationId(configId);
                 setSavedQuoteNumber(quoteNumber ?? null);
