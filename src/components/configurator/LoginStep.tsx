@@ -266,106 +266,58 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     const normalizedLanguage = LANG_MAP[suLanguage] || LANG_MAP[String(suLanguage).toUpperCase()] || 'da';
 
     try {
-      // 1) Create the Supabase Auth user — they choose their own password.
-      console.log('[signup] calling supabase.auth.signUp for', emailTrim);
-      const { data, error: authError } = await supabase.auth.signUp({
-        email: emailTrim,
-        password: suPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/portal`,
-          data: {
-            full_name: `${firstName} ${lastName}`.trim(),
+      // Call secure Edge Function — uses service role to create the auth user
+      // with email_confirm=true (no confirmation email = no rate limit), and
+      // upserts the public.app_users row as pending approval.
+      const { data, error: fnError } = await supabase.functions.invoke('admin-user-actions', {
+        body: {
+          action: 'signup',
+          email: emailTrim,
+          password: suPassword,
+          profile: {
             first_name: firstName,
             last_name: lastName,
+            full_name: `${firstName} ${lastName}`.trim(),
             company,
+            address,
+            city,
+            postal_code: postal,
             country,
             preferred_language: normalizedLanguage,
           },
         },
       });
 
-      if (authError) {
-        const msg = authError.message || 'Unknown auth error';
-        console.error('[signup] auth error:', authError);
-        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered') || msg.toLowerCase().includes('user already')) {
+      if (fnError) {
+        // FunctionsHttpError exposes body via context.
+        let serverMsg: string | null = null;
+        try {
+          const ctx = (fnError as { context?: Response }).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const b = await ctx.json();
+            serverMsg = b?.error ?? null;
+          }
+        } catch { /* ignore */ }
+        const msg = (serverMsg || fnError.message || '').toLowerCase();
+        if (msg.includes('allerede') || msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
           setError(tx('signupEmailExists', language));
         } else {
-          // Surface the real error so the user sees what went wrong.
-          setError(`Auth: ${msg}`);
+          setError(serverMsg || fnError.message || tx('signupError', language));
         }
         setLoading(false);
         return;
       }
 
-      if (!data?.user) {
-        console.error('[signup] auth returned no user', data);
-        setError('Auth: no user returned from signUp');
-        setLoading(false);
-        return;
-      }
-
-      console.log('[signup] auth user created:', data.user.id, 'session?', !!data.session);
-
-      // 2) Insert/update the user in public.app_users — pending approval.
-      // NOTE: when email confirmation is required, there is no active session
-      // here, so this insert runs as the `anon` role and depends on the
-      // `app_users_anon_insert` RLS policy from phase8.
-      const upsertPayload = {
-        email: emailTrim,
-        full_name: `${firstName} ${lastName}`.trim(),
-        first_name: firstName,
-        last_name: lastName,
-        company,
-        address,
-        city,
-        postal_code: postal,
-        country,
-        preferred_language: normalizedLanguage,
-        role: 'slutkunde',
-        portal_role: 'pending',
-        partner_type: null,
-        approved: false,
-        is_active: false,
-        status: 'pending',
-        start_step: 1,
-        max_step: 1,
-        can_view_prices: false,
-        can_submit_order: false,
-        can_edit_discount: false,
-        can_switch_customer_mode: false,
-        working_for: null,
-        display_name: `${firstName} ${lastName}`.trim(),
-        updated_at: new Date().toISOString(),
-      };
-      console.log('[signup] upserting app_users row:', upsertPayload);
-
-      const { data: upsertData, error: upsertErr } = await supabase
-        .from('app_users')
-        .upsert(upsertPayload, { onConflict: 'email' })
-        .select();
-
-      if (upsertErr) {
-        const code = (upsertErr as { code?: string }).code || '';
-        const details = (upsertErr as { details?: string }).details || '';
-        const hint = (upsertErr as { hint?: string }).hint || '';
-        console.error('[signup] app_users upsert failed:', { message: upsertErr.message, code, details, hint });
-
-        if (code === '42501' || /row-level security|policy/i.test(upsertErr.message)) {
-          console.error('[signup] RLS policy error — anon INSERT into public.app_users is blocked. Check phase8 SQL (app_users_anon_insert policy).');
-          setError(`DB (RLS): ${upsertErr.message}. Auth user blev oprettet, men profil kunne ikke gemmes.`);
-        } else if (code === '23514' || /check constraint/i.test(upsertErr.message)) {
-          console.error('[signup] check constraint violated — likely portal_role enum missing "pending" or invalid status.');
-          setError(`DB (constraint): ${upsertErr.message}`);
-        } else if (code === '23502') {
-          setError(`DB (not null): ${upsertErr.message}`);
+      if (!data?.ok) {
+        const msg = (data?.error || '').toString();
+        if (/allerede|already|registered|exists/i.test(msg)) {
+          setError(tx('signupEmailExists', language));
         } else {
-          setError(`DB: ${upsertErr.message}${details ? ' — ' + details : ''}`);
+          setError(msg || tx('signupError', language));
         }
         setLoading(false);
         return;
       }
-
-      console.log('[signup] app_users upserted OK:', upsertData);
 
       setSignupEmail(emailTrim);
       setView('signup-done');
