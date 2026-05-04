@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -20,6 +22,95 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
+
+// ---- i18n. English is the fallback. ----
+type TKey =
+  | 'page_title' | 'page_sub' | 'back' | 'cancel' | 'saving' | 'save'
+  | 'sec_basic' | 'sec_basic_sub' | 'sec_machines' | 'sec_machines_sub'
+  | 'sec_next_act' | 'sec_demo' | 'sec_contact_cust' | 'sec_details'
+  | 'sec_lost' | 'sec_files' | 'sec_files_sub'
+  | 'lbl_title' | 'ph_title' | 'lbl_seller' | 'ph_seller'
+  | 'lbl_dealer' | 'ph_dealer' | 'lbl_first_contact'
+  | 'lbl_expected_close' | 'lbl_next_followup' | 'lbl_next_activity'
+  | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
+  | 'lbl_contact_type' | 'lbl_customer_type'
+  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
+  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline'
+  | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
+  | 'pick_files' | 'mine_dealers' | 'other_dealers'
+  | 'loading_dealers' | 'no_match' | 'search_dealer'
+  | 'val_title' | 'val_seller' | 'val_dealer' | 'val_first' | 'val_close'
+  | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act'
+  | 'created_ok' | 'created_err';
+
+const T: Record<TKey, Record<Language, string>> = {
+  page_title:    { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
+  page_sub:      { da: 'Opret et nyt lead i CRM. Aktivitet logges automatisk.', en: 'Create a new CRM lead. Activity is logged automatically.', de: 'Neuen CRM-Lead anlegen. Aktivität wird automatisch protokolliert.', it: 'Crea un nuovo lead CRM. L\'attività viene registrata automaticamente.', hu: 'Új CRM lead létrehozása. A tevékenység automatikusan rögzítésre kerül.' },
+  back:          { da: 'Tilbage til leads', en: 'Back to leads', de: 'Zurück zu Leads', it: 'Torna ai lead', hu: 'Vissza a leadekhez' },
+  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
+  saving:        { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…' },
+  save:          { da: 'Gem lead', en: 'Save lead', de: 'Lead speichern', it: 'Salva lead', hu: 'Lead mentése' },
+  sec_basic:     { da: 'Grundinformation', en: 'Basic information', de: 'Grundinformationen', it: 'Informazioni di base', hu: 'Alapadatok' },
+  sec_basic_sub: { da: 'Hvem og hvornår', en: 'Who and when', de: 'Wer und wann', it: 'Chi e quando', hu: 'Ki és mikor' },
+  sec_machines:  { da: 'Maskine-interesse', en: 'Machine interest', de: 'Maschineninteresse', it: 'Interesse macchine', hu: 'Gép-érdeklődés' },
+  sec_machines_sub:{ da: 'Vælg en eller flere maskiner kunden er interesseret i', en: 'Pick one or more machines the customer is interested in', de: 'Eine oder mehrere Maschinen wählen, an denen der Kunde interessiert ist', it: 'Selezionare una o più macchine di interesse', hu: 'Válassza ki a vevőt érdeklő gépeket' },
+  sec_next_act:  { da: 'Næste aktivitet', en: 'Next activity', de: 'Nächste Aktivität', it: 'Prossima attività', hu: 'Következő tevékenység' },
+  sec_demo:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  sec_contact_cust:{ da: 'Kontakttype & kundetype', en: 'Contact & customer type', de: 'Kontakt- & Kundentyp', it: 'Tipo contatto e cliente', hu: 'Kapcsolat- és ügyféltípus' },
+  sec_details:   { da: 'Detaljer', en: 'Details', de: 'Details', it: 'Dettagli', hu: 'Részletek' },
+  sec_lost:      { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése' },
+  sec_files:     { da: 'Filer', en: 'Files', de: 'Dateien', it: 'File', hu: 'Fájlok' },
+  sec_files_sub: { da: 'Vedhæft tilbud, billeder eller PDF (gemmes som metadata i preview)', en: 'Attach quotes, photos or PDF (saved as metadata in preview)', de: 'Angebote, Fotos oder PDF anhängen (in Vorschau als Metadaten gespeichert)', it: 'Allega preventivi, foto o PDF (salvati come metadati nell\'anteprima)', hu: 'Csatoljon árajánlatot, képet vagy PDF-et (előnézetben metaadatként mentve)' },
+  lbl_title:     { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  ph_title:      { da: "Fx 'Aalborg Kommune – RC-1000s'", en: "e.g. 'Aalborg Municipality – RC-1000s'", de: "z. B. 'Stadt Aalborg – RC-1000s'", it: "es. 'Comune di Aalborg – RC-1000s'", hu: "Pl. 'Aalborg Önkormányzat – RC-1000s'" },
+  lbl_seller:    { da: 'Ansvarlig sælger', en: 'Responsible seller', de: 'Verantwortlicher Verkäufer', it: 'Venditore responsabile', hu: 'Felelős értékesítő' },
+  ph_seller:     { da: 'Vælg sælger…', en: 'Select seller…', de: 'Verkäufer wählen…', it: 'Seleziona venditore…', hu: 'Válasszon értékesítőt…' },
+  lbl_dealer:    { da: 'Linket forhandler', en: 'Linked dealer', de: 'Verknüpfter Händler', it: 'Rivenditore collegato', hu: 'Kapcsolt kereskedő' },
+  ph_dealer:     { da: 'Vælg forhandler…', en: 'Select dealer…', de: 'Händler wählen…', it: 'Seleziona rivenditore…', hu: 'Válasszon kereskedőt…' },
+  lbl_first_contact:{ da: 'Første kontakt', en: 'First contact', de: 'Erstkontakt', it: 'Primo contatto', hu: 'Első kapcsolat' },
+  lbl_expected_close:{ da: 'Forventet lukkedato', en: 'Expected close date', de: 'Erwartetes Abschlussdatum', it: 'Data chiusura prevista', hu: 'Várható zárás dátuma' },
+  lbl_next_followup:{ da: 'Næste opfølgning', en: 'Next follow-up', de: 'Nächste Nachverfolgung', it: 'Prossimo follow-up', hu: 'Következő utánkövetés' },
+  lbl_next_activity:{ da: 'Næste aktivitet', en: 'Next activity', de: 'Nächste Aktivität', it: 'Prossima attività', hu: 'Következő tevékenység' },
+  pick:          { da: 'Vælg…', en: 'Select…', de: 'Wählen…', it: 'Seleziona…', hu: 'Válasszon…' },
+  lbl_demo_held: { da: 'Demo afholdt?', en: 'Demo held?', de: 'Demo durchgeführt?', it: 'Demo effettuata?', hu: 'Demo megtartva?' },
+  yes:           { da: 'Ja', en: 'Yes', de: 'Ja', it: 'Sì', hu: 'Igen' },
+  no:            { da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' },
+  lbl_convert:   { da: 'Konvertering', en: 'Conversion', de: 'Konvertierung', it: 'Conversione', hu: 'Konverzió' },
+  cta_convert:   { da: 'Konvertér til Demo Lead →', en: 'Convert to Demo Lead →', de: 'In Demo-Lead umwandeln →', it: 'Converti in Demo Lead →', hu: 'Átalakítás Demo Leaddé →' },
+  lbl_contact_type:{ da: 'Kontakttype', en: 'Contact type', de: 'Kontakttyp', it: 'Tipo contatto', hu: 'Kapcsolat típusa' },
+  lbl_customer_type:{ da: 'Kundetype', en: 'Customer type', de: 'Kundentyp', it: 'Tipo cliente', hu: 'Ügyféltípus' },
+  lbl_contact_info:{ da: 'Kontaktinformation', en: 'Contact information', de: 'Kontaktinformationen', it: 'Informazioni di contatto', hu: 'Elérhetőségek' },
+  ph_contact_info:{ da: 'Navn, telefon, email, virksomhed…', en: 'Name, phone, email, company…', de: 'Name, Telefon, E-Mail, Firma…', it: 'Nome, telefono, email, azienda…', hu: 'Név, telefon, email, cég…' },
+  lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
+  lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
+  lbl_budget:    { da: 'Budget-estimat (DKK)', en: 'Budget estimate (DKK)', de: 'Budget-Schätzung (DKK)', it: 'Stima budget (DKK)', hu: 'Költségvetés-becslés (DKK)' },
+  lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
+  lbl_pipeline:  { da: 'Pipeline-stage', en: 'Pipeline stage', de: 'Pipeline-Phase', it: 'Fase pipeline', hu: 'Pipeline szakasz' },
+  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
+  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
+  lbl_lost_reason:{ da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum wir den Auftrag verloren haben', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
+  lbl_lost_comment:{ da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
+  pick_files:    { da: 'Klik for at vælge filer eller træk dem hertil', en: 'Click to choose files or drop them here', de: 'Dateien wählen oder hierher ziehen', it: 'Clicca per scegliere file o trascinali qui', hu: 'Kattintson fájlt választani vagy húzza ide' },
+  mine_dealers:  { da: 'Mine forhandlere', en: 'My dealers', de: 'Meine Händler', it: 'I miei rivenditori', hu: 'Kereskedőim' },
+  other_dealers: { da: 'Andre forhandlere', en: 'Other dealers', de: 'Andere Händler', it: 'Altri rivenditori', hu: 'Más kereskedők' },
+  loading_dealers:{ da: 'Henter forhandlere…', en: 'Loading dealers…', de: 'Händler laden…', it: 'Caricamento rivenditori…', hu: 'Kereskedők betöltése…' },
+  no_match:      { da: 'Ingen match', en: 'No match', de: 'Kein Treffer', it: 'Nessuna corrispondenza', hu: 'Nincs találat' },
+  search_dealer: { da: 'Søg forhandler, nr., by, land…', en: 'Search dealer, no., city, country…', de: 'Händler, Nr., Stadt, Land suchen…', it: 'Cerca rivenditore, n., città, paese…', hu: 'Keresés: kereskedő, szám, város, ország…' },
+  val_title:     { da: 'Titel er påkrævet', en: 'Title is required', de: 'Titel ist erforderlich', it: 'Il titolo è obbligatorio', hu: 'A cím kötelező' },
+  val_seller:    { da: 'Vælg en ansvarlig sælger.', en: 'Select a responsible seller.', de: 'Wählen Sie einen Verkäufer.', it: 'Selezionare un venditore.', hu: 'Válasszon felelős értékesítőt.' },
+  val_dealer:    { da: 'Vælg en linket forhandler.', en: 'Select a linked dealer.', de: 'Wählen Sie einen verknüpften Händler.', it: 'Selezionare un rivenditore collegato.', hu: 'Válasszon kapcsolt kereskedőt.' },
+  val_first:     { da: 'Vælg dato for første kontakt.', en: 'Select first contact date.', de: 'Datum des Erstkontakts wählen.', it: 'Selezionare la data del primo contatto.', hu: 'Válassza ki az első kapcsolat dátumát.' },
+  val_close:     { da: 'Vælg forventet lukkedato.', en: 'Select expected close date.', de: 'Erwartetes Abschlussdatum wählen.', it: 'Selezionare la data di chiusura prevista.', hu: 'Válasszon várható zárási dátumot.' },
+  val_followup:  { da: 'Vælg næste opfølgning.', en: 'Select next follow-up.', de: 'Nächste Nachverfolgung wählen.', it: 'Selezionare il prossimo follow-up.', hu: 'Válasszon következő utánkövetést.' },
+  val_contact:   { da: 'Vælg kontakttype.', en: 'Select contact type.', de: 'Kontakttyp wählen.', it: 'Selezionare il tipo di contatto.', hu: 'Válasszon kapcsolattípust.' },
+  val_customer:  { da: 'Vælg kundetype.', en: 'Select customer type.', de: 'Kundentyp wählen.', it: 'Selezionare il tipo di cliente.', hu: 'Válasszon ügyféltípust.' },
+  val_next_act:  { da: 'Vælg næste aktivitet.', en: 'Select next activity.', de: 'Nächste Aktivität wählen.', it: 'Selezionare la prossima attività.', hu: 'Válasszon következő tevékenységet.' },
+  created_ok:    { da: 'Lead oprettet', en: 'Lead created', de: 'Lead erstellt', it: 'Lead creato', hu: 'Lead létrehozva' },
+  created_err:   { da: 'Kunne ikke oprette lead', en: 'Could not create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'Nem sikerült létrehozni a leadet' },
+};
+function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
+
 
 // ---- Tiny shared form primitives (kept in this file to avoid extra files) ----
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
