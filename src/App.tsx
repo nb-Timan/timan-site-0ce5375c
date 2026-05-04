@@ -48,6 +48,7 @@ import BackendRolesPage from "./pages/backend/BackendRolesPage";
 import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
 import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
+import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
