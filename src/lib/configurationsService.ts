@@ -768,6 +768,7 @@ export async function saveConfiguration(
 export async function updateConfigurationFlowType(
   id: string,
   flowType: 'quote' | 'order',
+  ownership?: SaveOwnership,
 ): Promise<{ quote_number: string | null; order_number: string | null; error: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -786,6 +787,9 @@ export async function updateConfigurationFlowType(
   }
 
   const isOrder = flowType === 'order';
+  if (isOrder && (!ownership?.seller_initials || !ownership.seller_email || !ownership.assigned_seller_id || !ownership.dealer_number || !ownership.dealer_account_id)) {
+    return { quote_number: null, order_number: null, error: OWNERSHIP_REQUIRED_MESSAGE };
+  }
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
   const nextState = normalizeConfiguratorState({ ...baseState, flowType });
@@ -809,6 +813,18 @@ export async function updateConfigurationFlowType(
     quote_number: quoteNumber,
     order_number: orderNumber,
     last_saved_at: new Date().toISOString(),
+    ...(ownership ? {
+      seller_initials: ownership.seller_initials ?? null,
+      seller_email: ownership.seller_email ?? null,
+      seller_name: ownership.seller_name ?? null,
+      assigned_seller_id: ownership.assigned_seller_id ?? null,
+      dealer_number: ownership.dealer_number ?? null,
+      dealer_name: ownership.dealer_name ?? null,
+      dealer_account_id: ownership.dealer_account_id ?? null,
+      created_by_role: ownership.created_by_role ?? null,
+      active_mode: ownership.active_mode ?? null,
+      owner_status: ownership.owner_status ?? 'aktiv',
+    } : {}),
   };
 
   const { error } = await updateConfigurationRow(id, patch);
