@@ -127,7 +127,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller]);
+  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller, reloadKey]);
+
+  const handleRowClick = useCallback((r: CrmConfigurationRow) => {
+    if (canEditOwnership) setEditingRow(r);
+  }, [canEditOwnership]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
