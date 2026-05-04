@@ -133,6 +133,34 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
               })}
             </ul>
           )}
+          {!busy && refs.length > 0 && (
+            <div className="border-t border-slate-200">
+              <div className="px-3 py-1.5 bg-amber-50/60 text-[11px] font-semibold text-amber-800 flex items-center gap-1">
+                <Link2 className="h-3 w-3" /> Referencer ({refs.length})
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {refs.map((ref) => (
+                  <li key={ref.id} className="px-3 py-2 text-xs space-y-0.5">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-medium text-slate-800 truncate">
+                        {ref.dealer_name || ref.contact_name || ref.lead_id || ref.demo_id || "Reference"}
+                      </span>
+                      <span className="text-slate-500 whitespace-nowrap">{fmtDateTime(ref.created_at)}</span>
+                    </div>
+                    {ref.contact_name && <div className="text-slate-600">Kontakt: {ref.contact_name}</div>}
+                    {(ref.lead_id || ref.demo_id) && (
+                      <div className="text-slate-600">
+                        {ref.lead_id && <>Lead: <span className="font-mono">{ref.lead_id}</span> </>}
+                        {ref.demo_id && <>Demo: <span className="font-mono">{ref.demo_id}</span></>}
+                      </div>
+                    )}
+                    {ref.note && <div className="text-slate-500 italic">"{ref.note}"</div>}
+                    <div className="text-[10px] text-slate-400">af {ref.created_by_name || ref.created_by_email || "—"}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
     </span>
