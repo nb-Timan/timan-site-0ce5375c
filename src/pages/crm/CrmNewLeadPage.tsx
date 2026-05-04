@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -20,6 +22,95 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
+
+// ---- i18n. English is the fallback. ----
+type TKey =
+  | 'page_title' | 'page_sub' | 'back' | 'cancel' | 'saving' | 'save'
+  | 'sec_basic' | 'sec_basic_sub' | 'sec_machines' | 'sec_machines_sub'
+  | 'sec_next_act' | 'sec_demo' | 'sec_contact_cust' | 'sec_details'
+  | 'sec_lost' | 'sec_files' | 'sec_files_sub'
+  | 'lbl_title' | 'ph_title' | 'lbl_seller' | 'ph_seller'
+  | 'lbl_dealer' | 'ph_dealer' | 'lbl_first_contact'
+  | 'lbl_expected_close' | 'lbl_next_followup' | 'lbl_next_activity'
+  | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
+  | 'lbl_contact_type' | 'lbl_customer_type'
+  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
+  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline'
+  | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
+  | 'pick_files' | 'mine_dealers' | 'other_dealers'
+  | 'loading_dealers' | 'no_match' | 'search_dealer'
+  | 'val_title' | 'val_seller' | 'val_dealer' | 'val_first' | 'val_close'
+  | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act'
+  | 'created_ok' | 'created_err';
+
+const T: Record<TKey, Record<Language, string>> = {
+  page_title:    { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
+  page_sub:      { da: 'Opret et nyt lead i CRM. Aktivitet logges automatisk.', en: 'Create a new CRM lead. Activity is logged automatically.', de: 'Neuen CRM-Lead anlegen. Aktivität wird automatisch protokolliert.', it: 'Crea un nuovo lead CRM. L\'attività viene registrata automaticamente.', hu: 'Új CRM lead létrehozása. A tevékenység automatikusan rögzítésre kerül.' },
+  back:          { da: 'Tilbage til leads', en: 'Back to leads', de: 'Zurück zu Leads', it: 'Torna ai lead', hu: 'Vissza a leadekhez' },
+  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
+  saving:        { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…' },
+  save:          { da: 'Gem lead', en: 'Save lead', de: 'Lead speichern', it: 'Salva lead', hu: 'Lead mentése' },
+  sec_basic:     { da: 'Grundinformation', en: 'Basic information', de: 'Grundinformationen', it: 'Informazioni di base', hu: 'Alapadatok' },
+  sec_basic_sub: { da: 'Hvem og hvornår', en: 'Who and when', de: 'Wer und wann', it: 'Chi e quando', hu: 'Ki és mikor' },
+  sec_machines:  { da: 'Maskine-interesse', en: 'Machine interest', de: 'Maschineninteresse', it: 'Interesse macchine', hu: 'Gép-érdeklődés' },
+  sec_machines_sub:{ da: 'Vælg en eller flere maskiner kunden er interesseret i', en: 'Pick one or more machines the customer is interested in', de: 'Eine oder mehrere Maschinen wählen, an denen der Kunde interessiert ist', it: 'Selezionare una o più macchine di interesse', hu: 'Válassza ki a vevőt érdeklő gépeket' },
+  sec_next_act:  { da: 'Næste aktivitet', en: 'Next activity', de: 'Nächste Aktivität', it: 'Prossima attività', hu: 'Következő tevékenység' },
+  sec_demo:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  sec_contact_cust:{ da: 'Kontakttype & kundetype', en: 'Contact & customer type', de: 'Kontakt- & Kundentyp', it: 'Tipo contatto e cliente', hu: 'Kapcsolat- és ügyféltípus' },
+  sec_details:   { da: 'Detaljer', en: 'Details', de: 'Details', it: 'Dettagli', hu: 'Részletek' },
+  sec_lost:      { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése' },
+  sec_files:     { da: 'Filer', en: 'Files', de: 'Dateien', it: 'File', hu: 'Fájlok' },
+  sec_files_sub: { da: 'Vedhæft tilbud, billeder eller PDF (gemmes som metadata i preview)', en: 'Attach quotes, photos or PDF (saved as metadata in preview)', de: 'Angebote, Fotos oder PDF anhängen (in Vorschau als Metadaten gespeichert)', it: 'Allega preventivi, foto o PDF (salvati come metadati nell\'anteprima)', hu: 'Csatoljon árajánlatot, képet vagy PDF-et (előnézetben metaadatként mentve)' },
+  lbl_title:     { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  ph_title:      { da: "Fx 'Aalborg Kommune – RC-1000s'", en: "e.g. 'Aalborg Municipality – RC-1000s'", de: "z. B. 'Stadt Aalborg – RC-1000s'", it: "es. 'Comune di Aalborg – RC-1000s'", hu: "Pl. 'Aalborg Önkormányzat – RC-1000s'" },
+  lbl_seller:    { da: 'Ansvarlig sælger', en: 'Responsible seller', de: 'Verantwortlicher Verkäufer', it: 'Venditore responsabile', hu: 'Felelős értékesítő' },
+  ph_seller:     { da: 'Vælg sælger…', en: 'Select seller…', de: 'Verkäufer wählen…', it: 'Seleziona venditore…', hu: 'Válasszon értékesítőt…' },
+  lbl_dealer:    { da: 'Linket forhandler', en: 'Linked dealer', de: 'Verknüpfter Händler', it: 'Rivenditore collegato', hu: 'Kapcsolt kereskedő' },
+  ph_dealer:     { da: 'Vælg forhandler…', en: 'Select dealer…', de: 'Händler wählen…', it: 'Seleziona rivenditore…', hu: 'Válasszon kereskedőt…' },
+  lbl_first_contact:{ da: 'Første kontakt', en: 'First contact', de: 'Erstkontakt', it: 'Primo contatto', hu: 'Első kapcsolat' },
+  lbl_expected_close:{ da: 'Forventet lukkedato', en: 'Expected close date', de: 'Erwartetes Abschlussdatum', it: 'Data chiusura prevista', hu: 'Várható zárás dátuma' },
+  lbl_next_followup:{ da: 'Næste opfølgning', en: 'Next follow-up', de: 'Nächste Nachverfolgung', it: 'Prossimo follow-up', hu: 'Következő utánkövetés' },
+  lbl_next_activity:{ da: 'Næste aktivitet', en: 'Next activity', de: 'Nächste Aktivität', it: 'Prossima attività', hu: 'Következő tevékenység' },
+  pick:          { da: 'Vælg…', en: 'Select…', de: 'Wählen…', it: 'Seleziona…', hu: 'Válasszon…' },
+  lbl_demo_held: { da: 'Demo afholdt?', en: 'Demo held?', de: 'Demo durchgeführt?', it: 'Demo effettuata?', hu: 'Demo megtartva?' },
+  yes:           { da: 'Ja', en: 'Yes', de: 'Ja', it: 'Sì', hu: 'Igen' },
+  no:            { da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' },
+  lbl_convert:   { da: 'Konvertering', en: 'Conversion', de: 'Konvertierung', it: 'Conversione', hu: 'Konverzió' },
+  cta_convert:   { da: 'Konvertér til Demo Lead →', en: 'Convert to Demo Lead →', de: 'In Demo-Lead umwandeln →', it: 'Converti in Demo Lead →', hu: 'Átalakítás Demo Leaddé →' },
+  lbl_contact_type:{ da: 'Kontakttype', en: 'Contact type', de: 'Kontakttyp', it: 'Tipo contatto', hu: 'Kapcsolat típusa' },
+  lbl_customer_type:{ da: 'Kundetype', en: 'Customer type', de: 'Kundentyp', it: 'Tipo cliente', hu: 'Ügyféltípus' },
+  lbl_contact_info:{ da: 'Kontaktinformation', en: 'Contact information', de: 'Kontaktinformationen', it: 'Informazioni di contatto', hu: 'Elérhetőségek' },
+  ph_contact_info:{ da: 'Navn, telefon, email, virksomhed…', en: 'Name, phone, email, company…', de: 'Name, Telefon, E-Mail, Firma…', it: 'Nome, telefono, email, azienda…', hu: 'Név, telefon, email, cég…' },
+  lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
+  lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
+  lbl_budget:    { da: 'Budget-estimat (DKK)', en: 'Budget estimate (DKK)', de: 'Budget-Schätzung (DKK)', it: 'Stima budget (DKK)', hu: 'Költségvetés-becslés (DKK)' },
+  lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
+  lbl_pipeline:  { da: 'Pipeline-stage', en: 'Pipeline stage', de: 'Pipeline-Phase', it: 'Fase pipeline', hu: 'Pipeline szakasz' },
+  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
+  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
+  lbl_lost_reason:{ da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum wir den Auftrag verloren haben', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
+  lbl_lost_comment:{ da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
+  pick_files:    { da: 'Klik for at vælge filer eller træk dem hertil', en: 'Click to choose files or drop them here', de: 'Dateien wählen oder hierher ziehen', it: 'Clicca per scegliere file o trascinali qui', hu: 'Kattintson fájlt választani vagy húzza ide' },
+  mine_dealers:  { da: 'Mine forhandlere', en: 'My dealers', de: 'Meine Händler', it: 'I miei rivenditori', hu: 'Kereskedőim' },
+  other_dealers: { da: 'Andre forhandlere', en: 'Other dealers', de: 'Andere Händler', it: 'Altri rivenditori', hu: 'Más kereskedők' },
+  loading_dealers:{ da: 'Henter forhandlere…', en: 'Loading dealers…', de: 'Händler laden…', it: 'Caricamento rivenditori…', hu: 'Kereskedők betöltése…' },
+  no_match:      { da: 'Ingen match', en: 'No match', de: 'Kein Treffer', it: 'Nessuna corrispondenza', hu: 'Nincs találat' },
+  search_dealer: { da: 'Søg forhandler, nr., by, land…', en: 'Search dealer, no., city, country…', de: 'Händler, Nr., Stadt, Land suchen…', it: 'Cerca rivenditore, n., città, paese…', hu: 'Keresés: kereskedő, szám, város, ország…' },
+  val_title:     { da: 'Titel er påkrævet', en: 'Title is required', de: 'Titel ist erforderlich', it: 'Il titolo è obbligatorio', hu: 'A cím kötelező' },
+  val_seller:    { da: 'Vælg en ansvarlig sælger.', en: 'Select a responsible seller.', de: 'Wählen Sie einen Verkäufer.', it: 'Selezionare un venditore.', hu: 'Válasszon felelős értékesítőt.' },
+  val_dealer:    { da: 'Vælg en linket forhandler.', en: 'Select a linked dealer.', de: 'Wählen Sie einen verknüpften Händler.', it: 'Selezionare un rivenditore collegato.', hu: 'Válasszon kapcsolt kereskedőt.' },
+  val_first:     { da: 'Vælg dato for første kontakt.', en: 'Select first contact date.', de: 'Datum des Erstkontakts wählen.', it: 'Selezionare la data del primo contatto.', hu: 'Válassza ki az első kapcsolat dátumát.' },
+  val_close:     { da: 'Vælg forventet lukkedato.', en: 'Select expected close date.', de: 'Erwartetes Abschlussdatum wählen.', it: 'Selezionare la data di chiusura prevista.', hu: 'Válasszon várható zárási dátumot.' },
+  val_followup:  { da: 'Vælg næste opfølgning.', en: 'Select next follow-up.', de: 'Nächste Nachverfolgung wählen.', it: 'Selezionare il prossimo follow-up.', hu: 'Válasszon következő utánkövetést.' },
+  val_contact:   { da: 'Vælg kontakttype.', en: 'Select contact type.', de: 'Kontakttyp wählen.', it: 'Selezionare il tipo di contatto.', hu: 'Válasszon kapcsolattípust.' },
+  val_customer:  { da: 'Vælg kundetype.', en: 'Select customer type.', de: 'Kundentyp wählen.', it: 'Selezionare il tipo di cliente.', hu: 'Válasszon ügyféltípust.' },
+  val_next_act:  { da: 'Vælg næste aktivitet.', en: 'Select next activity.', de: 'Nächste Aktivität wählen.', it: 'Selezionare la prossima attività.', hu: 'Válasszon következő tevékenységet.' },
+  created_ok:    { da: 'Lead oprettet', en: 'Lead created', de: 'Lead erstellt', it: 'Lead creato', hu: 'Lead létrehozva' },
+  created_err:   { da: 'Kunne ikke oprette lead', en: 'Could not create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'Nem sikerült létrehozni a leadet' },
+};
+function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
+
 
 // ---- Tiny shared form primitives (kept in this file to avoid extra files) ----
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -89,6 +180,7 @@ function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
 
 export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
+  const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
@@ -191,7 +283,7 @@ export default function CrmNewLeadPage() {
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const dealerTriggerLabel = selectedDealer
     ? selectedDealer.label
-    : (linkedDealer ? linkedDealer : 'Vælg forhandler…');
+    : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
   const isLost = stage === 'Lost';
 
@@ -199,15 +291,15 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())       { toast.error('Titel er påkrævet'); return; }
-    if (!responsibleSellerId){ toast.error('Vælg en ansvarlig sælger.'); return; }
-    if (!linkedDealer)       { toast.error('Vælg en linket forhandler.'); return; }
-    if (!firstContact)       { toast.error('Vælg dato for første kontakt.'); return; }
-    if (!expectedClose)      { toast.error('Vælg forventet lukkedato.'); return; }
-    if (!nextFollowup)       { toast.error('Vælg næste opfølgning.'); return; }
-    if (!contactType)        { toast.error('Vælg kontakttype.'); return; }
-    if (!customerType)       { toast.error('Vælg kundetype.'); return; }
-    if (!nextActivity)       { toast.error('Vælg næste aktivitet.'); return; }
+    if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
+    if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
+    if (!linkedDealer)       { toast.error(tt('val_dealer', lang)); return; }
+    if (!firstContact)       { toast.error(tt('val_first', lang)); return; }
+    if (!expectedClose)      { toast.error(tt('val_close', lang)); return; }
+    if (!nextFollowup)       { toast.error(tt('val_followup', lang)); return; }
+    if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
+    if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
+    if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
 
     setSubmitting(true);
     try {
@@ -241,35 +333,35 @@ export default function CrmNewLeadPage() {
         attachments: files,
         status: 'open',
       });
-      toast.success('Lead oprettet');
+      toast.success(tt('created_ok', lang));
       navigate('/portal/crm/leads');
     } catch (err) {
       console.error(err);
-      toast.error('Kunne ikke oprette lead');
+      toast.error(tt('created_err', lang));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <CrmLayout pageTitle="Nyt lead">
+    <CrmLayout pageTitle={tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Nyt lead</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Opret et nyt lead i CRM. Aktivitet logges automatisk.</p>
+            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> Tilbage til leads
+            <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
           </Link>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Section title="Grundinformation" subtitle="Hvem og hvornår">
-            <Field label="Titel" required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Fx 'Aalborg Kommune – RC-1000s'" />
+          <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
+            <Field label={tt('lbl_title', lang)} required full>
+              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
-            <Field label="Ansvarlig sælger" required>
+            <Field label={tt('lbl_seller', lang)} required>
               <select
                 className={inputCls}
                 value={responsibleSellerId}
@@ -280,7 +372,7 @@ export default function CrmNewLeadPage() {
                   setResponsibleName(s ? (s.name || s.email) : '');
                 }}
               >
-                <option value="">Vælg sælger…</option>
+                <option value="">{tt('ph_seller', lang)}</option>
                 {sellers.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
@@ -288,7 +380,7 @@ export default function CrmNewLeadPage() {
                 ))}
               </select>
             </Field>
-            <Field label="Linket forhandler" required>
+            <Field label={tt('lbl_dealer', lang)} required>
               {lockedDealerNumber ? (
                 <div className={cn(inputCls, 'flex items-center justify-between bg-gray-50 text-gray-700')}>
                   <span className="truncate">{selectedDealer?.label || lockedDealerNumber}</span>
@@ -318,12 +410,12 @@ export default function CrmNewLeadPage() {
                         return hay.includes(search.toLowerCase()) ? 1 : 0;
                       }}
                     >
-                      <CommandInput placeholder="Søg forhandler, nr., by, land…" />
+                      <CommandInput placeholder={tt('search_dealer', lang)} />
                       <CommandList>
-                        <CommandEmpty>{dealersLoading ? 'Henter forhandlere…' : 'Ingen match'}</CommandEmpty>
+                        <CommandEmpty>{dealersLoading ? tt('loading_dealers', lang) : tt('no_match', lang)}</CommandEmpty>
 
                         {mineOptions.length > 0 && (
-                          <CommandGroup heading="Mine forhandlere">
+                          <CommandGroup heading={tt('mine_dealers', lang)}>
                             {mineOptions.map(o => (
                               <CommandItem
                                 key={o.value}
@@ -338,7 +430,7 @@ export default function CrmNewLeadPage() {
                         )}
 
                         {otherOptions.length > 0 && (
-                          <CommandGroup heading="Andre forhandlere">
+                          <CommandGroup heading={tt('other_dealers', lang)}>
                             {otherOptions.map(o => (
                               <CommandItem
                                 key={o.value}
@@ -357,88 +449,88 @@ export default function CrmNewLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label="Første kontakt" required>
+            <Field label={tt('lbl_first_contact', lang)} required>
               <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
             </Field>
-            <Field label="Forventet lukkedato" required>
+            <Field label={tt('lbl_expected_close', lang)} required>
               <input type="date" className={inputCls} value={expectedClose} onChange={e=>setExpectedClose(e.target.value)} />
             </Field>
-            <Field label="Næste opfølgning" required full>
+            <Field label={tt('lbl_next_followup', lang)} required full>
               <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title="Maskine-interesse" subtitle="Vælg en eller flere maskiner kunden er interesseret i">
+          <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
               <MultiChip options={MACHINE_TYPE_OPTIONS} value={machineTypes} onChange={setMachineTypes} />
             </div>
           </Section>
 
-          <Section title="Næste aktivitet">
-            <Field label="Næste aktivitet" required full>
+          <Section title={tt('sec_next_act', lang)}>
+            <Field label={tt('lbl_next_activity', lang)} required full>
               <select className={inputCls} value={nextActivity} onChange={e=>setNextActivity(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
           </Section>
 
-          <Section title="Demo">
-            <Field label="Demo afholdt?">
+          <Section title={tt('sec_demo', lang)}>
+            <Field label={tt('lbl_demo_held', lang)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setDemoHasRun(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       demoHasRun===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes'?'Ja':'Nej'}
+                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
                   </button>
                 ))}
               </div>
             </Field>
             {demoHasRun === 'yes' && (
-              <Field label="Konvertering">
+              <Field label={tt('lbl_convert', lang)}>
                 <Link to="/portal/crm/demo-leads/new" className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1">
-                  Convert to Demo Lead →
+                  {tt('cta_convert', lang)}
                 </Link>
               </Field>
             )}
           </Section>
 
-          <Section title="Kontakttype & kundetype">
-            <Field label="Kontakttype" required>
+          <Section title={tt('sec_contact_cust', lang)}>
+            <Field label={tt('lbl_contact_type', lang)} required>
               <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Kundetype" required>
+            <Field label={tt('lbl_customer_type', lang)} required>
               <select className={inputCls} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
-                <option value="">Vælg…</option>
+                <option value="">{tt('pick', lang)}</option>
                 {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
           </Section>
 
-          <Section title="Detaljer">
-            <Field label="Kontaktinformation" full>
-              <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder="Navn, telefon, email, virksomhed…" />
+          <Section title={tt('sec_details', lang)}>
+            <Field label={tt('lbl_contact_info', lang)} full>
+              <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder={tt('ph_contact_info', lang)} />
             </Field>
-            <Field label="Messe (TradeFair)">
+            <Field label={tt('lbl_tradefair', lang)}>
               <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} />
             </Field>
-            <Field label="Land">
+            <Field label={tt('lbl_country', lang)}>
               <input className={inputCls} value={country} onChange={e=>setCountry(e.target.value)} />
             </Field>
-            <Field label="Noter" full>
+            <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
-            <Field label="Budget-estimat (DKK)">
+            <Field label={tt('lbl_budget', lang)}>
               <input type="number" min={0} className={inputCls} value={estimatedValue} onChange={e=>setEstimatedValue(e.target.value)} placeholder="0" />
             </Field>
-            <Field label="Sandsynlighed (%)">
+            <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
-            <Field label="Pipeline-stage" full>
+            <Field label={tt('lbl_pipeline', lang)} full>
               <div className="flex flex-wrap gap-2">
                 {PIPELINE_STAGES.map(s => (
                   <button type="button" key={s} onClick={()=>setStage(s)}
@@ -456,38 +548,38 @@ export default function CrmNewLeadPage() {
             <section className="bg-rose-50/40 rounded-2xl border border-rose-100 shadow-sm p-6 mb-5">
               <header className="mb-5 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-rose-600" />
-                <h3 className="text-[15px] font-semibold text-rose-900">Lost Deal Analysis</h3>
+                <h3 className="text-[15px] font-semibold text-rose-900">{tt('sec_lost', lang)}</h3>
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                <Field label="Lost to competitor">
+                <Field label={tt('lbl_lost_to', lang)}>
                   <select className={inputCls} value={lostCompetitor} onChange={e=>setLostCompetitor(e.target.value)}>
-                    <option value="">Vælg…</option>
+                    <option value="">{tt('pick', lang)}</option>
                     {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </Field>
                 {lostCompetitor === 'Andre' && (
-                  <Field label="Anden konkurrent (custom)">
+                  <Field label={tt('lbl_lost_other', lang)}>
                     <input className={inputCls} value={lostCompetitorCustom} onChange={e=>setLostCompetitorCustom(e.target.value)} />
                   </Field>
                 )}
-                <Field label="Why we lost the order" full>
+                <Field label={tt('lbl_lost_reason', lang)} full>
                   <select className={inputCls} value={lostReason} onChange={e=>setLostReason(e.target.value)}>
-                    <option value="">Vælg…</option>
+                    <option value="">{tt('pick', lang)}</option>
                     {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </Field>
-                <Field label="Kommentar" full>
+                <Field label={tt('lbl_lost_comment', lang)} full>
                   <textarea className={taCls} value={lostComment} onChange={e=>setLostComment(e.target.value)} />
                 </Field>
               </div>
             </section>
           )}
 
-          <Section title="Filer" subtitle="Vedhæft tilbud, billeder eller PDF (gemmes som metadata i preview)">
+          <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
                 <Upload className="h-4 w-4 text-gray-500" />
-                <span className="text-gray-600">Klik for at vælge filer eller træk dem hertil</span>
+                <span className="text-gray-600">{tt('pick_files', lang)}</span>
                 <input type="file" multiple className="hidden" onChange={e => {
                   const list = Array.from(e.target.files || []).map(f => ({ name: f.name, size: f.size }));
                   setFiles(prev => [...prev, ...list]);
@@ -509,11 +601,11 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">Annuller</Link>
+            <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? 'Gemmer…' : 'Gem lead'}
+              {submitting ? tt('saving', lang) : tt('save', lang)}
             </button>
           </div>
         </form>
