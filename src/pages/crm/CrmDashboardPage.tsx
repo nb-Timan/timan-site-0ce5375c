@@ -263,7 +263,6 @@ export default function CrmDashboardPage() {
                     <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.pipelineValue)}
                     </p>
-                    <span className="text-[10.5px] text-emerald-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
