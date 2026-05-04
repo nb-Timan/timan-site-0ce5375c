@@ -43,9 +43,22 @@ const PORTAL_SITE_URL =
   Deno.env.get("PORTAL_SITE_URL") ?? "https://timan-portal.lovable.app";
 
 interface RequestBody {
-  action: "invite" | "reset";
+  action: "invite" | "reset" | "signup";
   email: string;
   app_user_id?: string | null;
+  // Only used for action === "signup":
+  password?: string;
+  profile?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+    company?: string;
+    address?: string;
+    city?: string;
+    postal_code?: string;
+    country?: string;
+    preferred_language?: string;
+  };
 }
 
 function json(body: unknown, status = 200): Response {
