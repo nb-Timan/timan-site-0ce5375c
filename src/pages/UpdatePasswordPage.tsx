@@ -40,7 +40,7 @@ export default function UpdatePasswordPage() {
     setSuccess(true);
     setTimeout(async () => {
       await supabase.auth.signOut();
-      navigate("/login");
+      navigate("/portal");
     }, 1800);
   };
 
