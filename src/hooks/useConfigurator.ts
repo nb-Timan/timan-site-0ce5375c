@@ -284,12 +284,23 @@ export function useConfigurator() {
         });
       });
 
+      // Check if this unit is marked as demo and add demo fee to its subtotal
+      const demoKey = `${mach.varenr}_${unit.unitNumber}`;
+      const isDemo = !!state.demoMachines[demoKey];
+      if (isDemo) {
+        const demoFee = lang === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
+        unitTotal += demoFee;
+        lineItems.push({
+          txt: `- ${T('demoMachineLabel')}`,
+          price: demoFee,
+          varenr: 'DEMO',
+          sub: true,
+        });
+      }
+
       subtotal += unitTotal;
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
 
-      // Check if this unit is marked as demo
-      const demoKey = `${mach.varenr}_${unit.unitNumber}`;
-      const isDemo = !!state.demoMachines[demoKey];
       unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
     });
 

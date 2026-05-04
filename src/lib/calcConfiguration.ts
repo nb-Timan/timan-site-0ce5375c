@@ -1,5 +1,5 @@
 import { ConfiguratorState } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getPrice, LOOSE_TOOL_KEY } from '@/data/machines';
+import { PRODUCTS, getAccessoriesFlat, getPrice, LOOSE_TOOL_KEY, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 
 /**
  * Pure calculation of subtotal, total discount and final price for a saved configuration.
@@ -69,10 +69,14 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
       unitTotal += getPrice(a, state.language) * qty;
     });
 
-    subtotal += unitTotal;
-
     const demoKey = `${mach.varenr}_${unit.unitNumber}`;
     const isDemo = !!state.demoMachines?.[demoKey];
+    if (isDemo) {
+      const demoFee = state.language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
+      unitTotal += demoFee;
+    }
+
+    subtotal += unitTotal;
     unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
   });
 
