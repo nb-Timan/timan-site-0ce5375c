@@ -275,6 +275,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           </div>
         )}
       </div>
+
+      {editingRow && (
+        <EditOrderOwnershipModal
+          row={editingRow}
+          canEdit={canEditOwnership}
+          onClose={() => setEditingRow(null)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
     </CrmLayout>
   );
 }
