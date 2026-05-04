@@ -16,7 +16,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
+import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getActiveSellerView } from '@/lib/activeMode';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
 import {
@@ -174,6 +176,7 @@ export default function CrmDashboardPage() {
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
 
@@ -181,17 +184,35 @@ export default function CrmDashboardPage() {
     let cancelled = false;
     (async () => {
       const sid = await resolveSellerId(appUser?.email);
+      const sellerView = getActiveSellerView(appUser?.email);
+      const sellerInitials = sellerView?.initials
+        ?? (portalRole === 'timan_seller' && appUser?.display_name
+            ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
+            : null);
+      const sellerEmail = sellerView?.email
+        ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
+      const dealerNumber = appUser?.dealer_number ?? null;
+
       const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
       const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      // Closed-orders KPI now comes from the SAME source as CRM → Ordrer.
+      const ord = await listScopedOrdersWithValue({
+        role: portalRole,
+        sellerId: sid,
+        sellerInitials,
+        sellerEmail,
+        dealerNumber,
+      });
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
+      setOrders(ord.rows);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, portalRole, isAdmin]);
 
-  const realMetrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
+  const realMetrics = useMemo(() => deriveMetrics(activities, orders, isAdmin), [activities, orders, isAdmin]);
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
   // Demo cleanup: never substitute mock data. Show real values (and the
@@ -859,7 +880,7 @@ interface DerivedMetrics {
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
 }
 
-function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMetrics {
+function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
   void _isAdmin;
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -895,17 +916,22 @@ function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMet
   }).length;
   const leadsPctChange = pctChange(leadsThis, leadsPrev);
 
-  const won = staged.filter(s => s.stage === 'won');
+  // Closed/won orders come from the SAME source as CRM → Ordrer
+  // (configurations / crm_configurations_view), so any order visible there
+  // is also counted here. Old "won" activities are no longer used for
+  // closed-orders KPIs to avoid double counting and seller/dealer mismatches.
   const lost = staged.filter(s => s.stage === 'lost');
-  const wonOrdersCount = won.length;
-  const winRate = (won.length + lost.length) === 0 ? 0 : Math.round((won.length / (won.length + lost.length)) * 100);
+  const wonOrdersCount = orders.length;
+  const winRate = (wonOrdersCount + lost.length) === 0
+    ? 0
+    : Math.round((wonOrdersCount / (wonOrdersCount + lost.length)) * 100);
 
-  const wonThis = won.filter(s => new Date(s.a.activity_date) >= monthStart).length;
-  const wonPrev = won.filter(s => {
-    const d = new Date(s.a.activity_date);
+  const ordersThis = orders.filter(o => new Date(o.closed_at) >= monthStart);
+  const ordersPrev = orders.filter(o => {
+    const d = new Date(o.closed_at);
     return d >= prevWindow.from && d <= prevWindow.to;
-  }).length;
-  const wonPctChange = pctChange(wonThis, wonPrev);
+  });
+  const wonPctChange = pctChange(ordersThis.length, ordersPrev.length);
 
   // Avg sales days
   const quoteDates = new Map<string, number>();
@@ -917,25 +943,18 @@ function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMet
     }
   }
   const cycles: number[] = [];
-  for (const a of activities) {
-    if (a.activity_type === 'order_sent' && a.configuration_id) {
-      const start = quoteDates.get(a.configuration_id);
-      if (start !== undefined) {
-        const days = (new Date(a.activity_date).getTime() - start) / (1000 * 60 * 60 * 24);
-        if (days >= 0 && days < 365) cycles.push(days);
-      }
+  for (const o of orders) {
+    const start = quoteDates.get(o.id);
+    if (start !== undefined) {
+      const days = (new Date(o.closed_at).getTime() - start) / (1000 * 60 * 60 * 24);
+      if (days >= 0 && days < 365) cycles.push(days);
     }
   }
   const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
 
-  const closedThisMonth = won.filter(s => new Date(s.a.activity_date) >= monthStart);
-  const closedPrev = won.filter(s => {
-    const d = new Date(s.a.activity_date);
-    return d >= prevWindow.from && d <= prevWindow.to;
-  });
-  const closedValueThisMonth = closedThisMonth.reduce((sum, s) => sum + (s.a.value || 0), 0);
-  const closedCountThisMonth = closedThisMonth.length;
-  const closedValuePrev = closedPrev.reduce((sum, s) => sum + (s.a.value || 0), 0);
+  const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value || 0), 0);
+  const closedCountThisMonth = ordersThis.length;
+  const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
   const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
@@ -950,12 +969,13 @@ function deriveMetrics(activities: CrmActivity[], _isAdmin: boolean): DerivedMet
     },
   };
 
+  // Best-performing accounts by closed-order value (orders are the source of truth).
   const bestByAccount = new Map<string, { value: number }>();
-  for (const s of won) {
-    const id = s.a.account_id;
+  for (const o of orders) {
+    const id = o.dealer_account_id;
     if (!id) continue;
     const cur = bestByAccount.get(id) || { value: 0 };
-    cur.value += s.a.value || 0;
+    cur.value += o.total_value || 0;
     bestByAccount.set(id, cur);
   }
 

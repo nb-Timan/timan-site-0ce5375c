@@ -18,6 +18,9 @@
  */
 import { supabase } from '@/lib/supabase';
 import { PortalRole } from '@/lib/portalAccess';
+import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { normalizeConfiguratorState } from '@/lib/configuratorState';
+import type { ConfiguratorState } from '@/types/configurator';
 
 export type CrmDocumentType = 'quote' | 'order';
 
@@ -173,4 +176,90 @@ export async function listCrmConfigurations(
   }
 
   return { rows: rows.filter((r) => rowVisibleToScope(r, filter)) };
+}
+
+// ────────────────────────────────────────────────────────────
+// Order-with-value helpers (Phase 23 fix — Dashboard/Budget alignment)
+// ────────────────────────────────────────────────────────────
+
+export interface CrmOrderWithValue extends CrmConfigurationRow {
+  /** Computed via calcConfigurationTotals(state_json). 0 if state missing. */
+  total_value: number;
+  /** Distinct machine_type keys from the configuration (e.g. ["RC-1000S"]). */
+  machine_keys: string[];
+  /** Per-machine quantities (e.g. {"RC-1000S": 2}). */
+  machine_qty_by_key: Record<string, number>;
+  /** Effective "closed/won" timestamp — order_sent_at ?? submitted_at ?? created_at. */
+  closed_at: string;
+}
+
+function parseStateJson(value: unknown): ConfiguratorState | null {
+  if (!value) return null;
+  try {
+    if (typeof value === 'string') {
+      return normalizeConfiguratorState(JSON.parse(value) as Partial<ConfiguratorState>);
+    }
+    return normalizeConfiguratorState(value as Partial<ConfiguratorState>);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch scoped orders (same visibility rules as listCrmConfigurations) AND
+ * compute their total_value + machine breakdown from configurations.state_json.
+ *
+ * This is the SHARED source for the CRM Dashboard "Lukkede ordrer" KPI and
+ * for Budget actuals — guaranteeing that any row visible in CRM → Ordrer is
+ * also counted on the Dashboard and in Budget.
+ */
+export async function listScopedOrdersWithValue(
+  filter: Omit<CrmConfigurationFilter, 'documentType'>,
+): Promise<{ rows: CrmOrderWithValue[]; error?: string }> {
+  const baseFilter: CrmConfigurationFilter = { ...filter, documentType: 'order' };
+  const { rows: scoped, error } = await listCrmConfigurations(baseFilter);
+  if (error) return { rows: [], error };
+  if (scoped.length === 0) return { rows: [] };
+
+  // Bulk fetch state_json for all scoped order ids.
+  const ids = scoped.map((r) => r.id);
+  const stateById = new Map<string, ConfiguratorState | null>();
+  try {
+    const { data, error: stateErr } = await supabase
+      .from('configurations')
+      .select('id, state_json')
+      .in('id', ids);
+    if (stateErr) throw stateErr;
+    for (const row of data ?? []) {
+      stateById.set(String((row as Record<string, unknown>).id), parseStateJson((row as Record<string, unknown>).state_json));
+    }
+  } catch (e) {
+    console.warn('[listScopedOrdersWithValue] state fetch failed (values will be 0):', e);
+  }
+
+  const out: CrmOrderWithValue[] = scoped.map((r) => {
+    const state = stateById.get(r.id) ?? null;
+    let total = 0;
+    const qtyByKey: Record<string, number> = {};
+    if (state) {
+      try {
+        total = calcConfigurationTotals(state).finalPrice || 0;
+      } catch { /* ignore */ }
+      for (const mc of state.machineConfigs ?? []) {
+        const key = mc.type;
+        if (!key) continue;
+        qtyByKey[key] = (qtyByKey[key] || 0) + (mc.qty || 0);
+      }
+    }
+    const closedAt = r.order_sent_at || r.submitted_at || r.last_saved_at || r.created_at;
+    return {
+      ...r,
+      total_value: total,
+      machine_keys: Object.keys(qtyByKey),
+      machine_qty_by_key: qtyByKey,
+      closed_at: closedAt,
+    };
+  });
+
+  return { rows: out };
 }
