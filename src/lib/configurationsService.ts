@@ -650,6 +650,19 @@ export async function saveConfiguration(
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
+
+  // Pre-compute subtotal/total_price so even drafts and the initial save carry
+  // monetary values (matters for legacy DBs that have these columns but no
+  // state_json column for downstream calc).
+  let initialSubtotal = 0;
+  let initialTotal = 0;
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(state);
+    initialSubtotal = Math.round(totals.subtotal || 0);
+    initialTotal = Math.round(totals.finalPrice || 0);
+  } catch { /* ignore */ }
+
   const row: Record<string, unknown> = {
     created_by_email: options.ownership.created_by_email ?? user.email?.toLowerCase() ?? ownerEmail.toLowerCase(),
     created_by_user_id: user.id,
@@ -657,6 +670,9 @@ export async function saveConfiguration(
     document_type: documentType,
     case_type: documentType,
     case_status: 'aktiv' as SavedStatus,
+    status: isOrder ? 'aktiv' : 'aktiv',
+    subtotal: initialSubtotal,
+    total_price: initialTotal,
     language: state.language,
     delivery_date: state.date || null,
     delivery_method: state.deliveryMethod || null,
