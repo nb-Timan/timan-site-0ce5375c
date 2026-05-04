@@ -203,7 +203,7 @@ export function isExternalDealerRole(role: PortalRole | null): boolean {
  * profile carries a dealer_number we can attach to the order.
  */
 export function externalDealerHasLink(
-  appUser: (SessionUser & Record<string, unknown>) | null | undefined,
+  appUser: SessionUser | null | undefined,
 ): boolean {
   return Boolean(appUser?.dealer_number);
 }
