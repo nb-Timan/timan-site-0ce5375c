@@ -16,7 +16,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
+import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getActiveSellerView } from '@/lib/activeMode';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
 import {
@@ -174,6 +176,7 @@ export default function CrmDashboardPage() {
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
 
@@ -181,17 +184,35 @@ export default function CrmDashboardPage() {
     let cancelled = false;
     (async () => {
       const sid = await resolveSellerId(appUser?.email);
+      const sellerView = getActiveSellerView(appUser?.email);
+      const sellerInitials = sellerView?.initials
+        ?? (portalRole === 'timan_seller' && appUser?.display_name
+            ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
+            : null);
+      const sellerEmail = sellerView?.email
+        ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
+      const dealerNumber = appUser?.dealer_number ?? null;
+
       const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
       const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      // Closed-orders KPI now comes from the SAME source as CRM → Ordrer.
+      const ord = await listScopedOrdersWithValue({
+        role: portalRole,
+        sellerId: sid,
+        sellerInitials,
+        sellerEmail,
+        dealerNumber,
+      });
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
+      setOrders(ord.rows);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, portalRole, isAdmin]);
 
-  const realMetrics = useMemo(() => deriveMetrics(activities, isAdmin), [activities, isAdmin]);
+  const realMetrics = useMemo(() => deriveMetrics(activities, orders, isAdmin), [activities, orders, isAdmin]);
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
   // Demo cleanup: never substitute mock data. Show real values (and the
