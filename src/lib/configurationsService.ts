@@ -898,9 +898,32 @@ export async function markAsOrderSubmitted(id: string) {
     if (row?.order_sent_at) orderSentAt = row.order_sent_at as string;
   }
 
+  // Compute totals from the persisted state so subtotal/total_price stay in
+  // sync with what the user actually saw. Falls back gracefully if the
+  // state can't be parsed.
+  let subtotal = 0;
+  let totalPrice = 0;
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
+    const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
+    if (state) {
+      const totals = calcConfigurationTotals(state);
+      subtotal = Math.round(totals.subtotal || 0);
+      totalPrice = Math.round(totals.finalPrice || 0);
+    }
+  } catch (e) {
+    console.warn('[markAsOrderSubmitted] totals calc failed (ignored):', e);
+  }
+
   const { error } = await updateConfigurationRow(id, {
     case_type: 'order',
     case_status: 'ordre_afgivet' as SavedStatus,
+    // Mirror status away from "draft" using the same submitted token.
+    // Unknown columns are stripped automatically by updateConfigurationRow.
+    status: 'ordre_afgivet',
+    subtotal,
+    total_price: totalPrice,
     submitted_at: nowIso,
     order_sent_at: orderSentAt,
     last_saved_at: nowIso,
