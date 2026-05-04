@@ -123,6 +123,15 @@ export default function ConfiguratorPage() {
     });
   }, [appUser, ownership]);
 
+  const getRequiredOwnershipPayload = useCallback(async () => {
+    try {
+      return await buildOwnershipPayload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Vælg sælger og forhandler før gem.');
+      return null;
+    }
+  }, [buildOwnershipPayload]);
+
   const lang = state.language;
   const T = (key: string) => t(key, lang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
@@ -591,14 +600,16 @@ export default function ConfiguratorPage() {
     let activeCaseId: string | null = savedConfigurationId;
     let activeQuoteNumber: string | null = savedQuoteNumber;
     let activeOrderNumber: string | null = savedOrderNumber;
+    const ownershipPayload = await getRequiredOwnershipPayload();
+    if (!ownershipPayload) return;
 
     if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const ownershipPayload = await buildOwnershipPayload();
         const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+        if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
           activeQuoteNumber = result.quote_number;
