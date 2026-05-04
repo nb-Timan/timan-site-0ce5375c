@@ -666,6 +666,19 @@ export async function saveConfiguration(
     order_number: isOrder ? generateReferenceNumber('O') : null,
     source_quote_id: sourceQuoteId ?? null,
     source_quote_number: sourceQuoteNumber ?? null,
+    // Ownership snapshot (Phase 23). Unknown columns are stripped by
+    // insertConfigurationRow's missing-column retry, so this stays
+    // backwards-compatible with databases where the migration hasn't run.
+    seller_initials:    options?.ownership?.seller_initials    ?? null,
+    seller_email:       options?.ownership?.seller_email       ?? null,
+    seller_name:        options?.ownership?.seller_name        ?? null,
+    assigned_seller_id: options?.ownership?.assigned_seller_id ?? null,
+    dealer_number:      options?.ownership?.dealer_number      ?? null,
+    dealer_name:        options?.ownership?.dealer_name        ?? null,
+    dealer_account_id:  options?.ownership?.dealer_account_id  ?? null,
+    created_by_role:    options?.ownership?.created_by_role    ?? null,
+    active_mode:        options?.ownership?.active_mode        ?? null,
+    owner_status:       options?.ownership?.owner_status       ?? 'aktiv',
   };
 
   const { data, error } = await insertConfigurationRow(row);
