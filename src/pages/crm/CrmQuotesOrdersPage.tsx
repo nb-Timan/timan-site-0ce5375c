@@ -1,0 +1,254 @@
+/**
+ * CRM Quotes & Orders pages.
+ *
+ * Lists configurator quotes (or orders) the current user is allowed to see,
+ * scoped via crmConfigurationsService.ts. Rendered by both /portal/crm/quotes
+ * and /portal/crm/orders via the `mode` prop.
+ *
+ * No pricing, configurator, PDF or webhook logic is touched here.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FileText, ShoppingCart, Search, AlertTriangle } from 'lucide-react';
+import CrmLayout from '@/components/crm/CrmLayout';
+import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { derivePortalRole } from '@/lib/portalAccess';
+import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getActiveSellerView } from '@/lib/activeMode';
+import {
+  listCrmConfigurations,
+  CrmConfigurationRow,
+  CrmDocumentType,
+} from '@/lib/crmConfigurationsService';
+import { Language } from '@/types/configurator';
+
+interface Props { mode: CrmDocumentType }
+
+const T: Record<string, Record<Language, string>> = {
+  title_quotes: { da: 'Tilbud', en: 'Quotes', de: 'Angebote', it: 'Preventivi', hu: 'Árajánlatok' },
+  title_orders: { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Rendelések' },
+  subtitle_quotes: {
+    da: 'Tilbud oprettet via Timan-konfiguratoren.',
+    en: 'Quotes created from the Timan configurator.',
+    de: 'Im Konfigurator erstellte Angebote.',
+    it: 'Preventivi creati dal configuratore.',
+    hu: 'A Timan konfigurátorban készült árajánlatok.',
+  },
+  subtitle_orders: {
+    da: 'Ordrer oprettet via Timan-konfiguratoren.',
+    en: 'Orders created from the Timan configurator.',
+    de: 'Im Konfigurator erstellte Aufträge.',
+    it: 'Ordini creati dal configuratore.',
+    hu: 'A Timan konfigurátorban készült rendelések.',
+  },
+  search: { da: 'Søg…', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
+  empty_quotes: {
+    da: 'Ingen tilbud at vise. Opret et tilbud i konfiguratoren.',
+    en: 'No quotes to show. Create one in the configurator.',
+    de: 'Keine Angebote vorhanden.',
+    it: 'Nessun preventivo da mostrare.',
+    hu: 'Nincs megjeleníthető árajánlat.',
+  },
+  empty_orders: {
+    da: 'Ingen ordrer at vise. Opret en ordre i konfiguratoren.',
+    en: 'No orders to show. Create one in the configurator.',
+    de: 'Keine Aufträge vorhanden.',
+    it: 'Nessun ordine da mostrare.',
+    hu: 'Nincs megjeleníthető rendelés.',
+  },
+  col_number: { da: 'Nummer', en: 'Number', de: 'Nummer', it: 'Numero', hu: 'Szám' },
+  col_title: { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  col_seller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
+  col_dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+  col_status: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
+  col_created: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
+  col_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
+  count_label: { da: 'rækker', en: 'rows', de: 'Zeilen', it: 'righe', hu: 'sor' },
+  scope_backend: { da: 'Viser alle (Backend)', en: 'Showing all (Backend)', de: 'Alle (Backend)', it: 'Tutti (Backend)', hu: 'Mind (Backend)' },
+  scope_seller: { da: 'Viser kun egne', en: 'Showing only own', de: 'Nur eigene', it: 'Solo i propri', hu: 'Csak sajátok' },
+  scope_dealer: { da: 'Viser kun egen forhandler', en: 'Showing only own dealer', de: 'Nur eigener Händler', it: 'Solo proprio rivenditore', hu: 'Csak saját kereskedő' },
+};
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('da-DK'); } catch { return '—'; }
+}
+
+function statusBadge(status: string | null): { label: string; cls: string } {
+  const s = (status || 'aktiv').toLowerCase();
+  if (s === 'ordre_afgivet') return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (s === 'pause')         return { label: 'Pause',         cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+  if (s === 'aktiv')         return { label: 'Aktiv',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  return { label: status || '—', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+}
+
+export default function CrmQuotesOrdersPage({ mode }: Props) {
+  const { appUser } = useAppUser();
+  const { language: lang } = useLanguage();
+  const portalRole = derivePortalRole(appUser);
+
+  const [rows, setRows] = useState<CrmConfigurationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
+  const isSeller = portalRole === 'timan_seller';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      const sellerId = await resolveSellerId(appUser?.email);
+      const sellerView = getActiveSellerView(appUser?.email);
+      const sellerInitials = sellerView?.initials
+        ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
+      const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
+      const dealerNumber = appUser?.dealer_number ?? null;
+
+      const { rows: fetched, error: err } = await listCrmConfigurations({
+        role: portalRole,
+        sellerId,
+        sellerInitials,
+        sellerEmail,
+        dealerNumber,
+        documentType: mode,
+      });
+      if (cancelled) return;
+      if (err) setError(err);
+      setRows(fetched);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const hay = [
+        r.quote_number, r.order_number, r.title,
+        r.seller_initials, r.seller_email, r.seller_name,
+        r.dealer_number, r.dealer_name, r.dealer_company_name,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
+
+  const titleKey = mode === 'order' ? 'title_orders' : 'title_quotes';
+  const subtitleKey = mode === 'order' ? 'subtitle_orders' : 'subtitle_quotes';
+  const emptyKey = mode === 'order' ? 'empty_orders' : 'empty_quotes';
+  const Icon = mode === 'order' ? ShoppingCart : FileText;
+
+  const scopeLabel = isBackendFull ? T.scope_backend[lang]
+    : isSeller || getActiveSellerView(appUser?.email) ? T.scope_seller[lang]
+    : T.scope_dealer[lang];
+
+  return (
+    <CrmLayout pageTitle={T[titleKey][lang]}>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-[#2d5a27] border border-emerald-100 flex items-center justify-center">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">{T[titleKey][lang]}</h2>
+              <p className="text-sm text-slate-500 mt-0.5">{T[subtitleKey][lang]}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs px-3 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200">
+              {scopeLabel}
+            </span>
+            <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {filtered.length} {T.count_label[lang]}
+            </span>
+          </div>
+        </div>
+
+        <div className="relative mb-4 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={T.search[lang]}
+            className="w-full pl-10 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+          />
+        </div>
+
+        {error && (
+          <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>{error}</div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-12 text-center text-sm text-slate-500">…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 mb-3">
+              <Icon className="h-6 w-6" />
+            </div>
+            <p className="text-sm text-slate-500">{T[emptyKey][lang]}</p>
+            <Link to="/configurator" className="inline-block mt-3 text-sm font-medium text-[#2d5a27] hover:underline">
+              → Konfigurator
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-2">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_number[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_title[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_seller[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => {
+                  const number = mode === 'order'
+                    ? (r.order_number || r.quote_number || r.id.slice(0, 8))
+                    : (r.quote_number || r.id.slice(0, 8));
+                  const sentAt = mode === 'order' ? r.order_sent_at : r.quote_sent_at;
+                  const badge = statusBadge(r.case_status);
+                  const dealerLabel = r.dealer_company_name
+                    ?? r.dealer_name
+                    ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
+                  return (
+                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                      <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">{number}</td>
+                      <td className="px-3 py-2.5 text-slate-800 max-w-[280px] truncate">{r.title || '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
+                        {r.seller_initials || r.seller_name || r.seller_email || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-700 max-w-[260px] truncate">
+                        {dealerLabel}
+                        {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {r.dealer_country}</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </CrmLayout>
+  );
+}
