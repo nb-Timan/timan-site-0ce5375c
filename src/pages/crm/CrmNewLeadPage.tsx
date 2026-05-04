@@ -357,13 +357,13 @@ export default function CrmNewLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label="Første kontakt">
+            <Field label="Første kontakt" required>
               <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
             </Field>
-            <Field label="Forventet lukkedato">
+            <Field label="Forventet lukkedato" required>
               <input type="date" className={inputCls} value={expectedClose} onChange={e=>setExpectedClose(e.target.value)} />
             </Field>
-            <Field label="Næste opfølgning" full>
+            <Field label="Næste opfølgning" required full>
               <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
             </Field>
           </Section>
