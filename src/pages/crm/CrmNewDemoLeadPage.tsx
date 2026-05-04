@@ -1,17 +1,96 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createDemoLead, DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
 } from '@/lib/crmLeadsService';
+import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { fetchBackendUsers } from '@/lib/backendUsersService';
+import type { BackendUser } from '@/lib/backend-users-store';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, X, Upload } from 'lucide-react';
+import { ArrowLeft, Save, X, Upload, ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Button } from '@/components/ui/button';
 
+// ---------- i18n. English is the fallback. ----------
+type TKey =
+  | 'page_title' | 'page_sub' | 'back' | 'cancel' | 'saving' | 'save'
+  | 'sec_basic' | 'sec_demo_type' | 'sec_demo_type_sub' | 'sec_demo_machine'
+  | 'sec_demo_equipment' | 'sec_demo_equipment_sub' | 'sec_demo_result'
+  | 'sec_status' | 'sec_files' | 'sec_files_sub'
+  | 'lbl_title' | 'ph_title' | 'lbl_seller' | 'ph_seller' | 'lbl_dealer'
+  | 'ph_dealer' | 'lbl_dealer_rep' | 'lbl_customer' | 'lbl_customer_addr'
+  | 'lbl_notes' | 'lbl_demo_date' | 'lbl_interest' | 'lbl_wants_offer'
+  | 'lbl_followup' | 'lbl_value' | 'lbl_probability' | 'lbl_competitors'
+  | 'lbl_competitor_name' | 'lbl_notes_after' | 'yes' | 'no'
+  | 'pick_files' | 'mine_dealers' | 'other_dealers' | 'loading_dealers'
+  | 'no_match' | 'val_title' | 'val_seller' | 'val_dealer'
+  | 'created_ok' | 'created_err' | 'search_dealer';
+
+const T: Record<TKey, Record<Language, string>> = {
+  page_title:    { da: 'Nyt demo lead', en: 'New demo lead', de: 'Neuer Demo-Lead', it: 'Nuovo demo lead', hu: 'Új demo lead' },
+  page_sub:      { da: 'Opfølgning efter en gennemført maskindemonstration.', en: 'Follow-up after a completed machine demo.', de: 'Nachbereitung einer durchgeführten Maschinendemo.', it: 'Follow-up dopo una demo macchina completata.', hu: 'Utánkövetés egy elvégzett gép-bemutató után.' },
+  back:          { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
+  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
+  saving:        { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…' },
+  save:          { da: 'Gem demo lead', en: 'Save demo lead', de: 'Demo-Lead speichern', it: 'Salva demo lead', hu: 'Demo lead mentése' },
+  sec_basic:     { da: 'Grundinformation', en: 'Basic information', de: 'Grundinformationen', it: 'Informazioni di base', hu: 'Alapadatok' },
+  sec_demo_type: { da: 'Demo-type', en: 'Demo type', de: 'Demo-Typ', it: 'Tipo di demo', hu: 'Demo típus' },
+  sec_demo_type_sub: { da: 'Hvad blev demonstreret', en: 'What was demonstrated', de: 'Was wurde vorgeführt', it: 'Cosa è stato dimostrato', hu: 'Mit mutattak be' },
+  sec_demo_machine: { da: 'Demonstreret maskine', en: 'Demonstrated machine', de: 'Vorgeführte Maschine', it: 'Macchina dimostrata', hu: 'Bemutatott gép' },
+  sec_demo_equipment: { da: 'Demonstreret udstyr', en: 'Demonstrated equipment', de: 'Vorgeführtes Zubehör', it: 'Attrezzatura dimostrata', hu: 'Bemutatott felszerelés' },
+  sec_demo_equipment_sub: { da: 'Vælg et eller flere', en: 'Select one or more', de: 'Eines oder mehrere wählen', it: 'Selezionare uno o più', hu: 'Válasszon egyet vagy többet' },
+  sec_demo_result: { da: 'Demo-resultat', en: 'Demo result', de: 'Demo-Ergebnis', it: 'Risultato demo', hu: 'Demo eredmény' },
+  sec_status:    { da: 'Resultat (status)', en: 'Result (status)', de: 'Ergebnis (Status)', it: 'Risultato (stato)', hu: 'Eredmény (státusz)' },
+  sec_files:     { da: 'Vedhæftninger', en: 'Attachments', de: 'Anhänge', it: 'Allegati', hu: 'Mellékletek' },
+  sec_files_sub: { da: 'Billeder, signerede papirer, noter, demo-dokumenter', en: 'Photos, signed papers, notes, demo documents', de: 'Fotos, unterschriebene Papiere, Notizen, Demo-Dokumente', it: 'Foto, documenti firmati, note, documenti demo', hu: 'Fényképek, aláírt papírok, jegyzetek, demo dokumentumok' },
+  lbl_title:     { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  ph_title:      { da: "Fx 'Demo Aalborg Kommune – RC-1000s'", en: "e.g. 'Demo Aalborg – RC-1000s'", de: "z. B. 'Demo Aalborg – RC-1000s'", it: "es. 'Demo Aalborg – RC-1000s'", hu: "Pl. 'Demo Aalborg – RC-1000s'" },
+  lbl_seller:    { da: 'Ansvarlig sælger', en: 'Responsible seller', de: 'Verantwortlicher Verkäufer', it: 'Venditore responsabile', hu: 'Felelős értékesítő' },
+  ph_seller:     { da: 'Vælg sælger…', en: 'Select seller…', de: 'Verkäufer wählen…', it: 'Seleziona venditore…', hu: 'Válasszon értékesítőt…' },
+  lbl_dealer:    { da: 'Forhandler-firma', en: 'Dealer company', de: 'Händler-Firma', it: 'Azienda rivenditore', hu: 'Kereskedő cég' },
+  ph_dealer:     { da: 'Vælg forhandler…', en: 'Select dealer…', de: 'Händler wählen…', it: 'Seleziona rivenditore…', hu: 'Válasszon kereskedőt…' },
+  lbl_dealer_rep:{ da: 'Sælger / demonstrator hos forhandler', en: 'Seller / demonstrator at dealer', de: 'Verkäufer / Vorführer beim Händler', it: 'Venditore / dimostratore presso rivenditore', hu: 'Értékesítő / bemutató a kereskedőnél' },
+  lbl_customer:  { da: 'Kunde-firma / CVR', en: 'Customer company / VAT', de: 'Kundenfirma / USt-IdNr.', it: 'Azienda cliente / P.IVA', hu: 'Ügyfél cég / adószám' },
+  lbl_customer_addr: { da: 'Kunde-adresse', en: 'Customer address', de: 'Kundenadresse', it: 'Indirizzo cliente', hu: 'Ügyfél cím' },
+  lbl_notes:     { da: 'Noter / øvrig info', en: 'Notes / other info', de: 'Notizen / weitere Infos', it: 'Note / altre info', hu: 'Megjegyzések / egyéb' },
+  lbl_demo_date: { da: 'Demo-dato', en: 'Demo date', de: 'Demo-Datum', it: 'Data demo', hu: 'Demo dátuma' },
+  lbl_interest:  { da: 'Kundens interesse (1-5)', en: "Customer interest (1-5)", de: 'Kundeninteresse (1-5)', it: 'Interesse cliente (1-5)', hu: 'Vevői érdeklődés (1-5)' },
+  lbl_wants_offer:{ da: 'Ønsker tilbud?', en: 'Wants quote?', de: 'Möchte Angebot?', it: 'Vuole preventivo?', hu: 'Kér árajánlatot?' },
+  lbl_followup:  { da: 'Opfølgningsdato', en: 'Follow-up date', de: 'Nachfass-Datum', it: 'Data follow-up', hu: 'Utánkövetés dátuma' },
+  lbl_value:     { da: 'Forventet handelsstørrelse (DKK)', en: 'Expected deal size (DKK)', de: 'Erwartete Auftragsgröße (DKK)', it: 'Dimensione affare attesa (DKK)', hu: 'Várható üzletméret (DKK)' },
+  lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
+  lbl_competitors:{ da: 'Konkurrenter til stede?', en: 'Competitors present?', de: 'Wettbewerber anwesend?', it: 'Concorrenti presenti?', hu: 'Versenytársak jelen?' },
+  lbl_competitor_name:{ da: 'Hvilken konkurrent', en: 'Which competitor', de: 'Welcher Wettbewerber', it: 'Quale concorrente', hu: 'Melyik versenytárs' },
+  lbl_notes_after:{ da: 'Noter efter demo', en: 'Notes after demo', de: 'Notizen nach Demo', it: 'Note dopo demo', hu: 'Jegyzetek a demo után' },
+  yes:           { da: 'Ja', en: 'Yes', de: 'Ja', it: 'Sì', hu: 'Igen' },
+  no:            { da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' },
+  pick_files:    { da: 'Klik for at vælge filer', en: 'Click to choose files', de: 'Dateien auswählen', it: 'Clicca per scegliere file', hu: 'Kattintson fájlt választani' },
+  mine_dealers:  { da: 'Mine forhandlere', en: 'My dealers', de: 'Meine Händler', it: 'I miei rivenditori', hu: 'Kereskedőim' },
+  other_dealers: { da: 'Andre forhandlere', en: 'Other dealers', de: 'Andere Händler', it: 'Altri rivenditori', hu: 'Más kereskedők' },
+  loading_dealers:{ da: 'Henter forhandlere…', en: 'Loading dealers…', de: 'Händler laden…', it: 'Caricamento rivenditori…', hu: 'Kereskedők betöltése…' },
+  no_match:      { da: 'Ingen match', en: 'No match', de: 'Kein Treffer', it: 'Nessuna corrispondenza', hu: 'Nincs találat' },
+  search_dealer: { da: 'Søg forhandler, nr., by, land…', en: 'Search dealer, no., city, country…', de: 'Händler, Nr., Stadt, Land suchen…', it: 'Cerca rivenditore, n., città, paese…', hu: 'Keresés: kereskedő, szám, város, ország…' },
+  val_title:     { da: 'Titel er påkrævet', en: 'Title is required', de: 'Titel ist erforderlich', it: 'Il titolo è obbligatorio', hu: 'A cím kötelező' },
+  val_seller:    { da: 'Vælg en ansvarlig sælger.', en: 'Select a responsible seller.', de: 'Wählen Sie einen Verkäufer.', it: 'Selezionare un venditore.', hu: 'Válasszon felelős értékesítőt.' },
+  val_dealer:    { da: 'Vælg en forhandler.', en: 'Select a dealer.', de: 'Wählen Sie einen Händler.', it: 'Selezionare un rivenditore.', hu: 'Válasszon kereskedőt.' },
+  created_ok:    { da: 'Demo lead oprettet', en: 'Demo lead created', de: 'Demo-Lead erstellt', it: 'Demo lead creato', hu: 'Demo lead létrehozva' },
+  created_err:   { da: 'Kunne ikke oprette demo lead', en: 'Could not create demo lead', de: 'Demo-Lead konnte nicht erstellt werden', it: 'Impossibile creare il demo lead', hu: 'Nem sikerült létrehozni a demo leadet' },
+};
+
+function tt(k: TKey, lang: Language): string {
+  return T[k][lang] || T[k].en;
+}
+
+// ---------- Tiny shared form primitives ----------
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
@@ -57,8 +136,27 @@ function Chips({ options, value, onChange, single }: { options: readonly string[
   );
 }
 
+// ---------- Dealer picker option ----------
+interface DealerOption {
+  value: string;
+  label: string;
+  searchKey: string;
+  isMine: boolean;
+}
+function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
+  const initials = d.assigned_seller_initials || '';
+  const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ''}`;
+  return {
+    value: d.account_number,
+    label,
+    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(' ').toLowerCase(),
+    isMine: mine,
+  };
+}
+
 export default function CrmNewDemoLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
+  const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
@@ -66,8 +164,10 @@ export default function CrmNewDemoLeadPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [title, setTitle] = useState('');
+  const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
   const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
-  const [dealerCompany, setDealerCompany] = useState('');
+  const [dealerCompany, setDealerCompany] = useState<string>(''); // account_number
+  const [dealerCompanyLabel, setDealerCompanyLabel] = useState<string>(''); // display label persisted to DB
   const [dealerRep, setDealerRep] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -91,19 +191,86 @@ export default function CrmNewDemoLeadPage() {
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Dealers + sellers
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealersLoading, setDealersLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [sellers, setSellers] = useState<BackendUser[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDealersLoading(true);
+    fetchDealerAccounts({ includeDeleted: false })
+      .then(res => { if (!cancelled) setDealers(res.rows); })
+      .catch(() => { /* keep empty */ })
+      .finally(() => { if (!cancelled) setDealersLoading(false); });
+    fetchBackendUsers()
+      .then(res => {
+        if (cancelled) return;
+        const list = res.users
+          .filter(u => (u.role === 'timan_seller' || u.role === 'timan_backend') && u.status === 'active')
+          .sort((a, b) => (a.initials || '').localeCompare(b.initials || ''));
+        setSellers(list);
+      })
+      .catch(() => { /* keep empty */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Default responsible seller = active seller context (logged-in user, or "view as" seller).
+  useEffect(() => {
+    if (responsibleSellerId) return;
+    if (!sellers.length || !appUser?.email) return;
+    // resolveSellerId honours backend "view as <seller>" override.
+    let cancelled = false;
+    (async () => {
+      const sid = await resolveSellerId(appUser.email);
+      if (cancelled) return;
+      const me = sid
+        ? sellers.find(s => s.id === sid)
+        : sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
+      if (me) {
+        setResponsibleSellerId(me.id);
+        setResponsibleName(me.name || me.email);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sellers, appUser?.email, responsibleSellerId]);
+
+  const { mineOptions, otherOptions, allOptions } = useMemo(() => {
+    const selected = sellers.find(s => s.id === responsibleSellerId);
+    const mineEmail = (selected?.email || appUser?.email || '').toLowerCase();
+    const mineInitials = (selected?.initials || '').toUpperCase();
+    const opts = dealers.map(d => {
+      const de = (d.assigned_seller_email || '').toLowerCase();
+      const di = (d.assigned_seller_initials || '').toUpperCase();
+      const mine = (mineEmail !== '' && de === mineEmail) || (mineInitials !== '' && di === mineInitials);
+      return dealerToOption(d, mine);
+    });
+    const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
+    const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
+    return { mineOptions: mine, otherOptions: others, allOptions: opts };
+  }, [dealers, sellers, responsibleSellerId, appUser?.email]);
+
+  const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
+  const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
+
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) { toast.error('Titel er påkrævet'); return; }
+    if (!title.trim())        { toast.error(tt('val_title', lang)); return; }
+    if (!responsibleSellerId) { toast.error(tt('val_seller', lang)); return; }
+    if (!dealerCompany)       { toast.error(tt('val_dealer', lang)); return; }
     setSubmitting(true);
     try {
-      const sellerId = await resolveSellerId(appUser?.email);
+      const chosen = sellers.find(s => s.id === responsibleSellerId);
+      const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
+      const dealerLabel = selectedDealer?.label || dealerCompanyLabel || dealerCompany;
       await createDemoLead({
         title: title.trim(),
         owner_user_id: sellerId,
-        owner_name: responsibleName || null,
-        dealer_company: dealerCompany || null,
+        owner_name: chosen?.name || responsibleName || null,
+        dealer_company: dealerLabel || null,
         dealer_rep: dealerRep || null,
         customer_name: customerName || null,
         customer_address: customerAddress || null,
@@ -123,77 +290,155 @@ export default function CrmNewDemoLeadPage() {
         result_status: status,
         attachments: files,
       });
-      toast.success('Demo lead oprettet');
+      toast.success(tt('created_ok', lang));
       navigate('/portal/crm/demo-leads');
     } catch (err) {
       console.error(err);
-      toast.error('Kunne ikke oprette demo lead');
+      toast.error(tt('created_err', lang));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <CrmLayout pageTitle="Nyt demo lead">
+    <CrmLayout pageTitle={tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Nyt demo lead</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Opfølgning efter en gennemført maskindemonstration.</p>
+            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/demo-leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> Tilbage
+            <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
           </Link>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Section title="Grundinformation">
-            <Field label="Titel" required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Fx 'Demo Aalborg Kommune – RC-1000s'" />
+          <Section title={tt('sec_basic', lang)}>
+            <Field label={tt('lbl_title', lang)} required full>
+              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
-            <Field label="Ansvarlig sælger">
-              <input className={inputCls} value={responsibleName} onChange={e=>setResponsibleName(e.target.value)} />
+
+            <Field label={tt('lbl_seller', lang)} required>
+              <select
+                className={inputCls}
+                value={responsibleSellerId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setResponsibleSellerId(id);
+                  const s = sellers.find(x => x.id === id);
+                  setResponsibleName(s ? (s.name || s.email) : '');
+                }}
+              >
+                <option value="">{tt('ph_seller', lang)}</option>
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
+                  </option>
+                ))}
+              </select>
             </Field>
-            <Field label="Forhandler-firma">
-              <input className={inputCls} value={dealerCompany} onChange={e=>setDealerCompany(e.target.value)} />
+
+            <Field label={tt('lbl_dealer', lang)} required>
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
+                      !dealerCompany && 'text-gray-400'
+                    )}
+                  >
+                    <span className="truncate text-left">{dealerTriggerLabel}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[320px]" align="start">
+                  <Command
+                    filter={(value, search) => {
+                      const opt = allOptions.find(o => o.value === value);
+                      const hay = opt ? opt.searchKey : value.toLowerCase();
+                      return hay.includes(search.toLowerCase()) ? 1 : 0;
+                    }}
+                  >
+                    <CommandInput placeholder={tt('search_dealer', lang)} />
+                    <CommandList>
+                      <CommandEmpty>{dealersLoading ? tt('loading_dealers', lang) : tt('no_match', lang)}</CommandEmpty>
+
+                      {mineOptions.length > 0 && (
+                        <CommandGroup heading={tt('mine_dealers', lang)}>
+                          {mineOptions.map(o => (
+                            <CommandItem
+                              key={o.value}
+                              value={o.value}
+                              onSelect={() => { setDealerCompany(o.value); setDealerCompanyLabel(o.label); setPickerOpen(false); }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', dealerCompany === o.value ? 'opacity-100' : 'opacity-0')} />
+                              <span className="truncate">{o.label}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+
+                      {otherOptions.length > 0 && (
+                        <CommandGroup heading={tt('other_dealers', lang)}>
+                          {otherOptions.map(o => (
+                            <CommandItem
+                              key={o.value}
+                              value={o.value}
+                              onSelect={() => { setDealerCompany(o.value); setDealerCompanyLabel(o.label); setPickerOpen(false); }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', dealerCompany === o.value ? 'opacity-100' : 'opacity-0')} />
+                              <span className="truncate">{o.label}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </Field>
-            <Field label="Sælger / demonstrator hos forhandler">
+
+            <Field label={tt('lbl_dealer_rep', lang)}>
               <input className={inputCls} value={dealerRep} onChange={e=>setDealerRep(e.target.value)} />
             </Field>
-            <Field label="Kunde-firma / CVR">
+            <Field label={tt('lbl_customer', lang)}>
               <input className={inputCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />
             </Field>
-            <Field label="Kunde-adresse" full>
+            <Field label={tt('lbl_customer_addr', lang)} full>
               <input className={inputCls} value={customerAddress} onChange={e=>setCustomerAddress(e.target.value)} />
             </Field>
-            <Field label="Noter / øvrig info" full>
+            <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title="Demo-type" subtitle="Hvad blev demonstreret">
+          <Section title={tt('sec_demo_type', lang)} subtitle={tt('sec_demo_type_sub', lang)}>
             <div className="md:col-span-2">
               <Chips options={DEMO_MACHINE_CATEGORY} value={machineCategory} onChange={setMachineCategory} />
             </div>
           </Section>
 
-          <Section title="Demonstreret maskine">
+          <Section title={tt('sec_demo_machine', lang)}>
             <div className="md:col-span-2">
               <Chips options={DEMO_MACHINE_OPTIONS} value={demoMachine} onChange={setDemoMachine} single />
             </div>
           </Section>
 
-          <Section title="Demonstreret udstyr" subtitle="Vælg et eller flere">
+          <Section title={tt('sec_demo_equipment', lang)} subtitle={tt('sec_demo_equipment_sub', lang)}>
             <div className="md:col-span-2">
               <Chips options={DEMO_EQUIPMENT_OPTIONS} value={demoEquipment} onChange={setDemoEquipment} />
             </div>
           </Section>
 
-          <Section title="Demo-resultat">
-            <Field label="Demo-dato">
+          <Section title={tt('sec_demo_result', lang)}>
+            <Field label={tt('lbl_demo_date', lang)}>
               <input type="date" className={inputCls} value={demoDate} onChange={e=>setDemoDate(e.target.value)} />
             </Field>
-            <Field label="Kundens interesse (1-5)">
+            <Field label={tt('lbl_interest', lang)}>
               <div className="flex gap-2">
                 {[1,2,3,4,5].map(n => (
                   <button type="button" key={n} onClick={()=>setInterest(n)}
@@ -204,48 +449,48 @@ export default function CrmNewDemoLeadPage() {
                 ))}
               </div>
             </Field>
-            <Field label="Ønsker tilbud?">
+            <Field label={tt('lbl_wants_offer', lang)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setWantsOffer(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       wantsOffer===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes'?'Ja':'Nej'}
+                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
                   </button>
                 ))}
               </div>
             </Field>
-            <Field label="Opfølgningsdato">
+            <Field label={tt('lbl_followup', lang)}>
               <input type="date" className={inputCls} value={followup} onChange={e=>setFollowup(e.target.value)} />
             </Field>
-            <Field label="Forventet handelsstørrelse (DKK)">
+            <Field label={tt('lbl_value', lang)}>
               <input type="number" min={0} className={inputCls} value={estValue} onChange={e=>setEstValue(e.target.value)} />
             </Field>
-            <Field label="Sandsynlighed (%)">
+            <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
-            <Field label="Konkurrenter til stede?">
+            <Field label={tt('lbl_competitors', lang)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setCompetitorsPresent(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       competitorsPresent===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes'?'Ja':'Nej'}
+                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
                   </button>
                 ))}
               </div>
             </Field>
             {competitorsPresent === 'yes' && (
-              <Field label="Hvilken konkurrent">
+              <Field label={tt('lbl_competitor_name', lang)}>
                 <input className={inputCls} value={competitorName} onChange={e=>setCompetitorName(e.target.value)} />
               </Field>
             )}
-            <Field label="Noter efter demo" full>
+            <Field label={tt('lbl_notes_after', lang)} full>
               <textarea className={taCls} value={notesAfter} onChange={e=>setNotesAfter(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title="Resultat (status)">
+          <Section title={tt('sec_status', lang)}>
             <div className="md:col-span-2 flex flex-wrap gap-2">
               {DEMO_RESULT_STATUS.map(s => (
                 <button type="button" key={s} onClick={()=>setStatus(s)}
@@ -257,11 +502,11 @@ export default function CrmNewDemoLeadPage() {
             </div>
           </Section>
 
-          <Section title="Vedhæftninger" subtitle="Billeder, signerede papirer, noter, demo-dokumenter">
+          <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
                 <Upload className="h-4 w-4 text-gray-500" />
-                <span className="text-gray-600">Klik for at vælge filer</span>
+                <span className="text-gray-600">{tt('pick_files', lang)}</span>
                 <input type="file" multiple className="hidden" onChange={e => {
                   const list = Array.from(e.target.files || []).map(f => ({ name: f.name, size: f.size }));
                   setFiles(prev => [...prev, ...list]);
@@ -283,11 +528,11 @@ export default function CrmNewDemoLeadPage() {
           </Section>
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/demo-leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">Annuller</Link>
+            <Link to="/portal/crm/demo-leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? 'Gemmer…' : 'Gem demo lead'}
+              {submitting ? tt('saving', lang) : tt('save', lang)}
             </button>
           </div>
         </form>
