@@ -180,6 +180,7 @@ function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
 
 export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
+  const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
