@@ -1985,6 +1985,14 @@ export default function CrmBudgetPage() {
         }}
       />
 
+      <BudgetReferenceModal
+        open={refModal != null}
+        ctx={refModal}
+        onClose={() => setRefModal(null)}
+        onSaved={() => setAuditRefreshKey((k) => k + 1)}
+      />
+
+
       {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
