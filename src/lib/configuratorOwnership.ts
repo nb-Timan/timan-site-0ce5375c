@@ -39,6 +39,9 @@ export interface ConfiguratorOwnership {
   owner_status: string | null;
 }
 
+export const OWNERSHIP_REQUIRED_MESSAGE = 'Vælg sælger og forhandler før gem.';
+export const EXTERNAL_DEALER_MISSING_MESSAGE = 'Din bruger har ingen forhandler tilknyttet – kontakt admin.';
+
 /** Extract the BP/JTN/EM/AKR/NB initials hint from a display name like "BP (Timan)". */
 function initialsFromDisplayName(displayName: string | null | undefined): string | null {
   if (!displayName) return null;
@@ -207,6 +210,15 @@ export async function buildConfiguratorOwnership(
         }
       } catch { /* ignore */ }
     }
+  }
+
+  const isExternal = isExternalDealerRole(portalRole);
+  if (isExternal && (!dealerNumber || !dealerAccountId)) {
+    throw new Error(EXTERNAL_DEALER_MISSING_MESSAGE);
+  }
+
+  if (!isExternal && (!sellerInitials || !sellerEmail || !assignedSellerId || !dealerNumber || !dealerAccountId)) {
+    throw new Error(OWNERSHIP_REQUIRED_MESSAGE);
   }
 
   return {
