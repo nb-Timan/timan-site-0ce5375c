@@ -78,6 +78,7 @@ function statusColor(status: SavedStatus): string {
 }
 
 export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration }: Props) {
+  const { appUser: sessionUser } = useAppUser();
   const [open, setOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
@@ -95,6 +96,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     const items = await loadConfigurations(userEmail);
     setSavedItems(items);
   }, [userEmail]);
+
+  const handleSave = async () => {
 
   useEffect(() => {
     if (open) refreshItems();
