@@ -236,22 +236,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ---- 4) Look up auth user (paginated lookup; admin API has no by-email helper) ----
-  async function findAuthUserByEmail(email: string) {
-    const perPage = 200;
-    for (let page = 1; page <= 50; page++) {
-      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-      if (error) throw error;
-      const hit = data.users.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (hit) return hit;
-      if (data.users.length < perPage) break;
-    }
-    return null;
-  }
-
   let authUser;
   try {
-    authUser = await findAuthUserByEmail(targetEmail);
+    authUser = await findAuthUserByEmail(admin, targetEmail);
   } catch (e) {
     return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
   }
