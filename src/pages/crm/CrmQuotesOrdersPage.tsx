@@ -220,6 +220,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                  {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
               <tbody>
