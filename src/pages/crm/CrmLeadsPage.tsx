@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -11,6 +13,51 @@ import {
 } from '@/lib/crmLeadsService';
 import { Plus, Search, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// ---- i18n. English fallback. ----
+type TKey =
+  | 'page_title' | 'sub_admin' | 'sub_seller' | 'pcs'
+  | 'unassigned' | 'new_demo' | 'new_lead'
+  | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
+  | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
+  | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
+  | 'col_equipment' | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
+  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link';
+
+const T: Record<TKey, Record<Language, string>> = {
+  page_title:    { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Leadek' },
+  sub_admin:     { da: 'Alle leads og demoer i organisationen', en: 'All leads and demos in the organisation', de: 'Alle Leads und Demos in der Organisation', it: 'Tutti i lead e demo dell\'organizzazione', hu: 'Az összes lead és demo a szervezetben' },
+  sub_seller:    { da: 'Dine tildelte leads og demoer', en: 'Your assigned leads and demos', de: 'Deine zugewiesenen Leads und Demos', it: 'I tuoi lead e demo assegnati', hu: 'A neked rendelt leadek és demók' },
+  pcs:           { da: 'stk', en: 'pcs', de: 'Stk', it: 'pz', hu: 'db' },
+  unassigned:    { da: 'utildelt', en: 'unassigned', de: 'nicht zugewiesen', it: 'non assegnati', hu: 'kiosztatlan' },
+  new_demo:      { da: 'Ny demo-registrering', en: 'New demo registration', de: 'Neue Demo-Registrierung', it: 'Nuova registrazione demo', hu: 'Új demo regisztráció' },
+  new_lead:      { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
+  tab_all:       { da: 'Alle leads', en: 'All leads', de: 'Alle Leads', it: 'Tutti i lead', hu: 'Összes lead' },
+  tab_open:      { da: 'Åbne leads', en: 'Open leads', de: 'Offene Leads', it: 'Lead aperti', hu: 'Nyitott leadek' },
+  tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek' },
+  tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek' },
+  tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók' },
+  search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…' },
+  all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz' },
+  loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
+  empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben' },
+  empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.' },
+  col_type:      { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus' },
+  col_title:     { da: 'Titel / Kunde', en: 'Title / Customer', de: 'Titel / Kunde', it: 'Titolo / Cliente', hu: 'Cím / Ügyfél' },
+  col_dealer:    { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+  col_owner:     { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos' },
+  col_machine:   { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép' },
+  col_equipment: { da: 'Udstyr', en: 'Equipment', de: 'Zubehör', it: 'Attrezzatura', hu: 'Felszerelés' },
+  col_date:      { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
+  col_followup:  { da: 'Næste opf.', en: 'Next f/u', de: 'Nächste NV', it: 'Prossimo f/u', hu: 'Köv. utánk.' },
+  col_status:    { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
+  col_action:    { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet' },
+  open_lbl:      { da: 'Åben', en: 'Open', de: 'Offen', it: 'Aperto', hu: 'Nyitott' },
+  demo_lbl:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan' },
+  open_link:     { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
+};
+function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
 // ---------- Unified row ----------
 type LeadType = 'open' | 'demo';
@@ -26,9 +73,9 @@ interface UnifiedLead {
   responsible_name: string | null;
   machine: string | null;
   equipment: string | null;
-  date: string | null;        // primary date for the row
+  date: string | null;
   next_followup: string | null;
-  status: string | null;       // pipeline_stage or result_status
+  status: string | null;
   value: number | null;
   detail_href: string | null;
 }
@@ -52,12 +99,12 @@ function formatKr(n: number | null | undefined): string {
   return new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n);
 }
 
-function fmtDate(s: string | null | undefined): string {
+function fmtDate(s: string | null | undefined, lang: Language): string {
   if (!s) return '—';
-  // accepts YYYY-MM-DD or ISO
   const d = new Date(s);
   if (isNaN(d.getTime())) return s;
-  return d.toLocaleDateString('da-DK', { day: '2-digit', month: 'short', year: 'numeric' });
+  const localeMap: Record<Language, string> = { da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
+  return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function mapOpen(l: CrmLead): UnifiedLead {
@@ -104,26 +151,26 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
 
 type TabKey = 'all' | 'open' | 'demo' | 'mine' | 'mine_demo';
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'all',       label: 'Alle leads' },
-  { key: 'open',      label: 'Åbne leads' },
-  { key: 'demo',      label: 'Demo leads' },
-  { key: 'mine',      label: 'Mine leads' },
-  { key: 'mine_demo', label: 'Mine demoer' },
-];
-
 export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
+  const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
+
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'all',       label: tt('tab_all', lang) },
+    { key: 'open',      label: tt('tab_open', lang) },
+    { key: 'demo',      label: tt('tab_demo', lang) },
+    { key: 'mine',      label: tt('tab_mine', lang) },
+    { key: 'mine_demo', label: tt('tab_mine_demo', lang) },
+  ];
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // UI state
   const [tab, setTab] = useState<TabKey>(isAdmin ? 'all' : 'mine');
   const [q, setQ] = useState('');
   const [stage, setStage] = useState<string>('');
@@ -135,9 +182,6 @@ export default function CrmLeadsPage() {
     (async () => {
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
-      // Always fetch full sets, then filter on the client so we can offer
-      // tabs like "Mine leads" without re-querying. Backend RLS still
-      // gates server-side data; seed data is local.
       const [openAll, demoAll] = await Promise.all([
         listLeads({}),
         listDemoLeads({}),
@@ -162,8 +206,6 @@ export default function CrmLeadsPage() {
     return () => { cancelled = true; };
   }, [appUser?.email]);
 
-  // Build unified rows + apply role visibility (sellers see only their own,
-  // backend sees everything including unassigned).
   const allRows: UnifiedLead[] = useMemo(() => {
     const open = openLeads.map(mapOpen);
     const demo = demoLeads.map(mapDemo);
@@ -176,12 +218,10 @@ export default function CrmLeadsPage() {
         (myEmail && (r.responsible_name || '').toLowerCase() === myEmail)
       );
     }
-    // Sort newest first
     merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return merged;
   }, [openLeads, demoLeads, isAdmin, sellerId, appUser?.email]);
 
-  // Counts for tab badges (always reflect role-visible scope)
   const counts = useMemo(() => ({
     all:       allRows.length,
     open:      allRows.filter(r => r.type === 'open').length,
@@ -196,7 +236,6 @@ export default function CrmLeadsPage() {
                 )).length,
   }), [allRows, sellerId, appUser?.email]);
 
-  // Apply tab + search + stage filter
   const visible = useMemo(() => {
     let r = allRows;
     if (tab === 'open') r = r.filter(x => x.type === 'open');
@@ -233,19 +272,19 @@ export default function CrmLeadsPage() {
   );
 
   return (
-    <CrmLayout pageTitle="Leads">
+    <CrmLayout pageTitle={tt('page_title', lang)}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[#2d5a27]" /> Leads
+            <Sparkles className="h-5 w-5 text-[#2d5a27]" /> {tt('page_title', lang)}
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            {isAdmin ? 'Alle leads og demoer i organisationen' : 'Dine tildelte leads og demoer'}
-            {' · '}{visible.length} stk{totalValue > 0 ? ` · ${formatKr(totalValue)}` : ''}
+            {isAdmin ? tt('sub_admin', lang) : tt('sub_seller', lang)}
+            {' · '}{visible.length} {tt('pcs', lang)}{totalValue > 0 ? ` · ${formatKr(totalValue)}` : ''}
             {isAdmin && unassignedCount > 0 && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-800 border border-amber-200">
-                {unassignedCount} unassigned
+                {unassignedCount} {tt('unassigned', lang)}
               </span>
             )}
           </p>
@@ -253,11 +292,11 @@ export default function CrmLeadsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link to="/portal/crm/demo-leads/new"
             className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-gray-50 text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] text-sm font-medium px-4 py-2.5 shadow-sm transition">
-            <Plus className="h-4 w-4" /> Ny demo-registrering
+            <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
           </Link>
           <Link to="/portal/crm/leads/new"
             className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] text-white text-sm font-medium px-4 py-2.5 shadow-sm transition">
-            <Plus className="h-4 w-4" /> Nyt lead
+            <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
           </Link>
         </div>
       </div>
@@ -289,12 +328,12 @@ export default function CrmLeadsPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Søg titel, kunde, forhandler, sælger eller maskine…"
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none" />
         </div>
         <select value={stage} onChange={e=>setStage(e.target.value)}
           className="rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
-          <option value="">Alle statusser</option>
+          <option value="">{tt('all_status', lang)}</option>
           {PIPELINE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
           <option disabled>──────────</option>
           {['Hot lead','Warm lead','Cold lead','Offer requested','No fit'].map(s => <option key={s} value={s}>{s}</option>)}
@@ -304,30 +343,30 @@ export default function CrmLeadsPage() {
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <p className="p-8 text-sm text-gray-500">Indlæser…</p>
+          <p className="p-8 text-sm text-gray-500">{tt('loading', lang)}</p>
         ) : visible.length === 0 ? (
           <div className="p-12 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-gray-50 flex items-center justify-center mb-3">
               <TrendingUp className="h-6 w-6 text-gray-400" />
             </div>
-            <p className="text-sm font-medium text-gray-900">Ingen leads i dette filter</p>
-            <p className="text-xs text-gray-500 mt-1">Skift fane eller opret et nyt lead.</p>
+            <p className="text-sm font-medium text-gray-900">{tt('empty_title', lang)}</p>
+            <p className="text-xs text-gray-500 mt-1">{tt('empty_sub', lang)}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50/70 text-[11px] uppercase tracking-[0.06em] text-gray-500">
                 <tr>
-                  <th className="text-left px-4 py-3">Type</th>
-                  <th className="text-left px-4 py-3">Titel / Kunde</th>
-                  <th className="text-left px-4 py-3">Forhandler</th>
-                  <th className="text-left px-4 py-3">Ejer</th>
-                  <th className="text-left px-4 py-3">Maskine</th>
-                  <th className="text-left px-4 py-3">Udstyr</th>
-                  <th className="text-left px-4 py-3">Dato</th>
-                  <th className="text-left px-4 py-3">Næste opf.</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-right px-4 py-3">Handling</th>
+                  <th className="text-left px-4 py-3">{tt('col_type', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_title', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_dealer', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_owner', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_machine', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_equipment', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_date', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_followup', lang)}</th>
+                  <th className="text-left px-4 py-3">{tt('col_status', lang)}</th>
+                  <th className="text-right px-4 py-3">{tt('col_action', lang)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -342,7 +381,7 @@ export default function CrmLeadsPage() {
                           r.type === 'demo'
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-sky-50 text-sky-700 border-sky-200')}>
-                          {r.type === 'demo' ? 'Demo' : 'Open'}
+                          {r.type === 'demo' ? tt('demo_lbl', lang) : tt('open_lbl', lang)}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
@@ -357,14 +396,14 @@ export default function CrmLeadsPage() {
                           <span className="text-gray-700">{r.owner_name}</span>
                         ) : (
                           <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                            Unassigned
+                            {tt('unassigned_chip', lang)}
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[160px] truncate">{r.machine || '—'}</td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[180px] truncate">{r.equipment || '—'}</td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.date)}</td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup)}</td>
+                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.date, lang)}</td>
+                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup, lang)}</td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
                           <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
@@ -377,7 +416,7 @@ export default function CrmLeadsPage() {
                         {r.detail_href ? (
                           <Link to={r.detail_href} onClick={e => e.stopPropagation()}
                             className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
-                            Åbn <ChevronRight className="h-3.5 w-3.5" />
+                            {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
                           </Link>
                         ) : (
                           <span className="text-[12px] text-gray-400">—</span>
