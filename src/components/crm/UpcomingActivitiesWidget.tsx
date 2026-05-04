@@ -91,7 +91,7 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
           <Stat icon={Activity} label={T.this_week[lang]} value={stats.inWeek} tone="emerald" />
           <Stat icon={CalendarDays} label={T.demos_month[lang]} value={stats.demosMonth} tone="blue" />
           <Stat icon={AlertTriangle} label={T.overdue[lang]} value={stats.overdue} tone="red" />
-          {isAdmin && (
+          {(isAdmin || statsLayout === "grid2x2") && (
             <Stat icon={AlertTriangle} label={T.no_upcoming[lang]} value={stats.noPlan.length} tone="amber" extra={stats.noPlan.join(" ")} />
           )}
         </div>

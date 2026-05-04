@@ -266,8 +266,8 @@ export default function CrmDashboardPage() {
                     <span className="text-[10.5px] text-emerald-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
-                {/* Chart slot — fixed width so divider lines up across cards */}
-                <div className="relative w-24 h-10 shrink-0 hidden sm:block">
+                {/* Chart slot — flexible, never overlaps KPI */}
+                <div className="relative flex-1 min-w-0 h-10 shrink overflow-hidden hidden sm:block max-w-[110px]">
                   {trend30 && trend30.length > 1 && (
                     <div className="absolute inset-0 opacity-90">
                       <ResponsiveContainer width="100%" height="100%">
@@ -285,18 +285,19 @@ export default function CrmDashboardPage() {
                     </div>
                   )}
                 </div>
-                {/* Embedded KPI slot — fixed width so divider + content align with the blue card */}
-                <div className="relative shrink-0 self-stretch flex items-center pl-3 border-l border-white/15 w-24">
-                  <div className="min-w-0 w-full text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
-                      <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
-                        {T.kpi_leads[lang]}
-                      </p>
-                    </div>
-                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums mt-1">
+                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-3 ml-1 border-l border-white/15 w-28">
+                  <div className="flex items-center justify-end gap-1 w-full">
+                    <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
+                    <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
+                      {T.kpi_leads[lang]}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5 w-full">
+                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.activeLeads}
                     </p>
+                    <MiniTrend pct={metrics.leadsPctChange} lang={lang} />
                   </div>
                 </div>
               </div>
@@ -333,8 +334,8 @@ export default function CrmDashboardPage() {
                     <span className="text-[10.5px] text-sky-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
-                {/* Chart slot — same fixed width as green card */}
-                <div className="relative w-24 h-10 shrink-0 hidden sm:flex items-end gap-1 opacity-90">
+                {/* Chart slot — flexible, never overlaps KPI */}
+                <div className="relative flex-1 min-w-0 h-10 shrink overflow-hidden hidden sm:flex items-end gap-1 opacity-90 max-w-[110px]">
                   {CLOSED_BARS.map((v, i) => (
                     <div
                       key={i}
@@ -343,18 +344,19 @@ export default function CrmDashboardPage() {
                     />
                   ))}
                 </div>
-                {/* Embedded KPI slot — same fixed width as green card */}
-                <div className="relative shrink-0 self-stretch flex items-center pl-3 border-l border-white/15 w-24">
-                  <div className="min-w-0 w-full text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
-                      <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
-                        {T.kpi_won[lang]}
-                      </p>
-                    </div>
-                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums mt-1">
+                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-3 ml-1 border-l border-white/15 w-28">
+                  <div className="flex items-center justify-end gap-1 w-full">
+                    <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
+                    <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
+                      {T.kpi_won[lang]}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5 w-full">
+                    <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.wonOrdersCount}
                     </p>
+                    <MiniTrend pct={metrics.wonPctChange} lang={lang} />
                   </div>
                 </div>
               </div>
@@ -870,6 +872,21 @@ function HeroTrend({ pct, lang }: { pct: number; lang: Language }) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 backdrop-blur-sm ${cls}`}>
       <TrendIcon className="h-3.5 w-3.5" />{label}
+    </span>
+  );
+}
+
+// Compact trend pill for embedded KPI slots inside dark hero cards
+function MiniTrend({ pct, lang }: { pct: number; lang: Language }) {
+  const TrendIcon = pct > 2 ? ArrowUpRight : pct < -2 ? ArrowDownRight : Minus;
+  const cls =
+    pct > 2 ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/30' :
+    pct < -2 ? 'bg-rose-400/20 text-rose-50 ring-rose-300/30' :
+    'bg-white/10 text-white/80 ring-white/20';
+  const label = Math.abs(pct) <= 2 ? T.stable[lang] : `${pct > 0 ? '+' : ''}${pct}%`;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ring-1 ${cls}`}>
+      <TrendIcon className="h-2.5 w-2.5" />{label}
     </span>
   );
 }
