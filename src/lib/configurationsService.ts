@@ -578,12 +578,36 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
   }
 }
 
+/**
+ * Ownership payload persisted alongside every saved configuration.
+ * See src/lib/configuratorOwnership.ts for how this is computed.
+ * All fields are optional — unknown columns are dropped automatically by
+ * insertConfigurationRow's missing-column retry, so older databases keep
+ * working even before phase23_configurator_ownership.sql is applied.
+ */
+export interface SaveOwnership {
+  seller_initials?: string | null;
+  seller_email?: string | null;
+  seller_name?: string | null;
+  assigned_seller_id?: string | null;
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+  dealer_account_id?: string | null;
+  created_by_role?: string | null;
+  active_mode?: string | null;
+  owner_status?: string | null;
+}
+
 /** Save a new configuration */
 export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
-  options?: { sourceQuoteId?: string; sourceQuoteNumber?: string },
+  options?: {
+    sourceQuoteId?: string;
+    sourceQuoteNumber?: string;
+    ownership?: SaveOwnership;
+  },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
     label,
