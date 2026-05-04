@@ -1728,26 +1728,50 @@ export default function CrmBudgetPage() {
                             let label: string = "•";
                             if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
                             else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
+                            const bRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const oRows = sellerBreakdownFor(linesForAgg, i, "orders");
+                            const bMap = new Map(bRows.map(r => [r.initials, r.value]));
+                            const oMap = new Map(oRows.map(r => [r.initials, r.value]));
+                            const allInits = Array.from(new Set([...bMap.keys(), ...oMap.keys()]));
+                            const perfRows = allInits.map(init => ({ initials: init, value: (oMap.get(init) || 0) - (bMap.get(init) || 0) }));
+                            const missing = bRows.filter(r => r.value === 0 && (oMap.get(r.initials) || 0) === 0).map(r => r.initials);
                             return (
                               <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-default">{label}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <div className="text-xs space-y-0.5">
-                                      <div className="font-semibold">{MONTHS_BY_LANG[lang][i]} · {productName}</div>
-                                      <div>Orders − Budget: <span className="font-semibold tabular-nums">{o} − {b} = {diff > 0 ? `+${diff}` : diff}</span></div>
-                                      <div className="text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
+                                <BudgetCellInsight
+                                  title={`Performance · ${MONTHS_BY_LANG[lang][i]} · ${productName}`}
+                                  total={diff}
+                                  rows={perfRows}
+                                  variant="performance"
+                                  missingBudget={missing}
+                                  extra={<div className="text-[11px] text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>}
+                                >
+                                  {label}
+                                </BudgetCellInsight>
                               </td>
                             );
                           })}
                           <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
                             totalPerf > 0 ? "text-emerald-700" : totalPerf < 0 ? "text-rose-700" : "text-slate-500")}>
-                            {totalPerf > 0 ? `+${totalPerf}` : totalPerf}
+                            {(() => {
+                              const bRowsT = sellerBreakdownFor(linesForAgg, null, "budget");
+                              const oRowsT = sellerBreakdownFor(linesForAgg, null, "orders");
+                              const bMapT = new Map(bRowsT.map(r => [r.initials, r.value]));
+                              const oMapT = new Map(oRowsT.map(r => [r.initials, r.value]));
+                              const allI = Array.from(new Set([...bMapT.keys(), ...oMapT.keys()]));
+                              const perfRowsT = allI.map(init => ({ initials: init, value: (oMapT.get(init) || 0) - (bMapT.get(init) || 0) }));
+                              const missingT = bRowsT.filter(r => r.value === 0).map(r => r.initials);
+                              return (
+                                <BudgetCellInsight
+                                  title={`Performance total · ${productName}`}
+                                  total={totalPerf}
+                                  rows={perfRowsT}
+                                  variant="performance"
+                                  missingBudget={missingT}
+                                >
+                                  <span>{totalPerf > 0 ? `+${totalPerf}` : totalPerf}</span>
+                                </BudgetCellInsight>
+                              );
+                            })()}
                           </td>
                           <td className="px-2 py-2 text-center">
                             <span className={cn("inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums", scoreTone)}>
