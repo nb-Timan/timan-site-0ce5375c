@@ -389,6 +389,22 @@ export default function BackendUsersPage() {
             const res = await saveBackendUser(editing.id, patch);
             if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
             else setSaveError(null);
+            // Drop cached sellerId for both the previous and the new email so
+            // CRM "view as" / scope resolvers re-read from Supabase.
+            clearSellerIdCache(editing.email);
+            if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
+              clearSellerIdCache(patch.email);
+            }
+            // If the edited row is the currently logged-in user, refresh
+            // AppUserContext from Supabase so role / module / dealer changes
+            // take effect without a page reload.
+            if (
+              appUser &&
+              (appUser.email.toLowerCase() === editing.email.toLowerCase() ||
+                (patch.email && appUser.email.toLowerCase() === patch.email.toLowerCase()))
+            ) {
+              await refreshAppUser();
+            }
             await reload();
             setEditingId(null);
           }}
