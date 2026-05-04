@@ -7,7 +7,7 @@
  * only see their own.
  */
 import { useEffect, useState } from "react";
-import { History } from "lucide-react";
+import { History, Link2 } from "lucide-react";
 import {
   Popover, PopoverTrigger, PopoverContent,
 } from "@/components/ui/popover";
@@ -15,6 +15,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
+import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 
 interface Props {
   cellKey: string;
@@ -46,13 +47,17 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<AuditEntry[]>([]);
+  const [refs, setRefs] = useState<BudgetReference[]>([]);
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
     setBusy(true);
-    fetchBudgetAuditEntries({ cell_key: cellKey, limit: 25 })
-      .then((r) => { if (alive) setRows(r); })
+    Promise.all([
+      fetchBudgetAuditEntries({ cell_key: cellKey, limit: 25 }),
+      listBudgetReferences({ cell_key: cellKey, limit: 25 }),
+    ])
+      .then(([r, ref]) => { if (alive) { setRows(r); setRefs(ref); } })
       .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [open, cellKey]);
@@ -127,6 +132,34 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
                 );
               })}
             </ul>
+          )}
+          {!busy && refs.length > 0 && (
+            <div className="border-t border-slate-200">
+              <div className="px-3 py-1.5 bg-amber-50/60 text-[11px] font-semibold text-amber-800 flex items-center gap-1">
+                <Link2 className="h-3 w-3" /> Referencer ({refs.length})
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {refs.map((ref) => (
+                  <li key={ref.id} className="px-3 py-2 text-xs space-y-0.5">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-medium text-slate-800 truncate">
+                        {ref.dealer_name || ref.contact_name || ref.lead_id || ref.demo_id || "Reference"}
+                      </span>
+                      <span className="text-slate-500 whitespace-nowrap">{fmtDateTime(ref.created_at)}</span>
+                    </div>
+                    {ref.contact_name && <div className="text-slate-600">Kontakt: {ref.contact_name}</div>}
+                    {(ref.lead_id || ref.demo_id) && (
+                      <div className="text-slate-600">
+                        {ref.lead_id && <>Lead: <span className="font-mono">{ref.lead_id}</span> </>}
+                        {ref.demo_id && <>Demo: <span className="font-mono">{ref.demo_id}</span></>}
+                      </div>
+                    )}
+                    {ref.note && <div className="text-slate-500 italic">"{ref.note}"</div>}
+                    <div className="text-[10px] text-slate-400">af {ref.created_by_name || ref.created_by_email || "—"}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </PopoverContent>
       </Popover>

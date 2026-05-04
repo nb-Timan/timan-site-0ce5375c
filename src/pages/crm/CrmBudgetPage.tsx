@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
-  Clock, XCircle, Download,
+  Clock, XCircle, Download, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
@@ -38,6 +38,8 @@ import {
 import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
 import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
+import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
+import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 
 
@@ -355,6 +357,8 @@ export default function CrmBudgetPage() {
   const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
   // Large-change confirm dialog state.
   const [largeChange, setLargeChange] = useState<{ ctx: LargeChangeContext; run: () => void | Promise<void> } | null>(null);
+  // "Add reference" modal state — opened from the small Link2 icon next to a cell.
+  const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   // Map of cell_key → latest AuditEntry for the current scope (used for the
@@ -695,6 +699,36 @@ export default function CrmBudgetPage() {
     const workingMonthly = draft ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
+
+  // Per-seller breakdown for a set of lines + month index, returning totals
+  // grouped by seller_initials. Used for the hover tooltips on Budget /
+  // Arbejdsbudget / Performance numbers in backend "Alle sælgere" mode.
+  function sellerBreakdownFor(
+    linesIn: BudgetLine[],
+    monthIdx: number | null,
+    kind: "budget" | "orders" | "working",
+  ): { initials: string; value: number }[] {
+    const map = new Map<string, number>();
+    for (const l of linesIn) {
+      const init = (l.seller_initials || "—").toUpperCase();
+      const m = lineMonthly(l);
+      const arr = kind === "budget" ? m.budgetMonthly
+        : kind === "orders" ? m.ordersMonthly
+        : m.workingMonthly;
+      const v = monthIdx == null ? arr.reduce((a, b) => a + b, 0) : (arr[monthIdx] ?? 0);
+      map.set(init, (map.get(init) || 0) + v);
+    }
+    // Order by canonical seller list, then any extras alphabetically.
+    const order = BUDGET_SELLERS.map(s => s.initials.toUpperCase());
+    const seen = new Set<string>();
+    const out: { initials: string; value: number }[] = [];
+    for (const ini of order) {
+      if (map.has(ini)) { out.push({ initials: ini, value: map.get(ini) || 0 }); seen.add(ini); }
+    }
+    for (const [ini, v] of map.entries()) if (!seen.has(ini)) out.push({ initials: ini, value: v });
+    return out;
+  }
+
 
   // Ensure a real budget line exists for the current seller / product. Used by
   // the working-forecast steppers so that RC-751 (or any machine without a
@@ -1474,6 +1508,23 @@ export default function CrmBudgetPage() {
                             const o = ordersMonthly[i];
                             const ck = cellKeyFor(i, "budget");
                             const latest = latestAuditByCell[ck];
+                            const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
+                            const budgetRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
+                            const tipTitle = `${monthLabel} · ${productName}`;
+                            const refCtx: BudgetReferenceContext = {
+                              cell_key: ck, budget_year: year,
+                              seller_initials: primaryLine.seller_initials,
+                              seller_email: primaryLine.seller_email,
+                              product_code: primaryLine.item_number || primaryLine.product_key,
+                              model_name: productName,
+                              category: primaryLine.category,
+                              month: monthLabel, month_idx: i,
+                              budget_type: "budget",
+                              old_value: b, new_value: b,
+                              actor_email: appUser?.email || null,
+                              actor_name: appUser?.display_name || null,
+                            };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {canEditBudget ? (
@@ -1483,30 +1534,64 @@ export default function CrmBudgetPage() {
                                       className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
                                       title="−1"
                                     ><Minus className="h-3 w-3" /></button>
-                                    <span className="min-w-[14px] text-center font-semibold text-slate-700">{b}</span>
+                                    <BudgetCellInsight
+                                      title={`Budget · ${tipTitle}`}
+                                      total={b}
+                                      rows={budgetRows}
+                                    >
+                                      <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block">{b}</span>
+                                    </BudgetCellInsight>
                                     <button
                                       onClick={() => adjustBudget(primaryLine, i, +1)}
                                       className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
                                       title="+1"
                                     ><Plus className="h-3 w-3" /></button>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <span className={cn("font-semibold pr-1", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    <BudgetCellInsight
+                                      title={`Ordrer · ${tipTitle}`}
+                                      total={o}
+                                      rows={ordersRows}
+                                    >
+                                      <span className={cn("font-semibold pr-1 inline-block", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    </BudgetCellInsight>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRefModal(refCtx)}
+                                      className="p-0.5 ml-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                      title="Tilføj reference (forhandler / lead / demo)"
+                                    ><Link2 className="h-3 w-3" /></button>
                                     {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="text-slate-500">{b}</span>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows}>
+                                      <span className="text-slate-500">{b}</span>
+                                    </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    <BudgetCellInsight title={`Ordrer · ${tipTitle}`} total={o} rows={ordersRows}>
+                                      <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                    </BudgetCellInsight>
                                   </>
                                 )}
                               </td>
                             );
                           })}
                           <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">
-                            <span className="text-slate-600">{totalBudget}</span>
+                            <BudgetCellInsight
+                              title={`Budget total · ${productName}`}
+                              total={totalBudget}
+                              rows={sellerBreakdownFor(linesForAgg, null, "budget")}
+                            >
+                              <span className="text-slate-600">{totalBudget}</span>
+                            </BudgetCellInsight>
                             <span className="text-slate-400 mx-0.5">/</span>
-                            <span className="text-emerald-700">{totalOrders}</span>
+                            <BudgetCellInsight
+                              title={`Ordrer total · ${productName}`}
+                              total={totalOrders}
+                              rows={sellerBreakdownFor(linesForAgg, null, "orders")}
+                            >
+                              <span className="text-emerald-700">{totalOrders}</span>
+                            </BudgetCellInsight>
                           </td>
                           <td className="px-2 py-2"></td>
                         </tr>
@@ -1562,6 +1647,21 @@ export default function CrmBudgetPage() {
                           {workingMonthly.map((w, i) => {
                             const ck = cellKeyFor(i, "arbejdsbudget");
                             const latest = latestAuditByCell[ck];
+                            const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
+                            const workRows = sellerBreakdownFor(linesForAgg, i, "working");
+                            const refCtx: BudgetReferenceContext = {
+                              cell_key: ck, budget_year: year,
+                              seller_initials: primaryLine.seller_initials,
+                              seller_email: primaryLine.seller_email,
+                              product_code: primaryLine.item_number || primaryLine.product_key,
+                              model_name: productName,
+                              category: primaryLine.category,
+                              month: monthLabel, month_idx: i,
+                              budget_type: "arbejdsbudget",
+                              old_value: w, new_value: w,
+                              actor_email: appUser?.email || null,
+                              actor_name: appUser?.display_name || null,
+                            };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {canEditWorking ? (
@@ -1571,21 +1671,47 @@ export default function CrmBudgetPage() {
                                       className="p-0.5 hover:bg-slate-700 rounded"
                                       title="−1"
                                     ><Minus className="h-3 w-3" /></button>
-                                    <span className="min-w-[16px] text-center font-semibold">{w}</span>
+                                    <BudgetCellInsight
+                                      title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
+                                      total={w}
+                                      rows={workRows}
+                                    >
+                                      <span className="min-w-[16px] text-center font-semibold inline-block">{w}</span>
+                                    </BudgetCellInsight>
                                     <button
                                       onClick={() => adjustWorking(primaryLine, i, +1)}
                                       className="p-0.5 hover:bg-slate-700 rounded"
                                       title="+1"
                                     ><Plus className="h-3 w-3" /></button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRefModal(refCtx)}
+                                      className="p-0.5 ml-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+                                      title="Tilføj reference (forhandler / lead / demo)"
+                                    ><Link2 className="h-3 w-3" /></button>
                                     {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
-                                  <span className="font-semibold">{w}</span>
+                                  <BudgetCellInsight
+                                    title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
+                                    total={w}
+                                    rows={workRows}
+                                  >
+                                    <span className="font-semibold">{w}</span>
+                                  </BudgetCellInsight>
                                 )}
                               </td>
                             );
                           })}
-                          <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">{totalWorking}</td>
+                          <td className="px-2 py-2 text-center tabular-nums text-xs font-semibold">
+                            <BudgetCellInsight
+                              title={`Arbejdsbudget total · ${productName}`}
+                              total={totalWorking}
+                              rows={sellerBreakdownFor(linesForAgg, null, "working")}
+                            >
+                              <span>{totalWorking}</span>
+                            </BudgetCellInsight>
+                          </td>
                           <td className="px-2 py-2"></td>
                         </tr>
 
@@ -1602,26 +1728,50 @@ export default function CrmBudgetPage() {
                             let label: string = "•";
                             if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
                             else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
+                            const bRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const oRows = sellerBreakdownFor(linesForAgg, i, "orders");
+                            const bMap = new Map(bRows.map(r => [r.initials, r.value]));
+                            const oMap = new Map(oRows.map(r => [r.initials, r.value]));
+                            const allInits = Array.from(new Set([...bMap.keys(), ...oMap.keys()]));
+                            const perfRows = allInits.map(init => ({ initials: init, value: (oMap.get(init) || 0) - (bMap.get(init) || 0) }));
+                            const missing = bRows.filter(r => r.value === 0 && (oMap.get(r.initials) || 0) === 0).map(r => r.initials);
                             return (
                               <td key={i} className={cn("px-2 py-2 text-center tabular-nums text-xs", cls)}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-default">{label}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <div className="text-xs space-y-0.5">
-                                      <div className="font-semibold">{MONTHS_BY_LANG[lang][i]} · {productName}</div>
-                                      <div>Orders − Budget: <span className="font-semibold tabular-nums">{o} − {b} = {diff > 0 ? `+${diff}` : diff}</span></div>
-                                      <div className="text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
+                                <BudgetCellInsight
+                                  title={`Performance · ${MONTHS_BY_LANG[lang][i]} · ${productName}`}
+                                  total={diff}
+                                  rows={perfRows}
+                                  variant="performance"
+                                  missingBudget={missing}
+                                  extra={<div className="text-[11px] text-slate-300">Orders + Pipeline vs Budget: <span className="tabular-nums">{combined} / {b}</span></div>}
+                                >
+                                  {label}
+                                </BudgetCellInsight>
                               </td>
                             );
                           })}
                           <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
                             totalPerf > 0 ? "text-emerald-700" : totalPerf < 0 ? "text-rose-700" : "text-slate-500")}>
-                            {totalPerf > 0 ? `+${totalPerf}` : totalPerf}
+                            {(() => {
+                              const bRowsT = sellerBreakdownFor(linesForAgg, null, "budget");
+                              const oRowsT = sellerBreakdownFor(linesForAgg, null, "orders");
+                              const bMapT = new Map(bRowsT.map(r => [r.initials, r.value]));
+                              const oMapT = new Map(oRowsT.map(r => [r.initials, r.value]));
+                              const allI = Array.from(new Set([...bMapT.keys(), ...oMapT.keys()]));
+                              const perfRowsT = allI.map(init => ({ initials: init, value: (oMapT.get(init) || 0) - (bMapT.get(init) || 0) }));
+                              const missingT = bRowsT.filter(r => r.value === 0).map(r => r.initials);
+                              return (
+                                <BudgetCellInsight
+                                  title={`Performance total · ${productName}`}
+                                  total={totalPerf}
+                                  rows={perfRowsT}
+                                  variant="performance"
+                                  missingBudget={missingT}
+                                >
+                                  <span>{totalPerf > 0 ? `+${totalPerf}` : totalPerf}</span>
+                                </BudgetCellInsight>
+                              );
+                            })()}
                           </td>
                           <td className="px-2 py-2 text-center">
                             <span className={cn("inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full border text-xs font-semibold tabular-nums", scoreTone)}>
@@ -1834,6 +1984,14 @@ export default function CrmBudgetPage() {
           if (job) await job.run();
         }}
       />
+
+      <BudgetReferenceModal
+        open={refModal != null}
+        ctx={refModal}
+        onClose={() => setRefModal(null)}
+        onSaved={() => setAuditRefreshKey((k) => k + 1)}
+      />
+
 
       {/* Add modal — Create Budget-only product (machine or attachment). */}
       {showAdd && isAdmin && (
