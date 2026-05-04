@@ -56,7 +56,7 @@ function initialsFromDisplayName(displayName: string | null | undefined): string
  *                 their own profile.
  */
 export async function buildConfiguratorOwnership(
-  appUser: (SessionUser & Record<string, unknown>) | null | undefined,
+  appUser: SessionUser | null | undefined,
   dealer?: {
     account_id?: string | null;
     account_number?: string | null;
