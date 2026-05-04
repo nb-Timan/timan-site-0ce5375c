@@ -235,12 +235,12 @@ export default function CrmDashboardPage() {
         />
 
         {/* TOP KPI HERO LAYOUT — Two stacked dark cards on left + 4 KPI rail on right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-8 items-stretch animate-[fadeIn_.4s_ease-out]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-stretch animate-[fadeIn_.4s_ease-out]">
           {/* LEFT COLUMN — compact Pipeline + Closed Orders */}
           <div className="lg:col-span-5 flex flex-col gap-4">
             {/* Pipeline value — compact dark green */}
             <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[140px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[120px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -284,7 +284,7 @@ export default function CrmDashboardPage() {
 
             {/* Closed Orders — compact dark navy */}
             <Link to="/portal/crm/orders" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[140px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 p-5 flex items-center gap-4 min-h-[120px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
