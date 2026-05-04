@@ -240,7 +240,7 @@ export default function CrmDashboardPage() {
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[78px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[88px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -304,7 +304,7 @@ export default function CrmDashboardPage() {
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
             <Link to="/portal/crm/orders" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[78px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[88px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -361,7 +361,7 @@ export default function CrmDashboardPage() {
           {/* MIDDLE COLUMN — Win rate stacked over Gns. salgstid */}
           <div className="min-w-0 flex flex-col gap-3">
             {/* Win rate — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[78px]">
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[88px]">
               <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
                 <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
               </div>
@@ -376,7 +376,7 @@ export default function CrmDashboardPage() {
             </div>
 
             {/* Gns. salgstid — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[78px]">
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[88px]">
               <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
                 <Clock className="h-4 w-4" strokeWidth={2} />
               </div>
