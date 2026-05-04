@@ -27,6 +27,16 @@ interface AppUserContextValue {
   setAppUser: (user: SessionUser | null) => void;
   logout: () => Promise<void>;
   dealerStatus: DealerAccessStatus | null;
+  /**
+   * Re-fetch the logged-in user's row from Supabase `app_users` and
+   * REPLACE the cached SessionUser (does not merge with stale fields).
+   * Returns the fresh user, or null if not signed in / not approved.
+   *
+   * Call this after editing the currently logged-in user in
+   * Backend → Brugere so role / module / dealer changes take effect
+   * without a full page reload.
+   */
+  refreshAppUser: () => Promise<SessionUser | null>;
 }
 
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
@@ -111,28 +121,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
         if (row && row.approved && row.is_active) {
           // Best-effort: link auth uid to app_users row if not yet linked.
           linkAuthUserIdIfNeeded();
-          setAppUser({
-            email: row.email,
-            role: row.role,
-            partner_type: row.partner_type ?? null,
-            approved: row.approved,
-            is_active: row.is_active,
-            start_step: row.start_step ?? 1,
-            max_step: row.max_step ?? 4,
-            can_view_prices: row.can_view_prices ?? false,
-            can_submit_order: row.can_submit_order ?? false,
-            can_edit_discount: row.can_edit_discount ?? false,
-            can_switch_customer_mode: row.can_switch_customer_mode ?? false,
-            working_for: row.working_for ?? null,
-            display_name: row.display_name || row.full_name,
-            portal_role: row.portal_role ?? null,
-            preferred_language: row.preferred_language ?? null,
-            preferred_currency: row.preferred_currency ?? null,
-            company_dealer: row.company_dealer ?? null,
-            module_access: row.module_access ?? null,
-            status: row.status ?? null,
-            dealer_number: row.dealer_number ?? null,
-          });
+          setAppUser(rowToSessionUser(row));
         } else {
           // Session present but not approved → treat as guest with limited access
           setAppUser({ ...SLUTKUNDE_DEFAULTS, email, display_name: undefined });
@@ -157,11 +146,60 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     setAppUser(null);
   }, [setAppUser]);
 
+  /**
+   * Re-fetch the logged-in user from Supabase and REPLACE the cached
+   * SessionUser. Used after Backend → Brugere edits so role / module /
+   * dealer changes apply without a page reload.
+   */
+  const refreshAppUser = useCallback(async (): Promise<SessionUser | null> => {
+    const { data } = await supabase.auth.getSession();
+    const sessionEmail = data.session?.user?.email?.toLowerCase();
+    if (!sessionEmail) return null;
+    const { data: row } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', sessionEmail)
+      .maybeSingle();
+    if (row && row.approved && row.is_active) {
+      const fresh = rowToSessionUser(row);
+      setAppUser(fresh);
+      return fresh;
+    }
+    const guest: SessionUser = { ...SLUTKUNDE_DEFAULTS, email: sessionEmail, display_name: undefined };
+    setAppUser(guest);
+    return guest;
+  }, [setAppUser]);
+
   return (
-    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout, dealerStatus }}>
+    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout, dealerStatus, refreshAppUser }}>
       {children}
     </AppUserContext.Provider>
   );
+}
+
+function rowToSessionUser(row: Record<string, unknown>): SessionUser {
+  return {
+    email: row.email as string,
+    role: row.role as SessionUser['role'],
+    partner_type: (row.partner_type as SessionUser['partner_type']) ?? null,
+    approved: row.approved as boolean,
+    is_active: row.is_active as boolean,
+    start_step: (row.start_step as number) ?? 1,
+    max_step: (row.max_step as number) ?? 4,
+    can_view_prices: (row.can_view_prices as boolean) ?? false,
+    can_submit_order: (row.can_submit_order as boolean) ?? false,
+    can_edit_discount: (row.can_edit_discount as boolean) ?? false,
+    can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
+    working_for: (row.working_for as SessionUser['working_for']) ?? null,
+    display_name: (row.display_name as string) || (row.full_name as string),
+    portal_role: (row.portal_role as string | null) ?? null,
+    preferred_language: (row.preferred_language as string | null) ?? null,
+    preferred_currency: (row.preferred_currency as string | null) ?? null,
+    company_dealer: (row.company_dealer as string | null) ?? null,
+    module_access: (row.module_access as string[] | null) ?? null,
+    status: (row.status as string | null) ?? null,
+    dealer_number: (row.dealer_number as string | null) ?? null,
+  };
 }
 
 export function useAppUser() {

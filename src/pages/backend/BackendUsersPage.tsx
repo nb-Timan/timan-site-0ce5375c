@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
+import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -91,7 +92,7 @@ function formatLastLogin(iso: string | null): string {
 }
 
 export default function BackendUsersPage() {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser, loading, logout, refreshAppUser } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [users, setUsers] = useState<BackendUser[]>([]);
@@ -319,6 +320,12 @@ export default function BackendUsersPage() {
                             const patch: BackendUser = { ...u, approved: true, is_active: true, status: "active" };
                             const res = await saveBackendUser(u.id, patch);
                             if (!res.ok) setSaveError(res.error ?? "Kunne ikke godkende.");
+                            // Bust any cached sellerId for this email and refresh the
+                            // logged-in app user if the approved row is the current user.
+                            clearSellerIdCache(u.email);
+                            if (appUser && appUser.email.toLowerCase() === u.email.toLowerCase()) {
+                              await refreshAppUser();
+                            }
                             await reload();
                           }}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
@@ -382,6 +389,22 @@ export default function BackendUsersPage() {
             const res = await saveBackendUser(editing.id, patch);
             if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
             else setSaveError(null);
+            // Drop cached sellerId for both the previous and the new email so
+            // CRM "view as" / scope resolvers re-read from Supabase.
+            clearSellerIdCache(editing.email);
+            if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
+              clearSellerIdCache(patch.email);
+            }
+            // If the edited row is the currently logged-in user, refresh
+            // AppUserContext from Supabase so role / module / dealer changes
+            // take effect without a page reload.
+            if (
+              appUser &&
+              (appUser.email.toLowerCase() === editing.email.toLowerCase() ||
+                (patch.email && appUser.email.toLowerCase() === patch.email.toLowerCase()))
+            ) {
+              await refreshAppUser();
+            }
             await reload();
             setEditingId(null);
           }}

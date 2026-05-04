@@ -18,6 +18,28 @@ import { getActiveSellerView } from "@/lib/activeMode";
 
 const SS_KEY_PREFIX = "timan.crm.sellerId.";
 
+/**
+ * Bust the sellerId session cache. Call after editing app_users so that the
+ * next CRM page re-resolves from Supabase instead of returning a stale id.
+ *
+ * - clearSellerIdCache(email) clears the entry for one email.
+ * - clearSellerIdCache() clears every cached entry.
+ */
+export function clearSellerIdCache(email?: string | null): void {
+  try {
+    if (email) {
+      sessionStorage.removeItem(SS_KEY_PREFIX + email.toLowerCase());
+      return;
+    }
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith(SS_KEY_PREFIX)) toRemove.push(k);
+    }
+    toRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* */ }
+}
+
 export async function resolveSellerId(email: string | null | undefined): Promise<string | null> {
   if (!email) return null;
   // Apply the "view as seller" override for backend users.
