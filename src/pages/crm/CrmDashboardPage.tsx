@@ -696,10 +696,7 @@ export default function CrmDashboardPage() {
           </Card>
         </div>
 
-        {/* CRM Calendar — upcoming planned dealer activities */}
-        <div className="mt-6">
-          <UpcomingActivitiesWidget />
-        </div>
+        {/* Upcoming seller activities was moved into the top-right rail (see TOP KPI HERO LAYOUT). */}
       </div>
     </CrmLayout>
   );
