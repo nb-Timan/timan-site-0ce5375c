@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
@@ -593,6 +594,7 @@ export interface SaveOwnership {
   dealer_number?: string | null;
   dealer_name?: string | null;
   dealer_account_id?: string | null;
+  created_by_email?: string | null;
   created_by_role?: string | null;
   active_mode?: string | null;
   owner_status?: string | null;
@@ -639,10 +641,17 @@ export async function saveConfiguration(
   const sourceQuoteId = options?.sourceQuoteId;
   const sourceQuoteNumber = options?.sourceQuoteNumber;
 
+  if (!options?.ownership?.seller_initials || !options.ownership.seller_email || !options.ownership.assigned_seller_id || !options.ownership.dealer_number || !options.ownership.dealer_account_id) {
+    return {
+      data: null, id: null, error: OWNERSHIP_REQUIRED_MESSAGE, itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
+    };
+  }
+
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
   const row: Record<string, unknown> = {
-    created_by_email: user.email?.toLowerCase() || ownerEmail.toLowerCase(),
+    created_by_email: options.ownership.created_by_email ?? user.email?.toLowerCase() ?? ownerEmail.toLowerCase(),
     created_by_user_id: user.id,
     title: label,
     document_type: documentType,
@@ -709,6 +718,16 @@ export async function saveConfiguration(
       status: 'aktiv',
       created_by_user_id: user.id,
       created_by_name: user.email ?? null,
+      assigned_owner_user_id: options?.ownership?.assigned_seller_id ?? null,
+      assigned_owner_name: options?.ownership?.seller_name ?? options?.ownership?.seller_initials ?? null,
+      meta: {
+        seller_initials: options?.ownership?.seller_initials ?? null,
+        seller_email: options?.ownership?.seller_email ?? null,
+        dealer_number: options?.ownership?.dealer_number ?? null,
+        dealer_name: options?.ownership?.dealer_name ?? null,
+        dealer_account_id: options?.ownership?.dealer_account_id ?? null,
+        document_type: documentType,
+      },
     });
   } catch (e) {
     console.warn('[saveConfiguration] crm log failed (ignored):', e);
@@ -749,6 +768,7 @@ export async function saveConfiguration(
 export async function updateConfigurationFlowType(
   id: string,
   flowType: 'quote' | 'order',
+  ownership?: SaveOwnership,
 ): Promise<{ quote_number: string | null; order_number: string | null; error: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -767,6 +787,9 @@ export async function updateConfigurationFlowType(
   }
 
   const isOrder = flowType === 'order';
+  if (isOrder && (!ownership?.seller_initials || !ownership.seller_email || !ownership.assigned_seller_id || !ownership.dealer_number || !ownership.dealer_account_id)) {
+    return { quote_number: null, order_number: null, error: OWNERSHIP_REQUIRED_MESSAGE };
+  }
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
   const nextState = normalizeConfiguratorState({ ...baseState, flowType });
@@ -790,6 +813,18 @@ export async function updateConfigurationFlowType(
     quote_number: quoteNumber,
     order_number: orderNumber,
     last_saved_at: new Date().toISOString(),
+    ...(ownership ? {
+      seller_initials: ownership.seller_initials ?? null,
+      seller_email: ownership.seller_email ?? null,
+      seller_name: ownership.seller_name ?? null,
+      assigned_seller_id: ownership.assigned_seller_id ?? null,
+      dealer_number: ownership.dealer_number ?? null,
+      dealer_name: ownership.dealer_name ?? null,
+      dealer_account_id: ownership.dealer_account_id ?? null,
+      created_by_role: ownership.created_by_role ?? null,
+      active_mode: ownership.active_mode ?? null,
+      owner_status: ownership.owner_status ?? 'aktiv',
+    } : {}),
   };
 
   const { error } = await updateConfigurationRow(id, patch);

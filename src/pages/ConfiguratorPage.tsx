@@ -123,6 +123,15 @@ export default function ConfiguratorPage() {
     });
   }, [appUser, ownership]);
 
+  const getRequiredOwnershipPayload = useCallback(async () => {
+    try {
+      return await buildOwnershipPayload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Vælg sælger og forhandler før gem.');
+      return null;
+    }
+  }, [buildOwnershipPayload]);
+
   const lang = state.language;
   const T = (key: string) => t(key, lang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
@@ -156,12 +165,14 @@ export default function ConfiguratorPage() {
   const [wantRecommendation, setWantRecommendation] = useState(false);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
-  const handleSetFlowType = useCallback((ft: 'quote' | 'order') => {
+  const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
     if (state.flowType === ft) return;
     setFlowType(ft);
     if (savedConfigurationId) {
       console.info('[flowType] persisting change to saved case', { id: savedConfigurationId, flowType: ft });
-      updateConfigurationFlowType(savedConfigurationId, ft).then(res => {
+      const ownershipPayload = await getRequiredOwnershipPayload();
+      if (!ownershipPayload) return;
+      updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload).then(res => {
         if (res.error) {
           console.error('[flowType] failed to persist:', res.error);
           toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
@@ -171,7 +182,7 @@ export default function ConfiguratorPage() {
         if (res.order_number) setSavedOrderNumber(res.order_number);
       });
     }
-  }, [state.flowType, setFlowType, savedConfigurationId, lang]);
+  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload]);
 
   // Auto-fill email fields when entering step 4
   useEffect(() => {
@@ -591,14 +602,16 @@ export default function ConfiguratorPage() {
     let activeCaseId: string | null = savedConfigurationId;
     let activeQuoteNumber: string | null = savedQuoteNumber;
     let activeOrderNumber: string | null = savedOrderNumber;
+    const ownershipPayload = await getRequiredOwnershipPayload();
+    if (!ownershipPayload) return;
 
     if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const ownershipPayload = await buildOwnershipPayload();
         const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+        if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
           activeQuoteNumber = result.quote_number;
@@ -611,6 +624,8 @@ export default function ConfiguratorPage() {
         }
       } catch (saveErr) {
         console.error('Failed to save before PDF download:', saveErr);
+        toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+        return;
       }
     } else if (activeCaseId) {
       try {
@@ -708,8 +723,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const ownershipPayload = await buildOwnershipPayload();
             const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -722,6 +737,8 @@ export default function ConfiguratorPage() {
             }
           } catch (saveErr) {
             console.error('Failed to save before webhook:', saveErr);
+            toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+            return;
           }
         } else if (activeCaseId && !activeOrderNumber) {
           // Existing case but no order number yet — ensure one exists
@@ -850,8 +867,8 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const ownershipPayload = await buildOwnershipPayload();
             const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
               activeQuoteNumber = result.quote_number;
@@ -864,6 +881,8 @@ export default function ConfiguratorPage() {
             }
           } catch (saveErr) {
             console.error('Failed to save before quote webhook:', saveErr);
+            toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
+            return;
           }
         } else if (activeCaseId && !activeQuoteNumber) {
           try {
@@ -1973,7 +1992,8 @@ export default function ConfiguratorPage() {
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
-                const ownershipPayload = await buildOwnershipPayload();
+                const ownershipPayload = await getRequiredOwnershipPayload();
+                if (!ownershipPayload) { setSavingBeforeReset(false); return; }
                 const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
