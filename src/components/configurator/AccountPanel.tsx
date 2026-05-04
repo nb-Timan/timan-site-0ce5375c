@@ -14,6 +14,13 @@ import {
   getSentPdfSignedUrl,
 } from '@/lib/configurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
+import {
+  buildConfiguratorOwnership,
+  isExternalDealerRole,
+  externalDealerHasLink,
+} from '@/lib/configuratorOwnership';
+import { derivePortalRole } from '@/lib/portalAccess';
+import { useAppUser } from '@/context/AppUserContext';
 import { toast } from 'sonner';
 
 // Re-export for external use
@@ -71,6 +78,7 @@ function statusColor(status: SavedStatus): string {
 }
 
 export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration }: Props) {
+  const { appUser: sessionUser } = useAppUser();
   const [open, setOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedConfiguration[]>([]);
   const [saveLabel, setSaveLabel] = useState('');
@@ -99,7 +107,22 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setSaving(true);
 
     try {
-      const result = await saveConfiguration(currentState, saveLabel.trim(), userEmail);
+      // Phase 23 — block external dealer users without a linked dealer.
+      const portalRole = derivePortalRole(sessionUser);
+      if (sessionUser && isExternalDealerRole(portalRole) && !externalDealerHasLink(sessionUser)) {
+        toast.error(tx('saveFailed'), {
+          description: tx('noDealerLinked'),
+        });
+        return;
+      }
+
+      const ownership = await buildConfiguratorOwnership(sessionUser);
+      const result = await saveConfiguration(
+        currentState,
+        saveLabel.trim(),
+        userEmail,
+        { ownership },
+      );
 
       if (result.error) {
         console.error('handleSave failed:', result.error);
@@ -262,6 +285,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       openCasePdf: { da: 'Åbn sag', en: 'Open case', de: 'Fall öffnen', it: 'Apri caso', hu: 'Ügy megnyitása' },
       pdfOpenFailed: { da: 'Kunne ikke åbne PDF', en: 'Could not open PDF', de: 'PDF konnte nicht geöffnet werden', it: 'Impossibile aprire il PDF', hu: 'A PDF nem nyitható meg' },
       pdfNotStored: { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz' },
+      noDealerLinked: { da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin.', en: 'Your user has no dealer linked — please contact an admin.', de: 'Ihr Benutzer hat keinen Händler verknüpft – bitte Admin kontaktieren.', it: 'Il tuo utente non ha un rivenditore collegato — contatta un amministratore.', hu: 'A felhasználódhoz nincs kereskedő rendelve — fordulj az adminhoz.' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);

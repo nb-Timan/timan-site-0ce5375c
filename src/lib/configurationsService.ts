@@ -578,12 +578,36 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
   }
 }
 
+/**
+ * Ownership payload persisted alongside every saved configuration.
+ * See src/lib/configuratorOwnership.ts for how this is computed.
+ * All fields are optional — unknown columns are dropped automatically by
+ * insertConfigurationRow's missing-column retry, so older databases keep
+ * working even before phase23_configurator_ownership.sql is applied.
+ */
+export interface SaveOwnership {
+  seller_initials?: string | null;
+  seller_email?: string | null;
+  seller_name?: string | null;
+  assigned_seller_id?: string | null;
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+  dealer_account_id?: string | null;
+  created_by_role?: string | null;
+  active_mode?: string | null;
+  owner_status?: string | null;
+}
+
 /** Save a new configuration */
 export async function saveConfiguration(
   state: ConfiguratorState,
   label: string,
   ownerEmail: string,
-  options?: { sourceQuoteId?: string; sourceQuoteNumber?: string },
+  options?: {
+    sourceQuoteId?: string;
+    sourceQuoteNumber?: string;
+    ownership?: SaveOwnership;
+  },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
     label,
@@ -642,6 +666,19 @@ export async function saveConfiguration(
     order_number: isOrder ? generateReferenceNumber('O') : null,
     source_quote_id: sourceQuoteId ?? null,
     source_quote_number: sourceQuoteNumber ?? null,
+    // Ownership snapshot (Phase 23). Unknown columns are stripped by
+    // insertConfigurationRow's missing-column retry, so this stays
+    // backwards-compatible with databases where the migration hasn't run.
+    seller_initials:    options?.ownership?.seller_initials    ?? null,
+    seller_email:       options?.ownership?.seller_email       ?? null,
+    seller_name:        options?.ownership?.seller_name        ?? null,
+    assigned_seller_id: options?.ownership?.assigned_seller_id ?? null,
+    dealer_number:      options?.ownership?.dealer_number      ?? null,
+    dealer_name:        options?.ownership?.dealer_name        ?? null,
+    dealer_account_id:  options?.ownership?.dealer_account_id  ?? null,
+    created_by_role:    options?.ownership?.created_by_role    ?? null,
+    active_mode:        options?.ownership?.active_mode        ?? null,
+    owner_status:       options?.ownership?.owner_status       ?? 'aktiv',
   };
 
   const { data, error } = await insertConfigurationRow(row);
