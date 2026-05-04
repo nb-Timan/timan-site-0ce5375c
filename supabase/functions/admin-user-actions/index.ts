@@ -43,9 +43,22 @@ const PORTAL_SITE_URL =
   Deno.env.get("PORTAL_SITE_URL") ?? "https://timan-portal.lovable.app";
 
 interface RequestBody {
-  action: "invite" | "reset";
+  action: "invite" | "reset" | "signup";
   email: string;
   app_user_id?: string | null;
+  // Only used for action === "signup":
+  password?: string;
+  profile?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+    company?: string;
+    address?: string;
+    city?: string;
+    postal_code?: string;
+    country?: string;
+    preferred_language?: string;
+  };
 }
 
 function json(body: unknown, status = 200): Response {
@@ -73,49 +86,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ---- 1) Authenticate the caller ----
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader.toLowerCase().startsWith("bearer ")) {
-    return json({ error: "Manglende Authorization header." }, 401);
-  }
-
-  // Use the anon-keyed client *with* the caller's JWT so RLS sees the right user.
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user?.email) {
-    return json({ error: "Ugyldig eller udløbet session." }, 401);
-  }
-  const callerEmail = userData.user.email.toLowerCase();
-
-  // ---- 2) Authorize: caller must be an active Timan Backend user ----
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data: callerRow, error: callerErr } = await admin
-    .from("app_users")
-    .select("portal_role, approved, is_active")
-    .eq("email", callerEmail)
-    .maybeSingle();
-  if (callerErr) {
-    return json({ error: `Kunne ikke verificere caller: ${callerErr.message}` }, 500);
-  }
-  if (
-    !callerRow ||
-    callerRow.portal_role !== "timan_backend" ||
-    callerRow.approved !== true ||
-    callerRow.is_active !== true
-  ) {
-    return json(
-      { error: "Adgang nægtet. Kun godkendte Timan Backend brugere må udføre denne handling." },
-      403,
-    );
-  }
-
-  // ---- 3) Parse + validate body ----
+  // ---- Parse body early so we can branch on action (signup is public) ----
   let body: RequestBody;
   try {
     body = await req.json();
@@ -127,26 +98,147 @@ Deno.serve(async (req) => {
   if (!targetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
     return json({ error: "Ugyldig email." }, 400);
   }
-  if (action !== "invite" && action !== "reset") {
-    return json({ error: "Ukendt action — brug 'invite' eller 'reset'." }, 400);
+  if (action !== "invite" && action !== "reset" && action !== "signup") {
+    return json({ error: "Ukendt action — brug 'invite', 'reset' eller 'signup'." }, 400);
   }
 
-  // ---- 4) Look up auth user (paginated lookup; admin API has no by-email helper) ----
-  async function findAuthUserByEmail(email: string) {
-    const perPage = 200;
-    for (let page = 1; page <= 50; page++) {
-      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-      if (error) throw error;
-      const hit = data.users.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (hit) return hit;
-      if (data.users.length < perPage) break;
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // ---- Authenticate/authorize caller for admin actions only ----
+  if (action !== "signup") {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return json({ error: "Manglende Authorization header." }, 401);
     }
-    return null;
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData.user?.email) {
+      return json({ error: "Ugyldig eller udløbet session." }, 401);
+    }
+    const callerEmail = userData.user.email.toLowerCase();
+    const { data: callerRow, error: callerErr } = await admin
+      .from("app_users")
+      .select("portal_role, approved, is_active")
+      .eq("email", callerEmail)
+      .maybeSingle();
+    if (callerErr) {
+      return json({ error: `Kunne ikke verificere caller: ${callerErr.message}` }, 500);
+    }
+    if (
+      !callerRow ||
+      callerRow.portal_role !== "timan_backend" ||
+      callerRow.approved !== true ||
+      callerRow.is_active !== true
+    ) {
+      return json(
+        { error: "Adgang nægtet. Kun godkendte Timan Backend brugere må udføre denne handling." },
+        403,
+      );
+    }
+  }
+
+  // ---- Public self-signup (no email confirmation needed) ----
+  if (action === "signup") {
+    const password = body.password ?? "";
+    if (password.length < 6) {
+      return json({ error: "Adgangskoden skal være mindst 6 tegn." }, 400);
+    }
+    const profile = body.profile ?? {};
+    const fullName =
+      (profile.full_name && profile.full_name.trim()) ||
+      `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() ||
+      targetEmail;
+
+    let existing;
+    try {
+      existing = await findAuthUserByEmail(admin, targetEmail);
+    } catch (e) {
+      return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
+    }
+    if (existing) {
+      return json(
+        { error: "Denne email er allerede registreret. Prøv at logge ind eller brug 'glemt adgangskode'." },
+        409,
+      );
+    }
+
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email: targetEmail,
+      password,
+      email_confirm: true, // skip confirmation email to avoid rate limits
+      user_metadata: {
+        full_name: fullName,
+        first_name: profile.first_name ?? null,
+        last_name: profile.last_name ?? null,
+        company: profile.company ?? null,
+        country: profile.country ?? null,
+        preferred_language: profile.preferred_language ?? "da",
+      },
+    });
+    if (createErr || !created?.user) {
+      const msg = createErr?.message || "Ukendt fejl";
+      if (/already|registered|exists/i.test(msg)) {
+        return json({ error: "Denne email er allerede registreret." }, 409);
+      }
+      return json({ error: `Kunne ikke oprette bruger: ${msg}` }, 500);
+    }
+
+    const upsertPayload = {
+      email: targetEmail,
+      auth_user_id: created.user.id,
+      full_name: fullName,
+      first_name: profile.first_name ?? null,
+      last_name: profile.last_name ?? null,
+      company: profile.company ?? null,
+      address: profile.address ?? null,
+      city: profile.city ?? null,
+      postal_code: profile.postal_code ?? null,
+      country: profile.country ?? null,
+      preferred_language: profile.preferred_language ?? "da",
+      role: "pending",
+      portal_role: null,
+      partner_type: null,
+      approved: false,
+      is_active: false,
+      status: "pending",
+      module_access: [],
+      allowed_modules: [],
+      allowed_areas: [],
+      backend_modules: [],
+      start_step: 1,
+      max_step: 1,
+      can_view_prices: false,
+      can_submit_order: false,
+      can_edit_discount: false,
+      can_switch_customer_mode: false,
+      display_name: fullName,
+      auth_status: "auth_exists",
+      updated_at: new Date().toISOString(),
+    };
+    const { error: upsertErr } = await admin
+      .from("app_users")
+      .upsert(upsertPayload, { onConflict: "email" });
+    if (upsertErr) {
+      return json(
+        { error: `Bruger oprettet i Auth, men profil kunne ikke gemmes: ${upsertErr.message}` },
+        500,
+      );
+    }
+    return json({
+      ok: true,
+      action: "signup",
+      message: "Din bruger er oprettet og afventer godkendelse.",
+    });
   }
 
   let authUser;
   try {
-    authUser = await findAuthUserByEmail(targetEmail);
+    authUser = await findAuthUserByEmail(admin, targetEmail);
   } catch (e) {
     return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
   }
@@ -204,6 +296,21 @@ Deno.serve(async (req) => {
     return json({ error: `Handlingen fejlede: ${(e as Error).message}` }, 500);
   }
 });
+
+async function findAuthUserByEmail(
+  admin: ReturnType<typeof createClient>,
+  email: string,
+) {
+  const perPage = 200;
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const hit = data.users.find((u: { email?: string | null }) => (u.email ?? "").toLowerCase() === email);
+    if (hit) return hit;
+    if (data.users.length < perPage) break;
+  }
+  return null;
+}
 
 async function touchAppUser(
   admin: ReturnType<typeof createClient>,
