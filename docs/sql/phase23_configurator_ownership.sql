@@ -14,13 +14,18 @@
 --     • the user who actually created it (created_by_email, created_by_role)
 --     • the active "view as" mode used at the time of creation (active_mode)
 --     • a human-readable status snapshot.
--- - Adds two indexes used by the new CRM Quotes / Orders pages.
+-- - Ensures quote_sent_at / order_sent_at columns exist (the app code uses
+--   these names; some older databases only have quote_sent_date /
+--   order_sent_date — both are kept side by side, the view exposes a single
+--   *_at field that falls back to *_date for legacy rows).
+-- - Adds indexes used by the new CRM Quotes / Orders pages.
 -- - Creates a small view that the SPA reads from for both Quotes and
 --   Orders lists (read-only, security_invoker so it inherits RLS).
 --
 -- WHAT THIS DOES NOT DO
 -- - Does not change pricing, discounts, configurator calculations, PDF
 --   generation, n8n flows, Supabase Auth, or quote/order calculation logic.
+-- - Does not rename or drop existing columns.
 -- - Does not touch existing rows other than additive columns.
 
 -- 1) Ownership columns ---------------------------------------------------
@@ -39,6 +44,15 @@ alter table public.configurations
 alter table public.configurations
   add column if not exists assigned_seller_id uuid references public.app_users(id) on delete set null;
 
+-- 1b) Sent-at timestamp columns the app code expects.
+-- Older databases only have quote_sent_date / order_sent_date. We add the
+-- *_at columns the SPA reads/writes today, without removing the legacy
+-- *_date columns. The view below merges them.
+alter table public.configurations
+  add column if not exists quote_sent_at  timestamptz,
+  add column if not exists order_sent_at  timestamptz,
+  add column if not exists submitted_at   timestamptz;
+
 -- 2) Indexes -------------------------------------------------------------
 create index if not exists configurations_seller_initials_idx on public.configurations (seller_initials);
 create index if not exists configurations_seller_email_idx    on public.configurations (lower(seller_email));
@@ -50,6 +64,10 @@ create index if not exists configurations_dealer_account_idx  on public.configur
 -- Returns one row per saved configuration with the fields the UI needs,
 -- already joined to dealer_accounts when possible. security_invoker = on
 -- so the existing RLS on configurations / dealer_accounts is preserved.
+--
+-- The quote_sent_at / order_sent_at columns coalesce the new *_at columns
+-- with the legacy *_date columns (cast to timestamptz) so existing rows
+-- that were stamped under the old schema still appear correctly.
 create or replace view public.crm_configurations_view
 with (security_invoker = on)
 as
@@ -74,8 +92,14 @@ select
   c.created_by_role,
   c.active_mode,
   c.owner_status,
-  c.quote_sent_at,
-  c.order_sent_at,
+  coalesce(
+    c.quote_sent_at,
+    (to_jsonb(c) ->> 'quote_sent_date')::timestamptz
+  ) as quote_sent_at,
+  coalesce(
+    c.order_sent_at,
+    (to_jsonb(c) ->> 'order_sent_date')::timestamptz
+  ) as order_sent_at,
   c.submitted_at,
   da.company_name as dealer_company_name,
   da.account_number as dealer_account_number,
@@ -93,3 +117,6 @@ comment on view public.crm_configurations_view is
 -- * No DROP/DELETE statements — re-running this file is safe.
 -- * No data backfill is performed. Existing rows show empty seller/dealer
 --   fields until they are re-saved or backfilled manually.
+-- * The (to_jsonb(c) ->> 'quote_sent_date') trick lets this script work
+--   whether or not the legacy quote_sent_date / order_sent_date columns
+--   exist — it never references them by name directly.
