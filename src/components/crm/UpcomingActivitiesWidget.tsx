@@ -75,8 +75,8 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
   }, [rows]);
 
   return (
-    <Card className="rounded-2xl border-gray-100">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+    <Card className="rounded-2xl border-gray-100 h-full flex flex-col">
+      <CardHeader className="pb-2 pt-3 px-4 flex flex-row items-center justify-between shrink-0">
         <CardTitle className="text-base flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-[#2d5a27]" />
           {isAdmin ? T.title_admin[lang] : T.title_self[lang]}
@@ -85,7 +85,7 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
           {T.open_cal[lang]} <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-4 pb-3 flex-1 min-h-0 overflow-hidden">
         {/* Quick stats */}
         <div className={cn("grid gap-2", statsLayout === "grid2x2" ? "grid-cols-2" : (isAdmin ? "grid-cols-4" : "grid-cols-3"))}>
           <Stat icon={Activity} label={T.this_week[lang]} value={stats.inWeek} tone="emerald" />
