@@ -3,9 +3,10 @@
  * entries for the current year + seller scope. Backend sees all sellers;
  * sellers see their own (RLS enforced).
  */
-import { useEffect, useState } from "react";
-import { Clock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, Link2 } from "lucide-react";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
+import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 
 interface Props {
   year: number;
