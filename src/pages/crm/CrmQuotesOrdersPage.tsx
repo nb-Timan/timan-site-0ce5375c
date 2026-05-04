@@ -7,10 +7,11 @@
  *
  * No pricing, configurator, PDF or webhook logic is touched here.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil } from 'lucide-react';
 import CrmLayout from '@/components/crm/CrmLayout';
+import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -92,9 +93,13 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
+  // Backend/admin can always edit ownership, even when "viewing as" a seller.
+  const canEditOwnership = portalRole === 'timan_backend' && mode === 'order';
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +127,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller]);
+  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller, reloadKey]);
+
+  const handleRowClick = useCallback((r: CrmConfigurationRow) => {
+    if (canEditOwnership) setEditingRow(r);
+  }, [canEditOwnership]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -211,6 +220,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                  {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -224,7 +234,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                     ?? r.dealer_name
                     ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
                   return (
-                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                    <tr
+                      key={r.id}
+                      onClick={() => handleRowClick(r)}
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
+                    >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">{number}</td>
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px] truncate">{r.title || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
@@ -241,6 +255,18 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
+                      {canEditOwnership && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
+                            className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                            title="Ret sælger og forhandler"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -249,6 +275,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           </div>
         )}
       </div>
+
+      {editingRow && (
+        <EditOrderOwnershipModal
+          row={editingRow}
+          canEdit={canEditOwnership}
+          onClose={() => setEditingRow(null)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
     </CrmLayout>
   );
 }

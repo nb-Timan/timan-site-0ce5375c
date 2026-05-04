@@ -892,6 +892,42 @@ export async function updateConfigurationNote(id: string, note: string) {
 }
 
 /** Soft-delete a configuration (mark as deleted, keep data) */
+/**
+ * Admin-only: update only seller/dealer ownership fields on an order/quote.
+ * Does NOT touch pricing, products, customer data, totals, PDF, or webhook fields.
+ */
+export interface OwnershipPatch {
+  seller_initials: string | null;
+  seller_email: string | null;
+  seller_name: string | null;
+  assigned_seller_id: string | null;
+  dealer_number: string | null;
+  dealer_name: string | null;
+  dealer_account_id: string | null;
+}
+
+export async function updateConfigurationOwnership(
+  id: string,
+  patch: OwnershipPatch,
+): Promise<{ ok: boolean; error: string | null }> {
+  const payload: Record<string, unknown> = {
+    seller_initials: patch.seller_initials,
+    seller_email: patch.seller_email,
+    seller_name: patch.seller_name,
+    assigned_seller_id: patch.assigned_seller_id,
+    dealer_number: patch.dealer_number,
+    dealer_name: patch.dealer_name,
+    dealer_account_id: patch.dealer_account_id,
+    last_saved_at: new Date().toISOString(),
+  };
+  const { error } = await updateConfigurationRow(id, payload);
+  if (error) {
+    console.error('[updateConfigurationOwnership] error:', error);
+    return { ok: false, error: formatSupabaseError(error) };
+  }
+  return { ok: true, error: null };
+}
+
 export async function deleteConfiguration(id: string) {
   const { error } = await supabase
     .from('configurations')
