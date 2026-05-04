@@ -969,12 +969,13 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     },
   };
 
+  // Best-performing accounts by closed-order value (orders are the source of truth).
   const bestByAccount = new Map<string, { value: number }>();
-  for (const s of won) {
-    const id = s.a.account_id;
+  for (const o of orders) {
+    const id = o.dealer_account_id;
     if (!id) continue;
     const cur = bestByAccount.get(id) || { value: 0 };
-    cur.value += s.a.value || 0;
+    cur.value += o.total_value || 0;
     bestByAccount.set(id, cur);
   }
 
