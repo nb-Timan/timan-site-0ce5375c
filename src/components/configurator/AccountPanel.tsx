@@ -14,6 +14,13 @@ import {
   getSentPdfSignedUrl,
 } from '@/lib/configurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
+import {
+  buildConfiguratorOwnership,
+  isExternalDealerRole,
+  externalDealerHasLink,
+} from '@/lib/configuratorOwnership';
+import { derivePortalRole } from '@/lib/portalAccess';
+import { useAppUser } from '@/context/AppUserContext';
 import { toast } from 'sonner';
 
 // Re-export for external use
