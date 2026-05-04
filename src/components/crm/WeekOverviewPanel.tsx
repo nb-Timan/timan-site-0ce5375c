@@ -127,7 +127,7 @@ export default function WeekOverviewPanel({
                   className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-gray-100/60"
                 >
                   <span className="text-xs font-semibold text-gray-700">
-                    {DAY_NAMES[lang][i]} <span className="text-gray-400 font-normal">{d.getDate()}.{d.getMonth() + 1}</span>
+                    {DAY_NAMES[lang][i]} <span className="text-gray-400 font-normal">{fmtDayMonth(d, lang)}</span>
                   </span>
                   <span className="text-[10px] text-gray-500 tabular-nums">{evts.length}</span>
                 </button>
