@@ -92,7 +92,7 @@ function formatLastLogin(iso: string | null): string {
 }
 
 export default function BackendUsersPage() {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser, loading, logout, refreshAppUser } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [users, setUsers] = useState<BackendUser[]>([]);
