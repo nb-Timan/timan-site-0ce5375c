@@ -327,10 +327,6 @@ export default function CrmDashboardPage() {
                     <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.closedValueThisMonth)}
                     </p>
-                    <span className="text-[10.5px] text-sky-100/80 font-medium">
-                      · {metrics.closedCountThisMonth} {T.orders[lang]}
-                    </span>
-                    <span className="text-[10.5px] text-sky-100/70">{T.vs_last_month[lang]}</span>
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
