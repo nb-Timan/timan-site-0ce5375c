@@ -478,6 +478,13 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
 }
 
 export async function listSalesActuals(year: number): Promise<SalesActual[]> {
+  // Primary source for actuals: configurator orders (same source as
+  // CRM → Ordrer). This guarantees Budget progress matches the Orders list.
+  // Any rows in crm_budget_sales_actuals are merged on top (used for
+  // historical / non-configurator manual sales).
+  const fromOrders = await deriveActualsFromOrders(year);
+
+  let fromTable: SalesActual[] = [];
   try {
     const { data, error } = await supabase
       .from("crm_budget_sales_actuals")
@@ -485,11 +492,105 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
     if (!error && Array.isArray(data) && data.length > 0) {
       const lines = await listBudgetLines({ year });
       const ids = new Set(lines.map(l => l.id));
-      return (data as SalesActual[]).filter(a => ids.has(a.budget_line_id));
+      fromTable = (data as SalesActual[]).filter(a => ids.has(a.budget_line_id));
     }
   } catch { /* */ }
-  ensureSeed();
-  return readLS<SalesActual>(LS_ACTUALS);
+
+  if (fromOrders.length === 0 && fromTable.length === 0) {
+    ensureSeed();
+    return readLS<SalesActual>(LS_ACTUALS);
+  }
+
+  // Merge by budget_line_id — orders source wins (it is the live truth).
+  const merged = new Map<string, SalesActual>();
+  for (const row of fromTable) merged.set(row.budget_line_id, { ...row });
+  for (const row of fromOrders) {
+    const prev = merged.get(row.budget_line_id);
+    merged.set(row.budget_line_id, prev
+      ? { budget_line_id: row.budget_line_id, qty_sold: prev.qty_sold + row.qty_sold, value_sold: prev.value_sold + row.value_sold }
+      : { ...row });
+  }
+  return Array.from(merged.values());
+}
+
+/**
+ * Build sales actuals by walking configurator orders (the same scoped
+ * source the CRM Orders page uses). Each order contributes:
+ *   • qty_sold  → sum of state.machineConfigs[*].qty per machine_type
+ *   • value_sold → calcConfigurationTotals(state).finalPrice, allocated
+ *                  proportionally per machine when there are multiple types
+ * Matched onto the BudgetLine whose (seller_email, product_key) align.
+ */
+async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
+  try {
+    const lines = await listBudgetLines({ year });
+    if (lines.length === 0) return [];
+
+    // Index lines by seller_email|product_key for fast lookup.
+    const lineIdx = new Map<string, BudgetLine>();
+    for (const l of lines) {
+      const sellerKey = (l.seller_email || "").toLowerCase();
+      lineIdx.set(`${sellerKey}|${l.product_key}`, l);
+    }
+
+    // Pull all orders for the year, scoped to backend-wide (Budget itself
+    // already filters per seller in the UI). We must NOT apply per-user
+    // scope here because the Budget page aggregates across all sellers in
+    // backend mode and per-seller in seller mode — the filter is applied
+    // at row level via line.seller_email.
+    const fromIso = new Date(year, 0, 1).toISOString();
+    const toIso = new Date(year + 1, 0, 1).toISOString();
+    const { data, error } = await supabase
+      .from("configurations")
+      .select("id, state_json, seller_email, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type")
+      .or("document_type.eq.order,case_type.eq.order")
+      .neq("case_status", "deleted")
+      .gte("created_at", fromIso)
+      .lt("created_at", toIso)
+      .limit(2000);
+    if (error) throw error;
+
+    const totals = new Map<string, SalesActual>();
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const sellerEmail = ((row.seller_email as string | null) || "").toLowerCase();
+      if (!sellerEmail) continue; // unowned legacy rows are skipped
+
+      let state: ConfiguratorState | null = null;
+      try {
+        const raw = row.state_json;
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+      } catch { state = null; }
+      if (!state) continue;
+
+      const finalPrice = (() => {
+        try { return calcConfigurationTotals(state!).finalPrice || 0; } catch { return 0; }
+      })();
+
+      const qtyByKey: Record<string, number> = {};
+      let totalQty = 0;
+      for (const mc of state.machineConfigs ?? []) {
+        if (!mc?.type) continue;
+        qtyByKey[mc.type] = (qtyByKey[mc.type] || 0) + (mc.qty || 0);
+        totalQty += (mc.qty || 0);
+      }
+      if (totalQty === 0) continue;
+
+      for (const [productKey, qty] of Object.entries(qtyByKey)) {
+        const line = lineIdx.get(`${sellerEmail}|${productKey}`);
+        if (!line) continue;
+        const value = finalPrice * (qty / totalQty);
+        const prev = totals.get(line.id) || { budget_line_id: line.id, qty_sold: 0, value_sold: 0 };
+        prev.qty_sold += qty;
+        prev.value_sold += value;
+        totals.set(line.id, prev);
+      }
+    }
+    return Array.from(totals.values());
+  } catch (e) {
+    console.warn("[deriveActualsFromOrders] failed:", e);
+    return [];
+  }
 }
 
 export async function upsertBudgetLine(line: BudgetLine): Promise<BudgetLine> {
