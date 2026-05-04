@@ -18,6 +18,9 @@
  */
 import { supabase } from '@/lib/supabase';
 import { PortalRole } from '@/lib/portalAccess';
+import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { normalizeConfiguratorState } from '@/lib/configuratorState';
+import type { ConfiguratorState } from '@/types/configurator';
 
 export type CrmDocumentType = 'quote' | 'order';
 
