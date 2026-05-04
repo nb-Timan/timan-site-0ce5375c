@@ -174,17 +174,19 @@ export default function CrmNewLeadPage() {
   }, [sellers, appUser?.email, responsibleSellerId]);
 
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
-    const mineInitials = ''; // we don't have seller initials on appUser; rely on email
-    const mineEmail = (appUser?.email || '').toLowerCase();
+    const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
+    const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
+    const mineInitials = (selectedSeller?.initials || '').toUpperCase();
     const opts: DealerOption[] = dealers.map(d => {
       const de = (d.assigned_seller_email || '').toLowerCase();
-      const mine = mineEmail !== '' && de === mineEmail;
+      const di = (d.assigned_seller_initials || '').toUpperCase();
+      const mine = (mineEmail !== '' && de === mineEmail) || (mineInitials !== '' && di === mineInitials);
       return dealerToOption(d, mine);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, appUser]);
+  }, [dealers, appUser, sellers, responsibleSellerId]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const dealerTriggerLabel = selectedDealer
