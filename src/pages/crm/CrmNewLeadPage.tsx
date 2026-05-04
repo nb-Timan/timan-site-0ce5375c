@@ -10,10 +10,14 @@ import {
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage,
 } from '@/lib/crmLeadsService';
+import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, X, Upload, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Button } from '@/components/ui/button';
 
 // ---- Tiny shared form primitives (kept in this file to avoid extra files) ----
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -58,26 +62,53 @@ function MultiChip({ options, value, onChange }: { options: readonly string[]; v
   );
 }
 
+// ---- Dealer picker option (mirrors Calendar behaviour) ----
+interface DealerOption {
+  value: string;          // account_number
+  label: string;          // "Axima AB · 10239 · BP"
+  searchKey: string;
+  isMine: boolean;
+  company_name: string;
+  account_number: string;
+}
+
+function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
+  const initials = d.assigned_seller_initials || '';
+  const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ''}`;
+  return {
+    value: d.account_number,
+    label,
+    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(' ').toLowerCase(),
+    isMine: mine,
+    company_name: d.company_name,
+    account_number: d.account_number,
+  };
+}
+
 export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const navigate = useNavigate();
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
+  // External users: dealer is auto-filled and locked.
+  const isInternal = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
+  const lockedDealerNumber = !isInternal ? (appUser?.dealer_number ?? null) : null;
+
   const today = new Date().toISOString().slice(0, 10);
 
   const [title, setTitle] = useState('');
   const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
-  const [linkedDealer, setLinkedDealer] = useState('');
+  const [linkedDealer, setLinkedDealer] = useState<string>(lockedDealerNumber || '');
   const [firstContact, setFirstContact] = useState(today);
   const [expectedClose, setExpectedClose] = useState('');
   const [nextFollowup, setNextFollowup] = useState('');
 
   const [machineTypes, setMachineTypes] = useState<string[]>([]);
-  const [nextActivity, setNextActivity] = useState<string>('New lead');
+  const [nextActivity, setNextActivity] = useState<string>('');
   const [demoHasRun, setDemoHasRun] = useState<'yes' | 'no'>('no');
-  const [contactType, setContactType] = useState<string>('Phone');
-  const [customerType, setCustomerType] = useState<string>('Needs to be filled in');
+  const [contactType, setContactType] = useState<string>('');
+  const [customerType, setCustomerType] = useState<string>('');
 
   const [contactInfo, setContactInfo] = useState('');
   const [tradeFair, setTradeFair] = useState('');
@@ -95,9 +126,43 @@ export default function CrmNewLeadPage() {
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Dealer picker state
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealersLoading, setDealersLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   useEffect(() => {
     if (appUser && !responsibleName) setResponsibleName(appUser.display_name || appUser.email);
   }, [appUser, responsibleName]);
+
+  // Load dealer_accounts (same as Calendar)
+  useEffect(() => {
+    let cancelled = false;
+    setDealersLoading(true);
+    fetchDealerAccounts({ includeDeleted: false })
+      .then(res => { if (!cancelled) setDealers(res.rows); })
+      .catch(() => { /* keep empty */ })
+      .finally(() => { if (!cancelled) setDealersLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const { mineOptions, otherOptions, allOptions } = useMemo(() => {
+    const mineInitials = ''; // we don't have seller initials on appUser; rely on email
+    const mineEmail = (appUser?.email || '').toLowerCase();
+    const opts: DealerOption[] = dealers.map(d => {
+      const de = (d.assigned_seller_email || '').toLowerCase();
+      const mine = mineEmail !== '' && de === mineEmail;
+      return dealerToOption(d, mine);
+    });
+    const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
+    const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
+    return { mineOptions: mine, otherOptions: others, allOptions: opts };
+  }, [dealers, appUser]);
+
+  const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
+  const dealerTriggerLabel = selectedDealer
+    ? selectedDealer.label
+    : (linkedDealer ? linkedDealer : 'Vælg forhandler…');
 
   const isLost = stage === 'Lost';
 
@@ -105,7 +170,12 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) { toast.error('Titel er påkrævet'); return; }
+    if (!title.trim())   { toast.error('Titel er påkrævet'); return; }
+    if (!linkedDealer)   { toast.error('Vælg en linket forhandler.'); return; }
+    if (!contactType)    { toast.error('Vælg kontakttype.'); return; }
+    if (!customerType)   { toast.error('Vælg kundetype.'); return; }
+    if (!nextActivity)   { toast.error('Vælg næste aktivitet.'); return; }
+
     setSubmitting(true);
     try {
       const sellerId = await resolveSellerId(appUser?.email);
@@ -113,7 +183,7 @@ export default function CrmNewLeadPage() {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: responsibleName || null,
-        linked_dealer_id: linkedDealer || null,
+        linked_dealer_id: linkedDealer,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,
         next_followup_date: nextFollowup || null,
@@ -166,8 +236,74 @@ export default function CrmNewLeadPage() {
             <Field label="Ansvarlig sælger">
               <input className={inputCls} value={responsibleName} onChange={e=>setResponsibleName(e.target.value)} />
             </Field>
-            <Field label="Linket forhandler (valgfri)">
-              <input className={inputCls} value={linkedDealer} onChange={e=>setLinkedDealer(e.target.value)} placeholder="Forhandler-ID eller navn" />
+            <Field label="Linket forhandler" required>
+              {lockedDealerNumber ? (
+                <div className={cn(inputCls, 'flex items-center justify-between bg-gray-50 text-gray-700')}>
+                  <span className="truncate">{selectedDealer?.label || lockedDealerNumber}</span>
+                  <Lock className="h-3.5 w-3.5 text-gray-400 ml-2 shrink-0" />
+                </div>
+              ) : (
+                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
+                        !linkedDealer && 'text-gray-400'
+                      )}
+                    >
+                      <span className="truncate text-left">{dealerTriggerLabel}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[320px]" align="start">
+                    <Command
+                      filter={(value, search) => {
+                        const opt = allOptions.find(o => o.value === value);
+                        const hay = opt ? opt.searchKey : value.toLowerCase();
+                        return hay.includes(search.toLowerCase()) ? 1 : 0;
+                      }}
+                    >
+                      <CommandInput placeholder="Søg forhandler, nr., by, land…" />
+                      <CommandList>
+                        <CommandEmpty>{dealersLoading ? 'Henter forhandlere…' : 'Ingen match'}</CommandEmpty>
+
+                        {mineOptions.length > 0 && (
+                          <CommandGroup heading="Mine forhandlere">
+                            {mineOptions.map(o => (
+                              <CommandItem
+                                key={o.value}
+                                value={o.value}
+                                onSelect={() => { setLinkedDealer(o.value); setPickerOpen(false); }}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', linkedDealer === o.value ? 'opacity-100' : 'opacity-0')} />
+                                <span className="truncate">{o.label}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+
+                        {otherOptions.length > 0 && (
+                          <CommandGroup heading="Andre forhandlere">
+                            {otherOptions.map(o => (
+                              <CommandItem
+                                key={o.value}
+                                value={o.value}
+                                onSelect={() => { setLinkedDealer(o.value); setPickerOpen(false); }}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', linkedDealer === o.value ? 'opacity-100' : 'opacity-0')} />
+                                <span className="truncate">{o.label}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
             </Field>
             <Field label="Første kontakt">
               <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
@@ -187,8 +323,9 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <Section title="Næste aktivitet">
-            <Field label="Aktivitet" full>
+            <Field label="Næste aktivitet" required full>
               <select className={inputCls} value={nextActivity} onChange={e=>setNextActivity(e.target.value)}>
+                <option value="">Vælg…</option>
                 {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
@@ -216,13 +353,15 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <Section title="Kontakttype & kundetype">
-            <Field label="Kontakttype">
+            <Field label="Kontakttype" required>
               <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
+                <option value="">Vælg…</option>
                 {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Kundetype">
+            <Field label="Kundetype" required>
               <select className={inputCls} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
+                <option value="">Vælg…</option>
                 {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
