@@ -889,6 +889,7 @@ function MiniTrend({ pct, lang }: { pct: number; lang: Language }) {
       <TrendIcon className="h-2.5 w-2.5" />{label}
     </span>
   );
+}
 
 // Compact horizontal KPI row card — premium, single-line layout
 function KpiRow({
