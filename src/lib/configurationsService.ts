@@ -718,6 +718,16 @@ export async function saveConfiguration(
       status: 'aktiv',
       created_by_user_id: user.id,
       created_by_name: user.email ?? null,
+      assigned_owner_user_id: options?.ownership?.assigned_seller_id ?? null,
+      assigned_owner_name: options?.ownership?.seller_name ?? options?.ownership?.seller_initials ?? null,
+      meta: {
+        seller_initials: options?.ownership?.seller_initials ?? null,
+        seller_email: options?.ownership?.seller_email ?? null,
+        dealer_number: options?.ownership?.dealer_number ?? null,
+        dealer_name: options?.ownership?.dealer_name ?? null,
+        dealer_account_id: options?.ownership?.dealer_account_id ?? null,
+        document_type: documentType,
+      },
     });
   } catch (e) {
     console.warn('[saveConfiguration] crm log failed (ignored):', e);
