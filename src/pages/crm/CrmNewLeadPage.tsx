@@ -283,7 +283,7 @@ export default function CrmNewLeadPage() {
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const dealerTriggerLabel = selectedDealer
     ? selectedDealer.label
-    : (linkedDealer ? linkedDealer : 'Vælg forhandler…');
+    : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
   const isLost = stage === 'Lost';
 
@@ -291,15 +291,15 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())       { toast.error('Titel er påkrævet'); return; }
-    if (!responsibleSellerId){ toast.error('Vælg en ansvarlig sælger.'); return; }
-    if (!linkedDealer)       { toast.error('Vælg en linket forhandler.'); return; }
-    if (!firstContact)       { toast.error('Vælg dato for første kontakt.'); return; }
-    if (!expectedClose)      { toast.error('Vælg forventet lukkedato.'); return; }
-    if (!nextFollowup)       { toast.error('Vælg næste opfølgning.'); return; }
-    if (!contactType)        { toast.error('Vælg kontakttype.'); return; }
-    if (!customerType)       { toast.error('Vælg kundetype.'); return; }
-    if (!nextActivity)       { toast.error('Vælg næste aktivitet.'); return; }
+    if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
+    if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
+    if (!linkedDealer)       { toast.error(tt('val_dealer', lang)); return; }
+    if (!firstContact)       { toast.error(tt('val_first', lang)); return; }
+    if (!expectedClose)      { toast.error(tt('val_close', lang)); return; }
+    if (!nextFollowup)       { toast.error(tt('val_followup', lang)); return; }
+    if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
+    if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
+    if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
 
     setSubmitting(true);
     try {
@@ -333,11 +333,11 @@ export default function CrmNewLeadPage() {
         attachments: files,
         status: 'open',
       });
-      toast.success('Lead oprettet');
+      toast.success(tt('created_ok', lang));
       navigate('/portal/crm/leads');
     } catch (err) {
       console.error(err);
-      toast.error('Kunne ikke oprette lead');
+      toast.error(tt('created_err', lang));
     } finally {
       setSubmitting(false);
     }
