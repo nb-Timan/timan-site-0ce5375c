@@ -235,7 +235,7 @@ export default function CrmDashboardPage() {
         />
 
         {/* TOP KPI HERO LAYOUT — strict 2-column grid: ~2/3 left (Pipeline + Closed orders) / ~1/3 right (combined KPI + Upcoming activities). */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-start animate-[fadeIn_.4s_ease-out]">
           {/* LEFT COLUMN — compact Pipeline + Closed Orders (2/3 width) */}
           <div className="lg:col-span-2 min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
