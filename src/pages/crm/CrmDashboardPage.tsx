@@ -876,6 +876,20 @@ function HeroTrend({ pct, lang }: { pct: number; lang: Language }) {
   );
 }
 
+// Compact trend pill for embedded KPI slots inside dark hero cards
+function MiniTrend({ pct, lang }: { pct: number; lang: Language }) {
+  const TrendIcon = pct > 2 ? ArrowUpRight : pct < -2 ? ArrowDownRight : Minus;
+  const cls =
+    pct > 2 ? 'bg-emerald-400/20 text-emerald-50 ring-emerald-300/30' :
+    pct < -2 ? 'bg-rose-400/20 text-rose-50 ring-rose-300/30' :
+    'bg-white/10 text-white/80 ring-white/20';
+  const label = Math.abs(pct) <= 2 ? T.stable[lang] : `${pct > 0 ? '+' : ''}${pct}%`;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ring-1 ${cls}`}>
+      <TrendIcon className="h-2.5 w-2.5" />{label}
+    </span>
+  );
+
 // Compact horizontal KPI row card — premium, single-line layout
 function KpiRow({
   icon: Icon, label, value, sub, trendPct, lang, accent = 'emerald', to, className = '',
