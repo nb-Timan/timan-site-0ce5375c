@@ -7,7 +7,7 @@
  * only see their own.
  */
 import { useEffect, useState } from "react";
-import { History } from "lucide-react";
+import { History, Link2 } from "lucide-react";
 import {
   Popover, PopoverTrigger, PopoverContent,
 } from "@/components/ui/popover";
@@ -15,6 +15,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
+import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 
 interface Props {
   cellKey: string;
@@ -46,13 +47,17 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<AuditEntry[]>([]);
+  const [refs, setRefs] = useState<BudgetReference[]>([]);
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
     setBusy(true);
-    fetchBudgetAuditEntries({ cell_key: cellKey, limit: 25 })
-      .then((r) => { if (alive) setRows(r); })
+    Promise.all([
+      fetchBudgetAuditEntries({ cell_key: cellKey, limit: 25 }),
+      listBudgetReferences({ cell_key: cellKey, limit: 25 }),
+    ])
+      .then(([r, ref]) => { if (alive) { setRows(r); setRefs(ref); } })
       .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [open, cellKey]);
