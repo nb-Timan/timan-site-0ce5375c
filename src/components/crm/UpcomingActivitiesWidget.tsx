@@ -29,7 +29,7 @@ const T: Record<string, Record<Language, string>> = {
   today:        { da: "I dag",                       en: "Today",                      de: "Heute",                                it: "Oggi",                          hu: "Ma" },
 };
 
-export default function UpcomingActivitiesWidget() {
+export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { statsLayout?: "row" | "grid2x2" } = {}) {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const isAdmin = isCrmAdmin(derivePortalRole(appUser));
@@ -87,7 +87,7 @@ export default function UpcomingActivitiesWidget() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Quick stats */}
-        <div className={cn("grid gap-2", isAdmin ? "grid-cols-4" : "grid-cols-3")}>
+        <div className={cn("grid gap-2", statsLayout === "grid2x2" ? "grid-cols-2" : (isAdmin ? "grid-cols-4" : "grid-cols-3"))}>
           <Stat icon={Activity} label={T.this_week[lang]} value={stats.inWeek} tone="emerald" />
           <Stat icon={CalendarDays} label={T.demos_month[lang]} value={stats.demosMonth} tone="blue" />
           <Stat icon={AlertTriangle} label={T.overdue[lang]} value={stats.overdue} tone="red" />
