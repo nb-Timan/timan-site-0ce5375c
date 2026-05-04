@@ -297,6 +297,21 @@ Deno.serve(async (req) => {
   }
 });
 
+async function findAuthUserByEmail(
+  admin: ReturnType<typeof createClient>,
+  email: string,
+) {
+  const perPage = 200;
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const hit = data.users.find((u: { email?: string | null }) => (u.email ?? "").toLowerCase() === email);
+    if (hit) return hit;
+    if (data.users.length < perPage) break;
+  }
+  return null;
+}
+
 async function touchAppUser(
   admin: ReturnType<typeof createClient>,
   appUserId: string | null,
