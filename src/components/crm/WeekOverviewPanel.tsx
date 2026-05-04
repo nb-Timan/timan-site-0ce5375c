@@ -93,7 +93,7 @@ export default function WeekOverviewPanel({
   }
 
   const todayKey = dayKey(new Date());
-  const range = `${start.getDate()}.${start.getMonth() + 1} – ${end.getDate()}.${end.getMonth() + 1}`;
+  const range = `${fmtDayMonth(start, lang)} – ${fmtDayMonth(end, lang)}`;
 
   return (
     <aside className={cn("bg-white rounded-2xl border border-gray-100 shadow-sm", className)}>
