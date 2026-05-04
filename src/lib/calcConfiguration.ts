@@ -1,5 +1,5 @@
 import { ConfiguratorState } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getPrice, LOOSE_TOOL_KEY } from '@/data/machines';
+import { PRODUCTS, getAccessoriesFlat, getPrice, LOOSE_TOOL_KEY, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 
 /**
  * Pure calculation of subtotal, total discount and final price for a saved configuration.
