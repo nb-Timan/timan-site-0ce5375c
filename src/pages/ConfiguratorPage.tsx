@@ -9,6 +9,8 @@ import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
+import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/components/configurator/OwnershipPicker';
+import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
