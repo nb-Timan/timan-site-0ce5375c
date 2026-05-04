@@ -12,7 +12,9 @@
 import { supabase } from "@/lib/supabase";
 import { PRODUCTS, ACCESSORIES } from "@/data/machines";
 import { appendAuditEntry } from "@/lib/audit-log-store";
-import type { Language, LocalizedString } from "@/types/configurator";
+import type { Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
+import { normalizeConfiguratorState } from "@/lib/configuratorState";
+import { calcConfigurationTotals } from "@/lib/calcConfiguration";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
