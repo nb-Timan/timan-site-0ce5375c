@@ -27,6 +27,16 @@ interface AppUserContextValue {
   setAppUser: (user: SessionUser | null) => void;
   logout: () => Promise<void>;
   dealerStatus: DealerAccessStatus | null;
+  /**
+   * Re-fetch the logged-in user's row from Supabase `app_users` and
+   * REPLACE the cached SessionUser (does not merge with stale fields).
+   * Returns the fresh user, or null if not signed in / not approved.
+   *
+   * Call this after editing the currently logged-in user in
+   * Backend → Brugere so role / module / dealer changes take effect
+   * without a full page reload.
+   */
+  refreshAppUser: () => Promise<SessionUser | null>;
 }
 
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
