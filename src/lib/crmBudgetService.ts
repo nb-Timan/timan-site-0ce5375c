@@ -581,7 +581,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         res = await trySel("id, note, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
       }
       if (res.error) throw res.error;
-      data = (res.data ?? []) as Array<Record<string, unknown>>;
+      data = (res.data ?? []) as unknown as Array<Record<string, unknown>>;
     }
 
     const totals = new Map<string, SalesActual>();
