@@ -285,6 +285,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       openCasePdf: { da: 'Åbn sag', en: 'Open case', de: 'Fall öffnen', it: 'Apri caso', hu: 'Ügy megnyitása' },
       pdfOpenFailed: { da: 'Kunne ikke åbne PDF', en: 'Could not open PDF', de: 'PDF konnte nicht geöffnet werden', it: 'Impossibile aprire il PDF', hu: 'A PDF nem nyitható meg' },
       pdfNotStored: { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz' },
+      noDealerLinked: { da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin.', en: 'Your user has no dealer linked — please contact an admin.', de: 'Ihr Benutzer hat keinen Händler verknüpft – bitte Admin kontaktieren.', it: 'Il tuo utente non ha un rivenditore collegato — contatta un amministratore.', hu: 'A felhasználódhoz nincs kereskedő rendelve — fordulj az adminhoz.' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
