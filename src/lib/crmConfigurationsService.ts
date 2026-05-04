@@ -221,17 +221,33 @@ export async function listScopedOrdersWithValue(
   if (error) return { rows: [], error };
   if (scoped.length === 0) return { rows: [] };
 
-  // Bulk fetch state_json for all scoped order ids.
+  // Bulk fetch state (try state_json first; fall back to `note` if column missing).
   const ids = scoped.map((r) => r.id);
   const stateById = new Map<string, ConfiguratorState | null>();
   try {
-    const { data, error: stateErr } = await supabase
+    const trySel = async (cols: string) => supabase
       .from('configurations')
-      .select('id, state_json')
+      .select(cols)
       .in('id', ids);
-    if (stateErr) throw stateErr;
-    for (const row of data ?? []) {
-      stateById.set(String((row as Record<string, unknown>).id), parseStateJson((row as Record<string, unknown>).state_json));
+    let res = await trySel('id, state_json, note');
+    if (res.error && /state_json/.test(res.error.message || '')) {
+      res = await trySel('id, note');
+    }
+    if (res.error) throw res.error;
+    for (const row of (res.data ?? []) as unknown as Array<Record<string, unknown>>) {
+      let parsed = parseStateJson(row.state_json);
+      if (!parsed || !Array.isArray(parsed.machineConfigs) || parsed.machineConfigs.length === 0) {
+        try {
+          const noteRaw = row.note;
+          const noteParsed = typeof noteRaw === 'string' ? JSON.parse(noteRaw) : noteRaw;
+          if (noteParsed && typeof noteParsed === 'object') {
+            const inner = (noteParsed as Record<string, unknown>).state ?? noteParsed;
+            const ns = normalizeConfiguratorState(inner as Partial<ConfiguratorState>);
+            if (Array.isArray(ns.machineConfigs) && ns.machineConfigs.length > 0) parsed = ns;
+          }
+        } catch { /* ignore */ }
+      }
+      stateById.set(String(row.id), parsed);
     }
   } catch (e) {
     console.warn('[listScopedOrdersWithValue] state fetch failed (values will be 0):', e);
