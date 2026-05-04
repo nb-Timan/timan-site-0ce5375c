@@ -14,6 +14,18 @@ const L: Record<string, Record<Language, string>> = {
   none:      { da: "Ingen aktiviteter", en: "No activities", de: "Keine Aktivitäten", it: "Nessuna attività", hu: "Nincs tevékenység" },
 };
 
+const MONTHS_SHORT: Record<Language, string[]> = {
+  da: ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"],
+  en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  de: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"],
+  it: ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"],
+  hu: ["jan","feb","már","ápr","máj","jún","júl","aug","szept","okt","nov","dec"],
+};
+
+function fmtDayMonth(d: Date, lang: Language) {
+  return `${d.getDate()}. ${MONTHS_SHORT[lang][d.getMonth()]}`;
+}
+
 const DAY_NAMES: Record<Language, string[]> = {
   da: ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"],
   en: ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
@@ -81,7 +93,7 @@ export default function WeekOverviewPanel({
   }
 
   const todayKey = dayKey(new Date());
-  const range = `${start.getDate()}.${start.getMonth() + 1} – ${end.getDate()}.${end.getMonth() + 1}`;
+  const range = `${fmtDayMonth(start, lang)} – ${fmtDayMonth(end, lang)}`;
 
   return (
     <aside className={cn("bg-white rounded-2xl border border-gray-100 shadow-sm", className)}>
@@ -115,7 +127,7 @@ export default function WeekOverviewPanel({
                   className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-gray-100/60"
                 >
                   <span className="text-xs font-semibold text-gray-700">
-                    {DAY_NAMES[lang][i]} <span className="text-gray-400 font-normal">{d.getDate()}.{d.getMonth() + 1}</span>
+                    {DAY_NAMES[lang][i]} <span className="text-gray-400 font-normal">{fmtDayMonth(d, lang)}</span>
                   </span>
                   <span className="text-[10px] text-gray-500 tabular-nums">{evts.length}</span>
                 </button>
