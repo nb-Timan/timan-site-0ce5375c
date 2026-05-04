@@ -234,7 +234,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                     ?? r.dealer_name
                     ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
                   return (
-                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                    <tr
+                      key={r.id}
+                      onClick={() => handleRowClick(r)}
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
+                    >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">{number}</td>
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px] truncate">{r.title || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
@@ -251,6 +255,18 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
+                      {canEditOwnership && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
+                            className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                            title="Ret sælger og forhandler"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
