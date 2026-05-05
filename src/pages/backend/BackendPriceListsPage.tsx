@@ -212,6 +212,22 @@ export default function BackendPriceListsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function onPublishConfirm() {
+    const nums = publishPreview.map((r) => r.item_number);
+    if (nums.length === 0) return;
+    setPublishBusy(true);
+    const res = await publishItems(nums);
+    setPublishBusy(false);
+    if (!res.ok || !res.summary) {
+      toast.error(res.error ?? "Publicering fejlede.");
+      return;
+    }
+    setPublishSummary(res.summary);
+    const total = res.summary.created + res.summary.updated;
+    toast.success(`${total} vare(r) publiceret til konfigurator-overlay.`);
+    await reload();
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
