@@ -3,16 +3,26 @@ import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   SavedConfiguration,
   loadConfigurationById,
   loadConfigurations,
   saveConfiguration,
   updateConfigurationStatus,
   updateConfigurationNote,
-  deleteConfiguration,
   SavedStatus,
   getSentPdfSignedUrl,
 } from '@/lib/configurationsService';
+import { hideConfigurationForCurrentUser } from '@/lib/userHiddenConfigurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import {
   buildConfiguratorOwnership,
@@ -87,6 +97,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmHideId, setConfirmHideId] = useState<string | null>(null);
+  const [hiding, setHiding] = useState(false);
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -164,9 +176,21 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     }
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteConfiguration(id);
-    setSavedItems(prev => prev.filter(i => i.id !== id));
+  const handleConfirmHide = async () => {
+    if (!confirmHideId || hiding) return;
+    setHiding(true);
+    try {
+      const { error } = await hideConfigurationForCurrentUser(confirmHideId);
+      if (error) {
+        toast.error(tx('hideFailed'), { description: error });
+        return;
+      }
+      setSavedItems(prev => prev.filter(i => i.id !== confirmHideId));
+      toast.success(tx('hideSuccess'));
+      setConfirmHideId(null);
+    } finally {
+      setHiding(false);
+    }
   };
 
   const handleToggleStatus = async (id: string) => {
