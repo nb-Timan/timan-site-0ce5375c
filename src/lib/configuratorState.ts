@@ -26,6 +26,7 @@ export const createEmptyConfiguratorState = (
   emailRecipient: '',
   comment: '',
   internalNote: '',
+  paymentTerms: DEFAULT_PAYMENT_TERMS,
 });
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
@@ -52,5 +53,6 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     emailRecipient: value?.emailRecipient ?? '',
     comment: value?.comment ?? '',
     internalNote: value?.internalNote ?? '',
+    paymentTerms: resolvePaymentTerms(value?.paymentTerms),
   };
 }
