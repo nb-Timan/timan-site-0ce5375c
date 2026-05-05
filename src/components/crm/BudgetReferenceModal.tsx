@@ -4,9 +4,15 @@
  * All fields are optional. Saving without filling anything is allowed and
  * simply closes the modal without writing a row. References are explanatory
  * only — they never affect budget / pipeline / order calculations.
+ *
+ * Dealer field is a searchable combobox sourced from dealer_accounts.
+ *  - Backend: sees ALL dealers
+ *  - Seller : sees only dealers assigned to the active seller
+ * Existing free-text references (from before this change) still render as-is
+ * via the audit/reference list. Only new references use the combobox.
  */
-import { useState } from "react";
-import { Link2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link2, ChevronsUpDown, Check } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -14,8 +20,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createBudgetReference } from "@/lib/budgetReferencesService";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
 export interface BudgetReferenceContext {
@@ -40,29 +50,96 @@ interface Props {
   ctx: BudgetReferenceContext | null;
   onClose: () => void;
   onSaved?: () => void;
+  /** Backend admins see all dealers; sellers only see dealers assigned to them. */
+  isAdmin?: boolean;
+  /** Active seller initials (used for filtering when !isAdmin). */
+  currentSellerInitials?: string | null;
+  /** Active seller email (used for filtering when !isAdmin). */
+  currentSellerEmail?: string | null;
 }
 
-export default function BudgetReferenceModal({ open, ctx, onClose, onSaved }: Props) {
-  const [dealer, setDealer] = useState("");
+interface DealerOption {
+  value: string; // dealer.id
+  label: string;
+  searchKey: string;
+  account_number: string | null;
+  company_name: string;
+  assigned_seller_initials: string | null;
+}
+
+function dealerToOption(d: DealerAccount): DealerOption {
+  const ini = d.assigned_seller_initials || "—";
+  return {
+    value: d.id,
+    label: `${d.company_name}${d.account_number ? ` · ${d.account_number}` : ""}${ini !== "—" ? ` · ${ini}` : ""}`,
+    searchKey: [d.company_name, d.account_number, d.country, d.assigned_seller_initials, d.assigned_seller_name]
+      .filter(Boolean).join(" ").toLowerCase(),
+    account_number: d.account_number || null,
+    company_name: d.company_name,
+    assigned_seller_initials: d.assigned_seller_initials,
+  };
+}
+
+export default function BudgetReferenceModal({
+  open, ctx, onClose, onSaved,
+  isAdmin = true, currentSellerInitials = null, currentSellerEmail = null,
+}: Props) {
+  const [dealerId, setDealerId] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [contact, setContact] = useState("");
   const [leadId, setLeadId] = useState("");
   const [demoId, setDemoId] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealersLoading, setDealersLoading] = useState(false);
+
+  // Load dealers when modal opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setDealersLoading(true);
+    fetchDealerAccounts({ includeDeleted: false })
+      .then((res) => { if (!cancelled) setDealers(res.rows); })
+      .catch(() => { /* keep empty list — Input still works as no-op */ })
+      .finally(() => { if (!cancelled) setDealersLoading(false); });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const options = useMemo<DealerOption[]>(() => {
+    const ini = (currentSellerInitials || "").toUpperCase();
+    const eml = (currentSellerEmail || "").toLowerCase();
+    const filtered = isAdmin
+      ? dealers
+      : dealers.filter((d) => {
+          const di = (d.assigned_seller_initials || "").toUpperCase();
+          const de = (d.assigned_seller_email || "").toLowerCase();
+          return (ini && di === ini) || (eml && de === eml);
+        });
+    return filtered.map(dealerToOption).sort((a, b) => a.label.localeCompare(b.label));
+  }, [dealers, isAdmin, currentSellerInitials, currentSellerEmail]);
+
+  const selected = options.find((o) => o.value === dealerId) || null;
+
   function reset() {
-    setDealer(""); setContact(""); setLeadId(""); setDemoId(""); setNote("");
+    setDealerId(""); setContact(""); setLeadId(""); setDemoId(""); setNote("");
   }
 
   async function handleSave() {
     if (!ctx) { onClose(); return; }
-    const anyField = [dealer, contact, leadId, demoId, note].some(s => s.trim().length > 0);
+    const anyField = [selected?.company_name || "", contact, leadId, demoId, note].some(s => s.trim().length > 0);
     if (!anyField) {
       toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
       reset(); onClose(); return;
     }
     setBusy(true);
     try {
+      // Persist a structured dealer label so account_number + assigned seller
+      // are preserved without changing the budget_references schema.
+      const dealerLabel = selected
+        ? `${selected.company_name}${selected.account_number ? ` · ${selected.account_number}` : ""}${selected.assigned_seller_initials ? ` · ${selected.assigned_seller_initials}` : ""}`
+        : null;
       await createBudgetReference({
         cell_key: ctx.cell_key,
         budget_year: ctx.budget_year,
@@ -76,7 +153,7 @@ export default function BudgetReferenceModal({ open, ctx, onClose, onSaved }: Pr
         budget_type: ctx.budget_type,
         old_value: ctx.old_value,
         new_value: ctx.new_value,
-        dealer_name: dealer.trim() || null,
+        dealer_name: dealerLabel,
         contact_name: contact.trim() || null,
         lead_id: leadId.trim() || null,
         demo_id: demoId.trim() || null,
@@ -93,6 +170,12 @@ export default function BudgetReferenceModal({ open, ctx, onClose, onSaved }: Pr
       setBusy(false);
     }
   }
+
+  const triggerLabel = selected
+    ? selected.label
+    : dealersLoading
+      ? "Henter forhandlere…"
+      : isAdmin ? "Vælg forhandler" : "Vælg blandt mine forhandlere";
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
@@ -120,8 +203,69 @@ export default function BudgetReferenceModal({ open, ctx, onClose, onSaved }: Pr
         )}
 
         <div className="space-y-3">
-          <Field label="Dealer / forhandler"  v={dealer}  set={setDealer} placeholder="fx. Maskinhuset ApS" />
-          <Field label="Kontaktperson"        v={contact} set={setContact} placeholder="fx. Lars Hansen" />
+          <div className="space-y-1">
+            <Label className="text-xs">Dealer / forhandler</Label>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={pickerOpen}
+                  className={cn(
+                    "w-full justify-between font-normal",
+                    !selected && "text-slate-500",
+                  )}
+                  disabled={busy}
+                >
+                  <span className="truncate">{triggerLabel}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                <Command
+                  filter={(value, search) => {
+                    const opt = options.find((o) => o.value === value);
+                    if (!opt) return 0;
+                    return opt.searchKey.includes(search.toLowerCase()) ? 1 : 0;
+                  }}
+                >
+                  <CommandInput placeholder="Søg firma, kontonr., land, sælger…" />
+                  <CommandList>
+                    <CommandEmpty>
+                      {dealersLoading ? "Henter forhandlere…" : "Ingen match"}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value=""
+                        onSelect={() => { setDealerId(""); setPickerOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", !dealerId ? "opacity-100" : "opacity-0")} />
+                        Ingen forhandler
+                      </CommandItem>
+                      {options.map((o) => (
+                        <CommandItem
+                          key={o.value}
+                          value={o.value}
+                          onSelect={() => { setDealerId(o.value); setPickerOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", dealerId === o.value ? "opacity-100" : "opacity-0")} />
+                          <span className="truncate">{o.label}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {!isAdmin && (
+              <p className="text-[10px] text-slate-500">
+                Viser kun forhandlere tilknyttet dig.
+              </p>
+            )}
+          </div>
+
+          <Field label="Kontaktperson" v={contact} set={setContact} placeholder="fx. Lars Hansen" />
           <div className="grid grid-cols-2 gap-2">
             <Field label="Lead ID"  v={leadId} set={setLeadId} placeholder="L-1042" />
             <Field label="Demo ID"  v={demoId} set={setDemoId} placeholder="D-4007" />
