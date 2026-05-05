@@ -126,6 +126,7 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     seller_user_id: input.seller_user_id ?? null,
     seller_initials: input.seller_initials ?? null,
     seller_name: input.seller_name ?? null,
+    participant_seller_initials: normalizeParticipants(input.participant_seller_initials, input.seller_initials),
     activity_type: input.activity_type,
     note: input.note ?? null,
     status: input.status ?? "planned",
@@ -141,10 +142,36 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
   writeLocal([row, ...readLocal()]);
   try {
     const { error } = await supabase.from("crm_calendar_activities").insert(row);
-    if (error) console.warn("[crmCalendar.create] supabase insert failed (kept local):", error.message);
+    if (error && isUndefinedColumn(error, "participant_seller_initials")) {
+      // Phase 30 SQL not yet applied — retry without the new column.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { participant_seller_initials: _ignored, ...legacy } = row;
+      const retry = await supabase.from("crm_calendar_activities").insert(legacy);
+      if (retry.error) console.warn("[crmCalendar.create] supabase insert failed (kept local):", retry.error.message);
+    } else if (error) {
+      console.warn("[crmCalendar.create] supabase insert failed (kept local):", error.message);
+    }
   } catch (err) { console.warn("[crmCalendar.create] unexpected:", err); }
   audit("create", row);
   return row;
+}
+
+function normalizeParticipants(list: string[] | null | undefined, owner: string | null | undefined): string[] {
+  const set = new Set<string>();
+  for (const v of list ?? []) {
+    const k = (v || "").trim().toUpperCase();
+    if (k) set.add(k);
+  }
+  const o = (owner || "").trim().toUpperCase();
+  if (o) set.add(o);
+  return Array.from(set);
+}
+
+function isUndefinedColumn(err: unknown, col: string): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  if (!e) return false;
+  if (e.code === "42703") return true;
+  return typeof e.message === "string" && e.message.toLowerCase().includes(col.toLowerCase()) && /column|does not exist|unknown/i.test(e.message);
 }
 
 export async function updateActivity(id: string, patch: Partial<NewCalendarActivity & { status: CalendarActivity["status"] }>, updatedByUserId?: string | null): Promise<CalendarActivity | null> {
