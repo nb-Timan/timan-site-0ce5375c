@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
+import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
@@ -434,7 +435,14 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     return [];
   }
 
-  return (data || []).map((row) => mapConfigurationRow(row, ownerEmail));
+  // Phase 28 — also hide rows the current user has personally removed
+  // from their Min konto list (does not affect CRM/Dashboard/Budget).
+  const hiddenIds = await listHiddenConfigurationIdsForCurrentUser();
+  const filtered = hiddenIds.size > 0
+    ? (data || []).filter((row) => !hiddenIds.has(String((row as { id: string }).id)))
+    : (data || []);
+
+  return filtered.map((row) => mapConfigurationRow(row, ownerEmail));
 }
 
 export async function loadConfigurationById(id: string, ownerEmail: string): Promise<SavedConfiguration | null> {
