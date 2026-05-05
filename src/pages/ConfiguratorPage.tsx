@@ -106,11 +106,15 @@ export default function ConfiguratorPage() {
   // who also has the explicit `can_manage_payment_terms` permission.
   const canManagePaymentTerms = (() => {
     const role = appUser?.portal_role ?? null;
-    const isBackendOrSeller = role === 'timan_backend'
-      || role === 'timan_seller'
-      || appUser?.role === 'timan_saelger';
-    if (!isBackendOrSeller) return false;
-    return appUser?.permissions?.can_manage_payment_terms === true;
+    const isBackend = role === 'timan_backend';
+    const isSeller = role === 'timan_seller' || appUser?.role === 'timan_saelger';
+    if (!isBackend && !isSeller) return false;
+    const flag = appUser?.permissions?.can_manage_payment_terms;
+    // If the permissions object is missing or the flag is unset, fall back
+    // to the same default the backend-users service uses (Backend + Seller
+    // get the permission by default). Only an explicit `false` hides it.
+    if (flag === false) return false;
+    return true;
   })();
 
   // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
