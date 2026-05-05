@@ -33,6 +33,8 @@ export interface CalendarActivity {
   seller_user_id: string | null;
   seller_initials: string | null;
   seller_name: string | null;
+  /** All sellers (including owner) that should see this activity. Phase 30. */
+  participant_seller_initials: string[];
   activity_type: CalendarActivityType;
   note: string | null;
   status: "planned" | "done" | "canceled";
@@ -58,6 +60,7 @@ export interface NewCalendarActivity {
   seller_user_id?: string | null;
   seller_initials?: string | null;
   seller_name?: string | null;
+  participant_seller_initials?: string[] | null;
   activity_type: CalendarActivityType;
   note?: string | null;
   status?: "planned" | "done" | "canceled";
