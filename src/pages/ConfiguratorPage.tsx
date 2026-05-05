@@ -720,7 +720,7 @@ export default function ConfiguratorPage() {
       }
 
       const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
-      const refNum = savedOrderNumber || savedQuoteNumber || '';
+      const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
       const pdfFilename = `Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(pdfFilename);
