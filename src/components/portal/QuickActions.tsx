@@ -1,67 +1,70 @@
 import { Link } from 'react-router-dom';
 import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
+import { getActiveSellerView } from '@/lib/activeMode';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { hasModuleAccess, ModuleAccessKey, derivePortalRole } from '@/lib/portalAccess';
 
 interface Action {
   label: string;
   to: string;
   icon: typeof Plus;
+  /** Module access required to show this action. */
+  requires?: ModuleAccessKey;
 }
 
 const INTERNAL_ACTIONS: Action[] = [
-  { label: 'Opret nyt lead',       to: '/portal/crm/leads/new',      icon: Plus },
-  { label: 'Ny demo-registrering', to: '/portal/crm/demo-leads/new', icon: FlaskConical },
-  { label: 'Kalender',             to: '/portal/crm/calendar',       icon: Calendar },
-  { label: 'Mine forhandlere',     to: '/portal/crm/my-dealers',     icon: Users },
+  { label: 'Opret nyt lead',       to: '/portal/crm/leads/new',      icon: Plus,         requires: 'timan_crm' },
+  { label: 'Ny demo-registrering', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
+  { label: 'Kalender',             to: '/portal/crm/calendar',       icon: Calendar,     requires: 'timan_crm' },
+  { label: 'Mine forhandlere',     to: '/portal/crm/my-dealers',     icon: Users,        requires: 'timan_crm' },
 ];
 
 const SERVICE_ACTIONS: Action[] = [
-  { label: 'Registrerede garantibeviser', to: '/portal/service/warranty/registrations', icon: ShieldCheck },
-  { label: 'Alle claims',                 to: '/portal/service/claims',                 icon: FileWarning },
+  { label: 'Registrerede garantibeviser', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
+  { label: 'Alle claims',                 to: '/portal/service/claims',                 icon: FileWarning, requires: 'claims' },
 ];
 
 const DEALER_ACTIONS: Action[] = [
-  { label: 'Driftberegner',   to: '/portal/resources/driftberegner', icon: Gauge },
-  { label: 'CO2 Kalkulator',  to: '/portal/resources/co2',           icon: Leaf },
+  { label: 'Driftberegner',   to: '/portal/resources/driftberegner', icon: Gauge, requires: 'resources' },
+  { label: 'CO2 Kalkulator',  to: '/portal/resources/co2',           icon: Leaf,  requires: 'resources' },
 ];
 
 export default function QuickActions() {
   const { appUser } = useAppUser();
-  if (!appUser) return null;
+  const effectiveUser = useEffectivePortalUser(appUser);
+  if (!appUser || !effectiveUser) return null;
 
   const realRole = (appUser.portal_role || '').toLowerCase();
   const isBackend = realRole === 'timan_backend';
-  const isSeller = realRole === 'timan_seller' || realRole === 'timan_saelger';
-
-  // Resolve effective role honoring backend role-preview
-  let effectiveRole = realRole;
-  if (isBackend) {
-    const preview = getActiveRolePreview(appUser.email);
-    if (preview) effectiveRole = preview.key;
-  }
+  const portalRole = derivePortalRole(effectiveUser);
+  const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
+  const moduleOverride = (effectiveUser.module_access ?? null) as ModuleAccessKey[] | null;
 
   let actions: Action[] = [];
   let contextLabel = '';
 
-  if (effectiveRole === 'timan_service') {
+  if (effectiveRoleKey === 'timan_service') {
     actions = SERVICE_ACTIONS;
     contextLabel = 'Service';
   } else if (
-    effectiveRole === 'timan_dealer' ||
-    effectiveRole === 'timan_service_partner' ||
-    effectiveRole === 'timan_importer' ||
-    effectiveRole === 'dealer_user'
+    effectiveRoleKey === 'timan_dealer' ||
+    effectiveRoleKey === 'timan_service_partner' ||
+    effectiveRoleKey === 'timan_importer' ||
+    effectiveRoleKey === 'dealer_user'
   ) {
     actions = DEALER_ACTIONS;
     contextLabel = 'Forhandler';
-  } else if (isBackend || isSeller) {
+  } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
     actions = INTERNAL_ACTIONS;
     const activeSeller = isBackend ? getActiveSellerView(appUser.email) : null;
     contextLabel = activeSeller ? `Som ${activeSeller.label}` : isBackend ? 'Backend' : 'Sælger';
   } else {
     return null;
   }
+
+  // Filter by module access — hide actions the (effective) user lacks.
+  actions = actions.filter((a) => !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
 
   if (actions.length === 0) return null;
 

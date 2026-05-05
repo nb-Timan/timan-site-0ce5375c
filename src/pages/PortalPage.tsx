@@ -9,6 +9,7 @@ import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import QuickActions from '@/components/portal/QuickActions';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users } from 'lucide-react';
 
@@ -112,7 +113,8 @@ export default function PortalPage() {
     );
   }
 
-  const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, appUser));
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
