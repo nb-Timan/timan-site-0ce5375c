@@ -313,7 +313,7 @@ export const PRODUCTS: Record<string, Machine> = {
   },
   'LOOSE_TOOL': {
     id: 'LOOSE_TOOL',
-    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Einzelnes Anbaugerät', it: 'Attrezzo singolo', hu: 'Önálló eszköz' },
+    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék' },
     nameShort: 'LOOSE_TOOL_SHORT',
     priceDKK: 0,
     priceEUR: 0,
