@@ -321,7 +321,14 @@ export default function BackendPriceListsPage() {
                             {grp}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-mono text-xs">{i.item_number}</td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {i.item_number}
+                          {i.is_dirty && (
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
+                              Ændret – ikke publiceret
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
