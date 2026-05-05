@@ -22,6 +22,7 @@ import {
   listActivities,
   activityTypeMeta,
   ACTIVITY_TYPES,
+  activityAllSellerInitials,
   type CalendarActivity,
 } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
@@ -251,9 +252,10 @@ export default function CrmCalendarPage() {
                         title={`${ev.title}${ev.dealer_name ? " — " + ev.dealer_name : ""}`}
                       >
                         <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", meta.dotClass)} />
-                        {isAdmin && ev.seller_initials && (
-                          <span className="font-semibold mr-0.5">{ev.seller_initials}</span>
-                        )}
+                        {isAdmin && (() => {
+                          const all = activityAllSellerInitials(ev);
+                          return all.length > 0 ? <span className="font-semibold mr-0.5">{all.join(",")}</span> : null;
+                        })()}
                         <span className="truncate">{ev.title || meta.label[lang]}</span>
                       </div>
                     );

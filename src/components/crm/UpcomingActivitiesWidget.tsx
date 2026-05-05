@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, ArrowRight, Activity, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listActivities, activityTypeMeta, type CalendarActivity } from "@/lib/crmCalendarService";
+import { listActivities, activityTypeMeta, activityAllSellerInitials, type CalendarActivity } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -112,7 +112,7 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
                     <div className="text-sm text-gray-800 truncate">{a.title || meta.label[lang]}</div>
                     <div className="text-[11px] text-gray-500 truncate">
                       {a.dealer_name || "—"}
-                      {a.seller_initials ? ` · ${a.seller_initials}` : ""}
+                      {(() => { const all = activityAllSellerInitials(a); return all.length ? ` · ${all.join(", ")}` : ""; })()}
                     </div>
                   </div>
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", meta.badgeClass)}>{meta.label[lang]}</span>

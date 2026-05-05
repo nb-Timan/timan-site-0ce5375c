@@ -33,6 +33,8 @@ export interface CalendarActivity {
   seller_user_id: string | null;
   seller_initials: string | null;
   seller_name: string | null;
+  /** All sellers (including owner) that should see this activity. Phase 30. */
+  participant_seller_initials: string[];
   activity_type: CalendarActivityType;
   note: string | null;
   status: "planned" | "done" | "canceled";
@@ -58,6 +60,7 @@ export interface NewCalendarActivity {
   seller_user_id?: string | null;
   seller_initials?: string | null;
   seller_name?: string | null;
+  participant_seller_initials?: string[] | null;
   activity_type: CalendarActivityType;
   note?: string | null;
   status?: "planned" | "done" | "canceled";
@@ -123,6 +126,7 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     seller_user_id: input.seller_user_id ?? null,
     seller_initials: input.seller_initials ?? null,
     seller_name: input.seller_name ?? null,
+    participant_seller_initials: normalizeParticipants(input.participant_seller_initials, input.seller_initials),
     activity_type: input.activity_type,
     note: input.note ?? null,
     status: input.status ?? "planned",
@@ -138,10 +142,36 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
   writeLocal([row, ...readLocal()]);
   try {
     const { error } = await supabase.from("crm_calendar_activities").insert(row);
-    if (error) console.warn("[crmCalendar.create] supabase insert failed (kept local):", error.message);
+    if (error && isUndefinedColumn(error, "participant_seller_initials")) {
+      // Phase 30 SQL not yet applied — retry without the new column.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { participant_seller_initials: _ignored, ...legacy } = row;
+      const retry = await supabase.from("crm_calendar_activities").insert(legacy);
+      if (retry.error) console.warn("[crmCalendar.create] supabase insert failed (kept local):", retry.error.message);
+    } else if (error) {
+      console.warn("[crmCalendar.create] supabase insert failed (kept local):", error.message);
+    }
   } catch (err) { console.warn("[crmCalendar.create] unexpected:", err); }
   audit("create", row);
   return row;
+}
+
+function normalizeParticipants(list: string[] | null | undefined, owner: string | null | undefined): string[] {
+  const set = new Set<string>();
+  for (const v of list ?? []) {
+    const k = (v || "").trim().toUpperCase();
+    if (k) set.add(k);
+  }
+  const o = (owner || "").trim().toUpperCase();
+  if (o) set.add(o);
+  return Array.from(set);
+}
+
+function isUndefinedColumn(err: unknown, col: string): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  if (!e) return false;
+  if (e.code === "42703") return true;
+  return typeof e.message === "string" && e.message.toLowerCase().includes(col.toLowerCase()) && /column|does not exist|unknown/i.test(e.message);
 }
 
 export async function updateActivity(id: string, patch: Partial<NewCalendarActivity & { status: CalendarActivity["status"] }>, updatedByUserId?: string | null): Promise<CalendarActivity | null> {
@@ -149,36 +179,50 @@ export async function updateActivity(id: string, patch: Partial<NewCalendarActiv
   const idx = local.findIndex(r => r.id === id);
   if (idx < 0) return null;
   const before = local[idx];
+  const ownerInitials = (patch.seller_initials ?? before.seller_initials) ?? null;
   const next: CalendarActivity = {
     ...before,
     ...patch,
     activity_type: (patch.activity_type ?? before.activity_type) as CalendarActivityType,
     end_datetime: patch.end_datetime ?? before.end_datetime,
+    participant_seller_initials: normalizeParticipants(
+      patch.participant_seller_initials ?? before.participant_seller_initials,
+      ownerInitials,
+    ),
     updated_by_user_id: updatedByUserId ?? before.updated_by_user_id,
     updated_at: new Date().toISOString(),
   };
   local[idx] = next;
   writeLocal(local);
+  const updatePayload = {
+    title: next.title,
+    start_datetime: next.start_datetime,
+    end_datetime: next.end_datetime,
+    account_id: next.account_id,
+    dealer_name: next.dealer_name,
+    dealer_account_number: next.dealer_account_number,
+    dealer_assigned_seller_initials: next.dealer_assigned_seller_initials,
+    dealer_assigned_seller_email: next.dealer_assigned_seller_email,
+    seller_user_id: next.seller_user_id,
+    seller_initials: next.seller_initials,
+    seller_name: next.seller_name,
+    participant_seller_initials: next.participant_seller_initials,
+    activity_type: next.activity_type,
+    note: next.note,
+    status: next.status,
+    updated_by_user_id: next.updated_by_user_id,
+    updated_at: next.updated_at,
+  };
   try {
-    const { error } = await supabase.from("crm_calendar_activities").update({
-      title: next.title,
-      start_datetime: next.start_datetime,
-      end_datetime: next.end_datetime,
-      account_id: next.account_id,
-      dealer_name: next.dealer_name,
-      dealer_account_number: next.dealer_account_number,
-      dealer_assigned_seller_initials: next.dealer_assigned_seller_initials,
-      dealer_assigned_seller_email: next.dealer_assigned_seller_email,
-      seller_user_id: next.seller_user_id,
-      seller_initials: next.seller_initials,
-      seller_name: next.seller_name,
-      activity_type: next.activity_type,
-      note: next.note,
-      status: next.status,
-      updated_by_user_id: next.updated_by_user_id,
-      updated_at: next.updated_at,
-    }).eq("id", id);
-    if (error) console.warn("[crmCalendar.update] supabase update failed (kept local):", error.message);
+    const { error } = await supabase.from("crm_calendar_activities").update(updatePayload).eq("id", id);
+    if (error && isUndefinedColumn(error, "participant_seller_initials")) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { participant_seller_initials: _ignored, ...legacy } = updatePayload;
+      const retry = await supabase.from("crm_calendar_activities").update(legacy).eq("id", id);
+      if (retry.error) console.warn("[crmCalendar.update] supabase update failed (kept local):", retry.error.message);
+    } else if (error) {
+      console.warn("[crmCalendar.update] supabase update failed (kept local):", error.message);
+    }
   } catch (err) { console.warn("[crmCalendar.update] unexpected:", err); }
   audit("update", next, before);
   return next;
@@ -204,16 +248,32 @@ export interface ListCalendarOpts {
 }
 
 export async function listActivities(opts: ListCalendarOpts = {}): Promise<CalendarActivity[]> {
+  const wantInitials = opts.sellerInitials && opts.sellerInitials !== "all" ? opts.sellerInitials : null;
   // Try Supabase first
   try {
     let q = supabase.from("crm_calendar_activities").select("*").order("start_datetime", { ascending: true }).limit(2000);
     if (opts.sellerUserId) q = q.eq("seller_user_id", opts.sellerUserId);
-    else if (opts.sellerInitials && opts.sellerInitials !== "all") q = q.eq("seller_initials", opts.sellerInitials);
+    else if (wantInitials) {
+      // Owner OR participant array contains the seller initials.
+      q = q.or(`seller_initials.eq.${wantInitials},participant_seller_initials.cs.{${wantInitials}}`);
+    }
     if (opts.accountId) q = q.eq("account_id", opts.accountId);
     if (opts.fromIso) q = q.gte("start_datetime", opts.fromIso);
     if (opts.toIso) q = q.lte("start_datetime", opts.toIso);
     const { data, error } = await q;
-    if (error) throw error;
+    if (error) {
+      // Phase 30 column missing → retry with owner-only filter.
+      if (wantInitials && isUndefinedColumn(error, "participant_seller_initials")) {
+        let q2 = supabase.from("crm_calendar_activities").select("*").order("start_datetime", { ascending: true }).limit(2000);
+        q2 = q2.eq("seller_initials", wantInitials);
+        if (opts.accountId) q2 = q2.eq("account_id", opts.accountId);
+        if (opts.fromIso) q2 = q2.gte("start_datetime", opts.fromIso);
+        if (opts.toIso) q2 = q2.lte("start_datetime", opts.toIso);
+        const retry = await q2;
+        if (!retry.error && retry.data) return retry.data as unknown as CalendarActivity[];
+      }
+      throw error;
+    }
     if (data && data.length > 0) return data as unknown as CalendarActivity[];
   } catch (err) {
     console.warn("[crmCalendar.list] supabase failed → local fallback:", err);
@@ -221,7 +281,14 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
   // Local fallback
   let rows = readLocal();
   if (opts.sellerUserId) rows = rows.filter(r => r.seller_user_id === opts.sellerUserId);
-  else if (opts.sellerInitials && opts.sellerInitials !== "all") rows = rows.filter(r => (r.seller_initials || "").toUpperCase() === opts.sellerInitials!.toUpperCase());
+  else if (wantInitials) {
+    const want = wantInitials.toUpperCase();
+    rows = rows.filter(r => {
+      if ((r.seller_initials || "").toUpperCase() === want) return true;
+      const parts = r.participant_seller_initials || [];
+      return parts.some(p => (p || "").toUpperCase() === want);
+    });
+  }
   if (opts.accountId) rows = rows.filter(r => r.account_id === opts.accountId);
   if (opts.fromIso) rows = rows.filter(r => r.start_datetime >= opts.fromIso!);
   if (opts.toIso) rows = rows.filter(r => r.start_datetime <= opts.toIso!);
@@ -258,4 +325,16 @@ export const ACTIVITY_TYPES: ActivityTypeMeta[] = [
 
 export function activityTypeMeta(key: CalendarActivityType): ActivityTypeMeta {
   return ACTIVITY_TYPES.find(t => t.key === key) ?? ACTIVITY_TYPES[ACTIVITY_TYPES.length - 1];
+}
+
+/** Returns owner + participants merged & deduped (uppercased initials). Used in display. */
+export function activityAllSellerInitials(a: Pick<CalendarActivity, "seller_initials" | "participant_seller_initials">): string[] {
+  const set = new Set<string>();
+  const o = (a.seller_initials || "").trim().toUpperCase();
+  if (o) set.add(o);
+  for (const p of a.participant_seller_initials || []) {
+    const k = (p || "").trim().toUpperCase();
+    if (k) set.add(k);
+  }
+  return Array.from(set);
 }

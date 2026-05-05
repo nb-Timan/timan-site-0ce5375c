@@ -7,7 +7,7 @@ import { Plus, CalendarDays, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CalendarActivityModal from "@/components/crm/CalendarActivityModal";
-import { listActivities, activityTypeMeta, type CalendarActivity } from "@/lib/crmCalendarService";
+import { listActivities, activityTypeMeta, activityAllSellerInitials, type CalendarActivity } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import type { CrmAccount } from "@/lib/crmAccountsService";
 import { useAppUser } from "@/context/AppUserContext";
@@ -71,7 +71,7 @@ export default function DealerActivitiesSection({ account, accounts }: Props) {
         {lastVisit && (
           <div className="text-xs text-gray-500">
             {T.last_visit[lang]}: <span className="text-gray-700 font-medium">{new Date(lastVisit.start_datetime).toLocaleDateString()}</span>
-            {lastVisit.seller_initials ? ` · ${lastVisit.seller_initials}` : ""}
+            {(() => { const all = activityAllSellerInitials(lastVisit); return all.length ? ` · ${all.join(", ")}` : ""; })()}
           </div>
         )}
 
@@ -124,7 +124,7 @@ function ActivityList({ lang, title, rows, onClickRow, emptyText, muted }: {
                     <Clock className="h-3 w-3" />
                     {new Date(a.start_datetime).toLocaleDateString()}
                   </span>
-                  {a.seller_initials && <span className="text-[10px] font-semibold text-gray-500">{a.seller_initials}</span>}
+                  {(() => { const all = activityAllSellerInitials(a); return all.length ? <span className="text-[10px] font-semibold text-gray-500">{all.join(", ")}</span> : null; })()}
                 </button>
               </li>
             );

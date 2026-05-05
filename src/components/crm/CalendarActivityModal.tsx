@@ -48,7 +48,9 @@ const T: Record<string, Record<Language, string>> = {
   type_lbl:         { da: "Type",                 en: "Type",              de: "Typ",              it: "Tipo",              hu: "Típus" },
   start_lbl:        { da: "Start",                en: "Start",             de: "Start",            it: "Inizio",            hu: "Kezdés" },
   end_lbl:          { da: "Slut",                 en: "End",               de: "Ende",             it: "Fine",              hu: "Vége" },
-  seller_lbl:       { da: "Sælger",               en: "Seller",            de: "Verkäufer",        it: "Venditore",         hu: "Értékesítő" },
+  seller_lbl:       { da: "Sælgere",              en: "Sellers",           de: "Verkäufer",        it: "Venditori",         hu: "Értékesítők" },
+  sellers_pick:     { da: "Vælg sælgere",         en: "Pick sellers",      de: "Verkäufer wählen", it: "Seleziona venditori", hu: "Válassz értékesítőket" },
+  sellers_none:     { da: "Ingen valgt",          en: "None selected",     de: "Keine ausgewählt", it: "Nessuno selezionato", hu: "Nincs kiválasztva" },
   note_lbl:         { da: "Note",                 en: "Note",              de: "Notiz",            it: "Nota",              hu: "Jegyzet" },
   outlook_lbl:      { da: "Synkroniser til Outlook", en: "Sync to Outlook", de: "Mit Outlook synchronisieren", it: "Sincronizza con Outlook", hu: "Szinkron Outlookkal" },
   outlook_status:   { da: "Outlook status: Ikke aktiveret endnu", en: "Outlook status: Not enabled yet", de: "Outlook-Status: Noch nicht aktiviert", it: "Stato Outlook: Non ancora attivo", hu: "Outlook állapot: Még nincs aktiválva" },
@@ -146,6 +148,7 @@ export default function CalendarActivityModal(props: Props) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "");
+  const [participants, setParticipants] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<CalendarActivity["status"]>("planned");
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +196,14 @@ export default function CalendarActivityModal(props: Props) {
     }
     setNote(initial?.note || "");
     setStatus((initial?.status as CalendarActivity["status"]) || "planned");
+    // Participants: existing list (uppercased) ∪ owner ∪ current active seller (creator)
+    const existing = (initial?.participant_seller_initials || []).map((s) => (s || "").toUpperCase()).filter(Boolean);
+    const ownerIni = (initial?.seller_initials || currentSeller?.initials || "").toUpperCase();
+    const meIni = (currentSeller?.initials || "").toUpperCase();
+    const set = new Set<string>(existing);
+    if (ownerIni) set.add(ownerIni);
+    if (meIni) set.add(meIni);
+    setParticipants(Array.from(set));
   }, [open, initial, defaultAccountId, defaultDateIso, currentSeller, isAdmin]);
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
@@ -253,6 +264,12 @@ export default function CalendarActivityModal(props: Props) {
       seller_user_id: null,
       seller_initials: seller?.initials ?? null,
       seller_name: seller?.full_name ?? null,
+      participant_seller_initials: (() => {
+        const set = new Set<string>(participants.map((p) => (p || "").toUpperCase()).filter(Boolean));
+        const o = (seller?.initials || "").toUpperCase();
+        if (o) set.add(o); // owner is always a participant
+        return Array.from(set);
+      })(),
       activity_type: type,
       note: note.trim() || null,
       status,
@@ -396,14 +413,47 @@ export default function CalendarActivityModal(props: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">{T.seller_lbl[lang]}</Label>
-              <Select value={sellerInitials} onValueChange={setSellerInitials} disabled={!canChooseSeller}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BUDGET_SELLERS.map(s => (
-                    <SelectItem key={s.initials} value={s.initials}>{s.initials}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between font-normal h-10">
+                    <span className="truncate text-left">
+                      {participants.length > 0 ? participants.join(", ") : T.sellers_none[lang]}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-2 w-[--radix-popover-trigger-width] min-w-[260px]" align="start">
+                  <p className="px-2 pb-1 text-[11px] font-semibold text-gray-500">{T.sellers_pick[lang]}</p>
+                  <div className="space-y-1">
+                    {BUDGET_SELLERS.map((s) => {
+                      const ini = s.initials.toUpperCase();
+                      const checked = participants.includes(ini);
+                      const isCreator = (currentSeller?.initials || "").toUpperCase() === ini;
+                      const lockedForSeller = !canChooseSeller && isCreator;
+                      return (
+                        <label key={s.initials} className={cn(
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50 cursor-pointer",
+                          lockedForSeller && "opacity-80",
+                        )}>
+                          <Checkbox
+                            checked={checked}
+                            disabled={lockedForSeller}
+                            onCheckedChange={(v) => {
+                              setParticipants((prev) => {
+                                const set = new Set(prev.map((p) => p.toUpperCase()));
+                                if (v) set.add(ini); else if (!lockedForSeller) set.delete(ini);
+                                return Array.from(set);
+                              });
+                            }}
+                          />
+                          <span className="font-semibold">{s.initials}</span>
+                          <span className="text-xs text-gray-500">{s.full_name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label className="text-xs">{T.status_lbl[lang]}</Label>
