@@ -1238,7 +1238,9 @@ export default function CrmBudgetPage() {
           {/* Lock status + lock/unlock controls.
               Backend: requires a single seller selected in the filter to act.
               Sellers: status only, read-only. */}
-          {(() => {
+          {/* Backend/Admin only: keep the "Budgetstatus" pill. Sellers (incl.
+              view-as seller) rely solely on the status banner above. */}
+          {isAdmin && (() => {
             const email = selectedSellerEmail;
             const sl = lockFor(email);
             const locked = sl ? sl.locked : true;
