@@ -773,6 +773,29 @@ export default function CrmBudgetPage() {
     return out;
   }
 
+  /** Dealer names contributing to the orders count for a set of lines and
+   *  month index. Used by the "Ordrer" cell hover tooltip. Returns one entry
+   *  per order occurrence (duplicates) so the UI can group + count them. */
+  function ordersDealersFor(linesIn: BudgetLine[], monthIdx: number | null): string[] {
+    const out: string[] = [];
+    for (const l of linesIn) {
+      const ac = actuals.find(a => a.budget_line_id === l.id);
+      const md = ac?.monthly_dealers;
+      if (!md) continue;
+      if (monthIdx == null) {
+        for (const arr of md) for (const d of arr) {
+          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+        }
+      } else {
+        const arr = md[monthIdx] || [];
+        for (const d of arr) {
+          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+        }
+      }
+    }
+    return out;
+  }
+
 
   // Ensure a real budget line exists for the current seller / product. Used by
   // the working-forecast steppers so that RC-751 (or any machine without a
