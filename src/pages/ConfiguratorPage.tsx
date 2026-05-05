@@ -691,6 +691,16 @@ export default function ConfiguratorPage() {
 
       const clone = el.cloneNode(true) as HTMLElement;
       clone.style.cssText = 'width:100%;max-width:none;margin:0;padding:0;background:#fff;overflow:visible;';
+      // Re-render confirmation HTML with the freshly created reference numbers,
+      // so the PDF content shows the order/quote number even if React state
+      // hasn't propagated yet (single-submit flow).
+      try {
+        clone.innerHTML = buildConfirmationHtml({
+          quoteNumber: activeQuoteNumber,
+          orderNumber: activeOrderNumber,
+          sourceQuoteNumber: savedSourceQuoteNumber,
+        });
+      } catch { /* fallback to original cloned DOM */ }
       renderRoot.appendChild(clone);
 
       await new Promise(r => requestAnimationFrame(r));
