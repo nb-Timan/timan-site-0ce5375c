@@ -829,7 +829,7 @@ export function getLooseToolAccessories(): Accessory[] {
     item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
   );
 
-  const merged = [...rcRedskaber, ...timanWithTermit, ...extras];
+  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, ...extras];
 
   // Add packaging cost item (hidden)
   merged.push({
