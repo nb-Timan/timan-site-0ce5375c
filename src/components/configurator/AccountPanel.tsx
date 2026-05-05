@@ -3,16 +3,26 @@ import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   SavedConfiguration,
   loadConfigurationById,
   loadConfigurations,
   saveConfiguration,
   updateConfigurationStatus,
   updateConfigurationNote,
-  deleteConfiguration,
   SavedStatus,
   getSentPdfSignedUrl,
 } from '@/lib/configurationsService';
+import { hideConfigurationForCurrentUser } from '@/lib/userHiddenConfigurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import {
   buildConfiguratorOwnership,
@@ -87,6 +97,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmHideId, setConfirmHideId] = useState<string | null>(null);
+  const [hiding, setHiding] = useState(false);
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -164,9 +176,21 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     }
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteConfiguration(id);
-    setSavedItems(prev => prev.filter(i => i.id !== id));
+  const handleConfirmHide = async () => {
+    if (!confirmHideId || hiding) return;
+    setHiding(true);
+    try {
+      const { error } = await hideConfigurationForCurrentUser(confirmHideId);
+      if (error) {
+        toast.error(tx('hideFailed'), { description: error });
+        return;
+      }
+      setSavedItems(prev => prev.filter(i => i.id !== confirmHideId));
+      toast.success(tx('hideSuccess'));
+      setConfirmHideId(null);
+    } finally {
+      setHiding(false);
+    }
   };
 
   const handleToggleStatus = async (id: string) => {
@@ -289,6 +313,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       pdfOpenFailed: { da: 'Kunne ikke åbne PDF', en: 'Could not open PDF', de: 'PDF konnte nicht geöffnet werden', it: 'Impossibile aprire il PDF', hu: 'A PDF nem nyitható meg' },
       pdfNotStored: { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz' },
       noDealerLinked: { da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin.', en: 'Your user has no dealer linked — please contact an admin.', de: 'Ihr Benutzer hat keinen Händler verknüpft – bitte Admin kontaktieren.', it: 'Il tuo utente non ha un rivenditore collegato — contatta un amministratore.', hu: 'A felhasználódhoz nincs kereskedő rendelve — fordulj az adminhoz.' },
+      hideTitle: { da: 'Fjern sag fra Min konto?', en: 'Remove case from My account?', de: 'Fall aus Meinem Konto entfernen?', it: 'Rimuovere il caso da Il mio account?', hu: 'Eltávolítod az ügyet a Fiókomból?' },
+      hideBody: { da: 'Sagen fjernes kun fra din egen liste. Den slettes ikke fra CRM eller Timan Backend.', en: 'The case is only removed from your own list. It is not deleted from CRM or Timan Backend.', de: 'Der Fall wird nur aus Ihrer eigenen Liste entfernt. Er wird nicht aus dem CRM oder Timan Backend gelöscht.', it: 'Il caso viene rimosso solo dal tuo elenco. Non viene eliminato da CRM o Timan Backend.', hu: 'Az ügy csak a saját listádról kerül eltávolításra. Nem törlődik a CRM-ből vagy a Timan Backendből.' },
+      hideCancel: { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
+      hideConfirm: { da: 'Fjern fra Min konto', en: 'Remove from My account', de: 'Aus Meinem Konto entfernen', it: 'Rimuovi da Il mio account', hu: 'Eltávolítás a Fiókomból' },
+      hideSuccess: { da: 'Sagen er fjernet fra Min konto.', en: 'The case has been removed from My account.', de: 'Der Fall wurde aus Meinem Konto entfernt.', it: 'Il caso è stato rimosso da Il mio account.', hu: 'Az ügy eltávolítva a Fiókomból.' },
+      hideFailed: { da: 'Kunne ikke fjerne sag fra Min konto', en: 'Could not remove case from My account', de: 'Fall konnte nicht aus Meinem Konto entfernt werden', it: 'Impossibile rimuovere il caso da Il mio account', hu: 'Nem sikerült eltávolítani az ügyet a Fiókomból' },
     };
     return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
   }, [language]);
@@ -563,7 +593,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         </button>
                       )}
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => setConfirmHideId(item.id)}
                         className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
                       >
                         {tx('delete')}
@@ -586,6 +616,25 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmHideId !== null} onOpenChange={(o) => !o && setConfirmHideId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tx('hideTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{tx('hideBody')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hiding}>{tx('hideCancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={hiding}
+              onClick={(e) => { e.preventDefault(); void handleConfirmHide(); }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {hiding ? '...' : tx('hideConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
