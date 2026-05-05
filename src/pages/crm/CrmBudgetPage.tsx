@@ -1601,7 +1601,7 @@ export default function CrmBudgetPage() {
                                   </div>
                                 ) : (
                                   <>
-                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows}>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]}>
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
