@@ -41,6 +41,8 @@ import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel"
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
+import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
+import type { CellReference } from "@/components/crm/BudgetCellInsight";
 
 
 // ────────────────────────────────────────────────────────────
@@ -364,6 +366,8 @@ export default function CrmBudgetPage() {
   // Map of cell_key → latest AuditEntry for the current scope (used for the
   // changed indicator + tooltip). Backend sees all sellers; sellers see own.
   const [latestAuditByCell, setLatestAuditByCell] = useState<Record<string, AuditEntry>>({});
+  // Map of cell_key → list of attached references (for the small hover overview).
+  const [refsByCell, setRefsByCell] = useState<Record<string, CellReference[]>>({});
   // Re-render every 30s so the countdown ticks.
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -473,6 +477,34 @@ export default function CrmBudgetPage() {
         if (ck && !map[ck]) map[ck] = r;
       }
       setLatestAuditByCell(map);
+    }).catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [year, allowed, auditSellerContext, auditRefreshKey]);
+
+  // Hydrate cell → references map for the current year/scope.
+  useEffect(() => {
+    if (!allowed) return;
+    let alive = true;
+    listBudgetReferences({
+      year,
+      seller_email: auditSellerContext || undefined,
+      limit: 1000,
+    }).then((rows: BudgetReference[]) => {
+      if (!alive) return;
+      const map: Record<string, CellReference[]> = {};
+      // Oldest first so display order is creation order.
+      const sorted = [...rows].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+      for (const r of sorted) {
+        if (!r.cell_key) continue;
+        const item: CellReference = {
+          dealer_label: r.dealer_name,
+          has_lead: !!(r.lead_id && r.lead_id.trim()),
+          has_demo: !!(r.demo_id && r.demo_id.trim()),
+          note: r.note,
+        };
+        (map[r.cell_key] ||= []).push(item);
+      }
+      setRefsByCell(map);
     }).catch(() => { /* ignore */ });
     return () => { alive = false; };
   }, [year, allowed, auditSellerContext, auditRefreshKey]);
@@ -1542,6 +1574,7 @@ export default function CrmBudgetPage() {
                                       title={`Budget · ${tipTitle}`}
                                       total={b}
                                       rows={budgetRows}
+                                      references={refsByCell[ck]}
                                     >
                                       <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block">{b}</span>
                                     </BudgetCellInsight>
@@ -1568,7 +1601,7 @@ export default function CrmBudgetPage() {
                                   </div>
                                 ) : (
                                   <>
-                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows}>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]}>
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
@@ -1679,6 +1712,7 @@ export default function CrmBudgetPage() {
                                       title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                       total={w}
                                       rows={workRows}
+                                      references={refsByCell[ck]}
                                     >
                                       <span className="min-w-[16px] text-center font-semibold inline-block">{w}</span>
                                     </BudgetCellInsight>
@@ -1700,6 +1734,7 @@ export default function CrmBudgetPage() {
                                     title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                     total={w}
                                     rows={workRows}
+                                    references={refsByCell[ck]}
                                   >
                                     <span className="font-semibold">{w}</span>
                                   </BudgetCellInsight>
