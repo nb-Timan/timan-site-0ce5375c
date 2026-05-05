@@ -106,6 +106,18 @@ export default function BudgetCellInsight({
               </ul>
             </div>
           )}
+          {dealerGroups.length > 0 && (
+            <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
+              <div className="text-slate-300">Forhandler:</div>
+              <ul className="space-y-0.5">
+                {dealerGroups.map((d) => (
+                  <li key={d.name} className="text-slate-200 truncate">
+                    · {d.name}{d.count > 1 ? ` (${d.count})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {missingBudget && missingBudget.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 text-[11px] text-amber-300">
               Mangler budget: {missingBudget.join(", ")}
