@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
-  Search, Pencil, Download, Tag, X, Database,
+  Search, Pencil, Download, Tag, X, Database, UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
