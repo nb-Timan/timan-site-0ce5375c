@@ -9,7 +9,18 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
 import { useAppUser } from '@/context/AppUserContext';
@@ -19,6 +30,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
+  softDeleteConfiguration,
   CrmConfigurationRow,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
@@ -95,11 +107,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [search, setSearch] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
   // Backend/admin can always edit ownership, even when "viewing as" a seller.
   const canEditOwnership = portalRole === 'timan_backend' && mode === 'order';
+  // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
+  const canDelete = isBackendFull;
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +148,22 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
     if (canEditOwnership) setEditingRow(r);
   }, [canEditOwnership]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletingRow) return;
+    setDeleteBusy(true);
+    const { error: delErr } = await softDeleteConfiguration(deletingRow.id);
+    setDeleteBusy(false);
+    if (delErr) {
+      console.error('[CrmQuotesOrdersPage] delete failed', delErr);
+      toast.error('Kunne ikke slette. Prøv igen.');
+      return;
+    }
+    setRows((prev) => prev.filter((x) => x.id !== deletingRow.id));
+    toast.success(mode === 'order' ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
+    setDeletingRow(null);
+    setReloadKey((k) => k + 1);
+  }, [deletingRow, mode]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -221,6 +253,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
                   {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
+                  {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -267,6 +300,19 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           </button>
                         </td>
                       )}
+                      {canDelete && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDeletingRow(r); }}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700"
+                            title={mode === 'order' ? 'Slet ordre' : 'Slet tilbud'}
+                            aria-label={mode === 'order' ? 'Slet ordre' : 'Slet tilbud'}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -284,6 +330,34 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+
+      <AlertDialog
+        open={!!deletingRow}
+        onOpenChange={(open) => { if (!open && !deleteBusy) setDeletingRow(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {mode === 'order' ? 'Slet ordre?' : 'Slet tilbud?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {mode === 'order'
+                ? 'Er du sikker på, at du vil slette denne ordre? Ordren fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'
+                : 'Er du sikker på, at du vil slette dette tilbud? Tilbuddet fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Annuller</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBusy ? '…' : 'Ja, slet'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmLayout>
   );
 }

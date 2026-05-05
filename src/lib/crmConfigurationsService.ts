@@ -147,6 +147,7 @@ export async function listCrmConfigurations(
       .from('crm_configurations_view')
       .select('*')
       .eq('document_type', docType)
+      .neq('case_status', 'deleted')
       .order('created_at', { ascending: false })
       .limit(500);
     const { data, error } = await q;
@@ -278,4 +279,25 @@ export async function listScopedOrdersWithValue(
   });
 
   return { rows: out };
+}
+
+// ────────────────────────────────────────────────────────────
+// Soft-delete (Backend only) — sets case_status = 'deleted'.
+// Does NOT touch related rows (configuration_items, dealer, seller, etc.).
+// ────────────────────────────────────────────────────────────
+export async function softDeleteConfiguration(
+  id: string,
+): Promise<{ error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('configurations')
+      .update({ case_status: 'deleted' })
+      .eq('id', id);
+    if (error) throw error;
+    return {};
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[softDeleteConfiguration] failed', { id, error: e });
+    return { error: msg };
+  }
 }
