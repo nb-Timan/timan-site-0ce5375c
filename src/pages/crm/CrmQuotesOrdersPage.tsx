@@ -330,6 +330,34 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+
+      <AlertDialog
+        open={!!deletingRow}
+        onOpenChange={(open) => { if (!open && !deleteBusy) setDeletingRow(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {mode === 'order' ? 'Slet ordre?' : 'Slet tilbud?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {mode === 'order'
+                ? 'Er du sikker på, at du vil slette denne ordre? Ordren fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'
+                : 'Er du sikker på, at du vil slette dette tilbud? Tilbuddet fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Annuller</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBusy ? '…' : 'Ja, slet'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmLayout>
   );
 }
