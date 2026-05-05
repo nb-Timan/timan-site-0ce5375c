@@ -48,7 +48,9 @@ const T: Record<string, Record<Language, string>> = {
   type_lbl:         { da: "Type",                 en: "Type",              de: "Typ",              it: "Tipo",              hu: "Típus" },
   start_lbl:        { da: "Start",                en: "Start",             de: "Start",            it: "Inizio",            hu: "Kezdés" },
   end_lbl:          { da: "Slut",                 en: "End",               de: "Ende",             it: "Fine",              hu: "Vége" },
-  seller_lbl:       { da: "Sælger",               en: "Seller",            de: "Verkäufer",        it: "Venditore",         hu: "Értékesítő" },
+  seller_lbl:       { da: "Sælgere",              en: "Sellers",           de: "Verkäufer",        it: "Venditori",         hu: "Értékesítők" },
+  sellers_pick:     { da: "Vælg sælgere",         en: "Pick sellers",      de: "Verkäufer wählen", it: "Seleziona venditori", hu: "Válassz értékesítőket" },
+  sellers_none:     { da: "Ingen valgt",          en: "None selected",     de: "Keine ausgewählt", it: "Nessuno selezionato", hu: "Nincs kiválasztva" },
   note_lbl:         { da: "Note",                 en: "Note",              de: "Notiz",            it: "Nota",              hu: "Jegyzet" },
   outlook_lbl:      { da: "Synkroniser til Outlook", en: "Sync to Outlook", de: "Mit Outlook synchronisieren", it: "Sincronizza con Outlook", hu: "Szinkron Outlookkal" },
   outlook_status:   { da: "Outlook status: Ikke aktiveret endnu", en: "Outlook status: Not enabled yet", de: "Outlook-Status: Noch nicht aktiviert", it: "Stato Outlook: Non ancora attivo", hu: "Outlook állapot: Még nincs aktiválva" },
@@ -146,6 +148,7 @@ export default function CalendarActivityModal(props: Props) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [sellerInitials, setSellerInitials] = useState<string>(currentSeller?.initials || "");
+  const [participants, setParticipants] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<CalendarActivity["status"]>("planned");
   const [error, setError] = useState<string | null>(null);
