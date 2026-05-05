@@ -582,6 +582,16 @@ export default function BackendPriceListsPage() {
         />
       )}
 
+      {publishOpen && (
+        <PublishModal
+          rows={publishPreview}
+          busy={publishBusy}
+          summary={publishSummary}
+          onClose={() => { setPublishOpen(false); setPublishSummary(null); }}
+          onConfirm={onPublishConfirm}
+        />
+      )}
+
       <PortalFooter language={lang} />
     </div>
   );
