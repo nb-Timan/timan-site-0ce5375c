@@ -293,7 +293,7 @@ export const PRODUCTS: Record<string, Machine> = {
   },
   'Loader Line': {
     id: 'Loader Line',
-    name: { da: 'Loader-Line and CS-200 Traktor', en: 'Loader-Line and CS-200 Traktor', de: 'Loader-Line and CS-200 Traktor', it: 'Loader-Line and CS-200 Traktor', hu: 'Loader-Line and CS-200 Traktor' },
+    name: { da: 'Loader-Line og CS-200 Traktor', en: 'Loader-Line and CS-200 Tractor', de: 'Loader-Line und CS-200 Traktor', it: 'Loader-Line e CS-200 Trattore', hu: 'Loader-Line és CS-200 Traktor' },
     nameShort: 'LOADER LINE',
     priceDKK: 0,
     priceEUR: 0,
