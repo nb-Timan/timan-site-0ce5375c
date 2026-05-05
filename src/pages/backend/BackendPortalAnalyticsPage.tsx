@@ -243,7 +243,7 @@ export default function BackendPortalAnalyticsPage() {
         const u = userByEmail.get(key);
         map.set(key, {
           email,
-          name: u?.name || email,
+          name: userDisplayName(u, email),
           role: u?.role || "—",
           portalRole: u?.portal_role || "—",
           visitsToday: 0, visits7: 0, visits30: 0, visits: 0,
@@ -456,7 +456,7 @@ export default function BackendPortalAnalyticsPage() {
                       return (
                         <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="py-2 pr-3 text-gray-700">{formatDateTime(s.started_at)}</td>
-                          <td className="py-2 pr-3">{u?.name || s.email || <span className="text-gray-400">Gæst</span>}</td>
+                          <td className="py-2 pr-3">{userDisplayName(u ?? undefined, s.email) || <span className="text-gray-400">Gæst</span>}</td>
                           <td className="py-2 pr-3">{s.country || "—"}</td>
                           <td className="py-2 pr-3">{s.postal_code || "—"}</td>
                           <td className="py-2 pr-3">{s.language || "—"}</td>
