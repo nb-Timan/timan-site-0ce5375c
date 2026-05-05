@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
-  Search, Pencil, Download, Tag, X, Database,
+  Search, Pencil, Download, Tag, X, Database, UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
@@ -44,6 +44,12 @@ import {
   groupOrderIndex,
   type ProductGroupKey,
 } from "@/lib/configuratorPriceSeed";
+import {
+  buildPublishPreview,
+  publishItems,
+  type PublishPreviewRow,
+  type PublishSummary,
+} from "@/lib/pricePublishService";
 
 const FIELD_LABEL: Record<string, string> = {
   item_text_da: "Varetekst",
@@ -122,6 +128,17 @@ export default function BackendPriceListsPage() {
     return preview.filter((p) => p.bucket === filter);
   }, [preview, filter]);
 
+  // Publish-to-configurator state
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
+
+  const dirtyItems = useMemo(() => items.filter((i) => i.is_dirty), [items]);
+  const publishPreview: PublishPreviewRow[] = useMemo(
+    () => buildPublishPreview(dirtyItems),
+    [dirtyItems],
+  );
+
   // Early returns now happen AFTER all hooks have been called.
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -195,6 +212,22 @@ export default function BackendPriceListsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function onPublishConfirm() {
+    const nums = publishPreview.map((r) => r.item_number);
+    if (nums.length === 0) return;
+    setPublishBusy(true);
+    const res = await publishItems(nums);
+    setPublishBusy(false);
+    if (!res.ok || !res.summary) {
+      toast.error(res.error ?? "Publicering fejlede.");
+      return;
+    }
+    setPublishSummary(res.summary);
+    const total = res.summary.created + res.summary.updated;
+    toast.success(`${total} vare(r) publiceret til konfigurator-overlay.`);
+    await reload();
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
@@ -248,6 +281,16 @@ export default function BackendPriceListsPage() {
                   <Database className="h-3.5 w-3.5" />
                   Indlæs fra eksisterende konfigurator-data
                 </button>
+                <button
+                  type="button"
+                  onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
+                  disabled={dirtyItems.length === 0}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Publicér ændrede prislistevarer til konfigurator-overlay (price_list_published). Konfiguratorens kode ændres ikke i denne fase."
+                >
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  Upload ændringer til konfigurator{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
+                </button>
                 <span className="text-xs text-slate-500">
                   {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${items.length} varer`}
                 </span>
@@ -278,7 +321,14 @@ export default function BackendPriceListsPage() {
                             {grp}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-mono text-xs">{i.item_number}</td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {i.item_number}
+                          {i.is_dirty && (
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
+                              Ændret – ikke publiceret
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
@@ -532,6 +582,16 @@ export default function BackendPriceListsPage() {
         />
       )}
 
+      {publishOpen && (
+        <PublishModal
+          rows={publishPreview}
+          busy={publishBusy}
+          summary={publishSummary}
+          onClose={() => { setPublishOpen(false); setPublishSummary(null); }}
+          onConfirm={onPublishConfirm}
+        />
+      )}
+
       <PortalFooter language={lang} />
     </div>
   );
@@ -717,5 +777,141 @@ function PriceInput({ value, onChange }: { value: string; onChange: (v: string) 
       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono text-right"
       placeholder="0,00"
     />
+  );
+}
+
+function PublishModal({
+  rows, busy, summary, onClose, onConfirm,
+}: {
+  rows: PublishPreviewRow[];
+  busy: boolean;
+  summary: PublishSummary | null;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const ready = rows.filter((r) => r.status === "ready");
+  const missing = rows.filter((r) => r.status === "missing_in_configurator");
+
+  function diffNum(oldV: number | null, newV: number | null) {
+    const same = (oldV ?? null) === (newV ?? null);
+    if (same) return <span className="text-slate-500 font-mono">{fmtPrice(newV)}</span>;
+    return (
+      <span className="font-mono">
+        <span className="text-slate-500 line-through">{fmtPrice(oldV)}</span>{" "}
+        <span className="text-slate-400">→</span>{" "}
+        <span className="text-amber-800 font-semibold">{fmtPrice(newV)}</span>
+      </span>
+    );
+  }
+
+  function diffText(oldV: string | null, newV: string | null) {
+    const same = (oldV ?? "") === (newV ?? "");
+    if (same) return <span className="text-slate-500">{newV ?? "—"}</span>;
+    return (
+      <span>
+        <span className="text-slate-500 line-through">{oldV ?? "—"}</span>{" "}
+        <span className="text-slate-400">→</span>{" "}
+        <span className="text-amber-800 font-semibold">{newV ?? "—"}</span>
+      </span>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-6 border-b border-slate-200">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Upload ændringer til konfigurator</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Sammenligner ændrede prislistevarer (Backend) mod konfiguratorens nuværende værdier
+              (machines.ts). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
+              Konfiguratoren læser ikke fra denne tabel endnu — eksisterende tilbud, ordrer, PDF og e-mail er uændrede.
+            </p>
+            <p className="text-xs text-slate-600 mt-2">
+              <strong>{ready.length}</strong> klar til upload
+              {missing.length > 0 && <> · <strong>{missing.length}</strong> mangler i konfigurator</>}
+              {" "}({rows.length} ændringer i alt)
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-6">
+          {summary ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-6 w-6 text-emerald-700 mt-0.5" />
+                <div>
+                  <p className="font-bold text-emerald-900">Publicering gennemført</p>
+                  <p className="text-sm text-emerald-900 mt-1">
+                    <strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret,{" "}
+                    <strong>{summary.skipped}</strong> sprunget over.
+                  </p>
+                  {summary.errors.length > 0 && (
+                    <ul className="mt-2 text-[11px] font-mono bg-white rounded p-2 border border-rose-200 max-h-40 overflow-y-auto">
+                      {summary.errors.map((e, i) => (<li key={i}>{e.item_number ?? "—"}: {e.error}</li>))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-slate-500">Ingen ændrede varer at publicere.</p>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr className="text-left">
+                    <th className="px-2 py-1.5">Status</th>
+                    <th className="px-2 py-1.5">Varenr.</th>
+                    <th className="px-2 py-1.5">Varetekst (gammel → ny)</th>
+                    <th className="px-2 py-1.5 text-right">Pris DKK</th>
+                    <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                    <th className="px-2 py-1.5 text-right">Pris SEK</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.item_number} className="border-t border-slate-100 align-top">
+                      <td className="px-2 py-1.5">
+                        {r.status === "ready" ? (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Klar</span>
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Mangler i konfigurator</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 font-mono">{r.item_number}</td>
+                      <td className="px-2 py-1.5">{diffText(r.old_item_text_da, r.item_text_da)}</td>
+                      <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_dkk, r.price_dkk)}</td>
+                      <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_eur, r.price_eur)}</td>
+                      <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_sek, r.price_sek)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 p-6 border-t border-slate-200">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            {summary ? "Luk" : "Annuller"}
+          </button>
+          {!summary && (
+            <button
+              onClick={() => void onConfirm()}
+              disabled={busy || rows.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
+            >
+              <UploadCloud className="h-4 w-4" />
+              {busy ? "Publicerer…" : `Bekræft upload til konfigurator (${rows.length})`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

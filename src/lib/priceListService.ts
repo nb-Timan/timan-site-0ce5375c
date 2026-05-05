@@ -23,6 +23,8 @@ export interface PriceListItem {
   price_sek: number | null;
   updated_at: string;
   updated_by_email: string | null;
+  is_dirty: boolean;
+  last_published_at: string | null;
 }
 
 export interface PriceListImportLog {
@@ -77,7 +79,7 @@ export interface ImportSummary {
 export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, item_number, item_text_da, price_dkk, price_eur, price_sek, updated_at, updated_by_email")
+    .select("id, item_number, item_text_da, price_dkk, price_eur, price_sek, updated_at, updated_by_email, is_dirty, last_published_at")
     .order("item_number", { ascending: true });
   if (error) {
     // eslint-disable-next-line no-console
