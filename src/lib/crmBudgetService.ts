@@ -552,7 +552,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .neq("case_status", "deleted")
       .limit(5000);
     if (error) throw error;
-    const rows = ((data ?? []) as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+    const rows = ((data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
     if (rows.length === 0) return [];
 
     const ids = rows.map((r) => String(r.id));
@@ -562,7 +562,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
     if (detailRes.error && /state_json/.test(detailRes.error.message || "")) {
       detailRes = await trySel("id,note,total_price,case_type,document_type");
     }
-    if (!detailRes.error) details = (detailRes.data ?? []) as BudgetOrderRow[];
+    if (!detailRes.error) details = (detailRes.data ?? []) as unknown as BudgetOrderRow[];
     const detailById = new Map(details.map((r) => [String(r.id), r]));
     return rows.map((r) => ({ ...(detailById.get(String(r.id)) || {}), ...r }));
   } catch {
@@ -578,7 +578,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type");
     }
     if (res.error) throw res.error;
-    return ((res.data ?? []) as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+    return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
   }
 }
 
