@@ -412,18 +412,29 @@ export default function CrmDealerDetailPage() {
               </div>
             </div>
           </div>
-          {hasGroup && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
-              <button onClick={() => setScope("branch")}
-                className={`px-3 py-1.5 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                {t("branch_only")}
+          <div className="flex items-center gap-2 flex-wrap">
+            {admin && (
+              <button
+                onClick={() => setShowEditDealer(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold"
+                title="Rediger forhandleroplysninger"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
               </button>
-              <button onClick={() => setScope("group")}
-                className={`px-3 py-1.5 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                {t("group_total")} ({branchNumbers.length})
-              </button>
-            </div>
-          )}
+            )}
+            {hasGroup && (
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
+                <button onClick={() => setScope("branch")}
+                  className={`px-3 py-1.5 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                  {t("branch_only")}
+                </button>
+                <button onClick={() => setScope("group")}
+                  className={`px-3 py-1.5 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                  {t("group_total")} ({branchNumbers.length})
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Next follow-up banner */}
