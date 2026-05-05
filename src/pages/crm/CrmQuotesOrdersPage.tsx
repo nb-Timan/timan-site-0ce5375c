@@ -9,7 +9,18 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
 import { useAppUser } from '@/context/AppUserContext';
@@ -19,6 +30,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
+  softDeleteConfiguration,
   CrmConfigurationRow,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
