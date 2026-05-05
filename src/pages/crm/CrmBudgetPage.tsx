@@ -1658,6 +1658,7 @@ export default function CrmBudgetPage() {
                               title={`Ordrer total · ${productName}`}
                               total={totalOrders}
                               rows={sellerBreakdownFor(linesForAgg, null, "orders")}
+                              dealers={ordersDealersFor(linesForAgg, null)}
                             >
                               <span className="text-emerald-700">{totalOrders}</span>
                             </BudgetCellInsight>
