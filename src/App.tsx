@@ -129,6 +129,7 @@ const App = () => (
               <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
+              <Route path="/portal/backend/dealer-import" element={<BackendDealerImportPage />} />
               <Route path="/portal/backend/sellers" element={<BackendSellersPage />} />
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               {/* Existing configurator is preserved at /configurator */}
