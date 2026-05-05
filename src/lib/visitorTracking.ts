@@ -213,6 +213,25 @@ export async function logPageView(path: string, module?: string | null): Promise
   } catch (err) {
     console.error("[visitorTracking] logPageView failed:", err);
   }
+  // Heartbeat: refresh last_seen so duration can be reconstructed even if the
+  // unload beacon never reaches Supabase.
+  void touchSessionLastSeen();
+}
+
+/**
+ * Update last_seen on the current session row. Best-effort, debounced to once
+ * every 20s to avoid hammering Supabase on rapid route changes.
+ */
+let lastTouchAt = 0;
+async function touchSessionLastSeen(force = false): Promise<void> {
+  try {
+    const sid = sessionStorage.getItem(SESSION_ID_KEY);
+    if (!sid) return;
+    const now = Date.now();
+    if (!force && now - lastTouchAt < 20_000) return;
+    lastTouchAt = now;
+    await supabase.from("guest_sessions").update({ last_seen: new Date().toISOString() }).eq("id", sid);
+  } catch { /* ignore */ }
 }
 
 function deriveModule(path: string): string | null {
@@ -241,9 +260,18 @@ export function endSessionBeacon(): void {
  * Hook into browser unload events once.
  */
 let unloadAttached = false;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 export function attachSessionEndListener(): void {
   if (unloadAttached || typeof window === "undefined") return;
   unloadAttached = true;
   window.addEventListener("pagehide", endSessionBeacon);
   window.addEventListener("beforeunload", endSessionBeacon);
+  // Periodic heartbeat while the tab is visible — keeps last_seen fresh.
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    if (document.visibilityState === "visible") void touchSessionLastSeen();
+  }, 30_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void touchSessionLastSeen(true);
+  });
 }
