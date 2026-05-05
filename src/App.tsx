@@ -133,6 +133,7 @@ const App = () => (
               <Route path="/portal/backend/dealer-import" element={<BackendDealerImportPage />} />
               <Route path="/portal/backend/sellers" element={<BackendSellersPage />} />
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
+              <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
