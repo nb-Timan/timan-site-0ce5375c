@@ -24,6 +24,8 @@ export type ProductGroupKey =
   | "RC-751"
   | "RC-1000s"
   | "Timan 3330"
+  | "Timan 2620"
+  | "Loader Line"
   | "Løse redskaber / attachments"
   | "Options/accessories/other";
 
@@ -31,6 +33,8 @@ export const PRODUCT_GROUP_ORDER: ProductGroupKey[] = [
   "RC-751",
   "RC-1000s",
   "Timan 3330",
+  "Timan 2620",
+  "Loader Line",
   "Løse redskaber / attachments",
   "Options/accessories/other",
 ];
@@ -116,7 +120,17 @@ export function buildConfiguratorSeed(): SeedRow[] {
   if (t3330) push(machineRow(t3330, "Timan 3330"));
   for (const a of ACCESSORIES["Timan 3330"] || []) push(accessoryRow(a, "Timan 3330"));
 
-  // 4. Loose tools
+  // 4. Timan 2620
+  const t2620 = PRODUCTS["Timan 2620"];
+  if (t2620) push(machineRow(t2620, "Timan 2620"));
+  for (const a of ACCESSORIES["Timan 2620"] || []) push(accessoryRow(a, "Timan 2620"));
+
+  // 5. Loader Line
+  const loader = PRODUCTS["Loader Line"];
+  if (loader) push(machineRow(loader, "Loader Line"));
+  for (const a of ACCESSORIES["Loader Line"] || []) push(accessoryRow(a, "Loader Line"));
+
+  // 6. Loose tools
   for (const a of getLooseToolAccessories()) {
     push(accessoryRow(a, "Løse redskaber / attachments"));
   }
