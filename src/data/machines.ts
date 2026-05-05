@@ -271,7 +271,14 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 0,
     priceEUR: 0,
     varenr: '999-888',
-    techSpecs: [],
+    techSpecs: [
+      { label: 'Motor', value: { da: 'Perkins Diesel Motor', en: 'Perkins Diesel Engine', de: 'Perkins Dieselmotor', it: 'Motore Diesel Perkins', hu: 'Perkins dízelmotor' } },
+      { label: 'HK', value: { da: '26 HK', en: '26 HP', de: '26 PS', it: '26 CV', hu: '26 LE' } },
+      { label: 'Brændstof', value: { da: 'Benzin', en: 'Petrol', de: 'Benzin', it: 'Benzina', hu: 'Benzin' } },
+      { label: 'Tophastighed', value: { da: '100 km/t', en: '100 km/h', de: '100 km/h', it: '100 km/h', hu: '100 km/h' } },
+      { label: 'Lydniveau i kabine', value: { da: '15 dB', en: '15 dB', de: '15 dB', it: '15 dB', hu: '15 dB' } },
+      { label: 'Køreklar vægt', value: { da: '500 kg', en: '500 kg', de: '500 kg', it: '500 kg', hu: '500 kg' } },
+    ],
     machineDetails: {
       main: {
         da: 'Timan 2620 — produktdata kommer snart.',
