@@ -586,6 +586,14 @@ export default function CrmDealerDetailPage() {
           onSave={handleAddNote}
         />
       )}
+
+      {showEditDealer && admin && (
+        <EditDealerModal
+          dealer={dealer}
+          onCancel={() => setShowEditDealer(false)}
+          onSave={handleSaveDealer}
+        />
+      )}
     </CrmLayout>
   );
 }
