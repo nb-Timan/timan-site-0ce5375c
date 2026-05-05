@@ -90,18 +90,42 @@ export default function BackendPriceListsPage() {
     void reloadLogs();
   }, [appUser, perms?.isBackend]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
-  if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  // ---- ALL hooks must run before any early return ----
+  const groupMap = useMemo(() => buildVarenrGroupMap(), []);
 
   const filteredItems = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter((i) =>
-      i.item_number.toLowerCase().includes(term) ||
-      (i.item_text_da ?? "").toLowerCase().includes(term),
-    );
-  }, [items, q]);
+    const base = !term
+      ? items
+      : items.filter((i) =>
+          i.item_number.toLowerCase().includes(term) ||
+          (i.item_text_da ?? "").toLowerCase().includes(term),
+        );
+    return [...base].sort((a, b) => {
+      const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
+      const gb = groupMap.get(b.item_number) ?? "Options/accessories/other";
+      const oi = groupOrderIndex(ga as ProductGroupKey) - groupOrderIndex(gb as ProductGroupKey);
+      if (oi !== 0) return oi;
+      return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
+    });
+  }, [items, q, groupMap]);
+
+  const counts = useMemo(() => {
+    const c = { create: 0, update: 0, skip: 0, error: 0 };
+    if (preview) for (const p of preview) c[p.bucket]++;
+    return c;
+  }, [preview]);
+
+  const filteredPreview = useMemo(() => {
+    if (!preview) return [];
+    if (filter === "all") return preview;
+    return preview.filter((p) => p.bucket === filter);
+  }, [preview, filter]);
+
+  // Early returns now happen AFTER all hooks have been called.
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
+  if (!appUser) return <Navigate to="/portal" replace />;
+  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setSummary(null); setPreview(null); setParseErrors([]);
@@ -122,6 +146,26 @@ export default function BackendPriceListsPage() {
     reader.readAsText(f, "utf-8");
   }
 
+  function loadFromConfigurator() {
+    setSummary(null); setParseErrors([]);
+    try {
+      const seed = buildConfiguratorSeed();
+      const rows: CsvPriceRow[] = seed.map((s) => ({
+        item_number: s.item_number,
+        item_text_da: s.item_text_da,
+        price_dkk: s.price_dkk == null ? "" : String(s.price_dkk),
+        price_eur: s.price_eur == null ? "" : String(s.price_eur),
+        price_sek: "", // never overwrite existing SEK
+      }));
+      setFileName("konfigurator-seed");
+      setPreview(buildPreview(rows, items));
+      setTab("import");
+      toast.success(`${rows.length} varer hentet fra konfiguratoren – tjek forhåndsvisning.`);
+    } catch (err) {
+      toast.error("Kunne ikke læse fra konfiguratoren: " + (err instanceof Error ? err.message : String(err)));
+    }
+  }
+
   async function onConfirm() {
     if (!preview) return;
     setBusy(true);
@@ -129,22 +173,16 @@ export default function BackendPriceListsPage() {
     setBusy(false);
     if (!res.ok || !res.summary) { toast.error(res.error ?? "Import fejlede."); return; }
     setSummary(res.summary);
-    toast.success(`${res.summary.created} oprettet, ${res.summary.updated} opdateret, ${res.summary.skipped} sprunget over`);
+    if (fileName === "konfigurator-seed") {
+      const total = res.summary.created + res.summary.updated;
+      toast.success(`${total} varer indlæst fra konfiguratoren.`);
+    } else {
+      toast.success(`${res.summary.created} oprettet, ${res.summary.updated} opdateret, ${res.summary.skipped} sprunget over`);
+    }
     await reload();
     await reloadLogs();
   }
 
-  const counts = useMemo(() => {
-    const c = { create: 0, update: 0, skip: 0, error: 0 };
-    if (preview) for (const p of preview) c[p.bucket]++;
-    return c;
-  }, [preview]);
-
-  const filteredPreview = useMemo(() => {
-    if (!preview) return [];
-    if (filter === "all") return preview;
-    return preview.filter((p) => p.bucket === filter);
-  }, [preview, filter]);
 
   function downloadExport() {
     const csv = exportCsv(items);
