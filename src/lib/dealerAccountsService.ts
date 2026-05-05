@@ -213,6 +213,60 @@ export async function updateDealerSeller(
   }
 }
 
+export interface UpdateDealerAccountPatch {
+  company_name?: string | null;
+  account_number?: string | null;
+  country?: string | null;
+  address?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  assigned_seller_initials?: string | null;
+  assigned_seller_name?: string | null;
+  assigned_seller_email?: string | null;
+  customer_type?: string | null;
+  customer_type_label?: string | null;
+}
+
+/**
+ * Update editable dealer_accounts fields. Backend/Admin only — RLS on
+ * dealer_accounts will reject non-backend callers and the error is
+ * surfaced as a Danish permission message.
+ *
+ * Does NOT touch orders, quotes, activities, budget, users, prices or
+ * configurator data.
+ */
+export async function updateDealerAccount(
+  id: string,
+  patch: UpdateDealerAccountPatch,
+): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
+  try {
+    const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) update[k] = v;
+    }
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .update(update)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      const code = (error as { code?: string }).code;
+      const msg = (error as { message?: string }).message || "";
+      if (code === "42501" || /row-level security|permission/i.test(msg)) {
+        return { ok: false, error: "Kun backend kan rette forhandleroplysninger." };
+      }
+      throw error;
+    }
+    return { ok: true, row: data ? rowToDealer(data) : undefined };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg };
+  }
+}
+
 // ============================================================
 // Dealer-level aggregated statistics
 // ------------------------------------------------------------
