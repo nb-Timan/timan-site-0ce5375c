@@ -59,9 +59,14 @@ interface VisitorRow {
 
 interface AppUserLite {
   email: string;
-  name: string | null;
+  display_name: string | null;
+  initials: string | null;
   role: string | null;
   portal_role: string | null;
+}
+
+function userDisplayName(u: AppUserLite | undefined, fallbackEmail?: string | null): string {
+  return (u?.display_name?.trim() || u?.initials?.trim() || fallbackEmail || u?.email || "").trim();
 }
 
 function startOfTodayISO() {
@@ -136,7 +141,7 @@ export default function BackendPortalAnalyticsPage() {
           supabase.from("guest_visitors").select("*").order("last_visit_at", { ascending: false }).limit(2000),
           supabase.from("guest_sessions").select("*").gte("started_at", since).order("started_at", { ascending: false }).limit(5000),
           supabase.from("portal_activity_log").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
-          supabase.from("app_users").select("email,name,role,portal_role"),
+          supabase.from("app_users").select("email,display_name,initials,role,portal_role"),
         ]);
         if (cancelled) return;
         if (v.error) throw v.error;
