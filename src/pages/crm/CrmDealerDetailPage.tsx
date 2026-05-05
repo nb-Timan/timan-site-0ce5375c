@@ -28,6 +28,7 @@ import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccounts, fetchDealerAccountStats,
+  updateDealerAccount, type UpdateDealerAccountPatch,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
