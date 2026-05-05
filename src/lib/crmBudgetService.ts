@@ -403,6 +403,185 @@ export const BUDGET_BACKEND_USERS: BudgetSellerRef[] = [
   { initials: "NB", full_name: "NB", email: "nb@timan.dk", country: "DK" },
 ];
 
+type BudgetOrderRow = Record<string, unknown>;
+
+interface SellerIdentityIndex {
+  byId: Map<string, BudgetSellerRef>;
+  byEmail: Map<string, BudgetSellerRef>;
+  byInitials: Map<string, BudgetSellerRef>;
+}
+
+const normKey = (s: string | null | undefined) =>
+  (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
+const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
+
+function buildProductLookup(): Map<string, string> {
+  const productByNormKey = new Map<string, string>();
+  for (const [key, p] of Object.entries(PRODUCTS)) {
+    productByNormKey.set(normKey(key), key);
+    if (p.varenr) productByNormKey.set(normKey(p.varenr), key);
+  }
+  for (const p of BUDGET_PRODUCTS) {
+    productByNormKey.set(normKey(p.key), p.key);
+    if (p.varenr) productByNormKey.set(normKey(p.varenr), p.key);
+  }
+  return productByNormKey;
+}
+
+function resolveMachineKey(value: string | null | undefined, productByNormKey: Map<string, string>): string | null {
+  const n = normKey(value);
+  if (!n) return null;
+  if (productByNormKey.has(n)) return productByNormKey.get(n)!;
+  let best: string | null = null;
+  for (const [candidate, key] of productByNormKey.entries()) {
+    if (candidate.length < 4) continue;
+    if (n.includes(candidate) && (!best || candidate.length > normKey(best).length)) best = key;
+  }
+  return best;
+}
+
+function orderDateRaw(row: BudgetOrderRow): string | null {
+  return (row.order_sent_at as string | null)
+    || (row.submitted_at as string | null)
+    || (row.created_at as string | null)
+    || null;
+}
+
+function orderIsInYear(row: BudgetOrderRow, year: number): boolean {
+  const raw = orderDateRaw(row);
+  const d = raw ? new Date(raw) : null;
+  return !!d && !isNaN(d.getTime()) && d.getFullYear() === year;
+}
+
+function parseOrderState(row: BudgetOrderRow): ConfiguratorState | null {
+  try {
+    const raw = row.state_json;
+    if (raw) {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
+      if (Array.isArray(state.machineConfigs) && state.machineConfigs.length > 0) return state;
+    }
+  } catch { /* ignore */ }
+  try {
+    const noteRaw = row.note;
+    const noteParsed = typeof noteRaw === "string" ? JSON.parse(noteRaw) : noteRaw;
+    if (noteParsed && typeof noteParsed === "object") {
+      const inner = (noteParsed as Record<string, unknown>).state ?? noteParsed;
+      const state = normalizeConfiguratorState(inner as Partial<ConfiguratorState>);
+      if (Array.isArray(state.machineConfigs) && state.machineConfigs.length > 0) return state;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function machineQtyFromOrder(row: BudgetOrderRow, productByNormKey: Map<string, string>): { qtyByKey: Record<string, number>; totalQty: number } {
+  const qtyByKey: Record<string, number> = {};
+  let totalQty = 0;
+  const state = parseOrderState(row);
+  if (state) {
+    for (const mc of state.machineConfigs ?? []) {
+      const machineKey = resolveMachineKey(mc?.type, productByNormKey) || mc?.type;
+      if (!machineKey) continue;
+      const qty = Number(mc.qty || 0);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      qtyByKey[machineKey] = (qtyByKey[machineKey] || 0) + qty;
+      totalQty += qty;
+    }
+  }
+  if (totalQty === 0) {
+    const fromTitle = resolveMachineKey(row.title as string | null, productByNormKey);
+    if (fromTitle) {
+      qtyByKey[fromTitle] = 1;
+      totalQty = 1;
+    }
+  }
+  return { qtyByKey, totalQty };
+}
+
+async function loadSellerIdentityIndex(): Promise<SellerIdentityIndex> {
+  const byId = new Map<string, BudgetSellerRef>();
+  const byEmail = new Map<string, BudgetSellerRef>();
+  const byInitials = new Map<string, BudgetSellerRef>();
+  for (const s of BUDGET_SELLERS) {
+    byEmail.set(norm(s.email), s);
+    byInitials.set(upper(s.initials), s);
+  }
+  try {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("id,email")
+      .in("email", BUDGET_SELLERS.map((s) => s.email));
+    if (!error) {
+      for (const row of (data ?? []) as Array<{ id?: string | null; email?: string | null }>) {
+        const seller = row.email ? byEmail.get(norm(row.email)) : undefined;
+        if (seller && row.id) byId.set(String(row.id), seller);
+      }
+    }
+  } catch { /* seller-id matching is best effort; email/initials still work */ }
+  return { byId, byEmail, byInitials };
+}
+
+function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { seller: BudgetSellerRef | null; ownerKeys: string[] } {
+  const assignedId = (row.assigned_seller_id as string | null) || null;
+  const sellerEmail = norm(row.seller_email as string | null);
+  const sellerInitials = upper(row.seller_initials as string | null);
+  const seller = (assignedId ? sellers.byId.get(assignedId) : undefined)
+    || (sellerEmail ? sellers.byEmail.get(sellerEmail) : undefined)
+    || (sellerInitials ? sellers.byInitials.get(sellerInitials) : undefined)
+    || null;
+  const ownerKeys = new Set<string>();
+  if (assignedId) ownerKeys.add(`id:${assignedId}`);
+  if (sellerEmail) ownerKeys.add(`email:${sellerEmail}`);
+  if (sellerInitials) ownerKeys.add(`ini:${sellerInitials}`);
+  if (seller) {
+    ownerKeys.add(`email:${norm(seller.email)}`);
+    ownerKeys.add(`ini:${upper(seller.initials)}`);
+  }
+  return { seller, ownerKeys: Array.from(ownerKeys) };
+}
+
+async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type";
+  try {
+    const { data, error } = await supabase
+      .from("crm_configurations_view")
+      .select(columns)
+      .eq("document_type", "order")
+      .eq("case_status", "ordre_afgivet")
+      .neq("case_status", "deleted")
+      .limit(5000);
+    if (error) throw error;
+    const rows = ((data ?? []) as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => String(r.id));
+    let details: BudgetOrderRow[] = [];
+    const trySel = async (cols: string) => supabase.from("configurations").select(cols).in("id", ids);
+    let detailRes = await trySel("id,state_json,note,total_price,case_type,document_type");
+    if (detailRes.error && /state_json/.test(detailRes.error.message || "")) {
+      detailRes = await trySel("id,note,total_price,case_type,document_type");
+    }
+    if (!detailRes.error) details = (detailRes.data ?? []) as BudgetOrderRow[];
+    const detailById = new Map(details.map((r) => [String(r.id), r]));
+    return rows.map((r) => ({ ...(detailById.get(String(r.id)) || {}), ...r }));
+  } catch {
+    const trySel = async (cols: string) => supabase
+      .from("configurations")
+      .select(cols)
+      .or("document_type.eq.order,case_type.eq.order")
+      .eq("case_status", "ordre_afgivet")
+      .neq("case_status", "deleted")
+      .limit(5000);
+    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type");
+    if (res.error && /state_json/.test(res.error.message || "")) {
+      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type");
+    }
+    if (res.error) throw res.error;
+    return ((res.data ?? []) as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+  }
+}
+
 // ---------- Seed (only if empty) ----------
 function makeLine(
   year: number,
