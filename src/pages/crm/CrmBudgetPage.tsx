@@ -624,15 +624,23 @@ export default function CrmBudgetPage() {
   const totals = useMemo(() => {
     const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
     const annualQty = visibleLines.reduce((s, l) => s + l.qty_budget, 0);
-    const sold = actuals
-      .filter(a => visibleLines.some(l => l.id === a.budget_line_id))
+    const visibleLineIds = new Set(visibleLines.map(l => l.id));
+    const syntheticSellerSuffix = (isAdmin && backendFilter === "all")
+      ? null
+      : (isAdmin ? backendFilter : sellerCtxEmail).replace(/[^a-z0-9]/gi, "");
+    const scopedActuals = actuals.filter(a => {
+      if (visibleLineIds.has(a.budget_line_id)) return true;
+      if (!a.budget_line_id.startsWith(`seed_${year}_`)) return false;
+      return syntheticSellerSuffix == null || a.budget_line_id.endsWith(`_${syntheticSellerSuffix}`);
+    });
+    const sold = scopedActuals
       .reduce((acc, a) => ({ qty: acc.qty + a.qty_sold, value: acc.value + a.value_sold }), { qty: 0, value: 0 });
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
     const score = annualQty > 0 ? Math.round((sold.qty / annualQty) * 100) : 0;
     return { annualBudget, annualQty, sold, fc, score };
-  }, [visibleLines, actuals, forecasts]);
+  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, year]);
 
   if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
