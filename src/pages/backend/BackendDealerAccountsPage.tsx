@@ -172,6 +172,23 @@ export default function BackendDealerAccountsPage() {
     [rows],
   );
 
+  // Aggregated stats over the currently filtered dealer rows. Follows the
+  // seller filter automatically because `filtered` already does.
+  const totals = useMemo(() => {
+    const userIds = new Set<string>();
+    let quotes = 0, orders = 0;
+    let last: string | null = null;
+    for (const r of filtered) {
+      const s = stats[r.id];
+      if (!s) continue;
+      for (const uid of s.user_ids) userIds.add(uid);
+      quotes += s.quote_count;
+      orders += s.order_count;
+      if (s.last_activity_at && (!last || s.last_activity_at > last)) last = s.last_activity_at;
+    }
+    return { dealers: filtered.length, users: userIds.size, quotes, orders, last };
+  }, [filtered, stats]);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
