@@ -542,6 +542,10 @@ export default function ConfiguratorPage() {
         <span>${T('confirmTotal')}</span>
         <span class="price-col">${formatMoney(calcResult.currentPrice, lang)}</span>
       </div>
+      <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
+        <span>${getPaymentTermsLabel(lang)}</span>
+        <span>${resolvePaymentTerms(state.paymentTerms)}</span>
+      </div>
       <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
     </div></div></div>`;
 
