@@ -325,6 +325,11 @@ function buildRestoredState(
     individualUnitConfigs: rebuiltFromItems && Object.keys(rebuiltFromItems.individualUnitConfigs).length > 0
       ? rebuiltFromItems.individualUnitConfigs
       : baseState.individualUnitConfigs,
+    // Phase 27 — prefer the dedicated column when present, falling back to
+    // whatever the embedded state had (or the default inside normalize).
+    paymentTerms: typeof row.payment_terms === 'string' && row.payment_terms.trim()
+      ? row.payment_terms
+      : baseState.paymentTerms,
   });
 
   return {
