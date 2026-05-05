@@ -373,6 +373,8 @@ export default function CrmDealerDetailPage() {
     setShowEditDealer(false);
     return { ok: true };
   }
+
+  return (
     <CrmLayout pageTitle={dealer.branch_name || dealer.company_name}>
       {/* Back nav */}
       <button onClick={() => navigate("/portal/crm/my-dealers")}
