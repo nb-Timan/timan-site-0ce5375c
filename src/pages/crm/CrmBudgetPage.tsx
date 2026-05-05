@@ -1637,7 +1637,7 @@ export default function CrmBudgetPage() {
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <BudgetCellInsight title={`Ordrer · ${tipTitle}`} total={o} rows={ordersRows}>
+                                    <BudgetCellInsight title={`Ordrer · ${tipTitle}`} total={o} rows={ordersRows} dealers={ordersDealersFor(linesForAgg, i)}>
                                       <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
                                     </BudgetCellInsight>
                                   </>
