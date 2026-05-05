@@ -26,6 +26,12 @@ import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  DEFAULT_PAYMENT_TERMS,
+  resolvePaymentTerms,
+  getPaymentTermsLabel,
+} from '@/lib/paymentTerms';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
