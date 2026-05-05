@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
-import { getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
+import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { hasModuleAccess, ModuleAccessKey, derivePortalRole } from '@/lib/portalAccess';
 
