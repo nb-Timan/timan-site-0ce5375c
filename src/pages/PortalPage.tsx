@@ -115,8 +115,8 @@ export default function PortalPage() {
     );
   }
 
-  const effectiveUser = useEffectivePortalUser(appUser);
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
