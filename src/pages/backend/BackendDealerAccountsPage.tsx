@@ -131,18 +131,7 @@ export default function BackendDealerAccountsPage() {
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
-  if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
-
-  const countries = Array.from(new Set(rows.map((r) => r.country).filter(Boolean))).sort() as string[];
-  const customerTypes = Array.from(
-    new Set(rows.map((r) => r.customer_type_label || r.customer_type).filter(Boolean)),
-  ).sort() as string[];
-  const sellerInitials = Array.from(new Set(rows.map((r) => r.assigned_seller_initials).filter(Boolean))).sort() as string[];
-
-  const filtered = rows.filter((r) => {
+  const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
     if (seller && r.assigned_seller_initials !== seller) return false;
@@ -155,12 +144,8 @@ export default function BackendDealerAccountsPage() {
       if (!hay.includes(needle)) return false;
     }
     return true;
-  });
+  }), [rows, country, customerType, seller, unassignedOnly, structureFilter, q]);
 
-  // Build groups for the "All" view. We always group children under their main
-  // so the table reflects parent/child structure. When the user filters by
-  // "branch" we render branches flat. When filtering by "main", branches are
-  // hidden but we still expose them via the expand chevron.
   const groups = useMemo(() => groupDealersByParent(filtered), [filtered]);
   const dealersByAcct = useMemo(() => {
     const m = new Map<string, DealerAccount>();
@@ -188,6 +173,17 @@ export default function BackendDealerAccountsPage() {
     }
     return { dealers: filtered.length, users: userIds.size, quotes, orders, last };
   }, [filtered, stats]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
+  if (!appUser) return <Navigate to="/portal" replace />;
+  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
+  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+
+  const countries = Array.from(new Set(rows.map((r) => r.country).filter(Boolean))).sort() as string[];
+  const customerTypes = Array.from(
+    new Set(rows.map((r) => r.customer_type_label || r.customer_type).filter(Boolean)),
+  ).sort() as string[];
+  const sellerInitials = Array.from(new Set(rows.map((r) => r.assigned_seller_initials).filter(Boolean))).sort() as string[];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
