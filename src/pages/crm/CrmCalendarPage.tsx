@@ -22,6 +22,7 @@ import {
   listActivities,
   activityTypeMeta,
   ACTIVITY_TYPES,
+  activityAllSellerInitials,
   type CalendarActivity,
 } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";

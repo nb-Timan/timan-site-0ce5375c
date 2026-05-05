@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, ArrowRight, Activity, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listActivities, activityTypeMeta, type CalendarActivity } from "@/lib/crmCalendarService";
+import { listActivities, activityTypeMeta, activityAllSellerInitials, type CalendarActivity } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";

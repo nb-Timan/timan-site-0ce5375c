@@ -7,7 +7,7 @@ import { Plus, CalendarDays, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CalendarActivityModal from "@/components/crm/CalendarActivityModal";
-import { listActivities, activityTypeMeta, type CalendarActivity } from "@/lib/crmCalendarService";
+import { listActivities, activityTypeMeta, activityAllSellerInitials, type CalendarActivity } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import type { CrmAccount } from "@/lib/crmAccountsService";
 import { useAppUser } from "@/context/AppUserContext";
