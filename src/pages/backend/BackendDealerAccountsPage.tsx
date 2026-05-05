@@ -172,6 +172,23 @@ export default function BackendDealerAccountsPage() {
     [rows],
   );
 
+  // Aggregated stats over the currently filtered dealer rows. Follows the
+  // seller filter automatically because `filtered` already does.
+  const totals = useMemo(() => {
+    const userIds = new Set<string>();
+    let quotes = 0, orders = 0;
+    let last: string | null = null;
+    for (const r of filtered) {
+      const s = stats[r.id];
+      if (!s) continue;
+      for (const uid of s.user_ids) userIds.add(uid);
+      quotes += s.quote_count;
+      orders += s.order_count;
+      if (s.last_activity_at && (!last || s.last_activity_at > last)) last = s.last_activity_at;
+    }
+    return { dealers: filtered.length, users: userIds.size, quotes, orders, last };
+  }, [filtered, stats]);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
@@ -300,6 +317,15 @@ export default function BackendDealerAccountsPage() {
             <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} className="h-4 w-4" />
             Vis slettede forhandlere
           </label>
+        </div>
+
+        {/* Aggregated stats — follows the seller / country / type / search filter */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <StatCard label="Forhandlere" value={totals.dealers} />
+          <StatCard label="Tilknyttede brugere" value={totals.users} />
+          <StatCard label="Tilbud" value={totals.quotes} />
+          <StatCard label="Ordrer" value={totals.orders} />
+          <StatCard label="Sidste aktivitet" value={fmtDate(totals.last)} />
         </div>
 
         <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
@@ -1239,6 +1265,15 @@ function ImportCsvModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 text-xl font-bold text-slate-900">{value}</div>
     </div>
   );
 }
