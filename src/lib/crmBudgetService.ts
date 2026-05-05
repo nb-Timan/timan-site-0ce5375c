@@ -833,13 +833,22 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           value_sold: 0,
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
+          monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
         };
         prev.qty_sold += qty;
         prev.value_sold += value;
         if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
         if (!prev.monthly_value) prev.monthly_value = ZERO12();
+        if (!prev.monthly_dealers) prev.monthly_dealers = Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>);
         prev.monthly_qty[monthIdx] += qty;
         prev.monthly_value[monthIdx] += value;
+        const dealerName =
+          (row.dealer_name as string | null) ||
+          (row.dealer_company_name as string | null) ||
+          (row.dealer_number as string | null) ||
+          (row.dealer_account_number as string | null) ||
+          "—";
+        prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
         totals.set(line.id, prev);
       }
     }
