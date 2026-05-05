@@ -1268,3 +1268,12 @@ function ImportCsvModal({
     </div>
   );
 }
+
+function StatCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 text-xl font-bold text-slate-900">{value}</div>
+    </div>
+  );
+}
