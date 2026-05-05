@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -99,6 +99,12 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/backend/sellers';
               icon = UserCog;
               description = lang === 'da' ? 'Timan sælgere og deres tildelte forhandlere.' : 'Timan sellers and their assigned dealers.';
+            } else if (p.key === 'price_lists') {
+              href = '/portal/backend/price-lists';
+              icon = Tag;
+              description = lang === 'da'
+                ? 'Administrér varepriser, importér prislister fra ERP og eksportér til CSV.'
+                : 'Manage product prices, import from ERP and export to CSV.';
             }
             return (
               <PlaceholderCard
