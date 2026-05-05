@@ -1489,6 +1489,14 @@ export default function ConfiguratorPage() {
                         selected={selectedDeliveryDate}
                         onSelect={(date) => {
                           if (!date) return;
+                          const day = date.getDay();
+                          if (day === 0 || day === 6) {
+                            const next = new Date(date);
+                            while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
+                            toast.error('Leveringsdato kan ikke være en weekend.');
+                            setDate(format(next, 'yyyy-MM-dd'));
+                            return;
+                          }
                           setDate(format(date, 'yyyy-MM-dd'));
                         }}
                         disabled={(date) => {
