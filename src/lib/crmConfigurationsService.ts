@@ -147,6 +147,7 @@ export async function listCrmConfigurations(
       .from('crm_configurations_view')
       .select('*')
       .eq('document_type', docType)
+      .neq('case_status', 'deleted')
       .order('created_at', { ascending: false })
       .limit(500);
     const { data, error } = await q;
