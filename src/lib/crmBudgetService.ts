@@ -720,142 +720,80 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
 async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
   try {
     const lines = await listBudgetLines({ year });
-    if (lines.length === 0) return [];
-
-    // Normalization: strip non-alphanumerics, lowercase. So "RC-751",
-    // "RC 751", "rc751", "Rc-751" all collapse to "rc751".
-    const normKey = (s: string | null | undefined) =>
-      (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
-    const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
+    const sellers = await loadSellerIdentityIndex();
+    const productByNormKey = buildProductLookup();
 
     // Build flexible lookup index per budget line. We register the line
-    // under multiple owner keys (email + initials) and multiple product
-    // keys (normalized product_key + normalized varenr), so we can match
-    // a configurator order regardless of which fields it has set.
+    // under seller id/email/initials and product key/varenr, so matching is
+    // identical to CRM → Ordrer scoping but still works for legacy rows.
     type Idx = Map<string, BudgetLine>;
     const idx: Idx = new Map();
-    for (const l of lines) {
+    const indexLine = (l: BudgetLine) => {
       const ownerKeys: string[] = [];
+      if (l.seller_id)       ownerKeys.push(`id:${l.seller_id}`);
       if (l.seller_email)    ownerKeys.push(`email:${norm(l.seller_email)}`);
       if (l.seller_initials) ownerKeys.push(`ini:${upper(l.seller_initials)}`);
-      if (ownerKeys.length === 0) continue;
+      if (ownerKeys.length === 0) return;
 
       const prodKeys: string[] = [];
       if (l.product_key) prodKeys.push(`key:${normKey(l.product_key)}`);
       if (l.item_number) prodKeys.push(`vnr:${normKey(l.item_number)}`);
-      if (prodKeys.length === 0) continue;
+      if (prodKeys.length === 0) return;
 
       for (const ok of ownerKeys) {
         for (const pk of prodKeys) {
-          // First write wins — we don't aggregate two budget lines on the
-          // same (owner, product). The first one defined is used.
           const k = `${ok}||${pk}`;
           if (!idx.has(k)) idx.set(k, l);
         }
       }
+    };
+    for (const l of lines) indexLine(l);
+
+    // Also index zero-budget virtual rows for standard machine/seller combos.
+    // This lets live orders display even before any manual budget has been set.
+    for (const seller of BUDGET_SELLERS) {
+      for (const product of BUDGET_PRODUCTS) {
+        if (product.category !== "machine") continue;
+        indexLine({
+          id: `seed_${year}_${product.key}_${seller.email.replace(/[^a-z0-9]/gi, "")}`,
+          year,
+          product_key: product.key,
+          product_name: product.name,
+          item_number: product.varenr,
+          category: product.category,
+          seller_id: null,
+          seller_name: seller.full_name,
+          seller_email: seller.email,
+          seller_initials: seller.initials,
+          country: seller.country,
+          qty_budget: 0,
+          value_budget: 0,
+          monthly_split: EVEN_SPLIT,
+          locked: false,
+          created_at: new Date().toISOString(),
+        });
+      }
     }
 
-    // Pull all orders for the year. Budget UI scopes per-seller via
-    // line.seller_email/initials, so we don't apply user scope here.
-    const fromIso = new Date(year, 0, 1).toISOString();
-    const toIso = new Date(year + 1, 0, 1).toISOString();
-    // Try with state_json + title first; if column missing on this DB,
-    // retry without it (we always have `note`, which carries the same
-    // configurator state).
-    let data: Array<Record<string, unknown>> | null = null;
-    {
-      const trySel = async (cols: string) => supabase
-        .from("configurations")
-        .select(cols)
-        .or("document_type.eq.order,case_type.eq.order")
-        .neq("case_status", "deleted")
-        .gte("created_at", fromIso)
-        .lt("created_at", toIso)
-        .limit(2000);
-      let res = await trySel("id, title, state_json, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, delivery_date, case_status, document_type, case_type");
-      if (res.error && /state_json/.test(res.error.message || "")) {
-        res = await trySel("id, title, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, delivery_date, case_status, document_type, case_type");
-      }
-      if (res.error && /delivery_date/.test(res.error.message || "")) {
-        res = await trySel("id, title, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
-      }
-      if (res.error) throw res.error;
-      data = (res.data ?? []) as unknown as Array<Record<string, unknown>>;
-    }
-
-    // Pre-compute a normalized lookup of known product keys by varenr and
-    // by their own key, so we can resolve a machine type from a title or
-    // varenr if state_json/note is missing.
-    const productByNormKey = new Map<string, string>();
-    for (const [key, p] of Object.entries(PRODUCTS)) {
-      productByNormKey.set(normKey(key), key);
-      if (p.varenr) productByNormKey.set(normKey(p.varenr), key);
-    }
-    function resolveMachineKeyFromTitle(title: string | null | undefined): string | null {
-      if (!title) return null;
-      const t = normKey(title);
-      // Prefer the longest match.
-      let best: string | null = null;
-      for (const [nk, key] of productByNormKey.entries()) {
-        if (nk.length < 4) continue; // avoid trivial 2-char matches
-        if (t.includes(nk)) {
-          if (!best || nk.length > normKey(best).length) best = key;
-        }
-      }
-      return best;
-    }
-
+    const data = await fetchBudgetOrderRows(year);
     const totals = new Map<string, SalesActual>();
     const ZERO12 = () => Array.from({ length: 12 }, () => 0);
-    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
-      // Submitted-order filter: status 'ordre_afgivet' OR has order_sent_at /
-      // submitted_at. Drafts ('aktiv', 'pause') are NOT counted.
+    for (const row of data) {
       const status = (row.case_status as string | null) || "";
-      const orderSentAt = (row.order_sent_at as string | null) || null;
-      const submittedAt = (row.submitted_at as string | null) || null;
-      const isSubmitted = status === "ordre_afgivet" || !!orderSentAt || !!submittedAt;
-      if (!isSubmitted) continue;
+      if (status === "deleted" || status !== "ordre_afgivet") continue;
 
-      // Month bucketing: delivery_date → order_sent_at → submitted_at → created_at.
-      const dateRaw = (row.delivery_date as string | null)
-        || orderSentAt
-        || submittedAt
-        || (row.created_at as string | null)
-        || null;
+      // Month bucketing: order_sent_at → submitted_at → created_at. Delivery
+      // date is deliberately not required for Budget actuals.
+      const dateRaw = orderDateRaw(row);
       const d = dateRaw ? new Date(dateRaw) : null;
       if (!d || isNaN(d.getTime())) continue;
       if (d.getFullYear() !== year) continue;
       const monthIdx = d.getMonth();
 
-      const sellerEmail = norm(row.seller_email as string | null);
-      const sellerInitials = upper(row.seller_initials as string | null);
-      // Skip unowned legacy rows (no seller info at all).
-      if (!sellerEmail && !sellerInitials) continue;
+      const { ownerKeys } = orderSeller(row, sellers);
+      if (ownerKeys.length === 0) continue;
+      const state = parseOrderState(row);
 
-      let state: ConfiguratorState | null = null;
-      try {
-        const raw = row.state_json;
-        if (raw) {
-          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-          state = normalizeConfiguratorState(parsed as Partial<ConfiguratorState>);
-        }
-      } catch { state = null; }
-      // Fallback: parse state from `note` (stored payload format).
-      if (!state || !Array.isArray(state.machineConfigs) || state.machineConfigs.length === 0) {
-        try {
-          const noteRaw = row.note;
-          const noteParsed = typeof noteRaw === "string" ? JSON.parse(noteRaw) : noteRaw;
-          if (noteParsed && typeof noteParsed === "object") {
-            const inner = (noteParsed as Record<string, unknown>).state ?? noteParsed;
-            const ns = normalizeConfiguratorState(inner as Partial<ConfiguratorState>);
-            if (Array.isArray(ns.machineConfigs) && ns.machineConfigs.length > 0) state = ns;
-          }
-        } catch { /* ignore */ }
-      }
-
-      // Compute final price: prefer calcConfigurationTotals(state); fall back
-      // to persisted total_price column if state is missing/empty.
       // Value can be 0 — qty must still be counted.
       let finalPrice = 0;
       if (state) {
@@ -866,40 +804,17 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         if (Number.isFinite(tp) && tp > 0) finalPrice = tp;
       }
 
-      // Aggregate per machine type. If state has no machineConfigs, fall
-      // back to deriving a single machine key from the row's title.
-      const qtyByKey: Record<string, number> = {};
-      let totalQty = 0;
-      if (state) {
-        for (const mc of state.machineConfigs ?? []) {
-          if (!mc?.type) continue;
-          qtyByKey[mc.type] = (qtyByKey[mc.type] || 0) + (mc.qty || 0);
-          totalQty += (mc.qty || 0);
-        }
-      }
-      if (totalQty === 0) {
-        const fromTitle = resolveMachineKeyFromTitle(row.title as string | null);
-        if (fromTitle) {
-          qtyByKey[fromTitle] = 1;
-          totalQty = 1;
-        }
-      }
+      const { qtyByKey, totalQty } = machineQtyFromOrder(row, productByNormKey);
       if (totalQty === 0) continue;
 
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        // Try every (owner, product) variant for a match.
-        const ownerVariants: string[] = [];
-        if (sellerEmail)    ownerVariants.push(`email:${sellerEmail}`);
-        if (sellerInitials) ownerVariants.push(`ini:${sellerInitials}`);
-
-        // Resolve product key + varenr from the configurator catalog.
-        const product = PRODUCTS[machineKey];
+        const product = PRODUCTS[machineKey] || BUDGET_PRODUCTS.find((p) => normKey(p.key) === normKey(machineKey));
         const productVarenr = product?.varenr ? normKey(product.varenr) : "";
         const prodVariants: string[] = [`key:${normKey(machineKey)}`];
         if (productVarenr) prodVariants.push(`vnr:${productVarenr}`);
 
         let line: BudgetLine | undefined;
-        outer: for (const ov of ownerVariants) {
+        outer: for (const ov of ownerKeys) {
           for (const pv of prodVariants) {
             const cand = idx.get(`${ov}||${pv}`);
             if (cand) { line = cand; break outer; }
