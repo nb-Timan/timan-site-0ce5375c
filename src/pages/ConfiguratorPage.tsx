@@ -623,8 +623,19 @@ export default function ConfiguratorPage() {
     }
   };
 
-  // PDF download using jsPDF + html2canvas
+  // PDF download + submit (single async flow). Guarded by `submitting` so the
+  // button cannot trigger a second PDF/save/webhook.
   const downloadPdf = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await downloadPdfInner();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const downloadPdfInner = async () => {
     const el = confirmContentRef.current;
     if (!el) return;
 
