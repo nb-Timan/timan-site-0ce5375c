@@ -442,7 +442,7 @@ export default function ConfiguratorPage() {
   };
 
   // ======== Confirmation modal builder ========
-  const buildConfirmationHtml = () => {
+  const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null }) => {
     if (!calcResult) return '';
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
@@ -450,20 +450,24 @@ export default function ConfiguratorPage() {
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
     const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
 
+    const effQuoteNumber = overrides?.quoteNumber ?? savedQuoteNumber;
+    const effOrderNumber = overrides?.orderNumber ?? savedOrderNumber;
+    const effSourceQuoteNumber = overrides?.sourceQuoteNumber ?? savedSourceQuoteNumber;
+
     // Reference numbers section
     const refNumbersHtml = (() => {
       const lines: string[] = [];
-      if (savedQuoteNumber) {
+      if (effQuoteNumber) {
         const label = { da: 'Tilbudsnr.', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Ajánlatszám' }[lang] || 'Quote no.';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedQuoteNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effQuoteNumber}</span>`);
       }
-      if (savedOrderNumber) {
+      if (effOrderNumber) {
         const label = { da: 'Ordrenr.', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' }[lang] || 'Order no.';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedOrderNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effOrderNumber}</span>`);
       }
-      if (savedSourceQuoteNumber) {
+      if (effSourceQuoteNumber) {
         const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedSourceQuoteNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effSourceQuoteNumber}</span>`);
       }
       if (lines.length === 0) return '';
       return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
