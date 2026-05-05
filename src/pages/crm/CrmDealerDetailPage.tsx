@@ -751,17 +751,18 @@ function EditDealerModal({
   const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const Field = ({ label, k, type = "text" }: { label: string; k: keyof typeof form; type?: string }) => (
-    <label className="block">
-      <span className="block text-xs font-bold text-slate-600 mb-1">{label}</span>
-      <input
-        type={type}
-        value={form[k]}
-        onChange={upd(k)}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-      />
-    </label>
-  );
+  const fields: Array<{ label: string; k: keyof typeof form; type?: string }> = [
+    { label: "Firmanavn", k: "company_name" },
+    { label: "Kontonummer", k: "account_number" },
+    { label: "Land", k: "country" },
+    { label: "Adresse", k: "address" },
+    { label: "Postnr.", k: "postal_code" },
+    { label: "By", k: "city" },
+    { label: "Email", k: "email", type: "email" },
+    { label: "Telefon", k: "phone" },
+    { label: "Tildelt sælger (initialer)", k: "assigned_seller_initials" },
+    { label: "Forhandlertype", k: "customer_type_label" },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
@@ -772,16 +773,17 @@ function EditDealerModal({
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="Firmanavn" k="company_name" />
-          <Field label="Kontonummer" k="account_number" />
-          <Field label="Land" k="country" />
-          <Field label="Adresse" k="address" />
-          <Field label="Postnr." k="postal_code" />
-          <Field label="By" k="city" />
-          <Field label="Email" k="email" type="email" />
-          <Field label="Telefon" k="phone" />
-          <Field label="Tildelt sælger (initialer)" k="assigned_seller_initials" />
-          <Field label="Forhandlertype" k="customer_type_label" />
+          {fields.map((f) => (
+            <label key={f.k} className="block">
+              <span className="block text-xs font-bold text-slate-600 mb-1">{f.label}</span>
+              <input
+                type={f.type || "text"}
+                value={form[f.k]}
+                onChange={upd(f.k)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+          ))}
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
