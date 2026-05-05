@@ -1427,8 +1427,8 @@ export default function ConfiguratorPage() {
                           </div>
                         </div>
 
-                        {/* Qty discount status per card */}
-                        {currentQty >= 1 && key !== LOOSE_TOOL_KEY && (
+                        {/* Qty discount status per card — hidden for Loose tools and Loader Line / CS-200 (no stk. rabat applies) */}
+                        {currentQty >= 1 && key !== LOOSE_TOOL_KEY && key !== 'Loader Line' && (
                           <div className={`text-xs text-center mt-1 ${totalQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}
                             dangerouslySetInnerHTML={{ __html: totalQty >= 4 ? `✅ ${T('qtyStatus4')}` : totalQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
                         )}
