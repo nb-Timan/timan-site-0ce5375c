@@ -30,11 +30,28 @@ export default function PortalAreaPage({ areaId }: Props) {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
+  const effectiveUser = useEffectivePortalUser(appUser);
   const area = PORTAL_AREAS.find(a => a.id === areaId);
-  if (!area || !isAreaVisible(area, appUser)) return <Navigate to="/portal" replace />;
+  if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
 
-  const portalRole = derivePortalRole(appUser);
-  const areaModules = PORTAL_MODULES.filter(m => area.moduleIds.includes(m.id)).filter(m => isModuleVisible(m, appUser));
+  const portalRole = derivePortalRole(effectiveUser);
+  const moduleOverride = (effectiveUser?.module_access ?? null) as ModuleAccessKey[] | null;
+  // Map portal-module ids → ModuleAccessKey for permission gating.
+  const MODULE_ACCESS_MAP: Record<string, ModuleAccessKey | null> = {
+    configurator: 'byg_din_timan',
+    claims: 'claims',
+    resources: 'resources',
+    misc: 'sales_tools',
+    videos: null, // always visible if area is visible
+  };
+  const areaModules = PORTAL_MODULES
+    .filter(m => area.moduleIds.includes(m.id))
+    .filter(m => isModuleVisible(m, effectiveUser))
+    .filter(m => {
+      const key = MODULE_ACCESS_MAP[m.id];
+      if (!key) return true;
+      return hasModuleAccess(portalRole, key, moduleOverride);
+    });
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
