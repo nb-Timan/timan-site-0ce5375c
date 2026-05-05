@@ -157,7 +157,8 @@ function dealerFieldValue(d: DealerAccount, field: ImportField): string | null {
 }
 
 function rawFieldValue(r: CsvRowInput, field: ImportField): string {
-  return ((r as Record<string, string | undefined>)[field] ?? "").trim();
+  const v = (r as unknown as Record<string, string | undefined>)[field];
+  return (v ?? "").trim();
 }
 
 export function buildPreview(
