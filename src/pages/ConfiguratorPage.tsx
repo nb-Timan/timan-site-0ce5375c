@@ -1398,12 +1398,16 @@ export default function ConfiguratorPage() {
                         )}
 
                         <div className="mt-1 mb-1 flex flex-wrap justify-center gap-3 items-center">
-                          {getVideoUrl(p) && (
+                          {getVideoUrl(p) ? (
                             <a href={getVideoUrl(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
-                          )}
-                          {getImageUrlForItem(p) && (
+                          ) : (key === 'Timan 2620' && (
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
+                          ))}
+                          {getImageUrlForItem(p) ? (
                             <a href={getImageUrlForItem(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
-                          )}
+                          ) : (key === 'Timan 2620' && (
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
+                          ))}
                           {p.machineDetails && (
                             <button onClick={(e) => { e.stopPropagation(); showMachineDetails(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>
                           )}
