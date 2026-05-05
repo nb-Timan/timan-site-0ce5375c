@@ -1574,6 +1574,7 @@ export default function CrmBudgetPage() {
                                       title={`Budget · ${tipTitle}`}
                                       total={b}
                                       rows={budgetRows}
+                                      references={refsByCell[ck]}
                                     >
                                       <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block">{b}</span>
                                     </BudgetCellInsight>
