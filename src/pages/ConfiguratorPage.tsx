@@ -25,6 +25,7 @@ import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
+import { derivePortalRole } from '@/lib/portalAccess';
 import { toast } from 'sonner';
 import {
   PAYMENT_TERMS_OPTIONS,
