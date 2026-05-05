@@ -208,6 +208,23 @@ export default function ConfiguratorPage() {
     }
   }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload]);
 
+  // Auto-fill delivery date when entering step 2 (15 business days from today, skip weekends)
+  useEffect(() => {
+    if (state.step !== 2) return;
+    if (state.date) return;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    let added = 0;
+    while (added < 15) {
+      d.setDate(d.getDate() + 1);
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) added++;
+    }
+    // Safety: if landed on weekend, push to Monday
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    setDate(format(d, 'yyyy-MM-dd'));
+  }, [state.step, state.date, setDate]);
+
   // Auto-fill email fields when entering step 4
   useEffect(() => {
     if (state.step === 4) {
@@ -1472,12 +1489,21 @@ export default function ConfiguratorPage() {
                         selected={selectedDeliveryDate}
                         onSelect={(date) => {
                           if (!date) return;
+                          const day = date.getDay();
+                          if (day === 0 || day === 6) {
+                            const next = new Date(date);
+                            while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
+                            toast.error('Leveringsdato kan ikke være en weekend.');
+                            setDate(format(next, 'yyyy-MM-dd'));
+                            return;
+                          }
                           setDate(format(date, 'yyyy-MM-dd'));
                         }}
                         disabled={(date) => {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
-                          return date < today;
+                          const day = date.getDay();
+                          return date < today || day === 0 || day === 6;
                         }}
                         modifiers={{
                           discount: (date) => {
