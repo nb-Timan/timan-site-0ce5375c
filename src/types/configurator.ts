@@ -152,6 +152,8 @@ export interface ConfiguratorState {
   emailRecipient: string;
   comment: string;
   internalNote: string;
+  // Phase 27 — Information only, never affects totals.
+  paymentTerms?: string;
 }
 
 export interface LineItem {

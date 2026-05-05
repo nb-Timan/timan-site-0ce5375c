@@ -1,4 +1,5 @@
 import { ConfiguratorState, FlowType, Language } from '@/types/configurator';
+import { DEFAULT_PAYMENT_TERMS, resolvePaymentTerms } from '@/lib/paymentTerms';
 
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
