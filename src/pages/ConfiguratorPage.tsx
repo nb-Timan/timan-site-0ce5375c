@@ -1961,6 +1961,27 @@ export default function ConfiguratorPage() {
                           placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
                       </div>
                     )}
+                    {/* Phase 27 — Payment terms (information only, never affects totals).
+                        Visible only for Backend / Timan Sælger with explicit permission. */}
+                    {canManagePaymentTerms && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {getPaymentTermsLabel(lang)}
+                        </label>
+                        <select
+                          value={resolvePaymentTerms(state.paymentTerms)}
+                          onChange={(e) => {
+                            const v = e.target.value || DEFAULT_PAYMENT_TERMS;
+                            setState((s) => ({ ...s, paymentTerms: v }));
+                          }}
+                          className="w-full p-1.5 border rounded-lg text-sm bg-white"
+                        >
+                          {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
                       <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
