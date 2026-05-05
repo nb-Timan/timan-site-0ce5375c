@@ -356,37 +356,53 @@ export default function BackendPriceListsPage() {
                       <tr className="text-left text-slate-600">
                         <th className="px-2 py-1.5">#</th>
                         <th className="px-2 py-1.5">Status</th>
+                        <th className="px-2 py-1.5">Produktgruppe</th>
                         <th className="px-2 py-1.5">Varenr.</th>
                         <th className="px-2 py-1.5">Varetekst</th>
+                        <th className="px-2 py-1.5 text-right">Pris DKK</th>
+                        <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                        <th className="px-2 py-1.5 text-right">Pris SEK</th>
                         <th className="px-2 py-1.5">Ændringer / fejl</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPreview.slice(0, 500).map((p) => (
+                      {filteredPreview.slice(0, 500).map((p) => {
+                        const grp = p.item_number ? (groupMap.get(p.item_number) ?? "—") : "—";
+                        const nonPriceChanges = p.changes.filter((c) => c.field === "item_text_da");
+                        return (
                         <tr key={p.rowIndex} className="border-t border-slate-100 align-top">
                           <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>
                           <td className="px-2 py-1.5"><StatusPill bucket={p.bucket} /></td>
+                          <td className="px-2 py-1.5">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{grp}</span>
+                          </td>
                           <td className="px-2 py-1.5 font-mono">{p.item_number ?? "—"}</td>
                           <td className="px-2 py-1.5">{p.raw.item_text_da || p.existing?.item_text_da || "—"}</td>
+                          <PriceCell p={p} field="price_dkk" />
+                          <PriceCell p={p} field="price_eur" />
+                          <PriceCell p={p} field="price_sek" />
                           <td className="px-2 py-1.5">
                             {p.bucket === "error" && <span className="text-rose-700">{p.errorMessage}</span>}
                             {p.bucket === "create" && <span className="text-emerald-700">Opretter ny vare.</span>}
                             {p.bucket === "skip" && <span className="text-slate-500">Ingen ændringer.</span>}
                             {p.bucket === "update" && (
-                              <ul className="space-y-0.5">
-                                {p.changes.map((c) => (
-                                  <li key={c.field}>
-                                    <span className="font-semibold">{FIELD_LABEL[c.field] ?? c.field}:</span>{" "}
-                                    <span className="text-slate-500 line-through">{c.oldValue || "—"}</span>{" "}
-                                    <span className="text-slate-400">→</span>{" "}
-                                    <span className="text-amber-800">{c.newValue}</span>
-                                  </li>
-                                ))}
-                              </ul>
+                              nonPriceChanges.length === 0
+                                ? <span className="text-slate-500">Kun prisændringer.</span>
+                                : <ul className="space-y-0.5">
+                                    {nonPriceChanges.map((c) => (
+                                      <li key={c.field}>
+                                        <span className="font-semibold">{FIELD_LABEL[c.field] ?? c.field}:</span>{" "}
+                                        <span className="text-slate-500 line-through">{c.oldValue || "—"}</span>{" "}
+                                        <span className="text-slate-400">→</span>{" "}
+                                        <span className="text-amber-800">{c.newValue}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
                             )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                   {filteredPreview.length > 500 && (
@@ -524,6 +540,37 @@ export default function BackendPriceListsPage() {
 function fmtPrice(n: number | null): string {
   if (n == null) return "—";
   return n.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtPriceStr(s: string | null | undefined): string {
+  if (s == null || s === "") return "—";
+  const n = Number(s);
+  if (!Number.isFinite(n)) return s;
+  return fmtPrice(n);
+}
+
+function PriceCell({ p, field }: { p: PreviewRow; field: "price_dkk" | "price_eur" | "price_sek" }) {
+  const change = p.changes.find((c) => c.field === field);
+  const oldVal = p.existing ? (p.existing[field] == null ? null : String(p.existing[field])) : null;
+  const rawNew = (p.raw[field] ?? "").trim();
+
+  if (p.bucket === "error") {
+    return <td className="px-2 py-1.5 text-right font-mono text-slate-400">{rawNew ? fmtPriceStr(rawNew) : (oldVal ? fmtPriceStr(oldVal) : "—")}</td>;
+  }
+  if (p.bucket === "create") {
+    return <td className="px-2 py-1.5 text-right font-mono text-emerald-700">{rawNew ? fmtPriceStr(rawNew) : "—"}</td>;
+  }
+  if (change) {
+    return (
+      <td className="px-2 py-1.5 text-right font-mono">
+        <span className="text-slate-500 line-through">{fmtPriceStr(change.oldValue)}</span>{" "}
+        <span className="text-slate-400">→</span>{" "}
+        <span className="text-amber-800 font-semibold">{fmtPriceStr(change.newValue)}</span>
+      </td>
+    );
+  }
+  // skip / update without change for this field — show existing (or new if no existing)
+  return <td className="px-2 py-1.5 text-right font-mono text-slate-600">{fmtPriceStr(oldVal ?? rawNew)}</td>;
 }
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
