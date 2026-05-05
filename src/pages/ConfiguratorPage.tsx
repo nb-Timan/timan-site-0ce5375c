@@ -168,6 +168,9 @@ export default function ConfiguratorPage() {
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
@@ -439,7 +442,7 @@ export default function ConfiguratorPage() {
   };
 
   // ======== Confirmation modal builder ========
-  const buildConfirmationHtml = () => {
+  const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null }) => {
     if (!calcResult) return '';
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
@@ -447,20 +450,24 @@ export default function ConfiguratorPage() {
     const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
     const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
 
+    const effQuoteNumber = overrides?.quoteNumber ?? savedQuoteNumber;
+    const effOrderNumber = overrides?.orderNumber ?? savedOrderNumber;
+    const effSourceQuoteNumber = overrides?.sourceQuoteNumber ?? savedSourceQuoteNumber;
+
     // Reference numbers section
     const refNumbersHtml = (() => {
       const lines: string[] = [];
-      if (savedQuoteNumber) {
+      if (effQuoteNumber) {
         const label = { da: 'Tilbudsnr.', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Ajánlatszám' }[lang] || 'Quote no.';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedQuoteNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effQuoteNumber}</span>`);
       }
-      if (savedOrderNumber) {
+      if (effOrderNumber) {
         const label = { da: 'Ordrenr.', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' }[lang] || 'Order no.';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedOrderNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effOrderNumber}</span>`);
       }
-      if (savedSourceQuoteNumber) {
+      if (effSourceQuoteNumber) {
         const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
-        lines.push(`<span class="font-medium">${label}</span><span>${savedSourceQuoteNumber}</span>`);
+        lines.push(`<span class="font-medium">${label}</span><span>${effSourceQuoteNumber}</span>`);
       }
       if (lines.length === 0) return '';
       return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -616,8 +623,19 @@ export default function ConfiguratorPage() {
     }
   };
 
-  // PDF download using jsPDF + html2canvas
+  // PDF download + submit (single async flow). Guarded by `submitting` so the
+  // button cannot trigger a second PDF/save/webhook.
   const downloadPdf = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await downloadPdfInner();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const downloadPdfInner = async () => {
     const el = confirmContentRef.current;
     if (!el) return;
 
@@ -684,6 +702,16 @@ export default function ConfiguratorPage() {
 
       const clone = el.cloneNode(true) as HTMLElement;
       clone.style.cssText = 'width:100%;max-width:none;margin:0;padding:0;background:#fff;overflow:visible;';
+      // Re-render confirmation HTML with the freshly created reference numbers,
+      // so the PDF content shows the order/quote number even if React state
+      // hasn't propagated yet (single-submit flow).
+      try {
+        clone.innerHTML = buildConfirmationHtml({
+          quoteNumber: activeQuoteNumber,
+          orderNumber: activeOrderNumber,
+          sourceQuoteNumber: savedSourceQuoteNumber,
+        });
+      } catch { /* fallback to original cloned DOM */ }
       renderRoot.appendChild(clone);
 
       await new Promise(r => requestAnimationFrame(r));
@@ -717,7 +745,7 @@ export default function ConfiguratorPage() {
       }
 
       const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
-      const refNum = savedOrderNumber || savedQuoteNumber || '';
+      const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
       const pdfFilename = `Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(pdfFilename);
@@ -870,6 +898,12 @@ export default function ConfiguratorPage() {
               }
             }
             toast.success(T('orderSentToTiman'));
+            setConfirmModalOpen(false);
+            setSuccessModal({
+              flowType: 'order',
+              orderNumber: activeOrderNumber || '',
+              quoteNumber: activeQuoteNumber || '',
+            });
           } else {
             toast.error(T('orderSendFailed'), {
               description: failureReason || undefined,
@@ -1022,6 +1056,12 @@ export default function ConfiguratorPage() {
               }
             }
             toast.success(T('quoteSentSuccess'));
+            setConfirmModalOpen(false);
+            setSuccessModal({
+              flowType: 'quote',
+              orderNumber: activeOrderNumber || '',
+              quoteNumber: activeQuoteNumber || '',
+            });
           } else {
             toast.error(T('quoteSendFailed'), {
               description: failureReason || undefined,
@@ -1149,13 +1189,101 @@ export default function ConfiguratorPage() {
 
       {/* Confirmation Modal */}
       {confirmModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmModalOpen(false)}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { if (!submitting) setConfirmModalOpen(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-[95%] max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <div ref={confirmContentRef} dangerouslySetInnerHTML={{ __html: buildConfirmationHtml() }} />
             <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
-              <button onClick={() => setConfirmModalOpen(false)} className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
-              <button onClick={downloadPdf} className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg">
-                {state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn')}
+              <button
+                onClick={() => setConfirmModalOpen(false)}
+                disabled={submitting}
+                className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                {T('close')}
+              </button>
+              <button
+                onClick={() => { if (!submitting) setConfirmSubmitOpen(true); }}
+                disabled={submitting}
+                className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                {submitting
+                  ? (state.flowType === 'order'
+                      ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
+                      : (lang === 'da' ? 'Sender tilbud...' : 'Sending quote...'))
+                  : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm-submit Modal (asks once before the real submit) */}
+      {confirmSubmitOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => { if (!submitting) setConfirmSubmitOpen(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-3 text-gray-900">
+              {state.flowType === 'order'
+                ? (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')
+                : (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')}
+            </h3>
+            <p className="text-sm text-gray-700 mb-6">
+              {state.flowType === 'order'
+                ? (lang === 'da'
+                    ? 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.'
+                    : 'Do you want to submit this order to Timan? An order number will be created and the PDF will be sent.')
+                : (lang === 'da'
+                    ? 'Vil du afsende dette tilbud? Der oprettes et tilbudsnummer og PDF sendes.'
+                    : 'Do you want to submit this quote? A quote number will be created and the PDF will be sent.')}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmSubmitOpen(false)}
+                disabled={submitting}
+                className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50">
+                {lang === 'da' ? 'Annuller' : 'Cancel'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (submitting) return;
+                  setConfirmSubmitOpen(false);
+                  await downloadPdf();
+                }}
+                disabled={submitting}
+                className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
+                {submitting
+                  ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
+                  : (lang === 'da' ? 'Bekræft' : 'Confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal — single source of truth after a successful submit */}
+      {successModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6">
+            <h3 className="text-xl font-bold mb-3 text-gray-900">
+              {successModal.flowType === 'order'
+                ? (lang === 'da' ? 'Din ordre er nu afsendt' : 'Your order has been submitted')
+                : (lang === 'da' ? 'Dit tilbud er nu afsendt' : 'Your quote has been submitted')}
+            </h3>
+            <p className="text-sm text-gray-700 mb-6">
+              {successModal.flowType === 'order'
+                ? (lang === 'da'
+                    ? `Ordren er sendt til Timan med ordrenummer ${successModal.orderNumber || '—'}.`
+                    : `The order has been sent to Timan with order number ${successModal.orderNumber || '—'}.`)
+                : (lang === 'da'
+                    ? `Tilbuddet er sendt med tilbudsnummer ${successModal.quoteNumber || '—'}.`
+                    : `The quote has been sent with quote number ${successModal.quoteNumber || '—'}.`)}
+            </p>
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
+              <button
+                onClick={() => { setSuccessModal(null); navigate('/portal'); }}
+                className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">
+                {lang === 'da' ? 'Gå til portal forsiden' : 'Go to portal home'}
+              </button>
+              <button
+                onClick={() => setSuccessModal(null)}
+                className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow">
+                {lang === 'da' ? 'Tilbage til konfigurator' : 'Back to configurator'}
               </button>
             </div>
           </div>
