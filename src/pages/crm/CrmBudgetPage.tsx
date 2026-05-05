@@ -41,6 +41,8 @@ import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel"
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
+import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
+import type { CellReference } from "@/components/crm/BudgetCellInsight";
 
 
 // ────────────────────────────────────────────────────────────
