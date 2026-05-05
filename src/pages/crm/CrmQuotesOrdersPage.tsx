@@ -149,6 +149,22 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     if (canEditOwnership) setEditingRow(r);
   }, [canEditOwnership]);
 
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletingRow) return;
+    setDeleteBusy(true);
+    const { error: delErr } = await softDeleteConfiguration(deletingRow.id);
+    setDeleteBusy(false);
+    if (delErr) {
+      console.error('[CrmQuotesOrdersPage] delete failed', delErr);
+      toast.error('Kunne ikke slette. Prøv igen.');
+      return;
+    }
+    setRows((prev) => prev.filter((x) => x.id !== deletingRow.id));
+    toast.success(mode === 'order' ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
+    setDeletingRow(null);
+    setReloadKey((k) => k + 1);
+  }, [deletingRow, mode]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
