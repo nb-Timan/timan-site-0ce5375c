@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
