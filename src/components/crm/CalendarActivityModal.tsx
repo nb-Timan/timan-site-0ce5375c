@@ -413,14 +413,47 @@ export default function CalendarActivityModal(props: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">{T.seller_lbl[lang]}</Label>
-              <Select value={sellerInitials} onValueChange={setSellerInitials} disabled={!canChooseSeller}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BUDGET_SELLERS.map(s => (
-                    <SelectItem key={s.initials} value={s.initials}>{s.initials}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between font-normal h-10">
+                    <span className="truncate text-left">
+                      {participants.length > 0 ? participants.join(", ") : T.sellers_none[lang]}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-2 w-[--radix-popover-trigger-width] min-w-[260px]" align="start">
+                  <p className="px-2 pb-1 text-[11px] font-semibold text-gray-500">{T.sellers_pick[lang]}</p>
+                  <div className="space-y-1">
+                    {BUDGET_SELLERS.map((s) => {
+                      const ini = s.initials.toUpperCase();
+                      const checked = participants.includes(ini);
+                      const isCreator = (currentSeller?.initials || "").toUpperCase() === ini;
+                      const lockedForSeller = !canChooseSeller && isCreator;
+                      return (
+                        <label key={s.initials} className={cn(
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50 cursor-pointer",
+                          lockedForSeller && "opacity-80",
+                        )}>
+                          <Checkbox
+                            checked={checked}
+                            disabled={lockedForSeller}
+                            onCheckedChange={(v) => {
+                              setParticipants((prev) => {
+                                const set = new Set(prev.map((p) => p.toUpperCase()));
+                                if (v) set.add(ini); else if (!lockedForSeller) set.delete(ini);
+                                return Array.from(set);
+                              });
+                            }}
+                          />
+                          <span className="font-semibold">{s.initials}</span>
+                          <span className="text-xs text-gray-500">{s.full_name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label className="text-xs">{T.status_lbl[lang]}</Label>
