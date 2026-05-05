@@ -542,6 +542,37 @@ function fmtPrice(n: number | null): string {
   return n.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtPriceStr(s: string | null | undefined): string {
+  if (s == null || s === "") return "—";
+  const n = Number(s);
+  if (!Number.isFinite(n)) return s;
+  return fmtPrice(n);
+}
+
+function PriceCell({ p, field }: { p: PreviewRow; field: "price_dkk" | "price_eur" | "price_sek" }) {
+  const change = p.changes.find((c) => c.field === field);
+  const oldVal = p.existing ? (p.existing[field] == null ? null : String(p.existing[field])) : null;
+  const rawNew = (p.raw[field] ?? "").trim();
+
+  if (p.bucket === "error") {
+    return <td className="px-2 py-1.5 text-right font-mono text-slate-400">{rawNew ? fmtPriceStr(rawNew) : (oldVal ? fmtPriceStr(oldVal) : "—")}</td>;
+  }
+  if (p.bucket === "create") {
+    return <td className="px-2 py-1.5 text-right font-mono text-emerald-700">{rawNew ? fmtPriceStr(rawNew) : "—"}</td>;
+  }
+  if (change) {
+    return (
+      <td className="px-2 py-1.5 text-right font-mono">
+        <span className="text-slate-500 line-through">{fmtPriceStr(change.oldValue)}</span>{" "}
+        <span className="text-slate-400">→</span>{" "}
+        <span className="text-amber-800 font-semibold">{fmtPriceStr(change.newValue)}</span>
+      </td>
+    );
+  }
+  // skip / update without change for this field — show existing (or new if no existing)
+  return <td className="px-2 py-1.5 text-right font-mono text-slate-600">{fmtPriceStr(oldVal ?? rawNew)}</td>;
+}
+
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
