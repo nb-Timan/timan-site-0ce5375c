@@ -17,8 +17,9 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Building2, Mail, MapPin, Phone, GitBranch, Star,
   Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
-  CheckCircle2, AlertCircle, Plus,
+  CheckCircle2, AlertCircle, Plus, Pencil,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import CrmLayout from "@/components/crm/CrmLayout";
