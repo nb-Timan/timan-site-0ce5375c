@@ -67,6 +67,7 @@ export interface BackendUser {
     can_approve_claims: boolean;
     can_create_tsb: boolean;
     can_manage_users: boolean;
+    can_manage_payment_terms: boolean;
   };
   /** CRM — responsible Timan Sælger for this account. Null = unassigned. */
   account_owner_user_id: string | null;
@@ -119,6 +120,7 @@ function seedUser(
       can_approve_claims: isInternal,
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
+      can_manage_payment_terms: isBackend || role === "timan_seller",
     },
     account_owner_user_id: null,
     account_owner_name: null,
