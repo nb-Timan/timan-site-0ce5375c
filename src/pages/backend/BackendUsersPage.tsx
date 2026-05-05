@@ -324,6 +324,8 @@ export default function BackendUsersPage() {
                             // Bust any cached sellerId for this email and refresh the
                             // logged-in app user if the approved row is the current user.
                             clearSellerIdCache(u.email);
+                            clearViewAsCache(u.email);
+                            window.dispatchEvent(new CustomEvent('timan:active-mode-changed'));
                             if (appUser && appUser.email.toLowerCase() === u.email.toLowerCase()) {
                               await refreshAppUser();
                             }
