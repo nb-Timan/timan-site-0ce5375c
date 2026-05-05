@@ -57,6 +57,7 @@ import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAudit
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
 import BackendDealerImportPage from "./pages/backend/BackendDealerImportPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
+import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
 // Seed AKR realistic test data once per browser (idempotent — versioned flag).
