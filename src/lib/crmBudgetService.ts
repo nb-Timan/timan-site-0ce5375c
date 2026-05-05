@@ -546,7 +546,7 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
