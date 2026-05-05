@@ -44,6 +44,12 @@ import {
   groupOrderIndex,
   type ProductGroupKey,
 } from "@/lib/configuratorPriceSeed";
+import {
+  buildPublishPreview,
+  publishItems,
+  type PublishPreviewRow,
+  type PublishSummary,
+} from "@/lib/pricePublishService";
 
 const FIELD_LABEL: Record<string, string> = {
   item_text_da: "Varetekst",
