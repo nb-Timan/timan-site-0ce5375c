@@ -800,7 +800,6 @@ export function getLooseToolAccessories(): Accessory[] {
     priceEUR: 0,
     isHeader: true,
   };
-  const timanRedskaberWithHeader = [timan3330Header, ...timanRedskaber];
 
   // Remap 3330 weed brush items for loose tool context
   const timanRedskaberForLoose = timanRedskaber.map(item => {
