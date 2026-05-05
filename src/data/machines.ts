@@ -691,8 +691,8 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     // Tornado 400
     { id: 'LL-TOR-HDR', varenr: 'HEADER', name: { da: 'Tornado 400', en: 'Tornado 400', de: 'Tornado 400', it: 'Tornado 400', hu: 'Tornado 400' }, priceDKK: 0, priceEUR: 0, isHeader: true },
     { id: '310100', varenr: '310100', name: { da: 'Tornado 400 fejebredde 135 til 180 cm. 400 liter beholder, 50 liter vandtank', en: 'Tornado 400 sweep width of 135 to 180 cm 400 liter tank, 50 liter water tank', de: 'Tornado 400 sweep width of 135 to 180 cm 400 liter tank, 50 liter water tank', it: 'Tornado 400 sweep width of 135 to 180 cm 400 liter tank, 50 liter water tank', hu: 'Tornado 400 sweep width of 135 to 180 cm 400 liter tank, 50 liter water tank' }, priceDKK: 130000, priceEUR: 17500 },
-    { id: '876185', varenr: '876185', name: { da: 'Ophæng til Weidemann', en: 'Mount for Weidemann', de: 'Mount for Weidemann', it: 'Mount for Weidemann', hu: 'Mount for Weidemann' }, priceDKK: 5000, priceEUR: 680 },
-    { id: '310461', varenr: '310461', name: { da: 'Håndsug inkl. 8 meter sugeslange', en: 'External suction hose - 8 meters.', de: 'External suction hose - 8 meters.', it: 'External suction hose - 8 meters.', hu: 'External suction hose - 8 meters.' }, priceDKK: 6500, priceEUR: 875 },
+    { id: '310100__876185', varenr: '876185', name: { da: 'Ophæng til Weidemann', en: 'Mount for Weidemann', de: 'Mount for Weidemann', it: 'Mount for Weidemann', hu: 'Mount for Weidemann' }, priceDKK: 5000, priceEUR: 680, requires: '310100' },
+    { id: '310100__310461', varenr: '310461', name: { da: 'Håndsug inkl. 8 meter sugeslange', en: 'External suction hose - 8 meters.', de: 'External suction hose - 8 meters.', it: 'External suction hose - 8 meters.', hu: 'External suction hose - 8 meters.' }, priceDKK: 6500, priceEUR: 875, requires: '310100' },
   ],
 };
 
