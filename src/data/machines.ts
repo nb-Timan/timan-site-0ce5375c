@@ -778,10 +778,29 @@ export function getLooseToolAccessories(): Accessory[] {
   }
 
   const rcStartIdx = findRedskabHeaderIndex(rcAll);
-  const rcRedskaber = rcStartIdx === -1 ? [] : rcAll.slice(rcStartIdx);
+  const rcRedskaberRaw = rcStartIdx === -1 ? [] : rcAll.slice(rcStartIdx);
+  // Exclude RAL color (961050) from Loose attachment flow
+  const rcRedskaber = rcRedskaberRaw.filter(item => String(item?.varenr || '') !== ACC_ID_RAL_COLOR);
 
   const timanStartIdx = findRedskabHeaderIndex(timanAll);
   const timanRedskaber = timanStartIdx === -1 ? [] : timanAll.slice(timanStartIdx);
+
+  // Inject "Redskaber til Timan 3330" heading before Feje/Sug Redskaber section
+  const timan3330Header: Accessory = {
+    id: 'LOOSE_TIMAN3330_HEADER',
+    varenr: '',
+    name: {
+      da: 'Redskaber til Timan 3330',
+      en: 'Attachments for Timan 3330',
+      de: 'Attachments for Timan 3330',
+      it: 'Attachments for Timan 3330',
+      hu: 'Attachments for Timan 3330',
+    },
+    priceDKK: 0,
+    priceEUR: 0,
+    isHeader: true,
+  };
+  const timanRedskaberWithHeader = [timan3330Header, ...timanRedskaber];
 
   // Remap 3330 weed brush items for loose tool context
   const timanRedskaberForLoose = timanRedskaber.map(item => {
