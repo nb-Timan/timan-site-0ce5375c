@@ -25,6 +25,8 @@ const LABEL: Partial<Record<Language, string>> = {
   da: 'Betalingsbetingelser',
   en: 'Payment terms',
   de: 'Zahlungsbedingungen',
+  it: 'Termini di pagamento',
+  hu: 'Fizetési feltételek',
 };
 
 export function getPaymentTermsLabel(lang: Language): string {
