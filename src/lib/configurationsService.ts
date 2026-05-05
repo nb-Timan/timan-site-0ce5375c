@@ -704,6 +704,10 @@ export async function saveConfiguration(
     created_by_role:    options?.ownership?.created_by_role    ?? null,
     active_mode:        options?.ownership?.active_mode        ?? null,
     owner_status:       options?.ownership?.owner_status       ?? 'aktiv',
+    // Phase 27 — payment terms (information only, never used in calc).
+    // Stripped automatically on older DBs by insertConfigurationRow's
+    // missing-column retry.
+    payment_terms: state.paymentTerms ?? null,
   };
 
   const { data, error } = await insertConfigurationRow(row);
