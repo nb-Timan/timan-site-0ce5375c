@@ -359,7 +359,20 @@ export default function CrmDealerDetailPage() {
     setShowNoteModal(false);
   }
 
-  return (
+  async function handleSaveDealer(patch: UpdateDealerAccountPatch): Promise<{ ok: boolean; error?: string }> {
+    if (!dealer) return { ok: false, error: "Ingen forhandler valgt." };
+    const res = await updateDealerAccount(dealer.id, patch);
+    if (!res.ok) {
+      toast.error(res.error || "Kunne ikke opdatere forhandleren.");
+      return res;
+    }
+    // Refresh dealer list (and detail derives from it)
+    const dRes = await fetchDealerAccounts({ includeDeleted: false });
+    setDealers(dRes.rows);
+    toast.success("Forhandleren er opdateret.");
+    setShowEditDealer(false);
+    return { ok: true };
+  }
     <CrmLayout pageTitle={dealer.branch_name || dealer.company_name}>
       {/* Back nav */}
       <button onClick={() => navigate("/portal/crm/my-dealers")}
