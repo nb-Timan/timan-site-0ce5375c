@@ -319,6 +319,15 @@ export default function BackendDealerAccountsPage() {
           </label>
         </div>
 
+        {/* Aggregated stats — follows the seller / country / type / search filter */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <StatCard label="Forhandlere" value={totals.dealers} />
+          <StatCard label="Tilknyttede brugere" value={totals.users} />
+          <StatCard label="Tilbud" value={totals.quotes} />
+          <StatCard label="Ordrer" value={totals.orders} />
+          <StatCard label="Sidste aktivitet" value={fmtDate(totals.last)} />
+        </div>
+
         <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
