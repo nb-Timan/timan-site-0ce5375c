@@ -887,6 +887,12 @@ export default function ConfiguratorPage() {
               }
             }
             toast.success(T('orderSentToTiman'));
+            setConfirmModalOpen(false);
+            setSuccessModal({
+              flowType: 'order',
+              orderNumber: activeOrderNumber || '',
+              quoteNumber: activeQuoteNumber || '',
+            });
           } else {
             toast.error(T('orderSendFailed'), {
               description: failureReason || undefined,
