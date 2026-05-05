@@ -52,6 +52,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 235000,
     priceEUR: 31590,
     varenr: '411000',
+    isDiscountEligible: true,
     videoUrl: 'https://www.youtube.com/watch?v=D-hXvg_oW9s',
     imageUrl: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg' }],
@@ -125,6 +126,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 167500,
     priceEUR: 22515,
     varenr: '410040',
+    isDiscountEligible: true,
     videoUrl: 'https://www.youtube.com/watch?v=LqrPvmCXues',
     imageUrl: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg' }],
@@ -185,6 +187,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 361700,
     priceEUR: 48684,
     varenr: '712000',
+    isDiscountEligible: true,
     videoUrl: 'https://www.youtube.com/watch?v=Q1vii5cZvgw',
     imageUrl: 'https://img.youtube.com/vi/Q1vii5cZvgw/maxresdefault.jpg',
     techSpecs: [
@@ -271,6 +274,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 0,
     priceEUR: 0,
     varenr: '999-888',
+    isDiscountEligible: true,
     techSpecs: [
       { label: 'Motor', value: { da: 'Perkins Diesel Motor', en: 'Perkins Diesel Engine', de: 'Perkins Dieselmotor', it: 'Motore Diesel Perkins', hu: 'Perkins dízelmotor' } },
       { label: 'HK', value: { da: '26 HK', en: '26 HP', de: '26 PS', it: '26 CV', hu: '26 LE' } },
@@ -298,6 +302,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 0,
     priceEUR: 0,
     varenr: '666-333',
+    isDiscountEligible: false,
     techSpecs: [],
     machineDetails: {
       main: {
@@ -318,6 +323,7 @@ export const PRODUCTS: Record<string, Machine> = {
     priceDKK: 0,
     priceEUR: 0,
     varenr: '55-66',
+    isDiscountEligible: false,
     techSpecs: [],
     machineDetails: {
       main: {

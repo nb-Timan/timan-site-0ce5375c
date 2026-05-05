@@ -239,7 +239,7 @@ export function useConfigurator() {
     const lineItems: LineItem[] = [];
 
     // Track per-unit subtotals and demo status
-    const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string }[] = [];
+    const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string; isDiscountEligible: boolean }[] = [];
 
     allUnits.forEach(unit => {
       const mach = PRODUCTS[unit.modelType];
@@ -301,7 +301,7 @@ export function useConfigurator() {
       subtotal += unitTotal;
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
 
-      unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
+      unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType, isDiscountEligible: mach.isDiscountEligible === true });
     });
 
     // Startup pricing for "Timan leverer"
@@ -325,7 +325,10 @@ export function useConfigurator() {
     // Split into demo vs non-demo subtotals
     const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((sum, u) => sum + u.total, 0);
     const nonDemoSubtotal = subtotal - demoSubtotal; // includes startup costs with non-demo
-    const nonDemoMachineCount = unitSubtotals.filter(u => !u.isDemo && u.modelType !== LOOSE_TOOL_KEY).length;
+    const discountEligibleQty = unitSubtotals.filter(u => !u.isDemo && u.isDiscountEligible).length;
+    const discountEligibleSubtotal = unitSubtotals
+      .filter(u => !u.isDemo && u.isDiscountEligible)
+      .reduce((sum, u) => sum + u.total, 0);
 
     // Discount chain
     let disc = 0;
@@ -348,10 +351,13 @@ export function useConfigurator() {
       disc += d1;
       details.push({ txt: T('baseDiscountLabel'), amount: d1 });
 
-      // 2. Qty discount (based only on non-demo machine count)
-      let qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
+      // 2. Qty discount (based only on non-demo discount-eligible real machines)
+      let qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
+      let qtyDiscountAmount = 0;
       if (qtyPct > 0) {
-        const d2 = (nonDemoSubtotal - d1) * qtyPct;
+        const eligibleBaseDiscount = discountEligibleSubtotal * 0.25;
+        const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
+        qtyDiscountAmount = d2;
         price -= d2;
         disc += d2;
         details.push({ txt: `${T('qtyDiscountLabel')} (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
@@ -366,7 +372,7 @@ export function useConfigurator() {
         if (deliveryDate > threeMonths) delActive = true;
       }
       if (delActive) {
-        const nonDemoDiscSoFar = d1 + (qtyPct > 0 ? (nonDemoSubtotal - d1) * qtyPct : 0);
+        const nonDemoDiscSoFar = d1 + qtyDiscountAmount;
         const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
         price -= d3;
         disc += d3;
@@ -383,7 +389,7 @@ export function useConfigurator() {
     }
 
     const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;
-    const qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
+    const qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
 
     return { lineItems, subtotal, discountDetails: details, totalDiscount: disc, currentPrice: price, totalPct, qtyPct };
   }, [state, getGlobalMachineUnits]);

@@ -158,7 +158,8 @@ export default function ConfiguratorPage() {
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
-  const totalQty = state.machineConfigs.reduce((sum, c) => sum + (c.type !== LOOSE_TOOL_KEY ? c.qty : 0), 0);
+  const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
+  const discountEligibleQty = state.machineConfigs.reduce((sum, c) => sum + (PRODUCTS[c.type]?.isDiscountEligible ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
 
   // Modal states
@@ -1427,10 +1428,10 @@ export default function ConfiguratorPage() {
                           </div>
                         </div>
 
-                        {/* Qty discount status per card — hidden for Loose tools and Loader Line / CS-200 (no stk. rabat applies) */}
-                        {currentQty >= 1 && key !== LOOSE_TOOL_KEY && key !== 'Loader Line' && (
-                          <div className={`text-xs text-center mt-1 ${totalQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}
-                            dangerouslySetInnerHTML={{ __html: totalQty >= 4 ? `✅ ${T('qtyStatus4')}` : totalQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
+                        {/* Qty discount status per card — only shown for discount-eligible real machines */}
+                        {currentQty >= 1 && p.isDiscountEligible && (
+                          <div className={`text-xs text-center mt-1 ${discountEligibleQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}
+                            dangerouslySetInnerHTML={{ __html: discountEligibleQty >= 4 ? `✅ ${T('qtyStatus4')}` : discountEligibleQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
                         )}
 
                         {currentQty > 1 && (
@@ -1456,8 +1457,8 @@ export default function ConfiguratorPage() {
                 </div>
 
                 <div className="flex justify-center pt-6 border-t mt-8">
-                  <button onClick={() => setStep(2)} disabled={!flowSelected || (totalQty === 0 && !state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0))}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && (totalQty > 0 || state.machineConfigs.some(c => c.type === LOOSE_TOOL_KEY && c.qty > 0)) ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                  <button onClick={() => setStep(2)} disabled={!flowSelected || totalQty === 0}
+                    className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
                     {T('goToDelivery')}
                   </button>
                 </div>
