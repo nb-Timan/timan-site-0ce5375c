@@ -1045,6 +1045,12 @@ export default function ConfiguratorPage() {
               }
             }
             toast.success(T('quoteSentSuccess'));
+            setConfirmModalOpen(false);
+            setSuccessModal({
+              flowType: 'quote',
+              orderNumber: activeOrderNumber || '',
+              quoteNumber: activeQuoteNumber || '',
+            });
           } else {
             toast.error(T('quoteSendFailed'), {
               description: failureReason || undefined,
