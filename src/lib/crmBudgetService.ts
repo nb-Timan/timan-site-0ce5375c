@@ -83,6 +83,10 @@ export interface SalesActual {
    *  table (which only knows annual totals). */
   monthly_qty?: number[];
   monthly_value?: number[];
+  /** Per-month list of dealers contributing to that month's qty.
+   *  Length 12 (Jan..Dec). Each entry is `{ name, qty }` per occurrence
+   *  (duplicates intentional — UI groups them). Display only. */
+  monthly_dealers?: Array<Array<{ name: string; qty: number }>>;
 }
 
 // ---------- Product catalog ----------
