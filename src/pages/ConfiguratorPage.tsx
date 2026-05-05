@@ -1669,8 +1669,15 @@ export default function ConfiguratorPage() {
                   }
 
                   if (a.isHeader) {
+                    const isLooseMain = machineType === LOOSE_TOOL_KEY &&
+                      (a.id === 'REDSKABER_HEADER' || a.id === 'LOOSE_TIMAN3330_HEADER');
+                    const headerCls = isLooseMain
+                      ? 'font-bold text-gray-900 mt-10 mb-2 border-b-2 border-emerald-500 pb-1 text-lg sticky top-0 bg-white z-20'
+                      : machineType === LOOSE_TOOL_KEY
+                        ? 'font-semibold text-gray-700 mt-6 mb-2 border-b pb-1 text-base sticky top-10 bg-white z-10'
+                        : 'font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10';
                     elements.push(
-                      <h3 key={`header-${idx}`} className="font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10">
+                      <h3 key={`header-${idx}`} className={headerCls}>
                         {getLocalizedName(a.name, lang)}
                       </h3>
                     );
