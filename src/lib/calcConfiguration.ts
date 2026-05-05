@@ -1,5 +1,5 @@
 import { ConfiguratorState } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getPrice, LOOSE_TOOL_KEY, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
+import { PRODUCTS, getAccessoriesFlat, getPrice, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 
 /**
  * Pure calculation of subtotal, total discount and final price for a saved configuration.
@@ -36,7 +36,7 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
   if (units.length === 0) return { subtotal: 0, totalDiscount: 0, finalPrice: 0 };
 
   let subtotal = 0;
-  const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string }[] = [];
+  const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string; isDiscountEligible: boolean }[] = [];
 
   units.forEach(unit => {
     const mach = PRODUCTS[unit.modelType];
@@ -77,7 +77,7 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
     }
 
     subtotal += unitTotal;
-    unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType });
+    unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType, isDiscountEligible: mach.isDiscountEligible === true });
   });
 
   // Startup pricing for "Timan leverer"
@@ -93,7 +93,10 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
 
   const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((s, u) => s + u.total, 0);
   const nonDemoSubtotal = subtotal - demoSubtotal;
-  const nonDemoMachineCount = unitSubtotals.filter(u => !u.isDemo && u.modelType !== LOOSE_TOOL_KEY).length;
+  const discountEligibleQty = unitSubtotals.filter(u => !u.isDemo && u.isDiscountEligible).length;
+  const discountEligibleSubtotal = unitSubtotals
+    .filter(u => !u.isDemo && u.isDiscountEligible)
+    .reduce((sum, u) => sum + u.total, 0);
 
   let disc = 0;
   let price = subtotal;
@@ -109,9 +112,12 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
     price -= d1;
     disc += d1;
 
-    const qtyPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
+    const qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
+    let qtyDiscountAmount = 0;
     if (qtyPct > 0) {
-      const d2 = (nonDemoSubtotal - d1) * qtyPct;
+      const eligibleBaseDiscount = discountEligibleSubtotal * 0.25;
+      const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
+      qtyDiscountAmount = d2;
       price -= d2;
       disc += d2;
     }
@@ -124,8 +130,7 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
       if (deliveryDate > threeMonths) delActive = true;
     }
     if (delActive) {
-      const qPct = nonDemoMachineCount >= 4 ? 0.04 : (nonDemoMachineCount >= 2 ? 0.02 : 0);
-      const nonDemoDiscSoFar = d1 + (qPct > 0 ? (nonDemoSubtotal - d1) * qPct : 0);
+      const nonDemoDiscSoFar = d1 + qtyDiscountAmount;
       const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
       price -= d3;
       disc += d3;
