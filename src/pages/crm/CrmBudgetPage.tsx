@@ -694,7 +694,11 @@ export default function CrmBudgetPage() {
     const ac = actuals.find(a => a.budget_line_id === line.id);
     const fc = forecasts.find(f => f.budget_line_id === line.id);
     const budgetMonthly = splitToMonthly(line.qty_budget, split);
-    const ordersMonthly = splitToMonthly(ac?.qty_sold ?? 0, split);
+    // Real per-month order count when orders source provided it; otherwise
+    // fall back to spreading the annual qty by the budget's monthly split.
+    const ordersMonthly = (ac?.monthly_qty && ac.monthly_qty.length === 12)
+      ? ac.monthly_qty.slice(0, 12)
+      : splitToMonthly(ac?.qty_sold ?? 0, split);
     const draft = workingDraft[line.id];
     const workingMonthly = draft ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
