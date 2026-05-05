@@ -326,3 +326,15 @@ export const ACTIVITY_TYPES: ActivityTypeMeta[] = [
 export function activityTypeMeta(key: CalendarActivityType): ActivityTypeMeta {
   return ACTIVITY_TYPES.find(t => t.key === key) ?? ACTIVITY_TYPES[ACTIVITY_TYPES.length - 1];
 }
+
+/** Returns owner + participants merged & deduped (uppercased initials). Used in display. */
+export function activityAllSellerInitials(a: Pick<CalendarActivity, "seller_initials" | "participant_seller_initials">): string[] {
+  const set = new Set<string>();
+  const o = (a.seller_initials || "").trim().toUpperCase();
+  if (o) set.add(o);
+  for (const p of a.participant_seller_initials || []) {
+    const k = (p || "").trim().toUpperCase();
+    if (k) set.add(k);
+  }
+  return Array.from(set);
+}
