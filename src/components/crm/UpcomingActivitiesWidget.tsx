@@ -112,7 +112,7 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
                     <div className="text-sm text-gray-800 truncate">{a.title || meta.label[lang]}</div>
                     <div className="text-[11px] text-gray-500 truncate">
                       {a.dealer_name || "—"}
-                      {a.seller_initials ? ` · ${a.seller_initials}` : ""}
+                      {(() => { const all = activityAllSellerInitials(a); return all.length ? ` · ${all.join(", ")}` : ""; })()}
                     </div>
                   </div>
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", meta.badgeClass)}>{meta.label[lang]}</span>

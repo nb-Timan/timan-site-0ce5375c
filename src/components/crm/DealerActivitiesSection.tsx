@@ -71,7 +71,7 @@ export default function DealerActivitiesSection({ account, accounts }: Props) {
         {lastVisit && (
           <div className="text-xs text-gray-500">
             {T.last_visit[lang]}: <span className="text-gray-700 font-medium">{new Date(lastVisit.start_datetime).toLocaleDateString()}</span>
-            {lastVisit.seller_initials ? ` · ${lastVisit.seller_initials}` : ""}
+            {(() => { const all = activityAllSellerInitials(lastVisit); return all.length ? ` · ${all.join(", ")}` : ""; })()}
           </div>
         )}
 
@@ -124,7 +124,7 @@ function ActivityList({ lang, title, rows, onClickRow, emptyText, muted }: {
                     <Clock className="h-3 w-3" />
                     {new Date(a.start_datetime).toLocaleDateString()}
                   </span>
-                  {a.seller_initials && <span className="text-[10px] font-semibold text-gray-500">{a.seller_initials}</span>}
+                  {(() => { const all = activityAllSellerInitials(a); return all.length ? <span className="text-[10px] font-semibold text-gray-500">{all.join(", ")}</span> : null; })()}
                 </button>
               </li>
             );
