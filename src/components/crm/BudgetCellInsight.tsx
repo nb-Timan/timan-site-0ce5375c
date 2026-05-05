@@ -34,6 +34,9 @@ interface Props {
   side?: "top" | "bottom" | "left" | "right";
   /** Optional list of attached references to display under the breakdown. */
   references?: CellReference[];
+  /** Optional list of dealer names contributing orders to this cell.
+   *  Duplicates are grouped and counted in parentheses when >1. */
+  dealers?: string[];
 }
 
 function refKindLabel(r: CellReference): string {
@@ -44,10 +47,20 @@ function refKindLabel(r: CellReference): string {
 }
 
 export default function BudgetCellInsight({
-  children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references,
+  children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
 }: Props) {
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
   const refs = references ?? [];
+  // Group dealer names; preserve first-seen order.
+  const dealerGroups: Array<{ name: string; count: number }> = (() => {
+    if (!dealers || dealers.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const raw of dealers) {
+      const name = (raw || "—").trim() || "—";
+      map.set(name, (map.get(name) || 0) + 1);
+    }
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  })();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -88,6 +101,18 @@ export default function BudgetCellInsight({
                 {refs.map((r, i) => (
                   <li key={i} className="text-slate-200 truncate">
                     · {r.dealer_label || "—"} · <span className="text-slate-400">{refKindLabel(r)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {dealerGroups.length > 0 && (
+            <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
+              <div className="text-slate-300">Forhandler:</div>
+              <ul className="space-y-0.5">
+                {dealerGroups.map((d) => (
+                  <li key={d.name} className="text-slate-200 truncate">
+                    · {d.name}{d.count > 1 ? ` (${d.count})` : ""}
                   </li>
                 ))}
               </ul>

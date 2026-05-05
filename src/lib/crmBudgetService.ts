@@ -83,6 +83,10 @@ export interface SalesActual {
    *  table (which only knows annual totals). */
   monthly_qty?: number[];
   monthly_value?: number[];
+  /** Per-month list of dealers contributing to that month's qty.
+   *  Length 12 (Jan..Dec). Each entry is `{ name, qty }` per occurrence
+   *  (duplicates intentional — UI groups them). Display only. */
+  monthly_dealers?: Array<Array<{ name: string; qty: number }>>;
 }
 
 // ---------- Product catalog ----------
@@ -542,7 +546,7 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
@@ -573,9 +577,9 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .eq("case_status", "ordre_afgivet")
       .neq("case_status", "deleted")
       .limit(5000);
-    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type");
+    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number");
     if (res.error && /state_json/.test(res.error.message || "")) {
-      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type");
+      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number");
     }
     if (res.error) throw res.error;
     return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
@@ -829,13 +833,22 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           value_sold: 0,
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
+          monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
         };
         prev.qty_sold += qty;
         prev.value_sold += value;
         if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
         if (!prev.monthly_value) prev.monthly_value = ZERO12();
+        if (!prev.monthly_dealers) prev.monthly_dealers = Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>);
         prev.monthly_qty[monthIdx] += qty;
         prev.monthly_value[monthIdx] += value;
+        const dealerName =
+          (row.dealer_name as string | null) ||
+          (row.dealer_company_name as string | null) ||
+          (row.dealer_number as string | null) ||
+          (row.dealer_account_number as string | null) ||
+          "—";
+        prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
         totals.set(line.id, prev);
       }
     }
