@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
-  Search, Pencil, Download, Tag, X,
+  Search, Pencil, Download, Tag, X, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
@@ -36,7 +36,14 @@ import {
   type PriceListImportLog,
   type PreviewRow,
   type ImportSummary,
+  type CsvPriceRow,
 } from "@/lib/priceListService";
+import {
+  buildConfiguratorSeed,
+  buildVarenrGroupMap,
+  groupOrderIndex,
+  type ProductGroupKey,
+} from "@/lib/configuratorPriceSeed";
 
 const FIELD_LABEL: Record<string, string> = {
   item_text_da: "Varetekst",
