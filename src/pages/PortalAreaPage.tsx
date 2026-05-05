@@ -9,7 +9,8 @@ import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { derivePortalRole } from '@/lib/portalAccess';
+import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
