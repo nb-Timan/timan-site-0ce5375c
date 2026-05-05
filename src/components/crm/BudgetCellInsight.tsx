@@ -34,6 +34,9 @@ interface Props {
   side?: "top" | "bottom" | "left" | "right";
   /** Optional list of attached references to display under the breakdown. */
   references?: CellReference[];
+  /** Optional list of dealer names contributing orders to this cell.
+   *  Duplicates are grouped and counted in parentheses when >1. */
+  dealers?: string[];
 }
 
 function refKindLabel(r: CellReference): string {
