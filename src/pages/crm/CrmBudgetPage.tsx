@@ -1994,6 +1994,9 @@ export default function CrmBudgetPage() {
         ctx={refModal}
         onClose={() => setRefModal(null)}
         onSaved={() => setAuditRefreshKey((k) => k + 1)}
+        isAdmin={isAdmin}
+        currentSellerInitials={sellerCtxInitials ? sellerCtxInitials.toUpperCase() : null}
+        currentSellerEmail={sellerCtxEmail || null}
       />
 
 
