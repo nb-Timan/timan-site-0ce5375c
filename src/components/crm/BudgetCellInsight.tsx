@@ -47,10 +47,20 @@ function refKindLabel(r: CellReference): string {
 }
 
 export default function BudgetCellInsight({
-  children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references,
+  children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
 }: Props) {
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
   const refs = references ?? [];
+  // Group dealer names; preserve first-seen order.
+  const dealerGroups: Array<{ name: string; count: number }> = (() => {
+    if (!dealers || dealers.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const raw of dealers) {
+      const name = (raw || "—").trim() || "—";
+      map.set(name, (map.get(name) || 0) + 1);
+    }
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  })();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
