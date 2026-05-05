@@ -687,6 +687,7 @@ function EditUserModal({
                 { value: "can_approve_claims", label: "Can approve claims" },
                 { value: "can_create_tsb", label: "Can create TSB" },
                 { value: "can_manage_users", label: "Can manage users" },
+                { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
               ]}
               checked={(Object.entries(draft.perms) as [keyof BackendUser["perms"], boolean][])
                 .filter(([, v]) => v)

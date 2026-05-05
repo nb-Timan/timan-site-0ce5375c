@@ -1,4 +1,5 @@
 import { ConfiguratorState, FlowType, Language } from '@/types/configurator';
+import { DEFAULT_PAYMENT_TERMS, resolvePaymentTerms } from '@/lib/paymentTerms';
 
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
@@ -25,6 +26,7 @@ export const createEmptyConfiguratorState = (
   emailRecipient: '',
   comment: '',
   internalNote: '',
+  paymentTerms: DEFAULT_PAYMENT_TERMS,
 });
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
@@ -51,5 +53,6 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     emailRecipient: value?.emailRecipient ?? '',
     comment: value?.comment ?? '',
     internalNote: value?.internalNote ?? '',
+    paymentTerms: resolvePaymentTerms(value?.paymentTerms),
   };
 }

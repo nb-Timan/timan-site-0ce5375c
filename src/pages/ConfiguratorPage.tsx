@@ -26,6 +26,12 @@ import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  DEFAULT_PAYMENT_TERMS,
+  resolvePaymentTerms,
+  getPaymentTermsLabel,
+} from '@/lib/paymentTerms';
 
 const LANGUAGES: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
@@ -95,6 +101,17 @@ export default function ConfiguratorPage() {
     canSetDiscount: appUser?.can_edit_discount ?? false,
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
+
+  // Phase 27 — Payment terms: visible only for Backend or Timan Sælger
+  // who also has the explicit `can_manage_payment_terms` permission.
+  const canManagePaymentTerms = (() => {
+    const role = appUser?.portal_role ?? null;
+    const isBackendOrSeller = role === 'timan_backend'
+      || role === 'timan_seller'
+      || appUser?.role === 'timan_saelger';
+    if (!isBackendOrSeller) return false;
+    return appUser?.permissions?.can_manage_payment_terms === true;
+  })();
 
   // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
   // Single source of truth for both the Step 4 form picker and the basket
@@ -524,6 +541,10 @@ export default function ConfiguratorPage() {
       <div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${T('confirmTotal')}</span>
         <span class="price-col">${formatMoney(calcResult.currentPrice, lang)}</span>
+      </div>
+      <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
+        <span>${getPaymentTermsLabel(lang)}</span>
+        <span>${resolvePaymentTerms(state.paymentTerms)}</span>
       </div>
       <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
     </div></div></div>`;
@@ -1942,6 +1963,27 @@ export default function ConfiguratorPage() {
                             setState(s => ({ ...s, manualDealerDiscountPct: v }));
                           }}
                           placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
+                      </div>
+                    )}
+                    {/* Phase 27 — Payment terms (information only, never affects totals).
+                        Visible only for Backend / Timan Sælger with explicit permission. */}
+                    {canManagePaymentTerms && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {getPaymentTermsLabel(lang)}
+                        </label>
+                        <select
+                          value={resolvePaymentTerms(state.paymentTerms)}
+                          onChange={(e) => {
+                            const v = e.target.value || DEFAULT_PAYMENT_TERMS;
+                            setState((s) => ({ ...s, paymentTerms: v }));
+                          }}
+                          className="w-full p-1.5 border rounded-lg text-sm bg-white"
+                        >
+                          {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">

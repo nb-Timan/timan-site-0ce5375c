@@ -13,6 +13,7 @@ export type SessionUser = AppUser & {
   module_access?: string[] | null;
   status?: string | null;
   dealer_number?: string | null;
+  permissions?: Record<string, boolean> | null;
 };
 
 export interface DealerAccessStatus {
@@ -199,6 +200,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     module_access: (row.module_access as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
+    permissions: (row.permissions as Record<string, boolean> | null) ?? null,
   };
 }
 
