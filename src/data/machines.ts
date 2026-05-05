@@ -293,7 +293,7 @@ export const PRODUCTS: Record<string, Machine> = {
   },
   'Loader Line': {
     id: 'Loader Line',
-    name: { da: 'Loader-Line and CS-200 Traktor', en: 'Loader-Line and CS-200 Traktor', de: 'Loader-Line and CS-200 Traktor', it: 'Loader-Line and CS-200 Traktor', hu: 'Loader-Line and CS-200 Traktor' },
+    name: { da: 'Loader-Line og CS-200 Traktor', en: 'Loader-Line and CS-200 Tractor', de: 'Loader-Line und CS-200 Traktor', it: 'Loader-Line e CS-200 Trattore', hu: 'Loader-Line és CS-200 Traktor' },
     nameShort: 'LOADER LINE',
     priceDKK: 0,
     priceEUR: 0,
@@ -313,7 +313,7 @@ export const PRODUCTS: Record<string, Machine> = {
   },
   'LOOSE_TOOL': {
     id: 'LOOSE_TOOL',
-    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Einzelnes Anbaugerät', it: 'Attrezzo singolo', hu: 'Önálló eszköz' },
+    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék' },
     nameShort: 'LOOSE_TOOL_SHORT',
     priceDKK: 0,
     priceEUR: 0,
@@ -684,7 +684,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '725163__725120', varenr: '725120', name: { da: '2 stk. LED arbejdslys bag på spreder', en: '2 pc. LED working light on spreader', de: '2 pc. LED working light on spreader', it: '2 pc. LED working light on spreader', hu: '2 pc. LED working light on spreader' }, priceDKK: 950, priceEUR: 130, requires: '725163' },
     { id: '725163__725747', varenr: '725747', name: { da: 'Presenning for spreder (forhandlermonteret)', en: 'Cover for spreader', de: 'Cover for spreader', it: 'Cover for spreader', hu: 'Cover for spreader' }, priceDKK: 3800, priceEUR: 510, requires: '725163' },
     // Kost med blad
-    { id: 'LL-KOST-HDR', varenr: 'HEADER', name: { da: 'Kost med blad', en: 'Sweeper with blade', de: 'Sweeper with blade', it: 'Sweeper with blade', hu: 'Sweeper with blade' }, priceDKK: 0, priceEUR: 0, isHeader: true },
+    { id: 'LL-KOST-HDR', varenr: 'HEADER', name: { da: 'Kost med blad', en: 'Sweeper with blade', de: 'Kehrmaschine mit Schild', it: 'Spazzatrice con lama', hu: 'Seprőgép pengével' }, priceDKK: 0, priceEUR: 0, isHeader: true },
     { id: '312010', varenr: '312010', name: { da: 'Timan hydr. fejemaskine D1316 med skrabeblad Ø600 mm børster', en: 'Timan hydraulic sweeper S1316 with hydr. swing and hydr. snow blade 1600', de: 'Timan hydraulic sweeper S1316 with hydr. swing and hydr. snow blade 1600', it: 'Timan hydraulic sweeper S1316 with hydr. swing and hydr. snow blade 1600', hu: 'Timan hydraulic sweeper S1316 with hydr. swing and hydr. snow blade 1600' }, priceDKK: 62500, priceEUR: 8420 },
     { id: '312011', varenr: '312011', name: { da: 'Timan hydr. fejemaskine D1518 med skrabeblad Ø600 mm børster', en: 'Timan hydraulic sweeper S1518 with hydr. swing and hydr. snow blade 1800', de: 'Timan hydraulic sweeper S1518 with hydr. swing and hydr. snow blade 1800', it: 'Timan hydraulic sweeper S1518 with hydr. swing and hydr. snow blade 1800', hu: 'Timan hydraulic sweeper S1518 with hydr. swing and hydr. snow blade 1800' }, priceDKK: 65000, priceEUR: 8750 },
     { id: '312015', varenr: '312015', name: { da: 'Flydende ophæng inklusiv 6/2 ventil til Weidemann (passer til 312010 og 312011)', en: 'Floating mount including 6/2 valve for Weidemann (fits both 312010 and 312011)', de: 'Floating mount including 6/2 valve for Weidemann (fits both 312010 and 312011)', it: 'Floating mount including 6/2 valve for Weidemann (fits both 312010 and 312011)', hu: 'Floating mount including 6/2 valve for Weidemann (fits both 312010 and 312011)' }, priceDKK: 15000, priceEUR: 2020 },
@@ -694,7 +694,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '310100__876185', varenr: '876185', name: { da: 'Ophæng til Weidemann', en: 'Mount for Weidemann', de: 'Mount for Weidemann', it: 'Mount for Weidemann', hu: 'Mount for Weidemann' }, priceDKK: 5000, priceEUR: 680, requires: '310100' },
     { id: '310100__310461', varenr: '310461', name: { da: 'Håndsug inkl. 8 meter sugeslange', en: 'External suction hose - 8 meters.', de: 'External suction hose - 8 meters.', it: 'External suction hose - 8 meters.', hu: 'External suction hose - 8 meters.' }, priceDKK: 6500, priceEUR: 875, requires: '310100' },
     // CS-200 til traktor
-    { id: 'LL-CS200T-HDR', varenr: 'HEADER', name: { da: 'CS-200 til traktor', en: 'CS-200 for tractor', de: 'CS-200 for tractor', it: 'CS-200 for tractor', hu: 'CS-200 for tractor' }, priceDKK: 0, priceEUR: 0, isHeader: true },
+    { id: 'LL-CS200T-HDR', varenr: 'HEADER', name: { da: 'CS-200 til traktor', en: 'CS-200 for tractor', de: 'CS-200 für Traktor', it: 'CS-200 per trattore', hu: 'CS-200 traktorhoz' }, priceDKK: 0, priceEUR: 0, isHeader: true },
     { id: '725135', varenr: '725135', name: { da: 'CS-200 Valspræder, manuel reg.', en: 'CS-200 Drop spreader, manual adjustment (tractor)', de: 'CS-200 Drop spreader, manual adjustment (tractor)', it: 'CS-200 Drop spreader, manual adjustment (tractor)', hu: 'CS-200 Drop spreader, manual adjustment (tractor)' }, priceDKK: 40900, priceEUR: 0 },
     { id: '725135__712902', varenr: '712902', name: { da: 'Rustbeskyttelse (Dinitrol 4010) af CS-200.', en: 'Rust protection (Dinitrol 4010) for CS-200.', de: 'Rust protection (Dinitrol 4010) for CS-200.', it: 'Rust protection (Dinitrol 4010) for CS-200.', hu: 'Rust protection (Dinitrol 4010) for CS-200.' }, priceDKK: 1150, priceEUR: 0, requires: '725135' },
     { id: '725135__725312', varenr: '725312', name: { da: 'Forhøjningssider / rumindhold 300 liter', en: 'Extension sides / capacity 300 liters.', de: 'Extension sides / capacity 300 liters.', it: 'Extension sides / capacity 300 liters.', hu: 'Extension sides / capacity 300 liters.' }, priceDKK: 3600, priceEUR: 0, requires: '725135' },
