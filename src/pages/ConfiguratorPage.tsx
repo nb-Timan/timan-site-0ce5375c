@@ -102,6 +102,17 @@ export default function ConfiguratorPage() {
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
+  // Phase 27 — Payment terms: visible only for Backend or Timan Sælger
+  // who also has the explicit `can_manage_payment_terms` permission.
+  const canManagePaymentTerms = (() => {
+    const role = appUser?.portal_role ?? null;
+    const isBackendOrSeller = role === 'timan_backend'
+      || role === 'timan_seller'
+      || appUser?.role === 'timan_saelger';
+    if (!isBackendOrSeller) return false;
+    return appUser?.permissions?.can_manage_payment_terms === true;
+  })();
+
   // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
   // Single source of truth for both the Step 4 form picker and the basket
   // panel picker. Re-derived whenever the logged-in user (or their active
