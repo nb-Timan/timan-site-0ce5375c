@@ -59,9 +59,14 @@ interface VisitorRow {
 
 interface AppUserLite {
   email: string;
-  name: string | null;
+  display_name: string | null;
+  initials: string | null;
   role: string | null;
   portal_role: string | null;
+}
+
+function userDisplayName(u: AppUserLite | undefined, fallbackEmail?: string | null): string {
+  return (u?.display_name?.trim() || u?.initials?.trim() || fallbackEmail || u?.email || "").trim();
 }
 
 function startOfTodayISO() {
@@ -136,7 +141,7 @@ export default function BackendPortalAnalyticsPage() {
           supabase.from("guest_visitors").select("*").order("last_visit_at", { ascending: false }).limit(2000),
           supabase.from("guest_sessions").select("*").gte("started_at", since).order("started_at", { ascending: false }).limit(5000),
           supabase.from("portal_activity_log").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
-          supabase.from("app_users").select("email,name,role,portal_role"),
+          supabase.from("app_users").select("email,display_name,initials,role,portal_role"),
         ]);
         if (cancelled) return;
         if (v.error) throw v.error;
@@ -238,7 +243,7 @@ export default function BackendPortalAnalyticsPage() {
         const u = userByEmail.get(key);
         map.set(key, {
           email,
-          name: u?.name || email,
+          name: userDisplayName(u, email),
           role: u?.role || "—",
           portalRole: u?.portal_role || "—",
           visitsToday: 0, visits7: 0, visits30: 0, visits: 0,
@@ -451,7 +456,7 @@ export default function BackendPortalAnalyticsPage() {
                       return (
                         <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="py-2 pr-3 text-gray-700">{formatDateTime(s.started_at)}</td>
-                          <td className="py-2 pr-3">{u?.name || s.email || <span className="text-gray-400">Gæst</span>}</td>
+                          <td className="py-2 pr-3">{userDisplayName(u ?? undefined, s.email) || <span className="text-gray-400">Gæst</span>}</td>
                           <td className="py-2 pr-3">{s.country || "—"}</td>
                           <td className="py-2 pr-3">{s.postal_code || "—"}</td>
                           <td className="py-2 pr-3">{s.language || "—"}</td>
