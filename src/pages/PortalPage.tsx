@@ -49,6 +49,8 @@ export default function PortalPage() {
     }
   }, [appUser, lang, setLanguage]);
 
+  const effectiveUser = useEffectivePortalUser(appUser);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -113,8 +115,8 @@ export default function PortalPage() {
     );
   }
 
-  const effectiveUser = useEffectivePortalUser(appUser);
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
