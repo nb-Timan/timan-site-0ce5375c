@@ -513,9 +513,19 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
   for (const row of fromTable) merged.set(row.budget_line_id, { ...row });
   for (const row of fromOrders) {
     const prev = merged.get(row.budget_line_id);
-    merged.set(row.budget_line_id, prev
-      ? { budget_line_id: row.budget_line_id, qty_sold: prev.qty_sold + row.qty_sold, value_sold: prev.value_sold + row.value_sold }
-      : { ...row });
+    if (!prev) {
+      merged.set(row.budget_line_id, { ...row });
+      continue;
+    }
+    const m_qty = row.monthly_qty ?? prev.monthly_qty;
+    const m_val = row.monthly_value ?? prev.monthly_value;
+    merged.set(row.budget_line_id, {
+      budget_line_id: row.budget_line_id,
+      qty_sold: prev.qty_sold + row.qty_sold,
+      value_sold: prev.value_sold + row.value_sold,
+      monthly_qty: m_qty,
+      monthly_value: m_val,
+    });
   }
   return Array.from(merged.values());
 }
