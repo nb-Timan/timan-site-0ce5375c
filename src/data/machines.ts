@@ -783,7 +783,9 @@ export function getLooseToolAccessories(): Accessory[] {
   const rcRedskaber = rcRedskaberRaw.filter(item => String(item?.varenr || '') !== ACC_ID_RAL_COLOR);
 
   const timanStartIdx = findRedskabHeaderIndex(timanAll);
-  const timanRedskaber = timanStartIdx === -1 ? [] : timanAll.slice(timanStartIdx);
+  const timanRedskaberRaw = timanStartIdx === -1 ? [] : timanAll.slice(timanStartIdx);
+  // Exclude 721122 from Loose attachment flow
+  const timanRedskaber = timanRedskaberRaw.filter(item => String(item?.varenr || '') !== '721122');
 
   // Inject "Redskaber til Timan 3330" heading before Feje/Sug Redskaber section
   const timan3330Header: Accessory = {
