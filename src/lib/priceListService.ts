@@ -23,6 +23,8 @@ export interface PriceListItem {
   price_sek: number | null;
   updated_at: string;
   updated_by_email: string | null;
+  is_dirty: boolean;
+  last_published_at: string | null;
 }
 
 export interface PriceListImportLog {
