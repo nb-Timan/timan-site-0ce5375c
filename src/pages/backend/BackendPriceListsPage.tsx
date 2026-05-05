@@ -128,6 +128,17 @@ export default function BackendPriceListsPage() {
     return preview.filter((p) => p.bucket === filter);
   }, [preview, filter]);
 
+  // Publish-to-configurator state
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
+
+  const dirtyItems = useMemo(() => items.filter((i) => i.is_dirty), [items]);
+  const publishPreview: PublishPreviewRow[] = useMemo(
+    () => buildPublishPreview(dirtyItems),
+    [dirtyItems],
+  );
+
   // Early returns now happen AFTER all hooks have been called.
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
