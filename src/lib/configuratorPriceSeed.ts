@@ -24,6 +24,8 @@ export type ProductGroupKey =
   | "RC-751"
   | "RC-1000s"
   | "Timan 3330"
+  | "Timan 2620"
+  | "Loader Line"
   | "Løse redskaber / attachments"
   | "Options/accessories/other";
 
@@ -31,6 +33,8 @@ export const PRODUCT_GROUP_ORDER: ProductGroupKey[] = [
   "RC-751",
   "RC-1000s",
   "Timan 3330",
+  "Timan 2620",
+  "Loader Line",
   "Løse redskaber / attachments",
   "Options/accessories/other",
 ];
