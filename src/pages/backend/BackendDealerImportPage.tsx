@@ -345,7 +345,7 @@ export default function BackendDealerImportPage() {
         </section>
       </main>
 
-      <PortalFooter />
+      <PortalFooter language={lang} />
     </div>
   );
 }
