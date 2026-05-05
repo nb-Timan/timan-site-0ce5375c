@@ -196,6 +196,14 @@ export default function CalendarActivityModal(props: Props) {
     }
     setNote(initial?.note || "");
     setStatus((initial?.status as CalendarActivity["status"]) || "planned");
+    // Participants: existing list (uppercased) ∪ owner ∪ current active seller (creator)
+    const existing = (initial?.participant_seller_initials || []).map((s) => (s || "").toUpperCase()).filter(Boolean);
+    const ownerIni = (initial?.seller_initials || currentSeller?.initials || "").toUpperCase();
+    const meIni = (currentSeller?.initials || "").toUpperCase();
+    const set = new Set<string>(existing);
+    if (ownerIni) set.add(ownerIni);
+    if (meIni) set.add(meIni);
+    setParticipants(Array.from(set));
   }, [open, initial, defaultAccountId, defaultDateIso, currentSeller, isAdmin]);
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
@@ -256,6 +264,12 @@ export default function CalendarActivityModal(props: Props) {
       seller_user_id: null,
       seller_initials: seller?.initials ?? null,
       seller_name: seller?.full_name ?? null,
+      participant_seller_initials: (() => {
+        const set = new Set<string>(participants.map((p) => (p || "").toUpperCase()).filter(Boolean));
+        const o = (seller?.initials || "").toUpperCase();
+        if (o) set.add(o); // owner is always a participant
+        return Array.from(set);
+      })(),
       activity_type: type,
       note: note.trim() || null,
       status,
