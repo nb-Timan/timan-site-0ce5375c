@@ -113,7 +113,7 @@ export interface Machine {
   priceDKK: number;
   priceEUR: number;
   varenr: string;
-  isDiscountEligible?: boolean;
+  isDiscountEligible: boolean;
   videoUrl?: string;
   imageUrl?: string;
   images?: MediaLink[];
