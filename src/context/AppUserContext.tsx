@@ -105,7 +105,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
         const cacheIsFresh = cached
           && cached.email.toLowerCase() === session.user.email.toLowerCase()
           && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
-          && Object.prototype.hasOwnProperty.call(cached, 'dealer_number');
+          && Object.prototype.hasOwnProperty.call(cached, 'dealer_number')
+          // Phase 27 — re-fetch when cache pre-dates the `permissions` field
+          // so newly added per-user flags (e.g. can_manage_payment_terms) load.
+          && Object.prototype.hasOwnProperty.call(cached, 'permissions');
         if (cacheIsFresh) {
           setLoading(false);
           return;
