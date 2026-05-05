@@ -78,6 +78,11 @@ export interface SalesActual {
   budget_line_id: string;
   qty_sold: number;
   value_sold: number;
+  /** Per-month qty (Jan..Dec, length 12) when derived from real orders.
+   *  Empty/undefined when the source is the legacy crm_budget_sales_actuals
+   *  table (which only knows annual totals). */
+  monthly_qty?: number[];
+  monthly_value?: number[];
 }
 
 // ---------- Product catalog ----------
