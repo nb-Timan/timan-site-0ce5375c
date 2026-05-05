@@ -102,17 +102,16 @@ export default function ConfiguratorPage() {
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
-  // Phase 27 — Payment terms: visible only for Backend or Timan Sælger
-  // who also has the explicit `can_manage_payment_terms` permission.
+  // Phase 27 — Payment terms: visible only when the ACTIVE mode/role is
+  // Backend or Timan Sælger AND the user has `can_manage_payment_terms`.
+  // derivePortalRole() respects the "Vis som rolle" / seller view-as mode,
+  // so a Backend user previewing as Timan Forhandler will be hidden.
+  const activePortalRole = derivePortalRole(appUser);
   const canManagePaymentTerms = (() => {
-    const role = appUser?.portal_role ?? null;
-    const isBackend = role === 'timan_backend';
-    const isSeller = role === 'timan_seller' || appUser?.role === 'timan_saelger';
+    const isBackend = activePortalRole === 'timan_backend';
+    const isSeller = activePortalRole === 'timan_seller';
     if (!isBackend && !isSeller) return false;
     const flag = appUser?.permissions?.can_manage_payment_terms;
-    // If the permissions object is missing or the flag is unset, fall back
-    // to the same default the backend-users service uses (Backend + Seller
-    // get the permission by default). Only an explicit `false` hides it.
     if (flag === false) return false;
     return true;
   })();
