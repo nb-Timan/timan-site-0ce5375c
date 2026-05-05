@@ -14,6 +14,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
+import { clearViewAsCache } from "@/lib/viewAsUser";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -392,9 +393,13 @@ export default function BackendUsersPage() {
             // Drop cached sellerId for both the previous and the new email so
             // CRM "view as" / scope resolvers re-read from Supabase.
             clearSellerIdCache(editing.email);
+            clearViewAsCache(editing.email);
             if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
               clearSellerIdCache(patch.email);
+              clearViewAsCache(patch.email);
             }
+            // Notify any "view as" listeners so the portal re-resolves.
+            window.dispatchEvent(new CustomEvent('timan:active-mode-changed'));
             // If the edited row is the currently logged-in user, refresh
             // AppUserContext from Supabase so role / module / dealer changes
             // take effect without a page reload.
