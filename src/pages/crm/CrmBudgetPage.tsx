@@ -481,6 +481,34 @@ export default function CrmBudgetPage() {
     return () => { alive = false; };
   }, [year, allowed, auditSellerContext, auditRefreshKey]);
 
+  // Hydrate cell → references map for the current year/scope.
+  useEffect(() => {
+    if (!allowed) return;
+    let alive = true;
+    listBudgetReferences({
+      year,
+      seller_email: auditSellerContext || undefined,
+      limit: 1000,
+    }).then((rows: BudgetReference[]) => {
+      if (!alive) return;
+      const map: Record<string, CellReference[]> = {};
+      // Oldest first so display order is creation order.
+      const sorted = [...rows].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+      for (const r of sorted) {
+        if (!r.cell_key) continue;
+        const item: CellReference = {
+          dealer_label: r.dealer_name,
+          has_lead: !!(r.lead_id && r.lead_id.trim()),
+          has_demo: !!(r.demo_id && r.demo_id.trim()),
+          note: r.note,
+        };
+        (map[r.cell_key] ||= []).push(item);
+      }
+      setRefsByCell(map);
+    }).catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [year, allowed, auditSellerContext, auditRefreshKey]);
+
 
   const visibleLines = useMemo(() => {
     function belongsToActiveSeller(l: BudgetLine): boolean {
