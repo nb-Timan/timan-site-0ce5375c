@@ -126,9 +126,9 @@ export function buildConfiguratorSeed(): SeedRow[] {
   for (const a of ACCESSORIES["Timan 2620"] || []) push(accessoryRow(a, "Timan 2620"));
 
   // 5. Loader Line
-  const loader = PRODUCTS["Loader-Line and CS-200 Traktor"];
+  const loader = PRODUCTS["Loader Line"];
   if (loader) push(machineRow(loader, "Loader-Line and CS-200 Traktor"));
-  for (const a of ACCESSORIES["Loader-Line and CS-200 Traktor"] || []) push(accessoryRow(a, "Loader-Line and CS-200 Traktor"));
+  for (const a of ACCESSORIES["Loader Line"] || []) push(accessoryRow(a, "Loader-Line and CS-200 Traktor"));
 
   // 6. Loose tools
   for (const a of getLooseToolAccessories()) {
