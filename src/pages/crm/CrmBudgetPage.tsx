@@ -366,6 +366,8 @@ export default function CrmBudgetPage() {
   // Map of cell_key → latest AuditEntry for the current scope (used for the
   // changed indicator + tooltip). Backend sees all sellers; sellers see own.
   const [latestAuditByCell, setLatestAuditByCell] = useState<Record<string, AuditEntry>>({});
+  // Map of cell_key → list of attached references (for the small hover overview).
+  const [refsByCell, setRefsByCell] = useState<Record<string, CellReference[]>>({});
   // Re-render every 30s so the countdown ticks.
   const [, setNowTick] = useState(0);
   useEffect(() => {
