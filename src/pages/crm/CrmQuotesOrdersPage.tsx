@@ -300,6 +300,19 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           </button>
                         </td>
                       )}
+                      {canDelete && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDeletingRow(r); }}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700"
+                            title={mode === 'order' ? 'Slet ordre' : 'Slet tilbud'}
+                            aria-label={mode === 'order' ? 'Slet ordre' : 'Slet tilbud'}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
