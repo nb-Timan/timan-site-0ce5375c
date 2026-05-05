@@ -353,9 +353,11 @@ export function useConfigurator() {
 
       // 2. Qty discount (based only on non-demo discount-eligible real machines)
       let qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
+      let qtyDiscountAmount = 0;
       if (qtyPct > 0) {
         const eligibleBaseDiscount = discountEligibleSubtotal * 0.25;
         const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
+        qtyDiscountAmount = d2;
         price -= d2;
         disc += d2;
         details.push({ txt: `${T('qtyDiscountLabel')} (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
@@ -370,7 +372,7 @@ export function useConfigurator() {
         if (deliveryDate > threeMonths) delActive = true;
       }
       if (delActive) {
-        const nonDemoDiscSoFar = d1 + (qtyPct > 0 ? (nonDemoSubtotal - d1) * qtyPct : 0);
+        const nonDemoDiscSoFar = d1 + qtyDiscountAmount;
         const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
         price -= d3;
         disc += d3;
