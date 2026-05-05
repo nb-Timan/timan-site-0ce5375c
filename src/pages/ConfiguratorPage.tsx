@@ -1494,7 +1494,8 @@ export default function ConfiguratorPage() {
                         disabled={(date) => {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
-                          return date < today;
+                          const day = date.getDay();
+                          return date < today || day === 0 || day === 6;
                         }}
                         modifiers={{
                           discount: (date) => {
