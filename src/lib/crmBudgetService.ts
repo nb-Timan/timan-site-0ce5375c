@@ -584,8 +584,11 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         .gte("created_at", fromIso)
         .lt("created_at", toIso)
         .limit(2000);
-      let res = await trySel("id, title, state_json, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
+      let res = await trySel("id, title, state_json, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, delivery_date, case_status, document_type, case_type");
       if (res.error && /state_json/.test(res.error.message || "")) {
+        res = await trySel("id, title, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, delivery_date, case_status, document_type, case_type");
+      }
+      if (res.error && /delivery_date/.test(res.error.message || "")) {
         res = await trySel("id, title, note, total_price, seller_email, seller_initials, assigned_seller_id, order_sent_at, submitted_at, created_at, case_status, document_type, case_type");
       }
       if (res.error) throw res.error;
@@ -615,7 +618,27 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
     }
 
     const totals = new Map<string, SalesActual>();
+    const ZERO12 = () => Array.from({ length: 12 }, () => 0);
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      // Submitted-order filter: status 'ordre_afgivet' OR has order_sent_at /
+      // submitted_at. Drafts ('aktiv', 'pause') are NOT counted.
+      const status = (row.case_status as string | null) || "";
+      const orderSentAt = (row.order_sent_at as string | null) || null;
+      const submittedAt = (row.submitted_at as string | null) || null;
+      const isSubmitted = status === "ordre_afgivet" || !!orderSentAt || !!submittedAt;
+      if (!isSubmitted) continue;
+
+      // Month bucketing: delivery_date → order_sent_at → submitted_at → created_at.
+      const dateRaw = (row.delivery_date as string | null)
+        || orderSentAt
+        || submittedAt
+        || (row.created_at as string | null)
+        || null;
+      const d = dateRaw ? new Date(dateRaw) : null;
+      if (!d || isNaN(d.getTime())) continue;
+      if (d.getFullYear() !== year) continue;
+      const monthIdx = d.getMonth();
+
       const sellerEmail = norm(row.seller_email as string | null);
       const sellerInitials = upper(row.seller_initials as string | null);
       // Skip unowned legacy rows (no seller info at all).
@@ -644,6 +667,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
 
       // Compute final price: prefer calcConfigurationTotals(state); fall back
       // to persisted total_price column if state is missing/empty.
+      // Value can be 0 — qty must still be counted.
       let finalPrice = 0;
       if (state) {
         try { finalPrice = calcConfigurationTotals(state).finalPrice || 0; } catch { /* */ }
@@ -695,9 +719,19 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         if (!line) continue;
 
         const value = finalPrice * (qty / totalQty);
-        const prev = totals.get(line.id) || { budget_line_id: line.id, qty_sold: 0, value_sold: 0 };
+        const prev = totals.get(line.id) || {
+          budget_line_id: line.id,
+          qty_sold: 0,
+          value_sold: 0,
+          monthly_qty: ZERO12(),
+          monthly_value: ZERO12(),
+        };
         prev.qty_sold += qty;
         prev.value_sold += value;
+        if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
+        if (!prev.monthly_value) prev.monthly_value = ZERO12();
+        prev.monthly_qty[monthIdx] += qty;
+        prev.monthly_value[monthIdx] += value;
         totals.set(line.id, prev);
       }
     }
