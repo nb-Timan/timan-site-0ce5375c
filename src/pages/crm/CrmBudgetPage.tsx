@@ -1734,6 +1734,7 @@ export default function CrmBudgetPage() {
                                     title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                     total={w}
                                     rows={workRows}
+                                    references={refsByCell[ck]}
                                   >
                                     <span className="font-semibold">{w}</span>
                                   </BudgetCellInsight>
