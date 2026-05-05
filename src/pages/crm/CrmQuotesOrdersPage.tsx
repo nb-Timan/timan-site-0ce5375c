@@ -107,11 +107,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [search, setSearch] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
   // Backend/admin can always edit ownership, even when "viewing as" a seller.
   const canEditOwnership = portalRole === 'timan_backend' && mode === 'order';
+  // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
+  const canDelete = isBackendFull;
 
   useEffect(() => {
     let cancelled = false;
