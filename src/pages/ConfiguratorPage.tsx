@@ -2090,12 +2090,8 @@ export default function ConfiguratorPage() {
                           {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
                         </div>
                         {item.isMachine && (
-                          <div className="flex justify-between items-start text-xs text-gray-700 pl-4 mt-1">
-                            <span className="min-w-0 flex-1">
-                              <span className="text-gray-500 mr-2">{item.varenr}</span>
-                              <span>{item.txt.replace(/^.*\(([^)]+)\)\s*$/, '$1')}</span>
-                            </span>
-                            {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
+                          <div className="text-[11px] text-gray-500 pl-4 mt-0.5">
+                            <span className="mr-2">{item.varenr}</span>
                           </div>
                         )}
                         {item.isMachine && item.index && (
