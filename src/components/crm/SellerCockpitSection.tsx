@@ -21,7 +21,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
 import { listLeads, type CrmLead } from "@/lib/crmLeadsService";
 import {
-  listBudgetLines, listForecasts, listSalesActuals,
+  listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
