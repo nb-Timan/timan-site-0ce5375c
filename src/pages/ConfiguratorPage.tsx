@@ -537,6 +537,17 @@ export default function ConfiguratorPage() {
       if (i.bold) {
         html += `<div class="text-sm font-bold text-gray-800 pt-3 pb-1 border-t border-gray-200 mt-2">${i.txt}</div>`;
         if (i.isMachine && i.index) {
+          // Always render the base machine line (varenr + name + price) so visible
+          // line items match the subtotal. Display-only; totals are unchanged.
+          const machName = i.txt.replace(/^.*\(([^)]+)\)\s*$/, '$1') || i.txt;
+          const priceCol = permissions.canSeePrices
+            ? `<div class="w-28 shrink-0 text-right price-col">${formatMoney(i.price, lang)}</div>`
+            : '';
+          html += `<div class="flex items-start text-sm py-1 text-gray-800 font-semibold">
+            <div class="w-16 shrink-0 opacity-80">${varenr}</div>
+            <div class="flex-grow px-2 leading-snug break-words">${machName}</div>
+            ${priceCol}
+          </div>`;
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
             html += `<div class="text-xs text-gray-500 pl-0 pb-1">${T('reqNrLabel')}: ${reqVal}</div>`;
