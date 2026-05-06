@@ -1112,9 +1112,115 @@ export function appendBudgetAuditEntry(p: BudgetAuditPayload) {
       new_value: { ...snapshot, value: p.new_value, change: p.new_value - p.old_value },
       status: "success",
     });
-  } catch { /* audit log is best-effort */ }
+    } catch { /* audit log is best-effort */ }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Shared Budget aggregation — single source of truth used by
+// CRM → Budget AND the CRM Dashboard widgets (Budget Focus,
+// Seller Comparison, Budget Score, alerts). Do NOT duplicate.
+// ─────────────────────────────────────────────────────────────
 
+export interface BudgetMachineRollup {
+  product_key: string;
+  product_name: string;
+  budgetQty: number;
+  ordersQty: number;       // actuals from configurator orders + manual table
+  forecastQty: number;
+  remainingGap: number;
+  scorePct: number;        // ordersQty / budgetQty * 100, 0 when no budget
+}
 
+export interface AggregatedBudget {
+  byMachine: BudgetMachineRollup[];
+  totals: { budgetQty: number; ordersQty: number; forecastQty: number; scorePct: number };
+}
+
+/**
+ * Scope budget lines + actuals + forecasts to a single seller using the
+ * same rules CrmBudgetPage uses (seller_email match OR seed_<year>_<key>_<emailSlug>).
+ * `sellerEmail = null` returns the global (all-sellers) view.
+ */
+export function aggregateBudget(
+  lines: BudgetLine[],
+  forecasts: BudgetForecast[],
+  actuals: SalesActual[],
+  sellerEmail: string | null,
+): AggregatedBudget {
+  const slug = sellerEmail ? sellerEmail.toLowerCase().replace(/[^a-z0-9]/gi, "") : null;
+  const scopedLines = sellerEmail
+    ? lines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
+    : lines;
+  const scopedLineIds = new Set(scopedLines.map(l => l.id));
+
+  const scopedActuals = actuals.filter(a => {
+    if (scopedLineIds.has(a.budget_line_id)) return true;
+    // Virtual seed line — match by seller suffix when scoping, accept all when not.
+    if (a.budget_line_id.startsWith("seed_")) {
+      if (!slug) return true;
+      return a.budget_line_id.endsWith(`_${slug}`);
+    }
+    return false;
+  });
+  const scopedForecasts = forecasts.filter(f => scopedLineIds.has(f.budget_line_id));
+
+  // Determine all machine product_keys we should display: those with budget
+  // lines (scoped) AND those that have actual orders (so a machine with
+  // orders but no budget still shows, instead of "Intet budget" hiding it).
+  const productMeta = new Map<string, string>(); // key → name
+  for (const l of scopedLines) productMeta.set(l.product_key, l.product_name || l.product_key);
+  for (const a of scopedActuals) {
+    // Resolve product_key: line in full set OR seed-id parsing.
+    const line = lines.find(l => l.id === a.budget_line_id);
+    if (line) {
+      productMeta.set(line.product_key, line.product_name || line.product_key);
+      continue;
+    }
+    if (a.budget_line_id.startsWith("seed_")) {
+      // seed_<year>_<productKey>_<sellerSlug>  — productKey may contain "_"
+      // strip "seed_<year>_" prefix and "_<slug>" suffix.
+      const rest = a.budget_line_id.replace(/^seed_\d+_/, "");
+      const idx = rest.lastIndexOf("_");
+      const pk = idx > 0 ? rest.slice(0, idx) : rest;
+      const product = BUDGET_PRODUCTS.find(p => p.key === pk);
+      productMeta.set(pk, (product?.name as string) || pk);
+    }
+  }
+
+  const byMachine: BudgetMachineRollup[] = [];
+  for (const [pk, name] of productMeta) {
+    const linesFor = scopedLines.filter(l => l.product_key === pk);
+    const lineIds = new Set(linesFor.map(l => l.id));
+    const budgetQty = linesFor.reduce((s, l) => s + (l.qty_budget || 0), 0);
+    const ordersQty = scopedActuals
+      .filter(a => lineIds.has(a.budget_line_id) ||
+        (a.budget_line_id.startsWith("seed_") &&
+          a.budget_line_id.replace(/^seed_\d+_/, "").replace(/_[^_]+$/, "") === pk))
+      .reduce((s, a) => s + (a.qty_sold || 0), 0);
+    const forecastQty = scopedForecasts
+      .filter(f => lineIds.has(f.budget_line_id))
+      .reduce((s, f) => s + (f.qty_forecast || 0), 0);
+    const remainingGap = Math.max(0, budgetQty - ordersQty);
+    const scorePct = budgetQty === 0 ? 0 : Math.round((ordersQty / budgetQty) * 100);
+    byMachine.push({ product_key: pk, product_name: name, budgetQty, ordersQty, forecastQty, remainingGap, scorePct });
+  }
+
+  // Stable order: machines from BUDGET_PRODUCTS first, then any extras.
+  const order = new Map(BUDGET_PRODUCTS.map((p, i) => [p.key, i]));
+  byMachine.sort((a, b) =>
+    (order.get(a.product_key) ?? 999) - (order.get(b.product_key) ?? 999)
+    || a.product_name.localeCompare(b.product_name));
+
+  const totals = byMachine.reduce(
+    (t, r) => {
+      t.budgetQty += r.budgetQty;
+      t.ordersQty += r.ordersQty;
+      t.forecastQty += r.forecastQty;
+      return t;
+    },
+    { budgetQty: 0, ordersQty: 0, forecastQty: 0, scorePct: 0 },
+  );
+  totals.scorePct = totals.budgetQty === 0 ? 0 : Math.round((totals.ordersQty / totals.budgetQty) * 100);
+  return { byMachine, totals };
+}
 

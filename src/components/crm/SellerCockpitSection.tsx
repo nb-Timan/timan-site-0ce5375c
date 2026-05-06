@@ -21,7 +21,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
 import { listLeads, type CrmLead } from "@/lib/crmLeadsService";
 import {
-  listBudgetLines, listForecasts, listSalesActuals,
+  listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
@@ -239,13 +239,19 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
     });
   }, [allActivities, activeSeller]);
 
+  // ── Per-machine budget rollup — uses the SHARED aggregator that powers
+  // CRM → Budget. Seller scope: when activeSeller is set we pass that email,
+  // otherwise null (= global / all sellers, used in backend "Alle" view).
+  // We deliberately do NOT add a separate orders/pipeline source here so
+  // dashboard numbers always match the Budget table cell-for-cell.
+  const aggregated = useMemo(
+    () => aggregateBudget(budgetLines, forecasts, actuals, activeSeller?.email ?? null),
+    [budgetLines, forecasts, actuals, activeSeller],
+  );
   const scopedBudget = useMemo(() => {
     if (!activeSeller) return { lines: budgetLines, forecasts, actuals };
     const email = activeSeller.email.toLowerCase();
-    const filteredLines = budgetLines.filter(l =>
-      (l.seller_email || "").toLowerCase() === email ||
-      (l.seller_initials || "").toUpperCase() === activeSeller.initials,
-    );
+    const filteredLines = budgetLines.filter(l => (l.seller_email || "").toLowerCase() === email);
     const ids = new Set(filteredLines.map(l => l.id));
     return {
       lines: filteredLines,
@@ -261,81 +267,77 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
   for (const l of openLeads) buckets[classifyUrgency(l, now)].push(l);
   const totalLeads = openLeads.length;
 
-  // ── Per-machine budget rollup ──
-  const ordersMap = ordersByMachine(scopedActivities);
+  // Pipeline qty per machine still comes from leads (Budget table doesn't
+  // track pipeline; this is purely a dashboard add-on, NOT actuals).
   const pipelineMap = pipelineByMachine(scopedLeads);
-  const budgetByMachine = new Map<string, { qty: number; lineIds: string[] }>();
-  for (const l of scopedBudget.lines) {
-    const cur = budgetByMachine.get(l.product_key) || { qty: 0, lineIds: [] };
-    cur.qty += l.qty_budget || 0;
-    cur.lineIds.push(l.id);
-    budgetByMachine.set(l.product_key, cur);
-  }
-  const forecastByMachine = new Map<string, number>();
-  for (const f of scopedBudget.forecasts) {
-    const line = scopedBudget.lines.find(l => l.id === f.budget_line_id);
-    if (!line) continue;
-    forecastByMachine.set(line.product_key, (forecastByMachine.get(line.product_key) || 0) + (f.qty_forecast || 0));
-  }
-  const actualByMachine = new Map<string, number>();
-  for (const a of scopedBudget.actuals) {
-    const line = scopedBudget.lines.find(l => l.id === a.budget_line_id);
-    if (!line) continue;
-    actualByMachine.set(line.product_key, (actualByMachine.get(line.product_key) || 0) + (a.qty_sold || 0));
-  }
 
-  const machineRows: MachineRow[] = MACHINES.map(m => {
-    const budgetQty = budgetByMachine.get(m.key)?.qty || 0;
-    const ordersQty = (actualByMachine.get(m.key) || 0) + (ordersMap[m.key] || 0);
-    const pipelineQty = pipelineMap[m.key] || 0;
-    const forecastQty = forecastByMachine.get(m.key) || 0;
-    const remainingGap = Math.max(0, budgetQty - ordersQty);
-    const scorePct = budgetQty === 0 ? 0 : Math.round((ordersQty / budgetQty) * 100);
-    return { key: m.key, label: m.label, budgetQty, ordersQty, pipelineQty, forecastQty, remainingGap, scorePct };
-  });
+  // Build machine rows from the shared aggregation. Always include the
+  // canonical machine list so an empty seller still sees them, plus any
+  // extras that have actual orders/budget (e.g. custom Budget products).
+  const aggByKey = new Map(aggregated.byMachine.map(r => [r.product_key, r]));
+  const extras = aggregated.byMachine.filter(r => !MACHINES.some(m => m.key === r.product_key));
+  const machineRows: MachineRow[] = [
+    ...MACHINES.map(m => {
+      const r = aggByKey.get(m.key);
+      return {
+        key: m.key,
+        label: m.label,
+        budgetQty: r?.budgetQty ?? 0,
+        ordersQty: r?.ordersQty ?? 0,
+        pipelineQty: pipelineMap[m.key] || 0,
+        forecastQty: r?.forecastQty ?? 0,
+        remainingGap: r?.remainingGap ?? 0,
+        scorePct: r?.scorePct ?? 0,
+      } as MachineRow;
+    }),
+    ...extras.map(r => ({
+      key: r.product_key,
+      label: r.product_name,
+      budgetQty: r.budgetQty,
+      ordersQty: r.ordersQty,
+      pipelineQty: pipelineMap[r.product_key] || 0,
+      forecastQty: r.forecastQty,
+      remainingGap: r.remainingGap,
+      scorePct: r.scorePct,
+    } as MachineRow)),
+  ];
+
 
   // ── Backend comparison + alerts ──
+  // Reuses the SAME aggregateBudget shared with CRM → Budget for both
+  // ordersQty (actuals) and budget score, so per-seller numbers always
+  // match the Budget table.
   const sellerComparison = useMemo(() => {
     if (!isAdmin) return [];
+    const perSeller = BUDGET_SELLERS.map(seller => {
+      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email);
+      return { seller, agg };
+    });
     const totals = {
-      orders: Math.max(1, MACHINES.reduce((s, m) => s + (ordersMap[m.key] || 0), 0)),
+      orders: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.ordersQty, 0)),
       pipeline: Math.max(1, openLeads.length),
-      budget: Math.max(1, scopedBudget.lines.reduce((s, l) => s + (l.qty_budget || 0), 0)),
+      budget: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.budgetQty, 0)),
     };
-    return BUDGET_SELLERS.map(seller => {
-      const ownActivities = allActivities.filter(a =>
-        (a.assigned_owner_name || a.created_by_name || "").toUpperCase().includes(seller.initials),
-      );
+    return perSeller.map(({ seller, agg }) => {
       const ownLeads = allLeads.filter(l =>
         (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
       );
-      const ownLines = budgetLines.filter(l =>
-        (l.seller_email || "").toLowerCase() === seller.email.toLowerCase() ||
-        (l.seller_initials || "").toUpperCase() === seller.initials,
-      );
-      const ownLineIds = new Set(ownLines.map(l => l.id));
-      const ownActuals = actuals.filter(a => ownLineIds.has(a.budget_line_id));
-      const ordersQty = ownActivities.filter(a => a.activity_type === "order_sent" && (a.status || "").toLowerCase() !== "lost").length;
       const ownPipeline = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage)).length;
-      const ownBudget = ownLines.reduce((s, l) => s + (l.qty_budget || 0), 0);
-      const ownSold = ownActuals.reduce((s, a) => s + (a.qty_sold || 0), 0);
-
       const overdue = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
       const noFollow = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
-      const budgetScore = ownBudget === 0 ? 0 : Math.round((ownSold / ownBudget) * 100);
-
       return {
         initials: seller.initials,
-        ordersPct: Math.round((ordersQty / totals.orders) * 100),
+        ordersPct: Math.round((agg.totals.ordersQty / totals.orders) * 100),
         pipelinePct: Math.round((ownPipeline / totals.pipeline) * 100),
         leadHealthPct: leadHealth,
-        budgetScorePct: budgetScore,
+        budgetScorePct: agg.totals.scorePct,
         overdue,
         noFollow,
       };
     });
-  }, [isAdmin, allActivities, allLeads, budgetLines, actuals, ordersMap, openLeads.length, scopedBudget.lines, now]);
+  }, [isAdmin, allLeads, budgetLines, forecasts, actuals, openLeads.length, now]);
+
 
   const alerts = useMemo(() => {
     if (!isAdmin) return [];
