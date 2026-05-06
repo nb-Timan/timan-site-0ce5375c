@@ -304,47 +304,40 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
 
 
   // ── Backend comparison + alerts ──
+  // Reuses the SAME aggregateBudget shared with CRM → Budget for both
+  // ordersQty (actuals) and budget score, so per-seller numbers always
+  // match the Budget table.
   const sellerComparison = useMemo(() => {
     if (!isAdmin) return [];
+    const perSeller = BUDGET_SELLERS.map(seller => {
+      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email);
+      return { seller, agg };
+    });
     const totals = {
-      orders: Math.max(1, MACHINES.reduce((s, m) => s + (ordersMap[m.key] || 0), 0)),
+      orders: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.ordersQty, 0)),
       pipeline: Math.max(1, openLeads.length),
-      budget: Math.max(1, scopedBudget.lines.reduce((s, l) => s + (l.qty_budget || 0), 0)),
+      budget: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.budgetQty, 0)),
     };
-    return BUDGET_SELLERS.map(seller => {
-      const ownActivities = allActivities.filter(a =>
-        (a.assigned_owner_name || a.created_by_name || "").toUpperCase().includes(seller.initials),
-      );
+    return perSeller.map(({ seller, agg }) => {
       const ownLeads = allLeads.filter(l =>
         (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
       );
-      const ownLines = budgetLines.filter(l =>
-        (l.seller_email || "").toLowerCase() === seller.email.toLowerCase() ||
-        (l.seller_initials || "").toUpperCase() === seller.initials,
-      );
-      const ownLineIds = new Set(ownLines.map(l => l.id));
-      const ownActuals = actuals.filter(a => ownLineIds.has(a.budget_line_id));
-      const ordersQty = ownActivities.filter(a => a.activity_type === "order_sent" && (a.status || "").toLowerCase() !== "lost").length;
       const ownPipeline = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage)).length;
-      const ownBudget = ownLines.reduce((s, l) => s + (l.qty_budget || 0), 0);
-      const ownSold = ownActuals.reduce((s, a) => s + (a.qty_sold || 0), 0);
-
       const overdue = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
       const noFollow = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
-      const budgetScore = ownBudget === 0 ? 0 : Math.round((ownSold / ownBudget) * 100);
-
       return {
         initials: seller.initials,
-        ordersPct: Math.round((ordersQty / totals.orders) * 100),
+        ordersPct: Math.round((agg.totals.ordersQty / totals.orders) * 100),
         pipelinePct: Math.round((ownPipeline / totals.pipeline) * 100),
         leadHealthPct: leadHealth,
-        budgetScorePct: budgetScore,
+        budgetScorePct: agg.totals.scorePct,
         overdue,
         noFollow,
       };
     });
-  }, [isAdmin, allActivities, allLeads, budgetLines, actuals, ordersMap, openLeads.length, scopedBudget.lines, now]);
+  }, [isAdmin, allLeads, budgetLines, forecasts, actuals, openLeads.length, now]);
+
 
   const alerts = useMemo(() => {
     if (!isAdmin) return [];
