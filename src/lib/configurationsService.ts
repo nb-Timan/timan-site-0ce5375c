@@ -626,6 +626,8 @@ export async function saveConfiguration(
     sourceQuoteId?: string;
     sourceQuoteNumber?: string;
     ownership?: SaveOwnership;
+    /** Phase 33 — optional CRM lead to link this case to. */
+    leadId?: string | null;
   },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
