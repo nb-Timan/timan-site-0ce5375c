@@ -455,6 +455,33 @@ export default function CrmBudgetPage() {
     setEditModeUntil(null);
   }, [year, allowed]);
 
+  // Load open configurator quotes from the SAME source as CRM → Tilbud
+  // (crm_configurations_view, via crmRelationsService) so the Pipeline/Tilbud
+  // row reflects every quote that is visible in CRM → Tilbud.
+  useEffect(() => {
+    if (!allowed) return;
+    let cancelled = false;
+    (async () => {
+      const sellerView = getActiveSellerView(appUser?.email);
+      const sellerInitials = sellerView?.initials
+        ?? (portalRole === 'timan_seller' && appUser?.display_name
+            ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
+            : null);
+      const sellerEmail = sellerView?.email
+        ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
+      const sid = appUser?.email ? await resolveSellerId(appUser.email) : null;
+      const { rows } = await listScopedOpenQuotes({
+        role: portalRole,
+        sellerId: sid,
+        sellerInitials,
+        sellerEmail,
+        dealerNumber: appUser?.dealer_number ?? null,
+      });
+      if (!cancelled) setQuotePipelineRows(rows);
+    })();
+    return () => { cancelled = true; };
+  }, [year, allowed, appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole]);
+
   // Resolve the current user's identity for scoping. We support multiple
   // matching strategies because seed rows may have been created before the
   // user's auth_user_id was linked, and because the preview-role switcher
