@@ -340,7 +340,29 @@ export async function fetchDealerAccountStats(): Promise<{
     .order("company_name", { ascending: true });
 
   if (!view.error && view.data) {
-    return { source: "supabase", rows: view.data.map(rowToStats) };
+    const rows = view.data.map(rowToStats);
+    // Phase 31 fix: dealer_account_stats only counts configurations created
+    // by users belonging to the dealer (via app_users.dealer_number). It
+    // misses orders/quotes created by Timan sellers on behalf of a dealer.
+    // Override quote_count / order_count / last_activity_at from the
+    // configurations view, matching by dealer_account_id, dealer_number, or
+    // normalized dealer name. Keep user_count from the original view.
+    try {
+      const overlay = await loadDealerActivityOverlay(rows);
+      for (const r of rows) {
+        const o = overlay.byDealerId.get(r.id);
+        if (!o) continue;
+        r.quote_count = o.quote;
+        r.order_count = o.order;
+        r.activity_count = o.quote + o.order;
+        if (o.last && (!r.last_activity_at || o.last > r.last_activity_at)) {
+          r.last_activity_at = o.last;
+        }
+      }
+    } catch (e) {
+      console.warn("[dealerAccountsService] overlay failed", e);
+    }
+    return { source: "supabase", rows };
   }
 
   // Fallback: build stats client-side from dealer_accounts + app_users +
