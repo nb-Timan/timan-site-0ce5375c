@@ -727,6 +727,8 @@ export async function saveConfiguration(
     // Stripped automatically on older DBs by insertConfigurationRow's
     // missing-column retry.
     payment_terms: state.paymentTerms ?? null,
+    // Phase 33 — link to a CRM lead (column auto-stripped on legacy DBs).
+    lead_id: options?.leadId ?? null,
   };
 
   const { data, error } = await insertConfigurationRow(row);
