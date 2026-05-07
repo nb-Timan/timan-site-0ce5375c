@@ -1908,6 +1908,17 @@ export default function ConfiguratorPage() {
                 <div className="max-w-lg mx-auto mb-5">
                   <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
                 </div>
+                {state.flowType === 'quote' && (
+                  <div className="max-w-lg mx-auto mb-5">
+                    <LeadLinkPicker
+                      appUser={appUser}
+                      value={linkedLeadId}
+                      onChange={setLinkedLeadId}
+                      dealerNumber={ownership.dealerNumber || null}
+                      language={lang}
+                    />
+                  </div>
+                )}
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
