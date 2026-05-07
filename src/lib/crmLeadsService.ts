@@ -440,6 +440,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const seeded = seedOpenLeads();
   let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
+  merged.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   // Assign stable lead_no to any row missing one (older rows / offline-created),
   // then persist back so the same numbers stick across reloads.
   ensureLeadNumbers(merged);
