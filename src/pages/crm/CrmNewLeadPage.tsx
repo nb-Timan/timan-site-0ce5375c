@@ -401,7 +401,14 @@ export default function CrmNewLeadPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{isEdit ? tt('edit_title', lang) : tt('page_title', lang)}</h2>
+            <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">
+              {isEdit ? tt('edit_title', lang) : tt('page_title', lang)}
+              {isEdit && editLeadNo != null && (
+                <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                  {formatLeadNo(editLeadNo)}
+                </span>
+              )}
+            </h2>
             <p className="text-sm text-gray-500 mt-0.5">{isEdit ? tt('edit_sub', lang) : tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
