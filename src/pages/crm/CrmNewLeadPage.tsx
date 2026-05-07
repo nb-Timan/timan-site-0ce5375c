@@ -324,6 +324,17 @@ export default function CrmNewLeadPage() {
     return () => { cancelled = true; };
   }, [isEdit, editId]);
 
+  // Phase 33 — load configurator quotes linked to this lead.
+  useEffect(() => {
+    if (!isEdit || !editId) return;
+    let cancelled = false;
+    (async () => {
+      const { rows } = await listConfigurationsForLead(editId);
+      if (!cancelled) setLinkedQuotes(rows);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
+
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
     const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
