@@ -656,7 +656,7 @@ export default function CrmNewLeadPage() {
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? tt('saving', lang) : tt('save', lang)}
+              {submitting ? tt('saving', lang) : (isEdit ? tt('save_changes', lang) : tt('save', lang))}
             </button>
           </div>
         </form>
