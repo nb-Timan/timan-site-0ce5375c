@@ -601,6 +601,18 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_budget', lang)}>
               <input type="number" min={0} className={inputCls} value={estimatedValue} onChange={e=>setEstimatedValue(e.target.value)} placeholder="0" />
             </Field>
+            <Field label={tt('lbl_move_work', lang)}>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                className={inputCls}
+                value={moveToWorking}
+                onChange={e=>setMoveToWorking(e.target.value)}
+                placeholder="0"
+              />
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">{tt('hlp_move_work', lang)}</p>
+            </Field>
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
