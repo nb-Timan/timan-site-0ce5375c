@@ -664,6 +664,7 @@ export default function CrmNewLeadPage() {
             </button>
           </div>
         </form>
+        )}
       </div>
     </CrmLayout>
   );
