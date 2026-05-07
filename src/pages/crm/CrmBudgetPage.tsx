@@ -329,6 +329,7 @@ export default function CrmBudgetPage() {
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
+  const [leadContribs, setLeadContribs] = useState<LeadWorkingContribution[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Working-forecast monthly drafts per line (used as live override; auto-saved).
