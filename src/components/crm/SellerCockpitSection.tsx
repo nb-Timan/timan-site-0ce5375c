@@ -26,6 +26,7 @@ import {
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { AlertTriangle, Flame, Target, Users, Filter, TrendingUp, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // ────────────────────────────────────────────────────────────
 // Translations (DA / EN / DE — others fall back to EN)
