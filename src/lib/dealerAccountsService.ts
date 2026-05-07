@@ -371,7 +371,7 @@ async function loadDealerActivityOverlay(
     .neq("case_status", "deleted")
     .limit(2000);
   if (!v.error && v.data) {
-    rows = v.data as Array<Record<string, unknown>>;
+    rows = v.data as unknown as Array<Record<string, unknown>>;
   } else {
     const f = await supabase
       .from("configurations")
@@ -379,7 +379,7 @@ async function loadDealerActivityOverlay(
       .neq("case_status", "deleted")
       .limit(2000);
     if (f.error) throw f.error;
-    rows = (f.data ?? []) as Array<Record<string, unknown>>;
+    rows = (f.data ?? []) as unknown as Array<Record<string, unknown>>;
   }
 
   for (const r of rows) {
