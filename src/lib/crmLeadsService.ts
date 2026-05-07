@@ -387,6 +387,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       lost_reason: merged.lost_reason,
       lost_comment: merged.lost_comment,
       status: merged.status,
+      move_to_working_qty: merged.move_to_working_qty ?? 0,
     }).eq("id", id);
     if (error) console.warn("[crm.updateLead] supabase update failed (kept local):", error.message);
   } catch (err) {
