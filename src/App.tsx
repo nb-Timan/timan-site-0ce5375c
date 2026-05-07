@@ -90,7 +90,8 @@ const App = () => (
               <Route path="/portal/crm/accounts/:id" element={<CrmAccountDetailPage />} />
               <Route path="/portal/crm/activities" element={<CrmActivitiesPage />} />
               <Route path="/portal/crm/leads"          element={<CrmLeadsPage />} />
-              <Route path="/portal/crm/leads/new"      element={<CrmNewLeadPage />} />
+             <Route path="/portal/crm/leads/new"      element={<CrmNewLeadPage />} />
+             <Route path="/portal/crm/leads/:id"      element={<CrmNewLeadPage />} />
               <Route path="/portal/crm/demo-leads"     element={<CrmDemoLeadsPage />} />
               <Route path="/portal/crm/demo-leads/new" element={<CrmNewDemoLeadPage />} />
               <Route path="/portal/crm/demo-leads/:id" element={<CrmDemoLeadDetailPage />} />
