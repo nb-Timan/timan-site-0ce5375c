@@ -370,6 +370,7 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     order_sent_at: row.order_sent_at ?? null,
     sent_pdf_path: row.sent_pdf_path ?? null,
     sent_pdf_filename: row.sent_pdf_filename ?? null,
+    lead_id: row.lead_id ?? null,
   };
 }
 
