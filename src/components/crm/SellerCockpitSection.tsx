@@ -491,7 +491,10 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
                                 <div className="text-xs space-y-0.5">
-                                  <div className="font-semibold">{l.title || "—"}</div>
+                                  <div className="font-semibold inline-flex items-baseline gap-1.5">
+                                    <span className="font-mono text-[10px] tabular-nums text-slate-400">{formatLeadNo(l.lead_no)}</span>
+                                    <span>{l.title || "—"}</span>
+                                  </div>
                                   {l.contact_information && <div>{l.contact_information}</div>}
                                   {l.linked_dealer_id && <div className="text-slate-500">Dealer: {l.linked_dealer_id}</div>}
                                   {l.machine_types?.length > 0 && <div>{l.machine_types.join(", ")}</div>}
