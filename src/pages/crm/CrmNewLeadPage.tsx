@@ -10,7 +10,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createLead, updateLead, getLead, MACHINE_TYPE_OPTIONS, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
-  PipelineStage,
+  PipelineStage, formatLeadNo,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
@@ -200,6 +200,7 @@ export default function CrmNewLeadPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [loadingLead, setLoadingLead] = useState(isEdit);
+  const [editLeadNo, setEditLeadNo] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   // Responsible seller is now a dropdown (app_users id). Default = logged-in user.
   const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
@@ -282,6 +283,7 @@ export default function CrmNewLeadPage() {
     (async () => {
       const lead = await getLead(editId);
       if (cancelled || !lead) { setLoadingLead(false); return; }
+      setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
       setTitle(lead.title || '');
       setResponsibleSellerId(lead.owner_user_id || '');
       setResponsibleName(lead.owner_name || '');
@@ -399,7 +401,14 @@ export default function CrmNewLeadPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{isEdit ? tt('edit_title', lang) : tt('page_title', lang)}</h2>
+            <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">
+              {isEdit ? tt('edit_title', lang) : tt('page_title', lang)}
+              {isEdit && editLeadNo != null && (
+                <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                  {formatLeadNo(editLeadNo)}
+                </span>
+              )}
+            </h2>
             <p className="text-sm text-gray-500 mt-0.5">{isEdit ? tt('edit_sub', lang) : tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">

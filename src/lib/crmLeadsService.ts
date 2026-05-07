@@ -97,6 +97,9 @@ export const DEMO_RESULT_STATUS = [
 
 export interface CrmLead {
   id: string;
+  /** Stable, human-readable lead number (1000+) → displayed as L-1000.
+   *  Assigned by Supabase sequence on insert (phase31 SQL). */
+  lead_no?: number | null;
   title: string;
   owner_user_id: string | null;
   owner_name: string | null;
@@ -128,6 +131,9 @@ export interface CrmLead {
 
 export interface CrmDemoLead {
   id: string;
+  /** Stable, human-readable demo number (8000+) → displayed as D-8000.
+   *  Assigned by Supabase sequence on insert (phase31 SQL). */
+  demo_no?: number | null;
   legacy_id?: string | null;
   title: string;
   owner_user_id: string | null;
@@ -177,6 +183,58 @@ function writeLS<T>(key: string, rows: T[]): void {
   try { localStorage.setItem(key, JSON.stringify(rows.slice(0, 500))); } catch { /* */ }
 }
 
+// ---------- Human-readable lead/demo numbers ----------
+// Authoritative numbers come from Supabase sequences (phase31 SQL).
+// Helpers below also assign a stable local fallback for rows created while
+// offline, or for legacy rows the SQL backfill hasn't reached yet. Once a
+// row has a number it is never overwritten.
+
+export const LEAD_NO_PREFIX = "L-";
+export const DEMO_NO_PREFIX = "D-";
+const LEAD_NO_START = 1000;
+const DEMO_NO_START = 8000;
+
+export function formatLeadNo(n: number | null | undefined): string {
+  return n == null ? "—" : `${LEAD_NO_PREFIX}${n}`;
+}
+export function formatDemoNo(n: number | null | undefined): string {
+  return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
+}
+
+const LS_LEAD_LOCAL_NO = "timan.crm.leads.localNo.v1";
+const LS_DEMO_LOCAL_NO = "timan.crm.demoLeads.localNo.v1";
+
+function nextLocalNo(storageKey: string, start: number, seenMax: number): number {
+  let cur = 0;
+  try { cur = Number(localStorage.getItem(storageKey) || "0"); } catch { /* */ }
+  const next = Math.max(cur + 1, seenMax + 1, start);
+  try { localStorage.setItem(storageKey, String(next)); } catch { /* */ }
+  return next;
+}
+
+function ensureLeadNumbers(rows: CrmLead[]): CrmLead[] {
+  let seen = 0;
+  for (const r of rows) if (typeof r.lead_no === "number" && r.lead_no > seen) seen = r.lead_no;
+  for (const r of rows) {
+    if (typeof r.lead_no !== "number" || r.lead_no <= 0) {
+      r.lead_no = nextLocalNo(LS_LEAD_LOCAL_NO, LEAD_NO_START, seen);
+      seen = r.lead_no;
+    }
+  }
+  return rows;
+}
+function ensureDemoNumbers(rows: CrmDemoLead[]): CrmDemoLead[] {
+  let seen = 0;
+  for (const r of rows) if (typeof r.demo_no === "number" && r.demo_no > seen) seen = r.demo_no;
+  for (const r of rows) {
+    if (typeof r.demo_no !== "number" || r.demo_no <= 0) {
+      r.demo_no = nextLocalNo(LS_DEMO_LOCAL_NO, DEMO_NO_START, seen);
+      seen = r.demo_no;
+    }
+  }
+  return rows;
+}
+
 // ---------- Leads ----------
 
 export type NewCrmLead = Omit<CrmLead, "id" | "created_at" | "updated_at">;
@@ -184,11 +242,22 @@ export type NewCrmLead = Omit<CrmLead, "id" | "created_at" | "updated_at">;
 export async function createLead(input: NewCrmLead): Promise<CrmLead> {
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
+
+  // Pre-assign a stable local fallback lead_no based on what we've seen so
+  // far (LS + seed). The Supabase sequence is authoritative — if the insert
+  // succeeds we overwrite this with the real returned lead_no.
+  const knownMax = Math.max(
+    0,
+    ...readLS<CrmLead>(LS_LEADS).map(r => r.lead_no || 0),
+    ...seedOpenLeads().map(r => r.lead_no || 0),
+  );
+  row.lead_no = nextLocalNo(LS_LEAD_LOCAL_NO, LEAD_NO_START, knownMax);
+
   // Local cache first
   writeLS<CrmLead>(LS_LEADS, [row, ...readLS<CrmLead>(LS_LEADS)]);
 
   try {
-    const { error } = await supabase.from("crm_leads").insert({
+    const { data, error } = await supabase.from("crm_leads").insert({
       id: row.id,
       title: row.title,
       owner_user_id: row.owner_user_id,
@@ -213,8 +282,15 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       status: row.status,
-    });
+    }).select("lead_no").maybeSingle();
     if (error) console.warn("[crm.createLead] supabase insert failed (kept local):", error.message);
+    if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
+      row.lead_no = (data as { lead_no: number }).lead_no;
+      // Sync the local row with the authoritative number.
+      const ls = readLS<CrmLead>(LS_LEADS);
+      const idx = ls.findIndex(r => r.id === row.id);
+      if (idx >= 0) { ls[idx] = { ...ls[idx], lead_no: row.lead_no }; writeLS(LS_LEADS, ls); }
+    }
   } catch (err) {
     console.warn("[crm.createLead] unexpected (kept local):", err);
   }
@@ -318,12 +394,13 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
 /** Fetch a single lead by id from local override → supabase → seed. */
 export async function getLead(id: string): Promise<CrmLead | null> {
   const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
-  if (local) return local;
+  if (local) return ensureLeadNumbers([local])[0];
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
-    if (data) return data as unknown as CrmLead;
+    if (data) return ensureLeadNumbers([data as unknown as CrmLead])[0];
   } catch { /* */ }
-  return seedOpenLeads().find(r => r.id === id) || null;
+  const seeded = seedOpenLeads().find(r => r.id === id);
+  return seeded ? ensureLeadNumbers([seeded])[0] : null;
 }
 
 export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
@@ -364,6 +441,18 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
   merged.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  // Assign stable lead_no to any row missing one (older rows / offline-created),
+  // then persist back so the same numbers stick across reloads.
+  ensureLeadNumbers(merged);
+  const ls = readLS<CrmLead>(LS_LEADS);
+  const lsMap = new Map(ls.map(r => [r.id, r]));
+  let lsChanged = false;
+  for (const r of merged) {
+    const ex = lsMap.get(r.id);
+    if (ex) { if (ex.lead_no !== r.lead_no) { ex.lead_no = r.lead_no; lsChanged = true; } }
+    else if (r.lead_no) { ls.push(r); lsChanged = true; }
+  }
+  if (lsChanged) writeLS(LS_LEADS, ls);
   return merged.slice(0, limit);
 }
 
@@ -374,10 +463,19 @@ export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
   const now = new Date().toISOString();
   const row: CrmDemoLead = { ...input, id: uuid(), created_at: now };
+
+  // Stable local fallback demo_no — overwritten by Supabase if insert succeeds.
+  const knownMax = Math.max(
+    0,
+    ...readLS<CrmDemoLead>(LS_DEMO).map(r => r.demo_no || 0),
+    ...seedDemoRows().map(r => r.demo_no || 0),
+  );
+  row.demo_no = nextLocalNo(LS_DEMO_LOCAL_NO, DEMO_NO_START, knownMax);
+
   writeLS<CrmDemoLead>(LS_DEMO, [row, ...readLS<CrmDemoLead>(LS_DEMO)]);
 
   try {
-    const { error } = await supabase.from("crm_demo_leads").insert({
+    const { data, error } = await supabase.from("crm_demo_leads").insert({
       id: row.id,
       title: row.title,
       owner_user_id: row.owner_user_id,
@@ -400,8 +498,14 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
       competitor_name: row.competitor_name,
       notes_after_demo: row.notes_after_demo,
       result_status: row.result_status,
-    });
+    }).select("demo_no").maybeSingle();
     if (error) console.warn("[crm.createDemoLead] supabase insert failed (kept local):", error.message);
+    if (data && typeof (data as { demo_no?: number }).demo_no === "number") {
+      row.demo_no = (data as { demo_no: number }).demo_no;
+      const ls = readLS<CrmDemoLead>(LS_DEMO);
+      const idx = ls.findIndex(r => r.id === row.id);
+      if (idx >= 0) { ls[idx] = { ...ls[idx], demo_no: row.demo_no }; writeLS(LS_DEMO, ls); }
+    }
   } catch (err) {
     console.warn("[crm.createDemoLead] unexpected (kept local):", err);
   }
@@ -469,6 +573,17 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
   }
   // Sort newest first by created_at then demo_date.
   merged.sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""));
+  // Stable demo_no for any rows missing one (legacy/seed/offline) — persisted to LS.
+  ensureDemoNumbers(merged);
+  const ls = readLS<CrmDemoLead>(LS_DEMO);
+  const lsMap = new Map(ls.map(r => [r.id, r]));
+  let lsChanged = false;
+  for (const r of merged) {
+    const ex = lsMap.get(r.id);
+    if (ex) { if (ex.demo_no !== r.demo_no) { ex.demo_no = r.demo_no; lsChanged = true; } }
+    else if (r.demo_no) { ls.push(r); lsChanged = true; }
+  }
+  if (lsChanged) writeLS(LS_DEMO, ls);
   return merged.slice(0, limit);
 }
 

@@ -10,6 +10,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   listLeads, listDemoLeads, resolveSeedOwners,
   CrmLead, CrmDemoLead, PIPELINE_STAGES,
+  formatLeadNo, formatDemoNo,
 } from '@/lib/crmLeadsService';
 import { Plus, Search, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -63,6 +64,8 @@ function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 type LeadType = 'open' | 'demo';
 interface UnifiedLead {
   id: string;
+  /** Human-readable number, e.g. "L-1000" or "D-8000". */
+  display_no: string;
   type: LeadType;
   title: string;
   customer: string | null;
@@ -110,6 +113,7 @@ function fmtDate(s: string | null | undefined, lang: Language): string {
 function mapOpen(l: CrmLead): UnifiedLead {
   return {
     id: l.id,
+    display_no: formatLeadNo(l.lead_no),
     type: 'open',
     title: l.title,
     customer: l.contact_information || null,
@@ -131,6 +135,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
 function mapDemo(d: CrmDemoLead): UnifiedLead {
   return {
     id: d.id,
+    display_no: formatDemoNo(d.demo_no),
     type: 'demo',
     title: d.title,
     customer: d.customer_name,
@@ -385,7 +390,10 @@ export default function CrmLeadsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-[11px] tabular-nums text-slate-500 shrink-0">{r.display_no}</span>
+                          <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
+                        </div>
                         {r.customer && r.customer !== r.title && (
                           <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>
                         )}

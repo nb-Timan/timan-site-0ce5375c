@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { listDemoLeads, resolveSeedOwners, type CrmDemoLead } from '@/lib/crmLeadsService';
+import { listDemoLeads, resolveSeedOwners, formatDemoNo, type CrmDemoLead } from '@/lib/crmLeadsService';
 import { ArrowLeft, Building2, MapPin, User, Calendar, Wrench, Gauge, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +95,9 @@ export default function CrmDemoLeadDetailPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
                       <Sparkles className="h-3 w-3 mr-1" /> Demo lead
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                      {formatDemoNo(lead.demo_no)}
                     </span>
                     {lead.legacy_id && (
                       <span className="text-[11px] text-gray-400 font-mono">#{lead.legacy_id}</span>
