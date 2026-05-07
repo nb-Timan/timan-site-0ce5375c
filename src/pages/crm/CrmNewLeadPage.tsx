@@ -188,6 +188,8 @@ export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = !!editId;
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
@@ -197,6 +199,7 @@ export default function CrmNewLeadPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const [loadingLead, setLoadingLead] = useState(isEdit);
   const [title, setTitle] = useState('');
   // Responsible seller is now a dropdown (app_users id). Default = logged-in user.
   const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
