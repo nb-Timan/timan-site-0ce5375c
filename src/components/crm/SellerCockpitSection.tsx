@@ -122,7 +122,10 @@ interface MachineRow {
   budgetQty: number;
   ordersQty: number;
   pipelineQty: number;
-  forecastQty: number;
+  forecastQty: number;        // includes manual working + lead contributions
+  manualForecastQty: number;  // working only (no leads)
+  leadQty: number;            // sum of lead contributions
+  leads: LeadWorkingContribution[];
   remainingGap: number;
   scorePct: number;
 }
