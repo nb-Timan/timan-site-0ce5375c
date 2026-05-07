@@ -301,3 +301,48 @@ export async function softDeleteConfiguration(
     return { error: msg };
   }
 }
+
+// ────────────────────────────────────────────────────────────
+// Phase 33 — Lead-linked configurator quotes.
+// Reads scoped quotes filtered to a specific crm_leads.id.
+// ────────────────────────────────────────────────────────────
+export interface CrmLeadQuoteRow extends CrmConfigurationRow {
+  total_value: number;
+  machine_keys: string[];
+}
+
+export async function listConfigurationsForLead(
+  leadId: string,
+): Promise<{ rows: CrmLeadQuoteRow[]; error?: string }> {
+  try {
+    const trySel = async (table: string) => supabase
+      .from(table)
+      .select('*')
+      .eq('lead_id', leadId)
+      .neq('case_status', 'deleted')
+      .order('created_at', { ascending: false });
+    let res = await trySel('crm_configurations_view');
+    if (res.error) res = await trySel('configurations');
+    if (res.error) throw res.error;
+
+    const rows: CrmLeadQuoteRow[] = [];
+    for (const r of (res.data ?? []) as Array<Record<string, unknown>>) {
+      const base = rowToConfig(r);
+      let total = Number((r as { total_price?: unknown }).total_price) || 0;
+      const keys: string[] = [];
+      try {
+        const raw = (r as { state_json?: unknown }).state_json;
+        const state = raw && typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (state && typeof state === 'object') {
+          const ns = normalizeConfiguratorState(state as Partial<ConfiguratorState>);
+          if (!total) total = Math.round(calcConfigurationTotals(ns).finalPrice || 0);
+          for (const mc of ns.machineConfigs ?? []) if (mc.type) keys.push(mc.type);
+        }
+      } catch { /* */ }
+      rows.push({ ...base, total_value: total, machine_keys: Array.from(new Set(keys)) });
+    }
+    return { rows };
+  } catch (e) {
+    return { rows: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
