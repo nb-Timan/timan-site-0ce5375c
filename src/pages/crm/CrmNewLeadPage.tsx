@@ -265,6 +265,7 @@ export default function CrmNewLeadPage() {
 
   // Auto-select the logged-in user as responsible seller once sellers load.
   useEffect(() => {
+    if (isEdit) return; // never override loaded values when editing
     if (responsibleSellerId) return;
     if (!sellers.length || !appUser?.email) return;
     const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
@@ -272,7 +273,42 @@ export default function CrmNewLeadPage() {
       setResponsibleSellerId(me.id);
       setResponsibleName(me.name || me.email);
     }
-  }, [sellers, appUser?.email, responsibleSellerId]);
+  }, [sellers, appUser?.email, responsibleSellerId, isEdit]);
+
+  // Load existing lead when in edit mode.
+  useEffect(() => {
+    if (!isEdit || !editId) return;
+    let cancelled = false;
+    (async () => {
+      const lead = await getLead(editId);
+      if (cancelled || !lead) { setLoadingLead(false); return; }
+      setTitle(lead.title || '');
+      setResponsibleSellerId(lead.owner_user_id || '');
+      setResponsibleName(lead.owner_name || '');
+      setLinkedDealer(lead.linked_dealer_id || '');
+      setFirstContact(lead.first_contact_date || '');
+      setExpectedClose(lead.expected_close_date || '');
+      setNextFollowup(lead.next_followup_date || '');
+      setMachineTypes(lead.machine_types || []);
+      setNextActivity(lead.next_activity || '');
+      setDemoHasRun(lead.demo_has_run || 'no');
+      setContactType(lead.contact_type || '');
+      setCustomerType(lead.customer_type || '');
+      setContactInfo(lead.contact_information || '');
+      setTradeFair(lead.trade_fair || '');
+      setCountry(lead.country || '');
+      setNotes(lead.notes || '');
+      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+      setProbability(lead.probability != null ? String(lead.probability) : '');
+      setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
+      setLostCompetitor(lead.lost_competitor || '');
+      setLostReason(lead.lost_reason || '');
+      setLostComment(lead.lost_comment || '');
+      setFiles(lead.attachments || []);
+      setLoadingLead(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
 
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
