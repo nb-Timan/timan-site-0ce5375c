@@ -573,6 +573,17 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
   }
   // Sort newest first by created_at then demo_date.
   merged.sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""));
+  // Stable demo_no for any rows missing one (legacy/seed/offline) — persisted to LS.
+  ensureDemoNumbers(merged);
+  const ls = readLS<CrmDemoLead>(LS_DEMO);
+  const lsMap = new Map(ls.map(r => [r.id, r]));
+  let lsChanged = false;
+  for (const r of merged) {
+    const ex = lsMap.get(r.id);
+    if (ex) { if (ex.demo_no !== r.demo_no) { ex.demo_no = r.demo_no; lsChanged = true; } }
+    else if (r.demo_no) { ls.push(r); lsChanged = true; }
+  }
+  if (lsChanged) writeLS(LS_DEMO, ls);
   return merged.slice(0, limit);
 }
 
