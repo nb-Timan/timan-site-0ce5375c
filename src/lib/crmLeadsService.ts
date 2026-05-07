@@ -131,6 +131,9 @@ export interface CrmLead {
 
 export interface CrmDemoLead {
   id: string;
+  /** Stable, human-readable demo number (8000+) → displayed as D-8000.
+   *  Assigned by Supabase sequence on insert (phase31 SQL). */
+  demo_no?: number | null;
   legacy_id?: string | null;
   title: string;
   owner_user_id: string | null;
