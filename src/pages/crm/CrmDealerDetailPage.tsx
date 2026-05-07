@@ -175,15 +175,20 @@ export default function CrmDealerDetailPage() {
       // fetches everything (no scoping), seller fetches their own. We then
       // filter client-side by dealer_number so branch/group toggle works.
       try {
+        const sellerView = getActiveSellerView(appUser?.email);
+        const sellerId = await resolveSellerId(sellerView?.email ?? appUser?.email);
+        const sellerInitials = sellerView?.initials
+          ?? (seller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
+        const sellerEmail = sellerView?.email ?? (seller ? appUser?.email?.toLowerCase() ?? null : null);
         const filterBase = {
           role: portalRole,
-          sellerId: null,
-          sellerInitials: null,
-          sellerEmail: null,
+          sellerId,
+          sellerInitials,
+          sellerEmail,
           dealerNumber: appUser?.dealer_number ?? null,
         } as const;
         const [qRes, oRes] = await Promise.all([
-          listCrmConfigurations({ ...filterBase, documentType: 'quote' }),
+          listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
         ]);
         if (!cancelled) {
