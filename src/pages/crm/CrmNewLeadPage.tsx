@@ -395,12 +395,12 @@ export default function CrmNewLeadPage() {
   }
 
   return (
-    <CrmLayout pageTitle={tt('page_title', lang)}>
+    <CrmLayout pageTitle={isEdit ? tt('edit_title', lang) : tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
+            <h2 className="text-xl font-semibold text-gray-900">{isEdit ? tt('edit_title', lang) : tt('page_title', lang)}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{isEdit ? tt('edit_sub', lang) : tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
             <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
