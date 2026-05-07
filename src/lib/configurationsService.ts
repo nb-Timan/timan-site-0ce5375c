@@ -30,6 +30,8 @@ export interface SavedConfiguration {
   order_sent_at: string | null;
   sent_pdf_path: string | null;
   sent_pdf_filename: string | null;
+  /** Phase 33 — optional link to a CRM lead. Null when not linked. */
+  lead_id: string | null;
 }
 
 export const SENT_PDF_BUCKET = 'sent-pdfs';
@@ -368,6 +370,7 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     order_sent_at: row.order_sent_at ?? null,
     sent_pdf_path: row.sent_pdf_path ?? null,
     sent_pdf_filename: row.sent_pdf_filename ?? null,
+    lead_id: row.lead_id ?? null,
   };
 }
 
@@ -502,6 +505,7 @@ function mapConfigurationRowWithItems(
     order_sent_at: row.order_sent_at ?? null,
     sent_pdf_path: row.sent_pdf_path ?? null,
     sent_pdf_filename: row.sent_pdf_filename ?? null,
+    lead_id: row.lead_id ?? null,
   };
 }
 
@@ -622,6 +626,8 @@ export async function saveConfiguration(
     sourceQuoteId?: string;
     sourceQuoteNumber?: string;
     ownership?: SaveOwnership;
+    /** Phase 33 — optional CRM lead to link this case to. */
+    leadId?: string | null;
   },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
@@ -721,6 +727,8 @@ export async function saveConfiguration(
     // Stripped automatically on older DBs by insertConfigurationRow's
     // missing-column retry.
     payment_terms: state.paymentTerms ?? null,
+    // Phase 33 — link to a CRM lead (column auto-stripped on legacy DBs).
+    lead_id: options?.leadId ?? null,
   };
 
   const { data, error } = await insertConfigurationRow(row);
@@ -1094,6 +1102,38 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
       });
     } catch (e) {
       console.warn('[markPdfDownloaded] crm log failed (ignored):', e);
+    }
+
+    // Phase 33 — if this quote is linked to a CRM lead, advance the lead to
+    // "Offer sent" and log a Danish activity line. Best-effort, never throws.
+    const linkedLeadId = (row.lead_id as string | null) ?? null;
+    if (linkedLeadId) {
+      try {
+        const { updateLead } = await import('@/lib/crmLeadsService');
+        await updateLead(linkedLeadId, {
+          pipeline_stage: 'Offer sent',
+          notes: [
+            (row.title as string | null) || '',
+            `Tilbud afgivet via konfiguratoren${row.quote_number ? ` — ${row.quote_number}` : ''}`,
+          ].filter(Boolean).join('\n').trim() || null,
+        } as any);
+      } catch (e) {
+        console.warn('[markPdfDownloaded] lead update failed (ignored):', e);
+      }
+      try {
+        const { logActivity } = await import('@/lib/crmActivitiesService');
+        await logActivity({
+          activity_type: 'quote_sent',
+          configuration_id: id,
+          quote_id: id,
+          lead_id: linkedLeadId,
+          title: (row.quote_number as string | null) || 'Tilbud afgivet via konfiguratoren',
+          description: 'Tilbud afgivet via konfiguratoren',
+          status: 'aktiv',
+          created_by_user_id: (row.created_by_user_id as string | null) ?? user.id,
+          assigned_owner_user_id: (row.assigned_seller_id as string | null) ?? null,
+        } as any);
+      } catch { /* */ }
     }
   }
 }

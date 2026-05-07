@@ -12,6 +12,7 @@ import {
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
 } from '@/lib/crmLeadsService';
+import { listConfigurationsForLead, type CrmLeadQuoteRow } from '@/lib/crmConfigurationsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
@@ -238,6 +239,8 @@ export default function CrmNewLeadPage() {
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Phase 33 — configurator quotes linked to this lead (edit mode only).
+  const [linkedQuotes, setLinkedQuotes] = useState<CrmLeadQuoteRow[]>([]);
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -317,6 +320,17 @@ export default function CrmNewLeadPage() {
       setLostComment(lead.lost_comment || '');
       setFiles(lead.attachments || []);
       setLoadingLead(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
+
+  // Phase 33 — load configurator quotes linked to this lead.
+  useEffect(() => {
+    if (!isEdit || !editId) return;
+    let cancelled = false;
+    (async () => {
+      const { rows } = await listConfigurationsForLead(editId);
+      if (!cancelled) setLinkedQuotes(rows);
     })();
     return () => { cancelled = true; };
   }, [isEdit, editId]);
@@ -658,6 +672,47 @@ export default function CrmNewLeadPage() {
                   <textarea className={taCls} value={lostComment} onChange={e=>setLostComment(e.target.value)} />
                 </Field>
               </div>
+            </section>
+          )}
+
+          {isEdit && linkedQuotes.length > 0 && (
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+              <header className="mb-4">
+                <h3 className="text-[15px] font-semibold text-gray-900">
+                  {lang === 'da' ? 'Linkede tilbud (konfigurator)' : 'Linked configurator quotes'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {lang === 'da'
+                    ? 'Tilbud oprettet i konfiguratoren og knyttet til dette lead.'
+                    : 'Quotes created in the configurator and linked to this lead.'}
+                </p>
+              </header>
+              <ul className="divide-y divide-gray-100">
+                {linkedQuotes.map(q => {
+                  const dealer = q.dealer_company_name || q.dealer_name || q.dealer_number || '—';
+                  const sentAt = q.quote_sent_at || q.submitted_at || q.created_at;
+                  const machines = q.machine_keys.join(', ') || '—';
+                  return (
+                    <li key={q.id} className="py-2.5 flex items-center gap-3 text-sm">
+                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
+                        {q.quote_number || '—'}
+                      </span>
+                      <span className="flex-1 truncate text-gray-800">{q.title || dealer}</span>
+                      <span className="text-xs text-gray-500 truncate">{dealer}</span>
+                      <span className="text-xs text-gray-500 truncate">{machines}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">
+                        {new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(q.total_value || 0)}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
+                      </span>
+                      <Link to={`/portal/crm/tilbud?focus=${q.id}`} className="text-xs text-[#2d5a27] hover:underline">
+                        {lang === 'da' ? 'Åbn' : 'Open'}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           )}
 

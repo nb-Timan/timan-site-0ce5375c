@@ -10,6 +10,7 @@ import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
 import AccountPanel from '@/components/configurator/AccountPanel';
 import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/components/configurator/OwnershipPicker';
+import LeadLinkPicker from '@/components/configurator/LeadLinkPicker';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -188,6 +189,8 @@ export default function ConfiguratorPage() {
   const [selectedRecBullets, setSelectedRecBullets] = useState<Set<string>>(new Set());
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
+  // Phase 33 — optional CRM lead link saved with the configuration.
+  const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
@@ -682,7 +685,7 @@ export default function ConfiguratorPage() {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
         if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
@@ -805,7 +808,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -955,7 +958,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -1905,6 +1908,17 @@ export default function ConfiguratorPage() {
                 <div className="max-w-lg mx-auto mb-5">
                   <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
                 </div>
+                {state.flowType === 'quote' && (
+                  <div className="max-w-lg mx-auto mb-5">
+                    <LeadLinkPicker
+                      appUser={appUser}
+                      value={linkedLeadId}
+                      onChange={setLinkedLeadId}
+                      dealerNumber={ownership.dealerNumber || null}
+                      language={lang}
+                    />
+                  </div>
+                )}
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
@@ -2222,7 +2236,7 @@ export default function ConfiguratorPage() {
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const ownershipPayload = await getRequiredOwnershipPayload();
                 if (!ownershipPayload) { setSavingBeforeReset(false); return; }
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
