@@ -352,7 +352,7 @@ export default function CrmNewLeadPage() {
       // fall back to the logged-in user if for some reason it's missing.
       const chosen = sellers.find(s => s.id === responsibleSellerId);
       const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
-      await createLead({
+      const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
@@ -377,12 +377,18 @@ export default function CrmNewLeadPage() {
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
         status: 'open',
-      });
-      toast.success(tt('created_ok', lang));
+      };
+      if (isEdit && editId) {
+        await updateLead(editId, payload);
+        toast.success(tt('updated_ok', lang));
+      } else {
+        await createLead(payload);
+        toast.success(tt('created_ok', lang));
+      }
       navigate('/portal/crm/leads');
     } catch (err) {
       console.error(err);
-      toast.error(tt('created_err', lang));
+      toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));
     } finally {
       setSubmitting(false);
     }
