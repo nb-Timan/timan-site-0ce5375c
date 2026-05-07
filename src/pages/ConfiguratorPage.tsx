@@ -685,7 +685,7 @@ export default function ConfiguratorPage() {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
         if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
@@ -808,7 +808,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -958,7 +958,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -2225,7 +2225,7 @@ export default function ConfiguratorPage() {
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const ownershipPayload = await getRequiredOwnershipPayload();
                 if (!ownershipPayload) { setSavingBeforeReset(false); return; }
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload });
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
