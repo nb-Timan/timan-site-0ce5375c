@@ -36,6 +36,10 @@ import {
   type LeadWorkingContribution,
 } from "@/lib/crmLeadsService";
 import {
+  listScopedOpenQuotes, sellerKeyOf,
+  type ScopedConfiguration,
+} from "@/lib/crmRelationsService";
+import {
   listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
   type BudgetAccessWindow,
 } from "@/lib/budgetAccessWindows";
