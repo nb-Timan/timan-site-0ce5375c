@@ -1656,10 +1656,15 @@ export default function CrmBudgetPage() {
                       const p = pipelineByLine[l.id] || [];
                       p.forEach((arr, i) => { pipelineMonthly[i].push(...arr); });
                     });
+                    // Open configurator quotes (CRM → Tilbud source) per month for this product.
+                    const quoteCellsByMonth = scopedQuotePipeline[blockProductKey]
+                      ?? Array.from({ length: 12 }, () => ({ quotes: [] as ScopedConfiguration[], qty: 0, value: 0 }));
                     const totalBudget = budgetMonthly.reduce((a, b) => a + b, 0);
                     const totalOrders = ordersMonthly.reduce((a, b) => a + b, 0);
                     const totalWorking = workingMonthly.reduce((a, b) => a + b, 0);
-                    const totalPipeline = pipelineMonthly.reduce((s, x) => s + x.length, 0);
+                    const totalPipeline = quoteCellsByMonth.reduce((s, c) => s + c.qty, 0);
+                    const totalPipelineValue = quoteCellsByMonth.reduce((s, c) => s + c.value, 0);
+
                     const totalPerf = totalOrders - totalBudget;
                     const scorePct = totalBudget > 0 ? Math.round((totalOrders / totalBudget) * 100) : 0;
                     const scoreTone =
