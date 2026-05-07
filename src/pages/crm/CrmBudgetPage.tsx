@@ -1945,7 +1945,7 @@ export default function CrmBudgetPage() {
                           {ordersMonthly.map((o, i) => {
                             const b = budgetMonthly[i];
                             const diff = o - b;
-                            const pipeCount = pipelineMonthly[i].length;
+                            const pipeCount = quoteCellsByMonth[i]?.qty ?? 0;
                             const combined = o + pipeCount;
                             let cls = "text-slate-400";
                             let label: string = "•";
