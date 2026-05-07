@@ -41,7 +41,7 @@ type TKey =
   | 'loading_dealers' | 'no_match' | 'search_dealer'
   | 'val_title' | 'val_seller' | 'val_dealer' | 'val_first' | 'val_close'
   | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act'
-  | 'created_ok' | 'created_err';
+  | 'created_ok' | 'created_err' | 'edit_title' | 'edit_sub' | 'updated_ok' | 'updated_err' | 'save_changes' | 'loading';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
