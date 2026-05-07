@@ -295,35 +295,51 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
   // track pipeline; this is purely a dashboard add-on, NOT actuals).
   const pipelineMap = pipelineByMachine(scopedLeads);
 
+  // Lead → Arbejdsbudget contributions for current scope (same logic as
+  // CRM → Budget). scopedLeads is already filtered by seller scope above.
+  const currentYear = new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear();
+  const leadContribs = useMemo(
+    () => buildLeadWorkingContributions(scopedLeads).filter(c => c.year === currentYear),
+    [scopedLeads, currentYear],
+  );
+  const leadByKey = useMemo(() => {
+    const m = new Map<string, LeadWorkingContribution[]>();
+    for (const c of leadContribs) {
+      const arr = m.get(c.product_key) || [];
+      arr.push(c);
+      m.set(c.product_key, arr);
+    }
+    return m;
+  }, [leadContribs]);
+
   // Build machine rows from the shared aggregation. Always include the
   // canonical machine list so an empty seller still sees them, plus any
   // extras that have actual orders/budget (e.g. custom Budget products).
   const aggByKey = new Map(aggregated.byMachine.map(r => [r.product_key, r]));
   const extras = aggregated.byMachine.filter(r => !MACHINES.some(m => m.key === r.product_key));
+  const buildRow = (key: string, label: string, r: typeof aggregated.byMachine[number] | undefined): MachineRow => {
+    const leads = leadByKey.get(key) || [];
+    const leadQty = leads.reduce((s, c) => s + c.qty, 0);
+    const manualForecast = r?.forecastQty ?? 0;
+    const forecast = manualForecast + leadQty;
+    const budgetQty = r?.budgetQty ?? 0;
+    const remainingGap = Math.max(0, budgetQty - (r?.ordersQty ?? 0) - forecast);
+    return {
+      key, label,
+      budgetQty,
+      ordersQty: r?.ordersQty ?? 0,
+      pipelineQty: pipelineMap[key] || 0,
+      forecastQty: forecast,
+      manualForecastQty: manualForecast,
+      leadQty,
+      leads,
+      remainingGap,
+      scorePct: r?.scorePct ?? 0,
+    };
+  };
   const machineRows: MachineRow[] = [
-    ...MACHINES.map(m => {
-      const r = aggByKey.get(m.key);
-      return {
-        key: m.key,
-        label: m.label,
-        budgetQty: r?.budgetQty ?? 0,
-        ordersQty: r?.ordersQty ?? 0,
-        pipelineQty: pipelineMap[m.key] || 0,
-        forecastQty: r?.forecastQty ?? 0,
-        remainingGap: r?.remainingGap ?? 0,
-        scorePct: r?.scorePct ?? 0,
-      } as MachineRow;
-    }),
-    ...extras.map(r => ({
-      key: r.product_key,
-      label: r.product_name,
-      budgetQty: r.budgetQty,
-      ordersQty: r.ordersQty,
-      pipelineQty: pipelineMap[r.product_key] || 0,
-      forecastQty: r.forecastQty,
-      remainingGap: r.remainingGap,
-      scorePct: r.scorePct,
-    } as MachineRow)),
+    ...MACHINES.map(m => buildRow(m.key, m.label, aggByKey.get(m.key))),
+    ...extras.map(r => buildRow(r.product_key, r.product_name, r)),
   ];
 
 
