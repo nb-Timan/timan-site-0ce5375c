@@ -407,8 +407,12 @@ export default function CrmNewLeadPage() {
           </Link>
         </div>
 
+        {loadingLead ? (
+          <p className="text-sm text-gray-500 p-8">{tt('loading', lang)}</p>
+        ) : (
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
+            {/* form sections below */}
             <Field label={tt('lbl_title', lang)} required full>
               <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
