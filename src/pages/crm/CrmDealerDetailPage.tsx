@@ -303,7 +303,7 @@ export default function CrmDealerDetailPage() {
   // the same view; we then match by dealer_number against the in-scope numbers,
   // falling back to normalized dealer name when number missing.
   const normName = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const dealerNameSet = new Set([dealer.company_name, dealer.dealer_name].filter(Boolean).map(normName));
+  const dealerNameSet = new Set([dealer.company_name].filter(Boolean).map(normName));
   const matchByName = (r: { dealer_number: string | null; dealer_company_name: string | null; dealer_name: string | null }) => {
     if (r.dealer_number && scopeNumberSet.has(String(r.dealer_number))) return true;
     return !r.dealer_number && (dealerNameSet.has(normName(r.dealer_company_name)) || dealerNameSet.has(normName(r.dealer_name)));
