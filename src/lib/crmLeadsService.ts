@@ -125,6 +125,10 @@ export interface CrmLead {
   lost_comment: string | null;
   attachments: { name: string; size: number }[];
   status: string | null;
+  /** Quantity (stk.) the user has explicitly moved into Arbejdsbudget for
+   *  this lead. Independent from estimated_value — only this field affects
+   *  the working forecast (CRM Budget). 0 / null = not in Arbejdsbudget. */
+  move_to_working_qty?: number | null;
   created_at: string;
   updated_at: string;
 }
