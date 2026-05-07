@@ -675,6 +675,47 @@ export default function CrmNewLeadPage() {
             </section>
           )}
 
+          {isEdit && linkedQuotes.length > 0 && (
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+              <header className="mb-4">
+                <h3 className="text-[15px] font-semibold text-gray-900">
+                  {lang === 'da' ? 'Linkede tilbud (konfigurator)' : 'Linked configurator quotes'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {lang === 'da'
+                    ? 'Tilbud oprettet i konfiguratoren og knyttet til dette lead.'
+                    : 'Quotes created in the configurator and linked to this lead.'}
+                </p>
+              </header>
+              <ul className="divide-y divide-gray-100">
+                {linkedQuotes.map(q => {
+                  const dealer = q.dealer_company_name || q.dealer_name || q.dealer_number || '—';
+                  const sentAt = q.quote_sent_at || q.submitted_at || q.created_at;
+                  const machines = q.machine_keys.join(', ') || '—';
+                  return (
+                    <li key={q.id} className="py-2.5 flex items-center gap-3 text-sm">
+                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
+                        {q.quote_number || '—'}
+                      </span>
+                      <span className="flex-1 truncate text-gray-800">{q.title || dealer}</span>
+                      <span className="text-xs text-gray-500 truncate">{dealer}</span>
+                      <span className="text-xs text-gray-500 truncate">{machines}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">
+                        {new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(q.total_value || 0)}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
+                      </span>
+                      <Link to={`/portal/crm/tilbud?focus=${q.id}`} className="text-xs text-[#2d5a27] hover:underline">
+                        {lang === 'da' ? 'Åbn' : 'Open'}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
           <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
