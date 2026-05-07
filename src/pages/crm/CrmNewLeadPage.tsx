@@ -10,7 +10,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createLead, updateLead, getLead, MACHINE_TYPE_OPTIONS, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
-  PipelineStage,
+  PipelineStage, formatLeadNo,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
