@@ -286,6 +286,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       status: row.status,
+      move_to_working_qty: row.move_to_working_qty ?? 0,
     }).select("lead_no").maybeSingle();
     if (error) console.warn("[crm.createLead] supabase insert failed (kept local):", error.message);
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
