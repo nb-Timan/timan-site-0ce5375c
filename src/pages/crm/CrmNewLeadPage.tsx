@@ -239,6 +239,8 @@ export default function CrmNewLeadPage() {
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Phase 33 — configurator quotes linked to this lead (edit mode only).
+  const [linkedQuotes, setLinkedQuotes] = useState<CrmLeadQuoteRow[]>([]);
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
