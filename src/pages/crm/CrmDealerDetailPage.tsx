@@ -132,7 +132,7 @@ export default function CrmDealerDetailPage() {
   // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
   // — instead of dealer_account_stats which can lag for newly-created orders
   // and only counts via created_by_user_id (misses backend/seller-created ones).
-  const [dealerQuotes, setDealerQuotes] = useState<CrmConfigurationRow[]>([]);
+  const [dealerQuotes, setDealerQuotes] = useState<ScopedConfiguration[]>([]);
   const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
