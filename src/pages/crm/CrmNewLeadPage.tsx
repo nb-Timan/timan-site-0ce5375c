@@ -108,6 +108,12 @@ const T: Record<TKey, Record<Language, string>> = {
   val_next_act:  { da: 'Vælg næste aktivitet.', en: 'Select next activity.', de: 'Nächste Aktivität wählen.', it: 'Selezionare la prossima attività.', hu: 'Válasszon következő tevékenységet.' },
   created_ok:    { da: 'Lead oprettet', en: 'Lead created', de: 'Lead erstellt', it: 'Lead creato', hu: 'Lead létrehozva' },
   created_err:   { da: 'Kunne ikke oprette lead', en: 'Could not create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'Nem sikerült létrehozni a leadet' },
+  edit_title:    { da: 'Rediger lead', en: 'Edit lead', de: 'Lead bearbeiten', it: 'Modifica lead', hu: 'Lead szerkesztése' },
+  edit_sub:      { da: 'Opdater eksisterende lead i CRM.', en: 'Update existing CRM lead.', de: 'Bestehenden CRM-Lead aktualisieren.', it: 'Aggiorna il lead CRM esistente.', hu: 'Frissítse a meglévő CRM leadet.' },
+  updated_ok:    { da: 'Leadet er opdateret.', en: 'Lead updated.', de: 'Lead aktualisiert.', it: 'Lead aggiornato.', hu: 'Lead frissítve.' },
+  updated_err:   { da: 'Kunne ikke opdatere leadet.', en: 'Could not update lead.', de: 'Lead konnte nicht aktualisiert werden.', it: 'Impossibile aggiornare il lead.', hu: 'Nem sikerült frissíteni a leadet.' },
+  save_changes:  { da: 'Gem ændringer', en: 'Save changes', de: 'Änderungen speichern', it: 'Salva modifiche', hu: 'Módosítások mentése' },
+  loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
 };
 function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
