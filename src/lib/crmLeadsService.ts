@@ -463,10 +463,19 @@ export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
   const now = new Date().toISOString();
   const row: CrmDemoLead = { ...input, id: uuid(), created_at: now };
+
+  // Stable local fallback demo_no — overwritten by Supabase if insert succeeds.
+  const knownMax = Math.max(
+    0,
+    ...readLS<CrmDemoLead>(LS_DEMO).map(r => r.demo_no || 0),
+    ...seedDemoRows().map(r => r.demo_no || 0),
+  );
+  row.demo_no = nextLocalNo(LS_DEMO_LOCAL_NO, DEMO_NO_START, knownMax);
+
   writeLS<CrmDemoLead>(LS_DEMO, [row, ...readLS<CrmDemoLead>(LS_DEMO)]);
 
   try {
-    const { error } = await supabase.from("crm_demo_leads").insert({
+    const { data, error } = await supabase.from("crm_demo_leads").insert({
       id: row.id,
       title: row.title,
       owner_user_id: row.owner_user_id,
@@ -489,8 +498,14 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
       competitor_name: row.competitor_name,
       notes_after_demo: row.notes_after_demo,
       result_status: row.result_status,
-    });
+    }).select("demo_no").maybeSingle();
     if (error) console.warn("[crm.createDemoLead] supabase insert failed (kept local):", error.message);
+    if (data && typeof (data as { demo_no?: number }).demo_no === "number") {
+      row.demo_no = (data as { demo_no: number }).demo_no;
+      const ls = readLS<CrmDemoLead>(LS_DEMO);
+      const idx = ls.findIndex(r => r.id === row.id);
+      if (idx >= 0) { ls[idx] = { ...ls[idx], demo_no: row.demo_no }; writeLS(LS_DEMO, ls); }
+    }
   } catch (err) {
     console.warn("[crm.createDemoLead] unexpected (kept local):", err);
   }
