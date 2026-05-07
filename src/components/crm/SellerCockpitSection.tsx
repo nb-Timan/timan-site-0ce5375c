@@ -561,7 +561,14 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                     <TooltipTrigger asChild>
                       <div className="cursor-default">
                         <div className="flex items-center justify-between text-sm mb-1.5">
-                          <span className="font-medium text-slate-800">{row.label}</span>
+                          <span className="font-medium text-slate-800 inline-flex items-center gap-1.5">
+                            {row.label}
+                            {row.leadQty > 0 && (
+                              <span className="text-[9px] font-bold px-1 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                                +{row.leadQty}L
+                              </span>
+                            )}
+                          </span>
                           <span className="text-xs text-slate-500 tabular-nums">
                             <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
                               {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
@@ -584,15 +591,41 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                         </div>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="max-w-sm">
                       <div className="text-xs space-y-0.5">
                         <div className="font-semibold">{row.label}</div>
                         <div>{t("budget_qty", lang)}: <span className="font-medium tabular-nums">{row.budgetQty}</span></div>
                         <div>{t("orders_qty", lang)}: <span className="font-medium tabular-nums">{row.ordersQty}</span></div>
                         <div>{t("pipeline_qty", lang)}: <span className="font-medium tabular-nums">{row.pipelineQty}</span></div>
-                        <div>{t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span></div>
+                        <div>
+                          {t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span>
+                          {row.leadQty > 0 && (
+                            <span className="text-amber-700"> ({row.manualForecastQty} + {row.leadQty}L)</span>
+                          )}
+                        </div>
                         <div>{t("remaining_gap", lang)}: <span className="font-medium tabular-nums">{row.remainingGap}</span></div>
                         <div>{t("score_pct", lang)}: <span className="font-medium tabular-nums">{row.scorePct}%</span></div>
+                        {row.leads.length > 0 && (
+                          <div className="pt-2 mt-2 border-t border-slate-200 space-y-1.5">
+                            <div className="font-semibold text-amber-700">Leads i Arbejdsbudget</div>
+                            {row.leads.map(c => (
+                              <div key={c.lead_id} className="space-y-0.5 pb-1 border-b border-slate-100 last:border-0">
+                                <div className="font-medium">
+                                  <Link
+                                    to={`/portal/crm/leads/${c.lead_id}`}
+                                    className="font-mono text-[10px] text-sky-600 hover:underline mr-1.5"
+                                  >{formatLeadNo(c.lead_no)}</Link>
+                                  {c.title}
+                                </div>
+                                <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
+                                {c.dealer && <div className="text-slate-600">Forhandler: {c.dealer}</div>}
+                                {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
+                                {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
+                                {c.expected_close_date && <div className="text-slate-500">Forventet luk: {fmtDate(c.expected_close_date, lang)}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>
