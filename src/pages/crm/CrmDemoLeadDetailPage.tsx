@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { listDemoLeads, resolveSeedOwners, type CrmDemoLead } from '@/lib/crmLeadsService';
+import { listDemoLeads, resolveSeedOwners, formatDemoNo, type CrmDemoLead } from '@/lib/crmLeadsService';
 import { ArrowLeft, Building2, MapPin, User, Calendar, Wrench, Gauge, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
