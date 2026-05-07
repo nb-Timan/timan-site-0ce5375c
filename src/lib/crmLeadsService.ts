@@ -125,6 +125,10 @@ export interface CrmLead {
   lost_comment: string | null;
   attachments: { name: string; size: number }[];
   status: string | null;
+  /** Quantity (stk.) the user has explicitly moved into Arbejdsbudget for
+   *  this lead. Independent from estimated_value — only this field affects
+   *  the working forecast (CRM Budget). 0 / null = not in Arbejdsbudget. */
+  move_to_working_qty?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -282,6 +286,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       status: row.status,
+      move_to_working_qty: row.move_to_working_qty ?? 0,
     }).select("lead_no").maybeSingle();
     if (error) console.warn("[crm.createLead] supabase insert failed (kept local):", error.message);
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
@@ -382,6 +387,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       lost_reason: merged.lost_reason,
       lost_comment: merged.lost_comment,
       status: merged.status,
+      move_to_working_qty: merged.move_to_working_qty ?? 0,
     }).eq("id", id);
     if (error) console.warn("[crm.updateLead] supabase update failed (kept local):", error.message);
   } catch (err) {
@@ -633,4 +639,91 @@ export function demoLeadsToActivities(rows: CrmDemoLead[]): CrmActivity[] {
     },
     created_at: r.created_at || new Date().toISOString(),
   }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lead → Arbejdsbudget (working forecast) contributions
+//
+// A lead contributes to Arbejdsbudget ONLY when:
+//   - move_to_working_qty > 0
+//   - expected_close_date is a valid date (provides year + month)
+//   - at least one machine_type matches a known budget product key
+//
+// Estimated_value / probability / pipeline_stage do NOT affect Arbejdsbudget.
+// ─────────────────────────────────────────────────────────────
+
+export interface LeadWorkingContribution {
+  lead_id: string;
+  lead_no: number | null;
+  title: string;
+  product_key: string;            // matched BUDGET_PRODUCTS key
+  machine_label: string;          // raw machine_type string from the lead
+  qty: number;                    // move_to_working_qty
+  year: number;
+  month_idx: number;              // 0..11
+  expected_close_date: string | null;
+  owner_user_id: string | null;
+  owner_email: string | null;
+  owner_name: string | null;
+  dealer: string | null;          // linked_dealer_id (raw)
+  customer: string | null;        // contact_information
+}
+
+/** Canonical BUDGET_PRODUCTS keys we match against. Kept in sync manually
+ *  with crmBudgetService.BUDGET_PRODUCTS to avoid an import cycle. */
+const WORKING_PRODUCT_KEYS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+
+function matchProductKey(machineType: string): string | null {
+  const m = (machineType || "").toLowerCase();
+  for (const k of WORKING_PRODUCT_KEYS) {
+    if (m === k.toLowerCase()) return k;
+  }
+  // Fuzzy: machine_type contains the key (e.g. "RC-751 m. fejekost").
+  for (const k of WORKING_PRODUCT_KEYS) {
+    if (m.includes(k.toLowerCase())) return k;
+  }
+  return null;
+}
+
+/** Convert a list of leads into per-(product,month) Arbejdsbudget contribs. */
+export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingContribution[] {
+  const out: LeadWorkingContribution[] = [];
+  for (const l of leads) {
+    const qty = Number(l.move_to_working_qty || 0);
+    if (!qty || qty <= 0) continue;
+    const iso = l.expected_close_date;
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) continue;
+    const year = d.getUTCFullYear();
+    const month_idx = d.getUTCMonth();
+    const types = (l.machine_types || []).filter(Boolean);
+    if (types.length === 0) continue;
+    // Use the first matching machine_type. Spreading qty across multiple
+    // machines would distort budget — user picks one model semantically.
+    let pk: string | null = null;
+    let label = types[0];
+    for (const t of types) {
+      const k = matchProductKey(t);
+      if (k) { pk = k; label = t; break; }
+    }
+    if (!pk) continue;
+    out.push({
+      lead_id: l.id,
+      lead_no: typeof l.lead_no === "number" ? l.lead_no : null,
+      title: l.title,
+      product_key: pk,
+      machine_label: label,
+      qty,
+      year,
+      month_idx,
+      expected_close_date: iso,
+      owner_user_id: l.owner_user_id,
+      owner_email: l.owner_email || null,
+      owner_name: l.owner_name,
+      dealer: l.linked_dealer_id || null,
+      customer: l.contact_information || null,
+    });
+  }
+  return out;
 }

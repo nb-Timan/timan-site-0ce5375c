@@ -32,6 +32,10 @@ import {
   findProduct,
 } from "@/lib/crmBudgetService";
 import {
+  listLeads, buildLeadWorkingContributions, formatLeadNo,
+  type LeadWorkingContribution,
+} from "@/lib/crmLeadsService";
+import {
   listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
   type BudgetAccessWindow,
 } from "@/lib/budgetAccessWindows";
@@ -325,6 +329,7 @@ export default function CrmBudgetPage() {
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
+  const [leadContribs, setLeadContribs] = useState<LeadWorkingContribution[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Working-forecast monthly drafts per line (used as live override; auto-saved).
@@ -426,8 +431,11 @@ export default function CrmBudgetPage() {
   useEffect(() => {
     if (!allowed) return;
     setBusy(true);
-    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
-      .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
+    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 })])
+      .then(([l, f, a, leads]) => {
+        setLines(l); setForecasts(f); setActuals(a);
+        setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
+      })
       .finally(() => setBusy(false));
     // Re-hydrate effective lock map for this year (per-seller resolved against
     // global ALL record so most-specific wins).
@@ -1543,7 +1551,32 @@ export default function CrmBudgetPage() {
                     };
                     const budgetMonthly = agg("budgetMonthly");
                     const ordersMonthly = agg("ordersMonthly");
-                    const workingMonthly = agg("workingMonthly");
+                    const baseWorking = agg("workingMonthly");
+                    // Lead-driven Arbejdsbudget overlay: only leads where the
+                    // user explicitly set "Flyt til arbejdsbudget" > 0 count.
+                    // Match by product key (primaryLine.product_key /
+                    // fallbackProductKey) and apply seller scope.
+                    const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
+                    const scopedLeadContribs = leadContribs.filter(c => {
+                      if (c.product_key !== blockProductKey) return false;
+                      // Seller view: keep only their own leads.
+                      if (!isAdmin && sellerCtxEmail) {
+                        return (c.owner_email || "").toLowerCase() === sellerCtxEmail;
+                      }
+                      // Backend "Alle sælgere" → all. Backend with a chip selected:
+                      if (isAdmin && backendFilter && backendFilter !== "ALL") {
+                        const e = backendFilter.toLowerCase();
+                        return (c.owner_email || "").toLowerCase() === e;
+                      }
+                      return true;
+                    });
+                    const leadWorkingByMonth: LeadWorkingContribution[][] =
+                      Array.from({ length: 12 }, () => []);
+                    for (const c of scopedLeadContribs) {
+                      if (c.month_idx >= 0 && c.month_idx < 12) leadWorkingByMonth[c.month_idx].push(c);
+                    }
+                    const workingMonthly = baseWorking.map((v, i) =>
+                      v + leadWorkingByMonth[i].reduce((s, c) => s + c.qty, 0));
                     const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
                     linesForAgg.forEach(l => {
                       const p = pipelineByLine[l.id] || [];
@@ -1734,8 +1767,41 @@ export default function CrmBudgetPage() {
                               actor_email: appUser?.email || null,
                               actor_name: appUser?.display_name || null,
                             };
+                            const cellLeads = leadWorkingByMonth[i];
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {cellLeads.length > 0 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-block ml-0.5 mr-1 align-middle text-[9px] font-bold px-1 rounded bg-amber-400/30 text-amber-200 border border-amber-300/40 cursor-help">
+                                        +{cellLeads.reduce((s, c) => s + c.qty, 0)}L
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-sm">
+                                      <div className="text-xs space-y-2">
+                                        <div className="font-semibold border-b border-slate-200 pb-1">
+                                          Leads i Arbejdsbudget · {monthLabel} · {productName}
+                                        </div>
+                                        {cellLeads.map(c => (
+                                          <div key={c.lead_id} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
+                                            <div className="font-medium">
+                                              <a
+                                                href={`/portal/crm/leads/${c.lead_id}`}
+                                                className="font-mono text-[11px] text-sky-600 hover:underline mr-1.5"
+                                              >{formatLeadNo(c.lead_no)}</a>
+                                              {c.title}
+                                            </div>
+                                            <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
+                                            {c.dealer && <div className="text-slate-600">Forhandler: {c.dealer}</div>}
+                                            {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
+                                            {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
+                                            {c.expected_close_date && <div className="text-slate-500">Forventet luk: {c.expected_close_date}</div>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                                 {canEditWorking ? (
                                   <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
                                     <button

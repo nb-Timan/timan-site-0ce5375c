@@ -35,7 +35,7 @@ type TKey =
   | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
   | 'lbl_contact_type' | 'lbl_customer_type'
   | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
-  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline'
+  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline' | 'lbl_move_work' | 'hlp_move_work'
   | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
   | 'loading_dealers' | 'no_match' | 'search_dealer'
@@ -85,6 +85,12 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
   lbl_budget:    { da: 'Budget-estimat (DKK)', en: 'Budget estimate (DKK)', de: 'Budget-Schätzung (DKK)', it: 'Stima budget (DKK)', hu: 'Költségvetés-becslés (DKK)' },
+  lbl_move_work: { da: 'Flyt til arbejdsbudget (stk.)', en: 'Move to working forecast (qty)', de: 'In Arbeitsprognose verschieben (Stk.)', it: 'Sposta in previsione (pz.)', hu: 'Munka-előrejelzésbe (db)' },
+  hlp_move_work: { da: 'Hvis > 0 tæller dette lead i Arbejdsbudget på maskine + forventet lukkedato. Påvirker IKKE pipeline.',
+                   en: 'If > 0 this lead counts in Working forecast for machine + expected close date. Does NOT affect pipeline.',
+                   de: 'Wenn > 0, zählt dieser Lead in Arbeitsprognose für Maschine + erwartetes Abschlussdatum. Beeinflusst NICHT die Pipeline.',
+                   it: 'Se > 0 questo lead conta nella previsione di lavoro per macchina + data chiusura prevista. NON influisce sulla pipeline.',
+                   hu: 'Ha > 0, a lead beleszámít a Munka-előrejelzésbe a gép + várható zárási dátum alapján. NEM befolyásolja a pipeline-t.' },
   lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
   lbl_pipeline:  { da: 'Pipeline-stage', en: 'Pipeline stage', de: 'Pipeline-Phase', it: 'Fase pipeline', hu: 'Pipeline szakasz' },
   lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
@@ -222,6 +228,7 @@ export default function CrmNewLeadPage() {
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
   const [probability, setProbability] = useState<string>('25');
+  const [moveToWorking, setMoveToWorking] = useState<string>('');
   const [stage, setStage] = useState<PipelineStage>('Lead');
 
   const [lostCompetitor, setLostCompetitor] = useState<string>('');
@@ -302,6 +309,8 @@ export default function CrmNewLeadPage() {
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
       setProbability(lead.probability != null ? String(lead.probability) : '');
+      setMoveToWorking(typeof lead.move_to_working_qty === 'number' && lead.move_to_working_qty > 0
+        ? String(lead.move_to_working_qty) : '');
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
       setLostCompetitor(lead.lost_competitor || '');
       setLostReason(lead.lost_reason || '');
@@ -373,6 +382,7 @@ export default function CrmNewLeadPage() {
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
         probability: probability ? Number(probability) : null,
+        move_to_working_qty: moveToWorking ? Math.max(0, Math.floor(Number(moveToWorking) || 0)) : 0,
         pipeline_stage: stage,
         lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
         lost_reason: isLost ? (lostReason || null) : null,
@@ -590,6 +600,18 @@ export default function CrmNewLeadPage() {
             </Field>
             <Field label={tt('lbl_budget', lang)}>
               <input type="number" min={0} className={inputCls} value={estimatedValue} onChange={e=>setEstimatedValue(e.target.value)} placeholder="0" />
+            </Field>
+            <Field label={tt('lbl_move_work', lang)}>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                className={inputCls}
+                value={moveToWorking}
+                onChange={e=>setMoveToWorking(e.target.value)}
+                placeholder="0"
+              />
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">{tt('hlp_move_work', lang)}</p>
             </Field>
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
