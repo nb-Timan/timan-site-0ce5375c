@@ -135,6 +135,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
 function mapDemo(d: CrmDemoLead): UnifiedLead {
   return {
     id: d.id,
+    display_no: formatDemoNo(d.demo_no),
     type: 'demo',
     title: d.title,
     customer: d.customer_name,
