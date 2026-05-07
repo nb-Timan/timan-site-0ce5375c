@@ -481,7 +481,10 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                                     to={`/portal/crm/leads/${l.id}`}
                                     className="flex items-center justify-between gap-3 text-xs px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer"
                                   >
-                                    <span className="truncate text-slate-800 font-medium">{l.title || "—"}</span>
+                                    <span className="truncate text-slate-800 font-medium inline-flex items-baseline gap-1.5">
+                                      <span className="font-mono text-[10px] tabular-nums text-slate-400 shrink-0">{formatLeadNo(l.lead_no)}</span>
+                                      <span className="truncate">{l.title || "—"}</span>
+                                    </span>
                                     <span className="shrink-0 text-slate-400 tabular-nums">{fmtDate(l.next_followup_date, lang)}</span>
                                   </Link>
                                 </li>
