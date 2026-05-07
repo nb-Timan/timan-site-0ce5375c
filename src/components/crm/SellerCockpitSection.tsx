@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
-import { listLeads, formatLeadNo, type CrmLead } from "@/lib/crmLeadsService";
+import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
 import {
   listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
