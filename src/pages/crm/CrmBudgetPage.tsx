@@ -1551,7 +1551,32 @@ export default function CrmBudgetPage() {
                     };
                     const budgetMonthly = agg("budgetMonthly");
                     const ordersMonthly = agg("ordersMonthly");
-                    const workingMonthly = agg("workingMonthly");
+                    const baseWorking = agg("workingMonthly");
+                    // Lead-driven Arbejdsbudget overlay: only leads where the
+                    // user explicitly set "Flyt til arbejdsbudget" > 0 count.
+                    // Match by product key (primaryLine.product_key /
+                    // fallbackProductKey) and apply seller scope.
+                    const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
+                    const scopedLeadContribs = leadContribs.filter(c => {
+                      if (c.product_key !== blockProductKey) return false;
+                      // Seller view: keep only their own leads.
+                      if (!isAdmin && sellerCtxEmail) {
+                        return (c.owner_email || "").toLowerCase() === sellerCtxEmail;
+                      }
+                      // Backend "Alle sælgere" → all. Backend with a chip selected:
+                      if (isAdmin && backendFilter && backendFilter !== "ALL") {
+                        const e = backendFilter.toLowerCase();
+                        return (c.owner_email || "").toLowerCase() === e;
+                      }
+                      return true;
+                    });
+                    const leadWorkingByMonth: LeadWorkingContribution[][] =
+                      Array.from({ length: 12 }, () => []);
+                    for (const c of scopedLeadContribs) {
+                      if (c.month_idx >= 0 && c.month_idx < 12) leadWorkingByMonth[c.month_idx].push(c);
+                    }
+                    const workingMonthly = baseWorking.map((v, i) =>
+                      v + leadWorkingByMonth[i].reduce((s, c) => s + c.qty, 0));
                     const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
                     linesForAgg.forEach(l => {
                       const p = pipelineByLine[l.id] || [];
