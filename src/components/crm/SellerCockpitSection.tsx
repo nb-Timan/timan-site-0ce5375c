@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
-import { listLeads, formatLeadNo, type CrmLead } from "@/lib/crmLeadsService";
+import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
 import {
   listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
@@ -122,7 +122,10 @@ interface MachineRow {
   budgetQty: number;
   ordersQty: number;
   pipelineQty: number;
-  forecastQty: number;
+  forecastQty: number;        // includes manual working + lead contributions
+  manualForecastQty: number;  // working only (no leads)
+  leadQty: number;            // sum of lead contributions
+  leads: LeadWorkingContribution[];
   remainingGap: number;
   scorePct: number;
 }
@@ -292,35 +295,51 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
   // track pipeline; this is purely a dashboard add-on, NOT actuals).
   const pipelineMap = pipelineByMachine(scopedLeads);
 
+  // Lead → Arbejdsbudget contributions for current scope (same logic as
+  // CRM → Budget). scopedLeads is already filtered by seller scope above.
+  const currentYear = new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear();
+  const leadContribs = useMemo(
+    () => buildLeadWorkingContributions(scopedLeads).filter(c => c.year === currentYear),
+    [scopedLeads, currentYear],
+  );
+  const leadByKey = useMemo(() => {
+    const m = new Map<string, LeadWorkingContribution[]>();
+    for (const c of leadContribs) {
+      const arr = m.get(c.product_key) || [];
+      arr.push(c);
+      m.set(c.product_key, arr);
+    }
+    return m;
+  }, [leadContribs]);
+
   // Build machine rows from the shared aggregation. Always include the
   // canonical machine list so an empty seller still sees them, plus any
   // extras that have actual orders/budget (e.g. custom Budget products).
   const aggByKey = new Map(aggregated.byMachine.map(r => [r.product_key, r]));
   const extras = aggregated.byMachine.filter(r => !MACHINES.some(m => m.key === r.product_key));
+  const buildRow = (key: string, label: string, r: typeof aggregated.byMachine[number] | undefined): MachineRow => {
+    const leads = leadByKey.get(key) || [];
+    const leadQty = leads.reduce((s, c) => s + c.qty, 0);
+    const manualForecast = r?.forecastQty ?? 0;
+    const forecast = manualForecast + leadQty;
+    const budgetQty = r?.budgetQty ?? 0;
+    const remainingGap = Math.max(0, budgetQty - (r?.ordersQty ?? 0) - forecast);
+    return {
+      key, label,
+      budgetQty,
+      ordersQty: r?.ordersQty ?? 0,
+      pipelineQty: pipelineMap[key] || 0,
+      forecastQty: forecast,
+      manualForecastQty: manualForecast,
+      leadQty,
+      leads,
+      remainingGap,
+      scorePct: r?.scorePct ?? 0,
+    };
+  };
   const machineRows: MachineRow[] = [
-    ...MACHINES.map(m => {
-      const r = aggByKey.get(m.key);
-      return {
-        key: m.key,
-        label: m.label,
-        budgetQty: r?.budgetQty ?? 0,
-        ordersQty: r?.ordersQty ?? 0,
-        pipelineQty: pipelineMap[m.key] || 0,
-        forecastQty: r?.forecastQty ?? 0,
-        remainingGap: r?.remainingGap ?? 0,
-        scorePct: r?.scorePct ?? 0,
-      } as MachineRow;
-    }),
-    ...extras.map(r => ({
-      key: r.product_key,
-      label: r.product_name,
-      budgetQty: r.budgetQty,
-      ordersQty: r.ordersQty,
-      pipelineQty: pipelineMap[r.product_key] || 0,
-      forecastQty: r.forecastQty,
-      remainingGap: r.remainingGap,
-      scorePct: r.scorePct,
-    } as MachineRow)),
+    ...MACHINES.map(m => buildRow(m.key, m.label, aggByKey.get(m.key))),
+    ...extras.map(r => buildRow(r.product_key, r.product_name, r)),
   ];
 
 
@@ -542,7 +561,14 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                     <TooltipTrigger asChild>
                       <div className="cursor-default">
                         <div className="flex items-center justify-between text-sm mb-1.5">
-                          <span className="font-medium text-slate-800">{row.label}</span>
+                          <span className="font-medium text-slate-800 inline-flex items-center gap-1.5">
+                            {row.label}
+                            {row.leadQty > 0 && (
+                              <span className="text-[9px] font-bold px-1 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                                +{row.leadQty}L
+                              </span>
+                            )}
+                          </span>
                           <span className="text-xs text-slate-500 tabular-nums">
                             <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
                               {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
@@ -565,15 +591,41 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                         </div>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="max-w-sm">
                       <div className="text-xs space-y-0.5">
                         <div className="font-semibold">{row.label}</div>
                         <div>{t("budget_qty", lang)}: <span className="font-medium tabular-nums">{row.budgetQty}</span></div>
                         <div>{t("orders_qty", lang)}: <span className="font-medium tabular-nums">{row.ordersQty}</span></div>
                         <div>{t("pipeline_qty", lang)}: <span className="font-medium tabular-nums">{row.pipelineQty}</span></div>
-                        <div>{t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span></div>
+                        <div>
+                          {t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span>
+                          {row.leadQty > 0 && (
+                            <span className="text-amber-700"> ({row.manualForecastQty} + {row.leadQty}L)</span>
+                          )}
+                        </div>
                         <div>{t("remaining_gap", lang)}: <span className="font-medium tabular-nums">{row.remainingGap}</span></div>
                         <div>{t("score_pct", lang)}: <span className="font-medium tabular-nums">{row.scorePct}%</span></div>
+                        {row.leads.length > 0 && (
+                          <div className="pt-2 mt-2 border-t border-slate-200 space-y-1.5">
+                            <div className="font-semibold text-amber-700">Leads i Arbejdsbudget</div>
+                            {row.leads.map(c => (
+                              <div key={c.lead_id} className="space-y-0.5 pb-1 border-b border-slate-100 last:border-0">
+                                <div className="font-medium">
+                                  <Link
+                                    to={`/portal/crm/leads/${c.lead_id}`}
+                                    className="font-mono text-[10px] text-sky-600 hover:underline mr-1.5"
+                                  >{formatLeadNo(c.lead_no)}</Link>
+                                  {c.title}
+                                </div>
+                                <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
+                                {c.dealer && <div className="text-slate-600">Forhandler: {c.dealer}</div>}
+                                {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
+                                {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
+                                {c.expected_close_date && <div className="text-slate-500">Forventet luk: {fmtDate(c.expected_close_date, lang)}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>
