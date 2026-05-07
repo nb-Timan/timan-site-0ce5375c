@@ -96,6 +96,9 @@ export default function CrmDemoLeadDetailPage() {
                     <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
                       <Sparkles className="h-3 w-3 mr-1" /> Demo lead
                     </span>
+                    <span className="font-mono text-[11px] tabular-nums text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                      {formatDemoNo(lead.demo_no)}
+                    </span>
                     {lead.legacy_id && (
                       <span className="text-[11px] text-gray-400 font-mono">#{lead.legacy_id}</span>
                     )}
