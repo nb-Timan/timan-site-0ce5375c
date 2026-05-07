@@ -35,7 +35,7 @@ type TKey =
   | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
   | 'lbl_contact_type' | 'lbl_customer_type'
   | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
-  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline'
+  | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline' | 'lbl_move_work' | 'hlp_move_work'
   | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
   | 'loading_dealers' | 'no_match' | 'search_dealer'
