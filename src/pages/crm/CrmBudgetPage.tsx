@@ -431,8 +431,11 @@ export default function CrmBudgetPage() {
   useEffect(() => {
     if (!allowed) return;
     setBusy(true);
-    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year)])
-      .then(([l, f, a]) => { setLines(l); setForecasts(f); setActuals(a); })
+    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 })])
+      .then(([l, f, a, leads]) => {
+        setLines(l); setForecasts(f); setActuals(a);
+        setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
+      })
       .finally(() => setBusy(false));
     // Re-hydrate effective lock map for this year (per-seller resolved against
     // global ALL record so most-specific wins).
