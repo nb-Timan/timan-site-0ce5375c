@@ -1103,6 +1103,38 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     } catch (e) {
       console.warn('[markPdfDownloaded] crm log failed (ignored):', e);
     }
+
+    // Phase 33 — if this quote is linked to a CRM lead, advance the lead to
+    // "Offer sent" and log a Danish activity line. Best-effort, never throws.
+    const linkedLeadId = (row.lead_id as string | null) ?? null;
+    if (linkedLeadId) {
+      try {
+        const { updateLead } = await import('@/lib/crmLeadsService');
+        await updateLead(linkedLeadId, {
+          pipeline_stage: 'Offer sent',
+          notes: [
+            (row.title as string | null) || '',
+            `Tilbud afgivet via konfiguratoren${row.quote_number ? ` — ${row.quote_number}` : ''}`,
+          ].filter(Boolean).join('\n').trim() || null,
+        } as any);
+      } catch (e) {
+        console.warn('[markPdfDownloaded] lead update failed (ignored):', e);
+      }
+      try {
+        const { logActivity } = await import('@/lib/crmActivitiesService');
+        await logActivity({
+          activity_type: 'quote_sent',
+          configuration_id: id,
+          quote_id: id,
+          lead_id: linkedLeadId,
+          title: (row.quote_number as string | null) || 'Tilbud afgivet via konfiguratoren',
+          description: 'Tilbud afgivet via konfiguratoren',
+          status: 'aktiv',
+          created_by_user_id: (row.created_by_user_id as string | null) ?? user.id,
+          assigned_owner_user_id: (row.assigned_seller_id as string | null) ?? null,
+        } as any);
+      } catch { /* */ }
+    }
   }
 }
 
