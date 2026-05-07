@@ -221,15 +221,35 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
     return () => { cancelled = true; };
   }, [isAdmin, sellerId]);
 
-  // Filter by selected seller (backend only). For sellers, data is already scoped.
+  // Filter by selected seller.
+  // - For sellers (non-admin), allLeads is already server-scoped via
+  //   listLeads({ ownerUserId: sellerId }) — do NOT re-filter on
+  //   owner_email/initials, because createLead only stores owner_user_id +
+  //   owner_name (full name, not initials), so those checks would wrongly
+  //   drop the seller's own leads from Lead Fokus.
+  // - For backend "Alle", show all leads.
+  // - For backend with a chip selected, match by owner_user_id (when we
+  //   can resolve it), owner_email or owner_name (full name OR initials).
   const scopedLeads = useMemo(() => {
     if (!activeSeller) return allLeads;
     const email = activeSeller.email.toLowerCase();
-    return allLeads.filter(l =>
-      (l.owner_email || "").toLowerCase() === email ||
-      (l.owner_name || "").toUpperCase() === activeSeller.initials,
-    );
-  }, [allLeads, activeSeller]);
+    const initials = activeSeller.initials.toUpperCase();
+    const fullName = activeSeller.full_name?.toLowerCase() || "";
+    // When viewing as that seller, sellerId === their app_users.id, so use it.
+    const ownId = !isAdmin && sellerId ? sellerId : null;
+    return allLeads.filter(l => {
+      if (ownId && l.owner_user_id === ownId) return true;
+      if ((l.owner_email || "").toLowerCase() === email) return true;
+      const nm = (l.owner_name || "").toString();
+      if (nm.toUpperCase() === initials) return true;
+      if (fullName && nm.toLowerCase() === fullName) return true;
+      // Fuzzy: owner_name starts with initials (e.g. "BP - Birger")
+      if (nm.toUpperCase().startsWith(initials + " ") ||
+          nm.toUpperCase().startsWith(initials + "-") ||
+          nm.toUpperCase().startsWith(initials + "/")) return true;
+      return false;
+    });
+  }, [allLeads, activeSeller, isAdmin, sellerId]);
 
   const scopedActivities = useMemo(() => {
     if (!activeSeller) return allActivities;
