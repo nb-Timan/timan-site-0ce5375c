@@ -582,6 +582,48 @@ export default function CrmBudgetPage() {
     return map;
   }, [visibleLines, year]);
 
+  // Open configurator quotes (scoped) → year×month×product map.
+  // Source: listScopedOpenQuotes (crm_configurations_view, same as CRM → Tilbud).
+  // Filtering rules:
+  //   • Seller view: already scoped at fetch time.
+  //   • Backend "Alle sælgere"  → use everything we got.
+  //   • Backend "Min egen visning" → only my own quotes.
+  //   • Backend with a seller chip → only that seller's quotes.
+  const scopedQuotePipeline = useMemo(() => {
+    const wantSellerEmail = isAdmin
+      ? (backendFilter === 'all' ? null
+        : backendFilter === 'mine' ? (myEmail || null)
+        : backendFilter.toLowerCase())
+      : null;
+    const filtered = quotePipelineRows.filter(q => {
+      if (!wantSellerEmail) return true;
+      const k = sellerKeyOf(q);
+      return k === `email:${wantSellerEmail}`;
+    });
+    // Build machineKey → 12-month buckets of { quotes, qty, value }.
+    const out: Record<string, Array<{ quotes: ScopedConfiguration[]; qty: number; value: number }>> = {};
+    const ensure = (k: string) => {
+      if (!out[k]) out[k] = Array.from({ length: 12 }, () => ({ quotes: [] as ScopedConfiguration[], qty: 0, value: 0 }));
+      return out[k];
+    };
+    for (const r of filtered) {
+      const d = r.month_iso ? new Date(r.month_iso) : null;
+      if (!d || isNaN(d.getTime()) || d.getFullYear() !== year) continue;
+      const mIdx = d.getMonth();
+      const totalQty = Object.values(r.machine_qty_by_key).reduce((s, q) => s + q, 0) || 1;
+      const total = r.total_value || 0;
+      const keys = r.machine_keys.length > 0 ? r.machine_keys : ['__unknown__'];
+      for (const key of keys) {
+        const qty = r.machine_qty_by_key[key] || 1;
+        const cell = ensure(key)[mIdx];
+        cell.quotes.push(r);
+        cell.qty += qty;
+        cell.value += total * (qty / totalQty);
+      }
+    }
+    return out;
+  }, [quotePipelineRows, isAdmin, backendFilter, myEmail, year]);
+
   // Group lines by product (machine model). Enforce required machine order.
   const MACHINE_ORDER = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
   // Visual color accent per main machine group (Tailwind tokens).
