@@ -12,6 +12,7 @@ import {
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
 } from '@/lib/crmLeadsService';
+import { listConfigurationsForLead, type CrmLeadQuoteRow } from '@/lib/crmConfigurationsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
