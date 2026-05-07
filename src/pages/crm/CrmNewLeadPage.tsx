@@ -382,6 +382,7 @@ export default function CrmNewLeadPage() {
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
         probability: probability ? Number(probability) : null,
+        move_to_working_qty: moveToWorking ? Math.max(0, Math.floor(Number(moveToWorking) || 0)) : 0,
         pipeline_stage: stage,
         lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
         lost_reason: isLost ? (lostReason || null) : null,
