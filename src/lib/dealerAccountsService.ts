@@ -323,6 +323,97 @@ function rowToStats(row: Record<string, unknown>): DealerAccountStats {
   };
 }
 
+interface DealerActivityAgg { quote: number; order: number; last: string | null }
+interface DealerActivityOverlay {
+  byDealerId: Map<string, DealerActivityAgg>;
+}
+
+function normalizeDealerName(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Phase 31 — Build per-dealer quote/order counts and last_activity_at from
+ * configurator documents (crm_configurations_view, fallback configurations).
+ *
+ * Why: dealer_account_stats joins configurations via app_users.dealer_number,
+ * which misses configurations created by Timan sellers on behalf of a dealer.
+ * Configurations carry dealer_account_id / dealer_number / dealer_name
+ * directly (phase 23 ownership), so we count from there instead.
+ *
+ * Matching priority per row:
+ *   1. dealer_account_id  → dealer_accounts.id
+ *   2. dealer_number      → dealer_accounts.account_number
+ *   3. normalized dealer_name → dealer_accounts.company_name
+ */
+async function loadDealerActivityOverlay(
+  dealers: DealerAccountStats[],
+): Promise<DealerActivityOverlay> {
+  const byDealerId = new Map<string, DealerActivityAgg>();
+  const byAccountNo = new Map<string, string>();
+  const byNameLc = new Map<string, string>();
+  for (const d of dealers) {
+    if (d.account_number) byAccountNo.set(d.account_number, d.id);
+    const n = normalizeDealerName(d.company_name);
+    if (n) byNameLc.set(n, d.id);
+  }
+
+  const COLS = [
+    "id", "document_type", "case_type", "case_status",
+    "dealer_account_id", "dealer_number", "dealer_name",
+    "order_sent_at", "quote_sent_at", "submitted_at", "last_saved_at", "created_at",
+  ].join(", ");
+
+  let rows: Array<Record<string, unknown>> = [];
+  const v = await supabase
+    .from("crm_configurations_view")
+    .select(COLS)
+    .neq("case_status", "deleted")
+    .limit(2000);
+  if (!v.error && v.data) {
+    rows = v.data as unknown as Array<Record<string, unknown>>;
+  } else {
+    const f = await supabase
+      .from("configurations")
+      .select(COLS)
+      .neq("case_status", "deleted")
+      .limit(2000);
+    if (f.error) throw f.error;
+    rows = (f.data ?? []) as unknown as Array<Record<string, unknown>>;
+  }
+
+  for (const r of rows) {
+    const docType = (r.document_type as string) || (r.case_type as string) || "";
+    if (docType !== "quote" && docType !== "order") continue;
+
+    let dealerId: string | undefined;
+    const accId = r.dealer_account_id as string | null;
+    if (accId && dealers.some((d) => d.id === accId)) dealerId = accId;
+    if (!dealerId) {
+      const dn = r.dealer_number as string | null;
+      if (dn) dealerId = byAccountNo.get(dn);
+    }
+    if (!dealerId) {
+      const nm = normalizeDealerName(r.dealer_name as string | null);
+      if (nm) dealerId = byNameLc.get(nm);
+    }
+    if (!dealerId) continue;
+
+    const agg = byDealerId.get(dealerId) ?? { quote: 0, order: 0, last: null };
+    if (docType === "quote") agg.quote += 1;
+    else agg.order += 1;
+    const candidates = [
+      r.order_sent_at, r.quote_sent_at, r.submitted_at, r.last_saved_at, r.created_at,
+    ].filter((x): x is string => typeof x === "string" && !!x);
+    for (const c of candidates) {
+      if (!agg.last || c > agg.last) agg.last = c;
+    }
+    byDealerId.set(dealerId, agg);
+  }
+
+  return { byDealerId };
+}
+
 export async function fetchDealerAccountStats(): Promise<{
   source: DealerAccountsSource;
   rows: DealerAccountStats[];
@@ -340,7 +431,29 @@ export async function fetchDealerAccountStats(): Promise<{
     .order("company_name", { ascending: true });
 
   if (!view.error && view.data) {
-    return { source: "supabase", rows: view.data.map(rowToStats) };
+    const rows = view.data.map(rowToStats);
+    // Phase 31 fix: dealer_account_stats only counts configurations created
+    // by users belonging to the dealer (via app_users.dealer_number). It
+    // misses orders/quotes created by Timan sellers on behalf of a dealer.
+    // Override quote_count / order_count / last_activity_at from the
+    // configurations view, matching by dealer_account_id, dealer_number, or
+    // normalized dealer name. Keep user_count from the original view.
+    try {
+      const overlay = await loadDealerActivityOverlay(rows);
+      for (const r of rows) {
+        const o = overlay.byDealerId.get(r.id);
+        if (!o) continue;
+        r.quote_count = o.quote;
+        r.order_count = o.order;
+        r.activity_count = o.quote + o.order;
+        if (o.last && (!r.last_activity_at || o.last > r.last_activity_at)) {
+          r.last_activity_at = o.last;
+        }
+      }
+    } catch (e) {
+      console.warn("[dealerAccountsService] overlay failed", e);
+    }
+    return { source: "supabase", rows };
   }
 
   // Fallback: build stats client-side from dealer_accounts + app_users +
