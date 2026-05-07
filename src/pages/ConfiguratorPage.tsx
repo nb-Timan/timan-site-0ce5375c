@@ -189,6 +189,8 @@ export default function ConfiguratorPage() {
   const [selectedRecBullets, setSelectedRecBullets] = useState<Set<string>>(new Set());
   const [includeRecommendation, setIncludeRecommendation] = useState(false);
   const [wantRecommendation, setWantRecommendation] = useState(false);
+  // Phase 33 — optional CRM lead link saved with the configuration.
+  const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
