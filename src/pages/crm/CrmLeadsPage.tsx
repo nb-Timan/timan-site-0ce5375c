@@ -113,6 +113,7 @@ function fmtDate(s: string | null | undefined, lang: Language): string {
 function mapOpen(l: CrmLead): UnifiedLead {
   return {
     id: l.id,
+    display_no: formatLeadNo(l.lead_no),
     type: 'open',
     title: l.title,
     customer: l.contact_information || null,
