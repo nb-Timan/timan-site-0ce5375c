@@ -47,11 +47,16 @@ import {
   getActiveSellerView, getActiveMode,
 } from "@/lib/activeMode";
 import {
-  listCrmConfigurations,
   listScopedOrdersWithValue,
-  type CrmConfigurationRow,
   type CrmOrderWithValue,
 } from "@/lib/crmConfigurationsService";
+import {
+  listScopedOpenQuotes,
+  dealerKeyOf,
+  quoteMonthIso,
+  type ScopedConfiguration,
+} from "@/lib/crmRelationsService";
+import { resolveSellerId } from "@/lib/resolveSellerId";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
