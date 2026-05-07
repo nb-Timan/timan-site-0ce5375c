@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -8,7 +8,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createLead, MACHINE_TYPE_OPTIONS, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
+  createLead, updateLead, getLead, MACHINE_TYPE_OPTIONS, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage,
 } from '@/lib/crmLeadsService';
@@ -41,7 +41,7 @@ type TKey =
   | 'loading_dealers' | 'no_match' | 'search_dealer'
   | 'val_title' | 'val_seller' | 'val_dealer' | 'val_first' | 'val_close'
   | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act'
-  | 'created_ok' | 'created_err';
+  | 'created_ok' | 'created_err' | 'edit_title' | 'edit_sub' | 'updated_ok' | 'updated_err' | 'save_changes' | 'loading';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
@@ -108,6 +108,12 @@ const T: Record<TKey, Record<Language, string>> = {
   val_next_act:  { da: 'Vælg næste aktivitet.', en: 'Select next activity.', de: 'Nächste Aktivität wählen.', it: 'Selezionare la prossima attività.', hu: 'Válasszon következő tevékenységet.' },
   created_ok:    { da: 'Lead oprettet', en: 'Lead created', de: 'Lead erstellt', it: 'Lead creato', hu: 'Lead létrehozva' },
   created_err:   { da: 'Kunne ikke oprette lead', en: 'Could not create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'Nem sikerült létrehozni a leadet' },
+  edit_title:    { da: 'Rediger lead', en: 'Edit lead', de: 'Lead bearbeiten', it: 'Modifica lead', hu: 'Lead szerkesztése' },
+  edit_sub:      { da: 'Opdater eksisterende lead i CRM.', en: 'Update existing CRM lead.', de: 'Bestehenden CRM-Lead aktualisieren.', it: 'Aggiorna il lead CRM esistente.', hu: 'Frissítse a meglévő CRM leadet.' },
+  updated_ok:    { da: 'Leadet er opdateret.', en: 'Lead updated.', de: 'Lead aktualisiert.', it: 'Lead aggiornato.', hu: 'Lead frissítve.' },
+  updated_err:   { da: 'Kunne ikke opdatere leadet.', en: 'Could not update lead.', de: 'Lead konnte nicht aktualisiert werden.', it: 'Impossibile aggiornare il lead.', hu: 'Nem sikerült frissíteni a leadet.' },
+  save_changes:  { da: 'Gem ændringer', en: 'Save changes', de: 'Änderungen speichern', it: 'Salva modifiche', hu: 'Módosítások mentése' },
+  loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
 };
 function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
@@ -182,6 +188,8 @@ export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = !!editId;
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
@@ -191,6 +199,7 @@ export default function CrmNewLeadPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const [loadingLead, setLoadingLead] = useState(isEdit);
   const [title, setTitle] = useState('');
   // Responsible seller is now a dropdown (app_users id). Default = logged-in user.
   const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
@@ -256,6 +265,7 @@ export default function CrmNewLeadPage() {
 
   // Auto-select the logged-in user as responsible seller once sellers load.
   useEffect(() => {
+    if (isEdit) return; // never override loaded values when editing
     if (responsibleSellerId) return;
     if (!sellers.length || !appUser?.email) return;
     const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
@@ -263,7 +273,42 @@ export default function CrmNewLeadPage() {
       setResponsibleSellerId(me.id);
       setResponsibleName(me.name || me.email);
     }
-  }, [sellers, appUser?.email, responsibleSellerId]);
+  }, [sellers, appUser?.email, responsibleSellerId, isEdit]);
+
+  // Load existing lead when in edit mode.
+  useEffect(() => {
+    if (!isEdit || !editId) return;
+    let cancelled = false;
+    (async () => {
+      const lead = await getLead(editId);
+      if (cancelled || !lead) { setLoadingLead(false); return; }
+      setTitle(lead.title || '');
+      setResponsibleSellerId(lead.owner_user_id || '');
+      setResponsibleName(lead.owner_name || '');
+      setLinkedDealer(lead.linked_dealer_id || '');
+      setFirstContact(lead.first_contact_date || '');
+      setExpectedClose(lead.expected_close_date || '');
+      setNextFollowup(lead.next_followup_date || '');
+      setMachineTypes(lead.machine_types || []);
+      setNextActivity(lead.next_activity || '');
+      setDemoHasRun(lead.demo_has_run || 'no');
+      setContactType(lead.contact_type || '');
+      setCustomerType(lead.customer_type || '');
+      setContactInfo(lead.contact_information || '');
+      setTradeFair(lead.trade_fair || '');
+      setCountry(lead.country || '');
+      setNotes(lead.notes || '');
+      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+      setProbability(lead.probability != null ? String(lead.probability) : '');
+      setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
+      setLostCompetitor(lead.lost_competitor || '');
+      setLostReason(lead.lost_reason || '');
+      setLostComment(lead.lost_comment || '');
+      setFiles(lead.attachments || []);
+      setLoadingLead(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
 
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
@@ -307,7 +352,7 @@ export default function CrmNewLeadPage() {
       // fall back to the logged-in user if for some reason it's missing.
       const chosen = sellers.find(s => s.id === responsibleSellerId);
       const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
-      await createLead({
+      const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
@@ -332,32 +377,42 @@ export default function CrmNewLeadPage() {
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
         status: 'open',
-      });
-      toast.success(tt('created_ok', lang));
+      };
+      if (isEdit && editId) {
+        await updateLead(editId, payload);
+        toast.success(tt('updated_ok', lang));
+      } else {
+        await createLead(payload);
+        toast.success(tt('created_ok', lang));
+      }
       navigate('/portal/crm/leads');
     } catch (err) {
       console.error(err);
-      toast.error(tt('created_err', lang));
+      toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <CrmLayout pageTitle={tt('page_title', lang)}>
+    <CrmLayout pageTitle={isEdit ? tt('edit_title', lang) : tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
+            <h2 className="text-xl font-semibold text-gray-900">{isEdit ? tt('edit_title', lang) : tt('page_title', lang)}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{isEdit ? tt('edit_sub', lang) : tt('page_sub', lang)}</p>
           </div>
           <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
             <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
           </Link>
         </div>
 
+        {loadingLead ? (
+          <p className="text-sm text-gray-500 p-8">{tt('loading', lang)}</p>
+        ) : (
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
+            {/* form sections below */}
             <Field label={tt('lbl_title', lang)} required full>
               <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
@@ -605,10 +660,11 @@ export default function CrmNewLeadPage() {
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? tt('saving', lang) : tt('save', lang)}
+              {submitting ? tt('saving', lang) : (isEdit ? tt('save_changes', lang) : tt('save', lang))}
             </button>
           </div>
         </form>
+        )}
       </div>
     </CrmLayout>
   );

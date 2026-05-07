@@ -26,6 +26,7 @@ import {
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { AlertTriangle, Flame, Target, Users, Filter, TrendingUp, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // ────────────────────────────────────────────────────────────
 // Translations (DA / EN / DE — others fall back to EN)
@@ -455,9 +456,14 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
                           {list.slice(0, 3).map(l => (
                             <Tooltip key={l.id}>
                               <TooltipTrigger asChild>
-                                <li className="flex items-center justify-between gap-3 text-xs px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-default">
-                                  <span className="truncate text-slate-800 font-medium">{l.title || "—"}</span>
-                                  <span className="shrink-0 text-slate-400 tabular-nums">{fmtDate(l.next_followup_date, lang)}</span>
+                                <li>
+                                  <Link
+                                    to={`/portal/crm/leads/${l.id}`}
+                                    className="flex items-center justify-between gap-3 text-xs px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer"
+                                  >
+                                    <span className="truncate text-slate-800 font-medium">{l.title || "—"}</span>
+                                    <span className="shrink-0 text-slate-400 tabular-nums">{fmtDate(l.next_followup_date, lang)}</span>
+                                  </Link>
                                 </li>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">

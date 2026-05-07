@@ -246,6 +246,86 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
   return row;
 }
 
+export type CrmLeadPatch = Partial<Omit<CrmLead, "id" | "created_at">>;
+
+/**
+ * Update an existing lead by id.
+ *
+ * Strategy: patch local cache (so edits to seed/local rows survive a reload),
+ * then attempt to update the row in Supabase. We do NOT create a new row —
+ * if the id doesn't exist in Supabase yet (e.g. seed row) the update simply
+ * affects 0 rows there, but the local override still wins on next listLeads().
+ */
+export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLead> {
+  const now = new Date().toISOString();
+  // Merge into LS (acts as override for seed rows too).
+  const local = readLS<CrmLead>(LS_LEADS);
+  const existingIdx = local.findIndex(r => r.id === id);
+  let merged: CrmLead;
+  if (existingIdx >= 0) {
+    merged = { ...local[existingIdx], ...patch, id, updated_at: now } as CrmLead;
+    local[existingIdx] = merged;
+  } else {
+    // Seed/Supabase row not yet in LS — pull current from listLeads cache via seed/sup
+    const seeded = seedOpenLeads().find(r => r.id === id);
+    let base: CrmLead | null = seeded || null;
+    if (!base) {
+      try {
+        const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
+        if (data) base = data as unknown as CrmLead;
+      } catch { /* */ }
+    }
+    if (!base) throw new Error("Lead not found: " + id);
+    merged = { ...base, ...patch, id, updated_at: now } as CrmLead;
+    local.unshift(merged);
+  }
+  writeLS<CrmLead>(LS_LEADS, local);
+
+  try {
+    const { error } = await supabase.from("crm_leads").update({
+      title: merged.title,
+      owner_user_id: merged.owner_user_id,
+      owner_name: merged.owner_name,
+      linked_dealer_id: merged.linked_dealer_id,
+      first_contact_date: merged.first_contact_date,
+      expected_close_date: merged.expected_close_date,
+      next_followup_date: merged.next_followup_date,
+      machine_types: merged.machine_types,
+      next_activity: merged.next_activity,
+      demo_has_run: merged.demo_has_run,
+      contact_type: merged.contact_type,
+      customer_type: merged.customer_type,
+      contact_information: merged.contact_information,
+      trade_fair: merged.trade_fair,
+      country: merged.country,
+      notes: merged.notes,
+      estimated_value: merged.estimated_value,
+      probability: merged.probability,
+      pipeline_stage: merged.pipeline_stage,
+      lost_competitor: merged.lost_competitor,
+      lost_reason: merged.lost_reason,
+      lost_comment: merged.lost_comment,
+      status: merged.status,
+    }).eq("id", id);
+    if (error) console.warn("[crm.updateLead] supabase update failed (kept local):", error.message);
+  } catch (err) {
+    console.warn("[crm.updateLead] unexpected (kept local):", err);
+  }
+
+  return merged;
+}
+
+/** Fetch a single lead by id from local override → supabase → seed. */
+export async function getLead(id: string): Promise<CrmLead | null> {
+  const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
+  if (local) return local;
+  try {
+    const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
+    if (data) return data as unknown as CrmLead;
+  } catch { /* */ }
+  return seedOpenLeads().find(r => r.id === id) || null;
+}
+
 export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
 
 function seedOpenLeads(): CrmLead[] {
