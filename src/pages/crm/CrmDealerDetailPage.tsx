@@ -298,7 +298,24 @@ export default function CrmDealerDetailPage() {
   const liveQuoteCount = dealerQuotesInScope.length;
   const liveOrderCount = dealerOrdersInScope.length;
   const liveWonCount = wonOrdersInScope.length;
-  const livePipelineValue = dealerOrdersInScope.reduce((s, r) => s + (r.total_value || 0), 0);
+  // Pipeline value = open configurator quotes (CRM → Tilbud source) + open orders.
+  // Dealer match: dealer_account_id is implicit since rows already came from
+  // the same view; we then match by dealer_number against the in-scope numbers,
+  // falling back to normalized dealer name when number missing.
+  const normName = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dealerNameSet = new Set([dealer.company_name].filter(Boolean).map(normName));
+  const matchByName = (r: { dealer_number: string | null; dealer_company_name: string | null; dealer_name: string | null }) => {
+    if (r.dealer_number && scopeNumberSet.has(String(r.dealer_number))) return true;
+    return !r.dealer_number && (dealerNameSet.has(normName(r.dealer_company_name)) || dealerNameSet.has(normName(r.dealer_name)));
+  };
+  const openQuotesValue = dealerQuotes
+    .filter(matchByName)
+    .filter((r) => {
+      const s = (r.case_status || '').toLowerCase();
+      return s !== 'deleted' && s !== 'ordre_afgivet' && s !== 'lost' && s !== 'tabt';
+    })
+    .reduce((s, r) => s + (Number((r as unknown as { total_price?: number }).total_price) || 0), 0);
+  const livePipelineValue = dealerOrdersInScope.reduce((s, r) => s + (r.total_value || 0), 0) + openQuotesValue;
   const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);

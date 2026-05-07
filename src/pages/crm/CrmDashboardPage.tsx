@@ -17,6 +17,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
+import { listScopedOpenQuotes, type ScopedConfiguration } from '@/lib/crmRelationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { isCrmAdmin } from '@/lib/crmScope';
@@ -177,6 +178,7 @@ export default function CrmDashboardPage() {
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
+  const [openQuotes, setOpenQuotes] = useState<ScopedConfiguration[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
 
@@ -192,27 +194,35 @@ export default function CrmDashboardPage() {
       const sellerEmail = sellerView?.email
         ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
       const dealerNumber = appUser?.dealer_number ?? null;
+      const scopeFilter = { role: portalRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
 
       const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
       const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
-      // Closed-orders KPI now comes from the SAME source as CRM → Ordrer.
-      const ord = await listScopedOrdersWithValue({
-        role: portalRole,
-        sellerId: sid,
-        sellerInitials,
-        sellerEmail,
-        dealerNumber,
-      });
+      const ord = await listScopedOrdersWithValue(scopeFilter);
+      const quo = await listScopedOpenQuotes(scopeFilter);
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
       setOrders(ord.rows);
+      setOpenQuotes(quo.rows);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, appUser?.dealer_number, portalRole, isAdmin]);
 
-  const realMetrics = useMemo(() => deriveMetrics(activities, orders, isAdmin), [activities, orders, isAdmin]);
+  const realMetrics = useMemo(() => {
+    const base = deriveMetrics(activities, orders, isAdmin);
+    // Add open configurator quote value to the headline pipeline value and
+    // attribute it to the 'quote' stage bucket so distribution stays consistent.
+    const quoteValue = openQuotes.reduce((s, q) => s + (q.total_value || 0), 0);
+    const stages = base.pipelineByStage.map(s =>
+      s.key === 'quote'
+        ? { ...s, value: s.value + quoteValue, count: s.count + openQuotes.length }
+        : s
+    );
+    return { ...base, pipelineValue: base.pipelineValue + quoteValue, pipelineByStage: stages };
+  }, [activities, orders, isAdmin, openQuotes]);
+
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
   // Demo cleanup: never substitute mock data. Show real values (and the
