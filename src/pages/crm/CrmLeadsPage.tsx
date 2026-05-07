@@ -63,6 +63,8 @@ function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 type LeadType = 'open' | 'demo';
 interface UnifiedLead {
   id: string;
+  /** Human-readable number, e.g. "L-1000" or "D-8000". */
+  display_no: string;
   type: LeadType;
   title: string;
   customer: string | null;
