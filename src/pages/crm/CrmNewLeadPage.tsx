@@ -228,6 +228,7 @@ export default function CrmNewLeadPage() {
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
   const [probability, setProbability] = useState<string>('25');
+  const [moveToWorking, setMoveToWorking] = useState<string>('');
   const [stage, setStage] = useState<PipelineStage>('Lead');
 
   const [lostCompetitor, setLostCompetitor] = useState<string>('');
