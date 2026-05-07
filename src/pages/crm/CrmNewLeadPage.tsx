@@ -309,6 +309,8 @@ export default function CrmNewLeadPage() {
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
       setProbability(lead.probability != null ? String(lead.probability) : '');
+      setMoveToWorking(typeof lead.move_to_working_qty === 'number' && lead.move_to_working_qty > 0
+        ? String(lead.move_to_working_qty) : '');
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
       setLostCompetitor(lead.lost_competitor || '');
       setLostReason(lead.lost_reason || '');
