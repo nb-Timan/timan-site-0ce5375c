@@ -1767,8 +1767,41 @@ export default function CrmBudgetPage() {
                               actor_email: appUser?.email || null,
                               actor_name: appUser?.display_name || null,
                             };
+                            const cellLeads = leadWorkingByMonth[i];
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
+                                {cellLeads.length > 0 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-block ml-0.5 mr-1 align-middle text-[9px] font-bold px-1 rounded bg-amber-400/30 text-amber-200 border border-amber-300/40 cursor-help">
+                                        +{cellLeads.reduce((s, c) => s + c.qty, 0)}L
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-sm">
+                                      <div className="text-xs space-y-2">
+                                        <div className="font-semibold border-b border-slate-200 pb-1">
+                                          Leads i Arbejdsbudget · {monthLabel} · {productName}
+                                        </div>
+                                        {cellLeads.map(c => (
+                                          <div key={c.lead_id} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
+                                            <div className="font-medium">
+                                              <a
+                                                href={`/portal/crm/leads/${c.lead_id}`}
+                                                className="font-mono text-[11px] text-sky-600 hover:underline mr-1.5"
+                                              >{formatLeadNo(c.lead_no)}</a>
+                                              {c.title}
+                                            </div>
+                                            <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
+                                            {c.dealer && <div className="text-slate-600">Forhandler: {c.dealer}</div>}
+                                            {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
+                                            {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
+                                            {c.expected_close_date && <div className="text-slate-500">Forventet luk: {c.expected_close_date}</div>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                                 {canEditWorking ? (
                                   <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
                                     <button
