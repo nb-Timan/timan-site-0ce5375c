@@ -394,12 +394,13 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
 /** Fetch a single lead by id from local override → supabase → seed. */
 export async function getLead(id: string): Promise<CrmLead | null> {
   const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
-  if (local) return local;
+  if (local) return ensureLeadNumbers([local])[0];
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
-    if (data) return data as unknown as CrmLead;
+    if (data) return ensureLeadNumbers([data as unknown as CrmLead])[0];
   } catch { /* */ }
-  return seedOpenLeads().find(r => r.id === id) || null;
+  const seeded = seedOpenLeads().find(r => r.id === id);
+  return seeded ? ensureLeadNumbers([seeded])[0] : null;
 }
 
 export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
