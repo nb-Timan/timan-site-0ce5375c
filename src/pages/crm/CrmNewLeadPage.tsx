@@ -283,6 +283,7 @@ export default function CrmNewLeadPage() {
     (async () => {
       const lead = await getLead(editId);
       if (cancelled || !lead) { setLoadingLead(false); return; }
+      setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
       setTitle(lead.title || '');
       setResponsibleSellerId(lead.owner_user_id || '');
       setResponsibleName(lead.owner_name || '');
