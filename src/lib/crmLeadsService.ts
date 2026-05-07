@@ -183,6 +183,58 @@ function writeLS<T>(key: string, rows: T[]): void {
   try { localStorage.setItem(key, JSON.stringify(rows.slice(0, 500))); } catch { /* */ }
 }
 
+// ---------- Human-readable lead/demo numbers ----------
+// Authoritative numbers come from Supabase sequences (phase31 SQL).
+// Helpers below also assign a stable local fallback for rows created while
+// offline, or for legacy rows the SQL backfill hasn't reached yet. Once a
+// row has a number it is never overwritten.
+
+export const LEAD_NO_PREFIX = "L-";
+export const DEMO_NO_PREFIX = "D-";
+const LEAD_NO_START = 1000;
+const DEMO_NO_START = 8000;
+
+export function formatLeadNo(n: number | null | undefined): string {
+  return n == null ? "—" : `${LEAD_NO_PREFIX}${n}`;
+}
+export function formatDemoNo(n: number | null | undefined): string {
+  return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
+}
+
+const LS_LEAD_LOCAL_NO = "timan.crm.leads.localNo.v1";
+const LS_DEMO_LOCAL_NO = "timan.crm.demoLeads.localNo.v1";
+
+function nextLocalNo(storageKey: string, start: number, seenMax: number): number {
+  let cur = 0;
+  try { cur = Number(localStorage.getItem(storageKey) || "0"); } catch { /* */ }
+  const next = Math.max(cur + 1, seenMax + 1, start);
+  try { localStorage.setItem(storageKey, String(next)); } catch { /* */ }
+  return next;
+}
+
+function ensureLeadNumbers(rows: CrmLead[]): CrmLead[] {
+  let seen = 0;
+  for (const r of rows) if (typeof r.lead_no === "number" && r.lead_no > seen) seen = r.lead_no;
+  for (const r of rows) {
+    if (typeof r.lead_no !== "number" || r.lead_no <= 0) {
+      r.lead_no = nextLocalNo(LS_LEAD_LOCAL_NO, LEAD_NO_START, seen);
+      seen = r.lead_no;
+    }
+  }
+  return rows;
+}
+function ensureDemoNumbers(rows: CrmDemoLead[]): CrmDemoLead[] {
+  let seen = 0;
+  for (const r of rows) if (typeof r.demo_no === "number" && r.demo_no > seen) seen = r.demo_no;
+  for (const r of rows) {
+    if (typeof r.demo_no !== "number" || r.demo_no <= 0) {
+      r.demo_no = nextLocalNo(LS_DEMO_LOCAL_NO, DEMO_NO_START, seen);
+      seen = r.demo_no;
+    }
+  }
+  return rows;
+}
+
 // ---------- Leads ----------
 
 export type NewCrmLead = Omit<CrmLead, "id" | "created_at" | "updated_at">;
