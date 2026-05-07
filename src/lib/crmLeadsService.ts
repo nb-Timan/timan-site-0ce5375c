@@ -242,11 +242,22 @@ export type NewCrmLead = Omit<CrmLead, "id" | "created_at" | "updated_at">;
 export async function createLead(input: NewCrmLead): Promise<CrmLead> {
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
+
+  // Pre-assign a stable local fallback lead_no based on what we've seen so
+  // far (LS + seed). The Supabase sequence is authoritative — if the insert
+  // succeeds we overwrite this with the real returned lead_no.
+  const knownMax = Math.max(
+    0,
+    ...readLS<CrmLead>(LS_LEADS).map(r => r.lead_no || 0),
+    ...seedOpenLeads().map(r => r.lead_no || 0),
+  );
+  row.lead_no = nextLocalNo(LS_LEAD_LOCAL_NO, LEAD_NO_START, knownMax);
+
   // Local cache first
   writeLS<CrmLead>(LS_LEADS, [row, ...readLS<CrmLead>(LS_LEADS)]);
 
   try {
-    const { error } = await supabase.from("crm_leads").insert({
+    const { data, error } = await supabase.from("crm_leads").insert({
       id: row.id,
       title: row.title,
       owner_user_id: row.owner_user_id,
@@ -271,8 +282,15 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       status: row.status,
-    });
+    }).select("lead_no").maybeSingle();
     if (error) console.warn("[crm.createLead] supabase insert failed (kept local):", error.message);
+    if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
+      row.lead_no = (data as { lead_no: number }).lead_no;
+      // Sync the local row with the authoritative number.
+      const ls = readLS<CrmLead>(LS_LEADS);
+      const idx = ls.findIndex(r => r.id === row.id);
+      if (idx >= 0) { ls[idx] = { ...ls[idx], lead_no: row.lead_no }; writeLS(LS_LEADS, ls); }
+    }
   } catch (err) {
     console.warn("[crm.createLead] unexpected (kept local):", err);
   }
