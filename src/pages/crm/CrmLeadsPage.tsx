@@ -10,6 +10,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   listLeads, listDemoLeads, resolveSeedOwners,
   CrmLead, CrmDemoLead, PIPELINE_STAGES,
+  formatLeadNo, formatDemoNo,
 } from '@/lib/crmLeadsService';
 import { Plus, Search, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
