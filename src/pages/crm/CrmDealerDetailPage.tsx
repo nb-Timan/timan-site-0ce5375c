@@ -47,11 +47,16 @@ import {
   getActiveSellerView, getActiveMode,
 } from "@/lib/activeMode";
 import {
-  listCrmConfigurations,
   listScopedOrdersWithValue,
-  type CrmConfigurationRow,
   type CrmOrderWithValue,
 } from "@/lib/crmConfigurationsService";
+import {
+  listScopedOpenQuotes,
+  dealerKeyOf,
+  quoteMonthIso,
+  type ScopedConfiguration,
+} from "@/lib/crmRelationsService";
+import { resolveSellerId } from "@/lib/resolveSellerId";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
@@ -127,7 +132,7 @@ export default function CrmDealerDetailPage() {
   // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
   // — instead of dealer_account_stats which can lag for newly-created orders
   // and only counts via created_by_user_id (misses backend/seller-created ones).
-  const [dealerQuotes, setDealerQuotes] = useState<CrmConfigurationRow[]>([]);
+  const [dealerQuotes, setDealerQuotes] = useState<ScopedConfiguration[]>([]);
   const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
@@ -170,15 +175,20 @@ export default function CrmDealerDetailPage() {
       // fetches everything (no scoping), seller fetches their own. We then
       // filter client-side by dealer_number so branch/group toggle works.
       try {
+        const sellerView = getActiveSellerView(appUser?.email);
+        const sellerId = await resolveSellerId(sellerView?.email ?? appUser?.email);
+        const sellerInitials = sellerView?.initials
+          ?? (seller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
+        const sellerEmail = sellerView?.email ?? (seller ? appUser?.email?.toLowerCase() ?? null : null);
         const filterBase = {
           role: portalRole,
-          sellerId: null,
-          sellerInitials: null,
-          sellerEmail: null,
+          sellerId,
+          sellerInitials,
+          sellerEmail,
           dealerNumber: appUser?.dealer_number ?? null,
         } as const;
         const [qRes, oRes] = await Promise.all([
-          listCrmConfigurations({ ...filterBase, documentType: 'quote' }),
+          listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
         ]);
         if (!cancelled) {
@@ -285,9 +295,24 @@ export default function CrmDealerDetailPage() {
   // counted here too — including new orders not yet picked up by the
   // dealer_account_stats aggregation view.
   const scopeNumberSet = new Set(scopeNumbers.map((n) => String(n)));
-  const dealerQuotesInScope = dealerQuotes.filter(
-    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
-  );
+  // Canonical dealer keys for this dealer (id + numbers + normalized name).
+  // Mirrors crmRelationsService.dealerKeyOf so any quote whose dealer resolves
+  // to one of these keys is counted here.
+  const normName = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dealerKeySet = new Set<string>();
+  if (dealer.id) dealerKeySet.add(`id:${dealer.id}`);
+  for (const num of scopeNumbers) if (num) dealerKeySet.add(`num:${String(num).trim()}`);
+  for (const d of dealers) {
+    if (scopeNumberSet.has(String(d.account_number))) {
+      const n = normName(d.company_name);
+      if (n) dealerKeySet.add(`name:${n}`);
+      const bn = normName(d.branch_name);
+      if (bn) dealerKeySet.add(`name:${bn}`);
+    }
+  }
+  const matchesDealer = (key: string | null) => !!key && dealerKeySet.has(key);
+
+  const dealerQuotesInScope = dealerQuotes.filter((r) => matchesDealer(r.dealer_key ?? dealerKeyOf(r)));
   const dealerOrdersInScope = dealerOrders.filter(
     (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
   );
@@ -298,24 +323,19 @@ export default function CrmDealerDetailPage() {
   const liveQuoteCount = dealerQuotesInScope.length;
   const liveOrderCount = dealerOrdersInScope.length;
   const liveWonCount = wonOrdersInScope.length;
-  // Pipeline value = open configurator quotes (CRM → Tilbud source) + open orders.
-  // Dealer match: dealer_account_id is implicit since rows already came from
-  // the same view; we then match by dealer_number against the in-scope numbers,
-  // falling back to normalized dealer name when number missing.
-  const normName = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const dealerNameSet = new Set([dealer.company_name].filter(Boolean).map(normName));
-  const matchByName = (r: { dealer_number: string | null; dealer_company_name: string | null; dealer_name: string | null }) => {
-    if (r.dealer_number && scopeNumberSet.has(String(r.dealer_number))) return true;
-    return !r.dealer_number && (dealerNameSet.has(normName(r.dealer_company_name)) || dealerNameSet.has(normName(r.dealer_name)));
-  };
-  const openQuotesValue = dealerQuotes
-    .filter(matchByName)
-    .filter((r) => {
-      const s = (r.case_status || '').toLowerCase();
-      return s !== 'deleted' && s !== 'ordre_afgivet' && s !== 'lost' && s !== 'tabt';
-    })
-    .reduce((s, r) => s + (Number((r as unknown as { total_price?: number }).total_price) || 0), 0);
+  // Pipeline value = open configurator quotes (computed from state_json via
+  // crmRelationsService) + open orders.
+  const openQuotesValue = dealerQuotesInScope.reduce((s, r) => s + (r.total_value || 0), 0);
   const livePipelineValue = dealerOrdersInScope.reduce((s, r) => s + (r.total_value || 0), 0) + openQuotesValue;
+  // Latest activity from quotes (used to enrich "Sidste aktivitet" if no
+  // calendar activity is more recent).
+  const latestQuoteIso = dealerQuotesInScope
+    .map((r) => quoteMonthIso(r))
+    .filter(Boolean)
+    .sort()
+    .reverse()[0] || null;
+  const lastDoneIso = lastDoneAct?.start_datetime || null;
+  const latestActivityIso = [latestQuoteIso, lastDoneIso].filter(Boolean).sort().reverse()[0] || null;
   const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
@@ -482,7 +502,7 @@ export default function CrmDealerDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
         <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(lastDoneAct?.start_datetime ?? ownStats?.last_activity_at ?? null)} />
+        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
         <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
         <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_leads")} value={"—"} hint="Kommer snart" />
         <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={liveQuoteCount} />
