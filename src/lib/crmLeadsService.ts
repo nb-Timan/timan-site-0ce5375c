@@ -97,6 +97,9 @@ export const DEMO_RESULT_STATUS = [
 
 export interface CrmLead {
   id: string;
+  /** Stable, human-readable lead number (1000+) → displayed as L-1000.
+   *  Assigned by Supabase sequence on insert (phase31 SQL). */
+  lead_no?: number | null;
   title: string;
   owner_user_id: string | null;
   owner_name: string | null;
