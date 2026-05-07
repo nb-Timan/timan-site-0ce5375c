@@ -30,6 +30,8 @@ export interface SavedConfiguration {
   order_sent_at: string | null;
   sent_pdf_path: string | null;
   sent_pdf_filename: string | null;
+  /** Phase 33 — optional link to a CRM lead. Null when not linked. */
+  lead_id: string | null;
 }
 
 export const SENT_PDF_BUCKET = 'sent-pdfs';
