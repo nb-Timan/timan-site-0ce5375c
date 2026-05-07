@@ -1780,13 +1780,12 @@ export default function CrmBudgetPage() {
                           <td className="px-2 py-2"></td>
                         </tr>
 
-                        {/* PIPELINE */}
+                        {/* PIPELINE — open configurator quotes (CRM → Tilbud source) */}
                         <tr key={`pipe-${keyPrefix}`} className="bg-amber-50/40">
                           <td className={cn("sticky left-0 z-10 bg-amber-50/40 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800", stickyPad)}>{T.row_pipeline[lang]}</td>
-                          {pipelineMonthly.map((offers, i) => {
-                            const count = offers.length;
-                            const sum = offers.reduce((a, b) => a + b.value, 0);
-                            if (count === 0) {
+                          {quoteCellsByMonth.map((cell, i) => {
+                            const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
+                            if (cell.qty === 0) {
                               return <td key={i} className="px-2 py-2 text-center text-amber-700/40 text-xs">−</td>;
                             }
                             return (
@@ -1794,24 +1793,28 @@ export default function CrmBudgetPage() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button className="inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 hover:bg-amber-200 transition">
-                                      {count}
+                                      {cell.qty}
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-sm">
                                     <div className="text-xs space-y-2">
                                       <div className="font-semibold border-b border-slate-200 pb-1">
-                                        {count} {T.tip_quotes[lang]} · {fmtDKK(sum)}
+                                        {cell.quotes.length} {T.tip_quotes[lang]} · {monthLabel} · {productName}
+                                        <span className="ml-2 tabular-nums">{fmtDKK(cell.value)}</span>
                                       </div>
-                                      {offers.map((o, idx) => (
-                                        <div key={idx} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
-                                          <div className="font-medium">{o.offer_no} · {(STATUS_LABELS as Record<string, Record<Language,string>>)[o.status]?.[lang] || o.status}</div>
-                                          <div className="text-slate-600">{o.dealer}</div>
-                                          <div className="text-slate-600">{T.tip_customer[lang]}: {o.customer}</div>
-                                          <div className="text-slate-600">{T.tip_machine[lang]}: {productName}</div>
-                                          <div className="text-slate-600">{T.tip_attach[lang]}: {o.attachment}</div>
+                                      {cell.quotes.map((q) => (
+                                        <div key={q.id} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
+                                          <div className="font-medium">
+                                            <a href={`/portal/crm/quotes`} className="text-sky-700 hover:underline">
+                                              {q.quote_number || q.title || q.id.slice(0, 8)}
+                                            </a>
+                                            {q.case_status ? <span className="ml-1 text-slate-500">· {q.case_status}</span> : null}
+                                          </div>
+                                          <div className="text-slate-600">{q.dealer_company_name || q.dealer_name || "—"}</div>
+                                          <div className="text-slate-600">{T.tip_machine[lang]}: {productName} · {q.machine_qty_by_key[blockProductKey] || 1} stk.</div>
                                           <div className="flex justify-between">
-                                            <span className="text-slate-500">{T.tip_sent[lang]}: {fmtDate(o.sent_date, lang)}</span>
-                                            <span className="font-semibold tabular-nums">{fmtDKK(o.value)}</span>
+                                            <span className="text-slate-500">{q.seller_initials || q.seller_email || "—"}</span>
+                                            <span className="font-semibold tabular-nums">{fmtDKK(q.total_value)}</span>
                                           </div>
                                         </div>
                                       ))}
@@ -1821,9 +1824,10 @@ export default function CrmBudgetPage() {
                               </td>
                             );
                           })}
-                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums">{totalPipeline}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums" title={fmtDKK(totalPipelineValue)}>{totalPipeline}</td>
                           <td className="px-2 py-2"></td>
                         </tr>
+
 
                         {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
