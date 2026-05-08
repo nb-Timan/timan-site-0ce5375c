@@ -24,6 +24,7 @@ const T: Record<string, Record<Language, string>> = {
   activities: { da: 'Aktiviteter',   en: 'Activities', de: 'Aktivitäten',it: 'Attività',   hu: 'Tevékenységek' },
   calendar:   { da: 'Kalender',      en: 'Calendar',   de: 'Kalender',   it: 'Calendario', hu: 'Naptár' },
   budget:     { da: 'Budget',        en: 'Budget',     de: 'Budget',     it: 'Budget',     hu: 'Költségvetés' },
+  budget_dashboard: { da: 'Budget Dashboard', en: 'Budget Dashboard', de: 'Budget Dashboard', it: 'Budget Dashboard', hu: 'Budget Dashboard' },
   reports:    { da: 'Rapporter',     en: 'Reports',    de: 'Berichte',   it: 'Report',     hu: 'Riportok' },
   scope_all:    { da: 'Ser alle CRM-data', en: 'Viewing all CRM data', de: 'Alle CRM-Daten', it: 'Tutti i dati CRM', hu: 'Összes CRM adat' },
   scope_owner:  { da: 'Ser kun egne tildelte konti', en: 'Viewing only your assigned accounts', de: 'Nur eigene Konten', it: 'Solo i tuoi account', hu: 'Csak saját fiókok' },
