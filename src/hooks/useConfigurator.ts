@@ -5,9 +5,8 @@ import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/
 import { t } from '@/data/translations';
 import { toast } from 'sonner';
 
-// Items capped at combined max 2 pcs across the entire configuration
-const CENTERSLANGE_LIMITED_VARENR = new Set(['721059', '721122']);
-const CENTERSLANGE_MAX_TOTAL = 2;
+// Items capped at max 1 selection per varenr across the whole configuration
+const SINGLETON_VARENR = new Set(['721059', '721122']);
 
 function getVarenrForAccId(modelType: string, accId: string): string | null {
   const flat = getAccessoriesFlat(modelType);
@@ -15,13 +14,13 @@ function getVarenrForAccId(modelType: string, accId: string): string | null {
   return found ? String(found.varenr || '') : null;
 }
 
-function countCenterslangeSelections(state: ConfiguratorState): number {
+function countSelectionsForVarenr(state: ConfiguratorState, targetVarenr: string): number {
   let count = 0;
   for (const mc of state.machineConfigs) {
     if (mc.configMode === 'shared') {
       for (const id of mc.acc) {
         const v = getVarenrForAccId(mc.type, id);
-        if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+        if (v === targetVarenr) count++;
       }
     } else {
       for (let i = 1; i <= mc.qty; i++) {
@@ -29,7 +28,7 @@ function countCenterslangeSelections(state: ConfiguratorState): number {
         const list = state.individualUnitConfigs[key]?.acc || [];
         for (const id of list) {
           const v = getVarenrForAccId(mc.type, id);
-          if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+          if (v === targetVarenr) count++;
         }
       }
     }
@@ -139,16 +138,17 @@ export function useConfigurator() {
       const unit = allUnits[s.currentMachineIndex];
       if (!unit) return s;
 
-      // Combined max-2 guard for varenr 721059 + 721122 across the whole configuration.
-      // Removal is always allowed; only adding is blocked when limit is already reached.
+      // Per-varenr max-1 guard for 721059 and 721122 across the whole configuration.
+      // Resolves accId → varenr (covers generated ids like 721122_<parentId>).
+      // Removal is always allowed; only adding is blocked when the varenr is already selected once.
       const clickedVarenr = getVarenrForAccId(unit.modelType, accId);
-      if (clickedVarenr && CENTERSLANGE_LIMITED_VARENR.has(clickedVarenr)) {
+      if (clickedVarenr && SINGLETON_VARENR.has(clickedVarenr)) {
         const currentList = unit.isSharedUnit
           ? (s.machineConfigs.find(c => c.id === unit.modelId)?.acc || [])
           : (s.individualUnitConfigs[unit.configKey]?.acc || []);
         const isAdding = !currentList.includes(accId);
-        if (isAdding && countCenterslangeSelections(s) >= CENTERSLANGE_MAX_TOTAL) {
-          toast.error('Maks 2 stk. samlet af centerslange (721059 / 721122) pr. konfiguration');
+        if (isAdding && countSelectionsForVarenr(s, clickedVarenr) >= 1) {
+          toast.error('Dette varenummer kan kun vælges én gang pr. ordre.');
           return s;
         }
       }
