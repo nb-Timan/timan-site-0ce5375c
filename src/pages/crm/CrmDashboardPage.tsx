@@ -184,8 +184,11 @@ export default function CrmDashboardPage() {
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
   const [openQuotes, setOpenQuotes] = useState<ScopedConfiguration[]>([]);
+  const [leads, setLeads] = useState<CrmLead[]>([]);
+  const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,28 +208,41 @@ export default function CrmDashboardPage() {
       const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
+      const lds = await listLeads({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const cal = await listCalendarActivities({
+        sellerInitials: isAdmin ? null : sellerInitials,
+        sellerUserId: isAdmin ? null : sid,
+      });
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
       setOrders(ord.rows);
       setOpenQuotes(quo.rows);
+      setLeads(lds);
+      setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin]);
+
+  // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
+  // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
+  // - quote → openQuotes (same as CRM → Tilbud & Pipeline value)
+  // - lead/neg/lost → crm_leads pipeline_stage
+  // - demo → crm_calendar_activities (type=demo, status=planned)
+  const pipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
 
   const realMetrics = useMemo(() => {
     const base = deriveMetrics(activities, orders, isAdmin);
-    // Add open configurator quote value to the headline pipeline value and
-    // attribute it to the 'quote' stage bucket so distribution stays consistent.
-    const quoteValue = openQuotes.reduce((s, q) => s + (q.total_value || 0), 0);
-    const stages = base.pipelineByStage.map(s =>
-      s.key === 'quote'
-        ? { ...s, value: s.value + quoteValue, count: s.count + openQuotes.length }
-        : s
-    );
-    return { ...base, pipelineValue: base.pipelineValue + quoteValue, pipelineByStage: stages };
-  }, [activities, orders, isAdmin, openQuotes]);
+    const byStage = PIPELINE_STAGES.map(meta => {
+      const items = pipelineRows[meta.key] || [];
+      const value = items.reduce((s, x) => s + (x.value || 0), 0);
+      return { key: meta.key, bar: meta.bar, hex: meta.hex, ring: meta.ring, value, count: items.length };
+    });
+    const openKeys: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
+    const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
+    return { ...base, pipelineValue, pipelineByStage: byStage };
+  }, [activities, orders, isAdmin, pipelineRows]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
