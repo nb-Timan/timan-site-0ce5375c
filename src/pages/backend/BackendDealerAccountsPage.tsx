@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
+import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
