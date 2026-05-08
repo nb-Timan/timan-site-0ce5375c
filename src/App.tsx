@@ -97,6 +97,7 @@ const App = () => (
               <Route path="/portal/crm/demo-leads/new" element={<CrmNewDemoLeadPage />} />
               <Route path="/portal/crm/demo-leads/:id" element={<CrmDemoLeadDetailPage />} />
               <Route path="/portal/crm/budget"     element={<CrmBudgetPage />} />
+              <Route path="/portal/crm/budget-dashboard" element={<CrmBudgetDashboardPage />} />
               <Route path="/portal/crm/calendar"   element={<CrmCalendarPage />} />
               <Route path="/portal/crm/quotes"     element={<CrmQuotesOrdersPage mode="quote" />} />
               <Route path="/portal/crm/orders"     element={<CrmQuotesOrdersPage mode="order" />} />
