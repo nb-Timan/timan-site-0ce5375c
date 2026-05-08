@@ -22,6 +22,7 @@ import CrmDemoLeadsPage from "./pages/crm/CrmDemoLeadsPage";
 import CrmNewDemoLeadPage from "./pages/crm/CrmNewDemoLeadPage";
 import CrmDemoLeadDetailPage from "./pages/crm/CrmDemoLeadDetailPage";
 import CrmBudgetPage from "./pages/crm/CrmBudgetPage";
+import CrmBudgetDashboardPage from "./pages/crm/CrmBudgetDashboardPage";
 import CrmCalendarPage from "./pages/crm/CrmCalendarPage";
 import ConfiguratorPage from "./pages/ConfiguratorPage";
 import VideoGalleryPage from "./pages/VideoGalleryPage";
