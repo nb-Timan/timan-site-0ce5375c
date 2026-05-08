@@ -442,16 +442,21 @@ export default function CrmDashboardPage() {
             <EmptyState text={T.empty[lang]} />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: per-stage progress bars */}
+              {/* Left: per-stage progress bars (clickable) */}
               <div className="lg:col-span-2 space-y-3.5">
                 {(() => {
                   const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
-                  const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                  const totalValue = metrics.pipelineByStage.reduce((s, x) => s + x.value, 0);
                   return metrics.pipelineByStage.map(s => {
-                    const pct = Math.round((s.value / max) * 100);
-                    const sharePct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                    const widthPct = Math.round((s.value / max) * 100);
+                    const sharePct = totalValue === 0 ? 0 : Math.round((s.value / totalValue) * 100);
                     return (
-                      <div key={s.key}>
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setOpenStage(s.key)}
+                        className="block w-full text-left rounded-lg p-1 -m-1 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      >
                         <div className="flex items-center justify-between text-sm mb-1.5">
                           <span className="inline-flex items-center gap-2 font-medium text-gray-800">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold ${s.ring}`}>
@@ -467,10 +472,10 @@ export default function CrmDashboardPage() {
                         <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
                           <div
                             className={`${s.bar} h-full rounded-full transition-[width] duration-700 ease-out`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${widthPct}%` }}
                           />
                         </div>
-                      </div>
+                      </button>
                     );
                   });
                 })()}
@@ -489,7 +494,6 @@ export default function CrmDashboardPage() {
                   </div>
                   {(() => {
                     const totalValue = Math.max(1, metrics.pipelineByStage.reduce((s, x) => s + x.value, 0));
-                    const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
                     const segs = metrics.pipelineByStage.filter(s => s.value > 0);
                     return (
                       <>
@@ -497,8 +501,10 @@ export default function CrmDashboardPage() {
                           {segs.map((s, i) => {
                             const pct = (s.value / totalValue) * 100;
                             return (
-                              <div
+                              <button
                                 key={s.key}
+                                type="button"
+                                onClick={() => setOpenStage(s.key)}
                                 title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value)}`}
                                 className={`${s.bar} h-full ${i === 0 ? '' : 'border-l border-white/60'}`}
                                 style={{ width: `${pct}%` }}
@@ -507,10 +513,15 @@ export default function CrmDashboardPage() {
                           })}
                         </div>
                         <div className="mt-4 space-y-2">
-                          {metrics.pipelineByStage.filter(s => s.count > 0).map(s => {
-                            const pct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                          {metrics.pipelineByStage.filter(s => s.count > 0 || s.value > 0).map(s => {
+                            const pct = totalValue === 0 ? 0 : Math.round((s.value / totalValue) * 100);
                             return (
-                              <div key={s.key} className="flex items-center gap-2 text-[11.5px]">
+                              <button
+                                key={s.key}
+                                type="button"
+                                onClick={() => setOpenStage(s.key)}
+                                className="flex items-center gap-2 text-[11.5px] w-full text-left rounded hover:bg-slate-100/60 px-1 py-0.5"
+                              >
                                 <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: s.hex }} />
                                 <span className="text-slate-700 font-medium truncate">{T[`stage_${s.key}`][lang]}</span>
                                 <span className="ml-auto text-slate-500 tabular-nums shrink-0">
@@ -520,7 +531,7 @@ export default function CrmDashboardPage() {
                                   <span className="mx-1 text-slate-300">·</span>
                                   <span>{pct}%</span>
                                 </span>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -531,6 +542,13 @@ export default function CrmDashboardPage() {
               </div>
             </div>
           )}
+          {/* Drill-down modal */}
+          <PipelineStageModal
+            stage={openStage}
+            onClose={() => setOpenStage(null)}
+            rowsByStage={pipelineRows}
+            lang={lang}
+          />
         </Card>
 
         {/* RECENT ACTIVITY + LOST REASONS */}
