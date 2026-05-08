@@ -134,7 +134,7 @@ export default function BackendDealerAccountsPage() {
   const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
-    if (seller && r.assigned_seller_initials !== seller) return false;
+    if (seller && !sellerInitialsMatch(r.assigned_seller_initials, seller)) return false;
     if (unassignedOnly && r.assigned_seller_initials) return false;
     if (structureFilter === "main" && !(r.is_main_account || (!r.parent_account_number && rows.some((x) => x.parent_account_number === r.account_number)))) return false;
     if (structureFilter === "branch" && !r.parent_account_number) return false;
