@@ -11,6 +11,8 @@ import SellerOverviewSection from '@/components/crm/SellerOverviewSection';
 import SellerCockpitSection from '@/components/crm/SellerCockpitSection';
 import DemoStatsSection from '@/components/crm/DemoStatsSection';
 import UpcomingActivitiesWidget from '@/components/crm/UpcomingActivitiesWidget';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ExternalLink } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -18,9 +20,12 @@ import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccoun
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { listScopedOpenQuotes, type ScopedConfiguration } from '@/lib/crmRelationsService';
+import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { isCrmAdmin } from '@/lib/crmScope';
+import { formatDate } from '@/lib/format-date';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
