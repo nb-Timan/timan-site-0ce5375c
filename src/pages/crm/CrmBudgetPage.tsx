@@ -370,6 +370,9 @@ export default function CrmBudgetPage() {
   const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
   // Large-change confirm dialog state.
   const [largeChange, setLargeChange] = useState<{ ctx: LargeChangeContext; run: () => void | Promise<void> } | null>(null);
+  // Save-confirmation dialog state shown once at "Afslut redigering".
+  const [saveConfirm, setSaveConfirm] = useState<BudgetChangedCell[] | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
   // "Add reference" modal state — opened from the small Link2 icon next to a cell.
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
