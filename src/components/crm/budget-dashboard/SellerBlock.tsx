@@ -1,31 +1,50 @@
-import QuarterRow from "./QuarterRow";
-import type { CellAgg, MachineKey, Quarter, SellerDisplay } from "./useBudgetDashboardData";
+import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import BudgetMatrix from "./BudgetMatrix";
+import type {
+  MachineKey,
+  Quarter,
+  SellerDisplay,
+  SellerSection,
+} from "./useBudgetDashboardData";
 
 interface Props {
   seller: SellerDisplay;
-  data: Record<Quarter, Record<MachineKey, CellAgg>>;
-  onCellClick: (quarter: Quarter, machine: MachineKey) => void;
+  section: SellerSection;
+  defaultOpen?: boolean;
+  onCellClick: (dealerKey: string, quarter: Quarter, machine: MachineKey) => void;
 }
 
-export default function SellerBlock({ seller, data, onCellClick }: Props) {
+export default function SellerBlock({ seller, section, defaultOpen = false, onCellClick }: Props) {
+  const [open, setOpen] = useState(defaultOpen);
+  const dealerCount = section.dealers.filter((d) => !d.unassigned).length;
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <header className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white rounded-t-xl">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">{seller.display_name}</h2>
-          <p className="text-xs text-slate-500">{seller.initials} · {seller.country}</p>
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "w-full flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white text-left transition-colors hover:bg-slate-50",
+          !open && "border-b-0",
+        )}
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-3">
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-slate-500" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-500" />
+          )}
+          <div>
+            <h2 className="text-base font-bold text-slate-900">{seller.display_name}</h2>
+            <p className="text-[11px] text-slate-500">
+              {seller.initials} · {seller.country} · {dealerCount} forhandler{dealerCount === 1 ? "" : "e"}
+            </p>
+          </div>
         </div>
-      </header>
-      <div className="p-5 grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {([1, 2, 3, 4] as Quarter[]).map((q) => (
-          <QuarterRow
-            key={q}
-            quarter={q}
-            cells={data[q]}
-            onCellClick={(m) => onCellClick(q, m)}
-          />
-        ))}
-      </div>
+      </button>
+      {open && <BudgetMatrix dealers={section.dealers} cells={section.cells} onCellClick={onCellClick} />}
     </section>
   );
 }
