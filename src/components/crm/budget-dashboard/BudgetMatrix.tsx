@@ -74,13 +74,20 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
         <tbody>
           {dealers.map((d, idx) => {
             const row = cells[d.key];
+            const highlighted = !!hoveredCountryIso && d.countryIso === hoveredCountryIso;
+            const baseBg = idx % 2 ? "bg-slate-50/40" : "bg-white";
+            const stickyBg = idx % 2 ? "bg-slate-50/95" : "bg-white";
             return (
-              <tr key={d.key} className={idx % 2 ? "bg-slate-50/40" : "bg-white"}>
+              <tr
+                key={d.key}
+                className={cn(baseBg, highlighted && "bg-slate-200/60")}
+              >
                 <th
                   scope="row"
                   className={cn(
                     "sticky left-0 z-10 text-left px-3 py-2 font-medium text-slate-800 border-b border-r border-slate-200 align-top",
-                    idx % 2 ? "bg-slate-50/95" : "bg-white",
+                    stickyBg,
+                    highlighted && "bg-slate-200/80",
                     d.unassigned && "italic text-slate-500",
                   )}
                 >
