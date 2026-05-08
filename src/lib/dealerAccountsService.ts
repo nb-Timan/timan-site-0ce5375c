@@ -538,9 +538,8 @@ export async function fetchDealerAccountStatsForSeller(opts: {
   const initials = opts.initials?.trim().toUpperCase() || null;
   const email = opts.email?.trim().toLowerCase() || null;
   const filtered = all.rows.filter((r) => {
-    const ri = r.assigned_seller_initials?.trim().toUpperCase() || null;
     const re = r.assigned_seller_email?.trim().toLowerCase() || null;
-    return (initials && ri === initials) || (email && re === email);
+    return (initials && sellerInitialsMatch(r.assigned_seller_initials, initials)) || (email && re === email);
   });
   return { rows: filtered };
 }
