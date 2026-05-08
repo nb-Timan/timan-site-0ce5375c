@@ -282,11 +282,10 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
   let rows = readLocal();
   if (opts.sellerUserId) rows = rows.filter(r => r.seller_user_id === opts.sellerUserId);
   else if (wantInitials) {
-    const want = wantInitials.toUpperCase();
     rows = rows.filter(r => {
-      if ((r.seller_initials || "").toUpperCase() === want) return true;
+      if (sellerInitialsMatch(r.seller_initials, wantInitials)) return true;
       const parts = r.participant_seller_initials || [];
-      return parts.some(p => (p || "").toUpperCase() === want);
+      return parts.some(p => sellerInitialsMatch(p, wantInitials));
     });
   }
   if (opts.accountId) rows = rows.filter(r => r.account_id === opts.accountId);
