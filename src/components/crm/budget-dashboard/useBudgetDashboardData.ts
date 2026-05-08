@@ -115,6 +115,8 @@ export interface DealerRow {
 export interface SellerSection {
   dealers: DealerRow[];
   cells: Record<string, Record<Quarter, Record<MachineKey, CellAgg>>>;
+  /** Compact country badge derived from assigned dealer countries. */
+  countryBadge: { label: string; tooltip: string | null };
 }
 
 export type DashboardData = Record<string, SellerSection>;
