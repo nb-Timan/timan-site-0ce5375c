@@ -175,6 +175,7 @@ function buildDealerLookup(dealers: DealerAccount[]): DealerLookup {
       key: rowKey,
       name: d.company_name || d.account_number || "(uden navn)",
       account_number: d.account_number || null,
+      countryIso: countryToIso(d.country),
     });
     byKey.set(`id:${d.id}`, rowKey);
     if (d.account_number) byKey.set(`num:${d.account_number.trim()}`, rowKey);
