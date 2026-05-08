@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
 export interface DealerAccount {
   id: string;
