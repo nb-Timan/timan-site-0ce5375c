@@ -112,6 +112,8 @@ export interface DealerRow {
   name: string;
   account_number: string | null;
   unassigned?: boolean;
+  /** ISO-3166 alpha-2 code (DK/DE/...) when the raw country resolves. */
+  countryIso?: string | null;
 }
 
 export interface SellerSection {
@@ -119,6 +121,8 @@ export interface SellerSection {
   cells: Record<string, Record<Quarter, Record<MachineKey, CellAgg>>>;
   /** Compact country badge derived from assigned dealer countries. */
   countryBadge: { label: string; tooltip: string | null };
+  /** Sorted list of ISO codes for chips in the seller header. */
+  countryIsos: string[];
 }
 
 export type DashboardData = Record<string, SellerSection>;
