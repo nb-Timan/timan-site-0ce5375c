@@ -835,7 +835,16 @@ export function getLooseToolAccessories(): Accessory[] {
     item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
   );
 
-  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, ...extras];
+  // Inject 721059 (Centerslange eftermontering) — only available under Løse redskaber
+  const looseOnly721059: Accessory = {
+    id: '721059',
+    varenr: '721059',
+    name: { da: 'Centerslange til T2 Timan 3330 (eftermontering)', en: 'Center hose for T2 Timan 3330 (retrofit)', de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)', it: 'Tubo centrale per T2 Timan 3330 (retrofit)', hu: 'Központi tömlő T2 Timan 3330 (utólagos)' },
+    priceDKK: 2550,
+    priceEUR: 345,
+  };
+
+  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, looseOnly721059, ...extras];
 
   // Add packaging cost item (hidden)
   merged.push({
