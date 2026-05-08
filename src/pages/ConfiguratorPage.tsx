@@ -2506,6 +2506,57 @@ export default function ConfiguratorPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Timan 3330 reminder: ensure varenr 721122 (centerslange) considered before leaving Step 3 */}
+      <Dialog open={reminder721122.open} onOpenChange={(open) => { if (!open) setReminder721122({ open: false, pendingNext: null }); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Centerslange (varenummer 721122)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700 whitespace-pre-line">
+            {`Du har ikke valgt varenummer 721122 til denne Timan 3330.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              onClick={() => {
+                const next = reminder721122.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit && unit.modelType === 'Timan 3330') {
+                  const flat = getAccessoriesFlat('Timan 3330');
+                  const target = flat.find(a => a.id === '721122_standalone')
+                    || flat.find(a => String(a.varenr) === '721122');
+                  if (target) toggleAcc(target.id);
+                }
+                setReminder721122({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
+            >
+              Tilføj 721122
+            </button>
+            <button
+              onClick={() => {
+                const next = reminder721122.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit) {
+                  setAcknowledged721122(prev => {
+                    const n = new Set(prev);
+                    n.add(unit.configKey);
+                    return n;
+                  });
+                }
+                setReminder721122({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
+            >
+              Fortsæt uden 721122
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
