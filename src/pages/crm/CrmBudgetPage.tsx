@@ -967,7 +967,7 @@ export default function CrmBudgetPage() {
     bumpEditActivity();
   }
   // void to silence unused warnings while the per-cell large-change popup is disabled.
-  void isLargeBudgetChange; void LargeChangeContext;
+  void isLargeBudgetChange;
 
   // ---- Gray BUDGET row editing ----
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
