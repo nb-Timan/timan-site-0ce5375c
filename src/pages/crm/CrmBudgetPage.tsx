@@ -45,6 +45,7 @@ import {
 } from "@/lib/budgetAccessWindows";
 import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
 import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
+import BudgetSaveConfirmDialog, { type BudgetChangedCell } from "@/components/crm/BudgetSaveConfirmDialog";
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
@@ -369,6 +370,9 @@ export default function CrmBudgetPage() {
   const [unlockDefaultEmail, setUnlockDefaultEmail] = useState<string | null>(null);
   // Large-change confirm dialog state.
   const [largeChange, setLargeChange] = useState<{ ctx: LargeChangeContext; run: () => void | Promise<void> } | null>(null);
+  // Save-confirmation dialog state shown once at "Afslut redigering".
+  const [saveConfirm, setSaveConfirm] = useState<BudgetChangedCell[] | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
   // "Add reference" modal state — opened from the small Link2 icon next to a cell.
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
@@ -426,8 +430,16 @@ export default function CrmBudgetPage() {
     if (editModeUntil == null) return;
     setEditModeUntil(Date.now() + EDIT_MODE_MS);
   }
-  function startEditMode() { setEditModeUntil(Date.now() + EDIT_MODE_MS); }
-  function endEditMode() { setEditModeUntil(null); }
+  function startEditMode() {
+    // Fresh edit session — clear any drafts so the baseline is the persisted
+    // monthly_qty / forecast snapshot.
+    setWorkingDraft({});
+    setEditModeUntil(Date.now() + EDIT_MODE_MS);
+  }
+  function exitEditModeSilently() {
+    setWorkingDraft({});
+    setEditModeUntil(null);
+  }
 
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
@@ -822,7 +834,16 @@ export default function CrmBudgetPage() {
       ? ac.monthly_qty.slice(0, 12)
       : splitToMonthly(ac?.qty_sold ?? 0, split);
     const draft = workingDraft[line.id];
-    const workingMonthly = draft ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
+    // Source of truth for working forecast (Arbejdsbudget):
+    //   1) live unsaved draft for this line, OR
+    //   2) exact per-month values previously saved (fc.monthly_qty), OR
+    //   3) legacy fallback — split annual qty_forecast by monthly_split.
+    // We MUST NOT redistribute monthly_qty when present — that would mutate
+    // the seller's manually entered values across months.
+    const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
+      ? fc.monthly_qty.map(v => Number(v) || 0)
+      : null;
+    const workingMonthly = draft ?? savedMonthly ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
@@ -925,7 +946,15 @@ export default function CrmBudgetPage() {
     return persisted;
   }
 
-  // ---- Working forecast handlers (auto-save) ----
+  // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
+  //
+  // Bug fix: previously each stepper press auto-saved (upsertForecast wrote
+  // an annual qty_forecast which was then redistributed across months on next
+  // read) AND triggered the "Stor budgetændring" popup per cell. Spec says:
+  //   • collect changes in a local draft
+  //   • show ONE confirmation modal at "Afslut redigering"
+  //   • save the exact draft values per (seller, model, month, year)
+  // adjustWorking therefore only mutates the in-memory draft now.
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
@@ -933,62 +962,133 @@ export default function CrmBudgetPage() {
     const lineId = persisted.id;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
-    const prevDraft = workingDraft[lineId] ?? splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
+      ? fcExisting.monthly_qty.map(v => Number(v) || 0)
+      : splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const prevDraft = workingDraft[lineId] ?? baselineMonthly;
     const oldVal = prevDraft[monthIdx] ?? 0;
     const newVal = Math.max(0, oldVal + delta);
     if (newVal === oldVal) return;
 
-    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
-    if (isLargeBudgetChange(oldVal, newVal)) {
-      setLargeChange({
-        ctx: {
-          oldValue: oldVal, newValue: newVal,
-          seller: persisted.seller_initials || persisted.seller_name || "—",
-          model: persisted.item_number || persisted.product_name,
-          month: monthLabel,
-          budget_type: "arbejdsbudget",
-        },
-        run: () => commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft),
-      });
-      return;
-    }
-    await commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft);
-  }
-
-  async function commitWorking(
-    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
-    fcExisting: BudgetForecast | undefined, prevDraft: number[],
-  ) {
-    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
       next[monthIdx] = newVal;
-      const qty = next.reduce((a, b) => a + b, 0);
-      const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
-      const fcNext: BudgetForecast = {
-        id: fcExisting?.id || ("f_" + lineId),
-        budget_line_id: lineId,
-        qty_forecast: qty,
-        value_forecast: Math.round(qty * unit),
-        comments: fcExisting?.comments ?? null,
-        expected_timing: fcExisting?.expected_timing ?? null,
-        risk_level: fcExisting?.risk_level ?? null,
-        probability: fcExisting?.probability ?? null,
-        updated_at: new Date().toISOString(),
-      };
-      void upsertForecast(fcNext).then(saved => {
-        setForecasts(prevF => {
-          const map = new Map(prevF.map(f => [f.budget_line_id, f]));
-          map.set(saved.budget_line_id, saved);
-          return Array.from(map.values());
-        });
-      });
       return { ...prev, [lineId]: next };
     });
-
-    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "arbejdsbudget");
     bumpEditActivity();
+  }
+  // void to silence unused warnings while the per-cell large-change popup is disabled.
+  void isLargeBudgetChange;
+
+  /** Compute the diff between current draft cells and their persisted
+   *  baseline (fc.monthly_qty preferred, else split of qty_forecast/qty_budget).
+   *  Returns one entry per CHANGED cell. */
+  function computeDraftChanges(): BudgetChangedCell[] {
+    const out: BudgetChangedCell[] = [];
+    for (const [lineId, draft] of Object.entries(workingDraft)) {
+      const persisted = lines.find(l => l.id === lineId);
+      if (!persisted) continue;
+      const fc = forecasts.find(f => f.budget_line_id === lineId);
+      const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+      const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
+        ? fc.monthly_qty.map(v => Number(v) || 0)
+        : splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
+      for (let i = 0; i < 12; i++) {
+        const oldV = baseline[i] ?? 0;
+        const newV = draft[i] ?? 0;
+        if (oldV === newV) continue;
+        out.push({
+          line_id: lineId,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: MONTHS_BY_LANG[lang][i] || `M${i + 1}`,
+          month_idx: i,
+          budget_type: "arbejdsbudget",
+          old_value: oldV,
+          new_value: newV,
+        });
+      }
+    }
+    out.sort((a, b) => a.seller.localeCompare(b.seller)
+      || a.model.localeCompare(b.model)
+      || a.month_idx - b.month_idx);
+    return out;
+  }
+
+  /** Click handler for "Afslut redigering". Opens the single confirmation
+   *  modal listing every changed cell. No changes → exit silently. */
+  function endEditMode() {
+    const changes = computeDraftChanges();
+    if (changes.length === 0) {
+      exitEditModeSilently();
+      return;
+    }
+    setSaveConfirm(changes);
+  }
+
+  /** Persist all draft lines exactly as the user sees them. Each changed line
+   *  is upserted ONCE with its full 12-month monthly_qty array, so unchanged
+   *  months are preserved verbatim and no redistribution happens. */
+  async function confirmSaveDrafts() {
+    if (!saveConfirm) return;
+    setSavingDraft(true);
+    try {
+      const byLine = new Map<string, BudgetChangedCell[]>();
+      for (const c of saveConfirm) {
+        const arr = byLine.get(c.line_id) || [];
+        arr.push(c);
+        byLine.set(c.line_id, arr);
+      }
+      const savedForecasts: BudgetForecast[] = [];
+      for (const [lineId, cells] of byLine.entries()) {
+        const persisted = lines.find(l => l.id === lineId);
+        if (!persisted) continue;
+        const draft = workingDraft[lineId];
+        if (!draft) continue;
+        const monthly = draft.slice(0, 12).map(v => Math.max(0, Math.round(Number(v) || 0)));
+        while (monthly.length < 12) monthly.push(0);
+        const qty = monthly.reduce((a, b) => a + b, 0);
+        const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+        const unit = persisted.qty_budget > 0
+          ? persisted.value_budget / persisted.qty_budget
+          : (findProduct(persisted.product_key)?.priceDKK || 0);
+        const fcNext: BudgetForecast = {
+          id: fcExisting?.id || ("f_" + lineId),
+          budget_line_id: lineId,
+          qty_forecast: qty,
+          value_forecast: Math.round(qty * unit),
+          monthly_qty: monthly,
+          comments: fcExisting?.comments ?? null,
+          expected_timing: fcExisting?.expected_timing ?? null,
+          risk_level: fcExisting?.risk_level ?? null,
+          probability: fcExisting?.probability ?? null,
+          updated_at: new Date().toISOString(),
+        };
+        const saved = await upsertForecast(fcNext);
+        savedForecasts.push({ ...saved, monthly_qty: monthly });
+        for (const c of cells) {
+          logBudgetAudit(persisted, c.month_idx, c.old_value, c.new_value, "arbejdsbudget");
+        }
+      }
+      setForecasts(prevF => {
+        const map = new Map(prevF.map(f => [f.budget_line_id, f]));
+        for (const f of savedForecasts) map.set(f.budget_line_id, f);
+        return Array.from(map.values());
+      });
+      try {
+        const fresh = await listForecasts(year);
+        setForecasts(fresh);
+      } catch { /* keep optimistic */ }
+      setSaveConfirm(null);
+      exitEditModeSilently();
+      toast.success("Arbejdsbudget gemt");
+    } catch (e) {
+      console.error("[budget] save drafts failed", e);
+      toast.error("Kunne ikke gemme arbejdsbudgettet");
+    } finally {
+      setSavingDraft(false);
+    }
   }
 
   // ---- Gray BUDGET row editing ----
@@ -2206,6 +2306,19 @@ export default function CrmBudgetPage() {
           setLargeChange(null);
           if (job) await job.run();
         }}
+      />
+
+      {/* "Afslut redigering" — single confirmation listing every changed cell. */}
+      <BudgetSaveConfirmDialog
+        open={saveConfirm != null}
+        changes={saveConfirm ?? []}
+        busy={savingDraft}
+        onCancel={() => {
+          // Stay in edit mode with unsaved drafts intact.
+          setSaveConfirm(null);
+          bumpEditActivity();
+        }}
+        onConfirm={confirmSaveDrafts}
       />
 
       <BudgetReferenceModal
