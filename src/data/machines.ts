@@ -652,7 +652,6 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: 'V35-502', varenr: 'V35-502', name: { da: 'Ramme for montering af udstyr bag – andre end Timan produkter', en: 'Rear mounting frame – non-Timan equipment' }, priceDKK: 2850, priceEUR: 385 },
     { id: 'V35-300', varenr: 'V35-300', name: { da: 'Hurtigkobling for frontudstyr – andre end Timan produkter', en: 'Quick coupling for front equipment – non-Timan' }, priceDKK: 2760, priceEUR: 375 },
     { id: '721122_standalone', varenr: '721122', name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz' }, priceDKK: 3100, priceEUR: 420 },
-    { id: '721059', varenr: '721059', name: { da: 'Centerslange til T2 Timan 3330 (eftermontering)', en: 'Center hose for T2 Timan 3330 (retrofit)' }, priceDKK: 2550, priceEUR: 345 },
     { id: 'V34-029_standalone', varenr: 'V34-029', name: { da: 'Ekstra vogn til afmontering af redskaber', en: 'Extra trolley for removing rear implements' }, priceDKK: 6600, priceEUR: 890 },
     { id: 'V34-055_standalone', varenr: 'V34-055', name: { da: 'Ekstra Lad med hydraulisk tip uden vogn', en: 'Extra tipping trough with hydraulic tip without trolley' }, priceDKK: 11900, priceEUR: 1605, videoUrl: 'https://www.youtube.com/watch?v=csJFKxZvRuk', imageUrl: 'https://img.youtube.com/vi/csJFKxZvRuk/maxresdefault.jpg',
       subItems: [
@@ -836,7 +835,16 @@ export function getLooseToolAccessories(): Accessory[] {
     item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
   );
 
-  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, ...extras];
+  // Inject 721059 (Centerslange eftermontering) — only available under Løse redskaber
+  const looseOnly721059: Accessory = {
+    id: '721059',
+    varenr: '721059',
+    name: { da: 'Centerslange til T2 Timan 3330 (eftermontering)', en: 'Center hose for T2 Timan 3330 (retrofit)', de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)', it: 'Tubo centrale per T2 Timan 3330 (retrofit)', hu: 'Központi tömlő T2 Timan 3330 (utólagos)' },
+    priceDKK: 2550,
+    priceEUR: 345,
+  };
+
+  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, looseOnly721059, ...extras];
 
   // Add packaging cost item (hidden)
   merged.push({
