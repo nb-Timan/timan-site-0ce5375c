@@ -1155,6 +1155,185 @@ function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; v
 // Suppress unused warnings for lucide imports kept for future widgets.
 void Flame; void Users; void FileText;
 
+// ────────────────────────────────────────────────────────────
+// Pipeline Fordeling — shared CRM aggregation + drilldown modal
+// ────────────────────────────────────────────────────────────
+
+interface PipelineRow {
+  id: string;
+  type: 'Lead' | 'Demo' | 'Tilbud' | 'Forhandling' | 'Ordre' | 'Tabt';
+  number: string;       // L-1001, Q-..., O-..., D-...
+  title: string;        // customer / dealer headline
+  dealer: string;
+  seller: string;
+  value: number;
+  status: string;
+  date: string;         // ISO
+  href: string | null;  // open link
+}
+
+function buildPipelineRows(args: {
+  orders: CrmOrderWithValue[];
+  openQuotes: ScopedConfiguration[];
+  leads: CrmLead[];
+  calendar: CalendarActivity[];
+}): Record<StageMeta['key'], PipelineRow[]> {
+  const out: Record<StageMeta['key'], PipelineRow[]> = {
+    lead: [], demo: [], quote: [], neg: [], won: [], lost: [],
+  };
+
+  // Won → orders (same source as CRM → Ordrer & Lukkede ordrer)
+  for (const o of args.orders) {
+    out.won.push({
+      id: o.id,
+      type: 'Ordre',
+      number: o.order_number || o.quote_number || '—',
+      title: o.title || '—',
+      dealer: o.dealer_company_name || o.dealer_name || '—',
+      seller: o.seller_initials || o.seller_name || '—',
+      value: o.total_value || 0,
+      status: o.case_status || 'ordre_afgivet',
+      date: o.closed_at,
+      href: '/portal/crm/orders',
+    });
+  }
+
+  // Tilbud sendt → openQuotes (same source as CRM → Tilbud & Pipeline value)
+  for (const q of args.openQuotes) {
+    out.quote.push({
+      id: q.id,
+      type: 'Tilbud',
+      number: q.quote_number || '—',
+      title: q.title || '—',
+      dealer: q.dealer_company_name || q.dealer_name || '—',
+      seller: q.seller_initials || q.seller_name || '—',
+      value: q.total_value || 0,
+      status: q.case_status || 'sent',
+      date: q.month_iso,
+      href: '/portal/crm/quotes',
+    });
+  }
+
+  // Lead / Forhandling / Tabt → crm_leads pipeline_stage
+  for (const l of args.leads) {
+    const stage = (l.pipeline_stage || '').toLowerCase();
+    let bucket: StageMeta['key'] | null = null;
+    if (stage === 'lead' || stage === 'qualified' || stage === 'offer sent') bucket = 'lead';
+    else if (stage === 'negotiation') bucket = 'neg';
+    else if (stage === 'lost') bucket = 'lost';
+    else if (stage === 'won') continue; // won handled by orders to avoid double-counting
+    else bucket = 'lead';
+    if (!bucket) continue;
+    const row: PipelineRow = {
+      id: l.id,
+      type: bucket === 'neg' ? 'Forhandling' : bucket === 'lost' ? 'Tabt' : 'Lead',
+      number: formatLeadNo(l.lead_no),
+      title: l.title || '—',
+      dealer: '—',
+      seller: l.owner_name || '—',
+      value: l.estimated_value || 0,
+      status: l.pipeline_stage || '—',
+      date: l.updated_at || l.created_at,
+      href: `/portal/crm/leads/${l.id}`,
+    };
+    out[bucket].push(row);
+  }
+
+  // Demo planlagt → crm_calendar_activities (type=demo, status=planned)
+  for (const c of args.calendar) {
+    if (c.activity_type !== 'demo') continue;
+    if (c.status && c.status !== 'planned') continue;
+    out.demo.push({
+      id: c.id,
+      type: 'Demo',
+      number: '—',
+      title: c.title || '—',
+      dealer: c.dealer_name || '—',
+      seller: c.seller_initials || c.seller_name || '—',
+      value: 0,
+      status: c.status || 'planned',
+      date: c.start_datetime,
+      href: '/portal/crm/calendar',
+    });
+  }
+
+  return out;
+}
+
+function PipelineStageModal({
+  stage, onClose, rowsByStage, lang,
+}: {
+  stage: StageMeta['key'] | null;
+  onClose: () => void;
+  rowsByStage: Record<StageMeta['key'], PipelineRow[]>;
+  lang: Language;
+}) {
+  const open = stage !== null;
+  const rows = stage ? (rowsByStage[stage] || []) : [];
+  const stageLabel = stage ? T[`stage_${stage}`][lang] : '';
+  const total = rows.reduce((s, r) => s + (r.value || 0), 0);
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Pipeline Fordeling · {stageLabel}</DialogTitle>
+        </DialogHeader>
+        {rows.length === 0 ? (
+          <div className="py-10 text-center text-sm text-slate-500">Ingen poster fundet</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-auto -mx-6 px-6">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b">
+                  <th className="py-2 pr-3">Type</th>
+                  <th className="py-2 pr-3">Nummer</th>
+                  <th className="py-2 pr-3">Titel / kunde</th>
+                  <th className="py-2 pr-3">Forhandler</th>
+                  <th className="py-2 pr-3">Sælger</th>
+                  <th className="py-2 pr-3 text-right">Værdi</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Dato</th>
+                  <th className="py-2 pr-3 text-right">Åbn</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.id} className="border-b last:border-b-0 hover:bg-slate-50">
+                    <td className="py-2 pr-3">{r.type}</td>
+                    <td className="py-2 pr-3 font-medium">{r.number}</td>
+                    <td className="py-2 pr-3 max-w-[18rem] truncate" title={r.title}>{r.title}</td>
+                    <td className="py-2 pr-3 max-w-[14rem] truncate" title={r.dealer}>{r.dealer}</td>
+                    <td className="py-2 pr-3">{r.seller}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.value > 0 ? `${Math.round(r.value).toLocaleString('da-DK')} kr.` : '—'}</td>
+                    <td className="py-2 pr-3">{r.status}</td>
+                    <td className="py-2 pr-3 tabular-nums">{formatDate(r.date)}</td>
+                    <td className="py-2 pr-3 text-right">
+                      {r.href ? (
+                        <Link to={r.href} className="inline-flex items-center gap-1 text-[#2d5a27] hover:underline" onClick={onClose}>
+                          Åbn <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t">
+                  <td colSpan={5} className="py-2 pr-3 text-right text-xs text-slate-500">Total</td>
+                  <td className="py-2 pr-3 text-right font-semibold tabular-nums">
+                    {Math.round(total).toLocaleString('da-DK')} kr.
+                  </td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // (Preview/mock dashboard data removed during demo cleanup — empty states
 // are rendered by the existing checks above.)
 
