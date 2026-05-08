@@ -430,8 +430,16 @@ export default function CrmBudgetPage() {
     if (editModeUntil == null) return;
     setEditModeUntil(Date.now() + EDIT_MODE_MS);
   }
-  function startEditMode() { setEditModeUntil(Date.now() + EDIT_MODE_MS); }
-  function endEditMode() { setEditModeUntil(null); }
+  function startEditMode() {
+    // Fresh edit session — clear any drafts so the baseline is the persisted
+    // monthly_qty / forecast snapshot.
+    setWorkingDraft({});
+    setEditModeUntil(Date.now() + EDIT_MODE_MS);
+  }
+  function exitEditModeSilently() {
+    setWorkingDraft({});
+    setEditModeUntil(null);
+  }
 
   useEffect(() => {
     if (appUser?.email) resolveSellerId(appUser.email).then(setSellerId);
