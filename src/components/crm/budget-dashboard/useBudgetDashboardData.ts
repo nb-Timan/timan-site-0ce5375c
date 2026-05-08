@@ -270,27 +270,17 @@ export function useBudgetDashboardData(p: Params) {
           sellerEmail: p.sellerEmail,
         };
 
-        // Dealers per visible seller.
+        // Dealers per visible seller — match by NORMALISED initials so AK
+        // dealer rows resolve to the same seller as AKR-coded budget data.
         const dealersBySeller = new Map<string, DealerAccount[]>();
-        if (p.showAllSellers) {
-          const all = await fetchDealerAccounts({ includeDeleted: false });
-          if (all.error) throw new Error(all.error);
-          for (const s of visibleSellers) {
-            const ini = upper(s.initials);
-            const mine = all.rows.filter(
-              (d) => upper(d.assigned_seller_initials) === ini,
-            );
-            dealersBySeller.set(s.email, mine);
-          }
-        } else {
-          for (const s of visibleSellers) {
-            const res = await fetchDealerAccountsForSeller({
-              initials: s.initials,
-              email: s.email,
-            });
-            if (res.error) throw new Error(res.error);
-            dealersBySeller.set(s.email, res.dealers);
-          }
+        const allDealersRes = await fetchDealerAccounts({ includeDeleted: false });
+        if (allDealersRes.error) throw new Error(allDealersRes.error);
+        for (const s of visibleSellers) {
+          const target = normalizeSellerInitials(s.initials);
+          const mine = allDealersRes.rows.filter(
+            (d) => normalizeSellerInitials(d.assigned_seller_initials) === target,
+          );
+          dealersBySeller.set(s.email, mine);
         }
 
         const [lines, forecasts, actuals, leads, quotesRes, ordersRes] = await Promise.all([
@@ -315,6 +305,7 @@ export function useBudgetDashboardData(p: Params) {
           out[s.email] = {
             dealers: Array.from(lookup.rows.values()),
             cells,
+            countryBadge: formatCountryBadge(dealers.map((d) => d.country)),
           };
         }
 
