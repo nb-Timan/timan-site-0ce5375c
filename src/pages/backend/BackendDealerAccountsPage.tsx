@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
+import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
@@ -134,7 +135,7 @@ export default function BackendDealerAccountsPage() {
   const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
-    if (seller && r.assigned_seller_initials !== seller) return false;
+    if (seller && !sellerInitialsMatch(r.assigned_seller_initials, seller)) return false;
     if (unassignedOnly && r.assigned_seller_initials) return false;
     if (structureFilter === "main" && !(r.is_main_account || (!r.parent_account_number && rows.some((x) => x.parent_account_number === r.account_number)))) return false;
     if (structureFilter === "branch" && !r.parent_account_number) return false;
@@ -183,7 +184,14 @@ export default function BackendDealerAccountsPage() {
   const customerTypes = Array.from(
     new Set(rows.map((r) => r.customer_type_label || r.customer_type).filter(Boolean)),
   ).sort() as string[];
-  const sellerInitials = Array.from(new Set(rows.map((r) => r.assigned_seller_initials).filter(Boolean))).sort() as string[];
+  const sellerInitials = Array.from(
+    new Map(
+      rows
+        .map((r) => r.assigned_seller_initials)
+        .filter((v): v is string => !!v)
+        .map((v) => [normalizeSellerInitials(v), v]),
+    ).values(),
+  ).sort();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -213,9 +214,8 @@ export default function CalendarActivityModal(props: Props) {
     const mineEmail = (currentSeller?.email || "").toLowerCase();
 
     const fromDealers: DealerOption[] = dealers.map((d) => {
-      const di = (d.assigned_seller_initials || "").toUpperCase();
       const de = (d.assigned_seller_email || "").toLowerCase();
-      const mine = (mineInitials !== "" && di === mineInitials)
+      const mine = (mineInitials !== "" && sellerInitialsMatch(d.assigned_seller_initials, mineInitials))
                 || (mineEmail !== "" && de === mineEmail);
       return dealerToOption(d, mine);
     });

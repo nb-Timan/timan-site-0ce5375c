@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
 export interface DealerAccount {
   id: string;
@@ -537,9 +538,8 @@ export async function fetchDealerAccountStatsForSeller(opts: {
   const initials = opts.initials?.trim().toUpperCase() || null;
   const email = opts.email?.trim().toLowerCase() || null;
   const filtered = all.rows.filter((r) => {
-    const ri = r.assigned_seller_initials?.trim().toUpperCase() || null;
     const re = r.assigned_seller_email?.trim().toLowerCase() || null;
-    return (initials && ri === initials) || (email && re === email);
+    return (initials && sellerInitialsMatch(r.assigned_seller_initials, initials)) || (email && re === email);
   });
   return { rows: filtered };
 }
@@ -568,9 +568,9 @@ export async function fetchDealerAccountsForSeller(opts: {
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
 
   const matches = (d: DealerAccount): boolean => {
-    const ri = d.assigned_seller_initials?.trim().toUpperCase() || null;
     const re = d.assigned_seller_email?.trim().toLowerCase() || null;
-    return (initials != null && ri === initials) || (email != null && re === email);
+    return (initials != null && sellerInitialsMatch(d.assigned_seller_initials, initials))
+      || (email != null && re === email);
   };
 
   const byAcct = new Map<string, DealerAccount>();

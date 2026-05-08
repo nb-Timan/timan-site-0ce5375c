@@ -21,6 +21,7 @@ import { PortalRole } from '@/lib/portalAccess';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { ConfiguratorState } from '@/types/configurator';
+import { sellerInitialsMatch } from '@/lib/sellerInitials';
 
 export type CrmDocumentType = 'quote' | 'order';
 
@@ -113,8 +114,7 @@ export function rowVisibleToScope(
 
   if (filter.role === 'timan_seller') {
     if (filter.sellerId && row.assigned_seller_id === filter.sellerId) return true;
-    if (filter.sellerInitials && row.seller_initials
-        && row.seller_initials.toUpperCase() === filter.sellerInitials.toUpperCase()) return true;
+    if (filter.sellerInitials && sellerInitialsMatch(row.seller_initials, filter.sellerInitials)) return true;
     if (filter.sellerEmail && row.seller_email
         && row.seller_email.toLowerCase() === filter.sellerEmail.toLowerCase()) return true;
     // Legacy fallback: rows created BEFORE phase 23 may only carry

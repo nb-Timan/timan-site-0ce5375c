@@ -7,6 +7,7 @@
  * Outlook / Microsoft Graph sync fields are reserved but not yet implemented.
  */
 import { supabase } from "@/lib/supabase";
+import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import type { Language } from "@/types/configurator";
 
 export type CalendarActivityType =
@@ -255,7 +256,15 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
     if (opts.sellerUserId) q = q.eq("seller_user_id", opts.sellerUserId);
     else if (wantInitials) {
       // Owner OR participant array contains the seller initials.
-      q = q.or(`seller_initials.eq.${wantInitials},participant_seller_initials.cs.{${wantInitials}}`);
+      // Expand AK ↔ AKR so both alias variants are matched server-side.
+      const canonical = normalizeSellerInitials(wantInitials);
+      const aliases = canonical === "AK" ? ["AK", "AKR"] : [wantInitials];
+      const orParts: string[] = [];
+      for (const a of aliases) {
+        orParts.push(`seller_initials.eq.${a}`);
+        orParts.push(`participant_seller_initials.cs.{${a}}`);
+      }
+      q = q.or(orParts.join(","));
     }
     if (opts.accountId) q = q.eq("account_id", opts.accountId);
     if (opts.fromIso) q = q.gte("start_datetime", opts.fromIso);
@@ -282,11 +291,10 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
   let rows = readLocal();
   if (opts.sellerUserId) rows = rows.filter(r => r.seller_user_id === opts.sellerUserId);
   else if (wantInitials) {
-    const want = wantInitials.toUpperCase();
     rows = rows.filter(r => {
-      if ((r.seller_initials || "").toUpperCase() === want) return true;
+      if (sellerInitialsMatch(r.seller_initials, wantInitials)) return true;
       const parts = r.participant_seller_initials || [];
-      return parts.some(p => (p || "").toUpperCase() === want);
+      return parts.some(p => sellerInitialsMatch(p, wantInitials));
     });
   }
   if (opts.accountId) rows = rows.filter(r => r.account_id === opts.accountId);
