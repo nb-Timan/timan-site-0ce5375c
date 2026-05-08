@@ -128,9 +128,8 @@ export default function BudgetReferenceModal({
     const filtered = isAdmin
       ? dealers
       : dealers.filter((d) => {
-          const di = (d.assigned_seller_initials || "").toUpperCase();
           const de = (d.assigned_seller_email || "").toLowerCase();
-          return (ini && di === ini) || (eml && de === eml);
+          return (ini && sellerInitialsMatch(d.assigned_seller_initials, ini)) || (eml && de === eml);
         });
     return filtered.map(dealerToOption).sort((a, b) => a.label.localeCompare(b.label));
   }, [dealers, isAdmin, currentSellerInitials, currentSellerEmail]);
