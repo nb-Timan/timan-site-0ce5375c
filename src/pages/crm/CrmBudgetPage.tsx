@@ -981,6 +981,116 @@ export default function CrmBudgetPage() {
   // void to silence unused warnings while the per-cell large-change popup is disabled.
   void isLargeBudgetChange;
 
+  /** Compute the diff between current draft cells and their persisted
+   *  baseline (fc.monthly_qty preferred, else split of qty_forecast/qty_budget).
+   *  Returns one entry per CHANGED cell. */
+  function computeDraftChanges(): BudgetChangedCell[] {
+    const out: BudgetChangedCell[] = [];
+    for (const [lineId, draft] of Object.entries(workingDraft)) {
+      const persisted = lines.find(l => l.id === lineId);
+      if (!persisted) continue;
+      const fc = forecasts.find(f => f.budget_line_id === lineId);
+      const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
+      const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
+        ? fc.monthly_qty.map(v => Number(v) || 0)
+        : splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
+      for (let i = 0; i < 12; i++) {
+        const oldV = baseline[i] ?? 0;
+        const newV = draft[i] ?? 0;
+        if (oldV === newV) continue;
+        out.push({
+          line_id: lineId,
+          seller: persisted.seller_initials || persisted.seller_name || "—",
+          model: persisted.item_number || persisted.product_name,
+          month: MONTHS_BY_LANG[lang][i] || `M${i + 1}`,
+          month_idx: i,
+          budget_type: "arbejdsbudget",
+          old_value: oldV,
+          new_value: newV,
+        });
+      }
+    }
+    out.sort((a, b) => a.seller.localeCompare(b.seller)
+      || a.model.localeCompare(b.model)
+      || a.month_idx - b.month_idx);
+    return out;
+  }
+
+  /** Click handler for "Afslut redigering". Opens the single confirmation
+   *  modal listing every changed cell. No changes → exit silently. */
+  function endEditMode() {
+    const changes = computeDraftChanges();
+    if (changes.length === 0) {
+      exitEditModeSilently();
+      return;
+    }
+    setSaveConfirm(changes);
+  }
+
+  /** Persist all draft lines exactly as the user sees them. Each changed line
+   *  is upserted ONCE with its full 12-month monthly_qty array, so unchanged
+   *  months are preserved verbatim and no redistribution happens. */
+  async function confirmSaveDrafts() {
+    if (!saveConfirm) return;
+    setSavingDraft(true);
+    try {
+      const byLine = new Map<string, BudgetChangedCell[]>();
+      for (const c of saveConfirm) {
+        const arr = byLine.get(c.line_id) || [];
+        arr.push(c);
+        byLine.set(c.line_id, arr);
+      }
+      const savedForecasts: BudgetForecast[] = [];
+      for (const [lineId, cells] of byLine.entries()) {
+        const persisted = lines.find(l => l.id === lineId);
+        if (!persisted) continue;
+        const draft = workingDraft[lineId];
+        if (!draft) continue;
+        const monthly = draft.slice(0, 12).map(v => Math.max(0, Math.round(Number(v) || 0)));
+        while (monthly.length < 12) monthly.push(0);
+        const qty = monthly.reduce((a, b) => a + b, 0);
+        const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
+        const unit = persisted.qty_budget > 0
+          ? persisted.value_budget / persisted.qty_budget
+          : (findProduct(persisted.product_key)?.priceDKK || 0);
+        const fcNext: BudgetForecast = {
+          id: fcExisting?.id || ("f_" + lineId),
+          budget_line_id: lineId,
+          qty_forecast: qty,
+          value_forecast: Math.round(qty * unit),
+          monthly_qty: monthly,
+          comments: fcExisting?.comments ?? null,
+          expected_timing: fcExisting?.expected_timing ?? null,
+          risk_level: fcExisting?.risk_level ?? null,
+          probability: fcExisting?.probability ?? null,
+          updated_at: new Date().toISOString(),
+        };
+        const saved = await upsertForecast(fcNext);
+        savedForecasts.push({ ...saved, monthly_qty: monthly });
+        for (const c of cells) {
+          logBudgetAudit(persisted, c.month_idx, c.old_value, c.new_value, "arbejdsbudget");
+        }
+      }
+      setForecasts(prevF => {
+        const map = new Map(prevF.map(f => [f.budget_line_id, f]));
+        for (const f of savedForecasts) map.set(f.budget_line_id, f);
+        return Array.from(map.values());
+      });
+      try {
+        const fresh = await listForecasts(year);
+        setForecasts(fresh);
+      } catch { /* keep optimistic */ }
+      setSaveConfirm(null);
+      exitEditModeSilently();
+      toast.success("Arbejdsbudget gemt");
+    } catch (e) {
+      console.error("[budget] save drafts failed", e);
+      toast.error("Kunne ikke gemme arbejdsbudgettet");
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   // ---- Gray BUDGET row editing ----
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
