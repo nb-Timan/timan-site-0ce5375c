@@ -3,6 +3,39 @@ import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, Line
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { t } from '@/data/translations';
+import { toast } from 'sonner';
+
+// Items capped at combined max 2 pcs across the entire configuration
+const CENTERSLANGE_LIMITED_VARENR = new Set(['721059', '721122']);
+const CENTERSLANGE_MAX_TOTAL = 2;
+
+function getVarenrForAccId(modelType: string, accId: string): string | null {
+  const flat = getAccessoriesFlat(modelType);
+  const found = flat.find(a => a.id === accId);
+  return found ? String(found.varenr || '') : null;
+}
+
+function countCenterslangeSelections(state: ConfiguratorState): number {
+  let count = 0;
+  for (const mc of state.machineConfigs) {
+    if (mc.configMode === 'shared') {
+      for (const id of mc.acc) {
+        const v = getVarenrForAccId(mc.type, id);
+        if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+      }
+    } else {
+      for (let i = 1; i <= mc.qty; i++) {
+        const key = `${mc.id}_${i}`;
+        const list = state.individualUnitConfigs[key]?.acc || [];
+        for (const id of list) {
+          const v = getVarenrForAccId(mc.type, id);
+          if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+        }
+      }
+    }
+  }
+  return count;
+}
 
 type ConfiguratorStateUpdate =
   | ConfiguratorState
