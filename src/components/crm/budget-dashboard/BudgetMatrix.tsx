@@ -23,7 +23,7 @@ function fmt(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
 }
 
-export default function BudgetMatrix({ dealers, cells, onCellClick }: Props) {
+export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCountryIso }: Props) {
   if (dealers.length === 0) {
     return (
       <div className="px-5 py-6 text-sm text-slate-500">
