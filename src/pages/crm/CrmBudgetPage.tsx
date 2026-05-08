@@ -45,6 +45,7 @@ import {
 } from "@/lib/budgetAccessWindows";
 import BudgetAuditCellPopover from "@/components/crm/BudgetAuditCellPopover";
 import BudgetLargeChangeDialog, { isLargeBudgetChange, type LargeChangeContext } from "@/components/crm/BudgetLargeChangeDialog";
+import BudgetSaveConfirmDialog, { type BudgetChangedCell } from "@/components/crm/BudgetSaveConfirmDialog";
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
