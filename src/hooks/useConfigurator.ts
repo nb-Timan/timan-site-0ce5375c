@@ -139,6 +139,20 @@ export function useConfigurator() {
       const unit = allUnits[s.currentMachineIndex];
       if (!unit) return s;
 
+      // Combined max-2 guard for varenr 721059 + 721122 across the whole configuration.
+      // Removal is always allowed; only adding is blocked when limit is already reached.
+      const clickedVarenr = getVarenrForAccId(unit.modelType, accId);
+      if (clickedVarenr && CENTERSLANGE_LIMITED_VARENR.has(clickedVarenr)) {
+        const currentList = unit.isSharedUnit
+          ? (s.machineConfigs.find(c => c.id === unit.modelId)?.acc || [])
+          : (s.individualUnitConfigs[unit.configKey]?.acc || []);
+        const isAdding = !currentList.includes(accId);
+        if (isAdding && countCenterslangeSelections(s) >= CENTERSLANGE_MAX_TOTAL) {
+          toast.error('Maks 2 stk. samlet af centerslange (721059 / 721122) pr. konfiguration');
+          return s;
+        }
+      }
+
       const newState = { ...s, machineConfigs: [...s.machineConfigs], individualUnitConfigs: { ...s.individualUnitConfigs } };
 
       let accList: string[];
