@@ -123,6 +123,12 @@ export default function ConfiguratorPage() {
   // panel picker. Re-derived whenever the logged-in user (or their active
   // "view as" mode) changes.
   const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+
+  // Step 3 reminder for Timan 3330 → varenr 721122 (centerslange).
+  // Acknowledged set is keyed by unit configKey so it does not repeat for the
+  // same configuration once the user has chosen "Fortsæt uden 721122".
+  const [acknowledged721122, setAcknowledged721122] = useState<Set<string>>(new Set());
+  const [reminder721122, setReminder721122] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
   useEffect(() => {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
@@ -1883,11 +1889,25 @@ export default function ConfiguratorPage() {
                         )}
                         <button onClick={() => {
                           if (!canProceedStep3) return;
-                          if (currentDisplayIdx < displayUnits.length - 1) {
-                            setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
-                          } else {
-                            setStep(4);
+                          const proceed = () => {
+                            if (currentDisplayIdx < displayUnits.length - 1) {
+                              setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
+                            } else {
+                              setStep(4);
+                            }
+                          };
+                          // Timan 3330 reminder: warn if varenr 721122 is not selected on this unit
+                          if (machineType === 'Timan 3330' && !acknowledged721122.has(currentUnit.configKey)) {
+                            const has721122 = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && String(a.varenr) === '721122';
+                            });
+                            if (!has721122) {
+                              setReminder721122({ open: true, pendingNext: proceed });
+                              return;
+                            }
                           }
+                          proceed();
                         }}
                           disabled={!canProceedStep3}
                           className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep3 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
@@ -2482,6 +2502,57 @@ export default function ConfiguratorPage() {
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
             >
               {{ da: 'Fortsæt', en: 'Continue', de: 'Weiter', it: 'Continua', hu: 'Tovább' }[lang]}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Timan 3330 reminder: ensure varenr 721122 (centerslange) considered before leaving Step 3 */}
+      <Dialog open={reminder721122.open} onOpenChange={(open) => { if (!open) setReminder721122({ open: false, pendingNext: null }); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Centerslange (varenummer 721122)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700 whitespace-pre-line">
+            {`Du har ikke valgt varenummer 721122 til denne Timan 3330.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              onClick={() => {
+                const next = reminder721122.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit && unit.modelType === 'Timan 3330') {
+                  const flat = getAccessoriesFlat('Timan 3330');
+                  const target = flat.find(a => a.id === '721122_standalone')
+                    || flat.find(a => String(a.varenr) === '721122');
+                  if (target) toggleAcc(target.id);
+                }
+                setReminder721122({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
+            >
+              Tilføj 721122
+            </button>
+            <button
+              onClick={() => {
+                const next = reminder721122.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit) {
+                  setAcknowledged721122(prev => {
+                    const n = new Set(prev);
+                    n.add(unit.configKey);
+                    return n;
+                  });
+                }
+                setReminder721122({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
+            >
+              Fortsæt uden 721122
             </button>
           </div>
         </DialogContent>
