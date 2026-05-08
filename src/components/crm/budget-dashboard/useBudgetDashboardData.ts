@@ -253,7 +253,8 @@ export function useBudgetDashboardData(p: Params) {
     if (p.showAllSellers) return DASHBOARD_SELLERS;
     const own = DASHBOARD_SELLERS.find(
       (s) => (p.sellerEmail && norm(s.email) === norm(p.sellerEmail))
-        || (p.sellerInitials && upper(s.initials) === upper(p.sellerInitials)),
+        || (p.sellerInitials
+          && normalizeSellerInitials(s.initials) === normalizeSellerInitials(p.sellerInitials)),
     );
     return own ? [own] : [];
   }, [p.showAllSellers, p.sellerEmail, p.sellerInitials]);
