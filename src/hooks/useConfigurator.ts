@@ -5,9 +5,8 @@ import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/
 import { t } from '@/data/translations';
 import { toast } from 'sonner';
 
-// Items capped at combined max 2 pcs across the entire configuration
-const CENTERSLANGE_LIMITED_VARENR = new Set(['721059', '721122']);
-const CENTERSLANGE_MAX_TOTAL = 2;
+// Items capped at max 1 selection per varenr across the whole configuration
+const SINGLETON_VARENR = new Set(['721059', '721122']);
 
 function getVarenrForAccId(modelType: string, accId: string): string | null {
   const flat = getAccessoriesFlat(modelType);
@@ -15,13 +14,13 @@ function getVarenrForAccId(modelType: string, accId: string): string | null {
   return found ? String(found.varenr || '') : null;
 }
 
-function countCenterslangeSelections(state: ConfiguratorState): number {
+function countSelectionsForVarenr(state: ConfiguratorState, targetVarenr: string): number {
   let count = 0;
   for (const mc of state.machineConfigs) {
     if (mc.configMode === 'shared') {
       for (const id of mc.acc) {
         const v = getVarenrForAccId(mc.type, id);
-        if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+        if (v === targetVarenr) count++;
       }
     } else {
       for (let i = 1; i <= mc.qty; i++) {
@@ -29,7 +28,7 @@ function countCenterslangeSelections(state: ConfiguratorState): number {
         const list = state.individualUnitConfigs[key]?.acc || [];
         for (const id of list) {
           const v = getVarenrForAccId(mc.type, id);
-          if (v && CENTERSLANGE_LIMITED_VARENR.has(v)) count++;
+          if (v === targetVarenr) count++;
         }
       }
     }
