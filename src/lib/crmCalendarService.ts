@@ -7,6 +7,7 @@
  * Outlook / Microsoft Graph sync fields are reserved but not yet implemented.
  */
 import { supabase } from "@/lib/supabase";
+import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import type { Language } from "@/types/configurator";
 
 export type CalendarActivityType =
