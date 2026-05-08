@@ -17,6 +17,7 @@
  * naturally form the "list" of references for that cell.
  */
 import { useEffect, useMemo, useState } from "react";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import { Link2, ChevronsUpDown, Check, Plus, Trash2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
