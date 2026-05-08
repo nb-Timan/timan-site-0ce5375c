@@ -71,3 +71,16 @@ export function formatCountryBadge(countries: Array<string | null | undefined>):
   if (isos.length === 1) return { label: isos[0], tooltip: null };
   return { label: `${isos[0]} +${isos.length - 1}`, tooltip: isos.join(", ") };
 }
+
+/** Sorted, deduped list of ISO codes derived from raw country values. */
+export function getCountryIsoList(
+  countries: Array<string | null | undefined>,
+): string[] {
+  return Array.from(
+    new Set(
+      countries
+        .map((c) => countryToIso(c))
+        .filter((c): c is string => !!c),
+    ),
+  ).sort();
+}

@@ -12,6 +12,8 @@ interface Props {
   dealers: DealerRow[];
   cells: Record<string, Record<Quarter, Record<MachineKey, CellAgg>>>;
   onCellClick: (dealerKey: string, quarter: Quarter, machine: MachineKey) => void;
+  /** When set, dealer rows whose countryIso matches get a subtle highlight. */
+  hoveredCountryIso?: string | null;
 }
 
 const QUARTERS: Quarter[] = [1, 2, 3, 4];
@@ -21,7 +23,7 @@ function fmt(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
 }
 
-export default function BudgetMatrix({ dealers, cells, onCellClick }: Props) {
+export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCountryIso }: Props) {
   if (dealers.length === 0) {
     return (
       <div className="px-5 py-6 text-sm text-slate-500">
@@ -72,13 +74,20 @@ export default function BudgetMatrix({ dealers, cells, onCellClick }: Props) {
         <tbody>
           {dealers.map((d, idx) => {
             const row = cells[d.key];
+            const highlighted = !!hoveredCountryIso && d.countryIso === hoveredCountryIso;
+            const baseBg = idx % 2 ? "bg-slate-50/40" : "bg-white";
+            const stickyBg = idx % 2 ? "bg-slate-50/95" : "bg-white";
             return (
-              <tr key={d.key} className={idx % 2 ? "bg-slate-50/40" : "bg-white"}>
+              <tr
+                key={d.key}
+                className={cn(baseBg, highlighted && "bg-slate-200/60")}
+              >
                 <th
                   scope="row"
                   className={cn(
                     "sticky left-0 z-10 text-left px-3 py-2 font-medium text-slate-800 border-b border-r border-slate-200 align-top",
-                    idx % 2 ? "bg-slate-50/95" : "bg-white",
+                    stickyBg,
+                    highlighted && "bg-slate-200/80",
                     d.unassigned && "italic text-slate-500",
                   )}
                 >
