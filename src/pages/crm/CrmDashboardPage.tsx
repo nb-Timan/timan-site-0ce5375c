@@ -11,6 +11,8 @@ import SellerOverviewSection from '@/components/crm/SellerOverviewSection';
 import SellerCockpitSection from '@/components/crm/SellerCockpitSection';
 import DemoStatsSection from '@/components/crm/DemoStatsSection';
 import UpcomingActivitiesWidget from '@/components/crm/UpcomingActivitiesWidget';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ExternalLink } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -18,9 +20,12 @@ import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccoun
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { listScopedOpenQuotes, type ScopedConfiguration } from '@/lib/crmRelationsService';
+import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { isCrmAdmin } from '@/lib/crmScope';
+import { formatDate } from '@/lib/format-date';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -179,8 +184,11 @@ export default function CrmDashboardPage() {
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
   const [openQuotes, setOpenQuotes] = useState<ScopedConfiguration[]>([]);
+  const [leads, setLeads] = useState<CrmLead[]>([]);
+  const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,28 +208,41 @@ export default function CrmDashboardPage() {
       const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
+      const lds = await listLeads({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const cal = await listCalendarActivities({
+        sellerInitials: isAdmin ? null : sellerInitials,
+        sellerUserId: isAdmin ? null : sid,
+      });
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
       setOrders(ord.rows);
       setOpenQuotes(quo.rows);
+      setLeads(lds);
+      setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin]);
+
+  // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
+  // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
+  // - quote → openQuotes (same as CRM → Tilbud & Pipeline value)
+  // - lead/neg/lost → crm_leads pipeline_stage
+  // - demo → crm_calendar_activities (type=demo, status=planned)
+  const pipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
 
   const realMetrics = useMemo(() => {
     const base = deriveMetrics(activities, orders, isAdmin);
-    // Add open configurator quote value to the headline pipeline value and
-    // attribute it to the 'quote' stage bucket so distribution stays consistent.
-    const quoteValue = openQuotes.reduce((s, q) => s + (q.total_value || 0), 0);
-    const stages = base.pipelineByStage.map(s =>
-      s.key === 'quote'
-        ? { ...s, value: s.value + quoteValue, count: s.count + openQuotes.length }
-        : s
-    );
-    return { ...base, pipelineValue: base.pipelineValue + quoteValue, pipelineByStage: stages };
-  }, [activities, orders, isAdmin, openQuotes]);
+    const byStage = PIPELINE_STAGES.map(meta => {
+      const items = pipelineRows[meta.key] || [];
+      const value = items.reduce((s, x) => s + (x.value || 0), 0);
+      return { key: meta.key, bar: meta.bar, hex: meta.hex, ring: meta.ring, value, count: items.length };
+    });
+    const openKeys: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
+    const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
+    return { ...base, pipelineValue, pipelineByStage: byStage };
+  }, [activities, orders, isAdmin, pipelineRows]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
@@ -421,16 +442,21 @@ export default function CrmDashboardPage() {
             <EmptyState text={T.empty[lang]} />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: per-stage progress bars */}
+              {/* Left: per-stage progress bars (clickable) */}
               <div className="lg:col-span-2 space-y-3.5">
                 {(() => {
                   const max = Math.max(1, ...metrics.pipelineByStage.map(s => s.value));
-                  const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
+                  const totalValue = metrics.pipelineByStage.reduce((s, x) => s + x.value, 0);
                   return metrics.pipelineByStage.map(s => {
-                    const pct = Math.round((s.value / max) * 100);
-                    const sharePct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                    const widthPct = Math.round((s.value / max) * 100);
+                    const sharePct = totalValue === 0 ? 0 : Math.round((s.value / totalValue) * 100);
                     return (
-                      <div key={s.key}>
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setOpenStage(s.key)}
+                        className="block w-full text-left rounded-lg p-1 -m-1 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      >
                         <div className="flex items-center justify-between text-sm mb-1.5">
                           <span className="inline-flex items-center gap-2 font-medium text-gray-800">
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold ${s.ring}`}>
@@ -446,10 +472,10 @@ export default function CrmDashboardPage() {
                         <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
                           <div
                             className={`${s.bar} h-full rounded-full transition-[width] duration-700 ease-out`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${widthPct}%` }}
                           />
                         </div>
-                      </div>
+                      </button>
                     );
                   });
                 })()}
@@ -468,7 +494,6 @@ export default function CrmDashboardPage() {
                   </div>
                   {(() => {
                     const totalValue = Math.max(1, metrics.pipelineByStage.reduce((s, x) => s + x.value, 0));
-                    const totalCount = metrics.pipelineByStage.reduce((s, x) => s + x.count, 0);
                     const segs = metrics.pipelineByStage.filter(s => s.value > 0);
                     return (
                       <>
@@ -476,8 +501,10 @@ export default function CrmDashboardPage() {
                           {segs.map((s, i) => {
                             const pct = (s.value / totalValue) * 100;
                             return (
-                              <div
+                              <button
                                 key={s.key}
+                                type="button"
+                                onClick={() => setOpenStage(s.key)}
                                 title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value)}`}
                                 className={`${s.bar} h-full ${i === 0 ? '' : 'border-l border-white/60'}`}
                                 style={{ width: `${pct}%` }}
@@ -486,10 +513,15 @@ export default function CrmDashboardPage() {
                           })}
                         </div>
                         <div className="mt-4 space-y-2">
-                          {metrics.pipelineByStage.filter(s => s.count > 0).map(s => {
-                            const pct = totalCount === 0 ? 0 : Math.round((s.count / totalCount) * 100);
+                          {metrics.pipelineByStage.filter(s => s.count > 0 || s.value > 0).map(s => {
+                            const pct = totalValue === 0 ? 0 : Math.round((s.value / totalValue) * 100);
                             return (
-                              <div key={s.key} className="flex items-center gap-2 text-[11.5px]">
+                              <button
+                                key={s.key}
+                                type="button"
+                                onClick={() => setOpenStage(s.key)}
+                                className="flex items-center gap-2 text-[11.5px] w-full text-left rounded hover:bg-slate-100/60 px-1 py-0.5"
+                              >
                                 <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: s.hex }} />
                                 <span className="text-slate-700 font-medium truncate">{T[`stage_${s.key}`][lang]}</span>
                                 <span className="ml-auto text-slate-500 tabular-nums shrink-0">
@@ -499,7 +531,7 @@ export default function CrmDashboardPage() {
                                   <span className="mx-1 text-slate-300">·</span>
                                   <span>{pct}%</span>
                                 </span>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -510,6 +542,13 @@ export default function CrmDashboardPage() {
               </div>
             </div>
           )}
+          {/* Drill-down modal */}
+          <PipelineStageModal
+            stage={openStage}
+            onClose={() => setOpenStage(null)}
+            rowsByStage={pipelineRows}
+            lang={lang}
+          />
         </Card>
 
         {/* RECENT ACTIVITY + LOST REASONS */}
@@ -1115,6 +1154,185 @@ function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; v
 
 // Suppress unused warnings for lucide imports kept for future widgets.
 void Flame; void Users; void FileText;
+
+// ────────────────────────────────────────────────────────────
+// Pipeline Fordeling — shared CRM aggregation + drilldown modal
+// ────────────────────────────────────────────────────────────
+
+interface PipelineRow {
+  id: string;
+  type: 'Lead' | 'Demo' | 'Tilbud' | 'Forhandling' | 'Ordre' | 'Tabt';
+  number: string;       // L-1001, Q-..., O-..., D-...
+  title: string;        // customer / dealer headline
+  dealer: string;
+  seller: string;
+  value: number;
+  status: string;
+  date: string;         // ISO
+  href: string | null;  // open link
+}
+
+function buildPipelineRows(args: {
+  orders: CrmOrderWithValue[];
+  openQuotes: ScopedConfiguration[];
+  leads: CrmLead[];
+  calendar: CalendarActivity[];
+}): Record<StageMeta['key'], PipelineRow[]> {
+  const out: Record<StageMeta['key'], PipelineRow[]> = {
+    lead: [], demo: [], quote: [], neg: [], won: [], lost: [],
+  };
+
+  // Won → orders (same source as CRM → Ordrer & Lukkede ordrer)
+  for (const o of args.orders) {
+    out.won.push({
+      id: o.id,
+      type: 'Ordre',
+      number: o.order_number || o.quote_number || '—',
+      title: o.title || '—',
+      dealer: o.dealer_company_name || o.dealer_name || '—',
+      seller: o.seller_initials || o.seller_name || '—',
+      value: o.total_value || 0,
+      status: o.case_status || 'ordre_afgivet',
+      date: o.closed_at,
+      href: '/portal/crm/orders',
+    });
+  }
+
+  // Tilbud sendt → openQuotes (same source as CRM → Tilbud & Pipeline value)
+  for (const q of args.openQuotes) {
+    out.quote.push({
+      id: q.id,
+      type: 'Tilbud',
+      number: q.quote_number || '—',
+      title: q.title || '—',
+      dealer: q.dealer_company_name || q.dealer_name || '—',
+      seller: q.seller_initials || q.seller_name || '—',
+      value: q.total_value || 0,
+      status: q.case_status || 'sent',
+      date: q.month_iso,
+      href: '/portal/crm/quotes',
+    });
+  }
+
+  // Lead / Forhandling / Tabt → crm_leads pipeline_stage
+  for (const l of args.leads) {
+    const stage = (l.pipeline_stage || '').toLowerCase();
+    let bucket: StageMeta['key'] | null = null;
+    if (stage === 'lead' || stage === 'qualified' || stage === 'offer sent') bucket = 'lead';
+    else if (stage === 'negotiation') bucket = 'neg';
+    else if (stage === 'lost') bucket = 'lost';
+    else if (stage === 'won') continue; // won handled by orders to avoid double-counting
+    else bucket = 'lead';
+    if (!bucket) continue;
+    const row: PipelineRow = {
+      id: l.id,
+      type: bucket === 'neg' ? 'Forhandling' : bucket === 'lost' ? 'Tabt' : 'Lead',
+      number: formatLeadNo(l.lead_no),
+      title: l.title || '—',
+      dealer: '—',
+      seller: l.owner_name || '—',
+      value: l.estimated_value || 0,
+      status: l.pipeline_stage || '—',
+      date: l.updated_at || l.created_at,
+      href: `/portal/crm/leads/${l.id}`,
+    };
+    out[bucket].push(row);
+  }
+
+  // Demo planlagt → crm_calendar_activities (type=demo, status=planned)
+  for (const c of args.calendar) {
+    if (c.activity_type !== 'demo') continue;
+    if (c.status && c.status !== 'planned') continue;
+    out.demo.push({
+      id: c.id,
+      type: 'Demo',
+      number: '—',
+      title: c.title || '—',
+      dealer: c.dealer_name || '—',
+      seller: c.seller_initials || c.seller_name || '—',
+      value: 0,
+      status: c.status || 'planned',
+      date: c.start_datetime,
+      href: '/portal/crm/calendar',
+    });
+  }
+
+  return out;
+}
+
+function PipelineStageModal({
+  stage, onClose, rowsByStage, lang,
+}: {
+  stage: StageMeta['key'] | null;
+  onClose: () => void;
+  rowsByStage: Record<StageMeta['key'], PipelineRow[]>;
+  lang: Language;
+}) {
+  const open = stage !== null;
+  const rows = stage ? (rowsByStage[stage] || []) : [];
+  const stageLabel = stage ? T[`stage_${stage}`][lang] : '';
+  const total = rows.reduce((s, r) => s + (r.value || 0), 0);
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Pipeline Fordeling · {stageLabel}</DialogTitle>
+        </DialogHeader>
+        {rows.length === 0 ? (
+          <div className="py-10 text-center text-sm text-slate-500">Ingen poster fundet</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-auto -mx-6 px-6">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b">
+                  <th className="py-2 pr-3">Type</th>
+                  <th className="py-2 pr-3">Nummer</th>
+                  <th className="py-2 pr-3">Titel / kunde</th>
+                  <th className="py-2 pr-3">Forhandler</th>
+                  <th className="py-2 pr-3">Sælger</th>
+                  <th className="py-2 pr-3 text-right">Værdi</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Dato</th>
+                  <th className="py-2 pr-3 text-right">Åbn</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.id} className="border-b last:border-b-0 hover:bg-slate-50">
+                    <td className="py-2 pr-3">{r.type}</td>
+                    <td className="py-2 pr-3 font-medium">{r.number}</td>
+                    <td className="py-2 pr-3 max-w-[18rem] truncate" title={r.title}>{r.title}</td>
+                    <td className="py-2 pr-3 max-w-[14rem] truncate" title={r.dealer}>{r.dealer}</td>
+                    <td className="py-2 pr-3">{r.seller}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.value > 0 ? `${Math.round(r.value).toLocaleString('da-DK')} kr.` : '—'}</td>
+                    <td className="py-2 pr-3">{r.status}</td>
+                    <td className="py-2 pr-3 tabular-nums">{formatDate(r.date)}</td>
+                    <td className="py-2 pr-3 text-right">
+                      {r.href ? (
+                        <Link to={r.href} className="inline-flex items-center gap-1 text-[#2d5a27] hover:underline" onClick={onClose}>
+                          Åbn <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t">
+                  <td colSpan={5} className="py-2 pr-3 text-right text-xs text-slate-500">Total</td>
+                  <td className="py-2 pr-3 text-right font-semibold tabular-nums">
+                    {Math.round(total).toLocaleString('da-DK')} kr.
+                  </td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // (Preview/mock dashboard data removed during demo cleanup — empty states
 // are rendered by the existing checks above.)
