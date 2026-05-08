@@ -1889,11 +1889,25 @@ export default function ConfiguratorPage() {
                         )}
                         <button onClick={() => {
                           if (!canProceedStep3) return;
-                          if (currentDisplayIdx < displayUnits.length - 1) {
-                            setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
-                          } else {
-                            setStep(4);
+                          const proceed = () => {
+                            if (currentDisplayIdx < displayUnits.length - 1) {
+                              setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
+                            } else {
+                              setStep(4);
+                            }
+                          };
+                          // Timan 3330 reminder: warn if varenr 721122 is not selected on this unit
+                          if (machineType === 'Timan 3330' && !acknowledged721122.has(currentUnit.configKey)) {
+                            const has721122 = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && String(a.varenr) === '721122';
+                            });
+                            if (!has721122) {
+                              setReminder721122({ open: true, pendingNext: proceed });
+                              return;
+                            }
                           }
+                          proceed();
                         }}
                           disabled={!canProceedStep3}
                           className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep3 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
