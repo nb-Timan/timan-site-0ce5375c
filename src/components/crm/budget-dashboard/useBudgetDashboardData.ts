@@ -314,6 +314,7 @@ export function useBudgetDashboardData(p: Params) {
             dealers: Array.from(lookup.rows.values()),
             cells,
             countryBadge: formatCountryBadge(dealers.map((d) => d.country)),
+            countryIsos: getCountryIsoList(dealers.map((d) => d.country)),
           };
         }
 
