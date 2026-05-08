@@ -123,6 +123,12 @@ export default function ConfiguratorPage() {
   // panel picker. Re-derived whenever the logged-in user (or their active
   // "view as" mode) changes.
   const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+
+  // Step 3 reminder for Timan 3330 → varenr 721122 (centerslange).
+  // Acknowledged set is keyed by unit configKey so it does not repeat for the
+  // same configuration once the user has chosen "Fortsæt uden 721122".
+  const [acknowledged721122, setAcknowledged721122] = useState<Set<string>>(new Set());
+  const [reminder721122, setReminder721122] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
   useEffect(() => {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
