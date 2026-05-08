@@ -913,6 +913,44 @@ export async function setLineLock(id: string, locked: boolean, who: string | nul
 }
 
 export async function upsertForecast(forecast: BudgetForecast): Promise<BudgetForecast> {
+  // Try Supabase first. We upsert by budget_line_id (UNIQUE in the schema).
+  // If the column monthly_qty is missing (older DB), retry without it.
+  try {
+    const baseRow = {
+      budget_line_id: forecast.budget_line_id,
+      qty_forecast: forecast.qty_forecast,
+      value_forecast: forecast.value_forecast,
+      comments: forecast.comments ?? null,
+      expected_timing: forecast.expected_timing ?? null,
+      risk_level: forecast.risk_level ?? null,
+      probability: forecast.probability ?? null,
+      updated_at: new Date().toISOString(),
+    } as Record<string, unknown>;
+    const withMonthly = { ...baseRow, monthly_qty: forecast.monthly_qty ?? null };
+    let { data, error } = await supabase
+      .from("crm_budget_forecasts")
+      .upsert(withMonthly, { onConflict: "budget_line_id" })
+      .select("*")
+      .maybeSingle();
+    if (error && /monthly_qty/.test(error.message || "")) {
+      const retry = await supabase
+        .from("crm_budget_forecasts")
+        .upsert(baseRow, { onConflict: "budget_line_id" })
+        .select("*")
+        .maybeSingle();
+      data = retry.data; error = retry.error;
+    }
+    if (!error && data) {
+      const saved = data as BudgetForecast;
+      // Mirror to LS so listForecasts fallback stays consistent.
+      const all = readLS<BudgetForecast>(LS_FORECASTS);
+      const idx = all.findIndex(f => f.budget_line_id === saved.budget_line_id);
+      const merged: BudgetForecast = { ...saved, monthly_qty: forecast.monthly_qty ?? saved.monthly_qty ?? null };
+      if (idx >= 0) all[idx] = merged; else all.push(merged);
+      writeLS(LS_FORECASTS, all);
+      return merged;
+    }
+  } catch { /* fall through to LS */ }
   const all = readLS<BudgetForecast>(LS_FORECASTS);
   const idx = all.findIndex(f => f.budget_line_id === forecast.budget_line_id);
   if (idx >= 0) all[idx] = forecast; else all.push(forecast);
