@@ -2308,6 +2308,19 @@ export default function CrmBudgetPage() {
         }}
       />
 
+      {/* "Afslut redigering" — single confirmation listing every changed cell. */}
+      <BudgetSaveConfirmDialog
+        open={saveConfirm != null}
+        changes={saveConfirm ?? []}
+        busy={savingDraft}
+        onCancel={() => {
+          // Stay in edit mode with unsaved drafts intact.
+          setSaveConfirm(null);
+          bumpEditActivity();
+        }}
+        onConfirm={confirmSaveDrafts}
+      />
+
       <BudgetReferenceModal
         open={refModal != null}
         ctx={refModal}
