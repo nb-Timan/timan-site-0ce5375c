@@ -49,16 +49,22 @@ export default function CrmBudgetDashboardPage() {
     showAllSellers: admin,
   });
 
-  // Drilldown modal state.
-  const [openCell, setOpenCell] = useState<{ seller: SellerDisplay; quarter: Quarter; machine: MachineKey } | null>(null);
-  const items = openCell ? data[openCell.seller.email]?.[openCell.quarter]?.[openCell.machine]?.items ?? [] : [];
+  const [openCell, setOpenCell] = useState<{
+    seller: SellerDisplay;
+    dealerKey: string;
+    quarter: Quarter;
+    machine: MachineKey;
+  } | null>(null);
+  const items = openCell
+    ? data[openCell.seller.email]?.cells?.[openCell.dealerKey]?.[openCell.quarter]?.[openCell.machine]?.items ?? []
+    : [];
 
   return (
     <CrmLayout pageTitle="Budget Dashboard">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <p className="text-sm text-slate-600">
-            Visuelt read-only overblik over budget, ordrer og arbejdsbudget pr. sælger, kvartal og maskine.
+            Read-only matrix over budget, ordrer og arbejdsbudget pr. forhandler, kvartal og maskine. Klik en sælger for at åbne.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -85,15 +91,22 @@ export default function CrmBudgetDashboardPage() {
       ) : sellers.length === 0 ? (
         <div className="py-16 text-center text-sm text-slate-500">Ingen sælger-blok at vise.</div>
       ) : (
-        <div className="space-y-6">
-          {sellers.map((s) => (
-            <SellerBlock
-              key={s.email}
-              seller={s}
-              data={data[s.email] || {} as never}
-              onCellClick={(quarter, machine) => setOpenCell({ seller: s, quarter, machine })}
-            />
-          ))}
+        <div className="space-y-4">
+          {sellers.map((s) => {
+            const section = data[s.email];
+            if (!section) return null;
+            return (
+              <SellerBlock
+                key={s.email}
+                seller={s}
+                section={section}
+                defaultOpen={!admin || sellers.length === 1}
+                onCellClick={(dealerKey, quarter, machine) =>
+                  setOpenCell({ seller: s, dealerKey, quarter, machine })
+                }
+              />
+            );
+          })}
         </div>
       )}
 
