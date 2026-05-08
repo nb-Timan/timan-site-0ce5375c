@@ -12,6 +12,8 @@ interface Props {
   dealers: DealerRow[];
   cells: Record<string, Record<Quarter, Record<MachineKey, CellAgg>>>;
   onCellClick: (dealerKey: string, quarter: Quarter, machine: MachineKey) => void;
+  /** When set, dealer rows whose countryIso matches get a subtle highlight. */
+  hoveredCountryIso?: string | null;
 }
 
 const QUARTERS: Quarter[] = [1, 2, 3, 4];
