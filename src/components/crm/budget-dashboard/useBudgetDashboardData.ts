@@ -60,9 +60,10 @@ export interface SellerDisplay extends BudgetSellerRef {
   display_name: string;
 }
 
-/** Display-name mapping requested by the brief (initials → first name). */
+/** Display-name mapping (canonical normalised initials → first name).
+ *  AKR is normalised to AK so dealer rows assigned to "AK" also resolve here. */
 const SELLER_DISPLAY: Record<string, string> = {
-  AKR: "Alexander",
+  AK: "Alexander",
   BP: "Birger",
   EM: "Esben",
   JTN: "Jakob",
@@ -70,7 +71,15 @@ const SELLER_DISPLAY: Record<string, string> = {
 };
 
 export const DASHBOARD_SELLERS: SellerDisplay[] = BUDGET_SELLERS
-  .map((s) => ({ ...s, display_name: SELLER_DISPLAY[s.initials] || s.initials }))
+  .map((s) => {
+    const canonical = normalizeSellerInitials(s.initials);
+    return {
+      ...s,
+      // Display canonical initials (AK, not AKR) in the UI badge.
+      initials: canonical,
+      display_name: SELLER_DISPLAY[canonical] || canonical,
+    };
+  })
   .sort((a, b) => a.display_name.localeCompare(b.display_name, "da"));
 
 export type CellItemKind = "lead" | "quote" | "order";
