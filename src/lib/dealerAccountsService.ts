@@ -568,9 +568,9 @@ export async function fetchDealerAccountsForSeller(opts: {
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
 
   const matches = (d: DealerAccount): boolean => {
-    const ri = d.assigned_seller_initials?.trim().toUpperCase() || null;
     const re = d.assigned_seller_email?.trim().toLowerCase() || null;
-    return (initials != null && ri === initials) || (email != null && re === email);
+    return (initials != null && sellerInitialsMatch(d.assigned_seller_initials, initials))
+      || (email != null && re === email);
   };
 
   const byAcct = new Map<string, DealerAccount>();
