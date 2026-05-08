@@ -183,7 +183,14 @@ export default function BackendDealerAccountsPage() {
   const customerTypes = Array.from(
     new Set(rows.map((r) => r.customer_type_label || r.customer_type).filter(Boolean)),
   ).sort() as string[];
-  const sellerInitials = Array.from(new Set(rows.map((r) => r.assigned_seller_initials).filter(Boolean))).sort() as string[];
+  const sellerInitials = Array.from(
+    new Map(
+      rows
+        .map((r) => r.assigned_seller_initials)
+        .filter((v): v is string => !!v)
+        .map((v) => [normalizeSellerInitials(v), v]),
+    ).values(),
+  ).sort();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
