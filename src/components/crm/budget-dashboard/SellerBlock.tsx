@@ -39,7 +39,11 @@ export default function SellerBlock({ seller, section, defaultOpen = false, onCe
           <div>
             <h2 className="text-base font-bold text-slate-900">{seller.display_name}</h2>
             <p className="text-[11px] text-slate-500">
-              {seller.initials} · {seller.country} · {dealerCount} forhandler{dealerCount === 1 ? "" : "e"}
+              {seller.initials} ·{" "}
+              <span title={section.countryBadge.tooltip || undefined}>
+                {section.countryBadge.label}
+              </span>{" "}
+              · {dealerCount} forhandler{dealerCount === 1 ? "" : "e"}
             </p>
           </div>
         </div>
