@@ -41,6 +41,7 @@ const NAV: NavItem[] = [
   { key: 'activities', to: '/portal/crm/activities', icon: Activity },
   { key: 'calendar',   to: '/portal/crm/calendar',   icon: CalendarDays },
   { key: 'budget',     to: '/portal/crm/budget',     icon: Wallet },
+  { key: 'budget_dashboard', to: '/portal/crm/budget-dashboard', icon: Gauge },
   { key: 'reports',    to: '/portal/crm/reports',    icon: BarChart3 },
 ];
 
