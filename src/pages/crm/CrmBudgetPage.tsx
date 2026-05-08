@@ -934,7 +934,15 @@ export default function CrmBudgetPage() {
     return persisted;
   }
 
-  // ---- Working forecast handlers (auto-save) ----
+  // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
+  //
+  // Bug fix: previously each stepper press auto-saved (upsertForecast wrote
+  // an annual qty_forecast which was then redistributed across months on next
+  // read) AND triggered the "Stor budgetændring" popup per cell. Spec says:
+  //   • collect changes in a local draft
+  //   • show ONE confirmation modal at "Afslut redigering"
+  //   • save the exact draft values per (seller, model, month, year)
+  // adjustWorking therefore only mutates the in-memory draft now.
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
     if (!isAdmin && editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
@@ -942,63 +950,24 @@ export default function CrmBudgetPage() {
     const lineId = persisted.id;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
-    const prevDraft = workingDraft[lineId] ?? splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
+      ? fcExisting.monthly_qty.map(v => Number(v) || 0)
+      : splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+    const prevDraft = workingDraft[lineId] ?? baselineMonthly;
     const oldVal = prevDraft[monthIdx] ?? 0;
     const newVal = Math.max(0, oldVal + delta);
     if (newVal === oldVal) return;
 
-    const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
-    if (isLargeBudgetChange(oldVal, newVal)) {
-      setLargeChange({
-        ctx: {
-          oldValue: oldVal, newValue: newVal,
-          seller: persisted.seller_initials || persisted.seller_name || "—",
-          model: persisted.item_number || persisted.product_name,
-          month: monthLabel,
-          budget_type: "arbejdsbudget",
-        },
-        run: () => commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft),
-      });
-      return;
-    }
-    await commitWorking(persisted, monthIdx, oldVal, newVal, fcExisting, prevDraft);
-  }
-
-  async function commitWorking(
-    persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
-    fcExisting: BudgetForecast | undefined, prevDraft: number[],
-  ) {
-    const lineId = persisted.id;
     setWorkingDraft(prev => {
       const cur = prev[lineId] ?? prevDraft;
       const next = [...cur];
       next[monthIdx] = newVal;
-      const qty = next.reduce((a, b) => a + b, 0);
-      const unit = persisted.qty_budget > 0 ? persisted.value_budget / persisted.qty_budget : (findProduct(persisted.product_key)?.priceDKK || 0);
-      const fcNext: BudgetForecast = {
-        id: fcExisting?.id || ("f_" + lineId),
-        budget_line_id: lineId,
-        qty_forecast: qty,
-        value_forecast: Math.round(qty * unit),
-        comments: fcExisting?.comments ?? null,
-        expected_timing: fcExisting?.expected_timing ?? null,
-        risk_level: fcExisting?.risk_level ?? null,
-        probability: fcExisting?.probability ?? null,
-        updated_at: new Date().toISOString(),
-      };
-      void upsertForecast(fcNext).then(saved => {
-        setForecasts(prevF => {
-          const map = new Map(prevF.map(f => [f.budget_line_id, f]));
-          map.set(saved.budget_line_id, saved);
-          return Array.from(map.values());
-        });
-      });
       return { ...prev, [lineId]: next };
     });
-
-    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "arbejdsbudget");
     bumpEditActivity();
   }
+  // void to silence unused warnings while the per-cell large-change popup is disabled.
+  void isLargeBudgetChange; void LargeChangeContext;
 
   // ---- Gray BUDGET row editing ----
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
