@@ -822,7 +822,16 @@ export default function CrmBudgetPage() {
       ? ac.monthly_qty.slice(0, 12)
       : splitToMonthly(ac?.qty_sold ?? 0, split);
     const draft = workingDraft[line.id];
-    const workingMonthly = draft ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
+    // Source of truth for working forecast (Arbejdsbudget):
+    //   1) live unsaved draft for this line, OR
+    //   2) exact per-month values previously saved (fc.monthly_qty), OR
+    //   3) legacy fallback — split annual qty_forecast by monthly_split.
+    // We MUST NOT redistribute monthly_qty when present — that would mutate
+    // the seller's manually entered values across months.
+    const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
+      ? fc.monthly_qty.map(v => Number(v) || 0)
+      : null;
+    const workingMonthly = draft ?? savedMonthly ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
