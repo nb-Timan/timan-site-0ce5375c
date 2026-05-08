@@ -30,10 +30,13 @@ import {
 } from "@/lib/crmRelationsService";
 import {
   fetchDealerAccounts,
-  fetchDealerAccountsForSeller,
   type DealerAccount,
 } from "@/lib/dealerAccountsService";
 import type { PortalRole } from "@/lib/portalAccess";
+import {
+  normalizeSellerInitials,
+  formatCountryBadge,
+} from "@/lib/sellerInitials";
 
 export type Quarter = 1 | 2 | 3 | 4;
 export type MachineKey = "RC-751" | "RC-1000s" | "Timan 3330" | "Timan 2620";
