@@ -341,8 +341,8 @@ export default function CrmNewLeadPage() {
     const mineInitials = (selectedSeller?.initials || '').toUpperCase();
     const opts: DealerOption[] = dealers.map(d => {
       const de = (d.assigned_seller_email || '').toLowerCase();
-      const di = (d.assigned_seller_initials || '').toUpperCase();
-      const mine = (mineEmail !== '' && de === mineEmail) || (mineInitials !== '' && di === mineInitials);
+      const mine = (mineEmail !== '' && de === mineEmail)
+        || (mineInitials !== '' && sellerInitialsMatch(d.assigned_seller_initials, mineInitials));
       return dealerToOption(d, mine);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
