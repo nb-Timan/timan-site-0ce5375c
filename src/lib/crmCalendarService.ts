@@ -256,7 +256,15 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
     if (opts.sellerUserId) q = q.eq("seller_user_id", opts.sellerUserId);
     else if (wantInitials) {
       // Owner OR participant array contains the seller initials.
-      q = q.or(`seller_initials.eq.${wantInitials},participant_seller_initials.cs.{${wantInitials}}`);
+      // Expand AK ↔ AKR so both alias variants are matched server-side.
+      const canonical = normalizeSellerInitials(wantInitials);
+      const aliases = canonical === "AK" ? ["AK", "AKR"] : [wantInitials];
+      const orParts: string[] = [];
+      for (const a of aliases) {
+        orParts.push(`seller_initials.eq.${a}`);
+        orParts.push(`participant_seller_initials.cs.{${a}}`);
+      }
+      q = q.or(orParts.join(","));
     }
     if (opts.accountId) q = q.eq("account_id", opts.accountId);
     if (opts.fromIso) q = q.gte("start_datetime", opts.fromIso);
