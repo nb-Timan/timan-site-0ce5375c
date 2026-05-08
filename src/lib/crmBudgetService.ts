@@ -67,6 +67,10 @@ export interface BudgetForecast {
   budget_line_id: string;
   qty_forecast: number;
   value_forecast: number;
+  /** Exact per-month working forecast (length 12, Jan..Dec). When set, the UI
+   *  must use these values verbatim and MUST NOT redistribute qty_forecast
+   *  across the line's monthly_split. */
+  monthly_qty?: number[] | null;
   comments?: string | null;
   expected_timing?: string | null; // YYYY-MM
   risk_level?: "low" | "medium" | "high" | null;
