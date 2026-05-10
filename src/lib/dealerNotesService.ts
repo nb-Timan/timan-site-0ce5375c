@@ -9,6 +9,7 @@
  * read these. RLS in Phase 18 enforces this; the UI also gates rendering.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 
 export type DealerNoteType =
   | "general"
@@ -82,9 +83,9 @@ export async function createDealerNote(input: NewDealerNote): Promise<DealerNote
   writeLocal([row, ...readLocal()]);
   try {
     const { error } = await supabase.from("dealer_notes").insert(row);
-    if (error) console.warn("[dealerNotes.create] supabase insert failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "dealer_notes", action: "insert", error });
   } catch (err) {
-    console.warn("[dealerNotes.create] unexpected:", err);
+    notifyLocalFallback({ table: "dealer_notes", action: "insert", error: err });
   }
   return row;
 }

@@ -9,6 +9,7 @@
  * budget / pipeline / order calculations.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
 export interface BudgetReference {
@@ -90,9 +91,9 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       created_by_email: row.created_by_email,
       created_by_name: row.created_by_name,
     });
-    if (error) console.warn("[budget_references.insert] supabase failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "budget_references", action: "insert", error });
   } catch (err) {
-    console.warn("[budget_references.insert] unexpected:", err);
+    notifyLocalFallback({ table: "budget_references", action: "insert", error: err });
   }
   return row;
 }
