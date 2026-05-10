@@ -7,6 +7,7 @@
  * Outlook / Microsoft Graph sync fields are reserved but not yet implemented.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import type { Language } from "@/types/configurator";
 
@@ -148,11 +149,11 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { participant_seller_initials: _ignored, ...legacy } = row;
       const retry = await supabase.from("crm_calendar_activities").insert(legacy);
-      if (retry.error) console.warn("[crmCalendar.create] supabase insert failed (kept local):", retry.error.message);
+      if (retry.error) notifyLocalFallback({ table: "crm_calendar_activities", action: "insert", error: retry.error });
     } else if (error) {
-      console.warn("[crmCalendar.create] supabase insert failed (kept local):", error.message);
+      notifyLocalFallback({ table: "crm_calendar_activities", action: "insert", error });
     }
-  } catch (err) { console.warn("[crmCalendar.create] unexpected:", err); }
+  } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "insert", error: err }); }
   audit("create", row);
   return row;
 }
@@ -220,11 +221,11 @@ export async function updateActivity(id: string, patch: Partial<NewCalendarActiv
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { participant_seller_initials: _ignored, ...legacy } = updatePayload;
       const retry = await supabase.from("crm_calendar_activities").update(legacy).eq("id", id);
-      if (retry.error) console.warn("[crmCalendar.update] supabase update failed (kept local):", retry.error.message);
+      if (retry.error) notifyLocalFallback({ table: "crm_calendar_activities", action: "update", error: retry.error });
     } else if (error) {
-      console.warn("[crmCalendar.update] supabase update failed (kept local):", error.message);
+      notifyLocalFallback({ table: "crm_calendar_activities", action: "update", error });
     }
-  } catch (err) { console.warn("[crmCalendar.update] unexpected:", err); }
+  } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "update", error: err }); }
   audit("update", next, before);
   return next;
 }
@@ -235,8 +236,8 @@ export async function deleteActivity(id: string): Promise<void> {
   writeLocal(local.filter(r => r.id !== id));
   try {
     const { error } = await supabase.from("crm_calendar_activities").delete().eq("id", id);
-    if (error) console.warn("[crmCalendar.delete] supabase delete failed (kept local):", error.message);
-  } catch (err) { console.warn("[crmCalendar.delete] unexpected:", err); }
+    if (error) notifyLocalFallback({ table: "crm_calendar_activities", action: "delete", error });
+  } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "delete", error: err }); }
   if (before) audit("delete", before);
 }
 
