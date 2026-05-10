@@ -5,6 +5,7 @@
  * Fallback: localStorage so the UI never crashes when the table is missing.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 
 export interface CrmLogin {
   id: string;
@@ -73,9 +74,9 @@ export async function logLogin(input: NewCrmLogin): Promise<CrmLogin> {
       ip_placeholder: row.ip_placeholder,
       device_placeholder: row.device_placeholder,
     });
-    if (error) console.warn("[crm.logLogin] supabase insert failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "crm_logins", action: "insert", error });
   } catch (err) {
-    console.warn("[crm.logLogin] unexpected (kept local):", err);
+    notifyLocalFallback({ table: "crm_logins", action: "insert", error: err });
   }
   return row;
 }

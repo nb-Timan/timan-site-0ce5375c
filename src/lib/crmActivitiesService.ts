@@ -9,6 +9,7 @@
  * via crmScope.ts (Timan Sælger sees only their own assigned accounts).
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 
 export type CrmActivityType =
   | "quote_created"
@@ -145,10 +146,10 @@ export async function logActivity(input: NewCrmActivity): Promise<CrmActivity> {
       meta: row.meta,
     });
     if (error) {
-      console.warn("[crm.logActivity] supabase insert failed (kept local):", error.message);
+      notifyLocalFallback({ table: "crm_activities", action: "insert", error });
     }
   } catch (err) {
-    console.warn("[crm.logActivity] unexpected (kept local):", err);
+    notifyLocalFallback({ table: "crm_activities", action: "insert", error: err });
   }
   return row;
 }

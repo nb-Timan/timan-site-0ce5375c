@@ -18,6 +18,7 @@
  * exactly as before — the windows are layered on top.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 
 export type BudgetWindowScope = "all" | "seller";
 export type BudgetWindowStatus = "open" | "closed";
@@ -117,9 +118,9 @@ export async function createBudgetAccessWindow(input: CreateWindowInput): Promis
       created_by: row.created_by,
       created_at: row.created_at,
     });
-    if (error) console.warn("[budgetAccessWindows.create] supabase insert failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "budget_access_windows", action: "insert", error });
   } catch (err) {
-    console.warn("[budgetAccessWindows.create] unexpected:", err);
+    notifyLocalFallback({ table: "budget_access_windows", action: "insert", error: err });
   }
   return row;
 }
@@ -138,9 +139,9 @@ export async function closeBudgetAccessWindow(id: string, who: string | null): P
       .from("budget_access_windows")
       .update({ status: "closed", closed_at: now, closed_by: who })
       .eq("id", id);
-    if (error) console.warn("[budgetAccessWindows.close] supabase update failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "budget_access_windows", action: "update_close", error });
   } catch (err) {
-    console.warn("[budgetAccessWindows.close] unexpected:", err);
+    notifyLocalFallback({ table: "budget_access_windows", action: "update_close", error: err });
   }
 }
 
@@ -157,9 +158,9 @@ export async function extendBudgetAccessWindow(id: string, newOpenUntilIso: stri
       .from("budget_access_windows")
       .update({ open_until: newOpenUntilIso })
       .eq("id", id);
-    if (error) console.warn("[budgetAccessWindows.extend] supabase update failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "budget_access_windows", action: "update_extend", error });
   } catch (err) {
-    console.warn("[budgetAccessWindows.extend] unexpected:", err);
+    notifyLocalFallback({ table: "budget_access_windows", action: "update_extend", error: err });
   }
 }
 

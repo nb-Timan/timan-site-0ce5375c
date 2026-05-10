@@ -7,6 +7,7 @@
  * crmActivitiesService.ts.
  */
 import { supabase } from "@/lib/supabase";
+import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
@@ -288,7 +289,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
     }).select("lead_no").maybeSingle();
-    if (error) console.warn("[crm.createLead] supabase insert failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "crm_leads", action: "insert", error });
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
       row.lead_no = (data as { lead_no: number }).lead_no;
       // Sync the local row with the authoritative number.
@@ -297,7 +298,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       if (idx >= 0) { ls[idx] = { ...ls[idx], lead_no: row.lead_no }; writeLS(LS_LEADS, ls); }
     }
   } catch (err) {
-    console.warn("[crm.createLead] unexpected (kept local):", err);
+    notifyLocalFallback({ table: "crm_leads", action: "insert", error: err });
   }
 
   // Auto-log to activity feed → dashboard updates immediately.
@@ -389,9 +390,9 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       status: merged.status,
       move_to_working_qty: merged.move_to_working_qty ?? 0,
     }).eq("id", id);
-    if (error) console.warn("[crm.updateLead] supabase update failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "crm_leads", action: "update", error });
   } catch (err) {
-    console.warn("[crm.updateLead] unexpected (kept local):", err);
+    notifyLocalFallback({ table: "crm_leads", action: "update", error: err });
   }
 
   return merged;
@@ -505,7 +506,7 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
       notes_after_demo: row.notes_after_demo,
       result_status: row.result_status,
     }).select("demo_no").maybeSingle();
-    if (error) console.warn("[crm.createDemoLead] supabase insert failed (kept local):", error.message);
+    if (error) notifyLocalFallback({ table: "crm_demo_leads", action: "insert", error });
     if (data && typeof (data as { demo_no?: number }).demo_no === "number") {
       row.demo_no = (data as { demo_no: number }).demo_no;
       const ls = readLS<CrmDemoLead>(LS_DEMO);
@@ -513,7 +514,7 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
       if (idx >= 0) { ls[idx] = { ...ls[idx], demo_no: row.demo_no }; writeLS(LS_DEMO, ls); }
     }
   } catch (err) {
-    console.warn("[crm.createDemoLead] unexpected (kept local):", err);
+    notifyLocalFallback({ table: "crm_demo_leads", action: "insert", error: err });
   }
 
   try {
