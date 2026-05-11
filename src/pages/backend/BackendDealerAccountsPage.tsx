@@ -37,6 +37,7 @@ import {
   type CsvImportResult,
   setDealerParent,
   setDealerMain,
+  updateDealerAccount,
   updateDealerBranchName,
   groupDealersByParent,
   aggregateGroupStats,
@@ -746,11 +747,13 @@ function EditDealerModal({
   const [initials, setInitials] = useState(dealer.assigned_seller_initials ?? "");
   const [name, setName] = useState(dealer.assigned_seller_name ?? "");
   const [email, setEmail] = useState(dealer.assigned_seller_email ?? "");
+  const [companyName, setCompanyName] = useState<string>(dealer.company_name ?? "");
   const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
   const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
   const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [clearedDirect, setClearedDirect] = useState(false);
 
   function applySeller(id: string) {
     if (!id) { setInitials(""); setName(""); setEmail(""); return; }
@@ -770,7 +773,7 @@ function EditDealerModal({
   async function save() {
     setErr(null); setBusy(true);
     try {
-      // 1. Seller
+      // 1. Seller (always written so explicit clears persist as NULLs)
       const sellerRes = await updateDealerSeller(dealer.id, {
         assigned_seller_initials: initials.trim() || null,
         assigned_seller_name: name.trim() || null,
@@ -778,19 +781,27 @@ function EditDealerModal({
       });
       if (!sellerRes.ok) throw new Error(sellerRes.error ?? "Kunne ikke gemme sælger");
 
-      // 2. Branch name
+      // 2. Company name (dealer/branch display name)
+      const newCompany = companyName.trim();
+      if (!newCompany) throw new Error("Forhandlernavn må ikke være tomt");
+      if (newCompany !== (dealer.company_name ?? "")) {
+        const r = await updateDealerAccount(dealer.id, { company_name: newCompany });
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme forhandlernavn");
+      }
+
+      // 3. Branch name
       if ((dealer.branch_name ?? "") !== branchName) {
         const r = await updateDealerBranchName(dealer.id, branchName.trim() || null);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme branch_name");
       }
 
-      // 3. Main flag
+      // 4. Main flag
       if (dealer.is_main_account !== isMain) {
         const r = await setDealerMain(dealer.account_number, isMain);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedstatus");
       }
 
-      // 4. Parent
+      // 5. Parent
       const newParent = parent.trim() || null;
       if ((dealer.parent_account_number ?? null) !== newParent) {
         const r = await setDealerParent(dealer.account_number, newParent, true);
@@ -828,7 +839,17 @@ function EditDealerModal({
             </div>
           )}
 
-          {/* Parent / structure */}
+          {/* Dealer / branch display name */}
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Forhandlernavn</span>
+            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="fx Foras GmbH Schleswig"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+            <p className="mt-1 text-[10px] text-slate-500">
+              Vises i forhandlerlister, CRM, leads og tilbud. Forhandler-id ({dealer.account_number}) ændres ikke.
+            </p>
+          </label>
+
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700">
               <Network className="h-3.5 w-3.5" /> Forhandlerstruktur
@@ -892,10 +913,15 @@ function EditDealerModal({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
           </label>
           <button type="button"
-            onClick={() => { setInitials(""); setName(""); setEmail(""); }}
+            onClick={() => { setInitials(""); setName(""); setEmail(""); setClearedDirect(true); }}
             className="text-xs font-semibold text-rose-600 hover:underline">
             Fjern direkte tildeling (arv fra hoved)
           </button>
+          {clearedDirect && !initials && !email && (
+            <p className="text-[11px] text-amber-700">
+              Direkte sælgertildeling fjernes ved <strong>Gem ændringer</strong>. Filialen vil herefter arve sælger fra hovedforhandleren.
+            </p>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
           <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
