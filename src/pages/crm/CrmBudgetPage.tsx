@@ -1719,12 +1719,14 @@ export default function CrmBudgetPage() {
                     // access window covers their effective seller email.
                     const sellerWindowEdit =
                       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
-                    const canEditBudget  = (isAdmin || sellerWindowEdit) && !blockLocked;
+                    // Backend/global view is fully read-only — sellers (incl.
+                    // backend in "Vis som sælger") are the only ones who can edit.
+                    const canEditBudget  = sellerWindowEdit && !blockLocked;
                     // Arbejdsbudget editing:
-                    //  • Admin: always allowed (also in "Alle" view).
+                    //  • Backend/global: read-only.
                     //  • Seller: allowed when their personal edit-mode is active
                     //    (10-min inactivity auto-lock). NOT gated by Fastlagt lock.
-                    const canEditWorking = isAdmin || (isSeller && editModeUntil != null);
+                    const canEditWorking = isSeller && editModeUntil != null;
                     void adminAllSellers;
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
