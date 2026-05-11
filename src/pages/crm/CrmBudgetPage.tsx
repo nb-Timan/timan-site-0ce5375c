@@ -1512,24 +1512,8 @@ export default function CrmBudgetPage() {
               )}
             </div>
           )}
-          {isAdmin && (
-            <button
-              onClick={() => {
-                const known = selectedSellerEmail
-                  ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)
-                  : null;
-                setNewRow(r => ({
-                  ...r,
-                  seller_email: known?.email ?? r.seller_email,
-                  country: known?.country ?? r.country,
-                }));
-                setShowAdd(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
-            >
-              <Plus className="h-4 w-4" /> {T.new_item[lang]}
-            </button>
-          )}
+          {/* "Nyt varenr." removed in backend/global view — would create
+              seller-affecting budget rows. Edits live in seller-view only. */}
         </div>
       </div>
 
