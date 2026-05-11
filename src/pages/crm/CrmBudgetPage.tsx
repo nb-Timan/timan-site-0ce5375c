@@ -60,11 +60,11 @@ import type { CellReference } from "@/components/crm/BudgetCellInsight";
 const T: Record<string, Record<Language, string>> = {
   page_title:    { da: 'Budget',                en: 'Budget',                  de: 'Budget',                  it: 'Budget',                  hu: 'Költségvetés' },
   annual_budget: { da: 'Årligt budget',         en: 'Annual budget',           de: 'Jahresbudget',            it: 'Budget annuale',          hu: 'Éves költségvetés' },
-  subtitle_admin:{ da: 'Administrer officielle budgetter, lås og se forecast på tværs af sælgere.',
-                   en: 'Manage official budgets, lock entries and view forecasts across sellers.',
-                   de: 'Offizielle Budgets verwalten, sperren und Prognosen über Verkäufer hinweg sehen.',
-                   it: 'Gestisci i budget ufficiali, blocca le voci e visualizza le previsioni per venditore.',
-                   hu: 'Hivatalos költségvetések kezelése, zárolása és előrejelzések megtekintése értékesítőnként.' },
+  subtitle_admin:{ da: 'Backend viser samlet budget på tværs af sælgere. Redigering sker i sælger-visning.',
+                   en: 'Backend shows the combined budget across all sellers. Editing happens in seller view.',
+                   de: 'Backend zeigt das Gesamtbudget aller Verkäufer. Bearbeitung erfolgt in der Verkäufer-Ansicht.',
+                   it: 'Il backend mostra il budget totale di tutti i venditori. La modifica avviene nella vista venditore.',
+                   hu: 'A backend az összes értékesítő összesített költségvetését mutatja. Szerkesztés az értékesítői nézetben.' },
   subtitle_seller:{da: 'Se dit eget budget og opdater dit working forecast.',
                    en: 'View your own budget and update your working forecast.',
                    de: 'Eigenes Budget einsehen und Arbeitsprognose aktualisieren.',
@@ -912,9 +912,14 @@ export default function CrmBudgetPage() {
     // or active "view as seller" mode). Sellers always own their own rows.
     // We never persist a budget row without a known seller — that would create
     // an orphan that the backend total includes but no seller view shows.
-    const targetEmail: string | null = isAdmin
-      ? (selectedSellerEmail || null)
-      : (effectiveSellerEmail || myEmail || null);
+    // Backend/global mode is fully read-only. Persistence requires a seller
+    // owner — backend must switch to "Vis som sælger" to make edits.
+    if (isAdmin) {
+      console.warn("[budget] refusing to persist row in backend/global mode");
+      toast.error("Backend er læsevisning – skift til 'Vis som sælger' for at redigere");
+      return null;
+    }
+    const targetEmail: string | null = effectiveSellerEmail || myEmail || null;
     const known = targetEmail
       ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === targetEmail.toLowerCase())
       : null;
@@ -956,7 +961,9 @@ export default function CrmBudgetPage() {
   //   • save the exact draft values per (seller, model, month, year)
   // adjustWorking therefore only mutates the in-memory draft now.
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    if (!isAdmin && editModeUntil == null) return;
+    // Backend/global is read-only — only sellers (incl. backend in "Vis som sælger") may edit.
+    if (isAdmin) return;
+    if (editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const lineId = persisted.id;
@@ -1095,7 +1102,9 @@ export default function CrmBudgetPage() {
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
-    if (!isAdmin && !sellerHasWindow) return;
+    // Backend/global is read-only on the gray Budget row too.
+    if (isAdmin) return;
+    if (!sellerHasWindow) return;
     if (isLineLocked(line)) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
@@ -1503,24 +1512,8 @@ export default function CrmBudgetPage() {
               )}
             </div>
           )}
-          {isAdmin && (
-            <button
-              onClick={() => {
-                const known = selectedSellerEmail
-                  ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === selectedSellerEmail)
-                  : null;
-                setNewRow(r => ({
-                  ...r,
-                  seller_email: known?.email ?? r.seller_email,
-                  country: known?.country ?? r.country,
-                }));
-                setShowAdd(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 shadow-sm"
-            >
-              <Plus className="h-4 w-4" /> {T.new_item[lang]}
-            </button>
-          )}
+          {/* "Nyt varenr." removed in backend/global view — would create
+              seller-affecting budget rows. Edits live in seller-view only. */}
         </div>
       </div>
 
@@ -1710,12 +1703,14 @@ export default function CrmBudgetPage() {
                     // access window covers their effective seller email.
                     const sellerWindowEdit =
                       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
-                    const canEditBudget  = (isAdmin || sellerWindowEdit) && !blockLocked;
+                    // Backend/global view is fully read-only — sellers (incl.
+                    // backend in "Vis som sælger") are the only ones who can edit.
+                    const canEditBudget  = sellerWindowEdit && !blockLocked;
                     // Arbejdsbudget editing:
-                    //  • Admin: always allowed (also in "Alle" view).
+                    //  • Backend/global: read-only.
                     //  • Seller: allowed when their personal edit-mode is active
                     //    (10-min inactivity auto-lock). NOT gated by Fastlagt lock.
-                    const canEditWorking = isAdmin || (isSeller && editModeUntil != null);
+                    const canEditWorking = isSeller && editModeUntil != null;
                     void adminAllSellers;
 
                     const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
