@@ -773,7 +773,7 @@ function EditDealerModal({
   async function save() {
     setErr(null); setBusy(true);
     try {
-      // 1. Seller
+      // 1. Seller (always written so explicit clears persist as NULLs)
       const sellerRes = await updateDealerSeller(dealer.id, {
         assigned_seller_initials: initials.trim() || null,
         assigned_seller_name: name.trim() || null,
@@ -781,19 +781,27 @@ function EditDealerModal({
       });
       if (!sellerRes.ok) throw new Error(sellerRes.error ?? "Kunne ikke gemme sælger");
 
-      // 2. Branch name
+      // 2. Company name (dealer/branch display name)
+      const newCompany = companyName.trim();
+      if (!newCompany) throw new Error("Forhandlernavn må ikke være tomt");
+      if (newCompany !== (dealer.company_name ?? "")) {
+        const r = await updateDealerAccount(dealer.id, { company_name: newCompany });
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme forhandlernavn");
+      }
+
+      // 3. Branch name
       if ((dealer.branch_name ?? "") !== branchName) {
         const r = await updateDealerBranchName(dealer.id, branchName.trim() || null);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme branch_name");
       }
 
-      // 3. Main flag
+      // 4. Main flag
       if (dealer.is_main_account !== isMain) {
         const r = await setDealerMain(dealer.account_number, isMain);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedstatus");
       }
 
-      // 4. Parent
+      // 5. Parent
       const newParent = parent.trim() || null;
       if ((dealer.parent_account_number ?? null) !== newParent) {
         const r = await setDealerParent(dealer.account_number, newParent, true);
