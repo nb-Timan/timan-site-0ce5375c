@@ -961,7 +961,9 @@ export default function CrmBudgetPage() {
   //   • save the exact draft values per (seller, model, month, year)
   // adjustWorking therefore only mutates the in-memory draft now.
   async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    if (!isAdmin && editModeUntil == null) return;
+    // Backend/global is read-only — only sellers (incl. backend in "Vis som sælger") may edit.
+    if (isAdmin) return;
+    if (editModeUntil == null) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const lineId = persisted.id;
