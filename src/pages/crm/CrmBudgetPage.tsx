@@ -1102,7 +1102,9 @@ export default function CrmBudgetPage() {
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
-    if (!isAdmin && !sellerHasWindow) return;
+    // Backend/global is read-only on the gray Budget row too.
+    if (isAdmin) return;
+    if (!sellerHasWindow) return;
     if (isLineLocked(line)) return;
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
