@@ -747,11 +747,13 @@ function EditDealerModal({
   const [initials, setInitials] = useState(dealer.assigned_seller_initials ?? "");
   const [name, setName] = useState(dealer.assigned_seller_name ?? "");
   const [email, setEmail] = useState(dealer.assigned_seller_email ?? "");
+  const [companyName, setCompanyName] = useState<string>(dealer.company_name ?? "");
   const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
   const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
   const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [clearedDirect, setClearedDirect] = useState(false);
 
   function applySeller(id: string) {
     if (!id) { setInitials(""); setName(""); setEmail(""); return; }
