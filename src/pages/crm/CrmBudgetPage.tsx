@@ -912,9 +912,14 @@ export default function CrmBudgetPage() {
     // or active "view as seller" mode). Sellers always own their own rows.
     // We never persist a budget row without a known seller — that would create
     // an orphan that the backend total includes but no seller view shows.
-    const targetEmail: string | null = isAdmin
-      ? (selectedSellerEmail || null)
-      : (effectiveSellerEmail || myEmail || null);
+    // Backend/global mode is fully read-only. Persistence requires a seller
+    // owner — backend must switch to "Vis som sælger" to make edits.
+    if (isAdmin) {
+      console.warn("[budget] refusing to persist row in backend/global mode");
+      toast.error("Backend er læsevisning – skift til 'Vis som sælger' for at redigere");
+      return null;
+    }
+    const targetEmail: string | null = effectiveSellerEmail || myEmail || null;
     const known = targetEmail
       ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === targetEmail.toLowerCase())
       : null;
