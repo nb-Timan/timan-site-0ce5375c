@@ -37,6 +37,7 @@ import {
   type CsvImportResult,
   setDealerParent,
   setDealerMain,
+  updateDealerAccount,
   updateDealerBranchName,
   groupDealersByParent,
   aggregateGroupStats,
