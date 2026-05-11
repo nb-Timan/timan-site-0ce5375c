@@ -913,10 +913,15 @@ function EditDealerModal({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
           </label>
           <button type="button"
-            onClick={() => { setInitials(""); setName(""); setEmail(""); }}
+            onClick={() => { setInitials(""); setName(""); setEmail(""); setClearedDirect(true); }}
             className="text-xs font-semibold text-rose-600 hover:underline">
             Fjern direkte tildeling (arv fra hoved)
           </button>
+          {clearedDirect && !initials && !email && (
+            <p className="text-[11px] text-amber-700">
+              Direkte sælgertildeling fjernes ved <strong>Gem ændringer</strong>. Filialen vil herefter arve sælger fra hovedforhandleren.
+            </p>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
           <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuller</button>
