@@ -427,8 +427,25 @@ function writeLS<T>(key: string, rows: T[]) {
   try { localStorage.setItem(key, JSON.stringify(rows)); } catch { /* */ }
 }
 
+export class BudgetPersistenceError extends Error {
+  constructor(message: string, public readonly table: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "BudgetPersistenceError";
+  }
+}
+
+function errorText(error: unknown): string {
+  if (!error) return "unknown error";
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
+  try { return JSON.stringify(error); } catch { return String(error); }
+}
+
 function uid(): string {
-  return "b_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch { /* */ }
+  return "00000000-0000-4000-8000-" + Math.random().toString(16).slice(2, 14).padEnd(12, "0");
 }
 
 const EVEN_SPLIT: MonthlySplit = Array.from({ length: 12 }, () => 1 / 12);
@@ -707,9 +724,32 @@ export async function listBudgetLines({ year }: ListBudgetParams): Promise<Budge
     if (!error && Array.isArray(data)) {
       return sanitizeLines(data as BudgetLine[]);
     }
-  } catch { /* */ }
-  ensureSeed();
-  return sanitizeLines(readLS<BudgetLine>(LS_LINES).filter(l => l.year === year));
+    if (error) console.error("[budget] Supabase read failed for crm_budget_lines", error);
+  } catch (error) { console.error("[budget] Supabase read failed for crm_budget_lines", error); }
+  return [];
+}
+
+async function readBudgetLineById(id: string): Promise<BudgetLine | null> {
+  const { data, error } = await supabase
+    .from("crm_budget_lines")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? sanitizeLines([data as BudgetLine])[0] : null;
+}
+
+async function findBudgetLineByStableScope(line: Pick<BudgetLine, "year" | "product_key" | "seller_email">): Promise<BudgetLine | null> {
+  if (!line.seller_email) return null;
+  const { data, error } = await supabase
+    .from("crm_budget_lines")
+    .select("*")
+    .eq("year", line.year)
+    .eq("product_key", line.product_key)
+    .ilike("seller_email", line.seller_email)
+    .limit(1);
+  if (error) throw error;
+  return Array.isArray(data) && data[0] ? sanitizeLines([data[0] as BudgetLine])[0] : null;
 }
 
 export async function listForecasts(year: number): Promise<BudgetForecast[]> {
@@ -723,9 +763,19 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
       const ids = new Set(lines.map(l => l.id));
       return (data as BudgetForecast[]).filter(f => ids.has(f.budget_line_id));
     }
-  } catch { /* */ }
-  ensureSeed();
-  return readLS<BudgetForecast>(LS_FORECASTS);
+    if (error) console.error("[budget] Supabase read failed for crm_budget_forecasts", error);
+  } catch (error) { console.error("[budget] Supabase read failed for crm_budget_forecasts", error); }
+  return [];
+}
+
+async function readForecastByLineId(budgetLineId: string): Promise<BudgetForecast | null> {
+  const { data, error } = await supabase
+    .from("crm_budget_forecasts")
+    .select("*")
+    .eq("budget_line_id", budgetLineId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as BudgetForecast | null) ?? null;
 }
 
 export async function listSalesActuals(year: number): Promise<SalesActual[]> {
@@ -862,33 +912,62 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
 }
 
 export async function upsertBudgetLine(line: BudgetLine): Promise<BudgetLine> {
-  const all = readLS<BudgetLine>(LS_LINES);
-  const idx = all.findIndex(l => l.id === line.id);
-  if (idx >= 0) {
-    if (all[idx].locked) {
-      // ignore writes to locked lines (UI also blocks this)
-      return all[idx];
+  try {
+    const row = {
+      id: line.id,
+      year: line.year,
+      product_key: line.product_key,
+      product_name: line.product_name,
+      item_number: line.item_number ?? null,
+      category: line.category,
+      parent_machine_key: line.parent_machine_key ?? null,
+      seller_id: line.seller_id ?? null,
+      seller_name: line.seller_name ?? null,
+      seller_email: line.seller_email ?? null,
+      seller_initials: line.seller_initials ?? null,
+      country: line.country ?? null,
+      qty_budget: line.qty_budget,
+      value_budget: line.value_budget,
+      monthly_split: line.monthly_split && line.monthly_split.length === 12 ? line.monthly_split : EVEN_SPLIT,
+      notes: line.notes ?? null,
+      locked: line.locked,
+      locked_by: line.locked_by ?? null,
+      locked_at: line.locked_at ?? null,
+    };
+    const { error } = await supabase.from("crm_budget_lines").upsert(row).select("*").maybeSingle();
+    if (error) throw error;
+    const saved = await readBudgetLineById(line.id);
+    if (!saved || saved.qty_budget !== line.qty_budget || saved.value_budget !== line.value_budget) {
+      throw new BudgetPersistenceError("Budget line readback did not match saved values", "crm_budget_lines", { saved, expected: line });
     }
-    all[idx] = line;
-  } else {
-    all.push(line);
+    return saved;
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Budget line was not saved to Supabase: ${errorText(error)}`, "crm_budget_lines", error);
   }
-  writeLS(LS_LINES, all);
-  return line;
 }
 
 export async function createBudgetLine(input: Omit<BudgetLine, "id" | "created_at" | "locked">): Promise<BudgetLine> {
-  const line: BudgetLine = {
-    ...input,
-    id: uid(),
-    created_at: new Date().toISOString(),
-    locked: false,
-    monthly_split: input.monthly_split && input.monthly_split.length === 12 ? input.monthly_split : EVEN_SPLIT,
-  };
-  const all = readLS<BudgetLine>(LS_LINES);
-  all.push(line);
-  writeLS(LS_LINES, all);
-  return line;
+  if (!input.seller_email) {
+    throw new BudgetPersistenceError("Budget line requires seller_email before saving", "crm_budget_lines");
+  }
+  try {
+    const existing = await findBudgetLineByStableScope(input);
+    if (existing) return existing;
+    const line: BudgetLine = {
+      ...input,
+      id: uid(),
+      created_at: new Date().toISOString(),
+      locked: false,
+      monthly_split: input.monthly_split && input.monthly_split.length === 12 ? input.monthly_split : EVEN_SPLIT,
+    };
+    return await upsertBudgetLine(line);
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Budget line was not created in Supabase: ${errorText(error)}`, "crm_budget_lines", error);
+  }
 }
 
 export async function deleteBudgetLine(id: string): Promise<void> {
@@ -938,22 +1017,24 @@ export async function upsertForecast(forecast: BudgetForecast): Promise<BudgetFo
         .maybeSingle();
       data = retry.data; error = retry.error;
     }
-    if (!error && data) {
-      const saved = data as BudgetForecast;
-      // Mirror to LS so listForecasts fallback stays consistent.
-      const all = readLS<BudgetForecast>(LS_FORECASTS);
-      const idx = all.findIndex(f => f.budget_line_id === saved.budget_line_id);
-      const merged: BudgetForecast = { ...saved, monthly_qty: forecast.monthly_qty ?? saved.monthly_qty ?? null };
-      if (idx >= 0) all[idx] = merged; else all.push(merged);
-      writeLS(LS_FORECASTS, all);
-      return merged;
+    if (error) throw error;
+    const saved = (data as BudgetForecast | null) ?? await readForecastByLineId(forecast.budget_line_id);
+    const expectedMonthly = forecast.monthly_qty ?? null;
+    const savedMonthly = saved?.monthly_qty ?? null;
+    const monthlyMatches = !expectedMonthly || (
+      Array.isArray(savedMonthly)
+      && savedMonthly.length === 12
+      && expectedMonthly.every((v, i) => Number(savedMonthly[i] || 0) === Number(v || 0))
+    );
+    if (!saved || saved.qty_forecast !== forecast.qty_forecast || !monthlyMatches) {
+      throw new BudgetPersistenceError("Forecast readback did not match saved values", "crm_budget_forecasts", { saved, expected: forecast });
     }
-  } catch { /* fall through to LS */ }
-  const all = readLS<BudgetForecast>(LS_FORECASTS);
-  const idx = all.findIndex(f => f.budget_line_id === forecast.budget_line_id);
-  if (idx >= 0) all[idx] = forecast; else all.push(forecast);
-  writeLS(LS_FORECASTS, all);
-  return forecast;
+    return { ...saved, monthly_qty: expectedMonthly ?? saved.monthly_qty ?? null };
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Forecast was not saved to Supabase: ${errorText(error)}`, "crm_budget_forecasts", error);
+  }
 }
 
 // ---------- Helpers ----------
