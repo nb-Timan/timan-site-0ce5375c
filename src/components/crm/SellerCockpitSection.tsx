@@ -423,8 +423,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   return (
     <TooltipProvider delayDuration={150}>
       <section className="mb-6 space-y-5">
-        {/* Seller switcher (backend only) */}
-        {isAdmin && (
+        {/* Seller switcher (backend only — hidden when controlled by parent) */}
+        {isAdmin && !isControlled && (
           <div className="flex items-center gap-3 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] font-semibold text-slate-500">
               <Filter className="h-3.5 w-3.5" />
