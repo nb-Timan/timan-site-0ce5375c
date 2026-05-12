@@ -3,6 +3,87 @@ import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
+import { getActiveSellerView, getSellerViewByEmail, SELLER_VIEWS } from '@/lib/activeMode';
+import { normalizeSellerInitials } from '@/lib/sellerInitials';
+
+/**
+ * Account-panel ("Min konto") scope.
+ *
+ *  - 'seller'  → restrict to rows owned by a specific seller (email/initials).
+ *                Used for real Timan Sælger users AND for backend users who
+ *                are currently "viewing as <seller>". Backend cannot leak
+ *                other sellers' cases into a seller view.
+ *  - 'self'    → restrict to rows the auth user personally created. Used
+ *                for backend in pure backend mode and for external roles
+ *                (dealer / importer / service partner / dealer user).
+ */
+type AccountScope =
+  | { kind: 'seller'; sellerEmail: string; sellerInitialsAliases: string[] }
+  | { kind: 'self'; userId: string };
+
+/** Aliases so AK and AKR collapse to the same seller match list. */
+function sellerInitialsAliases(initials: string): string[] {
+  const norm = normalizeSellerInitials(initials);
+  if (norm === 'AK') return ['AK', 'AKR'];
+  return [norm];
+}
+
+async function resolveAccountScope(
+  ownerEmail: string,
+  authUserId: string,
+): Promise<AccountScope> {
+  // 1) "View as seller" override (backend users) — strictly scope to that seller.
+  const view = getActiveSellerView(ownerEmail);
+  if (view) {
+    return {
+      kind: 'seller',
+      sellerEmail: view.email,
+      sellerInitialsAliases: sellerInitialsAliases(view.initials),
+    };
+  }
+  // 2) If the logged-in email matches a known Timan seller mailbox, scope by that seller.
+  const own = getSellerViewByEmail(ownerEmail);
+  if (own) {
+    return {
+      kind: 'seller',
+      sellerEmail: own.email,
+      sellerInitialsAliases: sellerInitialsAliases(own.initials),
+    };
+  }
+  // 3) Look up portal_role to decide between backend (self) and seller (scoped).
+  try {
+    const { data } = await supabase
+      .from('app_users')
+      .select('portal_role,email')
+      .eq('email', ownerEmail.toLowerCase())
+      .maybeSingle();
+    const role = (data?.portal_role || '').toLowerCase();
+    if (role === 'timan_seller') {
+      // Unknown seller email — best-effort scope by email only.
+      return {
+        kind: 'seller',
+        sellerEmail: ownerEmail.toLowerCase(),
+        sellerInitialsAliases: [],
+      };
+    }
+  } catch { /* fall through */ }
+  // 4) Backend in backend mode, external roles, or unknown → personal scope.
+  return { kind: 'self', userId: authUserId };
+}
+
+function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[]) => any }>(
+  query: T,
+  scope: AccountScope,
+): T {
+  if (scope.kind === 'self') {
+    return query.eq('created_by_user_id', scope.userId) as T;
+  }
+  const parts: string[] = [`seller_email.eq.${scope.sellerEmail}`];
+  if (scope.sellerInitialsAliases.length > 0) {
+    parts.push(`seller_initials.in.(${scope.sellerInitialsAliases.join(',')})`);
+  }
+  return query.or(parts.join(',')) as T;
+}
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
