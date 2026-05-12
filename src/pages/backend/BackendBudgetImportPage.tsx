@@ -13,7 +13,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, AlertTriangle, CheckCircle2, HelpCircle, Lock } from "lucide-react";
+import { ArrowLeft, Upload, AlertTriangle, CheckCircle2, HelpCircle, Lock, Loader2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -24,9 +24,22 @@ import {
   BUDGET_SELLERS,
   listBudgetDealerLines,
   normalizeDealerName,
+  upsertBudgetDealerLines,
   type BudgetDealerLine,
+  type BudgetDealerLineInput,
 } from "@/lib/crmBudgetService";
 import { normalizeSellerInitials } from "@/lib/sellerInitials";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Configuration ──────────────────────────────────────────────────────
 const KNOWN_PRODUCTS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"] as const;
