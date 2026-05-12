@@ -491,15 +491,16 @@ export default function CrmDashboardPage() {
 
           {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
           <div className="min-w-0 flex flex-col gap-3 h-full [&>div]:h-full [&>div]:flex [&>div]:flex-col">
-            <UpcomingActivitiesWidget statsLayout="grid2x2" />
+            <UpcomingActivitiesWidget statsLayout="grid2x2" sellerInitialsOverride={isAdmin ? topSellerInitials : undefined} />
           </div>
         </div>
 
-        {/* SELLER COCKPIT — Lead focus + Budget focus + (backend) seller switcher/comparison/alerts */}
+        {/* SELLER COCKPIT — Lead focus + Budget focus (switcher hidden; controlled by top filter) */}
         <SellerCockpitSection
           isAdmin={isAdmin}
           sellerEmail={appUser?.email ?? null}
           sellerId={sellerId}
+          controlledInitials={isAdmin ? topSellerInitials : undefined}
         />
 
         {/* PIPELINE — bars + horizontal stacked bar legend */}
