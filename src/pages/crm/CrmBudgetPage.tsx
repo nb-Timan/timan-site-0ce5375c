@@ -954,9 +954,25 @@ export default function CrmBudgetPage() {
       notes: null,
     });
     setLines(prev => [...prev, persisted]);
-    // Re-derive order actuals so the new persisted line picks up any live
-    // orders that were previously matched only to a synthetic seed_* id.
-    // Orders themselves are never mutated — we only re-bind ids.
+    // SYNCHRONOUS REBIND: any actuals currently bound to the synthetic seed
+    // id for this (seller, product) must immediately point at the new
+    // persisted line id, otherwise the row's "Ordre" column would flash to 0
+    // between this setLines call and the async refreshActuals() resolving.
+    // Orders themselves are never mutated — only the binding key changes.
+    const seedSlug = (known.email || "").replace(/[^a-z0-9]/gi, "");
+    const seedId = `seed_${year}_${line.product_key}_${seedSlug}`;
+    setActuals(prev => {
+      let changed = false;
+      const next = prev.map(a => {
+        if (a.budget_line_id === seedId) {
+          changed = true;
+          return { ...a, budget_line_id: persisted.id };
+        }
+        return a;
+      });
+      return changed ? next : prev;
+    });
+    // Then re-derive from the source for canonical consistency.
     void refreshActuals();
     return persisted;
   }
