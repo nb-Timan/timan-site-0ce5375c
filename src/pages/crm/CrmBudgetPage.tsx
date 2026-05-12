@@ -843,7 +843,13 @@ export default function CrmBudgetPage() {
     const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
       ? fc.monthly_qty.map(v => Number(v) || 0)
       : null;
-    const workingMonthly = draft ?? savedMonthly ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
+    // Arbejdsbudget is fully independent from Budget. If no forecast has been
+    // saved yet, default to zeros — never fall back to qty_budget (that would
+    // make Budget edits visually mutate Arbejdsbudget).
+    const legacyForecast = (fc && (fc.qty_forecast ?? 0) > 0)
+      ? splitToMonthly(fc.qty_forecast, split)
+      : Array(12).fill(0);
+    const workingMonthly = draft ?? savedMonthly ?? legacyForecast;
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
@@ -971,7 +977,9 @@ export default function CrmBudgetPage() {
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
     const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
       ? fcExisting.monthly_qty.map(v => Number(v) || 0)
-      : splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+      : ((fcExisting && (fcExisting.qty_forecast ?? 0) > 0)
+          ? splitToMonthly(fcExisting.qty_forecast, split)
+          : Array(12).fill(0));
     const prevDraft = workingDraft[lineId] ?? baselineMonthly;
     const oldVal = prevDraft[monthIdx] ?? 0;
     const newVal = Math.max(0, oldVal + delta);
@@ -1000,7 +1008,9 @@ export default function CrmBudgetPage() {
       const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
       const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
         ? fc.monthly_qty.map(v => Number(v) || 0)
-        : splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
+        : ((fc && (fc.qty_forecast ?? 0) > 0)
+            ? splitToMonthly(fc.qty_forecast, split)
+            : Array(12).fill(0));
       for (let i = 0; i < 12; i++) {
         const oldV = baseline[i] ?? 0;
         const newV = draft[i] ?? 0;
