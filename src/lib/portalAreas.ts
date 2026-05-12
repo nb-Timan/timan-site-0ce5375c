@@ -83,6 +83,7 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'portal_analytics', title: { da: 'Portal Analytics', en: 'Portal Analytics', de: 'Portal-Analytik', it: 'Analisi Portale', hu: 'Portál analitika' } },
       { key: 'dealer_accounts', title: { da: 'Forhandlere', en: 'Dealer accounts', de: 'Händlerkonten', it: 'Account rivenditori', hu: 'Kereskedői fiókok' } },
       { key: 'price_lists', title: { da: 'Prislister', en: 'Price lists', de: 'Preislisten', it: 'Listini prezzi', hu: 'Árlisták' } },
+      { key: 'budget_import', title: { da: 'Budgetimport', en: 'Budget import', de: 'Budget-Import', it: 'Import budget', hu: 'Budget importálás' } },
     ],
   },
 ];

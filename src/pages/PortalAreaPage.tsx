@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -123,6 +123,12 @@ export default function PortalAreaPage({ areaId }: Props) {
               description = lang === 'da'
                 ? 'Administrér varepriser, importér prislister fra ERP og eksportér til CSV.'
                 : 'Manage product prices, import from ERP and export to CSV.';
+            } else if (p.key === 'budget_import') {
+              href = '/portal/backend/budget-import';
+              icon = Upload;
+              description = lang === 'da'
+                ? 'Importér sælgerbudgetter fra Excel-oversigt til CRM Budget.'
+                : 'Import seller budgets from Excel overview to CRM Budget.';
             }
             return (
               <PlaceholderCard
