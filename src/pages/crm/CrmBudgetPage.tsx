@@ -750,14 +750,14 @@ export default function CrmBudgetPage() {
   const totals = useMemo(() => {
     const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
     const annualQty = visibleLines.reduce((s, l) => s + l.qty_budget, 0);
-    const visibleLineIds = new Set(visibleLines.map(l => l.id));
-    const syntheticSellerSuffix = (isAdmin && backendFilter === "all")
-      ? null
-      : (isAdmin ? backendFilter : sellerCtxEmail).replace(/[^a-z0-9]/gi, "");
+    const wantedSeller = isAdmin ? (backendFilter === "all" ? null : backendFilter.toLowerCase()) : (sellerCtxEmail || sellerCtxInitials || null);
+    const wantedRef = wantedSeller ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === wantedSeller) : null;
     const scopedActuals = actuals.filter(a => {
-      if (visibleLineIds.has(a.budget_line_id)) return true;
-      if (!a.budget_line_id.startsWith(`seed_${year}_`)) return false;
-      return syntheticSellerSuffix == null || a.budget_line_id.endsWith(`_${syntheticSellerSuffix}`);
+      if (!wantedSeller) return true;
+      return (a.seller_email || "").toLowerCase() === wantedSeller
+        || (a.seller_key || "").toLowerCase() === wantedSeller
+        || (!!wantedRef && (a.seller_initials || "").toLowerCase() === wantedRef.initials.toLowerCase())
+        || (a.seller_initials || "").toLowerCase() === wantedSeller;
     });
     const sold = scopedActuals
       .reduce((acc, a) => ({ qty: acc.qty + a.qty_sold, value: acc.value + a.value_sold }), { qty: 0, value: 0 });
@@ -766,7 +766,7 @@ export default function CrmBudgetPage() {
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
     const score = annualQty > 0 ? Math.round((sold.qty / annualQty) * 100) : 0;
     return { annualBudget, annualQty, sold, fc, score };
-  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, year]);
+  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, sellerCtxInitials]);
 
   if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -857,14 +857,10 @@ export default function CrmBudgetPage() {
   // ---- Per-line monthly derivations ----
   function lineMonthly(line: BudgetLine) {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
-    const ac = actuals.find(a => a.budget_line_id === line.id);
+    const ac = actualsForLine(line)[0];
     const fc = forecasts.find(f => f.budget_line_id === line.id);
     const budgetMonthly = splitToMonthly(line.qty_budget, split);
-    // Real per-month order count when orders source provided it; otherwise
-    // fall back to spreading the annual qty by the budget's monthly split.
-    const ordersMonthly = (ac?.monthly_qty && ac.monthly_qty.length === 12)
-      ? ac.monthly_qty.slice(0, 12)
-      : splitToMonthly(ac?.qty_sold ?? 0, split);
+    const ordersMonthly = ordersMonthlyForLine(line);
     const draft = workingDraft[line.id];
     // Source of truth for working forecast (Arbejdsbudget):
     //   1) live unsaved draft for this line, OR
