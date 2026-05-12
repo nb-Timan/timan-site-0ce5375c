@@ -1842,13 +1842,13 @@ export default function CrmBudgetPage() {
                             };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
-                                {canEditBudget ? (
-                                  <div className="inline-flex items-center gap-0.5 bg-white border border-slate-200 rounded px-0.5 hover:border-slate-400 transition">
-                                    <button
-                                      onClick={() => adjustBudget(primaryLine, i, -1)}
-                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
-                                      title="−1"
-                                    ><Minus className="h-3 w-3" /></button>
+                                 {canEditBudget ? (
+                                   <div className="inline-flex items-center gap-0.5 bg-white border border-slate-200 rounded px-0.5 h-5 leading-none align-middle hover:border-slate-400 transition">
+                                     <button
+                                       onClick={() => adjustBudget(primaryLine, i, -1)}
+                                       className="h-4 w-4 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
+                                       title="−1"
+                                     ><Minus className="h-3 w-3" /></button>
                                     <BudgetCellInsight
                                       title={`Budget · ${tipTitle}`}
                                       total={b}
