@@ -726,6 +726,29 @@ export async function listBudgetLines({ year }: ListBudgetParams): Promise<Budge
   return sanitizeLines(readLS<BudgetLine>(LS_LINES).filter(l => l.year === year));
 }
 
+async function readBudgetLineById(id: string): Promise<BudgetLine | null> {
+  const { data, error } = await supabase
+    .from("crm_budget_lines")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? sanitizeLines([data as BudgetLine])[0] : null;
+}
+
+async function findBudgetLineByStableScope(line: Pick<BudgetLine, "year" | "product_key" | "seller_email">): Promise<BudgetLine | null> {
+  if (!line.seller_email) return null;
+  const { data, error } = await supabase
+    .from("crm_budget_lines")
+    .select("*")
+    .eq("year", line.year)
+    .eq("product_key", line.product_key)
+    .ilike("seller_email", line.seller_email)
+    .limit(1);
+  if (error) throw error;
+  return Array.isArray(data) && data[0] ? sanitizeLines([data[0] as BudgetLine])[0] : null;
+}
+
 export async function listForecasts(year: number): Promise<BudgetForecast[]> {
   try {
     const { data, error } = await supabase
