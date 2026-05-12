@@ -190,28 +190,48 @@ export default function CrmDashboardPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
 
+  // Top dashboard scope filter (admin-only). null = "Alle" (combined view).
+  const [topSellerInitials, setTopSellerInitials] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const sid = await resolveSellerId(appUser?.email);
+      // Resolve the active scope. For admins with a top-filter selection we
+      // re-scope every dashboard fetch as that seller. "Alle" → unscoped.
       const sellerView = getActiveSellerView(appUser?.email);
-      const sellerInitials = sellerView?.initials
+      const ownInitials = sellerView?.initials
         ?? (portalRole === 'timan_seller' && appUser?.display_name
             ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
             : null);
-      const sellerEmail = sellerView?.email
+      const ownEmail = sellerView?.email
         ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = appUser?.dealer_number ?? null;
-      const scopeFilter = { role: portalRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
 
-      const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
-      const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const pickedSeller = (isAdmin && topSellerInitials)
+        ? BUDGET_SELLERS.find(s => s.initials === topSellerInitials) ?? null
+        : null;
+
+      const ownSid = await resolveSellerId(appUser?.email);
+      const sid = pickedSeller ? await resolveSellerId(pickedSeller.email) : ownSid;
+
+      const sellerInitials = pickedSeller?.initials ?? ownInitials;
+      const sellerEmail = pickedSeller?.email ?? ownEmail;
+      const dealerNumber = appUser?.dealer_number ?? null;
+
+      // When a specific seller is picked we narrow the role to 'timan_seller'
+      // so the scoped services apply seller-level filters even for admins.
+      const effectiveRole = pickedSeller ? 'timan_seller' : portalRole;
+      const effectiveAdmin = isAdmin && !pickedSeller;
+
+      const scopeFilter = { role: effectiveRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
+
+      const acc = await listCrmAccounts({ role: effectiveRole, sellerId: sid });
+      const act = await listActivities({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
-      const lds = await listLeads({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const lds = await listLeads({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
       const cal = await listCalendarActivities({
-        sellerInitials: isAdmin ? null : sellerInitials,
-        sellerUserId: isAdmin ? null : sid,
+        sellerInitials: effectiveAdmin ? null : sellerInitials,
+        sellerUserId: effectiveAdmin ? null : sid,
       });
       if (cancelled) return;
       setSellerId(sid);
@@ -223,7 +243,7 @@ export default function CrmDashboardPage() {
       setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials]);
 
   // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
   // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
