@@ -188,7 +188,7 @@ export async function listScopedConfigurations(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
-    const currency = (state?.language && state.language !== 'da') ? 'EUR' as const : 'DKK' as const;
+    const currency = currencyFromLanguage(state?.language ?? null);
     if (state) {
       try { total = calcConfigurationTotals(state).finalPrice || 0; } catch { /* ignore */ }
       for (const mc of state.machineConfigs ?? []) {
