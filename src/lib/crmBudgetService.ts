@@ -1017,22 +1017,24 @@ export async function upsertForecast(forecast: BudgetForecast): Promise<BudgetFo
         .maybeSingle();
       data = retry.data; error = retry.error;
     }
-    if (!error && data) {
-      const saved = data as BudgetForecast;
-      // Mirror to LS so listForecasts fallback stays consistent.
-      const all = readLS<BudgetForecast>(LS_FORECASTS);
-      const idx = all.findIndex(f => f.budget_line_id === saved.budget_line_id);
-      const merged: BudgetForecast = { ...saved, monthly_qty: forecast.monthly_qty ?? saved.monthly_qty ?? null };
-      if (idx >= 0) all[idx] = merged; else all.push(merged);
-      writeLS(LS_FORECASTS, all);
-      return merged;
+    if (error) throw error;
+    const saved = (data as BudgetForecast | null) ?? await readForecastByLineId(forecast.budget_line_id);
+    const expectedMonthly = forecast.monthly_qty ?? null;
+    const savedMonthly = saved?.monthly_qty ?? null;
+    const monthlyMatches = !expectedMonthly || (
+      Array.isArray(savedMonthly)
+      && savedMonthly.length === 12
+      && expectedMonthly.every((v, i) => Number(savedMonthly[i] || 0) === Number(v || 0))
+    );
+    if (!saved || saved.qty_forecast !== forecast.qty_forecast || !monthlyMatches) {
+      throw new BudgetPersistenceError("Forecast readback did not match saved values", "crm_budget_forecasts", { saved, expected: forecast });
     }
-  } catch { /* fall through to LS */ }
-  const all = readLS<BudgetForecast>(LS_FORECASTS);
-  const idx = all.findIndex(f => f.budget_line_id === forecast.budget_line_id);
-  if (idx >= 0) all[idx] = forecast; else all.push(forecast);
-  writeLS(LS_FORECASTS, all);
-  return forecast;
+    return { ...saved, monthly_qty: expectedMonthly ?? saved.monthly_qty ?? null };
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Forecast was not saved to Supabase: ${errorText(error)}`, "crm_budget_forecasts", error);
+  }
 }
 
 // ---------- Helpers ----------
