@@ -1008,7 +1008,9 @@ export default function CrmBudgetPage() {
       const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
       const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
         ? fc.monthly_qty.map(v => Number(v) || 0)
-        : splitToMonthly(fc?.qty_forecast ?? persisted.qty_budget, split);
+        : ((fc && (fc.qty_forecast ?? 0) > 0)
+            ? splitToMonthly(fc.qty_forecast, split)
+            : Array(12).fill(0));
       for (let i = 0; i < 12; i++) {
         const oldV = baseline[i] ?? 0;
         const newV = draft[i] ?? 0;
