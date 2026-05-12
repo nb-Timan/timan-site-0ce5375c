@@ -1125,11 +1125,6 @@ export default function CrmBudgetPage() {
         const fresh = await listForecasts(year);
         setForecasts(fresh);
       } catch { /* keep optimistic */ }
-      // Re-derive order actuals so any newly-persisted lines (created via
-      // ensurePersistedLine during the edit session) re-bind to live orders.
-      // This is the critical fix: actuals must be refreshed AFTER the lines
-      // store has gained the new id, otherwise orders silently render as 0.
-      await refreshActuals();
       setSaveConfirm(null);
       exitEditModeSilently();
       toast.success("Arbejdsbudget gemt");
@@ -1191,8 +1186,6 @@ export default function CrmBudgetPage() {
     };
     await upsertBudgetLine(updated);
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
-    // Re-bind order actuals against the (possibly new) line id set.
-    void refreshActuals();
     logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
   }
 
