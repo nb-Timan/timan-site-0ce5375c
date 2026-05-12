@@ -185,8 +185,12 @@ export async function listCrmConfigurations(
 // ────────────────────────────────────────────────────────────
 
 export interface CrmOrderWithValue extends CrmConfigurationRow {
-  /** Computed via calcConfigurationTotals(state_json). 0 if state missing. */
+  /** Computed via calcConfigurationTotals(state_json), in ORIGINAL currency. 0 if state missing. */
   total_value: number;
+  /** Same total converted to DKK using EUR_TO_DKK from src/lib/currency.ts. */
+  total_value_dkk: number;
+  /** Original currency the configurator was saved in. */
+  currency: Currency;
   /** Distinct machine_type keys from the configuration (e.g. ["RC-1000S"]). */
   machine_keys: string[];
   /** Per-machine quantities (e.g. {"RC-1000S": 2}). */
