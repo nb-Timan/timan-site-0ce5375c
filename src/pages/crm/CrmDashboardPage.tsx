@@ -281,7 +281,7 @@ export default function CrmDashboardPage() {
                   style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative flex-1 min-w-0">
+                <div className="relative min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
                       <Target className="h-3 w-3" strokeWidth={2} />
@@ -293,26 +293,24 @@ export default function CrmDashboardPage() {
                       <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-                    <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums">
-                      {fmtKr(metrics.pipelineValue)}
+                  <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
+                    {fmtKr(metrics.pipelineValue)}
+                  </p>
+                  {metrics.pipelineValueEur > 0 && (
+                    <p className="text-[10.5px] text-emerald-100/70 tabular-nums mt-0.5">
+                      {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
                     </p>
-                    {metrics.pipelineValueEur > 0 && (
-                      <span className="text-[10.5px] text-emerald-100/70 tabular-nums">
-                        heraf {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
-                {/* Embedded KPI slot — vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 w-[8rem]">
-                  <div className="flex items-center justify-end gap-1 w-full">
+                {/* Embedded KPI slot — sits close to the main metric */}
+                <div className="relative shrink-0 ml-3 flex flex-col items-start justify-center gap-1">
+                  <div className="flex items-center gap-1">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
                       {T.kpi_leads[lang]}
                     </p>
                   </div>
-                  <div className="flex items-center justify-end gap-1.5 w-full">
+                  <div className="flex items-center gap-1.5">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.activeLeads}
                     </p>
@@ -331,7 +329,7 @@ export default function CrmDashboardPage() {
                   style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative flex-1 min-w-0">
+                <div className="relative min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
                       <ShoppingCart className="h-3 w-3" strokeWidth={2} />
@@ -343,26 +341,24 @@ export default function CrmDashboardPage() {
                       <HeroTrend pct={metrics.closedPctChange} lang={lang} />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-                    <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums">
-                      {fmtKr(metrics.closedValueThisMonth)}
+                  <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
+                    {fmtKr(metrics.closedValueThisMonth)}
+                  </p>
+                  {metrics.closedValueThisMonthEur > 0 && (
+                    <p className="text-[10.5px] text-sky-100/70 tabular-nums mt-0.5">
+                      {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
                     </p>
-                    {metrics.closedValueThisMonthEur > 0 && (
-                      <span className="text-[10.5px] text-sky-100/70 tabular-nums">
-                        heraf {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
-                {/* Embedded KPI slot — vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 w-[8rem]">
-                  <div className="flex items-center justify-end gap-1 w-full">
+                {/* Embedded KPI slot — sits close to the main metric */}
+                <div className="relative shrink-0 ml-3 flex flex-col items-start justify-center gap-1">
+                  <div className="flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
                       {T.kpi_won[lang]}
                     </p>
                   </div>
-                  <div className="flex items-center justify-end gap-1.5 w-full">
+                  <div className="flex items-center gap-1.5">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.wonOrdersCount}
                     </p>
