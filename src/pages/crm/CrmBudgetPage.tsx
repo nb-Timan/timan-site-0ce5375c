@@ -2020,32 +2020,32 @@ export default function CrmBudgetPage() {
                                   </Tooltip>
                                 )}
                                 {canEditWorking ? (
-                                  <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5">
-                                    <button
-                                      onClick={() => adjustWorking(primaryLine, i, -1)}
-                                      className="p-0.5 hover:bg-slate-700 rounded"
-                                      title="−1"
-                                    ><Minus className="h-3 w-3" /></button>
-                                    <BudgetCellInsight
-                                      title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
-                                      total={w}
-                                      rows={workRows}
-                                      references={refsByCell[ck]}
-                                    >
-                                      <span className="min-w-[16px] text-center font-semibold inline-block">{w}</span>
-                                    </BudgetCellInsight>
-                                    <button
-                                      onClick={() => adjustWorking(primaryLine, i, +1)}
-                                      className="p-0.5 hover:bg-slate-700 rounded"
-                                      title="+1"
-                                    ><Plus className="h-3 w-3" /></button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setRefModal(refCtx)}
-                                      className="p-0.5 ml-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200"
-                                      title="Tilføj reference (forhandler / lead / demo)"
-                                    ><Link2 className="h-3 w-3" /></button>
-                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
+                                   <div className="inline-flex items-center gap-0.5 bg-slate-800 rounded px-0.5 h-5 leading-none align-middle">
+                                     <button
+                                       onClick={() => adjustWorking(primaryLine, i, -1)}
+                                       className="h-4 w-4 flex items-center justify-center hover:bg-slate-700 rounded"
+                                       title="−1"
+                                     ><Minus className="h-3 w-3" /></button>
+                                     <BudgetCellInsight
+                                       title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
+                                       total={w}
+                                       rows={workRows}
+                                       references={refsByCell[ck]}
+                                     >
+                                       <span className="min-w-[16px] text-center font-semibold inline-block">{w}</span>
+                                     </BudgetCellInsight>
+                                     <button
+                                       onClick={() => adjustWorking(primaryLine, i, +1)}
+                                       className="h-4 w-4 flex items-center justify-center hover:bg-slate-700 rounded"
+                                       title="+1"
+                                     ><Plus className="h-3 w-3" /></button>
+                                     <button
+                                       type="button"
+                                       onClick={() => setRefModal(refCtx)}
+                                       className="h-4 w-4 ml-0.5 flex items-center justify-center rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+                                       title="Tilføj reference (forhandler / lead / demo)"
+                                     ><Link2 className="h-3 w-3" /></button>
+                                     {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <BudgetCellInsight
