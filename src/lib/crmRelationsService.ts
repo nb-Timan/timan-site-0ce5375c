@@ -26,6 +26,7 @@ import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { PRODUCTS } from '@/data/machines';
 import { BUDGET_PRODUCTS } from '@/lib/crmBudgetService';
 import type { ConfiguratorState } from '@/types/configurator';
+import { currencyFromLanguage, toDkk } from '@/lib/currency';
 
 // ---------- helpers ----------
 
