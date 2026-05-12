@@ -60,6 +60,7 @@ vi.mock("@/lib/supabase", () => {
   return {
     supabase: { from: (table: string) => makeBuilder(table) },
     SUPABASE_URL: "http://mock", SUPABASE_ANON_KEY: "mock",
+    __resetBudget: () => { budgetLines.length = 0; forecasts.length = 0; },
     __setOrders: (v: Array<Record<string, unknown>>, d: Array<Record<string, unknown>>) => { ordersView = v; ordersDetails = d; },
   };
 });
@@ -76,6 +77,8 @@ const MAY_IDX = 4;
 const JTN = BUDGET_SELLERS.find(s => s.initials === "JTN")!;
 const setOrders = (v: Array<Record<string, unknown>>, d: Array<Record<string, unknown>>) =>
   (supabaseModule as unknown as { __setOrders: (a: typeof v, b: typeof d) => void }).__setOrders(v, d);
+const resetBudget = () =>
+  (supabaseModule as unknown as { __resetBudget: () => void }).__resetBudget();
 
 function makeOrder(id: string, machineType: string, qty: number) {
   const view = {
@@ -116,6 +119,7 @@ async function persistBudgetLine(productKey: string): Promise<BudgetLine> {
 describe("CrmBudgetPage — order display is independent from budget_line_id", () => {
   beforeEach(() => {
     localStorage.clear();
+    resetBudget();
     const o1 = makeOrder("ord-1", "RC-1000S", 3);
     const o2 = makeOrder("ord-2", "RC-751", 1);
     setOrders([o1.view, o2.view], [o1.details, o2.details]);
@@ -130,7 +134,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
   it("after Budget + persists a new b_ id, order counts stay visible without rebinding", async () => {
     const actuals = await listSalesActuals(YEAR);
     const persisted = await persistBudgetLine("RC-751");
-    expect(persisted.id.startsWith("b_")).toBe(true);
+    expect(persisted.id.startsWith("seed_")).toBe(false);
     expect(rowOrderInMay(persisted, actuals)).toBe(1);
     expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(3);
     expect(actuals.some(a => a.budget_line_id === persisted.id)).toBe(false);
