@@ -57,6 +57,7 @@ import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPa
 import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
 import BackendDealerImportPage from "./pages/backend/BackendDealerImportPage";
+import BackendBudgetImportPage from "./pages/backend/BackendBudgetImportPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
