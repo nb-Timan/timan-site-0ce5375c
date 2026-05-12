@@ -1330,3 +1330,172 @@ export function aggregateBudget(
   return { byMachine, totals };
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// Phase 35 — Dealer-level budget lines (crm_budget_dealer_lines)
+//
+// Foundation only. CRM Budget page and Budget Dashboard are unchanged;
+// these helpers are for the upcoming admin importer and for read-models
+// that want to attribute budget to a dealer. Supabase-first with mandatory
+// readback verification, mirroring upsertBudgetLine.
+// ════════════════════════════════════════════════════════════════════════
+
+export interface BudgetDealerLine {
+  id: string;
+  year: number;
+  month_idx: number;             // 0..11
+  seller_id: string | null;
+  seller_name: string | null;
+  seller_email: string;
+  seller_initials: string | null;
+  dealer_account_id: string | null;
+  dealer_account_number: string | null;
+  dealer_name: string | null;
+  dealer_name_norm: string | null;
+  product_key: string;
+  product_name: string | null;
+  item_number: string | null;
+  qty: number;
+  excluded_from_total: boolean;
+  import_source: string | null;
+  import_batch_id: string | null;
+  imported_at?: string | null;
+  imported_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type BudgetDealerLineInput = Omit<BudgetDealerLine,
+  "id" | "created_at" | "updated_at" | "imported_at"
+> & { id?: string };
+
+/** Lowercase, strip company suffixes/punctuation/whitespace. Used as the
+ *  dealer fallback identity when no dealer_account_id is known. */
+export function normalizeDealerName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const stripped = String(name)
+    .toLowerCase()
+    .replace(/\b(gmbh|ltd|aps|a\/s|ab|inc|llc|bv|sa|srl|kg|ohg|co\.?|ag|nv|s\.r\.o\.?)\b/gi, " ")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+  return stripped || null;
+}
+
+export async function listBudgetDealerLines(year: number): Promise<BudgetDealerLine[]> {
+  try {
+    const { data, error } = await supabase
+      .from("crm_budget_dealer_lines")
+      .select("*")
+      .eq("year", year);
+    if (error) {
+      console.error("[budget] Supabase read failed for crm_budget_dealer_lines", error);
+      return [];
+    }
+    return Array.isArray(data) ? (data as BudgetDealerLine[]) : [];
+  } catch (error) {
+    console.error("[budget] Supabase read failed for crm_budget_dealer_lines", error);
+    return [];
+  }
+}
+
+async function readBudgetDealerLineByIdentity(
+  row: Pick<BudgetDealerLine, "year" | "month_idx" | "seller_email" | "product_key" | "dealer_account_id" | "dealer_name_norm">,
+): Promise<BudgetDealerLine | null> {
+  let q = supabase
+    .from("crm_budget_dealer_lines")
+    .select("*")
+    .eq("year", row.year)
+    .eq("month_idx", row.month_idx)
+    .ilike("seller_email", row.seller_email)
+    .eq("product_key", row.product_key);
+  q = row.dealer_account_id
+    ? q.eq("dealer_account_id", row.dealer_account_id)
+    : q.is("dealer_account_id", null).eq("dealer_name_norm", row.dealer_name_norm ?? "");
+  const { data, error } = await q.limit(1);
+  if (error) throw error;
+  return Array.isArray(data) && data[0] ? (data[0] as BudgetDealerLine) : null;
+}
+
+export async function upsertBudgetDealerLine(input: BudgetDealerLineInput): Promise<BudgetDealerLine> {
+  if (!input.seller_email) {
+    throw new BudgetPersistenceError("Dealer budget line requires seller_email", "crm_budget_dealer_lines");
+  }
+  if (!input.product_key) {
+    throw new BudgetPersistenceError("Dealer budget line requires product_key", "crm_budget_dealer_lines");
+  }
+  if (input.month_idx < 0 || input.month_idx > 11) {
+    throw new BudgetPersistenceError("Dealer budget line month_idx must be 0..11", "crm_budget_dealer_lines");
+  }
+  const row: Record<string, unknown> = {
+    id: input.id ?? uid(),
+    year: input.year,
+    month_idx: input.month_idx,
+    seller_id: input.seller_id ?? null,
+    seller_name: input.seller_name ?? null,
+    seller_email: input.seller_email,
+    seller_initials: input.seller_initials ?? null,
+    dealer_account_id: input.dealer_account_id ?? null,
+    dealer_account_number: input.dealer_account_number ?? null,
+    dealer_name: input.dealer_name ?? null,
+    dealer_name_norm: input.dealer_name_norm ?? normalizeDealerName(input.dealer_name),
+    product_key: input.product_key,
+    product_name: input.product_name ?? null,
+    item_number: input.item_number ?? null,
+    qty: Number.isFinite(input.qty) ? Math.trunc(input.qty) : 0,
+    excluded_from_total: !!input.excluded_from_total,
+    import_source: input.import_source ?? null,
+    import_batch_id: input.import_batch_id ?? null,
+    imported_by: input.imported_by ?? null,
+  };
+  try {
+    const { error } = await supabase
+      .from("crm_budget_dealer_lines")
+      .upsert(row)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    const saved = await readBudgetDealerLineByIdentity({
+      year: input.year,
+      month_idx: input.month_idx,
+      seller_email: input.seller_email,
+      product_key: input.product_key,
+      dealer_account_id: input.dealer_account_id ?? null,
+      dealer_name_norm: (row.dealer_name_norm as string | null) ?? null,
+    });
+    if (!saved || saved.qty !== row.qty || !!saved.excluded_from_total !== !!row.excluded_from_total) {
+      throw new BudgetPersistenceError(
+        "Dealer budget line readback did not match saved values",
+        "crm_budget_dealer_lines",
+        { saved, expected: row },
+      );
+    }
+    return saved;
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(
+          `Dealer budget line was not saved to Supabase: ${errorText(error)}`,
+          "crm_budget_dealer_lines",
+          error,
+        );
+  }
+}
+
+export async function upsertBudgetDealerLines(rows: BudgetDealerLineInput[]): Promise<BudgetDealerLine[]> {
+  const out: BudgetDealerLine[] = [];
+  for (const r of rows) out.push(await upsertBudgetDealerLine(r));
+  return out;
+}
+
+/** Sum dealer-line qty per (seller_email, year, product_key, month_idx),
+ *  honouring excluded_from_total. Useful for dashboard/import preview. */
+export function summarizeDealerLines(rows: BudgetDealerLine[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    if (r.excluded_from_total) continue;
+    const k = `${(r.seller_email || "").toLowerCase()}|${r.year}|${r.product_key}|${r.month_idx}`;
+    out.set(k, (out.get(k) || 0) + (r.qty || 0));
+  }
+  return out;
+}
+
