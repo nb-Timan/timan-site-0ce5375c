@@ -26,6 +26,7 @@ import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { PRODUCTS } from '@/data/machines';
 import { BUDGET_PRODUCTS } from '@/lib/crmBudgetService';
 import type { ConfiguratorState } from '@/types/configurator';
+import { currencyFromLanguage, toDkk } from '@/lib/currency';
 
 // ---------- helpers ----------
 
@@ -74,8 +75,12 @@ function parseStateJson(value: unknown): ConfiguratorState | null {
 // ---------- types ----------
 
 export interface ScopedConfiguration extends CrmConfigurationRow {
-  /** Computed total (state_json) → fallback row.total_price → 0. */
+  /** Computed total in ORIGINAL currency (state_json) → fallback row.total_price → 0. */
   total_value: number;
+  /** Same total converted to DKK using EUR_TO_DKK from src/lib/currency.ts. */
+  total_value_dkk: number;
+  /** Original currency (DKK or EUR) the configurator was saved in. */
+  currency: import('@/lib/currency').Currency;
   /** Distinct product keys (e.g. ["RC-1000s"]). */
   machine_keys: string[];
   /** Per-machine quantity. */
@@ -183,6 +188,7 @@ export async function listScopedConfigurations(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
+    const currency = currencyFromLanguage(state?.language ?? null);
     if (state) {
       try { total = calcConfigurationTotals(state).finalPrice || 0; } catch { /* ignore */ }
       for (const mc of state.machineConfigs ?? []) {
@@ -198,10 +204,13 @@ export async function listScopedConfigurations(
       if (fromTitle) qtyByKey[fromTitle] = 1;
     }
     if (total === 0) total = fallbackTotalById.get(r.id) || 0;
+    const totalDkk = toDkk(total, currency);
 
     return {
       ...r,
       total_value: total,
+      total_value_dkk: totalDkk,
+      currency,
       machine_keys: Object.keys(qtyByKey),
       machine_qty_by_key: qtyByKey,
       month_iso: quoteMonthIso(r),

@@ -130,20 +130,28 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
 }
 
 function Stat({ icon: Icon, label, value, tone, extra }: { icon: typeof Activity; label: string; value: number; tone: "emerald" | "blue" | "red" | "amber"; extra?: string }) {
+  // Aligned with the dashboard hero cards: dark Timan green + dark navy for
+  // the two primary tiles, deeper rose/amber for warnings (less pastel).
   const tones: Record<typeof tone, string> = {
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    blue:    "bg-blue-50 text-blue-700 border-blue-200",
-    red:     "bg-red-50 text-red-700 border-red-200",
-    amber:   "bg-amber-50 text-amber-800 border-amber-200",
+    emerald: "bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white border-transparent",
+    blue:    "bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white border-transparent",
+    red:     "bg-rose-600 text-white border-transparent",
+    amber:   "bg-amber-500 text-white border-transparent",
+  };
+  const labelTone: Record<typeof tone, string> = {
+    emerald: "text-emerald-100/80",
+    blue:    "text-sky-100/80",
+    red:     "text-rose-100/90",
+    amber:   "text-amber-50/90",
   };
   return (
-    <div className={cn("rounded-lg border px-2.5 py-2", tones[tone])}>
+    <div className={cn("rounded-lg border px-2.5 py-2 shadow-sm", tones[tone])}>
       <div className="flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5" />
-        <span className="text-[10px] uppercase tracking-wide opacity-80">{label}</span>
+        <span className={cn("text-[10px] uppercase tracking-wide font-semibold", labelTone[tone])}>{label}</span>
       </div>
       <div className="text-lg font-semibold tabular-nums">{value}</div>
-      {extra && <div className="text-[10px] opacity-70 truncate">{extra}</div>}
+      {extra && <div className={cn("text-[10px] truncate", labelTone[tone])}>{extra}</div>}
     </div>
   );
 }

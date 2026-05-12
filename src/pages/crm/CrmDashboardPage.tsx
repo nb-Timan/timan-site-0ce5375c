@@ -241,8 +241,11 @@ export default function CrmDashboardPage() {
     });
     const openKeys: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
     const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
-    return { ...base, pipelineValue, pipelineByStage: byStage };
-  }, [activities, orders, isAdmin, pipelineRows]);
+    const pipelineValueEur = openQuotes
+      .filter(q => q.currency === 'EUR')
+      .reduce((s, q) => s + (q.total_value || 0), 0);
+    return { ...base, pipelineValue, pipelineValueEur, pipelineByStage: byStage };
+  }, [activities, orders, isAdmin, pipelineRows, openQuotes]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
@@ -271,7 +274,7 @@ export default function CrmDashboardPage() {
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[88px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -280,8 +283,8 @@ export default function CrmDashboardPage() {
                 {/* Main metric */}
                 <div className="relative flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <Target className="h-3.5 w-3.5" strokeWidth={2} />
+                    <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <Target className="h-3 w-3" strokeWidth={2} />
                     </div>
                     <p className="text-[10px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
                       {T.kpi_pipeline[lang]}
@@ -290,10 +293,15 @@ export default function CrmDashboardPage() {
                       <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
-                    <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
+                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                    <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.pipelineValue)}
                     </p>
+                    {metrics.pipelineValueEur > 0 && (
+                      <span className="text-[10.5px] text-emerald-100/70 tabular-nums">
+                        heraf {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
+                      </span>
+                    )}
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
@@ -335,7 +343,7 @@ export default function CrmDashboardPage() {
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
             <Link to="/portal/crm/orders" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[88px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -344,8 +352,8 @@ export default function CrmDashboardPage() {
                 {/* Main metric */}
                 <div className="relative flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <ShoppingCart className="h-3.5 w-3.5" strokeWidth={2} />
+                    <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <ShoppingCart className="h-3 w-3" strokeWidth={2} />
                     </div>
                     <p className="text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold">
                       {T.kpi_closed[lang]}
@@ -354,10 +362,15 @@ export default function CrmDashboardPage() {
                       <HeroTrend pct={metrics.closedPctChange} lang={lang} />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
-                    <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
+                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                    <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.closedValueThisMonth)}
                     </p>
+                    {metrics.closedValueThisMonthEur > 0 && (
+                      <span className="text-[10.5px] text-sky-100/70 tabular-nums">
+                        heraf {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
+                      </span>
+                    )}
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
@@ -389,37 +402,70 @@ export default function CrmDashboardPage() {
             </Link>
           </div>
 
-          {/* MIDDLE COLUMN — Win rate stacked over Gns. salgstid */}
+          {/* MIDDLE COLUMN — Win rate + Gns. salgstid (compact, side-by-side) + Sold units */}
           <div className="min-w-0 flex flex-col gap-3">
-            {/* Win rate — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[88px]">
-              <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+            <div className="grid grid-cols-2 gap-3">
+              {/* Win rate — compact */}
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 min-h-[72px]">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                  <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                    {T.kpi_winrate[lang]}
+                  </p>
+                  <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
+                    {metrics.winRate}%
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                  {T.kpi_winrate[lang]}
-                </p>
-                <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                  {metrics.winRate}%
-                </p>
+
+              {/* Gns. salgstid — compact */}
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 min-h-[72px]">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center">
+                  <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                    {T.kpi_avgtime[lang]}
+                  </p>
+                  <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
+                    {metrics.avgSalesDays}<span className="text-[11px] font-medium text-slate-500 ml-1">{T.days[lang]}</span>
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Gns. salgstid — compact vertical card */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-4 py-2.5 flex items-center gap-2.5 min-h-[88px]">
-              <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 flex items-center justify-center">
-                <Clock className="h-4 w-4" strokeWidth={2} />
+            {/* Seneste solgte enheder — compact list of recent closed orders with actual unit qty */}
+            <Link to="/portal/crm/orders" className="group block flex-1">
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 h-full flex flex-col">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Award className="h-3.5 w-3.5 text-[#2d5a27]" strokeWidth={2} />
+                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold">
+                    Seneste solgte enheder
+                  </p>
+                </div>
+                {metrics.latestSoldUnits.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">Ingen lukkede ordrer endnu.</p>
+                ) : (
+                  <ul className="space-y-1 text-[11.5px] leading-tight">
+                    {metrics.latestSoldUnits.map(o => (
+                      <li key={o.id} className="flex items-start gap-2 min-w-0">
+                        <span className="shrink-0 inline-flex items-center justify-center h-4 min-w-[18px] px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tabular-nums">
+                          {o.totalUnits}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-slate-800 truncate block" title={o.dealer}>{o.dealer}</span>
+                          <span className="text-slate-500 truncate block" title={o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}>
+                            {o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                  {T.kpi_avgtime[lang]}
-                </p>
-                <p className="text-[1.3rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-1">
-                  {metrics.avgSalesDays} <span className="text-xs font-medium text-slate-500">{T.days[lang]}</span>
-                </p>
-              </div>
-            </div>
+            </Link>
           </div>
 
           {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
@@ -989,12 +1035,14 @@ interface DerivedMetrics {
   winRate: number;
   avgSalesDays: number;
   closedValueThisMonth: number;
+  closedValueThisMonthEur: number;
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
   lostReasons: { total: number; items: Record<'price'|'lead'|'comp'|'other', { count: number }> };
   inactiveAccounts: (accounts: CrmAccount[]) => CrmAccount[];
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
+  latestSoldUnits: Array<{ id: string; dealer: string; closedAt: string; units: Array<{ key: string; qty: number }>; totalUnits: number }>;
 }
 
 function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
@@ -1069,9 +1117,12 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   }
   const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
 
-  const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value || 0), 0);
+  const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
+  const closedValueThisMonthEur = ordersThis
+    .filter(o => o.currency === 'EUR')
+    .reduce((sum, o) => sum + (o.total_value || 0), 0);
   const closedCountThisMonth = ordersThis.length;
-  const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value || 0), 0);
+  const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
   const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
@@ -1092,18 +1143,39 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     const id = o.dealer_account_id;
     if (!id) continue;
     const cur = bestByAccount.get(id) || { value: 0 };
-    cur.value += o.total_value || 0;
+    cur.value += o.total_value_dkk || 0;
     bestByAccount.set(id, cur);
   }
+
+  // Latest sold units (3 most recent closed orders) — count actual machine
+  // qty from configuration line items, NOT just one per order header.
+  const latestSoldUnits = [...orders]
+    .sort((a, b) => (b.closed_at || '').localeCompare(a.closed_at || ''))
+    .slice(0, 3)
+    .map(o => {
+      const units = Object.entries(o.machine_qty_by_key || {})
+        .map(([key, qty]) => ({ key, qty }))
+        .sort((a, b) => b.qty - a.qty);
+      const totalUnits = units.reduce((s, u) => s + u.qty, 0);
+      return {
+        id: o.id,
+        dealer: o.dealer_company_name || o.dealer_name || o.title || '—',
+        closedAt: o.closed_at,
+        units,
+        totalUnits,
+      };
+    })
+    .filter(x => x.totalUnits > 0);
 
   return {
     pipelineValue, pipelinePctChange,
     activeLeads, leadsPctChange,
     wonOrdersCount, wonPctChange,
     winRate, avgSalesDays,
-    closedValueThisMonth, closedCountThisMonth, closedPctChange,
+    closedValueThisMonth, closedValueThisMonthEur, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
+    latestSoldUnits,
     inactiveAccounts: (accounts) => {
       const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 60;
       const lastByAccount = new Map<string, number>();
@@ -1191,7 +1263,7 @@ function buildPipelineRows(args: {
       title: o.title || '—',
       dealer: o.dealer_company_name || o.dealer_name || '—',
       seller: o.seller_initials || o.seller_name || '—',
-      value: o.total_value || 0,
+      value: o.total_value_dkk || 0,
       status: o.case_status || 'ordre_afgivet',
       date: o.closed_at,
       href: '/portal/crm/orders',
@@ -1207,7 +1279,7 @@ function buildPipelineRows(args: {
       title: q.title || '—',
       dealer: q.dealer_company_name || q.dealer_name || '—',
       seller: q.seller_initials || q.seller_name || '—',
-      value: q.total_value || 0,
+      value: q.total_value_dkk || 0,
       status: q.case_status || 'sent',
       date: q.month_iso,
       href: '/portal/crm/quotes',
