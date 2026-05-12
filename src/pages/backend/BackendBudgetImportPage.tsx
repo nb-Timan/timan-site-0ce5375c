@@ -216,6 +216,17 @@ export default function BackendBudgetImportPage() {
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const { toast } = useToast();
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [lastResult, setLastResult] = useState<{ written: number; verified: number; batchId: string } | null>(null);
+
+  const reloadExisting = async (y: number) => {
+    const e = await listBudgetDealerLines(y);
+    setExisting(e);
+    return e;
+  };
 
   useEffect(() => {
     if (!appUser || !perms?.isBackend) return;
@@ -242,6 +253,86 @@ export default function BackendBudgetImportPage() {
     for (const r of rows) c[r.status]++;
     return c;
   }, [rows]);
+
+  // Importable = matched (new) + duplicate (will overwrite same identity).
+  // Block when ANY error or needs_mapping row is present.
+  const importable = useMemo(
+    () => rows.filter((r) => r.status === "matched" || r.status === "duplicate"),
+    [rows],
+  );
+  const canImport =
+    !importing && !busyLoad && importable.length > 0
+    && counts.error === 0 && counts.needs_mapping === 0;
+
+  const runImport = async () => {
+    setImporting(true);
+    const batchId = `import-${Date.now()}`;
+    const importedBy = appUser?.email ?? "backend";
+    try {
+      const inputs: BudgetDealerLineInput[] = importable.map((r) => ({
+        year: r.year as number,
+        month_idx: r.month_idx as number,
+        seller_id: null,
+        seller_name: null,
+        seller_email: r.seller_email as string,
+        seller_initials: r.seller_initials,
+        dealer_account_id: r.dealer_match?.id ?? null,
+        dealer_account_number: r.dealer_match?.account_number ?? null,
+        dealer_name: r.dealer_match?.company_name ?? r.dealer_input,
+        dealer_name_norm: normalizeDealerName(r.dealer_match?.company_name ?? r.dealer_input),
+        product_key: r.product_key as string,
+        product_name: r.product_key as string,
+        item_number: null,
+        qty: r.qty,
+        excluded_from_total: r.qty === 0,
+        import_source: "backend-budget-import-ui",
+        import_batch_id: batchId,
+        imported_by: importedBy,
+      }));
+
+      const saved = await upsertBudgetDealerLines(inputs);
+
+      // Readback verification: refetch dealer-lines and confirm every
+      // (seller, year, month, product, dealer-identity) is present.
+      const fresh = await reloadExisting(year);
+      const verified = inputs.filter((inp) => fresh.some((r) =>
+        r.year === inp.year
+        && r.month_idx === inp.month_idx
+        && (r.seller_email || "").toLowerCase() === inp.seller_email.toLowerCase()
+        && r.product_key === inp.product_key
+        && (
+          (inp.dealer_account_id && r.dealer_account_id === inp.dealer_account_id)
+          || (!inp.dealer_account_id && r.dealer_name_norm === inp.dealer_name_norm)
+        )
+        && r.qty === inp.qty
+        && !!r.excluded_from_total === !!inp.excluded_from_total,
+      )).length;
+
+      if (verified !== inputs.length) {
+        toast({
+          title: "Import delvist verificeret",
+          description: `${saved.length} skrevet, men kun ${verified}/${inputs.length} bekræftet ved readback.`,
+          variant: "destructive",
+        });
+      } else {
+        setLastResult({ written: saved.length, verified, batchId });
+        toast({
+          title: "Import gennemført",
+          description: `${verified} rækker bekræftet i Supabase (batch ${batchId}).`,
+        });
+      }
+    } catch (err) {
+      console.error("[budget-import] commit failed", err);
+      toast({
+        title: "Import fejlede",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      setConfirmOpen(false);
+    }
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
