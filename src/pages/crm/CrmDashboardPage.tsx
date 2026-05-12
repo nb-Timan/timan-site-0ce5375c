@@ -417,10 +417,7 @@ export default function CrmDashboardPage() {
                 ) : (
                   <ul className="space-y-1 text-[11.5px] leading-tight">
                     {metrics.latestSoldUnits.map(o => (
-                      <li key={o.id} className="flex items-start gap-2 min-w-0">
-                        <span className="shrink-0 inline-flex items-center justify-center h-4 min-w-[18px] px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tabular-nums">
-                          {o.totalUnits}
-                        </span>
+                      <li key={o.id} className="min-w-0">
                         <span className="min-w-0 flex-1">
                           <span className="font-medium text-slate-800 truncate block" title={o.dealer}>{o.dealer}</span>
                           <span className="text-slate-500 truncate block" title={o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}>
