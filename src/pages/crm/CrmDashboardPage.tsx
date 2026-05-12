@@ -386,8 +386,8 @@ export default function CrmDashboardPage() {
             </Link>
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
-            <Link to="/portal/crm/orders" className="group block w-full max-w-[28rem]">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-4 min-h-[72px]">
+            <Link to="/portal/crm/orders" className="group block w-full flex-1">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 h-full min-h-[88px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -410,13 +410,23 @@ export default function CrmDashboardPage() {
                     {fmtKr(metrics.closedValueThisMonth)}
                   </p>
                   {metrics.closedValueThisMonthEur > 0 && (
-                    <p className="text-[10.5px] text-sky-100/70 tabular-nums mt-0.5">
-                      {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
+                    <p className="text-[11px] text-sky-100/85 tabular-nums mt-1">
+                      heraf {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
                     </p>
                   )}
                 </div>
-                {/* Embedded KPI slot — sits close to the main metric, separated by a thin divider */}
-                <div className="relative shrink-0 ml-auto pl-4 border-l border-white/15 flex flex-col items-start justify-center gap-1">
+                {/* Compact bar chart */}
+                <div className="relative hidden sm:flex items-end gap-[2px] w-16 h-8 shrink-0">
+                  {CLOSED_BARS.map((h, i) => (
+                    <span
+                      key={i}
+                      className="flex-1 rounded-sm bg-sky-300/70"
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
+                {/* Embedded KPI slot — separated by a thin divider */}
+                <div className="relative shrink-0 ml-auto pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
@@ -430,6 +440,36 @@ export default function CrmDashboardPage() {
                     <MiniTrend pct={metrics.wonPctChange} lang={lang} />
                   </div>
                 </div>
+              </div>
+            </Link>
+          </div>
+
+          {/* COLUMN 2 — Seneste solgte enheder (full height) */}
+          <div className="min-w-0 flex flex-col gap-3">
+            <Link to="/portal/crm/orders" className="group block flex-1">
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 h-full flex flex-col">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Award className="h-3.5 w-3.5 text-[#2d5a27]" strokeWidth={2} />
+                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold">
+                    Seneste solgte enheder
+                  </p>
+                </div>
+                {metrics.latestSoldUnits.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">Ingen lukkede ordrer endnu.</p>
+                ) : (
+                  <ul className="space-y-1 text-[11.5px] leading-tight">
+                    {metrics.latestSoldUnits.map(o => (
+                      <li key={o.id} className="min-w-0">
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-slate-800 truncate block" title={o.dealer}>{o.dealer}</span>
+                          <span className="text-slate-500 truncate block" title={o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}>
+                            {o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </Link>
           </div>
