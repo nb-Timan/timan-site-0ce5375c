@@ -257,13 +257,9 @@ describe("CRM Budget — order actuals stay bound after persisting a line", () =
 
     // And the actuals derivation must still report 3 / 1 after a forecast write.
     const refreshed = await listSalesActuals(YEAR);
-    const totalRC1000 = refreshed
-      .filter((a) => /RC-1000s/i.test(a.budget_line_id))
-      .reduce((s, a) => s + a.qty_sold, 0);
-    const totalRC751 = refreshed
-      .filter((a) => /RC-751/i.test(a.budget_line_id))
-      .reduce((s, a) => s + a.qty_sold, 0);
-    expect(totalRC1000).toBe(3);
-    expect(totalRC751).toBe(1);
+    const onRC1000 = refreshed.find((a) => a.budget_line_id === line.id);
+    const onRC751 = refreshed.find((a) => a.budget_line_id === lineRC751.id);
+    expect(onRC1000?.qty_sold).toBe(3);
+    expect(onRC751?.qty_sold).toBe(1);
   });
 });
