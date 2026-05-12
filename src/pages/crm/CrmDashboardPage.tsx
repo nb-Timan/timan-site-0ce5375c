@@ -474,67 +474,37 @@ export default function CrmDashboardPage() {
             </Link>
           </div>
 
-          {/* MIDDLE COLUMN — Win rate + Gns. salgstid (compact, side-by-side) + Sold units */}
+          {/* COLUMN 3 — Win rate + Gns. salgstid stacked vertically */}
           <div className="min-w-0 flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Win rate — compact */}
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 min-h-[72px]">
-                <div className="h-7 w-7 shrink-0 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
-                  <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_winrate[lang]}
-                  </p>
-                  <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
-                    {metrics.winRate}%
-                  </p>
-                </div>
+            {/* Win rate — compact */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 flex-1 min-h-[88px]">
+              <div className="h-7 w-7 shrink-0 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               </div>
-
-              {/* Gns. salgstid — compact */}
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 min-h-[72px]">
-                <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center">
-                  <Clock className="h-3.5 w-3.5" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
-                    {T.kpi_avgtime[lang]}
-                  </p>
-                  <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
-                    {metrics.avgSalesDays}<span className="text-[11px] font-medium text-slate-500 ml-1">{T.days[lang]}</span>
-                  </p>
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_winrate[lang]}
+                </p>
+                <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
+                  {metrics.winRate}%
+                </p>
               </div>
             </div>
 
-            {/* Seneste solgte enheder — compact list of recent closed orders with actual unit qty */}
-            <Link to="/portal/crm/orders" className="group block flex-1">
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 h-full flex flex-col">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Award className="h-3.5 w-3.5 text-[#2d5a27]" strokeWidth={2} />
-                  <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold">
-                    Seneste solgte enheder
-                  </p>
-                </div>
-                {metrics.latestSoldUnits.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">Ingen lukkede ordrer endnu.</p>
-                ) : (
-                  <ul className="space-y-1 text-[11.5px] leading-tight">
-                    {metrics.latestSoldUnits.map(o => (
-                      <li key={o.id} className="min-w-0">
-                        <span className="min-w-0 flex-1">
-                          <span className="font-medium text-slate-800 truncate block" title={o.dealer}>{o.dealer}</span>
-                          <span className="text-slate-500 truncate block" title={o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}>
-                            {o.units.map(u => `${u.qty}× ${u.key}`).join(', ')}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {/* Gns. salgstid — compact */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300 px-3 py-2 flex items-center gap-2 flex-1 min-h-[88px]">
+              <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center">
+                <Clock className="h-3.5 w-3.5" strokeWidth={2} />
               </div>
-            </Link>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold truncate">
+                  {T.kpi_avgtime[lang]}
+                </p>
+                <p className="text-[1.15rem] font-bold text-slate-900 tracking-tight tabular-nums leading-none mt-0.5">
+                  {metrics.avgSalesDays}<span className="text-[11px] font-medium text-slate-500 ml-1">{T.days[lang]}</span>
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
