@@ -1664,7 +1664,7 @@ export default function CrmBudgetPage() {
                 <tr className="bg-slate-900 text-slate-100">
                   <th className="sticky left-0 z-10 bg-slate-900 text-left px-3 py-2.5 font-semibold w-56 min-w-[14rem]">{T.col_model[lang]}</th>
                   {monthCols.map((m, i) => (
-                    <th key={m} className={`px-2 py-2.5 font-medium text-center w-16 ${i === currentMonthIdx ? 'relative' : ''}`}>
+                    <th key={m} className={`px-2 py-2.5 font-medium text-center w-14 ${i === currentMonthIdx ? 'relative' : ''}`}>
                       {m}
                       {i === currentMonthIdx && <span className="ml-1 text-[9px] uppercase tracking-wide opacity-70">•</span>}
                     </th>
