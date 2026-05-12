@@ -1857,27 +1857,27 @@ export default function CrmBudgetPage() {
                                     >
                                       <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block">{b}</span>
                                     </BudgetCellInsight>
-                                    <button
-                                      onClick={() => adjustBudget(primaryLine, i, +1)}
-                                      className="p-0.5 hover:bg-slate-100 rounded text-slate-600"
-                                      title="+1"
-                                    ><Plus className="h-3 w-3" /></button>
-                                    <span className="text-slate-400 mx-0.5">/</span>
-                                    <BudgetCellInsight
-                                      title={`Ordrer · ${tipTitle}`}
-                                      total={o}
-                                      rows={ordersRows}
-                                      dealers={ordersDealersFor(linesForAgg, i)}
-                                    >
-                                      <span className={cn("font-semibold pr-1 inline-block", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
-                                    </BudgetCellInsight>
-                                    <button
-                                      type="button"
-                                      onClick={() => setRefModal(refCtx)}
-                                      className="p-0.5 ml-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-                                      title="Tilføj reference (forhandler / lead / demo)"
-                                    ><Link2 className="h-3 w-3" /></button>
-                                    {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
+                                     <button
+                                       onClick={() => adjustBudget(primaryLine, i, +1)}
+                                       className="h-4 w-4 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
+                                       title="+1"
+                                     ><Plus className="h-3 w-3" /></button>
+                                     <span className="text-slate-400 mx-0.5">/</span>
+                                     <BudgetCellInsight
+                                       title={`Ordrer · ${tipTitle}`}
+                                       total={o}
+                                       rows={ordersRows}
+                                       dealers={ordersDealersFor(linesForAgg, i)}
+                                     >
+                                       <span className={cn("font-semibold pr-1 inline-block", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                     </BudgetCellInsight>
+                                     <button
+                                       type="button"
+                                       onClick={() => setRefModal(refCtx)}
+                                       className="h-4 w-4 ml-0.5 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                       title="Tilføj reference (forhandler / lead / demo)"
+                                     ><Link2 className="h-3 w-3" /></button>
+                                     {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                   </div>
                                 ) : (
                                   <>
