@@ -469,19 +469,84 @@ export default function BackendBudgetImportPage() {
         <section className="bg-white border border-slate-200 rounded-2xl p-5">
           <h2 className="font-bold text-slate-900 mb-2">3. Bekræft og importér</h2>
           <p className="text-xs text-slate-600 mb-3">
-            Commit er deaktiveret i denne fase. Trin 4 (Step 4) tilføjer commit + audit-logning og
-            mapping-løsning for "Mangler mapping"-rækker. Indtil da skriver denne side intet til
-            Supabase.
+            Importerer udelukkende til <code>crm_budget_dealer_lines</code>. Eksisterende
+            budgetrækker, ordrer, pipeline, pricing, PDF, e-mail og n8n røres ikke. Rækker med
+            samme identitet (sælger + år + måned + forhandler + produkt) <strong>opdateres</strong>
+            i stedet for at oprette duplikater. Knappen er kun aktiv når der hverken er fejl
+            eller manglende mapping.
           </p>
-          <button
-            type="button"
-            disabled
-            title="Commit er ikke aktiveret endnu (Step 3 er preview-only)"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 text-slate-500 cursor-not-allowed text-sm"
-          >
-            <Lock className="h-4 w-4" /> Importér ({counts.matched} klar)
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              disabled={!canImport}
+              onClick={() => setConfirmOpen(true)}
+              title={
+                canImport
+                  ? "Åbn bekræftelsesdialog"
+                  : counts.error > 0
+                    ? "Ret fejl-rækker først"
+                    : counts.needs_mapping > 0
+                      ? "Løs Mangler mapping-rækker først"
+                      : "Ingen rækker at importere"
+              }
+              className={
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm "
+                + (canImport
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed")
+              }
+            >
+              {importing
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : canImport ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              Importér ({importable.length} klar)
+            </button>
+            {counts.error > 0 && (
+              <span className="text-xs text-red-600">{counts.error} fejl skal rettes.</span>
+            )}
+            {counts.needs_mapping > 0 && (
+              <span className="text-xs text-amber-700">{counts.needs_mapping} rækker mangler mapping.</span>
+            )}
+            {lastResult && (
+              <span className="text-xs text-emerald-700">
+                Sidste import: {lastResult.verified} bekræftet (batch {lastResult.batchId}).
+              </span>
+            )}
+          </div>
         </section>
+
+        <AlertDialog open={confirmOpen} onOpenChange={(o) => !importing && setConfirmOpen(o)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Bekræft import af budgetrækker</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    Du er ved at upserte <strong>{importable.length}</strong> rækker til{" "}
+                    <code>crm_budget_dealer_lines</code> for år <strong>{year}</strong>.
+                  </p>
+                  <ul className="list-disc pl-5 text-xs text-slate-600">
+                    <li>Nye: {counts.matched}</li>
+                    <li>Opdaterer eksisterende (samme identitet): {counts.duplicate}</li>
+                    <li>qty 0 markeres som <em>excluded_from_total</em></li>
+                  </ul>
+                  <p className="text-xs text-slate-500">
+                    Eksisterende CRM-budget, ordrer og dashboards påvirkes ikke i dette trin.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={importing}>Annullér</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={importing}
+                onClick={(e) => { e.preventDefault(); void runImport(); }}
+              >
+                {importing ? "Importerer…" : "Ja, importér"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       <PortalFooter language={lang} />
