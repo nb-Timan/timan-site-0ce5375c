@@ -82,6 +82,15 @@ export interface SalesActual {
   budget_line_id: string;
   qty_sold: number;
   value_sold: number;
+  /** Stable read/display dimensions for real submitted-order actuals.
+   *  These MUST be used for CRM Budget order display instead of
+   *  budget_line_id, because budget_line_id changes when planning rows are
+   *  created/edited while real orders do not. */
+  seller_key?: string | null;
+  seller_email?: string | null;
+  seller_initials?: string | null;
+  year?: number | null;
+  product_key?: string | null;
   /** Per-month qty (Jan..Dec, length 12) when derived from real orders.
    *  Empty/undefined when the source is the legacy crm_budget_sales_actuals
    *  table (which only knows annual totals). */
@@ -91,6 +100,42 @@ export interface SalesActual {
    *  Length 12 (Jan..Dec). Each entry is `{ name, qty }` per occurrence
    *  (duplicates intentional — UI groups them). Display only. */
   monthly_dealers?: Array<Array<{ name: string; qty: number }>>;
+}
+
+export type OrderActualsByKey = Record<string, number>;
+
+export function orderActualSellerKey(sellerInitialsOrEmail: string | null | undefined): string {
+  return norm(sellerInitialsOrEmail);
+}
+
+export function orderActualProductKey(productKey: string | null | undefined): string {
+  return normKey(productKey);
+}
+
+export function orderActualKey(
+  sellerInitialsOrEmail: string | null | undefined,
+  year: number,
+  monthIdx: number,
+  productKey: string | null | undefined,
+): string {
+  return [orderActualSellerKey(sellerInitialsOrEmail), year, monthIdx, orderActualProductKey(productKey)].join("|");
+}
+
+export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKey {
+  const out: OrderActualsByKey = {};
+  for (const a of actuals) {
+    if (!a.product_key || !a.year) continue;
+    const sellerKey = a.seller_key || a.seller_email || a.seller_initials;
+    if (!sellerKey) continue;
+    const monthly = (a.monthly_qty && a.monthly_qty.length === 12)
+      ? a.monthly_qty
+      : splitAnnualEvenly(a.qty_sold || 0);
+    for (let m = 0; m < 12; m++) {
+      const k = orderActualKey(sellerKey, a.year, m, a.product_key);
+      out[k] = (out[k] || 0) + (monthly[m] || 0);
+    }
+  }
+  return out;
 }
 
 // ---------- Product catalog ----------
