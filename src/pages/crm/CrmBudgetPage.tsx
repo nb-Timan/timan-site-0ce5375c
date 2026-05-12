@@ -977,7 +977,9 @@ export default function CrmBudgetPage() {
     const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
     const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
       ? fcExisting.monthly_qty.map(v => Number(v) || 0)
-      : splitToMonthly(fcExisting?.qty_forecast ?? persisted.qty_budget, split);
+      : ((fcExisting && (fcExisting.qty_forecast ?? 0) > 0)
+          ? splitToMonthly(fcExisting.qty_forecast, split)
+          : Array(12).fill(0));
     const prevDraft = workingDraft[lineId] ?? baselineMonthly;
     const oldVal = prevDraft[monthIdx] ?? 0;
     const newVal = Math.max(0, oldVal + delta);
