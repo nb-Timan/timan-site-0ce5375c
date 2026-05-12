@@ -1071,9 +1071,12 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   }
   const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
 
-  const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value || 0), 0);
+  const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
+  const closedValueThisMonthEur = ordersThis
+    .filter(o => o.currency === 'EUR')
+    .reduce((sum, o) => sum + (o.total_value || 0), 0);
   const closedCountThisMonth = ordersThis.length;
-  const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value || 0), 0);
+  const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
   const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
@@ -1094,18 +1097,39 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     const id = o.dealer_account_id;
     if (!id) continue;
     const cur = bestByAccount.get(id) || { value: 0 };
-    cur.value += o.total_value || 0;
+    cur.value += o.total_value_dkk || 0;
     bestByAccount.set(id, cur);
   }
+
+  // Latest sold units (3 most recent closed orders) — count actual machine
+  // qty from configuration line items, NOT just one per order header.
+  const latestSoldUnits = [...orders]
+    .sort((a, b) => (b.closed_at || '').localeCompare(a.closed_at || ''))
+    .slice(0, 3)
+    .map(o => {
+      const units = Object.entries(o.machine_qty_by_key || {})
+        .map(([key, qty]) => ({ key, qty }))
+        .sort((a, b) => b.qty - a.qty);
+      const totalUnits = units.reduce((s, u) => s + u.qty, 0);
+      return {
+        id: o.id,
+        dealer: o.dealer_company_name || o.dealer_name || o.title || '—',
+        closedAt: o.closed_at,
+        units,
+        totalUnits,
+      };
+    })
+    .filter(x => x.totalUnits > 0);
 
   return {
     pipelineValue, pipelinePctChange,
     activeLeads, leadsPctChange,
     wonOrdersCount, wonPctChange,
     winRate, avgSalesDays,
-    closedValueThisMonth, closedCountThisMonth, closedPctChange,
+    closedValueThisMonth, closedValueThisMonthEur, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
+    latestSoldUnits,
     inactiveAccounts: (accounts) => {
       const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 60;
       const lastByAccount = new Map<string, number>();
