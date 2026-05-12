@@ -641,13 +641,14 @@ function sanitizeLines(lines: BudgetLine[]): BudgetLine[] {
 }
 
 export async function listBudgetLines({ year }: ListBudgetParams): Promise<BudgetLine[]> {
-  // Try Supabase first. If table missing or any error → fallback.
+  // Try Supabase first. If the live table responds, it is the source of truth
+  // even when it returns zero rows; do not resurrect stale local fallback rows.
   try {
     const { data, error } = await supabase
       .from("crm_budget_lines")
       .select("*")
       .eq("year", year);
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error && Array.isArray(data)) {
       return sanitizeLines(data as BudgetLine[]);
     }
   } catch { /* */ }
@@ -660,7 +661,7 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
     const { data, error } = await supabase
       .from("crm_budget_forecasts")
       .select("*");
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error && Array.isArray(data)) {
       // We don't store year on forecasts — they reference lines.
       const lines = await listBudgetLines({ year });
       const ids = new Set(lines.map(l => l.id));
