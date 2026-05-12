@@ -216,12 +216,12 @@ describe("CRM Budget — order actuals stay bound after persisting a line", () =
   });
 
   it("upsertForecast never writes order qty/value into the forecast payload", async () => {
-    // Persist a line first so we have a real budget_line_id to forecast on.
-    const line: BudgetLine = await createBudgetLine({
+    // Persist BOTH lines so every order is matched to a real `b_…` id.
+    const mkLine = (key: string, vnr: string) => createBudgetLine({
       year: YEAR,
-      product_key: "RC-1000s",
-      product_name: "RC-1000s",
-      item_number: "411000",
+      product_key: key,
+      product_name: key,
+      item_number: vnr,
       category: "machine",
       seller_id: null,
       seller_name: JTN.full_name,
@@ -232,6 +232,8 @@ describe("CRM Budget — order actuals stay bound after persisting a line", () =
       value_budget: 0,
       monthly_split: Array.from({ length: 12 }, () => 1 / 12),
     });
+    const line: BudgetLine = await mkLine("RC-1000s", "411000");
+    const lineRC751: BudgetLine = await mkLine("RC-751", "410040");
 
     await upsertForecast({
       id: "f1",
