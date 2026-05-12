@@ -354,13 +354,21 @@ export default function CrmDashboardPage() {
                     {fmtKr(metrics.pipelineValue)}
                   </p>
                   {metrics.pipelineValueEur > 0 && (
-                    <p className="text-[10.5px] text-emerald-100/70 tabular-nums mt-0.5">
-                      {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
+                    <p className="text-[11px] text-emerald-100/85 tabular-nums mt-1">
+                      heraf {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
                     </p>
                   )}
                 </div>
-                {/* Embedded KPI slot — sits close to the main metric, separated by a thin divider */}
-                <div className="relative shrink-0 ml-auto pl-4 border-l border-white/15 flex flex-col items-start justify-center gap-1">
+                {/* Compact sparkline */}
+                <div className="relative hidden sm:block w-16 h-8 shrink-0 opacity-90">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trend30}>
+                      <Line type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={1.75} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Embedded KPI slot — separated by a thin divider */}
+                <div className="relative shrink-0 ml-auto pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
