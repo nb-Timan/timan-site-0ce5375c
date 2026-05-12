@@ -3,7 +3,7 @@ import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
-import { getActiveSellerView, getSellerViewByEmail, SELLER_VIEWS } from '@/lib/activeMode';
+import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 
 /**
