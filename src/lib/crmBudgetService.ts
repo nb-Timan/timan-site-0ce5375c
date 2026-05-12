@@ -899,33 +899,62 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
 }
 
 export async function upsertBudgetLine(line: BudgetLine): Promise<BudgetLine> {
-  const all = readLS<BudgetLine>(LS_LINES);
-  const idx = all.findIndex(l => l.id === line.id);
-  if (idx >= 0) {
-    if (all[idx].locked) {
-      // ignore writes to locked lines (UI also blocks this)
-      return all[idx];
+  try {
+    const row = {
+      id: line.id,
+      year: line.year,
+      product_key: line.product_key,
+      product_name: line.product_name,
+      item_number: line.item_number ?? null,
+      category: line.category,
+      parent_machine_key: line.parent_machine_key ?? null,
+      seller_id: line.seller_id ?? null,
+      seller_name: line.seller_name ?? null,
+      seller_email: line.seller_email ?? null,
+      seller_initials: line.seller_initials ?? null,
+      country: line.country ?? null,
+      qty_budget: line.qty_budget,
+      value_budget: line.value_budget,
+      monthly_split: line.monthly_split && line.monthly_split.length === 12 ? line.monthly_split : EVEN_SPLIT,
+      notes: line.notes ?? null,
+      locked: line.locked,
+      locked_by: line.locked_by ?? null,
+      locked_at: line.locked_at ?? null,
+    };
+    const { error } = await supabase.from("crm_budget_lines").upsert(row).select("*").maybeSingle();
+    if (error) throw error;
+    const saved = await readBudgetLineById(line.id);
+    if (!saved || saved.qty_budget !== line.qty_budget || saved.value_budget !== line.value_budget) {
+      throw new BudgetPersistenceError("Budget line readback did not match saved values", "crm_budget_lines", { saved, expected: line });
     }
-    all[idx] = line;
-  } else {
-    all.push(line);
+    return saved;
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Budget line was not saved to Supabase: ${errorText(error)}`, "crm_budget_lines", error);
   }
-  writeLS(LS_LINES, all);
-  return line;
 }
 
 export async function createBudgetLine(input: Omit<BudgetLine, "id" | "created_at" | "locked">): Promise<BudgetLine> {
-  const line: BudgetLine = {
-    ...input,
-    id: uid(),
-    created_at: new Date().toISOString(),
-    locked: false,
-    monthly_split: input.monthly_split && input.monthly_split.length === 12 ? input.monthly_split : EVEN_SPLIT,
-  };
-  const all = readLS<BudgetLine>(LS_LINES);
-  all.push(line);
-  writeLS(LS_LINES, all);
-  return line;
+  if (!input.seller_email) {
+    throw new BudgetPersistenceError("Budget line requires seller_email before saving", "crm_budget_lines");
+  }
+  try {
+    const existing = await findBudgetLineByStableScope(input);
+    if (existing) return existing;
+    const line: BudgetLine = {
+      ...input,
+      id: uid(),
+      created_at: new Date().toISOString(),
+      locked: false,
+      monthly_split: input.monthly_split && input.monthly_split.length === 12 ? input.monthly_split : EVEN_SPLIT,
+    };
+    return await upsertBudgetLine(line);
+  } catch (error) {
+    throw error instanceof BudgetPersistenceError
+      ? error
+      : new BudgetPersistenceError(`Budget line was not created in Supabase: ${errorText(error)}`, "crm_budget_lines", error);
+  }
 }
 
 export async function deleteBudgetLine(id: string): Promise<void> {
