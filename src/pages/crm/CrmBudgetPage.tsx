@@ -965,25 +965,31 @@ export default function CrmBudgetPage() {
     }
 
     const product = productKeyOverride ? findProduct(productKeyOverride) : findProduct(line.product_key);
-    const persisted = await createBudgetLine({
-      year,
-      product_key: line.product_key,
-      product_name: line.product_name || product?.name || line.product_key,
-      item_number: line.item_number ?? product?.varenr ?? null,
-      category: line.category,
-      parent_machine_key: line.parent_machine_key ?? null,
-      seller_id: !isAdmin && sellerId ? sellerId : null,
-      seller_name: known.full_name,
-      seller_email: known.email,
-      seller_initials: known.initials,
-      country: known.country ?? line.country ?? null,
-      qty_budget: 0,
-      value_budget: 0,
-      monthly_split: EVEN,
-      notes: null,
-    });
-    setLines(prev => [...prev, persisted]);
-    return persisted;
+    try {
+      const persisted = await createBudgetLine({
+        year,
+        product_key: line.product_key,
+        product_name: line.product_name || product?.name || line.product_key,
+        item_number: line.item_number ?? product?.varenr ?? null,
+        category: line.category,
+        parent_machine_key: line.parent_machine_key ?? null,
+        seller_id: !isAdmin && sellerId ? sellerId : null,
+        seller_name: known.full_name,
+        seller_email: known.email,
+        seller_initials: known.initials,
+        country: known.country ?? line.country ?? null,
+        qty_budget: 0,
+        value_budget: 0,
+        monthly_split: EVEN,
+        notes: null,
+      });
+      setLines(prev => prev.some(l => l.id === persisted.id) ? prev : [...prev, persisted]);
+      return persisted;
+    } catch (error) {
+      console.error("[budget] create line failed", error);
+      toast.error("Budget blev ikke gemt i Supabase", { description: "Genindlæs siden og prøv igen." });
+      return null;
+    }
   }
 
   // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
