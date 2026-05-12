@@ -989,12 +989,14 @@ interface DerivedMetrics {
   winRate: number;
   avgSalesDays: number;
   closedValueThisMonth: number;
+  closedValueThisMonthEur: number;
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
   lostReasons: { total: number; items: Record<'price'|'lead'|'comp'|'other', { count: number }> };
   inactiveAccounts: (accounts: CrmAccount[]) => CrmAccount[];
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
+  latestSoldUnits: Array<{ id: string; dealer: string; closedAt: string; units: Array<{ key: string; qty: number }>; totalUnits: number }>;
 }
 
 function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
