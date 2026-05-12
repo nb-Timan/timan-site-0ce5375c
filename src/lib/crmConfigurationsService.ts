@@ -22,6 +22,7 @@ import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { ConfiguratorState } from '@/types/configurator';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
+import { currencyFromLanguage, toDkk, type Currency } from '@/lib/currency';
 
 export type CrmDocumentType = 'quote' | 'order';
 
