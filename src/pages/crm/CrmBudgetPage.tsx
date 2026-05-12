@@ -954,7 +954,24 @@ export default function CrmBudgetPage() {
       notes: null,
     });
     setLines(prev => [...prev, persisted]);
+    // Re-derive order actuals so the new persisted line picks up any live
+    // orders that were previously matched only to a synthetic seed_* id.
+    // Orders themselves are never mutated — we only re-bind ids.
+    void refreshActuals();
     return persisted;
+  }
+
+  /** Re-read order actuals from the order source. Never touched by budget /
+   *  arbejdsbudget edits — orders are read-only actuals. Called after any
+   *  operation that may create or change a persisted budget line id. */
+  async function refreshActuals() {
+    try {
+      const fresh = await listSalesActuals(year);
+      setActuals(fresh);
+    } catch (e) {
+      // Keep existing actuals on failure — never zero them out.
+      console.warn("[budget] refreshActuals failed", e);
+    }
   }
 
   // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
@@ -1097,6 +1114,11 @@ export default function CrmBudgetPage() {
         const fresh = await listForecasts(year);
         setForecasts(fresh);
       } catch { /* keep optimistic */ }
+      // Re-derive order actuals so any newly-persisted lines (created via
+      // ensurePersistedLine during the edit session) re-bind to live orders.
+      // This is the critical fix: actuals must be refreshed AFTER the lines
+      // store has gained the new id, otherwise orders silently render as 0.
+      await refreshActuals();
       setSaveConfirm(null);
       exitEditModeSilently();
       toast.success("Arbejdsbudget gemt");
@@ -1158,6 +1180,8 @@ export default function CrmBudgetPage() {
     };
     await upsertBudgetLine(updated);
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
+    // Re-bind order actuals against the (possibly new) line id set.
+    void refreshActuals();
     logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
   }
 
