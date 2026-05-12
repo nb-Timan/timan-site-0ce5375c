@@ -263,6 +263,7 @@ export async function listScopedOrdersWithValue(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
+    const currency: Currency = currencyFromLanguage(state?.language ?? null);
     if (state) {
       try {
         total = calcConfigurationTotals(state).finalPrice || 0;
@@ -277,6 +278,8 @@ export async function listScopedOrdersWithValue(
     return {
       ...r,
       total_value: total,
+      total_value_dkk: toDkk(total, currency),
+      currency,
       machine_keys: Object.keys(qtyByKey),
       machine_qty_by_key: qtyByKey,
       closed_at: closedAt,
