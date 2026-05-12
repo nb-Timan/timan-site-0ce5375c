@@ -776,65 +776,14 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
  *   • qty_sold  → sum of state.machineConfigs[*].qty per machine_type
  *   • value_sold → calcConfigurationTotals(state).finalPrice, allocated
  *                  proportionally per machine when there are multiple types
- * Matched onto the BudgetLine whose (seller_email, product_key) align.
+ * Stored under a stable read key whose display identity is
+ * (seller, year, product_key, month). The legacy budget_line_id field is kept
+ * only for compatibility and is deliberately NOT a real budget line id.
  */
 async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
   try {
-    const lines = await listBudgetLines({ year });
     const sellers = await loadSellerIdentityIndex();
     const productByNormKey = buildProductLookup();
-
-    // Build flexible lookup index per budget line. We register the line
-    // under seller id/email/initials and product key/varenr, so matching is
-    // identical to CRM → Ordrer scoping but still works for legacy rows.
-    type Idx = Map<string, BudgetLine>;
-    const idx: Idx = new Map();
-    const indexLine = (l: BudgetLine) => {
-      const ownerKeys: string[] = [];
-      if (l.seller_id)       ownerKeys.push(`id:${l.seller_id}`);
-      if (l.seller_email)    ownerKeys.push(`email:${norm(l.seller_email)}`);
-      if (l.seller_initials) ownerKeys.push(`ini:${upper(l.seller_initials)}`);
-      if (ownerKeys.length === 0) return;
-
-      const prodKeys: string[] = [];
-      if (l.product_key) prodKeys.push(`key:${normKey(l.product_key)}`);
-      if (l.item_number) prodKeys.push(`vnr:${normKey(l.item_number)}`);
-      if (prodKeys.length === 0) return;
-
-      for (const ok of ownerKeys) {
-        for (const pk of prodKeys) {
-          const k = `${ok}||${pk}`;
-          if (!idx.has(k)) idx.set(k, l);
-        }
-      }
-    };
-    for (const l of lines) indexLine(l);
-
-    // Also index zero-budget virtual rows for standard machine/seller combos.
-    // This lets live orders display even before any manual budget has been set.
-    for (const seller of BUDGET_SELLERS) {
-      for (const product of BUDGET_PRODUCTS) {
-        if (product.category !== "machine") continue;
-        indexLine({
-          id: `seed_${year}_${product.key}_${seller.email.replace(/[^a-z0-9]/gi, "")}`,
-          year,
-          product_key: product.key,
-          product_name: product.name,
-          item_number: product.varenr,
-          category: product.category,
-          seller_id: null,
-          seller_name: seller.full_name,
-          seller_email: seller.email,
-          seller_initials: seller.initials,
-          country: seller.country,
-          qty_budget: 0,
-          value_budget: 0,
-          monthly_split: EVEN_SPLIT,
-          locked: false,
-          created_at: new Date().toISOString(),
-        });
-      }
-    }
 
     const data = await fetchBudgetOrderRows(year);
     const totals = new Map<string, SalesActual>();
@@ -851,8 +800,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       if (d.getFullYear() !== year) continue;
       const monthIdx = d.getMonth();
 
-      const { ownerKeys } = orderSeller(row, sellers);
-      if (ownerKeys.length === 0) continue;
+      const { seller } = orderSeller(row, sellers);
+      if (!seller) continue;
       const state = parseOrderState(row);
 
       // Value can be 0 — qty must still be counted.
@@ -869,25 +818,17 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       if (totalQty === 0) continue;
 
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        const product = PRODUCTS[machineKey] || BUDGET_PRODUCTS.find((p) => normKey(p.key) === normKey(machineKey));
-        const productVarenr = product?.varenr ? normKey(product.varenr) : "";
-        const prodVariants: string[] = [`key:${normKey(machineKey)}`];
-        if (productVarenr) prodVariants.push(`vnr:${productVarenr}`);
-
-        let line: BudgetLine | undefined;
-        outer: for (const ov of ownerKeys) {
-          for (const pv of prodVariants) {
-            const cand = idx.get(`${ov}||${pv}`);
-            if (cand) { line = cand; break outer; }
-          }
-        }
-        if (!line) continue;
-
         const value = finalPrice * (qty / totalQty);
-        const prev = totals.get(line.id) || {
-          budget_line_id: line.id,
+        const actualId = `actual_${year}_${machineKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
+        const prev = totals.get(actualId) || {
+          budget_line_id: actualId,
           qty_sold: 0,
           value_sold: 0,
+          seller_key: seller.email,
+          seller_email: seller.email,
+          seller_initials: seller.initials,
+          year,
+          product_key: machineKey,
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
           monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
@@ -906,7 +847,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           (row.dealer_account_number as string | null) ||
           "—";
         prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
-        totals.set(line.id, prev);
+        totals.set(actualId, prev);
       }
     }
     return Array.from(totals.values());
