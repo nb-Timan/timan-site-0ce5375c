@@ -274,7 +274,7 @@ export default function CrmDashboardPage() {
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2.5 flex items-center gap-3 min-h-[88px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -283,8 +283,8 @@ export default function CrmDashboardPage() {
                 {/* Main metric */}
                 <div className="relative flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <Target className="h-3.5 w-3.5" strokeWidth={2} />
+                    <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <Target className="h-3 w-3" strokeWidth={2} />
                     </div>
                     <p className="text-[10px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
                       {T.kpi_pipeline[lang]}
@@ -293,10 +293,15 @@ export default function CrmDashboardPage() {
                       <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
-                    <p className="text-[1.55rem] leading-none font-bold tracking-tight tabular-nums">
+                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                    <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums">
                       {fmtKr(metrics.pipelineValue)}
                     </p>
+                    {metrics.pipelineValueEur > 0 && (
+                      <span className="text-[10.5px] text-emerald-100/70 tabular-nums">
+                        heraf {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
+                      </span>
+                    )}
                   </div>
                 </div>
                 {/* Chart slot — flexible, never overlaps KPI */}
