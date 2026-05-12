@@ -241,8 +241,11 @@ export default function CrmDashboardPage() {
     });
     const openKeys: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
     const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
-    return { ...base, pipelineValue, pipelineByStage: byStage };
-  }, [activities, orders, isAdmin, pipelineRows]);
+    const pipelineValueEur = openQuotes
+      .filter(q => q.currency === 'EUR')
+      .reduce((s, q) => s + (q.total_value || 0), 0);
+    return { ...base, pipelineValue, pipelineValueEur, pipelineByStage: byStage };
+  }, [activities, orders, isAdmin, pipelineRows, openQuotes]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
