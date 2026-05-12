@@ -304,27 +304,8 @@ export default function CrmDashboardPage() {
                     )}
                   </div>
                 </div>
-                {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:block w-16">
-                  {trend30 && trend30.length > 1 && (
-                    <div className="absolute inset-0 opacity-90">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={trend30} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-                          <defs>
-                            <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
-                              <stop offset="100%" stopColor="#a7f3d0" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <Area type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={2}
-                                fill="url(#heroGrad)" isAnimationActive />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-5 ml-5 border-l border-white/15 w-[8rem]">
+                {/* Embedded KPI slot — vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 w-[8rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -373,18 +354,8 @@ export default function CrmDashboardPage() {
                     )}
                   </div>
                 </div>
-                {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:flex items-end gap-1 opacity-90 w-14">
-                  {CLOSED_BARS.map((v, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-sm bg-gradient-to-t from-sky-300/40 to-sky-200/90"
-                      style={{ height: `${v}%` }}
-                    />
-                  ))}
-                </div>
-                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-5 ml-5 border-l border-white/15 w-[8rem]">
+                {/* Embedded KPI slot — vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 w-[8rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
