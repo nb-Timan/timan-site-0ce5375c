@@ -768,6 +768,16 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
   return [];
 }
 
+async function readForecastByLineId(budgetLineId: string): Promise<BudgetForecast | null> {
+  const { data, error } = await supabase
+    .from("crm_budget_forecasts")
+    .select("*")
+    .eq("budget_line_id", budgetLineId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as BudgetForecast | null) ?? null;
+}
+
 export async function listSalesActuals(year: number): Promise<SalesActual[]> {
   // Primary source for actuals: configurator orders (same source as
   // CRM → Ordrer). This guarantees Budget progress matches the Orders list.
