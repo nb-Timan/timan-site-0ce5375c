@@ -179,8 +179,9 @@ function pipelineByMachine(leads: CrmLead[]): Record<string, number> {
 // ────────────────────────────────────────────────────────────
 // Section
 // ────────────────────────────────────────────────────────────
-export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }: SellerCockpitProps) {
+export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, controlledInitials }: SellerCockpitProps) {
   const { language: lang } = useLanguage();
+  const isControlled = controlledInitials !== undefined;
 
   // Backend can switch — sellers see only themselves. The dropdown holds the
   // INITIALS of the active seller (or null = "Alle" for backend).
@@ -190,11 +191,13 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId }:
     return found?.initials ?? null;
   }, [sellerEmail]);
 
-  const [activeInitials, setActiveInitials] = useState<string | null>(isAdmin ? null : ownInitials);
+  const [internalInitials, setInternalInitials] = useState<string | null>(isAdmin ? null : ownInitials);
   useEffect(() => {
-    if (!isAdmin) setActiveInitials(ownInitials);
+    if (!isAdmin) setInternalInitials(ownInitials);
   }, [isAdmin, ownInitials]);
 
+  const activeInitials = isControlled ? (controlledInitials ?? null) : internalInitials;
+  const setActiveInitials = setInternalInitials;
   const activeSeller = activeInitials ? BUDGET_SELLERS.find(s => s.initials === activeInitials) : null;
 
   // ── Data fetch — keeps the page snappy by pulling once per role/seller change ──
