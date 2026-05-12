@@ -77,6 +77,12 @@ export interface SellerCockpitProps {
   sellerEmail: string | null;
   /** The signed-in seller's app_users.id — used to scope leads when available. */
   sellerId: string | null;
+  /**
+   * When defined, the section is controlled by the parent (the dashboard's
+   * top-level seller filter). The internal chip row is hidden and the active
+   * seller is forced to this value (null = "Alle" for backend).
+   */
+  controlledInitials?: string | null;
 }
 
 // ────────────────────────────────────────────────────────────
