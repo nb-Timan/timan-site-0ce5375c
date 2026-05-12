@@ -982,40 +982,7 @@ export default function CrmBudgetPage() {
       notes: null,
     });
     setLines(prev => [...prev, persisted]);
-    // SYNCHRONOUS REBIND: any actuals currently bound to the synthetic seed
-    // id for this (seller, product) must immediately point at the new
-    // persisted line id, otherwise the row's "Ordre" column would flash to 0
-    // between this setLines call and the async refreshActuals() resolving.
-    // Orders themselves are never mutated — only the binding key changes.
-    const seedSlug = (known.email || "").replace(/[^a-z0-9]/gi, "");
-    const seedId = `seed_${year}_${line.product_key}_${seedSlug}`;
-    setActuals(prev => {
-      let changed = false;
-      const next = prev.map(a => {
-        if (a.budget_line_id === seedId) {
-          changed = true;
-          return { ...a, budget_line_id: persisted.id };
-        }
-        return a;
-      });
-      return changed ? next : prev;
-    });
-    // Then re-derive from the source for canonical consistency.
-    void refreshActuals();
     return persisted;
-  }
-
-  /** Re-read order actuals from the order source. Never touched by budget /
-   *  arbejdsbudget edits — orders are read-only actuals. Called after any
-   *  operation that may create or change a persisted budget line id. */
-  async function refreshActuals() {
-    try {
-      const fresh = await listSalesActuals(year);
-      setActuals(fresh);
-    } catch (e) {
-      // Keep existing actuals on failure — never zero them out.
-      console.warn("[budget] refreshActuals failed", e);
-    }
   }
 
   // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
