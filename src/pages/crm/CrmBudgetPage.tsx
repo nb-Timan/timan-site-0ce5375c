@@ -843,7 +843,13 @@ export default function CrmBudgetPage() {
     const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
       ? fc.monthly_qty.map(v => Number(v) || 0)
       : null;
-    const workingMonthly = draft ?? savedMonthly ?? splitToMonthly(fc?.qty_forecast ?? line.qty_budget, split);
+    // Arbejdsbudget is fully independent from Budget. If no forecast has been
+    // saved yet, default to zeros — never fall back to qty_budget (that would
+    // make Budget edits visually mutate Arbejdsbudget).
+    const legacyForecast = (fc && (fc.qty_forecast ?? 0) > 0)
+      ? splitToMonthly(fc.qty_forecast, split)
+      : Array(12).fill(0);
+    const workingMonthly = draft ?? savedMonthly ?? legacyForecast;
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
   }
 
