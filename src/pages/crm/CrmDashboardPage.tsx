@@ -354,18 +354,8 @@ export default function CrmDashboardPage() {
                     )}
                   </div>
                 </div>
-                {/* Chart slot — flexible, never overlaps KPI */}
-                <div className="relative h-10 shrink-0 overflow-hidden hidden sm:flex items-end gap-1 opacity-90 w-14">
-                  {CLOSED_BARS.map((v, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-sm bg-gradient-to-t from-sky-300/40 to-sky-200/90"
-                      style={{ height: `${v}%` }}
-                    />
-                  ))}
-                </div>
-                {/* Embedded KPI slot — fixed width, vertically centered, right-aligned */}
-                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 pl-5 ml-5 border-l border-white/15 w-[8rem]">
+                {/* Embedded KPI slot — vertically centered, right-aligned */}
+                <div className="relative shrink-0 self-stretch flex flex-col items-end justify-center gap-1 w-[8rem]">
                   <div className="flex items-center justify-end gap-1 w-full">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
