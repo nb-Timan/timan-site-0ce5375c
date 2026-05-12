@@ -24,6 +24,7 @@ import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
+import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { formatDate } from '@/lib/format-date';
 import { Language } from '@/types/configurator';
