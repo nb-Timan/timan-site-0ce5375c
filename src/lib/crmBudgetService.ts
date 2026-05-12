@@ -132,14 +132,18 @@ export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKe
   const out: OrderActualsByKey = {};
   for (const a of actuals) {
     if (!a.product_key || !a.year) continue;
-    const sellerKey = a.seller_key || a.seller_email || a.seller_initials;
-    if (!sellerKey) continue;
+    const sellerKeys = Array.from(new Set([a.seller_key, a.seller_email, a.seller_initials]
+      .map(k => orderActualSellerKey(k))
+      .filter(Boolean)));
+    if (sellerKeys.length === 0) continue;
     const monthly = (a.monthly_qty && a.monthly_qty.length === 12)
       ? a.monthly_qty
       : splitAnnualEvenly(a.qty_sold || 0);
     for (let m = 0; m < 12; m++) {
-      const k = orderActualKey(sellerKey, a.year, m, a.product_key);
-      out[k] = (out[k] || 0) + (monthly[m] || 0);
+      for (const sellerKey of sellerKeys) {
+        const k = orderActualKey(sellerKey, a.year, m, a.product_key);
+        out[k] = (out[k] || 0) + (monthly[m] || 0);
+      }
     }
   }
   return out;
