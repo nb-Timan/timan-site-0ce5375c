@@ -60,6 +60,7 @@ const LT: Record<string, Record<Language, string>> = {
   metric_health:    { da: "Lead helbred %",        en: "Lead health %",     de: "Lead-Gesundheit %",  it: "Salute lead %",      hu: "Lead-egészség %" },
   metric_budget:    { da: "Budget score %",        en: "Budget score %",    de: "Budget-Score %",     it: "Score budget %",     hu: "Költség pont %" },
   no_budget:        { da: "Intet budget",          en: "No budget",         de: "Kein Budget",        it: "Nessun budget",      hu: "Nincs terv" },
+  orders_no_budget: { da: "ordre uden budget",     en: "orders without budget", de: "Aufträge ohne Budget", it: "ordini senza budget", hu: "rendelés terv nélkül" },
 };
 function t(key: string, lang: Language): string {
   const row = LT[key];
