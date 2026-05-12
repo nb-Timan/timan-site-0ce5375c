@@ -1183,20 +1183,19 @@ export function aggregateBudget(
   actuals: SalesActual[],
   sellerEmail: string | null,
 ): AggregatedBudget {
-  const slug = sellerEmail ? sellerEmail.toLowerCase().replace(/[^a-z0-9]/gi, "") : null;
   const scopedLines = sellerEmail
     ? lines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
     : lines;
   const scopedLineIds = new Set(scopedLines.map(l => l.id));
-
+  const sellerRef = sellerEmail
+    ? BUDGET_SELLERS.find(s => norm(s.email) === norm(sellerEmail))
+    : null;
   const scopedActuals = actuals.filter(a => {
-    if (scopedLineIds.has(a.budget_line_id)) return true;
-    // Virtual seed line — match by seller suffix when scoping, accept all when not.
-    if (a.budget_line_id.startsWith("seed_")) {
-      if (!slug) return true;
-      return a.budget_line_id.endsWith(`_${slug}`);
-    }
-    return false;
+    if (!a.product_key || !a.year) return false;
+    if (!sellerEmail) return true;
+    return norm(a.seller_email) === norm(sellerEmail)
+      || norm(a.seller_key) === norm(sellerEmail)
+      || (!!sellerRef && upper(a.seller_initials) === upper(sellerRef.initials));
   });
   const scopedForecasts = forecasts.filter(f => scopedLineIds.has(f.budget_line_id));
 
@@ -1206,21 +1205,9 @@ export function aggregateBudget(
   const productMeta = new Map<string, string>(); // key → name
   for (const l of scopedLines) productMeta.set(l.product_key, l.product_name || l.product_key);
   for (const a of scopedActuals) {
-    // Resolve product_key: line in full set OR seed-id parsing.
-    const line = lines.find(l => l.id === a.budget_line_id);
-    if (line) {
-      productMeta.set(line.product_key, line.product_name || line.product_key);
-      continue;
-    }
-    if (a.budget_line_id.startsWith("seed_")) {
-      // seed_<year>_<productKey>_<sellerSlug>  — productKey may contain "_"
-      // strip "seed_<year>_" prefix and "_<slug>" suffix.
-      const rest = a.budget_line_id.replace(/^seed_\d+_/, "");
-      const idx = rest.lastIndexOf("_");
-      const pk = idx > 0 ? rest.slice(0, idx) : rest;
-      const product = BUDGET_PRODUCTS.find(p => p.key === pk);
-      productMeta.set(pk, (product?.name as string) || pk);
-    }
+    const pk = a.product_key;
+    const product = BUDGET_PRODUCTS.find(p => normKey(p.key) === normKey(pk));
+    productMeta.set(pk, (product?.name as string) || pk);
   }
 
   const byMachine: BudgetMachineRollup[] = [];
@@ -1229,9 +1216,7 @@ export function aggregateBudget(
     const lineIds = new Set(linesFor.map(l => l.id));
     const budgetQty = linesFor.reduce((s, l) => s + (l.qty_budget || 0), 0);
     const ordersQty = scopedActuals
-      .filter(a => lineIds.has(a.budget_line_id) ||
-        (a.budget_line_id.startsWith("seed_") &&
-          a.budget_line_id.replace(/^seed_\d+_/, "").replace(/_[^_]+$/, "") === pk))
+      .filter(a => normKey(a.product_key) === normKey(pk))
       .reduce((s, a) => s + (a.qty_sold || 0), 0);
     const forecastQty = scopedForecasts
       .filter(f => lineIds.has(f.budget_line_id))
