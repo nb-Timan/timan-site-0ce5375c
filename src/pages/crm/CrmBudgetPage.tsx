@@ -1843,25 +1843,25 @@ export default function CrmBudgetPage() {
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                  {canEditBudget ? (
-                                    <div className="inline-flex items-center gap-x-1 bg-white border border-slate-200 rounded px-1 h-5 leading-none align-middle hover:border-slate-400 transition min-w-[120px] justify-center">
+                                    <div className="inline-flex items-center gap-x-0.5 bg-white border border-slate-200 rounded px-0.5 h-5 leading-none align-middle hover:border-slate-400 transition min-w-[88px] justify-center">
                                       <button
                                         onClick={() => adjustBudget(primaryLine, i, -1)}
-                                        className="h-4 w-4 shrink-0 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
+                                        className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
                                         title="−1"
-                                      ><Minus className="h-3 w-3" /></button>
+                                      ><Minus className="h-2.5 w-2.5" /></button>
                                      <BudgetCellInsight
                                        title={`Budget · ${tipTitle}`}
                                        total={b}
                                        rows={budgetRows}
                                        references={refsByCell[ck]}
                                      >
-                                       <span className="min-w-[16px] text-center font-semibold text-slate-700 inline-block tabular-nums">{b}</span>
+                                       <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block tabular-nums">{b}</span>
                                      </BudgetCellInsight>
                                       <button
                                         onClick={() => adjustBudget(primaryLine, i, +1)}
-                                        className="h-4 w-4 shrink-0 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
+                                        className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-100 rounded text-slate-600"
                                         title="+1"
-                                      ><Plus className="h-3 w-3" /></button>
+                                      ><Plus className="h-2.5 w-2.5" /></button>
                                       <span className="text-slate-400 px-0.5">/</span>
                                       <BudgetCellInsight
                                         title={`Ordrer · ${tipTitle}`}
@@ -1869,14 +1869,14 @@ export default function CrmBudgetPage() {
                                         rows={ordersRows}
                                         dealers={ordersDealersFor(linesForAgg, i)}
                                       >
-                                        <span className={cn("min-w-[14px] text-center font-semibold inline-block tabular-nums", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
+                                        <span className={cn("min-w-[12px] text-center font-semibold inline-block tabular-nums", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
                                       </BudgetCellInsight>
                                       <button
                                         type="button"
                                         onClick={() => setRefModal(refCtx)}
-                                        className="h-4 w-4 shrink-0 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                        className="h-3.5 w-3.5 shrink-0 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
                                         title="Tilføj reference (forhandler / lead / demo)"
-                                      ><Link2 className="h-3 w-3" /></button>
+                                      ><Link2 className="h-2.5 w-2.5" /></button>
                                       {latest && <BudgetAuditCellPopover cellKey={ck} latest={latest} />}
                                    </div>
                                 ) : (
