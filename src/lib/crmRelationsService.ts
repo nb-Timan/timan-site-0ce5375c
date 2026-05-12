@@ -74,8 +74,12 @@ function parseStateJson(value: unknown): ConfiguratorState | null {
 // ---------- types ----------
 
 export interface ScopedConfiguration extends CrmConfigurationRow {
-  /** Computed total (state_json) → fallback row.total_price → 0. */
+  /** Computed total in ORIGINAL currency (state_json) → fallback row.total_price → 0. */
   total_value: number;
+  /** Same total converted to DKK using EUR_TO_DKK from src/lib/currency.ts. */
+  total_value_dkk: number;
+  /** Original currency (DKK or EUR) the configurator was saved in. */
+  currency: import('@/lib/currency').Currency;
   /** Distinct product keys (e.g. ["RC-1000s"]). */
   machine_keys: string[];
   /** Per-machine quantity. */
