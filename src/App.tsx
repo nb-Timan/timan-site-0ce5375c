@@ -57,6 +57,7 @@ import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPa
 import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
 import BackendDealerImportPage from "./pages/backend/BackendDealerImportPage";
+import BackendBudgetImportPage from "./pages/backend/BackendBudgetImportPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import { ensureAkrSeed } from "./lib/akrTestSeed";
@@ -134,6 +135,7 @@ const App = () => (
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
               <Route path="/portal/backend/dealer-import" element={<BackendDealerImportPage />} />
+              <Route path="/portal/backend/budget-import" element={<BackendBudgetImportPage />} />
               <Route path="/portal/backend/sellers" element={<BackendSellersPage />} />
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
