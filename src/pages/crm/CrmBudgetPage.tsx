@@ -23,6 +23,7 @@ import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
+  buildOrderActualsByKey, orderActualKey,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
@@ -702,6 +703,37 @@ export default function CrmBudgetPage() {
     return out;
   }, [visibleLines, customMachines, customMachineKeySet, equipmentKeySet]);
 
+  const orderActualsByKey = useMemo(() => buildOrderActualsByKey(actuals), [actuals]);
+
+  function orderSellerKeysForLine(line: BudgetLine): string[] {
+    const keys = [line.seller_email, line.seller_initials, line.seller_name]
+      .map(v => (v || "").trim().toLowerCase())
+      .filter(Boolean);
+    return Array.from(new Set(keys));
+  }
+
+  function ordersMonthlyForLine(line: BudgetLine): number[] {
+    const sellerKeys = orderSellerKeysForLine(line);
+    return Array.from({ length: 12 }, (_, monthIdx) => {
+      for (const sellerKey of sellerKeys) {
+        const v = orderActualsByKey[orderActualKey(sellerKey, year, monthIdx, line.product_key)];
+        if (v != null) return v;
+      }
+      return 0;
+    });
+  }
+
+  function actualsForLine(line: BudgetLine): SalesActual[] {
+    const sellerKeys = new Set(orderSellerKeysForLine(line));
+    return actuals.filter(a => {
+      if ((a.year ?? year) !== year) return false;
+      if ((a.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "") !== (line.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "")) return false;
+      return [a.seller_key, a.seller_email, a.seller_initials]
+        .map(v => (v || "").trim().toLowerCase())
+        .some(k => sellerKeys.has(k));
+    });
+  }
+
   // Merged equipment map (stock + custom Budget-only equipment).
   const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
     const out: Record<string, EquipmentCategory[]> = {};
@@ -718,14 +750,14 @@ export default function CrmBudgetPage() {
   const totals = useMemo(() => {
     const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
     const annualQty = visibleLines.reduce((s, l) => s + l.qty_budget, 0);
-    const visibleLineIds = new Set(visibleLines.map(l => l.id));
-    const syntheticSellerSuffix = (isAdmin && backendFilter === "all")
-      ? null
-      : (isAdmin ? backendFilter : sellerCtxEmail).replace(/[^a-z0-9]/gi, "");
+    const wantedSeller = isAdmin ? (backendFilter === "all" ? null : backendFilter.toLowerCase()) : (sellerCtxEmail || sellerCtxInitials || null);
+    const wantedRef = wantedSeller ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === wantedSeller) : null;
     const scopedActuals = actuals.filter(a => {
-      if (visibleLineIds.has(a.budget_line_id)) return true;
-      if (!a.budget_line_id.startsWith(`seed_${year}_`)) return false;
-      return syntheticSellerSuffix == null || a.budget_line_id.endsWith(`_${syntheticSellerSuffix}`);
+      if (!wantedSeller) return true;
+      return (a.seller_email || "").toLowerCase() === wantedSeller
+        || (a.seller_key || "").toLowerCase() === wantedSeller
+        || (!!wantedRef && (a.seller_initials || "").toLowerCase() === wantedRef.initials.toLowerCase())
+        || (a.seller_initials || "").toLowerCase() === wantedSeller;
     });
     const sold = scopedActuals
       .reduce((acc, a) => ({ qty: acc.qty + a.qty_sold, value: acc.value + a.value_sold }), { qty: 0, value: 0 });
@@ -734,7 +766,7 @@ export default function CrmBudgetPage() {
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
     const score = annualQty > 0 ? Math.round((sold.qty / annualQty) * 100) : 0;
     return { annualBudget, annualQty, sold, fc, score };
-  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, year]);
+  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, sellerCtxInitials]);
 
   if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -825,14 +857,10 @@ export default function CrmBudgetPage() {
   // ---- Per-line monthly derivations ----
   function lineMonthly(line: BudgetLine) {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
-    const ac = actuals.find(a => a.budget_line_id === line.id);
+    const ac = actualsForLine(line)[0];
     const fc = forecasts.find(f => f.budget_line_id === line.id);
     const budgetMonthly = splitToMonthly(line.qty_budget, split);
-    // Real per-month order count when orders source provided it; otherwise
-    // fall back to spreading the annual qty by the budget's monthly split.
-    const ordersMonthly = (ac?.monthly_qty && ac.monthly_qty.length === 12)
-      ? ac.monthly_qty.slice(0, 12)
-      : splitToMonthly(ac?.qty_sold ?? 0, split);
+    const ordersMonthly = ordersMonthlyForLine(line);
     const draft = workingDraft[line.id];
     // Source of truth for working forecast (Arbejdsbudget):
     //   1) live unsaved draft for this line, OR
@@ -888,17 +916,18 @@ export default function CrmBudgetPage() {
   function ordersDealersFor(linesIn: BudgetLine[], monthIdx: number | null): string[] {
     const out: string[] = [];
     for (const l of linesIn) {
-      const ac = actuals.find(a => a.budget_line_id === l.id);
-      const md = ac?.monthly_dealers;
-      if (!md) continue;
-      if (monthIdx == null) {
-        for (const arr of md) for (const d of arr) {
-          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
-        }
-      } else {
-        const arr = md[monthIdx] || [];
-        for (const d of arr) {
-          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+      for (const ac of actualsForLine(l)) {
+        const md = ac.monthly_dealers;
+        if (!md) continue;
+        if (monthIdx == null) {
+          for (const arr of md) for (const d of arr) {
+            for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+          }
+        } else {
+          const arr = md[monthIdx] || [];
+          for (const d of arr) {
+            for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+          }
         }
       }
     }
@@ -954,40 +983,7 @@ export default function CrmBudgetPage() {
       notes: null,
     });
     setLines(prev => [...prev, persisted]);
-    // SYNCHRONOUS REBIND: any actuals currently bound to the synthetic seed
-    // id for this (seller, product) must immediately point at the new
-    // persisted line id, otherwise the row's "Ordre" column would flash to 0
-    // between this setLines call and the async refreshActuals() resolving.
-    // Orders themselves are never mutated — only the binding key changes.
-    const seedSlug = (known.email || "").replace(/[^a-z0-9]/gi, "");
-    const seedId = `seed_${year}_${line.product_key}_${seedSlug}`;
-    setActuals(prev => {
-      let changed = false;
-      const next = prev.map(a => {
-        if (a.budget_line_id === seedId) {
-          changed = true;
-          return { ...a, budget_line_id: persisted.id };
-        }
-        return a;
-      });
-      return changed ? next : prev;
-    });
-    // Then re-derive from the source for canonical consistency.
-    void refreshActuals();
     return persisted;
-  }
-
-  /** Re-read order actuals from the order source. Never touched by budget /
-   *  arbejdsbudget edits — orders are read-only actuals. Called after any
-   *  operation that may create or change a persisted budget line id. */
-  async function refreshActuals() {
-    try {
-      const fresh = await listSalesActuals(year);
-      setActuals(fresh);
-    } catch (e) {
-      // Keep existing actuals on failure — never zero them out.
-      console.warn("[budget] refreshActuals failed", e);
-    }
   }
 
   // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
@@ -1130,11 +1126,6 @@ export default function CrmBudgetPage() {
         const fresh = await listForecasts(year);
         setForecasts(fresh);
       } catch { /* keep optimistic */ }
-      // Re-derive order actuals so any newly-persisted lines (created via
-      // ensurePersistedLine during the edit session) re-bind to live orders.
-      // This is the critical fix: actuals must be refreshed AFTER the lines
-      // store has gained the new id, otherwise orders silently render as 0.
-      await refreshActuals();
       setSaveConfirm(null);
       exitEditModeSilently();
       toast.success("Arbejdsbudget gemt");
@@ -1196,8 +1187,6 @@ export default function CrmBudgetPage() {
     };
     await upsertBudgetLine(updated);
     setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
-    // Re-bind order actuals against the (possibly new) line id set.
-    void refreshActuals();
     logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
   }
 

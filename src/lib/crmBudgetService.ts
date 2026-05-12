@@ -82,6 +82,15 @@ export interface SalesActual {
   budget_line_id: string;
   qty_sold: number;
   value_sold: number;
+  /** Stable read/display dimensions for real submitted-order actuals.
+   *  These MUST be used for CRM Budget order display instead of
+   *  budget_line_id, because budget_line_id changes when planning rows are
+   *  created/edited while real orders do not. */
+  seller_key?: string | null;
+  seller_email?: string | null;
+  seller_initials?: string | null;
+  year?: number | null;
+  product_key?: string | null;
   /** Per-month qty (Jan..Dec, length 12) when derived from real orders.
    *  Empty/undefined when the source is the legacy crm_budget_sales_actuals
    *  table (which only knows annual totals). */
@@ -91,6 +100,53 @@ export interface SalesActual {
    *  Length 12 (Jan..Dec). Each entry is `{ name, qty }` per occurrence
    *  (duplicates intentional — UI groups them). Display only. */
   monthly_dealers?: Array<Array<{ name: string; qty: number }>>;
+}
+
+export type OrderActualsByKey = Record<string, number>;
+
+export function orderActualSellerKey(sellerInitialsOrEmail: string | null | undefined): string {
+  return norm(sellerInitialsOrEmail);
+}
+
+export function orderActualProductKey(productKey: string | null | undefined): string {
+  return normKey(productKey);
+}
+
+export function orderActualKey(
+  sellerInitialsOrEmail: string | null | undefined,
+  year: number,
+  monthIdx: number,
+  productKey: string | null | undefined,
+): string {
+  return [orderActualSellerKey(sellerInitialsOrEmail), year, monthIdx, orderActualProductKey(productKey)].join("|");
+}
+
+function splitAnnualEvenly(qty: number): number[] {
+  const floors = Array.from({ length: 12 }, () => Math.floor((Number(qty) || 0) / 12));
+  let rem = Math.max(0, Math.round(Number(qty) || 0) - floors.reduce((a, b) => a + b, 0));
+  for (let i = 0; i < 12 && rem > 0; i++, rem--) floors[i] += 1;
+  return floors;
+}
+
+export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKey {
+  const out: OrderActualsByKey = {};
+  for (const a of actuals) {
+    if (!a.product_key || !a.year) continue;
+    const sellerKeys = Array.from(new Set([a.seller_key, a.seller_email, a.seller_initials]
+      .map(k => orderActualSellerKey(k))
+      .filter(Boolean)));
+    if (sellerKeys.length === 0) continue;
+    const monthly = (a.monthly_qty && a.monthly_qty.length === 12)
+      ? a.monthly_qty
+      : splitAnnualEvenly(a.qty_sold || 0);
+    for (let m = 0; m < 12; m++) {
+      for (const sellerKey of sellerKeys) {
+        const k = orderActualKey(sellerKey, a.year, m, a.product_key);
+        out[k] = (out[k] || 0) + (monthly[m] || 0);
+      }
+    }
+  }
+  return out;
 }
 
 // ---------- Product catalog ----------
@@ -724,65 +780,14 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
  *   • qty_sold  → sum of state.machineConfigs[*].qty per machine_type
  *   • value_sold → calcConfigurationTotals(state).finalPrice, allocated
  *                  proportionally per machine when there are multiple types
- * Matched onto the BudgetLine whose (seller_email, product_key) align.
+ * Stored under a stable read key whose display identity is
+ * (seller, year, product_key, month). The legacy budget_line_id field is kept
+ * only for compatibility and is deliberately NOT a real budget line id.
  */
 async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
   try {
-    const lines = await listBudgetLines({ year });
     const sellers = await loadSellerIdentityIndex();
     const productByNormKey = buildProductLookup();
-
-    // Build flexible lookup index per budget line. We register the line
-    // under seller id/email/initials and product key/varenr, so matching is
-    // identical to CRM → Ordrer scoping but still works for legacy rows.
-    type Idx = Map<string, BudgetLine>;
-    const idx: Idx = new Map();
-    const indexLine = (l: BudgetLine) => {
-      const ownerKeys: string[] = [];
-      if (l.seller_id)       ownerKeys.push(`id:${l.seller_id}`);
-      if (l.seller_email)    ownerKeys.push(`email:${norm(l.seller_email)}`);
-      if (l.seller_initials) ownerKeys.push(`ini:${upper(l.seller_initials)}`);
-      if (ownerKeys.length === 0) return;
-
-      const prodKeys: string[] = [];
-      if (l.product_key) prodKeys.push(`key:${normKey(l.product_key)}`);
-      if (l.item_number) prodKeys.push(`vnr:${normKey(l.item_number)}`);
-      if (prodKeys.length === 0) return;
-
-      for (const ok of ownerKeys) {
-        for (const pk of prodKeys) {
-          const k = `${ok}||${pk}`;
-          if (!idx.has(k)) idx.set(k, l);
-        }
-      }
-    };
-    for (const l of lines) indexLine(l);
-
-    // Also index zero-budget virtual rows for standard machine/seller combos.
-    // This lets live orders display even before any manual budget has been set.
-    for (const seller of BUDGET_SELLERS) {
-      for (const product of BUDGET_PRODUCTS) {
-        if (product.category !== "machine") continue;
-        indexLine({
-          id: `seed_${year}_${product.key}_${seller.email.replace(/[^a-z0-9]/gi, "")}`,
-          year,
-          product_key: product.key,
-          product_name: product.name,
-          item_number: product.varenr,
-          category: product.category,
-          seller_id: null,
-          seller_name: seller.full_name,
-          seller_email: seller.email,
-          seller_initials: seller.initials,
-          country: seller.country,
-          qty_budget: 0,
-          value_budget: 0,
-          monthly_split: EVEN_SPLIT,
-          locked: false,
-          created_at: new Date().toISOString(),
-        });
-      }
-    }
 
     const data = await fetchBudgetOrderRows(year);
     const totals = new Map<string, SalesActual>();
@@ -799,8 +804,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       if (d.getFullYear() !== year) continue;
       const monthIdx = d.getMonth();
 
-      const { ownerKeys } = orderSeller(row, sellers);
-      if (ownerKeys.length === 0) continue;
+      const { seller } = orderSeller(row, sellers);
+      if (!seller) continue;
       const state = parseOrderState(row);
 
       // Value can be 0 — qty must still be counted.
@@ -817,25 +822,17 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       if (totalQty === 0) continue;
 
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        const product = PRODUCTS[machineKey] || BUDGET_PRODUCTS.find((p) => normKey(p.key) === normKey(machineKey));
-        const productVarenr = product?.varenr ? normKey(product.varenr) : "";
-        const prodVariants: string[] = [`key:${normKey(machineKey)}`];
-        if (productVarenr) prodVariants.push(`vnr:${productVarenr}`);
-
-        let line: BudgetLine | undefined;
-        outer: for (const ov of ownerKeys) {
-          for (const pv of prodVariants) {
-            const cand = idx.get(`${ov}||${pv}`);
-            if (cand) { line = cand; break outer; }
-          }
-        }
-        if (!line) continue;
-
         const value = finalPrice * (qty / totalQty);
-        const prev = totals.get(line.id) || {
-          budget_line_id: line.id,
+        const actualId = `actual_${year}_${machineKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
+        const prev = totals.get(actualId) || {
+          budget_line_id: actualId,
           qty_sold: 0,
           value_sold: 0,
+          seller_key: seller.email,
+          seller_email: seller.email,
+          seller_initials: seller.initials,
+          year,
+          product_key: machineKey,
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
           monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
@@ -854,7 +851,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           (row.dealer_account_number as string | null) ||
           "—";
         prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
-        totals.set(line.id, prev);
+        totals.set(actualId, prev);
       }
     }
     return Array.from(totals.values());
@@ -1190,20 +1187,19 @@ export function aggregateBudget(
   actuals: SalesActual[],
   sellerEmail: string | null,
 ): AggregatedBudget {
-  const slug = sellerEmail ? sellerEmail.toLowerCase().replace(/[^a-z0-9]/gi, "") : null;
   const scopedLines = sellerEmail
     ? lines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
     : lines;
   const scopedLineIds = new Set(scopedLines.map(l => l.id));
-
+  const sellerRef = sellerEmail
+    ? BUDGET_SELLERS.find(s => norm(s.email) === norm(sellerEmail))
+    : null;
   const scopedActuals = actuals.filter(a => {
-    if (scopedLineIds.has(a.budget_line_id)) return true;
-    // Virtual seed line — match by seller suffix when scoping, accept all when not.
-    if (a.budget_line_id.startsWith("seed_")) {
-      if (!slug) return true;
-      return a.budget_line_id.endsWith(`_${slug}`);
-    }
-    return false;
+    if (!a.product_key || !a.year) return false;
+    if (!sellerEmail) return true;
+    return norm(a.seller_email) === norm(sellerEmail)
+      || norm(a.seller_key) === norm(sellerEmail)
+      || (!!sellerRef && upper(a.seller_initials) === upper(sellerRef.initials));
   });
   const scopedForecasts = forecasts.filter(f => scopedLineIds.has(f.budget_line_id));
 
@@ -1213,21 +1209,9 @@ export function aggregateBudget(
   const productMeta = new Map<string, string>(); // key → name
   for (const l of scopedLines) productMeta.set(l.product_key, l.product_name || l.product_key);
   for (const a of scopedActuals) {
-    // Resolve product_key: line in full set OR seed-id parsing.
-    const line = lines.find(l => l.id === a.budget_line_id);
-    if (line) {
-      productMeta.set(line.product_key, line.product_name || line.product_key);
-      continue;
-    }
-    if (a.budget_line_id.startsWith("seed_")) {
-      // seed_<year>_<productKey>_<sellerSlug>  — productKey may contain "_"
-      // strip "seed_<year>_" prefix and "_<slug>" suffix.
-      const rest = a.budget_line_id.replace(/^seed_\d+_/, "");
-      const idx = rest.lastIndexOf("_");
-      const pk = idx > 0 ? rest.slice(0, idx) : rest;
-      const product = BUDGET_PRODUCTS.find(p => p.key === pk);
-      productMeta.set(pk, (product?.name as string) || pk);
-    }
+    const pk = a.product_key;
+    const product = BUDGET_PRODUCTS.find(p => normKey(p.key) === normKey(pk));
+    productMeta.set(pk, (product?.name as string) || pk);
   }
 
   const byMachine: BudgetMachineRollup[] = [];
@@ -1236,9 +1220,7 @@ export function aggregateBudget(
     const lineIds = new Set(linesFor.map(l => l.id));
     const budgetQty = linesFor.reduce((s, l) => s + (l.qty_budget || 0), 0);
     const ordersQty = scopedActuals
-      .filter(a => lineIds.has(a.budget_line_id) ||
-        (a.budget_line_id.startsWith("seed_") &&
-          a.budget_line_id.replace(/^seed_\d+_/, "").replace(/_[^_]+$/, "") === pk))
+      .filter(a => normKey(a.product_key) === normKey(pk))
       .reduce((s, a) => s + (a.qty_sold || 0), 0);
     const forecastQty = scopedForecasts
       .filter(f => lineIds.has(f.budget_line_id))
