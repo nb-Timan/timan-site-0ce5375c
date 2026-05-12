@@ -135,11 +135,31 @@ export async function closeBudgetAccessWindow(id: string, who: string | null): P
     writeLocal(local);
   }
   try {
-    const { error } = await supabase
+    // Preferred path: SECURITY DEFINER RPC (Phase 17b) — bypasses any
+    // RLS edge-cases for backend users while still enforcing the
+    // is_timan_backend() check inside the function.
+    const rpc = await supabase.rpc("close_budget_access_window", {
+      _id: id,
+      _closed_by: who,
+    });
+    if (!rpc.error) return;
+
+    // Fallback: direct UPDATE with .select() so 0-row results are
+    // detected (a silent RLS denial returns no error but no rows).
+    const { data, error } = await supabase
       .from("budget_access_windows")
       .update({ status: "closed", closed_at: now, closed_by: who })
-      .eq("id", id);
-    if (error) notifyLocalFallback({ table: "budget_access_windows", action: "update_close", error });
+      .eq("id", id)
+      .select("id");
+    if (error) {
+      notifyLocalFallback({ table: "budget_access_windows", action: "update_close", error });
+    } else if (!data || data.length === 0) {
+      notifyLocalFallback({
+        table: "budget_access_windows",
+        action: "update_close",
+        error: new Error("RLS blocked update or row not found (0 rows updated)"),
+      });
+    }
   } catch (err) {
     notifyLocalFallback({ table: "budget_access_windows", action: "update_close", error: err });
   }
@@ -154,11 +174,26 @@ export async function extendBudgetAccessWindow(id: string, newOpenUntilIso: stri
     writeLocal(local);
   }
   try {
-    const { error } = await supabase
+    const rpc = await supabase.rpc("extend_budget_access_window", {
+      _id: id,
+      _new_open_until: newOpenUntilIso,
+    });
+    if (!rpc.error) return;
+
+    const { data, error } = await supabase
       .from("budget_access_windows")
       .update({ open_until: newOpenUntilIso })
-      .eq("id", id);
-    if (error) notifyLocalFallback({ table: "budget_access_windows", action: "update_extend", error });
+      .eq("id", id)
+      .select("id");
+    if (error) {
+      notifyLocalFallback({ table: "budget_access_windows", action: "update_extend", error });
+    } else if (!data || data.length === 0) {
+      notifyLocalFallback({
+        table: "budget_access_windows",
+        action: "update_extend",
+        error: new Error("RLS blocked update or row not found (0 rows updated)"),
+      });
+    }
   } catch (err) {
     notifyLocalFallback({ table: "budget_access_windows", action: "update_extend", error: err });
   }
