@@ -121,6 +121,13 @@ export function orderActualKey(
   return [orderActualSellerKey(sellerInitialsOrEmail), year, monthIdx, orderActualProductKey(productKey)].join("|");
 }
 
+function splitAnnualEvenly(qty: number): number[] {
+  const floors = Array.from({ length: 12 }, () => Math.floor((Number(qty) || 0) / 12));
+  let rem = Math.max(0, Math.round(Number(qty) || 0) - floors.reduce((a, b) => a + b, 0));
+  for (let i = 0; i < 12 && rem > 0; i++, rem--) floors[i] += 1;
+  return floors;
+}
+
 export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKey {
   const out: OrderActualsByKey = {};
   for (const a of actuals) {
