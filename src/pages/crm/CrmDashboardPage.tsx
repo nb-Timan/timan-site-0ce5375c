@@ -289,6 +289,42 @@ export default function CrmDashboardPage() {
           }}
         />
 
+        {/* TOP DASHBOARD SCOPE FILTER (backend/admin only) */}
+        {isAdmin && (
+          <div className="mb-3 flex items-center gap-3 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] font-semibold text-slate-500">
+              Sælger
+            </span>
+            <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setTopSellerInitials(null)}
+                className={`px-3 h-7 rounded-lg text-[12px] font-semibold transition-colors ${
+                  topSellerInitials === null
+                    ? 'bg-[#2d5a27] text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Alle
+              </button>
+              {BUDGET_SELLERS.map(s => (
+                <button
+                  key={s.initials}
+                  type="button"
+                  onClick={() => setTopSellerInitials(s.initials)}
+                  className={`px-3 h-7 rounded-lg text-[12px] font-semibold tabular-nums transition-colors ${
+                    topSellerInitials === s.initials
+                      ? 'bg-[#2d5a27] text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {s.initials}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TOP KPI HERO LAYOUT — strict 3-column grid. */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(0,4fr)] gap-3 mb-4 items-stretch animate-[fadeIn_.4s_ease-out]">
           {/* LEFT COLUMN — Pipeline + Closed Orders */}
