@@ -13,7 +13,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, AlertTriangle, CheckCircle2, HelpCircle, Lock } from "lucide-react";
+import { ArrowLeft, Upload, AlertTriangle, CheckCircle2, HelpCircle, Lock, Loader2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -24,9 +24,22 @@ import {
   BUDGET_SELLERS,
   listBudgetDealerLines,
   normalizeDealerName,
+  upsertBudgetDealerLines,
   type BudgetDealerLine,
+  type BudgetDealerLineInput,
 } from "@/lib/crmBudgetService";
 import { normalizeSellerInitials } from "@/lib/sellerInitials";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Configuration ──────────────────────────────────────────────────────
 const KNOWN_PRODUCTS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"] as const;
@@ -203,6 +216,17 @@ export default function BackendBudgetImportPage() {
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const { toast } = useToast();
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [lastResult, setLastResult] = useState<{ written: number; verified: number; batchId: string } | null>(null);
+
+  const reloadExisting = async (y: number) => {
+    const e = await listBudgetDealerLines(y);
+    setExisting(e);
+    return e;
+  };
 
   useEffect(() => {
     if (!appUser || !perms?.isBackend) return;
@@ -229,6 +253,86 @@ export default function BackendBudgetImportPage() {
     for (const r of rows) c[r.status]++;
     return c;
   }, [rows]);
+
+  // Importable = matched (new) + duplicate (will overwrite same identity).
+  // Block when ANY error or needs_mapping row is present.
+  const importable = useMemo(
+    () => rows.filter((r) => r.status === "matched" || r.status === "duplicate"),
+    [rows],
+  );
+  const canImport =
+    !importing && !busyLoad && importable.length > 0
+    && counts.error === 0 && counts.needs_mapping === 0;
+
+  const runImport = async () => {
+    setImporting(true);
+    const batchId = `import-${Date.now()}`;
+    const importedBy = appUser?.email ?? "backend";
+    try {
+      const inputs: BudgetDealerLineInput[] = importable.map((r) => ({
+        year: r.year as number,
+        month_idx: r.month_idx as number,
+        seller_id: null,
+        seller_name: null,
+        seller_email: r.seller_email as string,
+        seller_initials: r.seller_initials,
+        dealer_account_id: r.dealer_match?.id ?? null,
+        dealer_account_number: r.dealer_match?.account_number ?? null,
+        dealer_name: r.dealer_match?.company_name ?? r.dealer_input,
+        dealer_name_norm: normalizeDealerName(r.dealer_match?.company_name ?? r.dealer_input),
+        product_key: r.product_key as string,
+        product_name: r.product_key as string,
+        item_number: null,
+        qty: r.qty,
+        excluded_from_total: r.qty === 0,
+        import_source: "backend-budget-import-ui",
+        import_batch_id: batchId,
+        imported_by: importedBy,
+      }));
+
+      const saved = await upsertBudgetDealerLines(inputs);
+
+      // Readback verification: refetch dealer-lines and confirm every
+      // (seller, year, month, product, dealer-identity) is present.
+      const fresh = await reloadExisting(year);
+      const verified = inputs.filter((inp) => fresh.some((r) =>
+        r.year === inp.year
+        && r.month_idx === inp.month_idx
+        && (r.seller_email || "").toLowerCase() === inp.seller_email.toLowerCase()
+        && r.product_key === inp.product_key
+        && (
+          (inp.dealer_account_id && r.dealer_account_id === inp.dealer_account_id)
+          || (!inp.dealer_account_id && r.dealer_name_norm === inp.dealer_name_norm)
+        )
+        && r.qty === inp.qty
+        && !!r.excluded_from_total === !!inp.excluded_from_total,
+      )).length;
+
+      if (verified !== inputs.length) {
+        toast({
+          title: "Import delvist verificeret",
+          description: `${saved.length} skrevet, men kun ${verified}/${inputs.length} bekræftet ved readback.`,
+          variant: "destructive",
+        });
+      } else {
+        setLastResult({ written: saved.length, verified, batchId });
+        toast({
+          title: "Import gennemført",
+          description: `${verified} rækker bekræftet i Supabase (batch ${batchId}).`,
+        });
+      }
+    } catch (err) {
+      console.error("[budget-import] commit failed", err);
+      toast({
+        title: "Import fejlede",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      setConfirmOpen(false);
+    }
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -365,19 +469,84 @@ export default function BackendBudgetImportPage() {
         <section className="bg-white border border-slate-200 rounded-2xl p-5">
           <h2 className="font-bold text-slate-900 mb-2">3. Bekræft og importér</h2>
           <p className="text-xs text-slate-600 mb-3">
-            Commit er deaktiveret i denne fase. Trin 4 (Step 4) tilføjer commit + audit-logning og
-            mapping-løsning for "Mangler mapping"-rækker. Indtil da skriver denne side intet til
-            Supabase.
+            Importerer udelukkende til <code>crm_budget_dealer_lines</code>. Eksisterende
+            budgetrækker, ordrer, pipeline, pricing, PDF, e-mail og n8n røres ikke. Rækker med
+            samme identitet (sælger + år + måned + forhandler + produkt) <strong>opdateres</strong>
+            i stedet for at oprette duplikater. Knappen er kun aktiv når der hverken er fejl
+            eller manglende mapping.
           </p>
-          <button
-            type="button"
-            disabled
-            title="Commit er ikke aktiveret endnu (Step 3 er preview-only)"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 text-slate-500 cursor-not-allowed text-sm"
-          >
-            <Lock className="h-4 w-4" /> Importér ({counts.matched} klar)
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              disabled={!canImport}
+              onClick={() => setConfirmOpen(true)}
+              title={
+                canImport
+                  ? "Åbn bekræftelsesdialog"
+                  : counts.error > 0
+                    ? "Ret fejl-rækker først"
+                    : counts.needs_mapping > 0
+                      ? "Løs Mangler mapping-rækker først"
+                      : "Ingen rækker at importere"
+              }
+              className={
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm "
+                + (canImport
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed")
+              }
+            >
+              {importing
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : canImport ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              Importér ({importable.length} klar)
+            </button>
+            {counts.error > 0 && (
+              <span className="text-xs text-red-600">{counts.error} fejl skal rettes.</span>
+            )}
+            {counts.needs_mapping > 0 && (
+              <span className="text-xs text-amber-700">{counts.needs_mapping} rækker mangler mapping.</span>
+            )}
+            {lastResult && (
+              <span className="text-xs text-emerald-700">
+                Sidste import: {lastResult.verified} bekræftet (batch {lastResult.batchId}).
+              </span>
+            )}
+          </div>
         </section>
+
+        <AlertDialog open={confirmOpen} onOpenChange={(o) => !importing && setConfirmOpen(o)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Bekræft import af budgetrækker</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    Du er ved at upserte <strong>{importable.length}</strong> rækker til{" "}
+                    <code>crm_budget_dealer_lines</code> for år <strong>{year}</strong>.
+                  </p>
+                  <ul className="list-disc pl-5 text-xs text-slate-600">
+                    <li>Nye: {counts.matched}</li>
+                    <li>Opdaterer eksisterende (samme identitet): {counts.duplicate}</li>
+                    <li>qty 0 markeres som <em>excluded_from_total</em></li>
+                  </ul>
+                  <p className="text-xs text-slate-500">
+                    Eksisterende CRM-budget, ordrer og dashboards påvirkes ikke i dette trin.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={importing}>Annullér</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={importing}
+                onClick={(e) => { e.preventDefault(); void runImport(); }}
+              >
+                {importing ? "Importerer…" : "Ja, importér"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       <PortalFooter language={lang} />
