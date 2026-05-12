@@ -29,7 +29,14 @@ const T: Record<string, Record<Language, string>> = {
   today:        { da: "I dag",                       en: "Today",                      de: "Heute",                                it: "Oggi",                          hu: "Ma" },
 };
 
-export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { statsLayout?: "row" | "grid2x2" } = {}) {
+export default function UpcomingActivitiesWidget({
+  statsLayout = "row",
+  sellerInitialsOverride,
+}: {
+  statsLayout?: "row" | "grid2x2";
+  /** When provided (admin dashboard top filter), scope to this seller. null = all. */
+  sellerInitialsOverride?: string | null;
+} = {}) {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const isAdmin = isCrmAdmin(derivePortalRole(appUser));
@@ -43,11 +50,16 @@ export default function UpcomingActivitiesWidget({ statsLayout = "row" }: { stat
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await listActivities(isAdmin ? {} : { sellerInitials: myInitials || "all" });
+      const effectiveInitials = isAdmin
+        ? (sellerInitialsOverride ?? null)
+        : (myInitials || "all");
+      const list = await listActivities(
+        isAdmin && !sellerInitialsOverride ? {} : { sellerInitials: effectiveInitials || "all" }
+      );
       if (!cancelled) setRows(list);
     })();
     return () => { cancelled = true; };
-  }, [isAdmin, myInitials]);
+  }, [isAdmin, myInitials, sellerInitialsOverride]);
 
   const now = new Date();
   const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)); startOfWeek.setHours(0,0,0,0);
