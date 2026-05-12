@@ -703,6 +703,37 @@ export default function CrmBudgetPage() {
     return out;
   }, [visibleLines, customMachines, customMachineKeySet, equipmentKeySet]);
 
+  const orderActualsByKey = useMemo(() => buildOrderActualsByKey(actuals), [actuals]);
+
+  function orderSellerKeysForLine(line: BudgetLine): string[] {
+    const keys = [line.seller_email, line.seller_initials, line.seller_name]
+      .map(v => (v || "").trim().toLowerCase())
+      .filter(Boolean);
+    return Array.from(new Set(keys));
+  }
+
+  function ordersMonthlyForLine(line: BudgetLine): number[] {
+    const sellerKeys = orderSellerKeysForLine(line);
+    return Array.from({ length: 12 }, (_, monthIdx) => {
+      for (const sellerKey of sellerKeys) {
+        const v = orderActualsByKey[orderActualKey(sellerKey, year, monthIdx, line.product_key)];
+        if (v != null) return v;
+      }
+      return 0;
+    });
+  }
+
+  function actualsForLine(line: BudgetLine): SalesActual[] {
+    const sellerKeys = new Set(orderSellerKeysForLine(line));
+    return actuals.filter(a => {
+      if ((a.year ?? year) !== year) return false;
+      if ((a.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "") !== (line.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "")) return false;
+      return [a.seller_key, a.seller_email, a.seller_initials]
+        .map(v => (v || "").trim().toLowerCase())
+        .some(k => sellerKeys.has(k));
+    });
+  }
+
   // Merged equipment map (stock + custom Budget-only equipment).
   const equipmentMap: Record<string, EquipmentCategory[]> = useMemo(() => {
     const out: Record<string, EquipmentCategory[]> = {};
