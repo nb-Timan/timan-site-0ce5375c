@@ -394,12 +394,12 @@ export default function CrmDashboardPage() {
                   style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative min-w-0">
+                <div className="relative min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm">
+                    <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
                       <ShoppingCart className="h-3 w-3" strokeWidth={2} />
                     </div>
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold whitespace-nowrap">
                       {T.kpi_closed[lang]}
                     </p>
                     <div className="ml-2">
@@ -426,7 +426,7 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
                 {/* Embedded KPI slot — separated by a thin divider */}
-                <div className="relative shrink-0 ml-auto pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
+                <div className="relative shrink-0 w-[96px] pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
