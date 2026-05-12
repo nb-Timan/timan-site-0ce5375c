@@ -1,24 +1,57 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 vi.mock("@/lib/supabase", () => {
+  const uuid = () => crypto.randomUUID();
   let ordersView: Array<Record<string, unknown>> = [];
   let ordersDetails: Array<Record<string, unknown>> = [];
-  const responses: Record<string, () => { data: unknown; error: unknown }> = {
-    crm_budget_lines: () => ({ data: null, error: { message: "mocked: fall back to LS" } }),
-    crm_budget_forecasts: () => ({ data: [], error: null }),
+  const budgetLines: Array<Record<string, unknown>> = [];
+  const forecasts: Array<Record<string, unknown>> = [];
+  const responses: Record<string, () => { data: unknown[]; error: unknown }> = {
+    crm_budget_lines: () => ({ data: budgetLines, error: null }),
+    crm_budget_forecasts: () => ({ data: forecasts, error: null }),
     crm_budget_sales_actuals: () => ({ data: [], error: null }),
     app_users: () => ({ data: [], error: null }),
     crm_configurations_view: () => ({ data: ordersView, error: null }),
     configurations: () => ({ data: ordersDetails, error: null }),
   };
   function makeBuilder(table: string) {
-    const exec = () => Promise.resolve(responses[table]?.() ?? { data: [], error: null });
+    const filters: Array<{ col: string; val: unknown; op: "eq" | "ilike" | "in" }> = [];
+    const applyFilters = (rows: unknown[]) => rows.filter((row) => filters.every((f) => {
+      const value = (row as Record<string, unknown>)[f.col];
+      if (f.op === "in") return Array.isArray(f.val) && f.val.includes(value);
+      if (f.op === "ilike") return String(value || "").toLowerCase() === String(f.val || "").toLowerCase();
+      return value === f.val;
+    }));
+    const exec = () => {
+      const res = responses[table]?.() ?? { data: [], error: null };
+      return Promise.resolve({ ...res, data: applyFilters(res.data) });
+    };
     const chain: Record<string, unknown> = {};
     Object.assign(chain, {
       select: () => chain,
-      eq: () => chain, neq: () => chain, in: () => chain, or: () => chain, limit: () => chain,
-      upsert: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: { message: "no-op" } }) }) }),
-      maybeSingle: () => Promise.resolve({ data: null, error: { message: "mocked" } }),
+      eq: (col: string, val: unknown) => { filters.push({ col, val, op: "eq" }); return chain; }, neq: () => chain,
+      ilike: (col: string, val: unknown) => { filters.push({ col, val, op: "ilike" }); return chain; },
+      in: (col: string, val: unknown[]) => { filters.push({ col, val, op: "in" }); return chain; }, or: () => chain, limit: () => chain,
+      upsert: (payload: unknown) => {
+        const row = { ...(payload as Record<string, unknown>) };
+        if (table === "crm_budget_lines") {
+          row.created_at ||= new Date().toISOString();
+          const idx = budgetLines.findIndex((r) => r.id === row.id);
+          if (idx >= 0) budgetLines[idx] = { ...budgetLines[idx], ...row };
+          else budgetLines.push(row);
+        }
+        if (table === "crm_budget_forecasts") {
+          row.id ||= uuid();
+          const idx = forecasts.findIndex((r) => r.budget_line_id === row.budget_line_id);
+          if (idx >= 0) forecasts[idx] = { ...forecasts[idx], ...row };
+          else forecasts.push(row);
+        }
+        return { select: () => ({ maybeSingle: () => Promise.resolve({ data: row, error: null }) }) };
+      },
+      maybeSingle: async () => {
+        const res = await exec();
+        return { data: res.data[0] ?? null, error: null };
+      },
       single: () => exec(),
       then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => exec().then(resolve, reject),
     });
