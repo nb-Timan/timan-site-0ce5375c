@@ -330,8 +330,8 @@ export default function CrmDashboardPage() {
           {/* LEFT COLUMN — Pipeline + Closed Orders */}
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
-            <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
+            <Link to="/portal/crm/quotes" className="group block w-full max-w-[28rem]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-4 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
