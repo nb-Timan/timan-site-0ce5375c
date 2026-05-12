@@ -326,7 +326,7 @@ export default function CrmDashboardPage() {
         )}
 
         {/* TOP KPI HERO LAYOUT — 4-column grid. */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)_minmax(0,4fr)] gap-3 mb-4 items-stretch animate-[fadeIn_.4s_ease-out]">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,4.6fr)_minmax(0,3fr)_minmax(0,2.2fr)_minmax(0,4fr)] gap-3 mb-4 items-stretch animate-[fadeIn_.4s_ease-out]">
           {/* COLUMN 1 — Pipeline + Closed Orders (stretch to match other columns) */}
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
