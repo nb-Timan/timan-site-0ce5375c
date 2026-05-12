@@ -724,9 +724,9 @@ export async function listBudgetLines({ year }: ListBudgetParams): Promise<Budge
     if (!error && Array.isArray(data)) {
       return sanitizeLines(data as BudgetLine[]);
     }
-  } catch { /* */ }
-  ensureSeed();
-  return sanitizeLines(readLS<BudgetLine>(LS_LINES).filter(l => l.year === year));
+    if (error) console.error("[budget] Supabase read failed for crm_budget_lines", error);
+  } catch (error) { console.error("[budget] Supabase read failed for crm_budget_lines", error); }
+  return [];
 }
 
 async function readBudgetLineById(id: string): Promise<BudgetLine | null> {
@@ -763,9 +763,9 @@ export async function listForecasts(year: number): Promise<BudgetForecast[]> {
       const ids = new Set(lines.map(l => l.id));
       return (data as BudgetForecast[]).filter(f => ids.has(f.budget_line_id));
     }
-  } catch { /* */ }
-  ensureSeed();
-  return readLS<BudgetForecast>(LS_FORECASTS);
+    if (error) console.error("[budget] Supabase read failed for crm_budget_forecasts", error);
+  } catch (error) { console.error("[budget] Supabase read failed for crm_budget_forecasts", error); }
+  return [];
 }
 
 export async function listSalesActuals(year: number): Promise<SalesActual[]> {
