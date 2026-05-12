@@ -187,6 +187,7 @@ export async function listScopedConfigurations(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
+    const currency = (state?.language && state.language !== 'da') ? 'EUR' as const : 'DKK' as const;
     if (state) {
       try { total = calcConfigurationTotals(state).finalPrice || 0; } catch { /* ignore */ }
       for (const mc of state.machineConfigs ?? []) {
@@ -202,10 +203,13 @@ export async function listScopedConfigurations(
       if (fromTitle) qtyByKey[fromTitle] = 1;
     }
     if (total === 0) total = fallbackTotalById.get(r.id) || 0;
+    const totalDkk = currency === 'EUR' ? total * 7.46 : total;
 
     return {
       ...r,
       total_value: total,
+      total_value_dkk: totalDkk,
+      currency,
       machine_keys: Object.keys(qtyByKey),
       machine_qty_by_key: qtyByKey,
       month_iso: quoteMonthIso(r),
