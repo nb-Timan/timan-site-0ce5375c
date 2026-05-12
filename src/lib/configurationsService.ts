@@ -493,7 +493,18 @@ async function updateConfigurationRow(id: string, patch: Record<string, unknown>
   }
 }
 
-/** Load all saved configurations for the current auth user */
+/**
+ * Load all saved configurations visible to the current "Min konto" scope.
+ *
+ * Scope is resolved by resolveAccountScope():
+ *   • Real Timan Sælger OR backend user "viewing as <seller>" → strictly
+ *     filter by that seller's email (and AK/AKR alias initials).
+ *   • Backend user in pure backend mode, external roles, unknown users →
+ *     personal scope (rows the auth user themselves created).
+ *
+ * This guarantees a seller (or backend impersonating one) never sees
+ * another seller's saved cases in the configurator's "Min konto" modal.
+ */
 export async function loadConfigurations(ownerEmail: string): Promise<SavedConfiguration[]> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -507,12 +518,15 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     return [];
   }
 
-  const { data, error } = await supabase
+  const scope = await resolveAccountScope(ownerEmail, user.id);
+
+  const baseQuery = supabase
     .from('configurations')
     .select('*')
-    .eq('created_by_user_id', user.id)
     .neq('case_status', 'deleted')
     .order('created_at', { ascending: false });
+
+  const { data, error } = await applyAccountScope(baseQuery, scope);
 
   if (error) {
     console.error('Failed to load configurations:', error);
@@ -539,7 +553,15 @@ export async function loadConfigurationById(id: string, ownerEmail: string): Pro
 
   if (!user) return null;
 
-  const { data, error } = await loadConfigurationRowById(id, user.id);
+  const scope = await resolveAccountScope(ownerEmail, user.id);
+
+  // Apply Min konto scope when opening a row from the modal so a seller
+  // (or backend viewing-as-seller) cannot open another seller's case by id.
+  const baseQuery = supabase
+    .from('configurations')
+    .select('*')
+    .eq('id', id);
+  const { data, error } = await applyAccountScope(baseQuery, scope).maybeSingle();
 
   if (error) {
     console.error('Failed to load configuration by id:', error);
