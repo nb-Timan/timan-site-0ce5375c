@@ -563,6 +563,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
             <div className="space-y-4">
               {machineRows.map(row => {
                 const noBudget = row.budgetQty === 0;
+                const orphanOrders = noBudget && row.ordersQty > 0;
                 const score = scoreColor(row.scorePct);
                 const ordersPct = noBudget ? 0 : Math.min(100, (row.ordersQty / row.budgetQty) * 100);
                 const pipelinePct = noBudget ? 0 : Math.min(100 - ordersPct, (row.pipelineQty / row.budgetQty) * 100);
@@ -580,13 +581,21 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                             )}
                           </span>
                           <span className="text-xs text-slate-500 tabular-nums">
-                            <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
-                              {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
-                            </span>
-                            {!noBudget && (
+                            {orphanOrders ? (
+                              <span className="font-semibold text-amber-700">
+                                {row.ordersQty} {t("orders_no_budget", lang)}
+                              </span>
+                            ) : (
                               <>
-                                <span className="mx-1.5 text-slate-300">·</span>
-                                {row.ordersQty}/{row.budgetQty}
+                                <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
+                                  {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
+                                </span>
+                                {!noBudget && (
+                                  <>
+                                    <span className="mx-1.5 text-slate-300">·</span>
+                                    {row.ordersQty}/{row.budgetQty}
+                                  </>
+                                )}
                               </>
                             )}
                           </span>
@@ -597,6 +606,9 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                               <div className={`${score.bar} h-full transition-[width] duration-700`} style={{ width: `${ordersPct}%` }} />
                               <div className="h-full bg-sky-300/70 transition-[width] duration-700" style={{ width: `${pipelinePct}%` }} />
                             </>
+                          )}
+                          {orphanOrders && (
+                            <div className="h-full bg-amber-400/80 w-full" />
                           )}
                         </div>
                       </div>
