@@ -24,6 +24,7 @@ import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
+import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { formatDate } from '@/lib/format-date';
 import { Language } from '@/types/configurator';
@@ -190,28 +191,48 @@ export default function CrmDashboardPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
 
+  // Top dashboard scope filter (admin-only). null = "Alle" (combined view).
+  const [topSellerInitials, setTopSellerInitials] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const sid = await resolveSellerId(appUser?.email);
+      // Resolve the active scope. For admins with a top-filter selection we
+      // re-scope every dashboard fetch as that seller. "Alle" → unscoped.
       const sellerView = getActiveSellerView(appUser?.email);
-      const sellerInitials = sellerView?.initials
+      const ownInitials = sellerView?.initials
         ?? (portalRole === 'timan_seller' && appUser?.display_name
             ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
             : null);
-      const sellerEmail = sellerView?.email
+      const ownEmail = sellerView?.email
         ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = appUser?.dealer_number ?? null;
-      const scopeFilter = { role: portalRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
 
-      const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
-      const act = await listActivities({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const pickedSeller = (isAdmin && topSellerInitials)
+        ? BUDGET_SELLERS.find(s => s.initials === topSellerInitials) ?? null
+        : null;
+
+      const ownSid = await resolveSellerId(appUser?.email);
+      const sid = pickedSeller ? await resolveSellerId(pickedSeller.email) : ownSid;
+
+      const sellerInitials = pickedSeller?.initials ?? ownInitials;
+      const sellerEmail = pickedSeller?.email ?? ownEmail;
+      const dealerNumber = appUser?.dealer_number ?? null;
+
+      // When a specific seller is picked we narrow the role to 'timan_seller'
+      // so the scoped services apply seller-level filters even for admins.
+      const effectiveRole = pickedSeller ? 'timan_seller' : portalRole;
+      const effectiveAdmin = isAdmin && !pickedSeller;
+
+      const scopeFilter = { role: effectiveRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
+
+      const acc = await listCrmAccounts({ role: effectiveRole, sellerId: sid });
+      const act = await listActivities({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
-      const lds = await listLeads({ ownerUserId: isAdmin ? null : sid, limit: 500 });
+      const lds = await listLeads({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
       const cal = await listCalendarActivities({
-        sellerInitials: isAdmin ? null : sellerInitials,
-        sellerUserId: isAdmin ? null : sid,
+        sellerInitials: effectiveAdmin ? null : sellerInitials,
+        sellerUserId: effectiveAdmin ? null : sid,
       });
       if (cancelled) return;
       setSellerId(sid);
@@ -223,7 +244,7 @@ export default function CrmDashboardPage() {
       setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin]);
+  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials]);
 
   // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
   // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
@@ -268,13 +289,49 @@ export default function CrmDashboardPage() {
           }}
         />
 
+        {/* TOP DASHBOARD SCOPE FILTER (backend/admin only) */}
+        {isAdmin && (
+          <div className="mb-3 flex items-center gap-3 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] font-semibold text-slate-500">
+              Sælger
+            </span>
+            <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setTopSellerInitials(null)}
+                className={`px-3 h-7 rounded-lg text-[12px] font-semibold transition-colors ${
+                  topSellerInitials === null
+                    ? 'bg-[#2d5a27] text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Alle
+              </button>
+              {BUDGET_SELLERS.map(s => (
+                <button
+                  key={s.initials}
+                  type="button"
+                  onClick={() => setTopSellerInitials(s.initials)}
+                  className={`px-3 h-7 rounded-lg text-[12px] font-semibold tabular-nums transition-colors ${
+                    topSellerInitials === s.initials
+                      ? 'bg-[#2d5a27] text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {s.initials}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TOP KPI HERO LAYOUT — strict 3-column grid. */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(0,4fr)] gap-3 mb-4 items-stretch animate-[fadeIn_.4s_ease-out]">
           {/* LEFT COLUMN — Pipeline + Closed Orders */}
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
-            <Link to="/portal/crm/quotes" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
+            <Link to="/portal/crm/quotes" className="group block w-full max-w-[28rem]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-4 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -302,8 +359,8 @@ export default function CrmDashboardPage() {
                     </p>
                   )}
                 </div>
-                {/* Embedded KPI slot — sits close to the main metric */}
-                <div className="relative shrink-0 ml-3 flex flex-col items-start justify-center gap-1">
+                {/* Embedded KPI slot — sits close to the main metric, separated by a thin divider */}
+                <div className="relative shrink-0 ml-auto pl-4 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
@@ -321,8 +378,8 @@ export default function CrmDashboardPage() {
             </Link>
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
-            <Link to="/portal/crm/orders" className="group block">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-3 min-h-[72px]">
+            <Link to="/portal/crm/orders" className="group block w-full max-w-[28rem]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-2 flex items-center gap-4 min-h-[72px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
@@ -350,8 +407,8 @@ export default function CrmDashboardPage() {
                     </p>
                   )}
                 </div>
-                {/* Embedded KPI slot — sits close to the main metric */}
-                <div className="relative shrink-0 ml-3 flex flex-col items-start justify-center gap-1">
+                {/* Embedded KPI slot — sits close to the main metric, separated by a thin divider */}
+                <div className="relative shrink-0 ml-auto pl-4 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
@@ -434,15 +491,16 @@ export default function CrmDashboardPage() {
 
           {/* RIGHT COLUMN — Upcoming activities with 2x2 stats grid */}
           <div className="min-w-0 flex flex-col gap-3 h-full [&>div]:h-full [&>div]:flex [&>div]:flex-col">
-            <UpcomingActivitiesWidget statsLayout="grid2x2" />
+            <UpcomingActivitiesWidget statsLayout="grid2x2" sellerInitialsOverride={isAdmin ? topSellerInitials : undefined} />
           </div>
         </div>
 
-        {/* SELLER COCKPIT — Lead focus + Budget focus + (backend) seller switcher/comparison/alerts */}
+        {/* SELLER COCKPIT — Lead focus + Budget focus (switcher hidden; controlled by top filter) */}
         <SellerCockpitSection
           isAdmin={isAdmin}
           sellerEmail={appUser?.email ?? null}
           sellerId={sellerId}
+          controlledInitials={isAdmin ? topSellerInitials : undefined}
         />
 
         {/* PIPELINE — bars + horizontal stacked bar legend */}
