@@ -916,17 +916,18 @@ export default function CrmBudgetPage() {
   function ordersDealersFor(linesIn: BudgetLine[], monthIdx: number | null): string[] {
     const out: string[] = [];
     for (const l of linesIn) {
-      const ac = actuals.find(a => a.budget_line_id === l.id);
-      const md = ac?.monthly_dealers;
-      if (!md) continue;
-      if (monthIdx == null) {
-        for (const arr of md) for (const d of arr) {
-          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
-        }
-      } else {
-        const arr = md[monthIdx] || [];
-        for (const d of arr) {
-          for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+      for (const ac of actualsForLine(l)) {
+        const md = ac.monthly_dealers;
+        if (!md) continue;
+        if (monthIdx == null) {
+          for (const arr of md) for (const d of arr) {
+            for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+          }
+        } else {
+          const arr = md[monthIdx] || [];
+          for (const d of arr) {
+            for (let k = 0; k < (d.qty || 1); k++) out.push(d.name);
+          }
         }
       }
     }
