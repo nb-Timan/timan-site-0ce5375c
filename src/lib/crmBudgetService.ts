@@ -427,6 +427,20 @@ function writeLS<T>(key: string, rows: T[]) {
   try { localStorage.setItem(key, JSON.stringify(rows)); } catch { /* */ }
 }
 
+export class BudgetPersistenceError extends Error {
+  constructor(message: string, public readonly table: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "BudgetPersistenceError";
+  }
+}
+
+function errorText(error: unknown): string {
+  if (!error) return "unknown error";
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
+  try { return JSON.stringify(error); } catch { return String(error); }
+}
+
 function uid(): string {
   return "b_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
