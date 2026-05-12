@@ -1128,16 +1128,25 @@ export default function CrmBudgetPage() {
         for (const f of savedForecasts) map.set(f.budget_line_id, f);
         return Array.from(map.values());
       });
-      try {
-        const fresh = await listForecasts(year);
-        setForecasts(fresh);
-      } catch { /* keep optimistic */ }
+      const fresh = await listForecasts(year);
+      for (const expected of savedForecasts) {
+        const got = fresh.find(f => f.budget_line_id === expected.budget_line_id);
+        const expMonthly = expected.monthly_qty || [];
+        const gotMonthly = got?.monthly_qty || [];
+        const matches = !!got
+          && got.qty_forecast === expected.qty_forecast
+          && expMonthly.length === 12
+          && gotMonthly.length === 12
+          && expMonthly.every((v, i) => Number(gotMonthly[i] || 0) === Number(v || 0));
+        if (!matches) throw new Error("Arbejdsbudget readback mismatch");
+      }
+      setForecasts(fresh);
       setSaveConfirm(null);
       exitEditModeSilently();
       toast.success("Arbejdsbudget gemt");
     } catch (e) {
       console.error("[budget] save drafts failed", e);
-      toast.error("Kunne ikke gemme arbejdsbudgettet");
+      toast.error("Arbejdsbudget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
     } finally {
       setSavingDraft(false);
     }
@@ -1191,9 +1200,17 @@ export default function CrmBudgetPage() {
       value_budget: Math.round(newQty * unit),
       monthly_split: newSplit,
     };
-    await upsertBudgetLine(updated);
-    setLines(prev => prev.map(l => l.id === updated.id ? updated : l));
-    logBudgetAudit(persisted, monthIdx, oldVal, newVal, "budget");
+    try {
+      const saved = await upsertBudgetLine(updated);
+      const fresh = await listBudgetLines({ year });
+      const readback = fresh.find(l => l.id === saved.id);
+      if (!readback || readback.qty_budget !== saved.qty_budget) throw new Error("Budget readback mismatch");
+      setLines(fresh);
+      logBudgetAudit(saved, monthIdx, oldVal, newVal, "budget");
+    } catch (error) {
+      console.error("[budget] save budget failed", error);
+      toast.error("Budget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
+    }
   }
 
   function logBudgetAudit(
