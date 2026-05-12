@@ -204,7 +204,7 @@ export async function listScopedConfigurations(
       if (fromTitle) qtyByKey[fromTitle] = 1;
     }
     if (total === 0) total = fallbackTotalById.get(r.id) || 0;
-    const totalDkk = currency === 'EUR' ? total * 7.46 : total;
+    const totalDkk = toDkk(total, currency);
 
     return {
       ...r,
