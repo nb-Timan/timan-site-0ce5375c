@@ -407,8 +407,8 @@ export default function CrmDashboardPage() {
                     </p>
                   )}
                 </div>
-                {/* Embedded KPI slot — sits close to the main metric */}
-                <div className="relative shrink-0 ml-3 flex flex-col items-start justify-center gap-1">
+                {/* Embedded KPI slot — sits close to the main metric, separated by a thin divider */}
+                <div className="relative shrink-0 ml-auto pl-4 border-l border-white/15 flex flex-col items-start justify-center gap-1">
                   <div className="flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
                     <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
