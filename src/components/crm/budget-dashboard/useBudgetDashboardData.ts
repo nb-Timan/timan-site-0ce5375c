@@ -293,13 +293,14 @@ export function useBudgetDashboardData(p: Params) {
           dealersBySeller.set(s.email, mine);
         }
 
-        const [lines, forecasts, actuals, leads, quotesRes, ordersRes] = await Promise.all([
+        const [lines, forecasts, actuals, leads, quotesRes, ordersRes, dealerLines] = await Promise.all([
           listBudgetLines({ year: p.year }),
           listForecasts(p.year),
           listSalesActuals(p.year),
           listLeads({ limit: 500 }),
           listScopedConfigurations({ ...filter, documentType: "quote" }),
           listScopedConfigurations({ ...filter, documentType: "order" }),
+          listBudgetDealerLines(p.year),
         ]);
 
         // Init buckets.
