@@ -1499,3 +1499,69 @@ export function summarizeDealerLines(rows: BudgetDealerLine[]): Map<string, numb
   return out;
 }
 
+// ------------------------------------------------------------------
+// Phase 35 / Step 5 — pure aggregation helpers used by CRM Budget
+// page and Budget Dashboard. Kept side-effect free so they can be
+// unit-tested without Supabase.
+// ------------------------------------------------------------------
+
+function productKeysEqual(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+}
+
+/** Returns 12 numbers (Jan..Dec) summing dealer-line qty for the given
+ *  product, scoped to the supplied seller emails. Pass `null` to include
+ *  every seller. Rows with `excluded_from_total = true` and qty <= 0 are
+ *  ignored (they exist only as "imported but not counted" markers). */
+export function aggregateDealerBudgetMonthly(
+  rows: BudgetDealerLine[],
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): number[] {
+  const out = Array.from({ length: 12 }, () => 0);
+  for (const r of rows) {
+    if (r.excluded_from_total) continue;
+    if (!r.qty || r.qty <= 0) continue;
+    if (!productKeysEqual(r.product_key, productKey)) continue;
+    if (sellerEmails && !sellerEmails.has((r.seller_email || "").toLowerCase())) continue;
+    if (r.month_idx < 0 || r.month_idx > 11) continue;
+    out[r.month_idx] += r.qty;
+  }
+  return out;
+}
+
+/** Returns 12 booleans — true when at least one non-excluded dealer line
+ *  exists for that (product, seller-scope, month). Used to decide whether
+ *  the manual `crm_budget_lines` value should be replaced for that month
+ *  (preventing double counting). */
+export function hasDealerBudgetByMonth(
+  rows: BudgetDealerLine[],
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): boolean[] {
+  const out = Array.from({ length: 12 }, () => false);
+  for (const r of rows) {
+    if (r.excluded_from_total) continue;
+    if (!r.qty || r.qty <= 0) continue;
+    if (!productKeysEqual(r.product_key, productKey)) continue;
+    if (sellerEmails && !sellerEmails.has((r.seller_email || "").toLowerCase())) continue;
+    if (r.month_idx < 0 || r.month_idx > 11) continue;
+    out[r.month_idx] = true;
+  }
+  return out;
+}
+
+/** Merge manual monthly qty with dealer-line monthly qty preferring dealer
+ *  rows: when a dealer row exists for that month, the manual value for that
+ *  month is dropped and replaced by the dealer sum. Otherwise the manual
+ *  value is kept. */
+export function mergeMonthlyPreferDealer(
+  manualMonthly: number[],
+  dealerMonthly: number[],
+  hasDealerMonth: boolean[],
+): number[] {
+  return Array.from({ length: 12 }, (_, i) =>
+    hasDealerMonth[i] ? (dealerMonthly[i] || 0) : (manualMonthly[i] || 0),
+  );
+}
+
