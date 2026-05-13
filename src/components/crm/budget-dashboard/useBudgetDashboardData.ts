@@ -324,7 +324,24 @@ export function useBudgetDashboardData(p: Params) {
         const sellerByEmail = new Map(visibleSellers.map((s) => [norm(s.email), s]));
         const lineById = new Map(lines.map((l) => [l.id, l]));
 
-        // ── Budget qty per quarter (no dealer attribution → unassigned) ───
+        // ── Phase 35 / Step 5 — index dealer-line presence per cell so we
+        //    don't double-count the manual crm_budget_lines value below. ──
+        const dealerHasMonth = new Set<string>(); // `${sellerEmail}|${machine}|${m}`
+        const dealerKey = (e: string, mk: MachineKey, m: number) => `${e.toLowerCase()}|${mk}|${m}`;
+        for (const r of dealerLines) {
+          if (r.excluded_from_total) continue;
+          if (!r.qty || r.qty <= 0) continue;
+          const machine = DASHBOARD_MACHINES.find((mm) => norm(mm) === norm(r.product_key));
+          if (!machine) continue;
+          const seller = sellerByEmail.get(norm(r.seller_email));
+          if (!seller) continue;
+          if (r.month_idx < 0 || r.month_idx > 11) continue;
+          dealerHasMonth.add(dealerKey(seller.email, machine, r.month_idx));
+        }
+
+        // ── Budget qty per quarter from manual crm_budget_lines.
+        //    Skipped per-month when an imported dealer-line covers that month
+        //    (those months are accounted for in the dealer pass below). ────
         for (const l of lines) {
           if (l.category !== "machine") continue;
           const seller = sellerByEmail.get(norm(l.seller_email));
@@ -337,10 +354,33 @@ export function useBudgetDashboardData(p: Params) {
             ? l.monthly_split
             : Array.from({ length: 12 }, () => 1 / 12);
           for (let m = 0; m < 12; m++) {
+            if (dealerHasMonth.has(dealerKey(seller.email, machine, m))) continue;
             const q = quarterOfMonth(m);
             section.cells[dKey][q][machine].budgetQty += (l.qty_budget || 0) * (split[m] || 0);
           }
         }
+
+        // ── Imported dealer-level budget rows → attribute to dealer row ───
+        for (const r of dealerLines) {
+          if (r.excluded_from_total) continue;
+          if (!r.qty || r.qty <= 0) continue;
+          const seller = sellerByEmail.get(norm(r.seller_email));
+          if (!seller) continue;
+          const machine = DASHBOARD_MACHINES.find((m) => norm(m) === norm(r.product_key));
+          if (!machine) continue;
+          if (r.month_idx < 0 || r.month_idx > 11) continue;
+          const section = out[seller.email];
+          const lookup = lookups.get(seller.email)!;
+          const candidates: Array<string | null> = [
+            r.dealer_account_id ? `id:${r.dealer_account_id}` : null,
+            r.dealer_account_number ? `num:${r.dealer_account_number.trim()}` : null,
+            r.dealer_name ? `name:${norm(r.dealer_name)}` : null,
+          ];
+          const dKey = resolveDealerKey(section, lookup, candidates);
+          const q = quarterOfMonth(r.month_idx);
+          section.cells[dKey][q][machine].budgetQty += r.qty;
+        }
+
 
         // ── Orders qty per quarter from actuals ───────────────────────────
         for (const a of actuals) {
