@@ -28,8 +28,10 @@ import {
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
+  listBudgetDealerLines,
+  aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
-  type EquipmentCategory, type BudgetType,
+  type EquipmentCategory, type BudgetType, type BudgetDealerLine,
   findProduct,
 } from "@/lib/crmBudgetService";
 import {
