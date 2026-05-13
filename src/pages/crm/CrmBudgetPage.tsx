@@ -338,6 +338,7 @@ export default function CrmBudgetPage() {
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
   const [leadContribs, setLeadContribs] = useState<LeadWorkingContribution[]>([]);
+  const [dealerLines, setDealerLines] = useState<BudgetDealerLine[]>([]);
   const [quotePipelineRows, setQuotePipelineRows] = useState<ScopedConfiguration[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
