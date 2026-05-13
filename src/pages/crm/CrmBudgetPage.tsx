@@ -28,8 +28,10 @@ import {
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
+  listBudgetDealerLines,
+  aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
-  type EquipmentCategory, type BudgetType,
+  type EquipmentCategory, type BudgetType, type BudgetDealerLine,
   findProduct,
 } from "@/lib/crmBudgetService";
 import {
@@ -336,6 +338,7 @@ export default function CrmBudgetPage() {
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
   const [leadContribs, setLeadContribs] = useState<LeadWorkingContribution[]>([]);
+  const [dealerLines, setDealerLines] = useState<BudgetDealerLine[]>([]);
   const [quotePipelineRows, setQuotePipelineRows] = useState<ScopedConfiguration[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -449,10 +452,11 @@ export default function CrmBudgetPage() {
   useEffect(() => {
     if (!allowed) return;
     setBusy(true);
-    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 })])
-      .then(([l, f, a, leads]) => {
+    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 }), listBudgetDealerLines(year)])
+      .then(([l, f, a, leads, dl]) => {
         setLines(l); setForecasts(f); setActuals(a);
         setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
+        setDealerLines(dl);
       })
       .finally(() => setBusy(false));
     // Re-hydrate effective lock map for this year (per-seller resolved against
@@ -1780,7 +1784,7 @@ export default function CrmBudgetPage() {
                       linesForAgg.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
                       return arr;
                     };
-                    const budgetMonthly = agg("budgetMonthly");
+                    const budgetMonthlyManual = agg("budgetMonthly");
                     const ordersMonthly = agg("ordersMonthly");
                     const baseWorking = agg("workingMonthly");
                     // Lead-driven Arbejdsbudget overlay: only leads where the
@@ -1788,6 +1792,28 @@ export default function CrmBudgetPage() {
                     // Match by product key (primaryLine.product_key /
                     // fallbackProductKey) and apply seller scope.
                     const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
+
+                    // ── Phase 35 / Step 5 ──────────────────────────────────
+                    // Overlay imported dealer-level budget rows (crm_budget_
+                    // dealer_lines) on top of the manual crm_budget_lines
+                    // values. For any (seller-scope, product, month) where at
+                    // least one non-excluded dealer row exists, the dealer
+                    // sum REPLACES the manual value for that month — this
+                    // prevents double counting while still letting manual
+                    // lines act as a fallback elsewhere.
+                    const scopeEmails: Set<string> | null = (() => {
+                      if (isAdmin) {
+                        if (backendFilter === "all") return null;
+                        if (backendFilter === "mine") return new Set([myEmail].filter(Boolean));
+                        return new Set([backendFilter.toLowerCase()]);
+                      }
+                      const e = (sellerCtxEmail || myEmail || "").toLowerCase();
+                      return new Set(e ? [e] : []);
+                    })();
+                    const dealerMonthly = aggregateDealerBudgetMonthly(dealerLines, blockProductKey, scopeEmails);
+                    const hasDealerMonth = hasDealerBudgetByMonth(dealerLines, blockProductKey, scopeEmails);
+                    const budgetMonthly = mergeMonthlyPreferDealer(budgetMonthlyManual, dealerMonthly, hasDealerMonth);
+
                     const scopedLeadContribs = leadContribs.filter(c => {
                       if (c.product_key !== blockProductKey) return false;
                       // Seller view: keep only their own leads.
