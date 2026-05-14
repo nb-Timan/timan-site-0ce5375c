@@ -1249,7 +1249,45 @@ export default function CrmBudgetPage() {
       const readback = fresh.find(l => l.id === saved.id);
       if (!readback || readback.qty_budget !== saved.qty_budget) throw new Error("Budget readback mismatch");
       setLines(fresh);
+
+      // Phase 35 / Step 7 — collapse imported dealer-line rows for this cell
+      // so that the dealer-prefer merge falls back to the manual value just
+      // saved. Without this, the visible value would still be driven by the
+      // sum of dealer rows and the user's edit would appear to "disappear"
+      // after refresh.
+      if (opts?.collapseDealer && opts.productKey) {
+        try {
+          const collapsed = await collapseDealerLinesForCell(
+            dealerLines, year, monthIdx, opts.productKey, opts.scopeEmails ?? null,
+            { email: appUser?.email || null },
+          );
+          if (collapsed.length > 0) {
+            const freshDealer = await listBudgetDealerLines(year);
+            const stillNonZero = freshDealer.some(r =>
+              collapsed.includes(r.id) && r.qty !== 0,
+            );
+            if (stillNonZero) throw new Error("Dealer collapse readback mismatch");
+            setDealerLines(freshDealer);
+            console.log("[budget.dealer.collapse]", {
+              seller: persisted.seller_initials || persisted.seller_email,
+              year, month: monthIdx + 1,
+              product_key: opts.productKey,
+              collapsed_row_ids: collapsed,
+              new_manual_value: newVal,
+            });
+          }
+        } catch (collapseError) {
+          console.error("[budget] dealer collapse failed", collapseError);
+          toast.error("Budgetværdien blev gemt, men importerede forhandler-linjer kunne ikke nulstilles. Tallet kan virke forkert ved næste opdatering.", { duration: 8000 });
+          // Manual value is saved; surface the partial-failure to the user.
+          // Do NOT show a generic success toast.
+          logBudgetAudit(saved, monthIdx, oldVal, newVal, "budget");
+          return;
+        }
+      }
+
       logBudgetAudit(saved, monthIdx, oldVal, newVal, "budget");
+      toast.success("Budget gemt");
     } catch (error) {
       console.error("[budget] save budget failed", error);
       toast.error("Budget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
