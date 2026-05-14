@@ -1551,6 +1551,62 @@ export function hasDealerBudgetByMonth(
   return out;
 }
 
+/** Pick the largest non-excluded dealer row for a given (year, month, product,
+ *  seller-scope) cell. Used by CRM Budget plus/minus to know which dealer row
+ *  to mutate. Tie-breaker: dealer_name asc, then id asc — deterministic. */
+export function pickLargestDealerRowForCell(
+  rows: BudgetDealerLine[],
+  year: number,
+  monthIdx: number,
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): BudgetDealerLine | null {
+  const cands = rows.filter(r =>
+    !r.excluded_from_total &&
+    r.year === year &&
+    r.month_idx === monthIdx &&
+    productKeysEqual(r.product_key, productKey) &&
+    (!sellerEmails || sellerEmails.has((r.seller_email || "").toLowerCase()))
+  );
+  if (cands.length === 0) return null;
+  cands.sort((a, b) =>
+    (b.qty - a.qty) ||
+    (a.dealer_name || "").localeCompare(b.dealer_name || "") ||
+    a.id.localeCompare(b.id)
+  );
+  return cands[0];
+}
+
+/** Update only the qty of an existing dealer row (preserves identity, source,
+ *  excluded flag, etc). Returns the readback row from Supabase. */
+export async function updateDealerLineQty(
+  row: BudgetDealerLine,
+  newQty: number,
+  actor?: { email?: string | null },
+): Promise<BudgetDealerLine> {
+  return upsertBudgetDealerLine({
+    id: row.id,
+    year: row.year,
+    month_idx: row.month_idx,
+    seller_id: row.seller_id,
+    seller_name: row.seller_name,
+    seller_email: row.seller_email,
+    seller_initials: row.seller_initials,
+    dealer_account_id: row.dealer_account_id,
+    dealer_account_number: row.dealer_account_number,
+    dealer_name: row.dealer_name,
+    dealer_name_norm: row.dealer_name_norm,
+    product_key: row.product_key,
+    product_name: row.product_name,
+    item_number: row.item_number,
+    qty: Math.max(0, Math.trunc(newQty)),
+    excluded_from_total: row.excluded_from_total,
+    import_source: row.import_source,
+    import_batch_id: row.import_batch_id,
+    imported_by: actor?.email ?? row.imported_by ?? null,
+  });
+}
+
 /** Merge manual monthly qty with dealer-line monthly qty preferring dealer
  *  rows: when a dealer row exists for that month, the manual value for that
  *  month is dropped and replaced by the dealer sum. Otherwise the manual

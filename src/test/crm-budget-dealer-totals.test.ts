@@ -7,6 +7,7 @@ import {
   aggregateDealerBudgetMonthly,
   hasDealerBudgetByMonth,
   mergeMonthlyPreferDealer,
+  pickLargestDealerRowForCell,
   type BudgetDealerLine,
 } from "@/lib/crmBudgetService";
 
@@ -116,5 +117,32 @@ describe("Phase 35 / Step 5 — dealer budget aggregation", () => {
     ];
     const out = aggregateDealerBudgetMonthly(rows, "RC-1000s", new Set(["jtn@timan.dk"]));
     expect(out[0]).toBe(9);
+  });
+});
+
+describe("Phase 35 — pickLargestDealerRowForCell (plus/minus target)", () => {
+  it("returns the largest non-excluded row for the cell", () => {
+    const rows = [
+      row({ id: "a", dealer_name: "Lyngfeldt", month_idx: 4, product_key: "Timan 3330", qty: 1 }),
+      row({ id: "b", dealer_name: "Henrik A. Fog A/S", month_idx: 4, product_key: "Timan 3330", qty: 2 }),
+      row({ id: "c", dealer_name: "Lyngfeldt demo", month_idx: 4, product_key: "Timan 3330", qty: 0, excluded_from_total: true }),
+    ];
+    const t = pickLargestDealerRowForCell(rows, YEAR, 4, "Timan 3330", new Set(["em@timan.dk"]));
+    expect(t?.id).toBe("b");
+    expect(t?.dealer_name).toBe("Henrik A. Fog A/S");
+  });
+
+  it("never picks an excluded_from_total row even when it has the largest qty", () => {
+    const rows = [
+      row({ id: "x", qty: 99, excluded_from_total: true, dealer_name: "Demo Z" }),
+      row({ id: "y", qty: 2, dealer_name: "Active" }),
+    ];
+    const t = pickLargestDealerRowForCell(rows, YEAR, 0, "RC-1000s", null);
+    expect(t?.id).toBe("y");
+  });
+
+  it("returns null when no dealer rows match the cell", () => {
+    const rows = [row({ month_idx: 1 })];
+    expect(pickLargestDealerRowForCell(rows, YEAR, 0, "RC-1000s", null)).toBeNull();
   });
 });
