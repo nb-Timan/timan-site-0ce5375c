@@ -1607,6 +1607,36 @@ export async function updateDealerLineQty(
   });
 }
 
+/** Phase 35 / Step 7 — collapse all non-excluded dealer rows for a given
+ *  (year, month, product, seller-scope) cell to qty=0. Used after a manual
+ *  CRM Budget edit so that `crm_budget_lines` becomes the single source of
+ *  truth for that cell — the dealer-prefer merge in CRM Budget and Budget
+ *  Dashboard then naturally falls back to the manual value.
+ *  Never modifies rows where excluded_from_total = true. */
+export async function collapseDealerLinesForCell(
+  rows: BudgetDealerLine[],
+  year: number,
+  monthIdx: number,
+  productKey: string,
+  sellerEmails: Set<string> | null,
+  actor?: { email?: string | null },
+): Promise<string[]> {
+  const targets = rows.filter(r =>
+    !r.excluded_from_total &&
+    r.qty > 0 &&
+    r.year === year &&
+    r.month_idx === monthIdx &&
+    productKeysEqual(r.product_key, productKey) &&
+    (!sellerEmails || sellerEmails.has((r.seller_email || "").toLowerCase()))
+  );
+  const ids: string[] = [];
+  for (const t of targets) {
+    await updateDealerLineQty(t, 0, actor);
+    ids.push(t.id);
+  }
+  return ids;
+}
+
 /** Merge manual monthly qty with dealer-line monthly qty preferring dealer
  *  rows: when a dealer row exists for that month, the manual value for that
  *  month is dropped and replaced by the dealer sum. Otherwise the manual
