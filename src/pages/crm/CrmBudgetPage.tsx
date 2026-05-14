@@ -30,7 +30,7 @@ import {
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
-  pickLargestDealerRowForCell, updateDealerLineQty,
+  pickLargestDealerRowForCell, updateDealerLineQty, collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type EquipmentCategory, type BudgetType, type BudgetDealerLine,
   findProduct,
