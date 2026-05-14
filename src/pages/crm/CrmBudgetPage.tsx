@@ -30,7 +30,7 @@ import {
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
-  pickLargestDealerRowForCell, updateDealerLineQty,
+  collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type EquipmentCategory, type BudgetType, type BudgetDealerLine,
   findProduct,
@@ -1158,123 +1158,77 @@ export default function CrmBudgetPage() {
   }
 
   // ---- Gray BUDGET row editing ----
+  // Phase 35 / Step 7 — single source of truth for manual edits is
+  // crm_budget_lines. When a cell is currently driven by imported
+  // crm_budget_dealer_lines rows, we still WRITE the new value to the manual
+  // line and then collapse the matching non-excluded dealer rows to qty=0 so
+  // the dealer-prefer merge falls back to manual. This way the published
+  // portal always shows the persisted edited value after refresh, seller
+  // switch, logout/login, or another browser.
   async function adjustBudget(line: BudgetLine, monthIdx: number, delta: number) {
     const sellerHasWindow =
       isSeller && !!activeWindowFor(effectiveSellerEmail || myEmail || null);
-    // Backend/global is read-only on the gray Budget row too.
     if (isAdmin) return;
     if (!sellerHasWindow) return;
     if (isLineLocked(line)) return;
 
-    // Phase 35 — if this (seller, product, month) cell is backed by imported
-    // dealer-level rows, route the +/- delta to the largest non-excluded
-    // dealer row instead of the manual crm_budget_lines row. This prevents
-    // the manual fallback from drifting silently while the visible total is
-    // already coming from crm_budget_dealer_lines.
     const productKey = line.product_key || "";
-    if (productKey) {
-      const scopeEmail = (effectiveSellerEmail || myEmail || "").toLowerCase();
-      const scopeEmails = scopeEmail ? new Set([scopeEmail]) : null;
-      const target = pickLargestDealerRowForCell(dealerLines, year, monthIdx, productKey, scopeEmails);
-      if (target) {
-        const oldQty = target.qty;
-        const newQty = Math.max(0, oldQty + delta);
-        if (newQty === oldQty) return;
-        const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
-        const run = () => commitDealerBudget(target, monthIdx, oldQty, newQty);
-        if (isLargeBudgetChange(oldQty, newQty)) {
-          setLargeChange({
-            ctx: {
-              oldValue: oldQty, newValue: newQty,
-              seller: target.seller_initials || target.seller_name || "—",
-              model: target.item_number || target.product_name || target.product_key,
-              month: monthLabel,
-              budget_type: "budget",
-            },
-            run,
-          });
-          return;
-        }
-        await run();
-        return;
-      }
-    }
+    const scopeEmail = (effectiveSellerEmail || myEmail || "").toLowerCase();
+    const scopeEmails = scopeEmail ? new Set([scopeEmail]) : null;
+    const dealerSumForCell = productKey
+      ? aggregateDealerBudgetMonthly(dealerLines, productKey, scopeEmails)[monthIdx] || 0
+      : 0;
+    const hasDealerForCell = productKey
+      ? hasDealerBudgetByMonth(dealerLines, productKey, scopeEmails)[monthIdx]
+      : false;
 
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
-    const oldVal = monthlyQty[monthIdx] ?? 0;
-    const newVal = Math.max(0, oldVal + delta);
-    if (newVal === oldVal) return;
+    const manualVal = monthlyQty[monthIdx] ?? 0;
+    // Displayed value uses the same dealer-prefer merge as render.
+    const displayedVal = hasDealerForCell ? dealerSumForCell : manualVal;
+    const newDisplayed = Math.max(0, displayedVal + delta);
+    if (newDisplayed === displayedVal) return;
     const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
-    if (isLargeBudgetChange(oldVal, newVal)) {
+
+    const run = () => commitBudget(persisted, monthIdx, displayedVal, newDisplayed, {
+      manualVal,
+      collapseDealer: hasDealerForCell,
+      productKey,
+      scopeEmails,
+    });
+
+    if (isLargeBudgetChange(displayedVal, newDisplayed)) {
       setLargeChange({
         ctx: {
-          oldValue: oldVal, newValue: newVal,
+          oldValue: displayedVal, newValue: newDisplayed,
           seller: persisted.seller_initials || persisted.seller_name || "—",
           model: persisted.item_number || persisted.product_name,
           month: monthLabel,
           budget_type: "budget",
         },
-        run: () => commitBudget(persisted, monthIdx, oldVal, newVal),
+        run,
       });
       return;
     }
-    await commitBudget(persisted, monthIdx, oldVal, newVal);
-  }
-
-  async function commitDealerBudget(
-    target: BudgetDealerLine, monthIdx: number, oldQty: number, newQty: number,
-  ) {
-    console.log("[budget.dealer.adjust]", {
-      seller: target.seller_initials || target.seller_email,
-      seller_email: target.seller_email,
-      year,
-      month: monthIdx + 1,
-      product_key: target.product_key,
-      dealer_name: target.dealer_name,
-      dealer_row_id: target.id,
-      old_qty: oldQty,
-      new_qty: newQty,
-      delta: newQty - oldQty,
-    });
-    try {
-      await updateDealerLineQty(target, newQty, { email: appUser?.email || null });
-      const fresh = await listBudgetDealerLines(year);
-      const verify = fresh.find(r => r.id === target.id);
-      if (!verify || verify.qty !== newQty) {
-        throw new Error("Dealer budget readback mismatch");
-      }
-      setDealerLines(fresh);
-      appendBudgetAuditEntry({
-        year,
-        seller_initials: target.seller_initials,
-        seller_name: target.seller_name,
-        seller_email: target.seller_email,
-        product_key: target.product_key,
-        product_name: target.product_name,
-        item_number: target.item_number,
-        month_idx: monthIdx,
-        month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-        budget_type: "budget",
-        old_value: oldQty,
-        new_value: newQty,
-        actor_email: appUser?.email || null,
-        actor_name: appUser?.display_name || null,
-        actor_role: portalRole || null,
-        active_mode: `seller:${target.seller_initials || target.seller_email}`,
-      });
-      setAuditRefreshKey(k => k + 1);
-    } catch (error) {
-      console.error("[budget] dealer adjust failed", error);
-      toast.error("Budget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
-    }
+    await run();
   }
 
 
   async function commitBudget(
     persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
+    opts?: {
+      /** The actual manual_qty stored in crm_budget_lines for this month —
+       *  used as the write target so manual takes over after dealer collapse. */
+      manualVal?: number;
+      /** When true, after a successful manual save zero out matching dealer
+       *  rows so the merge falls back to manual. */
+      collapseDealer?: boolean;
+      productKey?: string;
+      scopeEmails?: Set<string> | null;
+    },
   ) {
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
     const monthlyQty = splitToMonthly(persisted.qty_budget, split);
@@ -1295,7 +1249,45 @@ export default function CrmBudgetPage() {
       const readback = fresh.find(l => l.id === saved.id);
       if (!readback || readback.qty_budget !== saved.qty_budget) throw new Error("Budget readback mismatch");
       setLines(fresh);
+
+      // Phase 35 / Step 7 — collapse imported dealer-line rows for this cell
+      // so that the dealer-prefer merge falls back to the manual value just
+      // saved. Without this, the visible value would still be driven by the
+      // sum of dealer rows and the user's edit would appear to "disappear"
+      // after refresh.
+      if (opts?.collapseDealer && opts.productKey) {
+        try {
+          const collapsed = await collapseDealerLinesForCell(
+            dealerLines, year, monthIdx, opts.productKey, opts.scopeEmails ?? null,
+            { email: appUser?.email || null },
+          );
+          if (collapsed.length > 0) {
+            const freshDealer = await listBudgetDealerLines(year);
+            const stillNonZero = freshDealer.some(r =>
+              collapsed.includes(r.id) && r.qty !== 0,
+            );
+            if (stillNonZero) throw new Error("Dealer collapse readback mismatch");
+            setDealerLines(freshDealer);
+            console.log("[budget.dealer.collapse]", {
+              seller: persisted.seller_initials || persisted.seller_email,
+              year, month: monthIdx + 1,
+              product_key: opts.productKey,
+              collapsed_row_ids: collapsed,
+              new_manual_value: newVal,
+            });
+          }
+        } catch (collapseError) {
+          console.error("[budget] dealer collapse failed", collapseError);
+          toast.error("Budgetværdien blev gemt, men importerede forhandler-linjer kunne ikke nulstilles. Tallet kan virke forkert ved næste opdatering.", { duration: 8000 });
+          // Manual value is saved; surface the partial-failure to the user.
+          // Do NOT show a generic success toast.
+          logBudgetAudit(saved, monthIdx, oldVal, newVal, "budget");
+          return;
+        }
+      }
+
       logBudgetAudit(saved, monthIdx, oldVal, newVal, "budget");
+      toast.success("Budget gemt");
     } catch (error) {
       console.error("[budget] save budget failed", error);
       toast.error("Budget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
