@@ -1165,6 +1165,41 @@ export default function CrmBudgetPage() {
     if (isAdmin) return;
     if (!sellerHasWindow) return;
     if (isLineLocked(line)) return;
+
+    // Phase 35 — if this (seller, product, month) cell is backed by imported
+    // dealer-level rows, route the +/- delta to the largest non-excluded
+    // dealer row instead of the manual crm_budget_lines row. This prevents
+    // the manual fallback from drifting silently while the visible total is
+    // already coming from crm_budget_dealer_lines.
+    const productKey = line.product_key || "";
+    if (productKey) {
+      const scopeEmail = (effectiveSellerEmail || myEmail || "").toLowerCase();
+      const scopeEmails = scopeEmail ? new Set([scopeEmail]) : null;
+      const target = pickLargestDealerRowForCell(dealerLines, year, monthIdx, productKey, scopeEmails);
+      if (target) {
+        const oldQty = target.qty;
+        const newQty = Math.max(0, oldQty + delta);
+        if (newQty === oldQty) return;
+        const monthLabel = MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`;
+        const run = () => commitDealerBudget(target, monthIdx, oldQty, newQty);
+        if (isLargeBudgetChange(oldQty, newQty)) {
+          setLargeChange({
+            ctx: {
+              oldValue: oldQty, newValue: newQty,
+              seller: target.seller_initials || target.seller_name || "—",
+              model: target.item_number || target.product_name || target.product_key,
+              month: monthLabel,
+              budget_type: "budget",
+            },
+            run,
+          });
+          return;
+        }
+        await run();
+        return;
+      }
+    }
+
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
@@ -1188,6 +1223,55 @@ export default function CrmBudgetPage() {
     }
     await commitBudget(persisted, monthIdx, oldVal, newVal);
   }
+
+  async function commitDealerBudget(
+    target: BudgetDealerLine, monthIdx: number, oldQty: number, newQty: number,
+  ) {
+    console.log("[budget.dealer.adjust]", {
+      seller: target.seller_initials || target.seller_email,
+      seller_email: target.seller_email,
+      year,
+      month: monthIdx + 1,
+      product_key: target.product_key,
+      dealer_name: target.dealer_name,
+      dealer_row_id: target.id,
+      old_qty: oldQty,
+      new_qty: newQty,
+      delta: newQty - oldQty,
+    });
+    try {
+      await updateDealerLineQty(target, newQty, { email: appUser?.email || null });
+      const fresh = await listBudgetDealerLines(year);
+      const verify = fresh.find(r => r.id === target.id);
+      if (!verify || verify.qty !== newQty) {
+        throw new Error("Dealer budget readback mismatch");
+      }
+      setDealerLines(fresh);
+      appendBudgetAuditEntry({
+        year,
+        seller_initials: target.seller_initials,
+        seller_name: target.seller_name,
+        seller_email: target.seller_email,
+        product_key: target.product_key,
+        product_name: target.product_name,
+        item_number: target.item_number,
+        month_idx: monthIdx,
+        month: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+        budget_type: "budget",
+        old_value: oldQty,
+        new_value: newQty,
+        actor_email: appUser?.email || null,
+        actor_name: appUser?.display_name || null,
+        actor_role: portalRole || null,
+        active_mode: `seller:${target.seller_initials || target.seller_email}`,
+      });
+      setAuditRefreshKey(k => k + 1);
+    } catch (error) {
+      console.error("[budget] dealer adjust failed", error);
+      toast.error("Budget blev ikke gemt i Supabase", { description: "Dine tal er ikke synkroniseret. Prøv igen." });
+    }
+  }
+
 
   async function commitBudget(
     persisted: BudgetLine, monthIdx: number, oldVal: number, newVal: number,
