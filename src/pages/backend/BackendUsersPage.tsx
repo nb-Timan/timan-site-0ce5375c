@@ -390,21 +390,13 @@ export default function BackendUsersPage() {
           onSave={async (patch) => {
             setSaveError(null);
             const res = await saveBackendUser(editing.id, patch);
-            if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
-            else setSaveError(null);
-            // Drop cached sellerId for both the previous and the new email so
-            // CRM "view as" / scope resolvers re-read from Supabase.
             clearSellerIdCache(editing.email);
             clearViewAsCache(editing.email);
             if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
               clearSellerIdCache(patch.email);
               clearViewAsCache(patch.email);
             }
-            // Notify any "view as" listeners so the portal re-resolves.
             window.dispatchEvent(new CustomEvent('timan:active-mode-changed'));
-            // If the edited row is the currently logged-in user, refresh
-            // AppUserContext from Supabase so role / module / dealer changes
-            // take effect without a page reload.
             if (
               appUser &&
               (appUser.email.toLowerCase() === editing.email.toLowerCase() ||
@@ -413,7 +405,15 @@ export default function BackendUsersPage() {
               await refreshAppUser();
             }
             await reload();
+            if (!res.ok) {
+              // Keep modal open so user can fix the issue and retry. The
+              // saveError banner above the table shows the readback details.
+              setSaveError(res.error ?? "Kunne ikke gemme — readback fejlede.");
+              return { ok: false, error: res.error };
+            }
+            setSaveError(null);
             setEditingId(null);
+            return { ok: true };
           }}
         />
       )}
