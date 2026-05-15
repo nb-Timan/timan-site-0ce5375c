@@ -222,6 +222,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   // (PGRST204 from PostgREST schema cache, or "column ... does not exist"),
   // drop that column and retry. This keeps the page working when the
   // Phase 2 / Phase 3 SQL migrations haven't all been applied yet.
+  const droppedColumns: string[] = [];
   let attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
 
   let safety = 0;
@@ -235,6 +236,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     const col = match[1];
     if (!(col in fullPatch)) break;
     delete fullPatch[col];
+    droppedColumns.push(col);
     safety++;
     attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
   }
@@ -263,10 +265,76 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     };
   }
 
-  const row = attempt.data;
+  // ----- Readback verification -----
+  // supabase-js returns ok with `data: null` when an UPDATE matches 0 rows
+  // (typical RLS denial via USING clause). We must explicitly re-read the
+  // row and compare critical fields against the draft. If the row is
+  // missing or any field differs, treat the save as FAILED so the UI does
+  // not show a misleading success.
+  const verify = await supabase.from("app_users").select("*").eq("id", id).maybeSingle();
+  if (verify.error || !verify.data) {
+    const local = updateFallbackUser(id, draft);
+    return {
+      ok: false,
+      source: "fallback",
+      user: local,
+      error:
+        `Kunne ikke verificere gemt bruger i Supabase (readback fejlede). ` +
+        `Detaljer: ${verify.error?.message ?? "row not found"}. ` +
+        `Ændringen blev gemt lokalt i preview indtil videre.`,
+    };
+  }
+
+  const row = verify.data as Record<string, unknown>;
+  const mismatches: string[] = [];
+  const eq = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const checks: Array<[string, unknown, unknown]> = [
+    ["initials", row.initials, draft.initials],
+    ["full_name", row.full_name, draft.name],
+    ["email", (row.email as string)?.toLowerCase(), draft.email.toLowerCase()],
+    ["preferred_language", row.preferred_language, draft.language],
+    ["portal_role", row.portal_role, draft.role],
+    ["status", row.status, status],
+    ["approved", row.approved, approved],
+    ["is_active", row.is_active, is_active],
+    ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
+    ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
+    ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
+    ["permissions", row.permissions ?? {}, draft.perms],
+  ];
+  for (const [field, actual, expected] of checks) {
+    // Skip fields that we deliberately dropped because the column is missing.
+    if (droppedColumns.includes(field)) continue;
+    if (!eq(actual, expected)) mismatches.push(field);
+  }
+
+  if (mismatches.length > 0 || droppedColumns.length > 0) {
+    const local = updateFallbackUser(id, draft);
+    const parts: string[] = [];
+    if (mismatches.length > 0) {
+      parts.push(
+        `Følgende felter blev ikke gemt i Supabase: ${mismatches.join(", ")}. ` +
+        `Sandsynlig årsag: RLS UPDATE policy på public.app_users blokerer (PATCH returnerer 0 rækker). ` +
+        `Kør docs/sql/phase36_app_users_update_policy.sql i Supabase SQL Editor.`,
+      );
+    }
+    if (droppedColumns.length > 0) {
+      parts.push(
+        `Manglende kolonner i app_users: ${droppedColumns.join(", ")}. ` +
+        `Kør phase2_backend_users.sql / phase3_crm_account_owner.sql.`,
+      );
+    }
+    return {
+      ok: false,
+      source: "supabase",
+      user: rowToBackendUser(row),
+      error: `${parts.join(" ")} Ændringen blev også gemt lokalt i preview.`,
+    };
+  }
+
   return {
     ok: true,
     source: "supabase",
-    user: row ? rowToBackendUser(row) : draft,
+    user: rowToBackendUser(row),
   };
 }

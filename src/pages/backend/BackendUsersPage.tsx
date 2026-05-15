@@ -390,21 +390,13 @@ export default function BackendUsersPage() {
           onSave={async (patch) => {
             setSaveError(null);
             const res = await saveBackendUser(editing.id, patch);
-            if (!res.ok) setSaveError(res.error ?? "Kunne ikke gemme.");
-            else setSaveError(null);
-            // Drop cached sellerId for both the previous and the new email so
-            // CRM "view as" / scope resolvers re-read from Supabase.
             clearSellerIdCache(editing.email);
             clearViewAsCache(editing.email);
             if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
               clearSellerIdCache(patch.email);
               clearViewAsCache(patch.email);
             }
-            // Notify any "view as" listeners so the portal re-resolves.
             window.dispatchEvent(new CustomEvent('timan:active-mode-changed'));
-            // If the edited row is the currently logged-in user, refresh
-            // AppUserContext from Supabase so role / module / dealer changes
-            // take effect without a page reload.
             if (
               appUser &&
               (appUser.email.toLowerCase() === editing.email.toLowerCase() ||
@@ -413,7 +405,15 @@ export default function BackendUsersPage() {
               await refreshAppUser();
             }
             await reload();
+            if (!res.ok) {
+              // Keep modal open so user can fix the issue and retry. The
+              // saveError banner above the table shows the readback details.
+              setSaveError(res.error ?? "Kunne ikke gemme — readback fejlede.");
+              return { ok: false, error: res.error };
+            }
+            setSaveError(null);
             setEditingId(null);
+            return { ok: true };
           }}
         />
       )}
@@ -437,9 +437,11 @@ function EditUserModal({
 }: {
   user: BackendUser;
   onClose: () => void;
-  onSave: (patch: BackendUser) => void;
+  onSave: (patch: BackendUser) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [draft, setDraft] = useState<BackendUser>(user);
+  const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealerQuery, setDealerQuery] = useState("");
 
@@ -709,15 +711,30 @@ function EditUserModal({
           </Section>
         </div>
 
+        {localError && (
+          <div className="mx-6 mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            {localError}
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 sticky bottom-0 bg-white">
-          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button onClick={onClose} disabled={saving} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
             Annuller
           </button>
           <button
-            onClick={() => onSave(draft)}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+            disabled={saving}
+            onClick={async () => {
+              setLocalError(null);
+              setSaving(true);
+              try {
+                const res = await onSave(draft);
+                if (!res.ok) setLocalError(res.error ?? "Kunne ikke gemme — readback fejlede.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            Gem ændringer
+            {saving ? "Gemmer…" : "Gem ændringer"}
           </button>
         </div>
       </div>
