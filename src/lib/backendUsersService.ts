@@ -222,6 +222,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   // (PGRST204 from PostgREST schema cache, or "column ... does not exist"),
   // drop that column and retry. This keeps the page working when the
   // Phase 2 / Phase 3 SQL migrations haven't all been applied yet.
+  const droppedColumns: string[] = [];
   let attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
 
   let safety = 0;
@@ -235,6 +236,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     const col = match[1];
     if (!(col in fullPatch)) break;
     delete fullPatch[col];
+    droppedColumns.push(col);
     safety++;
     attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
   }
