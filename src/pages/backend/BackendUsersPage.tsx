@@ -711,15 +711,30 @@ function EditUserModal({
           </Section>
         </div>
 
+        {localError && (
+          <div className="mx-6 mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            {localError}
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 sticky bottom-0 bg-white">
-          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button onClick={onClose} disabled={saving} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
             Annuller
           </button>
           <button
-            onClick={() => onSave(draft)}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+            disabled={saving}
+            onClick={async () => {
+              setLocalError(null);
+              setSaving(true);
+              try {
+                const res = await onSave(draft);
+                if (!res.ok) setLocalError(res.error ?? "Kunne ikke gemme — readback fejlede.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            Gem ændringer
+            {saving ? "Gemmer…" : "Gem ændringer"}
           </button>
         </div>
       </div>
