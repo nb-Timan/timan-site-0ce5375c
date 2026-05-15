@@ -437,9 +437,11 @@ function EditUserModal({
 }: {
   user: BackendUser;
   onClose: () => void;
-  onSave: (patch: BackendUser) => void;
+  onSave: (patch: BackendUser) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [draft, setDraft] = useState<BackendUser>(user);
+  const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealerQuery, setDealerQuery] = useState("");
 
