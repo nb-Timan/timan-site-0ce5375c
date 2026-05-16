@@ -16,9 +16,9 @@ import {
 } from "@/lib/portalAccess";
 
 export type UserStatus = "active" | "pending" | "blocked";
-export type AreaKey = "teknik_service" | "salg_marketing" | "timan_backend";
+export type AreaKey = "teknik_service" | "salg_marketing" | "timan_crm" | "timan_backend";
 
-export const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "timan_backend"];
+export const ALL_AREAS: AreaKey[] = ["salg_marketing", "teknik_service", "timan_crm", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
   "claims",

@@ -288,6 +288,11 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   const row = verify.data as Record<string, unknown>;
   const mismatches: string[] = [];
   const eq = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+  // Compare only fields that were actually included in the (post-drop) patch
+  // and that map to columns the live row exposes. Optional/missing columns
+  // (e.g. account_owner_*, permissions on older schemas) are reported as a
+  // developer console warning instead of a user-facing save failure.
   const checks: Array<[string, unknown, unknown]> = [
     ["initials", row.initials, draft.initials],
     ["full_name", row.full_name, draft.name],
@@ -300,35 +305,44 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
     ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
-    ["permissions", row.permissions ?? {}, draft.perms],
   ];
+  // Permissions: only compare keys we actually sent, since the DB row may
+  // hold extra keys from older edits we don't want to overwrite logic on.
+  if (!droppedColumns.includes("permissions")) {
+    const rowPerms = (row.permissions as Record<string, boolean> | null) || {};
+    const draftPerms = draft.perms as Record<string, boolean>;
+    for (const k of Object.keys(draftPerms)) {
+      if (!eq(rowPerms[k], draftPerms[k])) {
+        mismatches.push(`permissions.${k}`);
+      }
+    }
+  }
   for (const [field, actual, expected] of checks) {
-    // Skip fields that we deliberately dropped because the column is missing.
     if (droppedColumns.includes(field)) continue;
     if (!eq(actual, expected)) mismatches.push(field);
   }
 
-  if (mismatches.length > 0 || droppedColumns.length > 0) {
+  if (droppedColumns.length > 0) {
+    // Developer-only warning — don't fail the save because optional
+    // columns are missing from the live schema.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[backendUsersService] Skipped columns missing from public.app_users: ${droppedColumns.join(", ")}. ` +
+      `Run the relevant phase2_backend_users.sql / phase3_crm_account_owner.sql migration to enable persistence.`,
+    );
+  }
+
+  if (mismatches.length > 0) {
     const local = updateFallbackUser(id, draft);
-    const parts: string[] = [];
-    if (mismatches.length > 0) {
-      parts.push(
-        `Følgende felter blev ikke gemt i Supabase: ${mismatches.join(", ")}. ` +
-        `Sandsynlig årsag: RLS UPDATE policy på public.app_users blokerer (PATCH returnerer 0 rækker). ` +
-        `Kør docs/sql/phase36_app_users_update_policy.sql i Supabase SQL Editor.`,
-      );
-    }
-    if (droppedColumns.length > 0) {
-      parts.push(
-        `Manglende kolonner i app_users: ${droppedColumns.join(", ")}. ` +
-        `Kør phase2_backend_users.sql / phase3_crm_account_owner.sql.`,
-      );
-    }
     return {
       ok: false,
       source: "supabase",
       user: rowToBackendUser(row),
-      error: `${parts.join(" ")} Ændringen blev også gemt lokalt i preview.`,
+      error:
+        `Følgende felter blev ikke gemt i Supabase: ${mismatches.join(", ")}. ` +
+        `Sandsynlig årsag: RLS UPDATE policy på public.app_users blokerer (PATCH returnerer 0 rækker). ` +
+        `Kør docs/sql/phase36_app_users_update_policy.sql i Supabase SQL Editor. ` +
+        `Ændringen blev også gemt lokalt i preview.`,
     };
   }
 

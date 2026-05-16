@@ -11,6 +11,8 @@ export type SessionUser = AppUser & {
   preferred_currency?: string | null;
   company_dealer?: string | null;
   module_access?: string[] | null;
+  allowed_areas?: string[] | null;
+  allowed_modules?: string[] | null;
   status?: string | null;
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
@@ -107,8 +109,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
           && Object.prototype.hasOwnProperty.call(cached, 'dealer_number')
           // Phase 27 — re-fetch when cache pre-dates the `permissions` field
-          // so newly added per-user flags (e.g. can_manage_payment_terms) load.
-          && Object.prototype.hasOwnProperty.call(cached, 'permissions');
+          // Phase 37 — also re-fetch when cache pre-dates `allowed_areas`
+          // so portal area filtering applies without manual logout.
+          && Object.prototype.hasOwnProperty.call(cached, 'permissions')
+          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas');
         if (cacheIsFresh) {
           setLoading(false);
           return;
@@ -201,6 +205,8 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     preferred_currency: (row.preferred_currency as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
     module_access: (row.module_access as string[] | null) ?? null,
+    allowed_areas: (row.allowed_areas as string[] | null) ?? null,
+    allowed_modules: (row.allowed_modules as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,

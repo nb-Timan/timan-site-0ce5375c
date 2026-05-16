@@ -60,6 +60,8 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     preferred_currency: (row.preferred_currency as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
     module_access: (row.module_access as string[] | null) ?? null,
+    allowed_areas: (row.allowed_areas as string[] | null) ?? null,
+    allowed_modules: (row.allowed_modules as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
@@ -111,6 +113,8 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       ...appUser,
       portal_role: preview.key,
       module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
       permissions: null,
     };
   }
@@ -122,6 +126,8 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       partner_type: target.partner_type,
       portal_role: target.portal_role ?? 'timan_seller',
       module_access: target.module_access ?? null,
+      allowed_areas: target.allowed_areas ?? null,
+      allowed_modules: target.allowed_modules ?? null,
       permissions: target.permissions ?? null,
     };
   }
