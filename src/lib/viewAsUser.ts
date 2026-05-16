@@ -113,6 +113,8 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       ...appUser,
       portal_role: preview.key,
       module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
       permissions: null,
     };
   }
@@ -124,6 +126,8 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       partner_type: target.partner_type,
       portal_role: target.portal_role ?? 'timan_seller',
       module_access: target.module_access ?? null,
+      allowed_areas: target.allowed_areas ?? null,
+      allowed_modules: target.allowed_modules ?? null,
       permissions: target.permissions ?? null,
     };
   }
