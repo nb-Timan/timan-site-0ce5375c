@@ -203,6 +203,8 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     preferred_currency: (row.preferred_currency as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
     module_access: (row.module_access as string[] | null) ?? null,
+    allowed_areas: (row.allowed_areas as string[] | null) ?? null,
+    allowed_modules: (row.allowed_modules as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
