@@ -58,10 +58,15 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
   const portalRole = derivePortalRole(appUser);
-  if (!hasModuleAccess(portalRole, 'timan_crm', appUser.module_access as never)) {
+  // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
+  // otherwise it falls back to module_access / role defaults.
+  const allowedAreas = appUser.allowed_areas;
+  const crmAreaAllowed = Array.isArray(allowedAreas) && allowedAreas.length > 0
+    ? allowedAreas.includes('timan_crm')
+    : hasModuleAccess(portalRole, 'timan_crm', appUser.module_access as never);
+  if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
-  // Hard block: only backend or seller can access the CRM.
   if (!isCrmAdmin(portalRole) && !isScopedSeller(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
