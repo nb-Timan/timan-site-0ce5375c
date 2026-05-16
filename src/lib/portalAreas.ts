@@ -101,20 +101,27 @@ export const PORTAL_AREAS: PortalArea[] = [
  */
 export function isAreaVisible(
   area: PortalArea,
-  user: (AppUser & { portal_role?: string | null; module_access?: string[] | null }) | null,
+  user: (AppUser & { portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null }) | null,
 ): boolean {
   if (!user) return false;
   if (user.role === 'slutkunde') return false;
 
   const portalRole = derivePortalRole(user);
-  const key: ModuleAccessKey = area.id; // PortalAreaId is a subset of ModuleAccessKey
+  const key: ModuleAccessKey = area.id;
+
+  // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
+  // If the admin saved an allowed_areas list, it is the source of truth for
+  // which area cards/pages this user can see. An empty/null array falls
+  // through to role defaults so legacy rows aren't accidentally locked out.
+  const allowed = user.allowed_areas;
+  if (Array.isArray(allowed) && allowed.length > 0) {
+    return allowed.includes(area.id);
+  }
 
   if (portalRole) {
     return hasModuleAccess(portalRole, key, user.module_access as ModuleAccessKey[] | null | undefined);
   }
 
-  // Legacy fallback (no portal_role resolved). Be conservative — never grant
-  // Backend or CRM without an explicit portal_role.
   switch (area.id) {
     case 'salg_marketing':
     case 'teknik_service':
