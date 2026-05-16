@@ -109,8 +109,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
           && Object.prototype.hasOwnProperty.call(cached, 'dealer_number')
           // Phase 27 — re-fetch when cache pre-dates the `permissions` field
-          // so newly added per-user flags (e.g. can_manage_payment_terms) load.
-          && Object.prototype.hasOwnProperty.call(cached, 'permissions');
+          // Phase 37 — also re-fetch when cache pre-dates `allowed_areas`
+          // so portal area filtering applies without manual logout.
+          && Object.prototype.hasOwnProperty.call(cached, 'permissions')
+          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas');
         if (cacheIsFresh) {
           setLoading(false);
           return;
