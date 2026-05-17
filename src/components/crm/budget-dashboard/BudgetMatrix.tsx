@@ -163,9 +163,9 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
         </tbody>
       </table>
       <div className="px-3 py-2 text-[10px] text-slate-500 border-t border-slate-200 bg-slate-50">
-        Format pr. celle: <span className="font-medium text-slate-700">Budget / Ordre</span>
+        {LT.cell_format[lang]} <span className="font-medium text-slate-700">{LT.budget_order[lang]}</span>
         <span className="mx-2">·</span>
-        nederste tal = <span className="font-medium text-sky-700">Arbejdsbudget</span>
+        {LT.bottom_label[lang]} <span className="font-medium text-sky-700">{LT.working[lang]}</span>
       </div>
     </div>
   );
