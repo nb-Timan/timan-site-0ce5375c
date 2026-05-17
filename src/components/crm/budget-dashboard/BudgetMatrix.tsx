@@ -38,10 +38,11 @@ function fmt(n: number): string {
 }
 
 export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCountryIso }: Props) {
+  const { language: lang } = useLanguage();
   if (dealers.length === 0) {
     return (
       <div className="px-5 py-6 text-sm text-slate-500">
-        Ingen forhandlere tilknyttet denne sælger.
+        {LT.no_dealers[lang]}
       </div>
     );
   }
@@ -54,9 +55,18 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
               rowSpan={2}
               className="sticky left-0 z-20 bg-slate-100 text-left px-3 py-2 font-semibold text-slate-700 border-b border-r border-slate-200 min-w-[220px]"
             >
-              Forhandler
+              {LT.dealer[lang]}
             </th>
             {QUARTERS.map((q, i) => (
+              <th
+                key={q}
+                colSpan={DASHBOARD_MACHINES.length}
+                className={cn(
+                  "bg-slate-100 text-center px-2 py-1.5 font-semibold text-slate-700 border-b border-slate-200",
+                  i < QUARTERS.length - 1 && "border-r-2 border-r-slate-300",
+                )}
+              >
+                {q}. {LT.quarter[lang]}
               <th
                 key={q}
                 colSpan={DASHBOARD_MACHINES.length}
