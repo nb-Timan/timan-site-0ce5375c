@@ -3,6 +3,7 @@ import { Language } from '@/types/configurator';
 import { PORTAL_LANGUAGE_CODES, FALLBACK_LANGUAGE } from '@/lib/portalLanguages';
 
 const STORAGE_KEY = 'timan.language';
+const MANUAL_KEY = 'timan.language.manual';
 const SUPPORTED: Language[] = PORTAL_LANGUAGE_CODES;
 const FALLBACK: Language = FALLBACK_LANGUAGE;
 
@@ -16,9 +17,23 @@ function loadFromStorage(): Language {
   return FALLBACK;
 }
 
+function hasManualSelection(): boolean {
+  try {
+    return localStorage.getItem(MANUAL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 interface LanguageContextValue {
   language: Language;
+  /** Manual selection from the top switcher — persists across sessions. */
   setLanguage: (lang: Language) => void;
+  /**
+   * Apply the user's preferred_language only if no manual override exists.
+   * Called once after the signed-in user is loaded.
+   */
+  applyPreferredLanguage: (lang: string | null | undefined) => void;
 }
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
@@ -31,8 +46,21 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguageState(safe);
     try {
       localStorage.setItem(STORAGE_KEY, safe);
+      localStorage.setItem(MANUAL_KEY, '1');
     } catch {
       // ignore storage errors (e.g. private mode)
+    }
+  }, []);
+
+  const applyPreferredLanguage = useCallback((lang: string | null | undefined) => {
+    if (!lang || !(SUPPORTED as string[]).includes(lang)) return;
+    if (hasManualSelection()) return;
+    const safe = lang as Language;
+    setLanguageState(safe);
+    try {
+      localStorage.setItem(STORAGE_KEY, safe);
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -48,7 +76,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, applyPreferredLanguage }}>
       {children}
     </LanguageContext.Provider>
   );

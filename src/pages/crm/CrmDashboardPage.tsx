@@ -73,7 +73,22 @@ const T: Record<string, Record<Language, string>> = {
   reason_other:   { da: 'Andet',         en: 'Other',         de: 'Sonstiges',     it: 'Altro',         hu: 'Egyéb' },
 
   days:           { da: 'dage',          en: 'days',          de: 'Tage',          it: 'giorni',        hu: 'nap' },
-  orders:         { da: 'ordrer',        en: 'ordrer',        de: 'Aufträge',      it: 'ordini',        hu: 'rendelés' },
+  orders:         { da: 'ordrer',        en: 'orders',        de: 'Aufträge',      it: 'ordini',        hu: 'rendelés' },
+
+  latest_sold:    { da: 'Seneste solgte enheder', en: 'Latest sold units', de: 'Zuletzt verkaufte Einheiten', it: 'Ultime unità vendute', hu: 'Legutóbb eladott egységek' },
+  no_closed:      { da: 'Ingen lukkede ordrer endnu.', en: 'No closed orders yet.', de: 'Noch keine abgeschlossenen Aufträge.', it: 'Nessun ordine chiuso.', hu: 'Még nincs lezárt rendelés.' },
+  pipeline_dist_title: { da: 'Pipeline Fordeling', en: 'Pipeline distribution', de: 'Pipeline-Verteilung', it: 'Distribuzione pipeline', hu: 'Pipeline eloszlás' },
+  no_records:     { da: 'Ingen poster fundet',   en: 'No records found',      de: 'Keine Einträge',      it: 'Nessun record',         hu: 'Nincs találat' },
+  col_type:       { da: 'Type',          en: 'Type',          de: 'Typ',           it: 'Tipo',          hu: 'Típus' },
+  col_number:     { da: 'Nummer',        en: 'Number',        de: 'Nummer',        it: 'Numero',        hu: 'Szám' },
+  col_title_cust: { da: 'Titel / kunde', en: 'Title / customer', de: 'Titel / Kunde', it: 'Titolo / cliente', hu: 'Cím / ügyfél' },
+  col_dealer:     { da: 'Forhandler',    en: 'Dealer',        de: 'Händler',       it: 'Rivenditore',   hu: 'Kereskedő' },
+  col_seller:     { da: 'Sælger',        en: 'Seller',        de: 'Verkäufer',     it: 'Venditore',     hu: 'Értékesítő' },
+  col_value:      { da: 'Værdi',         en: 'Value',         de: 'Wert',          it: 'Valore',        hu: 'Érték' },
+  col_status:     { da: 'Status',        en: 'Status',        de: 'Status',        it: 'Stato',         hu: 'Státusz' },
+  col_date:       { da: 'Dato',          en: 'Date',          de: 'Datum',         it: 'Data',          hu: 'Dátum' },
+  col_open:       { da: 'Åbn',           en: 'Open',          de: 'Öffnen',        it: 'Apri',          hu: 'Megnyit' },
+  total:          { da: 'Total',         en: 'Total',         de: 'Gesamt',        it: 'Totale',        hu: 'Összesen' },
 };
 
 interface StageMeta { key: 'lead'|'demo'|'quote'|'neg'|'won'|'lost'; tKey: string; bar: string; hex: string; ring: string }
@@ -355,7 +370,7 @@ export default function CrmDashboardPage() {
                   </p>
                   {metrics.pipelineValueEur > 0 && (
                     <p className="text-[11px] text-emerald-100/85 tabular-nums mt-1">
-                      heraf {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
+                      {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
                     </p>
                   )}
                 </div>
@@ -411,7 +426,7 @@ export default function CrmDashboardPage() {
                   </p>
                   {metrics.closedValueThisMonthEur > 0 && (
                     <p className="text-[11px] text-sky-100/85 tabular-nums mt-1">
-                      heraf {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
+                      {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
                     </p>
                   )}
                 </div>
@@ -451,11 +466,11 @@ export default function CrmDashboardPage() {
                 <div className="flex items-center gap-1.5 mb-1">
                   <Award className="h-3.5 w-3.5 text-[#2d5a27]" strokeWidth={2} />
                   <p className="text-[9.5px] uppercase tracking-[0.1em] text-slate-500 font-semibold">
-                    Seneste solgte enheder
+                    {T.latest_sold[lang]}
                   </p>
                 </div>
                 {metrics.latestSoldUnits.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">Ingen lukkede ordrer endnu.</p>
+                  <p className="text-[11px] text-slate-400">{T.no_closed[lang]}</p>
                 ) : (
                   <ul className="space-y-1 text-[11.5px] leading-tight">
                     {metrics.latestSoldUnits.map(o => (
@@ -1388,24 +1403,24 @@ function PipelineStageModal({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Pipeline Fordeling · {stageLabel}</DialogTitle>
+          <DialogTitle>{T.pipeline_dist_title[lang]} · {stageLabel}</DialogTitle>
         </DialogHeader>
         {rows.length === 0 ? (
-          <div className="py-10 text-center text-sm text-slate-500">Ingen poster fundet</div>
+          <div className="py-10 text-center text-sm text-slate-500">{T.no_records[lang]}</div>
         ) : (
           <div className="max-h-[60vh] overflow-auto -mx-6 px-6">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b">
-                  <th className="py-2 pr-3">Type</th>
-                  <th className="py-2 pr-3">Nummer</th>
-                  <th className="py-2 pr-3">Titel / kunde</th>
-                  <th className="py-2 pr-3">Forhandler</th>
-                  <th className="py-2 pr-3">Sælger</th>
-                  <th className="py-2 pr-3 text-right">Værdi</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Dato</th>
-                  <th className="py-2 pr-3 text-right">Åbn</th>
+                  <th className="py-2 pr-3">{T.col_type[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_number[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_title_cust[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_dealer[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_seller[lang]}</th>
+                  <th className="py-2 pr-3 text-right">{T.col_value[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_status[lang]}</th>
+                  <th className="py-2 pr-3">{T.col_date[lang]}</th>
+                  <th className="py-2 pr-3 text-right">{T.col_open[lang]}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1422,7 +1437,7 @@ function PipelineStageModal({
                     <td className="py-2 pr-3 text-right">
                       {r.href ? (
                         <Link to={r.href} className="inline-flex items-center gap-1 text-[#2d5a27] hover:underline" onClick={onClose}>
-                          Åbn <ExternalLink className="h-3 w-3" />
+                          {T.col_open[lang]} <ExternalLink className="h-3 w-3" />
                         </Link>
                       ) : <span className="text-slate-400">—</span>}
                     </td>
@@ -1431,7 +1446,7 @@ function PipelineStageModal({
               </tbody>
               <tfoot>
                 <tr className="border-t">
-                  <td colSpan={5} className="py-2 pr-3 text-right text-xs text-slate-500">Total</td>
+                  <td colSpan={5} className="py-2 pr-3 text-right text-xs text-slate-500">{T.total[lang]}</td>
                   <td className="py-2 pr-3 text-right font-semibold tabular-nums">
                     {Math.round(total).toLocaleString('da-DK')} kr.
                   </td>

@@ -53,6 +53,18 @@ import NotFound from "./pages/NotFound.tsx";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
+import { useEffect } from "react";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+
+function PreferredLanguageBootstrap() {
+  const { appUser } = useAppUser();
+  const { applyPreferredLanguage } = useLanguage();
+  useEffect(() => {
+    if (appUser?.preferred_language) applyPreferredLanguage(appUser.preferred_language);
+  }, [appUser?.email, appUser?.preferred_language, applyPreferredLanguage]);
+  return null;
+}
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
 import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
 import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
@@ -145,6 +157,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <VisitorTracker />
+            <PreferredLanguageBootstrap />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>

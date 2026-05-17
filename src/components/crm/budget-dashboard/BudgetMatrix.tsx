@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
+import type { Language } from "@/types/configurator";
 import {
   DASHBOARD_MACHINES,
   MACHINE_SHORT_LABEL,
@@ -7,6 +9,18 @@ import {
   type MachineKey,
   type Quarter,
 } from "./useBudgetDashboardData";
+
+const LT: Record<string, Record<Language, string>> = {
+  dealer:       { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+  quarter:      { da: 'kvartal',    en: 'quarter', de: 'Quartal', it: 'trimestre',  hu: 'negyedév' },
+  no_dealers:   { da: 'Ingen forhandlere tilknyttet denne sælger.', en: 'No dealers assigned to this seller.', de: 'Keine Händler zugewiesen.', it: 'Nessun rivenditore.', hu: 'Nincs hozzárendelt kereskedő.' },
+  no_activity:  { da: 'Ingen aktivitet', en: 'No activity', de: 'Keine Aktivität', it: 'Nessuna attività', hu: 'Nincs tevékenység' },
+  cell_format:  { da: 'Format pr. celle:', en: 'Cell format:', de: 'Zellenformat:', it: 'Formato cella:', hu: 'Cellaformátum:' },
+  budget_order: { da: 'Budget / Ordre', en: 'Budget / Order', de: 'Budget / Auftrag', it: 'Budget / Ordine', hu: 'Terv / Rendelés' },
+  bottom_label: { da: 'nederste tal =', en: 'bottom number =', de: 'unten =', it: 'numero in basso =', hu: 'alsó szám =' },
+  working:      { da: 'Arbejdsbudget', en: 'Working forecast', de: 'Arbeitsprognose', it: 'Previsione lavoro', hu: 'Munka-előrejelzés' },
+};
+
 
 interface Props {
   dealers: DealerRow[];
@@ -24,10 +38,11 @@ function fmt(n: number): string {
 }
 
 export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCountryIso }: Props) {
+  const { language: lang } = useLanguage();
   if (dealers.length === 0) {
     return (
       <div className="px-5 py-6 text-sm text-slate-500">
-        Ingen forhandlere tilknyttet denne sælger.
+        {LT.no_dealers[lang]}
       </div>
     );
   }
@@ -40,7 +55,7 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
               rowSpan={2}
               className="sticky left-0 z-20 bg-slate-100 text-left px-3 py-2 font-semibold text-slate-700 border-b border-r border-slate-200 min-w-[220px]"
             >
-              Forhandler
+              {LT.dealer[lang]}
             </th>
             {QUARTERS.map((q, i) => (
               <th
@@ -51,7 +66,7 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
                   i < QUARTERS.length - 1 && "border-r-2 border-r-slate-300",
                 )}
               >
-                {q}. kvartal
+                {q}. {LT.quarter[lang]}
               </th>
             ))}
           </tr>
@@ -115,7 +130,7 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
                         <button
                           type="button"
                           onClick={() => onCellClick(d.key, q, m)}
-                          title={empty ? "Ingen aktivitet" : undefined}
+                          title={empty ? LT.no_activity[lang] : undefined}
                           className={cn(
                             "w-full h-full text-center px-2 py-1.5 leading-tight transition-colors hover:bg-[#2d5a27]/10 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/40",
                             empty && "ring-1 ring-inset ring-red-200/70",
@@ -148,9 +163,9 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
         </tbody>
       </table>
       <div className="px-3 py-2 text-[10px] text-slate-500 border-t border-slate-200 bg-slate-50">
-        Format pr. celle: <span className="font-medium text-slate-700">Budget / Ordre</span>
+        {LT.cell_format[lang]} <span className="font-medium text-slate-700">{LT.budget_order[lang]}</span>
         <span className="mx-2">·</span>
-        nederste tal = <span className="font-medium text-sky-700">Arbejdsbudget</span>
+        {LT.bottom_label[lang]} <span className="font-medium text-sky-700">{LT.working[lang]}</span>
       </div>
     </div>
   );
