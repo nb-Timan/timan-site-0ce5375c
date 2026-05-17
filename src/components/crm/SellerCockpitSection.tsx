@@ -61,6 +61,7 @@ const LT: Record<string, Record<Language, string>> = {
   metric_budget:    { da: "Budget score %",        en: "Budget score %",    de: "Budget-Score %",     it: "Score budget %",     hu: "Költség pont %" },
   no_budget:        { da: "Intet budget",          en: "No budget",         de: "Kein Budget",        it: "Nessun budget",      hu: "Nincs terv" },
   orders_no_budget: { da: "ordre uden budget",     en: "orders without budget", de: "Aufträge ohne Budget", it: "ordini senza budget", hu: "rendelés terv nélkül" },
+  dealer_label:     { da: "Forhandler",            en: "Dealer",                de: "Händler",              it: "Rivenditore",         hu: "Kereskedő" },
 };
 function t(key: string, lang: Language): string {
   const row = LT[key];
@@ -640,7 +641,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                                   {c.title}
                                 </div>
                                 <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
-                                {c.dealer && <div className="text-slate-600">Forhandler: {c.dealer}</div>}
+                                {c.dealer && <div className="text-slate-600">{t("dealer_label", lang)}: {c.dealer}</div>}
                                 {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
                                 {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
                                 {c.expected_close_date && <div className="text-slate-500">Forventet luk: {fmtDate(c.expected_close_date, lang)}</div>}
