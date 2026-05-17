@@ -67,15 +67,6 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
                 )}
               >
                 {q}. {LT.quarter[lang]}
-              <th
-                key={q}
-                colSpan={DASHBOARD_MACHINES.length}
-                className={cn(
-                  "bg-slate-100 text-center px-2 py-1.5 font-semibold text-slate-700 border-b border-slate-200",
-                  i < QUARTERS.length - 1 && "border-r-2 border-r-slate-300",
-                )}
-              >
-                {q}. kvartal
               </th>
             ))}
           </tr>
