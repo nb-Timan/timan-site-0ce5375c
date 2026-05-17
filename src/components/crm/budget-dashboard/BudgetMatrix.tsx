@@ -130,7 +130,7 @@ export default function BudgetMatrix({ dealers, cells, onCellClick, hoveredCount
                         <button
                           type="button"
                           onClick={() => onCellClick(d.key, q, m)}
-                          title={empty ? "Ingen aktivitet" : undefined}
+                          title={empty ? LT.no_activity[lang] : undefined}
                           className={cn(
                             "w-full h-full text-center px-2 py-1.5 leading-tight transition-colors hover:bg-[#2d5a27]/10 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/40",
                             empty && "ring-1 ring-inset ring-red-200/70",
