@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
+import type { Language } from "@/types/configurator";
 import {
   DASHBOARD_MACHINES,
   MACHINE_SHORT_LABEL,
@@ -7,6 +9,18 @@ import {
   type MachineKey,
   type Quarter,
 } from "./useBudgetDashboardData";
+
+const LT: Record<string, Record<Language, string>> = {
+  dealer:       { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
+  quarter:      { da: 'kvartal',    en: 'quarter', de: 'Quartal', it: 'trimestre',  hu: 'negyedév' },
+  no_dealers:   { da: 'Ingen forhandlere tilknyttet denne sælger.', en: 'No dealers assigned to this seller.', de: 'Keine Händler zugewiesen.', it: 'Nessun rivenditore.', hu: 'Nincs hozzárendelt kereskedő.' },
+  no_activity:  { da: 'Ingen aktivitet', en: 'No activity', de: 'Keine Aktivität', it: 'Nessuna attività', hu: 'Nincs tevékenység' },
+  cell_format:  { da: 'Format pr. celle:', en: 'Cell format:', de: 'Zellenformat:', it: 'Formato cella:', hu: 'Cellaformátum:' },
+  budget_order: { da: 'Budget / Ordre', en: 'Budget / Order', de: 'Budget / Auftrag', it: 'Budget / Ordine', hu: 'Terv / Rendelés' },
+  bottom_label: { da: 'nederste tal =', en: 'bottom number =', de: 'unten =', it: 'numero in basso =', hu: 'alsó szám =' },
+  working:      { da: 'Arbejdsbudget', en: 'Working forecast', de: 'Arbeitsprognose', it: 'Previsione lavoro', hu: 'Munka-előrejelzés' },
+};
+
 
 interface Props {
   dealers: DealerRow[];
