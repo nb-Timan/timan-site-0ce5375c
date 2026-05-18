@@ -562,7 +562,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               onChange={e => { setGuestEmail(e.target.value); setGuestError(''); }}
               onKeyDown={e => { if (e.key === 'Enter') handleGuestContinue(); }}
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-gray-400 focus:outline-none transition"
-              placeholder={language === 'da' ? 'din@email.dk' : 'your@email.com'}
+              placeholder={tx('emailPlaceholder', language)}
             />
             {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
           </div>
