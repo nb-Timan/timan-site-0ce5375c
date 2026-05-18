@@ -229,19 +229,25 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
                         {T.switchMode[language]}
                       </div>
-                      {SELLER_VIEWS.map(v => (
-                        <button
-                          key={v.key}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={activeMode === v.key}
-                          onClick={() => chooseMode(v.key)}
-                          className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="font-medium">{v.label}</span>
-                          {activeMode === v.key && <Check className="w-4 h-4 text-amber-600" />}
-                        </button>
-                      ))}
+                      {SELLER_VIEWS.map(v => {
+                        const d = viewDisplay(v);
+                        const label = d.full_name
+                          ? `${d.initials} ${d.full_name}`
+                          : `${d.initials} ${sellerSuffix}`;
+                        return (
+                          <button
+                            key={v.key}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={activeMode === v.key}
+                            onClick={() => chooseMode(v.key)}
+                            className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <span className="font-medium">{label}</span>
+                            {activeMode === v.key && <Check className="w-4 h-4 text-amber-600" />}
+                          </button>
+                        );
+                      })}
                       <div className="my-1 border-t border-gray-100" />
                       <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
                         {T.rolePreview[language]}
