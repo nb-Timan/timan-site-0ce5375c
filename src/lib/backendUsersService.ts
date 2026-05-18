@@ -159,6 +159,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     auth_status: (row.auth_status as BackendUser["auth_status"]) ?? null,
     last_invited_at: (row.last_invited_at as string | null) ?? null,
     last_password_reset_at: (row.last_password_reset_at as string | null) ?? null,
+    quick_actions,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
