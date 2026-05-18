@@ -75,11 +75,16 @@ export interface CrmConfigurationFilter {
 }
 
 function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
-  const docType = (row.document_type as string) || (row.case_type as string) || 'quote';
+  const rawDocumentType = (row.document_type as string | null) ?? null;
+  const rawCaseType = (row.case_type as string | null) ?? null;
+  const caseStatus = (row.case_status as string | null) ?? null;
+  const isOrderLike = rawDocumentType === 'order'
+    || rawCaseType === 'order'
+    || caseStatus === 'ordre_afgivet';
   return {
     id: String(row.id),
-    document_type: docType === 'order' ? 'order' : 'quote',
-    case_status: (row.case_status as string | null) ?? null,
+    document_type: isOrderLike ? 'order' : 'quote',
+    case_status: caseStatus,
     created_at: (row.created_at as string) || new Date().toISOString(),
     last_saved_at: (row.last_saved_at as string | null) ?? null,
     title: (row.title as string | null) ?? null,
@@ -147,13 +152,17 @@ export async function listCrmConfigurations(
     let q = supabase
       .from('crm_configurations_view')
       .select('*')
-      .eq('document_type', docType)
       .neq('case_status', 'deleted');
-    // Defensive: a quote that was converted to order carries
-    // case_status='ordre_afgivet'. Even if document_type wasn't flipped on
-    // legacy rows, hide it from active Tilbud so it cannot be double-counted
-    // as pipeline / open quote.
-    if (docType === 'quote') q = q.neq('case_status', 'ordre_afgivet');
+    // Converted legacy quotes may have document_type='quote' while
+    // case_type/status were correctly saved as an order. Treat those rows as
+    // orders on read; hide order-like rows from active Tilbud.
+    if (docType === 'order') {
+      q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
+    } else {
+      q = q.eq('document_type', 'quote')
+        .neq('case_status', 'ordre_afgivet')
+        .or('case_type.is.null,case_type.neq.order');
+    }
     const { data, error } = await q
       .order('created_at', { ascending: false })
       .limit(500);
@@ -166,9 +175,14 @@ export async function listCrmConfigurations(
       let q = supabase
         .from('configurations')
         .select('*')
-        .or(`document_type.eq.${docType},case_type.eq.${docType}`)
         .neq('case_status', 'deleted');
-      if (docType === 'quote') q = q.neq('case_status', 'ordre_afgivet');
+      if (docType === 'order') {
+        q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
+      } else {
+        q = q.or('document_type.eq.quote,case_type.eq.quote')
+          .neq('case_status', 'ordre_afgivet')
+          .or('case_type.is.null,case_type.neq.order');
+      }
       const { data, error } = await q
         .order('created_at', { ascending: false })
         .limit(500);
