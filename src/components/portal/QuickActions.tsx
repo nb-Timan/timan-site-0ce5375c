@@ -69,6 +69,16 @@ export default function QuickActions() {
   // Filter by module access — hide actions the (effective) user lacks.
   actions = actions.filter((a) => !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
 
+  // Backend → Brugere "Quick actions" allow-list. If the column is set on the
+  // user (non-null array), it's the source of truth; otherwise fall back to
+  // role defaults so existing behavior is preserved.
+  const qaSetting = (effectiveUser.quick_actions ?? null) as QuickActionKey[] | null;
+  const roleForQa: PortalRole | null = portalRole;
+  const qaAllowed: QuickActionKey[] = Array.isArray(qaSetting)
+    ? qaSetting.filter((k): k is QuickActionKey => (QUICK_ACTION_KEYS as readonly string[]).includes(k))
+    : (roleForQa ? (DEFAULT_QUICK_ACTIONS[roleForQa] ?? []) : []);
+  actions = actions.filter((a) => !a.key || qaAllowed.includes(a.key));
+
   if (actions.length === 0) return null;
 
   return (
