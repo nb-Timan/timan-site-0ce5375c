@@ -599,7 +599,17 @@ function EditUserModal({
             <Select
               label="Portal role"
               value={draft.role}
-              onChange={(v) => setDraft({ ...draft, role: v as PortalRole })}
+              onChange={(v) => {
+                const newRole = v as PortalRole;
+                // When role changes, apply role-default quick_actions so the
+                // admin sees the recommended set. Manual changes after this
+                // (in the Quick actions section below) still persist.
+                setDraft({
+                  ...draft,
+                  role: newRole,
+                  quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
+                });
+              }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
