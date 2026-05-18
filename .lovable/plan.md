@@ -1,83 +1,45 @@
-# CRM / Sales Portal — access model plan
-
-Status: **foundation only**. No CRM dashboard built yet. This document
-records the agreed access rules and the data model added in Phase 3.
-
 ## Goal
 
-Timan Sælger users must only see and manage data connected to their own
-assigned accounts (dealers, importers, service partners, dealer users) and
-their own offers/orders.
+Make seller initials + name come from the live `app_users` row everywhere a seller is rendered, so Alexander Kirschner shows as `AKR Alexander Kirschner` purely because his `app_users.initials = 'AKR'` — no hardcoded `AKR`, no global `AK → AKR` replacement, no bulk updates to existing CRM/dealer/order/budget/activity rows.
 
-## Roles & visibility
+## Approach
 
-| Role                  | CRM scope                                |
-|-----------------------|------------------------------------------|
-| Timan Backend         | Sees everything (admin)                  |
-| Timan Service         | Sees everything (admin, read-mostly)     |
-| Timan Sælger          | **Only** assigned accounts + own offers/orders |
-| Timan Importør        | Not part of CRM (uses dealer portal)     |
-| Timan Forhandler      | Not part of CRM                          |
-| Timan Service Partner | Not part of CRM                          |
-| Dealer User           | Read-only, not part of CRM               |
+Add one small client-side directory + helper that loads all Timan sellers from `app_users` once per session, then swap the surfaces that currently render hardcoded initials so they resolve through it. Legacy rows keep their stored text but display the *current* `app_users.initials` + `full_name` when the row can be matched (by email or `app_users_id`).
 
-Timan Sælger:
-- Can create offers/orders.
-- Can only see their own offers/orders.
-- Can only see dealers/accounts assigned to them.
-- Can see dashboard stats for their assigned accounts.
-- Cannot see other salespeople’s accounts unless explicitly allowed
-  (`extraAccountIds` allow-list in `SellerScope`).
+## Files to add
 
-## Data model (Phase 3)
+- **`src/lib/sellerDirectory.ts`** — singleton loader:
+  - `loadSellerDirectory()` → one `app_users` select where role is `timan_seller`/`timan_sælger`, returns `{ id, email, initials, full_name }[]`, cached in memory + `sessionStorage` (`timan.sellerDirectory.v1`), short TTL (e.g. 5 min). Falls back silently to last cached value on error.
+  - `useSellerDirectory()` — React hook returning `{ list, byEmail, byId, ready }`.
+  - `resolveSellerDisplay({ email?, id?, fallbackInitials?, fallbackName? }, dir)` → `{ initials, full_name }`. If a match is found, return live `app_users` values; otherwise return the fallback text unchanged. Never invents `AKR`.
+  - `invalidateSellerDirectory()` — call after backend user edit (already happens via `clearSellerIdCache`; hook into the same place).
 
-SQL: `docs/sql/phase3_crm_account_owner.sql` (idempotent, run in Supabase).
+## Files to change (surfaces only)
 
-`public.app_users` gets:
-- `account_owner_user_id  uuid → app_users(id)`
-- `account_owner_name     text`
-- `account_owner_initials text`
-- `account_owner_email    text`
-- Trigger `sync_account_owner_fields` keeps the denormalised fields in
-  sync whenever `account_owner_user_id` changes.
+1. **`src/lib/activeMode.ts` — `SELLER_VIEWS`**
+   - Keep the static key list (`BP / JTN / EM / AKR / NB`) so URLs and stored mode keys don't change.
+   - Expose a `getSellerViewDisplay(key, dir)` that returns the live `initials + full_name` from `app_users` (matched by the static email already in the table). The hardcoded `label: 'AKR Sælger'` becomes a *fallback only*.
+2. **Portal header "view as seller" menu** (consumer of `SELLER_VIEWS`)
+   - Render each option through `resolveSellerDisplay`, so Alexander's row says `AKR Alexander Kirschner` from `app_users`, and any future initials change in the backend flows here automatically.
+3. **`src/pages/crm/CrmCalendarPage.tsx`**
+   - Replace the hardcoded `["BP","EM","JTN","AKR"]` chip list with the directory's seller initials (still filtered to the 4–5 Timan sellers via role), each chip's label resolved through `resolveSellerDisplay`. No filter logic change — chip values stay the seller's *current* initials.
+4. **`src/pages/crm/CrmDashboardPage.tsx`, `SellerCockpitSection.tsx`, `SellerOverviewSection.tsx`, `SellerPerformanceSection.tsx`, budget `SellerBlock.tsx`, `DASHBOARD_SELLERS` in `useBudgetDashboardData.ts`, `UpcomingActivitiesWidget.tsx`, `CalendarActivityModal.tsx`, `BudgetReferenceModal.tsx`, dealer-accounts owner cells**
+   - Wherever a seller badge / owner label is rendered from `BUDGET_SELLERS`, `TIMAN_SELLERS`, or a row's stored `seller_email` / `app_users_id`, wrap the display in `resolveSellerDisplay`. Sort / matching / scope logic (which still uses `BUDGET_SELLERS` + `sellerInitialsMatch` for AK↔AKR aliasing) is untouched.
+5. **No changes** to: `sellerInitials.ts` alias map (AK↔AKR is still needed for matching legacy rows), Supabase data, RLS, scope queries, `crmCalendarService` server-side alias expansion, `BUDGET_SELLERS` constant (kept for matching), pricing, PDF, email, n8n, CRM business logic.
 
-`public.configurations` (offers/orders) gets:
-- `assigned_seller_id  uuid → app_users(id)`
+## Rules preserved
 
-View `public.crm_accounts_view` exposes the dealer-side rows with their
-owner fields, used later by the CRM list pages.
+- No `app_users` rows are written.
+- No CRM, dealer, lead, quote, order, budget or activity rows are updated.
+- `AKR` is never hardcoded as a display string — it appears only because `app_users.initials = 'AKR'` for that one row.
+- Other sellers (`BP`, `JTN`, `EM`, `NB`) automatically reflect whatever their own `app_users.initials` is.
+- Legacy rows containing `AK` in text fields stay as-is in the database; they visually resolve to the current `app_users.initials` *only* when the row can be matched to Alexander's `app_users` record (by email or `app_users_id`). Unmatched rows display their stored text unchanged.
 
-## Frontend foundation
+## Verification
 
-`src/lib/crmScope.ts` — pure helpers:
-- `isScopedSeller(role)`, `isCrmAdmin(role)`
-- `canSellerSeeAccount(scope, account)`
-- `canSellerSeeOffer(scope, offer)`
-- `filterAccountsForSeller(scope, rows)`
-- `filterOffersForSeller(scope, rows)`
+- Typecheck.
+- Smoke: portal header shows `AKR Alexander Kirschner`; CRM calendar chip for Alexander shows `AKR`; changing `app_users.initials` in the backend editor + reloading is reflected everywhere without code changes.
 
-These will be wired into list pages when the CRM area is built. Today
-they are imported nowhere by default (zero behaviour change).
+## Memory
 
-## Backend Users page
-
-`src/pages/backend/BackendUsersPage.tsx` gets a new "Account Owner" select
-in the edit modal so a Timan Backend user can assign any dealer / importer
-/ service partner / dealer user to a Timan Sælger. Saving goes through
-`saveBackendUser` → `app_users` (full patch, with the existing graceful
-fallback if columns are missing).
-
-## Future CRM area (NOT built yet)
-
-Planned routes (placeholders only):
-- `/portal/sales/my-dealers`
-- `/portal/sales/my-importers`
-- `/portal/sales/my-service-partners`
-- `/portal/sales/my-dealer-users`
-- `/portal/sales/offers`
-- `/portal/sales/orders`
-- `/portal/sales/activity`
-- `/portal/sales/stats`
-
-Out of scope for this phase. Pricing, configurator calculations,
-order/PDF logic, n8n flows and login/auth are untouched.
+Add `mem://features/seller-directory` documenting the rule: seller initials + names always come from `app_users` via `sellerDirectory`; never hardcode initials; never bulk-update legacy rows.
