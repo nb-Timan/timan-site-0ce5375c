@@ -68,6 +68,19 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
     : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const sellerDir = useSellerDirectory();
+  // "Sælger" suffix per UI language for the active-mode chip.
+  const sellerSuffix = T.viewingAs[language] === 'Vis som' ? 'Sælger'
+    : language === 'de' ? 'Verkäufer'
+    : language === 'it' ? 'Venditore'
+    : language === 'hu' ? 'Értékesítő'
+    : 'Seller';
+  function viewDisplay(v: typeof SELLER_VIEWS[number]) {
+    return resolveSellerDisplay(
+      { email: v.email, initialsKey: v.initials, fallbackInitials: v.initials, fallbackName: '' },
+      sellerDir,
+    );
+  }
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
   useEffect(() => {
