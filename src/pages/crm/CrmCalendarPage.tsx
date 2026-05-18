@@ -109,6 +109,7 @@ export default function CrmCalendarPage() {
   }, [appUser?.email]);
 
   const currentSeller = useMemo(() => BUDGET_SELLERS.find(s => s.initials === currentSellerInitials) || null, [currentSellerInitials]);
+  const sellerDir = useSellerDirectory();
 
   useEffect(() => {
     if (!isAdmin && currentSellerInitials) setSellerFilter(currentSellerInitials);
