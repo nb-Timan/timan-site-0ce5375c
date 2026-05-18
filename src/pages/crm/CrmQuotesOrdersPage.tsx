@@ -273,8 +273,27 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       onClick={() => handleRowClick(r)}
                       className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
                     >
-                      <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">{number}</td>
-                      <td className="px-3 py-2.5 text-slate-800 max-w-[280px] truncate">{r.title || '—'}</td>
+                      <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/configurator?configId=${r.id}`); }}
+                          className="inline-flex items-center gap-1 text-[#2d5a27] hover:underline"
+                          title={lang === 'da' ? 'Åbn i konfigurator' : 'Open in configurator'}
+                        >
+                          {number}
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </button>
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-800 max-w-[280px]">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/configurator?configId=${r.id}`); }}
+                          className="text-left truncate w-full text-slate-800 hover:text-[#2d5a27] hover:underline"
+                          title={lang === 'da' ? 'Åbn i konfigurator' : 'Open in configurator'}
+                        >
+                          {r.title || '—'}
+                        </button>
+                      </td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                         {r.seller_initials || r.seller_name || r.seller_email || '—'}
                       </td>
