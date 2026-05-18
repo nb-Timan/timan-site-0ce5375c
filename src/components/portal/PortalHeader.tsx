@@ -199,7 +199,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       {activeRolePreview
                         ? activeRolePreview.label
                         : activeSellerView
-                        ? `${activeSellerView.initials} ${T.viewingAs[language] === 'Vis som' ? 'Sælger' : ''}`.trim() || `${activeSellerView.initials}`
+                        ? (() => {
+                            const d = viewDisplay(activeSellerView);
+                            return d.full_name
+                              ? `${d.initials} ${d.full_name}`
+                              : `${d.initials} ${sellerSuffix}`;
+                          })()
                         : T.backendMode[language]}
                     </span>
                     <ChevronDown className="w-3 h-3" />
