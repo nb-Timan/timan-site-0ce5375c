@@ -15,6 +15,7 @@ import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
+import { invalidateSellerDirectory } from "@/lib/sellerDirectory";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
