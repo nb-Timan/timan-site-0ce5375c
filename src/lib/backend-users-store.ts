@@ -98,6 +98,11 @@ export interface BackendUser {
   auth_status?: "app_only" | "invited" | "auth_exists" | null;
   last_invited_at?: string | null;
   last_password_reset_at?: string | null;
+  /**
+   * Quick actions visible on the portal front page. NULL = use role defaults.
+   * Empty array = explicitly hide all quick actions.
+   */
+  quick_actions: QuickActionKey[] | null;
   created_at: string;
   updated_at: string;
 }
