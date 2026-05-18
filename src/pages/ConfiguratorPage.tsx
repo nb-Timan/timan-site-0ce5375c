@@ -1944,6 +1944,23 @@ export default function ConfiguratorPage() {
                               return;
                             }
                           }
+                          // Løs redskab reminder: warn if varenr 721059 is not selected when one of
+                          // the T2/T3 collection tanks (720125/720130/720132/720133) is selected.
+                          if (machineType === LOOSE_TOOL_KEY && !acknowledged721059.has(currentUnit.configKey)) {
+                            const LOOSE_721059_TRIGGER_VARENR = new Set(['720125', '720130', '720132', '720133']);
+                            const hasTrigger = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && LOOSE_721059_TRIGGER_VARENR.has(String(a.varenr));
+                            });
+                            const has721059 = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && String(a.varenr) === '721059';
+                            });
+                            if (hasTrigger && !has721059) {
+                              setReminder721059({ open: true, pendingNext: proceed });
+                              return;
+                            }
+                          }
                           proceed();
                         }}
                           disabled={!canProceedStep3}
