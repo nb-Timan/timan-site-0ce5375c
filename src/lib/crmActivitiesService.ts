@@ -94,8 +94,24 @@ function uuid(): string {
   return `act_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Append a new activity. Best-effort: never throws, never blocks the caller. */
-export async function logActivity(input: NewCrmActivity): Promise<CrmActivity> {
+export interface LogActivityOptions {
+  /**
+   * When true:
+   *  - Do NOT show the "Gemt lokalt" fallback toast (which is misleading
+   *    for send-order/send-quote flows that have their own success state).
+   *  - Throw on Supabase failure so the caller can react explicitly.
+   *  - Still mirrors to localStorage as a backup, but never claims the
+   *    server save succeeded when it didn't.
+   */
+  strict?: boolean;
+}
+
+/** Append a new activity. Best-effort by default. Use { strict: true } for
+ *  order/quote send flows where a silent local fallback would be misleading. */
+export async function logActivity(
+  input: NewCrmActivity,
+  opts: LogActivityOptions = {},
+): Promise<CrmActivity> {
   const now = new Date().toISOString();
   const row: CrmActivity = {
     id: uuid(),
@@ -124,31 +140,41 @@ export async function logActivity(input: NewCrmActivity): Promise<CrmActivity> {
   const local = readLocal();
   writeLocal([row, ...local]);
 
+  const payload = {
+    id: row.id,
+    activity_type: row.activity_type,
+    activity_date: row.activity_date,
+    account_id: row.account_id,
+    account_name: row.account_name,
+    created_by_user_id: row.created_by_user_id,
+    created_by_name: row.created_by_name,
+    assigned_owner_user_id: row.assigned_owner_user_id,
+    assigned_owner_name: row.assigned_owner_name,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    quote_id: row.quote_id,
+    order_id: row.order_id,
+    configuration_id: row.configuration_id,
+    value: row.value,
+    currency: row.currency,
+    meta: row.meta,
+  };
+
   try {
-    const { error } = await supabase.from("crm_activities").insert({
-      id: row.id,
-      activity_type: row.activity_type,
-      activity_date: row.activity_date,
-      account_id: row.account_id,
-      account_name: row.account_name,
-      created_by_user_id: row.created_by_user_id,
-      created_by_name: row.created_by_name,
-      assigned_owner_user_id: row.assigned_owner_user_id,
-      assigned_owner_name: row.assigned_owner_name,
-      title: row.title,
-      description: row.description,
-      status: row.status,
-      quote_id: row.quote_id,
-      order_id: row.order_id,
-      configuration_id: row.configuration_id,
-      value: row.value,
-      currency: row.currency,
-      meta: row.meta,
-    });
+    const { error } = await supabase.from("crm_activities").insert(payload);
     if (error) {
+      if (opts.strict) {
+        console.error("[crm.logActivity] strict insert failed:", { error, payload });
+        throw error;
+      }
       notifyLocalFallback({ table: "crm_activities", action: "insert", error });
     }
   } catch (err) {
+    if (opts.strict) {
+      console.error("[crm.logActivity] strict insert threw:", { err, payload });
+      throw err;
+    }
     notifyLocalFallback({ table: "crm_activities", action: "insert", error: err });
   }
   return row;

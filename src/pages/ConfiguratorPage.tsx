@@ -860,6 +860,28 @@ export default function ConfiguratorPage() {
           // machine + accessory specifications even without parsing the PDF.
           const contentSummary = buildQuoteContentSummary(state);
 
+          // Order recipients:
+          //  - Always send to nb@timan.dk
+          //  - Always send to "E-mail på udfylder"
+          //  - Also send to "E-mail modtager" if filled in
+          // Normalized + de-duplicated. Invalid addresses are filtered out;
+          // user-entered invalid addresses produce a toast and abort the send.
+          const emailUdfylder = (state.email || '').trim().toLowerCase();
+          const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
+          const invalid = userEntered.filter(e => !emailRe.test(e));
+          if (invalid.length > 0) {
+            toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+              description: invalid.join(', '),
+            });
+            return;
+          }
+          const recipients = Array.from(new Set([
+            'nb@timan.dk',
+            ...userEntered,
+          ]));
+
           const webhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
@@ -869,8 +891,9 @@ export default function ConfiguratorPage() {
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
             telefon: state.telefon,
-            email_udfylder: state.email,
-            email_modtager: state.emailRecipient,
+            email_udfylder: emailUdfylder,
+            email_modtager: emailModtager,
+            recipients,
             kommentar: state.comment,
             pdf_url: '',
             pdf_storage_path: orderSentPdfPath || '',
@@ -990,10 +1013,20 @@ export default function ConfiguratorPage() {
           }
         }
 
-        // Recipients: always send to udfylder; include modtager only if non-empty
-        const emailUdfylder = (state.email || '').trim();
-        const emailModtager = (state.emailRecipient || '').trim();
-        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
+        // Recipients: always send to udfylder; include modtager only if non-empty.
+        // Normalized (trim + lowercase) and de-duplicated.
+        const emailUdfylder = (state.email || '').trim().toLowerCase();
+        const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
+        const invalid = userEntered.filter(e => !emailRe.test(e));
+        if (invalid.length > 0) {
+          toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+            description: invalid.join(', '),
+          });
+          return;
+        }
+        const recipients = Array.from(new Set(userEntered));
 
 
         // Upload sent PDF to storage BEFORE webhook so we can include the
@@ -1242,9 +1275,7 @@ export default function ConfiguratorPage() {
                 disabled={submitting}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
-                  ? (state.flowType === 'order'
-                      ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
-                      : (lang === 'da' ? 'Sender tilbud...' : 'Sending quote...'))
+                  ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                   : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
               </button>
             </div>
@@ -1286,7 +1317,7 @@ export default function ConfiguratorPage() {
                 disabled={submitting}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
-                  ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
+                  ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                   : (lang === 'da' ? 'Bekræft' : 'Confirm')}
               </button>
             </div>
