@@ -35,6 +35,9 @@ import {
   BackendMetaModule,
   BackendUser,
   UserStatus,
+  QUICK_ACTION_KEYS,
+  QuickActionKey,
+  DEFAULT_QUICK_ACTIONS,
 } from "@/lib/backend-users-store";
 import {
   fetchBackendUsers,
@@ -87,6 +90,13 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
 };
 
 const VIDEOS_LABEL = "Video Galleri";
+
+const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
+  create_lead:  { da: "Opret nyt lead",        en: "Create new lead" },
+  create_demo:  { da: "Ny demo-registrering",  en: "New demo registration" },
+  calendar:     { da: "Kalender",              en: "Calendar" },
+  my_dealers:   { da: "Mine forhandlere",      en: "My dealers" },
+};
 
 function formatLastLogin(iso: string | null): string {
   if (!iso) return "—";
@@ -589,7 +599,17 @@ function EditUserModal({
             <Select
               label="Portal role"
               value={draft.role}
-              onChange={(v) => setDraft({ ...draft, role: v as PortalRole })}
+              onChange={(v) => {
+                const newRole = v as PortalRole;
+                // When role changes, apply role-default quick_actions so the
+                // admin sees the recommended set. Manual changes after this
+                // (in the Quick actions section below) still persist.
+                setDraft({
+                  ...draft,
+                  role: newRole,
+                  quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
+                });
+              }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
@@ -708,6 +728,27 @@ function EditUserModal({
                   perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
                 })
               }
+            />
+          </Section>
+
+          {/* Quick actions — portal front-page "Hurtige handlinger" allow-list. */}
+          <Section title="Hurtige handlinger / Quick actions">
+            <p className="text-[11px] text-slate-500 mb-2">
+              Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
+              Når intet er valgt manuelt, anvendes standarder for rollen.
+            </p>
+            <CheckboxGroup
+              items={QUICK_ACTION_KEYS.map((k) => ({
+                value: k,
+                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
+              }))}
+              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
+              onChange={(key) => {
+                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+                const k = key as QuickActionKey;
+                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
+                setDraft({ ...draft, quick_actions: next });
+              }}
             />
           </Section>
         </div>

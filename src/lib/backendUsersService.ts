@@ -24,6 +24,9 @@ import {
   BackendMetaModule,
   BackendUser,
   UserStatus,
+  QUICK_ACTION_KEYS,
+  QuickActionKey,
+  DEFAULT_QUICK_ACTIONS,
   listBackendUsers as listFallbackUsers,
   updateBackendUser as updateFallbackUser,
 } from "@/lib/backend-users-store";
@@ -107,6 +110,19 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
   const isBackend = role === "timan_backend";
   const isInternal = isBackend || role === "timan_seller" || role === "timan_service";
 
+  // Quick actions: NULL in DB = not set yet → fall back to role defaults.
+  const rawQa = row.quick_actions;
+  let quick_actions: QuickActionKey[] | null;
+  if (Array.isArray(rawQa)) {
+    quick_actions = (rawQa.filter(
+      (k): k is QuickActionKey => typeof k === "string" && (QUICK_ACTION_KEYS as readonly string[]).includes(k),
+    ));
+  } else if (rawQa == null) {
+    quick_actions = null;
+  } else {
+    quick_actions = null;
+  }
+
   return {
     id: String(row.id),
     initials: deriveInitials(row),
@@ -143,6 +159,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     auth_status: (row.auth_status as BackendUser["auth_status"]) ?? null,
     last_invited_at: (row.last_invited_at as string | null) ?? null,
     last_password_reset_at: (row.last_password_reset_at as string | null) ?? null,
+    quick_actions,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
@@ -215,6 +232,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     account_owner_name: draft.account_owner_name,
     account_owner_initials: draft.account_owner_initials,
     account_owner_email: draft.account_owner_email,
+    quick_actions: draft.quick_actions, // jsonb; null = role defaults
     updated_at: new Date().toISOString(),
   };
 
@@ -305,6 +323,14 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
     ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
+    ["quick_actions",
+      draft.quick_actions == null
+        ? null
+        : [...(asArray<string>(row.quick_actions))].sort(),
+      draft.quick_actions == null
+        ? null
+        : [...draft.quick_actions].sort(),
+    ],
   ];
   // Permissions: only compare keys we actually sent, since the DB row may
   // hold extra keys from older edits we don't want to overwrite logic on.

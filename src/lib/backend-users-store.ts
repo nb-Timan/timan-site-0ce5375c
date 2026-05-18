@@ -38,6 +38,25 @@ export const ALL_MODULES: ModuleAccessKey[] = [
 export const BACKEND_META_MODULES = ["users", "roles", "module_access", "audit_log"] as const;
 export type BackendMetaModule = typeof BACKEND_META_MODULES[number];
 
+/**
+ * Portal front-page "Hurtige handlinger" / "Quick actions" keys.
+ * Stored in app_users.quick_actions (jsonb). NULL = role defaults (fallback).
+ */
+export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "calendar", "my_dealers"] as const;
+export type QuickActionKey = typeof QUICK_ACTION_KEYS[number];
+
+/** Default quick actions per portal role. Used when quick_actions is NULL. */
+export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
+  timan_backend: ["create_lead", "create_demo", "calendar", "my_dealers"],
+  timan_seller:  ["create_lead", "create_demo", "calendar", "my_dealers"],
+  timan_service: [],
+  timan_importer: [],
+  timan_dealer: [],
+  timan_service_partner: [],
+  dealer_user: [],
+  pending: [],
+};
+
 export interface BackendUser {
   id: string;              // uuid (mock: deterministic seed id)
   initials: string;
@@ -79,6 +98,11 @@ export interface BackendUser {
   auth_status?: "app_only" | "invited" | "auth_exists" | null;
   last_invited_at?: string | null;
   last_password_reset_at?: string | null;
+  /**
+   * Quick actions visible on the portal front page. NULL = use role defaults.
+   * Empty array = explicitly hide all quick actions.
+   */
+  quick_actions: QuickActionKey[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +151,7 @@ function seedUser(
     account_owner_initials: null,
     account_owner_email: null,
     last_login_at: null,
+    quick_actions: [...(DEFAULT_QUICK_ACTIONS[role] ?? [])],
     created_at: nowIso(),
     updated_at: nowIso(),
   };

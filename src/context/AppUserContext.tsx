@@ -16,6 +16,7 @@ export type SessionUser = AppUser & {
   status?: string | null;
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
+  quick_actions?: string[] | null;
 };
 
 export interface DealerAccessStatus {
@@ -112,7 +113,8 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           // Phase 37 — also re-fetch when cache pre-dates `allowed_areas`
           // so portal area filtering applies without manual logout.
           && Object.prototype.hasOwnProperty.call(cached, 'permissions')
-          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas');
+          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas')
+          && Object.prototype.hasOwnProperty.call(cached, 'quick_actions');
         if (cacheIsFresh) {
           setLoading(false);
           return;
@@ -210,6 +212,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
+    quick_actions: (row.quick_actions as string[] | null) ?? null,
   };
 }
 

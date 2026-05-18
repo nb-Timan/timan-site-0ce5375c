@@ -3,9 +3,12 @@ import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, L
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { hasModuleAccess, ModuleAccessKey, derivePortalRole } from '@/lib/portalAccess';
+import { hasModuleAccess, ModuleAccessKey, derivePortalRole, PortalRole } from '@/lib/portalAccess';
+import { QUICK_ACTION_KEYS, QuickActionKey, DEFAULT_QUICK_ACTIONS } from '@/lib/backend-users-store';
 
 interface Action {
+  /** Stable key persisted in app_users.quick_actions. */
+  key?: QuickActionKey;
   label: string;
   to: string;
   icon: typeof Plus;
@@ -14,10 +17,10 @@ interface Action {
 }
 
 const INTERNAL_ACTIONS: Action[] = [
-  { label: 'Opret nyt lead',       to: '/portal/crm/leads/new',      icon: Plus,         requires: 'timan_crm' },
-  { label: 'Ny demo-registrering', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
-  { label: 'Kalender',             to: '/portal/crm/calendar',       icon: Calendar,     requires: 'timan_crm' },
-  { label: 'Mine forhandlere',     to: '/portal/crm/my-dealers',     icon: Users,        requires: 'timan_crm' },
+  { key: 'create_lead', label: 'Opret nyt lead',       to: '/portal/crm/leads/new',      icon: Plus,         requires: 'timan_crm' },
+  { key: 'create_demo', label: 'Ny demo-registrering', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
+  { key: 'calendar',    label: 'Kalender',             to: '/portal/crm/calendar',       icon: Calendar,     requires: 'timan_crm' },
+  { key: 'my_dealers',  label: 'Mine forhandlere',     to: '/portal/crm/my-dealers',     icon: Users,        requires: 'timan_crm' },
 ];
 
 const SERVICE_ACTIONS: Action[] = [
@@ -65,6 +68,16 @@ export default function QuickActions() {
 
   // Filter by module access — hide actions the (effective) user lacks.
   actions = actions.filter((a) => !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
+
+  // Backend → Brugere "Quick actions" allow-list. If the column is set on the
+  // user (non-null array), it's the source of truth; otherwise fall back to
+  // role defaults so existing behavior is preserved.
+  const qaSetting = (effectiveUser.quick_actions ?? null) as QuickActionKey[] | null;
+  const roleForQa: PortalRole | null = portalRole;
+  const qaAllowed: QuickActionKey[] = Array.isArray(qaSetting)
+    ? qaSetting.filter((k): k is QuickActionKey => (QUICK_ACTION_KEYS as readonly string[]).includes(k))
+    : (roleForQa ? (DEFAULT_QUICK_ACTIONS[roleForQa] ?? []) : []);
+  actions = actions.filter((a) => !a.key || qaAllowed.includes(a.key));
 
   if (actions.length === 0) return null;
 
