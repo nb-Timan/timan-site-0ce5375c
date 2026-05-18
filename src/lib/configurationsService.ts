@@ -954,7 +954,14 @@ export async function updateConfigurationFlowType(
     return { quote_number: null, order_number: null, error: message };
   }
 
-  const { data: row, error: loadError } = await loadConfigurationRowById(id, user.id);
+  // Unscoped read — converting a quote opened from CRM (e.g. backend user
+  // reopens Birger's quote) must work even when the current user is NOT
+  // the original creator. RLS still guards the UPDATE below.
+  const { data: row, error: loadError } = await supabase
+    .from('configurations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
 
   if (loadError || !row) {
     const message = loadError ? formatSupabaseError(loadError) : 'Configuration not found';
@@ -1100,14 +1107,24 @@ export async function deleteConfiguration(id: string) {
 /** Mark configuration as order submitted */
 export async function markAsOrderSubmitted(id: string) {
   const nowIso = new Date().toISOString();
-  // Read current row to avoid overwriting order_sent_at if already set
-  const { data: { user } } = await supabase.auth.getUser();
+  // Unscoped row read so backend/CRM users can convert a quote they did
+  // NOT originally create (e.g. backend reopens Birger's quote). RLS still
+  // guards the actual UPDATE below.
   let orderSentAt: string | null = nowIso;
   let rowSnapshot: Record<string, unknown> | null = null;
-  if (user) {
-    const { data: row } = await loadConfigurationRowById(id, user.id);
-    rowSnapshot = row as Record<string, unknown> | null;
-    if (row?.order_sent_at) orderSentAt = row.order_sent_at as string;
+  try {
+    const { data: row } = await supabase
+      .from('configurations')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    rowSnapshot = (row as Record<string, unknown> | null) ?? null;
+    const existingOrderSentAt = rowSnapshot?.order_sent_at;
+    if (typeof existingOrderSentAt === 'string' && existingOrderSentAt) {
+      orderSentAt = existingOrderSentAt;
+    }
+  } catch (e) {
+    console.warn('[markAsOrderSubmitted] row snapshot read failed (ignored):', e);
   }
 
   // Compute totals from the persisted state so subtotal/total_price stay in
@@ -1128,12 +1145,22 @@ export async function markAsOrderSubmitted(id: string) {
     console.warn('[markAsOrderSubmitted] totals calc failed (ignored):', e);
   }
 
+  // Ensure the row has an order_number. Converted quotes may not have one
+  // yet — without it CRM → Ordrer would show a blank reference.
+  const existingOrderNumber = (rowSnapshot?.order_number as string | null) ?? null;
+  const orderNumber = existingOrderNumber || generateReferenceNumber('O');
+
   const { error } = await updateConfigurationRow(id, {
+    // CRITICAL: crm_configurations_view returns
+    //   coalesce(document_type, case_type) AS document_type
+    // so BOTH must flip to 'order' for the row to leave CRM → Tilbud and
+    // appear in CRM → Ordrer. Without document_type='order' a converted
+    // quote stays in Tilbud and never counts as a real order.
     case_type: 'order',
+    document_type: 'order',
     case_status: 'ordre_afgivet' as SavedStatus,
-    // Mirror status away from "draft" using the same submitted token.
-    // Unknown columns are stripped automatically by updateConfigurationRow.
     status: 'ordre_afgivet',
+    order_number: orderNumber,
     subtotal,
     total_price: totalPrice,
     submitted_at: nowIso,
