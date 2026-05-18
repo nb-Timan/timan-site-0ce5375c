@@ -313,9 +313,12 @@ export default function CrmDealerDetailPage() {
   const matchesDealer = (key: string | null) => !!key && dealerKeySet.has(key);
 
   const dealerQuotesInScope = dealerQuotes.filter((r) => matchesDealer(r.dealer_key ?? dealerKeyOf(r)));
-  const dealerOrdersInScope = dealerOrders.filter(
-    (r) => r.dealer_number && scopeNumberSet.has(String(r.dealer_number)),
-  );
+  // Orders: match using the SAME canonical dealer-key resolution as quotes
+  // (dealer_account_id → dealer_number/account_number → normalized name).
+  // Previously this only checked dealer_number, which missed orders where
+  // dealer_number was blank/stale after a quote→order conversion even though
+  // dealer_account_id or dealer_company_name still pointed at the right dealer.
+  const dealerOrdersInScope = dealerOrders.filter((r) => matchesDealer(dealerKeyOf(r)));
   const wonOrdersInScope = dealerOrdersInScope.filter((r) => {
     const s = (r.case_status || '').toLowerCase();
     return s === 'ordre_afgivet' || !!r.order_sent_at || !!r.submitted_at;
