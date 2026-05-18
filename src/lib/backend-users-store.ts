@@ -151,6 +151,7 @@ function seedUser(
     account_owner_initials: null,
     account_owner_email: null,
     last_login_at: null,
+    quick_actions: [...(DEFAULT_QUICK_ACTIONS[role] ?? [])],
     created_at: nowIso(),
     updated_at: nowIso(),
   };
