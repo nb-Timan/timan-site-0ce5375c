@@ -14,6 +14,7 @@ import {
   ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
+import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 
 const LANGS: { code: Language; flag: string }[] = [
   { code: 'da', flag: '🇩🇰' },
