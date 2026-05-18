@@ -499,7 +499,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               onChange={e => { setEmail(e.target.value); setError(''); }}
               onKeyDown={e => handleKeyDown(e, handleLogin)}
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-emerald-500 focus:outline-none transition"
-              placeholder="din@email.dk"
+              placeholder={tx('emailPlaceholder', language)}
               autoFocus
             />
           </div>
