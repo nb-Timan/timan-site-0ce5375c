@@ -840,18 +840,16 @@ export default function CrmBudgetPage() {
   const totals = useMemo(() => {
     let annualQty = 0;
     let soldQty = 0;
-    let workingQty = 0;
     for (const g of grouped) {
       const m = renderedMonthlyForBlock({ keyPrefix: g.product_key, rowLines: g.lines, fallbackProductKey: g.product_key });
       annualQty += m.budgetMonthly.reduce((a, b) => a + b, 0);
       soldQty += m.ordersMonthly.reduce((a, b) => a + b, 0);
-      workingQty += m.workingMonthly.reduce((a, b) => a + b, 0);
     }
     const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
     const soldValue = visibleLines.reduce((sum, l) => sum + actualsForLine(l).reduce((s, a) => s + (a.value_sold || 0), 0), 0);
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
-      .reduce((acc, f) => ({ qty: workingQty, value: acc.value + f.value_forecast }), { qty: workingQty, value: 0 });
+      .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
     const score = annualQty > 0 ? Math.round((soldQty / annualQty) * 100) : 0;
     return { annualBudget, annualQty, sold: { qty: soldQty, value: soldValue }, fc, score };
   }, [grouped, visibleLines, orderActualsByKey, actuals, forecasts, dealerLines, leadContribs, workingDraft, isAdmin, backendFilter, selectedSellerEmail, myEmail, sellerCtxEmail, year]);
