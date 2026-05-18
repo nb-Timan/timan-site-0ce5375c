@@ -575,6 +575,38 @@ export async function loadConfigurationById(id: string, ownerEmail: string): Pro
   return mapConfigurationRowWithItems(data, ownerEmail, items);
 }
 
+/**
+ * Load a configuration by id WITHOUT per-user account scope.
+ *
+ * Used by CRM → Tilbud/Ordrer "Åbn i konfigurator". The caller is
+ * responsible for verifying the user is allowed to see the row through
+ * the CRM visibility rules (rowVisibleToScope in crmConfigurationsService).
+ * RLS on the underlying tables still applies.
+ */
+export async function loadConfigurationByIdUnscoped(id: string, ownerEmail: string): Promise<SavedConfiguration | null> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    console.error('[loadConfigurationByIdUnscoped] auth error:', authError);
+    return null;
+  }
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('configurations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[loadConfigurationByIdUnscoped] failed:', error);
+    return null;
+  }
+  if (!data) return null;
+
+  const items = await loadConfigurationItems(id);
+  return mapConfigurationRowWithItems(data, ownerEmail, items);
+}
+
 function mapConfigurationRowWithItems(
   row: Record<string, any>,
   ownerEmail: string,
