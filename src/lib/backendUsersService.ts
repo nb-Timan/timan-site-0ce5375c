@@ -232,6 +232,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     account_owner_name: draft.account_owner_name,
     account_owner_initials: draft.account_owner_initials,
     account_owner_email: draft.account_owner_email,
+    quick_actions: draft.quick_actions, // jsonb; null = role defaults
     updated_at: new Date().toISOString(),
   };
 
