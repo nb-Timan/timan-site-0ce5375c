@@ -117,6 +117,7 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       allowed_areas: null,
       allowed_modules: null,
       permissions: null,
+      quick_actions: null,
     };
   }
 
