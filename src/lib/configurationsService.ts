@@ -1204,9 +1204,9 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
         created_by_user_id: (row.created_by_user_id as string | null) ?? user.id,
         created_by_name: (row.created_by_email as string | null) ?? user.email ?? null,
         assigned_owner_user_id: (row.assigned_seller_id as string | null) ?? null,
-      });
+      }, { strict: true });
     } catch (e) {
-      console.warn('[markPdfDownloaded] crm log failed (ignored):', e);
+      console.warn('[markPdfDownloaded] crm activity log failed (Supabase write rejected; not persisted to server):', e);
     }
 
     // Phase 33 — if this quote is linked to a CRM lead, advance the lead to
