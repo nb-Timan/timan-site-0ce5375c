@@ -1111,7 +1111,9 @@ export async function markAsOrderSubmitted(id: string) {
 
   if (error) console.error('Failed to mark as order submitted:', error);
 
-  // CRM: log order_sent activity (best-effort; never throws).
+  // CRM: log order_sent activity. Strict mode = no misleading "Gemt lokalt"
+  // toast on this send flow; failures are surfaced to the console for
+  // debugging, and the order email/n8n flow is unaffected.
   try {
     const { logActivity } = await import('@/lib/crmActivitiesService');
     await logActivity({
@@ -1126,9 +1128,9 @@ export async function markAsOrderSubmitted(id: string) {
       created_by_user_id: (rowSnapshot?.created_by_user_id as string | null) ?? null,
       created_by_name: (rowSnapshot?.created_by_email as string | null) ?? null,
       assigned_owner_user_id: (rowSnapshot?.assigned_seller_id as string | null) ?? null,
-    });
+    }, { strict: true });
   } catch (e) {
-    console.warn('[markAsOrderSubmitted] crm log failed (ignored):', e);
+    console.warn('[markAsOrderSubmitted] crm activity log failed (Supabase write rejected; not persisted to server):', e);
   }
 }
 
