@@ -113,7 +113,8 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           // Phase 37 — also re-fetch when cache pre-dates `allowed_areas`
           // so portal area filtering applies without manual logout.
           && Object.prototype.hasOwnProperty.call(cached, 'permissions')
-          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas');
+          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas')
+          && Object.prototype.hasOwnProperty.call(cached, 'quick_actions');
         if (cacheIsFresh) {
           setLoading(false);
           return;
