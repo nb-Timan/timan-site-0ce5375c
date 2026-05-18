@@ -730,6 +730,27 @@ function EditUserModal({
               }
             />
           </Section>
+
+          {/* Quick actions — portal front-page "Hurtige handlinger" allow-list. */}
+          <Section title="Hurtige handlinger / Quick actions">
+            <p className="text-[11px] text-slate-500 mb-2">
+              Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
+              Når intet er valgt manuelt, anvendes standarder for rollen.
+            </p>
+            <CheckboxGroup
+              items={QUICK_ACTION_KEYS.map((k) => ({
+                value: k,
+                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
+              }))}
+              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
+              onChange={(key) => {
+                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+                const k = key as QuickActionKey;
+                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
+                setDraft({ ...draft, quick_actions: next });
+              }}
+            />
+          </Section>
         </div>
 
         {localError && (
