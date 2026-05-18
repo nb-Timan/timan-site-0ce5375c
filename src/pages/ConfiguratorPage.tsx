@@ -1013,10 +1013,20 @@ export default function ConfiguratorPage() {
           }
         }
 
-        // Recipients: always send to udfylder; include modtager only if non-empty
-        const emailUdfylder = (state.email || '').trim();
-        const emailModtager = (state.emailRecipient || '').trim();
-        const recipients = [emailUdfylder, emailModtager].filter(Boolean);
+        // Recipients: always send to udfylder; include modtager only if non-empty.
+        // Normalized (trim + lowercase) and de-duplicated.
+        const emailUdfylder = (state.email || '').trim().toLowerCase();
+        const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
+        const invalid = userEntered.filter(e => !emailRe.test(e));
+        if (invalid.length > 0) {
+          toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+            description: invalid.join(', '),
+          });
+          return;
+        }
+        const recipients = Array.from(new Set(userEntered));
 
 
         // Upload sent PDF to storage BEFORE webhook so we can include the
