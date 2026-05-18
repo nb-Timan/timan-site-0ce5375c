@@ -813,8 +813,32 @@ export function getLooseToolAccessories(): Accessory[] {
   const timanRedskaberForLoose = timanRedskaber.map(item => {
     if (!item || item.isHeader) return item;
     const varenr = String(item.varenr || '');
-    if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return item;
-    const cloned = { ...item, id: `LT3330_${item.id || varenr}` };
+    let next: Accessory = item;
+    // For loose-tool flow, swap factory-mount 721122 sub-item with
+    // retrofit 721059 under the T2/T3 collection tank sweeper trigger items.
+    if (PACKAGING_TRIGGER_IDS.includes(varenr) && Array.isArray(item.subItems)) {
+      const remappedSubs = item.subItems.map(sub => {
+        if (!sub) return sub;
+        if (String(sub.varenr || '') !== '721122') return sub;
+        return {
+          ...sub,
+          id: `721059_${varenr}`,
+          varenr: '721059',
+          name: {
+            da: 'Centerslange til T2 Timan 3330 (eftermontering)',
+            en: 'Center hose for T2 Timan 3330 (retrofit)',
+            de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)',
+            it: 'Tubo centrale per T2 Timan 3330 (retrofit)',
+            hu: 'Központi tömlő T2 Timan 3330 (utólagos)',
+          },
+          priceDKK: 2550,
+          priceEUR: 345,
+        };
+      });
+      next = { ...item, subItems: remappedSubs };
+    }
+    if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return next;
+    const cloned = { ...next, id: `LT3330_${next.id || varenr}` };
     if (varenr !== '730600') cloned.requires = 'LT3330_730600';
     return cloned;
   });
