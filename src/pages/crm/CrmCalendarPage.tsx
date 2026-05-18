@@ -26,6 +26,7 @@ import {
   type CalendarActivity,
 } from "@/lib/crmCalendarService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
+import { useSellerDirectory, resolveSellerDisplay } from "@/lib/sellerDirectory";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Language } from "@/types/configurator";
