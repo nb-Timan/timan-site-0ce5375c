@@ -60,11 +60,33 @@ export default function PortalPage() {
   }
 
   if (!appUser) {
+    const LOGIN_LANGS: { code: Language; flag: string }[] = [
+      { code: 'da', flag: '🇩🇰' },
+      { code: 'en', flag: '🇬🇧' },
+      { code: 'de', flag: '🇩🇪' },
+      { code: 'it', flag: '🇮🇹' },
+      { code: 'hu', flag: '🇭🇺' },
+    ];
     return (
       <div className="min-h-screen p-4 md:p-8 bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="max-w-md mx-auto mb-8 text-center">
           <div className="inline-flex items-center gap-2 mb-3">
             <span className="bg-[#2d5a27] text-white font-bold px-3 py-1 rounded text-xl">TIMAN</span>
+          </div>
+          <div className="flex justify-center mb-4">
+            <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-white border border-gray-200 shadow-sm">
+              {LOGIN_LANGS.map(l => (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => setLanguage(l.code)}
+                  className={`px-2 py-1 rounded transition ${lang === l.code ? 'bg-gray-50 shadow-sm border border-[#2d5a27]/30' : 'hover:bg-gray-50'}`}
+                  aria-label={l.code}
+                >
+                  <span className="text-base leading-none">{l.flag}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <p className="text-sm text-gray-500">{T.loginNeeded[lang]}</p>
         </div>
