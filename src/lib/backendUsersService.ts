@@ -110,6 +110,19 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
   const isBackend = role === "timan_backend";
   const isInternal = isBackend || role === "timan_seller" || role === "timan_service";
 
+  // Quick actions: NULL in DB = not set yet → fall back to role defaults.
+  const rawQa = row.quick_actions;
+  let quick_actions: QuickActionKey[] | null;
+  if (Array.isArray(rawQa)) {
+    quick_actions = (rawQa.filter(
+      (k): k is QuickActionKey => typeof k === "string" && (QUICK_ACTION_KEYS as readonly string[]).includes(k),
+    ));
+  } else if (rawQa == null) {
+    quick_actions = null;
+  } else {
+    quick_actions = null;
+  }
+
   return {
     id: String(row.id),
     initials: deriveInitials(row),
