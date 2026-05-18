@@ -2611,6 +2611,56 @@ export default function ConfiguratorPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Løs redskab reminder: ensure varenr 721059 (centerslange eftermontering) considered */}
+      <Dialog open={reminder721059.open} onOpenChange={(open) => { if (!open) setReminder721059({ open: false, pendingNext: null }); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Centerslange (varenummer 721059)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700 whitespace-pre-line">
+            {`Du har ikke valgt varenummer 721059 (centerslange eftermontering) til denne løse opsamlingstank.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              onClick={() => {
+                const next = reminder721059.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit && unit.modelType === LOOSE_TOOL_KEY) {
+                  const flat = getAccessoriesFlat(LOOSE_TOOL_KEY);
+                  const target = flat.find(a => String(a.varenr) === '721059');
+                  if (target) toggleAcc(target.id);
+                }
+                setReminder721059({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
+            >
+              Tilføj 721059
+            </button>
+            <button
+              onClick={() => {
+                const next = reminder721059.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit) {
+                  setAcknowledged721059(prev => {
+                    const n = new Set(prev);
+                    n.add(unit.configKey);
+                    return n;
+                  });
+                }
+                setReminder721059({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
+            >
+              Fortsæt uden 721059
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
