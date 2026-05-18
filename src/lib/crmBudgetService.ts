@@ -628,7 +628,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
     const { data, error } = await supabase
       .from("crm_configurations_view")
       .select(columns)
-      .eq("document_type", "order")
+      .or("document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet")
       .eq("case_status", "ordre_afgivet")
       .neq("case_status", "deleted")
       .limit(5000);
