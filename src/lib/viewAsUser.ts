@@ -65,6 +65,7 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     status: (row.status as string | null) ?? null,
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
+    quick_actions: (row.quick_actions as string[] | null) ?? null,
   };
   cache.set(norm, u);
   return u;
