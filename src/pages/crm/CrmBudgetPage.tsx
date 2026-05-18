@@ -751,27 +751,33 @@ export default function CrmBudgetPage() {
     return out;
   }, [customEquip]);
 
-  // KPI totals
+  // KPI totals — MUST mirror the table row totals exactly. We sum per
+  // visibleLines using the same primitives the rows use (ordersMonthlyForLine
+  // + actualsForLine), so the top cards can never disagree with the rows.
+  // Orders are NOT capped by budget; score may exceed 100%.
   const totals = useMemo(() => {
     const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
     const annualQty = visibleLines.reduce((s, l) => s + l.qty_budget, 0);
-    const wantedSeller = isAdmin ? (backendFilter === "all" ? null : backendFilter.toLowerCase()) : (sellerCtxEmail || sellerCtxInitials || null);
-    const wantedRef = wantedSeller ? BUDGET_SELLERS.find(s => s.email.toLowerCase() === wantedSeller) : null;
-    const scopedActuals = actuals.filter(a => {
-      if (!wantedSeller) return true;
-      return (a.seller_email || "").toLowerCase() === wantedSeller
-        || (a.seller_key || "").toLowerCase() === wantedSeller
-        || (!!wantedRef && (a.seller_initials || "").toLowerCase() === wantedRef.initials.toLowerCase())
-        || (a.seller_initials || "").toLowerCase() === wantedSeller;
-    });
-    const sold = scopedActuals
-      .reduce((acc, a) => ({ qty: acc.qty + a.qty_sold, value: acc.value + a.value_sold }), { qty: 0, value: 0 });
+    let soldQty = 0;
+    let soldValue = 0;
+    const seenActualIds = new Set<string>();
+    for (const l of visibleLines) {
+      soldQty += ordersMonthlyForLine(l).reduce((a, b) => a + b, 0);
+      for (const a of actualsForLine(l)) {
+        // Guard against the same actual being counted twice if two visible
+        // budget lines happen to share (seller, product). Identity is the
+        // synthetic budget_line_id assigned by deriveActualsFromOrders.
+        if (seenActualIds.has(a.budget_line_id)) continue;
+        seenActualIds.add(a.budget_line_id);
+        soldValue += a.value_sold || 0;
+      }
+    }
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
-    const score = annualQty > 0 ? Math.round((sold.qty / annualQty) * 100) : 0;
-    return { annualBudget, annualQty, sold, fc, score };
-  }, [visibleLines, actuals, forecasts, isAdmin, backendFilter, sellerCtxEmail, sellerCtxInitials]);
+    const score = annualQty > 0 ? Math.round((soldQty / annualQty) * 100) : 0;
+    return { annualBudget, annualQty, sold: { qty: soldQty, value: soldValue }, fc, score };
+  }, [visibleLines, orderActualsByKey, actuals, forecasts]);
 
   if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
