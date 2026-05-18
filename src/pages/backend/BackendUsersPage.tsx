@@ -404,6 +404,7 @@ export default function BackendUsersPage() {
             const res = await saveBackendUser(editing.id, patch);
             clearSellerIdCache(editing.email);
             clearViewAsCache(editing.email);
+            invalidateSellerDirectory();
             if (patch.email && patch.email.toLowerCase() !== editing.email.toLowerCase()) {
               clearSellerIdCache(patch.email);
               clearViewAsCache(patch.email);
