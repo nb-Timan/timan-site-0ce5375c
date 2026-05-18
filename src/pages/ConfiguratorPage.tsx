@@ -1242,9 +1242,7 @@ export default function ConfiguratorPage() {
                 disabled={submitting}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
-                  ? (state.flowType === 'order'
-                      ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
-                      : (lang === 'da' ? 'Sender tilbud...' : 'Sending quote...'))
+                  ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                   : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
               </button>
             </div>
@@ -1286,7 +1284,7 @@ export default function ConfiguratorPage() {
                 disabled={submitting}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
-                  ? (lang === 'da' ? 'Sender ordre...' : 'Sending order...')
+                  ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                   : (lang === 'da' ? 'Bekræft' : 'Confirm')}
               </button>
             </div>
