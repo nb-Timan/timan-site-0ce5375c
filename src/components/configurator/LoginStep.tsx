@@ -50,12 +50,16 @@ interface LoginStepProps {
 
 const T: Record<string, Record<string, string>> = {
   title: { da: 'Velkommen', en: 'Welcome', de: 'Willkommen', it: 'Benvenuto', hu: 'Üdvözöljük' },
-  subtitle: { da: 'Din adgang og dine rettigheder bestemmes af din konto', en: 'Your access and permissions are determined by your account', de: 'Ihr Zugang wird durch Ihr Konto bestimmt', it: 'Il tuo accesso è determinato dal tuo account', hu: 'A hozzáférését a fiókja határozza meg' },
+  subtitle: { da: 'Din adgang og dine rettigheder bestemmes af din konto', en: 'Your access and permissions are determined by your account', de: 'Ihr Zugriff und Ihre Berechtigungen werden durch Ihr Konto bestimmt', it: 'Il tuo accesso e le tue autorizzazioni sono determinati dal tuo account', hu: 'A hozzáférést és jogosultságokat a fiókja határozza meg' },
   email: { da: 'Email', en: 'Email', de: 'E-Mail', it: 'Email', hu: 'E-mail' },
   password: { da: 'Adgangskode', en: 'Password', de: 'Passwort', it: 'Password', hu: 'Jelszó' },
-  login: { da: 'Log ind', en: 'Log in', de: 'Anmelden', it: 'Accedi', hu: 'Bejelentkezés' },
+  login: { da: 'Log ind', en: 'Log in', de: 'Einloggen', it: 'Accedi', hu: 'Bejelentkezés' },
   guestContinue: { da: 'Fortsæt uden login', en: 'Continue without login', de: 'Ohne Login fortfahren', it: 'Continua senza login', hu: 'Folytatás bejelentkezés nélkül' },
-  createAccount: { da: 'Opret bruger', en: 'Create account', de: 'Konto erstellen', it: 'Crea account', hu: 'Fiók létrehozása' },
+  createAccount: { da: 'Opret bruger', en: 'Create user', de: 'Benutzer erstellen', it: 'Crea utente', hu: 'Felhasználó létrehozása' },
+  forgotPassword: { da: 'Glemt adgangskode?', en: 'Forgot password?', de: 'Passwort vergessen?', it: 'Password dimenticata?', hu: 'Elfelejtette a jelszavát?' },
+  emailPlaceholder: { da: 'din@email.dk', en: 'your@email.com', de: 'ihre@email.de', it: 'tua@email.it', hu: 'email@pelda.hu' },
+  enterEmailFirst: { da: 'Indtast din email først', en: 'Please enter your email first', de: 'Bitte zuerst E-Mail eingeben', it: 'Inserisci prima la tua email', hu: 'Először adja meg az e-mail címét' },
+  resetLinkSent: { da: 'Vi har sendt en email med et link til nulstilling.', en: 'We have sent you an email with a reset link.', de: 'Wir haben Ihnen eine E-Mail mit einem Zurücksetzungslink gesendet.', it: 'Ti abbiamo inviato un\'email con un link per il ripristino.', hu: 'Elküldtünk egy e-mailt a visszaállítási linkkel.' },
   orDivider: { da: 'eller', en: 'or', de: 'oder', it: 'oppure', hu: 'vagy' },
   guestEmailRequired: { da: 'Indtast din email', en: 'Please enter your email', de: 'Bitte geben Sie Ihre E-Mail ein', it: 'Inserisci la tua email', hu: 'Kérjük, adja meg az e-mail címét' },
   loginError: { da: 'Forkert email eller adgangskode', en: 'Incorrect email or password', de: 'Falsche E-Mail oder Passwort', it: 'Email o password errati', hu: 'Hibás e-mail vagy jelszó' },
@@ -495,7 +499,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               onChange={e => { setEmail(e.target.value); setError(''); }}
               onKeyDown={e => handleKeyDown(e, handleLogin)}
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-emerald-500 focus:outline-none transition"
-              placeholder="din@email.dk"
+              placeholder={tx('emailPlaceholder', language)}
               autoFocus
             />
           </div>
@@ -520,20 +524,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
                 setError('');
                 const target = email.trim();
                 if (!target) {
-                  setError(language === 'da' ? 'Indtast din email først' : 'Please enter your email first');
+                  setError(tx('enterEmailFirst', language));
                   return;
                 }
                 const { error: rErr } = await supabase.auth.resetPasswordForEmail(target, {
                   redirectTo: `${window.location.origin}/update-password`,
                 });
                 if (rErr) setError(rErr.message);
-                else setError(language === 'da'
-                  ? 'Vi har sendt en email med et link til nulstilling.'
-                  : 'We have sent you an email with a reset link.');
+                else setError(tx('resetLinkSent', language));
               }}
               className="text-xs text-emerald-700 hover:underline"
             >
-              {language === 'da' ? 'Glemt adgangskode?' : 'Forgot password?'}
+              {tx('forgotPassword', language)}
             </button>
           </div>
 
@@ -560,7 +562,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
               onChange={e => { setGuestEmail(e.target.value); setGuestError(''); }}
               onKeyDown={e => { if (e.key === 'Enter') handleGuestContinue(); }}
               className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-gray-400 focus:outline-none transition"
-              placeholder={language === 'da' ? 'din@email.dk' : 'your@email.com'}
+              placeholder={tx('emailPlaceholder', language)}
             />
             {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
           </div>
