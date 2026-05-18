@@ -8,8 +8,8 @@
  * No pricing, configurator, PDF or webhook logic is touched here.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
