@@ -524,20 +524,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
                 setError('');
                 const target = email.trim();
                 if (!target) {
-                  setError(language === 'da' ? 'Indtast din email først' : 'Please enter your email first');
+                  setError(tx('enterEmailFirst', language));
                   return;
                 }
                 const { error: rErr } = await supabase.auth.resetPasswordForEmail(target, {
                   redirectTo: `${window.location.origin}/update-password`,
                 });
                 if (rErr) setError(rErr.message);
-                else setError(language === 'da'
-                  ? 'Vi har sendt en email med et link til nulstilling.'
-                  : 'We have sent you an email with a reset link.');
+                else setError(tx('resetLinkSent', language));
               }}
               className="text-xs text-emerald-700 hover:underline"
             >
-              {language === 'da' ? 'Glemt adgangskode?' : 'Forgot password?'}
+              {tx('forgotPassword', language)}
             </button>
           </div>
 
