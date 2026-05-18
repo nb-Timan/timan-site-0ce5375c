@@ -129,6 +129,12 @@ export default function ConfiguratorPage() {
   // same configuration once the user has chosen "Fortsæt uden 721122".
   const [acknowledged721122, setAcknowledged721122] = useState<Set<string>>(new Set());
   const [reminder721122, setReminder721122] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
+
+  // Step 3 reminder for Løs redskab → varenr 721059 (centerslange eftermontering).
+  // Only triggered when one of the T2/T3 collection tanks (720125/720130/720132/720133)
+  // is selected under the LOOSE_TOOL flow and 721059 is not selected.
+  const [acknowledged721059, setAcknowledged721059] = useState<Set<string>>(new Set());
+  const [reminder721059, setReminder721059] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
   useEffect(() => {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
