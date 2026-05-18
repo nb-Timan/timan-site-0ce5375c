@@ -144,25 +144,32 @@ export async function listCrmConfigurations(
   let viewError: string | null = null;
 
   try {
-    const q = supabase
+    let q = supabase
       .from('crm_configurations_view')
       .select('*')
       .eq('document_type', docType)
-      .neq('case_status', 'deleted')
+      .neq('case_status', 'deleted');
+    // Defensive: a quote that was converted to order carries
+    // case_status='ordre_afgivet'. Even if document_type wasn't flipped on
+    // legacy rows, hide it from active Tilbud so it cannot be double-counted
+    // as pipeline / open quote.
+    if (docType === 'quote') q = q.neq('case_status', 'ordre_afgivet');
+    const { data, error } = await q
       .order('created_at', { ascending: false })
       .limit(500);
-    const { data, error } = await q;
     if (error) throw error;
     rows = (data ?? []).map((r) => rowToConfig(r as Record<string, unknown>));
   } catch (e) {
     viewError = e instanceof Error ? e.message : String(e);
     // Fallback: direct select from configurations.
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('configurations')
         .select('*')
         .or(`document_type.eq.${docType},case_type.eq.${docType}`)
-        .neq('case_status', 'deleted')
+        .neq('case_status', 'deleted');
+      if (docType === 'quote') q = q.neq('case_status', 'ordre_afgivet');
+      const { data, error } = await q
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
