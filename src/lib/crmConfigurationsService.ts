@@ -156,12 +156,14 @@ export async function listCrmConfigurations(
     // Converted legacy quotes may have document_type='quote' while
     // case_type/status were correctly saved as an order. Treat those rows as
     // orders on read; hide order-like rows from active Tilbud.
+    // NOTE: crm_configurations_view does NOT expose case_type (it is folded
+    // into document_type via coalesce). Only reference columns the view
+    // actually has, otherwise PostgREST errors and we lose all rows.
     if (docType === 'order') {
-      q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
+      q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet');
     } else {
       q = q.eq('document_type', 'quote')
-        .neq('case_status', 'ordre_afgivet')
-        .or('case_type.is.null,case_type.neq.order');
+        .neq('case_status', 'ordre_afgivet');
     }
     const { data, error } = await q
       .order('created_at', { ascending: false })
