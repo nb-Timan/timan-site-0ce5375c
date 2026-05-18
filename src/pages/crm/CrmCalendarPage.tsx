@@ -192,9 +192,26 @@ export default function CrmCalendarPage() {
             {isAdmin && (
               <div className="flex flex-wrap items-center gap-1">
                 <SellerChip active={sellerFilter === "all"} onClick={() => setSellerFilter("all")}>{T.filter_all[lang]}</SellerChip>
-                {["BP","EM","JTN","AKR"].map(i => (
-                  <SellerChip key={i} active={sellerFilter === i} onClick={() => setSellerFilter(i)}>{i}</SellerChip>
-                ))}
+                {["BP","EM","JTN","AKR"].map(i => {
+                  // Resolve the live initials from app_users (e.g. AKR may have
+                  // been renamed in backend) — keep the static filter key for
+                  // matching server-side alias expansion, but show the
+                  // current app_users.initials as the chip label + tooltip name.
+                  const fallback = BUDGET_SELLERS.find(s => s.initials === i);
+                  const d = resolveSellerDisplay(
+                    { email: fallback?.email, initialsKey: i, fallbackInitials: i, fallbackName: fallback?.full_name || "" },
+                    sellerDir,
+                  );
+                  return (
+                    <SellerChip
+                      key={i}
+                      active={sellerFilter === i}
+                      onClick={() => setSellerFilter(i)}
+                    >
+                      <span title={d.full_name || d.initials}>{d.initials}</span>
+                    </SellerChip>
+                  );
+                })}
               </div>
             )}
             <Button size="sm" onClick={() => openCreate()} className="bg-[#2d5a27] hover:bg-[#23461f] text-white">
