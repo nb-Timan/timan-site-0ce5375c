@@ -70,7 +70,7 @@ export default function BudgetCellInsight({
         <div className="text-xs space-y-1">
           <div className="font-semibold border-b border-slate-200/60 pb-1">{title}</div>
           <div className="flex justify-between">
-            <span className="text-slate-300">Total</span>
+            <span className="text-slate-700">Total</span>
             <span className="font-semibold tabular-nums">{variant === "performance" && total > 0 ? `+${total}` : total}</span>
           </div>
           {display.length > 0 ? (
@@ -79,28 +79,28 @@ export default function BudgetCellInsight({
                 let cls = "tabular-nums";
                 let label: string = String(r.value);
                 if (variant === "performance") {
-                  if (r.value > 0) { cls += " text-emerald-300"; label = `+${r.value}`; }
-                  else if (r.value < 0) { cls += " text-rose-300"; }
-                  else { cls += " text-slate-400"; }
+                  if (r.value > 0) { cls += " text-emerald-600"; label = `+${r.value}`; }
+                  else if (r.value < 0) { cls += " text-rose-600"; }
+                  else { cls += " text-slate-500"; }
                 }
                 return (
                   <li key={r.initials} className="flex justify-between gap-3">
-                    <span className="text-slate-300">{r.initials}</span>
+                    <span className="text-slate-700">{r.initials}</span>
                     <span className={cls}>{label}</span>
                   </li>
                 );
               })}
             </ul>
           ) : (
-            <div className="text-slate-400 italic">Ingen sælgere har værdier</div>
+            <div className="text-slate-500 italic">Ingen sælgere har værdier</div>
           )}
           {refs.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
-              <div className="text-slate-300">Referencer ({refs.length})</div>
+              <div className="text-slate-700">Referencer ({refs.length})</div>
               <ul className="space-y-0.5">
                 {refs.map((r, i) => (
-                  <li key={i} className="text-slate-200 truncate">
-                    · {r.dealer_label || "—"} · <span className="text-slate-400">{refKindLabel(r)}</span>
+                  <li key={i} className="text-slate-700 truncate">
+                    · {r.dealer_label || "—"} · <span className="text-slate-500">{refKindLabel(r)}</span>
                   </li>
                 ))}
               </ul>
@@ -108,10 +108,10 @@ export default function BudgetCellInsight({
           )}
           {dealerGroups.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
-              <div className="text-slate-300">Forhandler:</div>
+              <div className="text-slate-700">Forhandler:</div>
               <ul className="space-y-0.5">
                 {dealerGroups.map((d) => (
-                  <li key={d.name} className="text-slate-200 truncate">
+                  <li key={d.name} className="text-slate-700 truncate">
                     · {d.name}{d.count > 1 ? ` (${d.count})` : ""}
                   </li>
                 ))}
