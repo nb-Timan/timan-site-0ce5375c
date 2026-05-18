@@ -100,6 +100,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
+  const navigate = useNavigate();
 
   const [rows, setRows] = useState<CrmConfigurationRow[]>([]);
   const [loading, setLoading] = useState(true);
