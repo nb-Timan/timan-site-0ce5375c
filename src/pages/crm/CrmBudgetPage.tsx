@@ -515,6 +515,21 @@ export default function CrmBudgetPage() {
   const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
   const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
 
+  // Active "view as <seller>" mode for backend users (so a backend in seller
+  // mode behaves as that seller for window/lock resolution and countdown).
+  // NOTE: activeSellerContext is intentionally NOT used in backend mode for
+  // filtering — backend mode aggregates across all sellers regardless.
+  const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
+
+  // The "selected seller" for backend admin == backendFilter (only when it's
+  // an actual seller email). For sellers it's their own email. When a backend
+  // user is in seller-view mode we use the active seller's email.
+  // Backend mode: selected seller comes ONLY from the seller selector (never
+  // from activeSellerContext). Seller mode: use the effective seller context.
+  const selectedSellerEmail: string | null = isAdmin
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (sellerCtxEmail || null);
+
   // Compact audit context (used as seller_context for sellers; backend = null).
   const auditSellerContext = isAdmin ? null : (sellerCtxEmail || sellerCtxInitials || null);
 
@@ -751,33 +766,93 @@ export default function CrmBudgetPage() {
     return out;
   }, [customEquip]);
 
-  // KPI totals — MUST mirror the table row totals exactly. We sum per
-  // visibleLines using the same primitives the rows use (ordersMonthlyForLine
-  // + actualsForLine), so the top cards can never disagree with the rows.
+  function renderedMonthlyForBlock(opts: { keyPrefix: string; rowLines: BudgetLine[]; fallbackProductKey?: string }) {
+    const { keyPrefix, rowLines, fallbackProductKey } = opts;
+    const matchSelected = selectedSellerEmail
+      ? rowLines.find(l => (l.seller_email || "").toLowerCase() === selectedSellerEmail)
+      : null;
+    const primaryLine: BudgetLine = matchSelected ?? rowLines[0] ?? (() => {
+      const pkey = fallbackProductKey || keyPrefix;
+      const product = findProduct(pkey);
+      return {
+        id: `seed_${year}_${pkey}_${(selectedSellerEmail || myEmail || "anon").replace(/[^a-z0-9]/gi, "")}`,
+        year,
+        product_key: pkey,
+        product_name: product?.name || pkey,
+        item_number: product?.varenr ?? null,
+        category: product?.category || "machine",
+        seller_id: null,
+        seller_name: null,
+        seller_email: selectedSellerEmail || myEmail || null,
+        seller_initials: null,
+        country: null,
+        qty_budget: 0,
+        value_budget: 0,
+        monthly_split: EVEN,
+        notes: null,
+        locked: false,
+        created_at: new Date().toISOString(),
+      } as BudgetLine;
+    })();
+    const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+    const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
+      const arr = Array.from({ length: 12 }, () => 0);
+      linesForAgg.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
+      return arr;
+    };
+    const budgetMonthlyManual = agg("budgetMonthly");
+    const ordersMonthly = agg("ordersMonthly");
+    const baseWorking = agg("workingMonthly");
+    const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
+    const scopeEmails: Set<string> | null = (() => {
+      if (isAdmin) {
+        if (backendFilter === "all") return null;
+        if (backendFilter === "mine") return new Set([myEmail].filter(Boolean));
+        return new Set([backendFilter.toLowerCase()]);
+      }
+      const e = (sellerCtxEmail || myEmail || "").toLowerCase();
+      return new Set(e ? [e] : []);
+    })();
+    const dealerMonthly = aggregateDealerBudgetMonthly(dealerLines, blockProductKey, scopeEmails);
+    const hasDealerMonth = hasDealerBudgetByMonth(dealerLines, blockProductKey, scopeEmails);
+    const budgetMonthly = mergeMonthlyPreferDealer(budgetMonthlyManual, dealerMonthly, hasDealerMonth);
+    const scopedLeadContribs = leadContribs.filter(c => {
+      if (c.product_key !== blockProductKey) return false;
+      if (!isAdmin && sellerCtxEmail) return (c.owner_email || "").toLowerCase() === sellerCtxEmail;
+      if (isAdmin && backendFilter && backendFilter !== "ALL") {
+        const e = backendFilter.toLowerCase();
+        return (c.owner_email || "").toLowerCase() === e;
+      }
+      return true;
+    });
+    const leadWorkingByMonth: LeadWorkingContribution[][] = Array.from({ length: 12 }, () => []);
+    for (const c of scopedLeadContribs) {
+      if (c.month_idx >= 0 && c.month_idx < 12) leadWorkingByMonth[c.month_idx].push(c);
+    }
+    const workingMonthly = baseWorking.map((v, i) => v + leadWorkingByMonth[i].reduce((s, c) => s + c.qty, 0));
+    return { primaryLine, linesForAgg, budgetMonthlyManual, ordersMonthly, baseWorking, blockProductKey, budgetMonthly, leadWorkingByMonth, workingMonthly };
+  }
+
+  // KPI totals — MUST mirror the rendered table row totals exactly. We sum the
+  // same grouped machine blocks that render the visible Total column, including
+  // dealer-budget overlays for Budget and uncapped order quantities for Orders.
   // Orders are NOT capped by budget; score may exceed 100%.
   const totals = useMemo(() => {
-    const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
-    const annualQty = visibleLines.reduce((s, l) => s + l.qty_budget, 0);
+    let annualQty = 0;
     let soldQty = 0;
-    let soldValue = 0;
-    const seenActualIds = new Set<string>();
-    for (const l of visibleLines) {
-      soldQty += ordersMonthlyForLine(l).reduce((a, b) => a + b, 0);
-      for (const a of actualsForLine(l)) {
-        // Guard against the same actual being counted twice if two visible
-        // budget lines happen to share (seller, product). Identity is the
-        // synthetic budget_line_id assigned by deriveActualsFromOrders.
-        if (seenActualIds.has(a.budget_line_id)) continue;
-        seenActualIds.add(a.budget_line_id);
-        soldValue += a.value_sold || 0;
-      }
+    for (const g of grouped) {
+      const m = renderedMonthlyForBlock({ keyPrefix: g.product_key, rowLines: g.lines, fallbackProductKey: g.product_key });
+      annualQty += m.budgetMonthly.reduce((a, b) => a + b, 0);
+      soldQty += m.ordersMonthly.reduce((a, b) => a + b, 0);
     }
+    const annualBudget = visibleLines.reduce((s, l) => s + l.value_budget, 0);
+    const soldValue = visibleLines.reduce((sum, l) => sum + actualsForLine(l).reduce((s, a) => s + (a.value_sold || 0), 0), 0);
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
     const score = annualQty > 0 ? Math.round((soldQty / annualQty) * 100) : 0;
     return { annualBudget, annualQty, sold: { qty: soldQty, value: soldValue }, fc, score };
-  }, [visibleLines, orderActualsByKey, actuals, forecasts]);
+  }, [grouped, visibleLines, orderActualsByKey, actuals, forecasts, dealerLines, leadContribs, workingDraft, isAdmin, backendFilter, selectedSellerEmail, myEmail, sellerCtxEmail, year]);
 
   if (loading) return <CrmLayout pageTitle={T.page_title[lang]}><div className="text-sm text-slate-500">{T.loading_short[lang]}</div></CrmLayout>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -794,22 +869,8 @@ export default function CrmBudgetPage() {
   }
 
   // ---- Lock helpers (per seller / per year) ----
-  // Active "view as <seller>" mode for backend users (so a backend in seller
-  // mode behaves as that seller for window/lock resolution and countdown).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _activeModeRev = activeModeRev; // re-evaluated when mode changes
-  // NOTE: activeSellerContext is intentionally NOT used in backend mode for
-  // filtering — backend mode aggregates across all sellers regardless.
-  const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
-
-  // The "selected seller" for backend admin == backendFilter (only when it's
-  // an actual seller email). For sellers it's their own email. When a backend
-  // user is in seller-view mode we use the active seller's email.
-  // Backend mode: selected seller comes ONLY from the seller selector (never
-  // from activeSellerContext). Seller mode: use the effective seller context.
-  const selectedSellerEmail: string | null = isAdmin
-    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
-    : (sellerCtxEmail || null);
 
   /** Active access window for the given seller (or "all"-scope) right now. */
   function activeWindowFor(email: string | null | undefined): BudgetAccessWindow | null {
@@ -1811,33 +1872,15 @@ export default function CrmBudgetPage() {
                     //   3. A synthetic seed line owned by selectedSellerEmail / myEmail.
                     // This guarantees IDENTICAL behavior across all machine rows
                     // (RC-751, RC-1000s, Timan 3330/2620 + custom machines).
-                    const matchSelected = selectedSellerEmail
-                      ? rowLines.find(l => (l.seller_email || "").toLowerCase() === selectedSellerEmail)
-                      : null;
-                    const primaryLine: BudgetLine = matchSelected ?? rowLines[0] ?? (() => {
-                      const pkey = fallbackProductKey || keyPrefix;
-                      const product = findProduct(pkey);
-                      return {
-                        id: `seed_${year}_${pkey}_${(selectedSellerEmail || myEmail || "anon").replace(/[^a-z0-9]/gi, "")}`,
-                        year,
-                        product_key: pkey,
-                        product_name: product?.name || pkey,
-                        item_number: product?.varenr ?? null,
-                        category: product?.category || "machine",
-                        seller_id: null,
-                        seller_name: null,
-                        seller_email: selectedSellerEmail || myEmail || null,
-                        seller_initials: null,
-                        country: null,
-                        qty_budget: 0,
-                        value_budget: 0,
-                        monthly_split: EVEN,
-                        notes: null,
-                        locked: false,
-                        created_at: new Date().toISOString(),
-                      } as BudgetLine;
-                    })();
-                    const linesForAgg: BudgetLine[] = rowLines.length > 0 ? rowLines : [primaryLine];
+                    const {
+                      primaryLine,
+                      linesForAgg,
+                      ordersMonthly,
+                      blockProductKey,
+                      budgetMonthly,
+                      leadWorkingByMonth,
+                      workingMonthly,
+                    } = renderedMonthlyForBlock({ keyPrefix, rowLines, fallbackProductKey });
                     // Lock-check policy:
                     //   - Backend admin viewing "All sellers": editing requires a
                     //     specific seller selection, so the gray Budget row is
@@ -1862,61 +1905,6 @@ export default function CrmBudgetPage() {
                     const canEditWorking = isSeller && editModeUntil != null;
                     void adminAllSellers;
 
-                    const agg = (k: "budgetMonthly" | "ordersMonthly" | "workingMonthly") => {
-                      const arr = Array.from({ length: 12 }, () => 0);
-                      linesForAgg.forEach(l => { lineMonthly(l)[k].forEach((v, i) => { arr[i] += v; }); });
-                      return arr;
-                    };
-                    const budgetMonthlyManual = agg("budgetMonthly");
-                    const ordersMonthly = agg("ordersMonthly");
-                    const baseWorking = agg("workingMonthly");
-                    // Lead-driven Arbejdsbudget overlay: only leads where the
-                    // user explicitly set "Flyt til arbejdsbudget" > 0 count.
-                    // Match by product key (primaryLine.product_key /
-                    // fallbackProductKey) and apply seller scope.
-                    const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
-
-                    // ── Phase 35 / Step 5 ──────────────────────────────────
-                    // Overlay imported dealer-level budget rows (crm_budget_
-                    // dealer_lines) on top of the manual crm_budget_lines
-                    // values. For any (seller-scope, product, month) where at
-                    // least one non-excluded dealer row exists, the dealer
-                    // sum REPLACES the manual value for that month — this
-                    // prevents double counting while still letting manual
-                    // lines act as a fallback elsewhere.
-                    const scopeEmails: Set<string> | null = (() => {
-                      if (isAdmin) {
-                        if (backendFilter === "all") return null;
-                        if (backendFilter === "mine") return new Set([myEmail].filter(Boolean));
-                        return new Set([backendFilter.toLowerCase()]);
-                      }
-                      const e = (sellerCtxEmail || myEmail || "").toLowerCase();
-                      return new Set(e ? [e] : []);
-                    })();
-                    const dealerMonthly = aggregateDealerBudgetMonthly(dealerLines, blockProductKey, scopeEmails);
-                    const hasDealerMonth = hasDealerBudgetByMonth(dealerLines, blockProductKey, scopeEmails);
-                    const budgetMonthly = mergeMonthlyPreferDealer(budgetMonthlyManual, dealerMonthly, hasDealerMonth);
-
-                    const scopedLeadContribs = leadContribs.filter(c => {
-                      if (c.product_key !== blockProductKey) return false;
-                      // Seller view: keep only their own leads.
-                      if (!isAdmin && sellerCtxEmail) {
-                        return (c.owner_email || "").toLowerCase() === sellerCtxEmail;
-                      }
-                      // Backend "Alle sælgere" → all. Backend with a chip selected:
-                      if (isAdmin && backendFilter && backendFilter !== "ALL") {
-                        const e = backendFilter.toLowerCase();
-                        return (c.owner_email || "").toLowerCase() === e;
-                      }
-                      return true;
-                    });
-                    const leadWorkingByMonth: LeadWorkingContribution[][] =
-                      Array.from({ length: 12 }, () => []);
-                    for (const c of scopedLeadContribs) {
-                      if (c.month_idx >= 0 && c.month_idx < 12) leadWorkingByMonth[c.month_idx].push(c);
-                    }
-                    const workingMonthly = baseWorking.map((v, i) =>
-                      v + leadWorkingByMonth[i].reduce((s, c) => s + c.qty, 0));
                     const pipelineMonthly: PipelineOffer[][] = Array.from({ length: 12 }, () => []);
                     linesForAgg.forEach(l => {
                       const p = pipelineByLine[l.id] || [];
