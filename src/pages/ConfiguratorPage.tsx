@@ -207,6 +207,78 @@ export default function ConfiguratorPage() {
   // Phase 33 — optional CRM lead link saved with the configuration.
   const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
 
+  // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
+  // When opened with ?configId, fetch the saved configuration (respecting
+  // CRM visibility) and restore the full state — including ownership —
+  // so a backend admin or the assigned seller can edit Birger's quote
+  // without creating a new row.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [resumeBusy, setResumeBusy] = useState(false);
+  const resumeAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const configId = searchParams.get('configId');
+    if (!configId) return;
+    if (!appUser?.email) return; // wait until auth is ready
+    if (resumeAttemptedRef.current === configId) return;
+    resumeAttemptedRef.current = configId;
+    setResumeBusy(true);
+    (async () => {
+      try {
+        const role = derivePortalRole(appUser);
+        const sellerId = await resolveSellerId(appUser?.email);
+        const sellerView = getActiveSellerView(appUser?.email);
+        const sellerInitials = sellerView?.initials
+          ?? (role === 'timan_seller' && appUser?.display_name
+              ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null
+              : null);
+        const sellerEmail = sellerView?.email
+          ?? (role === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
+        const { row, error } = await fetchCrmConfigurationVisible(configId, {
+          role,
+          sellerId,
+          sellerInitials,
+          sellerEmail,
+          dealerNumber: appUser?.dealer_number ?? null,
+        });
+        if (error || !row) {
+          toast.error(lang === 'da' ? 'Kan ikke åbne sagen' : 'Cannot open case', {
+            description: lang === 'da'
+              ? 'Sagen findes ikke eller du har ikke adgang.'
+              : 'The case does not exist or you do not have access.',
+          });
+          return;
+        }
+        const saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
+        if (!saved) {
+          toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+          return;
+        }
+        setState(saved.state_json);
+        setSavedConfigurationId(saved.id);
+        setSavedQuoteNumber(saved.quote_number);
+        setSavedOrderNumber(saved.order_number);
+        setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
+        setIsSavedCurrent(true);
+        if (saved.lead_id) setLinkedLeadId(saved.lead_id);
+        toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
+          description: lang === 'da'
+            ? 'Den gemte konfiguration er genindlæst.'
+            : 'The saved configuration has been restored.',
+        });
+      } catch (e) {
+        console.error('[ConfiguratorPage] resume failed', e);
+        toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+      } finally {
+        // Clean the URL so a manual refresh doesn't try to reload (and to
+        // avoid duplicate restores when the user starts editing).
+        const next = new URLSearchParams(searchParams);
+        next.delete('configId');
+        setSearchParams(next, { replace: true });
+        setResumeBusy(false);
+      }
+    })();
+  }, [searchParams, appUser, lang, setState, setSearchParams]);
+
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
     if (state.flowType === ft) return;
