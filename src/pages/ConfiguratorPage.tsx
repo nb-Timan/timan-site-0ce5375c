@@ -129,6 +129,12 @@ export default function ConfiguratorPage() {
   // same configuration once the user has chosen "Fortsæt uden 721122".
   const [acknowledged721122, setAcknowledged721122] = useState<Set<string>>(new Set());
   const [reminder721122, setReminder721122] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
+
+  // Step 3 reminder for Løs redskab → varenr 721059 (centerslange eftermontering).
+  // Only triggered when one of the T2/T3 collection tanks (720125/720130/720132/720133)
+  // is selected under the LOOSE_TOOL flow and 721059 is not selected.
+  const [acknowledged721059, setAcknowledged721059] = useState<Set<string>>(new Set());
+  const [reminder721059, setReminder721059] = useState<{ open: boolean; pendingNext: (() => void) | null }>({ open: false, pendingNext: null });
   useEffect(() => {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
@@ -1938,6 +1944,23 @@ export default function ConfiguratorPage() {
                               return;
                             }
                           }
+                          // Løs redskab reminder: warn if varenr 721059 is not selected when one of
+                          // the T2/T3 collection tanks (720125/720130/720132/720133) is selected.
+                          if (machineType === LOOSE_TOOL_KEY && !acknowledged721059.has(currentUnit.configKey)) {
+                            const LOOSE_721059_TRIGGER_VARENR = new Set(['720125', '720130', '720132', '720133']);
+                            const hasTrigger = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && LOOSE_721059_TRIGGER_VARENR.has(String(a.varenr));
+                            });
+                            const has721059 = selectedIds.some(id => {
+                              const a = flatAccs.find(x => x.id === id);
+                              return a && String(a.varenr) === '721059';
+                            });
+                            if (hasTrigger && !has721059) {
+                              setReminder721059({ open: true, pendingNext: proceed });
+                              return;
+                            }
+                          }
                           proceed();
                         }}
                           disabled={!canProceedStep3}
@@ -2584,6 +2607,56 @@ export default function ConfiguratorPage() {
               className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
             >
               Fortsæt uden 721122
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Løs redskab reminder: ensure varenr 721059 (centerslange eftermontering) considered */}
+      <Dialog open={reminder721059.open} onOpenChange={(open) => { if (!open) setReminder721059({ open: false, pendingNext: null }); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Centerslange (varenummer 721059)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700 whitespace-pre-line">
+            {`Du har ikke valgt varenummer 721059 (centerslange eftermontering) til denne løse opsamlingstank.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              onClick={() => {
+                const next = reminder721059.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit && unit.modelType === LOOSE_TOOL_KEY) {
+                  const flat = getAccessoriesFlat(LOOSE_TOOL_KEY);
+                  const target = flat.find(a => String(a.varenr) === '721059');
+                  if (target) toggleAcc(target.id);
+                }
+                setReminder721059({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
+            >
+              Tilføj 721059
+            </button>
+            <button
+              onClick={() => {
+                const next = reminder721059.pendingNext;
+                const allUnits = getGlobalMachineUnits();
+                const unit = allUnits[state.currentMachineIndex];
+                if (unit) {
+                  setAcknowledged721059(prev => {
+                    const n = new Set(prev);
+                    n.add(unit.configKey);
+                    return n;
+                  });
+                }
+                setReminder721059({ open: false, pendingNext: null });
+                if (next) setTimeout(next, 0);
+              }}
+              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
+            >
+              Fortsæt uden 721059
             </button>
           </div>
         </DialogContent>
