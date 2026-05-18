@@ -23,6 +23,9 @@ export default function PortalAreaPage({ areaId }: Props) {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  // Hooks must run unconditionally on every render — keep this above all
+  // early returns so the hook count is stable while `loading` flips.
+  const effectiveUser = useEffectivePortalUser(appUser);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
@@ -30,7 +33,6 @@ export default function PortalAreaPage({ areaId }: Props) {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
-  const effectiveUser = useEffectivePortalUser(appUser);
   const area = PORTAL_AREAS.find(a => a.id === areaId);
   if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
 
