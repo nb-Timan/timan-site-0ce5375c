@@ -180,6 +180,50 @@ export async function listCrmConfigurations(
   return { rows: rows.filter((r) => rowVisibleToScope(r, filter)) };
 }
 
+/**
+ * Fetch a single configuration row for the CRM scope and return the
+ * normalized CRM row IF (and only if) the current user is allowed to see
+ * it under CRM visibility rules.
+ *
+ * Used by "Åbn i konfigurator" from CRM → Tilbud/Ordrer so a backend
+ * admin, the assigned seller, or the owning dealer can re-open a quote
+ * created by someone else (e.g. Birger's quote opened by a backend user).
+ *
+ * Does not write, does not change ownership, does not touch state_json.
+ */
+export async function fetchCrmConfigurationVisible(
+  id: string,
+  filter: Omit<CrmConfigurationFilter, 'documentType'>,
+): Promise<{ row: CrmConfigurationRow | null; error?: string }> {
+  try {
+    let res = await supabase
+      .from('crm_configurations_view')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (res.error) {
+      res = await supabase
+        .from('configurations')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+    }
+    if (res.error) throw res.error;
+    if (!res.data) return { row: null };
+    const row = rowToConfig(res.data as Record<string, unknown>);
+    const fullFilter: CrmConfigurationFilter = {
+      ...filter,
+      documentType: row.document_type,
+    };
+    if (!rowVisibleToScope(row, fullFilter)) {
+      return { row: null, error: 'not_visible' };
+    }
+    return { row };
+  } catch (e) {
+    return { row: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // ────────────────────────────────────────────────────────────
 // Order-with-value helpers (Phase 23 fix — Dashboard/Budget alignment)
 // ────────────────────────────────────────────────────────────
