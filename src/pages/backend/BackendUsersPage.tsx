@@ -91,6 +91,13 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
 
 const VIDEOS_LABEL = "Video Galleri";
 
+const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
+  create_lead:  { da: "Opret nyt lead",        en: "Create new lead" },
+  create_demo:  { da: "Ny demo-registrering",  en: "New demo registration" },
+  calendar:     { da: "Kalender",              en: "Calendar" },
+  my_dealers:   { da: "Mine forhandlere",      en: "My dealers" },
+};
+
 function formatLastLogin(iso: string | null): string {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleString("da-DK"); } catch { return "—"; }
