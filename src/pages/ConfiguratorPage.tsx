@@ -14,13 +14,16 @@ import LeadLinkPicker from '@/components/configurator/LeadLinkPicker';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf } from '@/lib/configurationsService';
+import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped } from '@/lib/configurationsService';
+import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
+import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 
