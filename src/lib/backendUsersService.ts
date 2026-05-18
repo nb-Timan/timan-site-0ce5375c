@@ -323,6 +323,14 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
     ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
+    ["quick_actions",
+      draft.quick_actions == null
+        ? null
+        : [...(asArray<string>(row.quick_actions))].sort(),
+      draft.quick_actions == null
+        ? null
+        : [...draft.quick_actions].sort(),
+    ],
   ];
   // Permissions: only compare keys we actually sent, since the DB row may
   // hold extra keys from older edits we don't want to overwrite logic on.
