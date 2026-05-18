@@ -515,6 +515,21 @@ export default function CrmBudgetPage() {
   const sellerCtxEmail = (activeSellerForFilter?.email || myEmail || "").toLowerCase();
   const sellerCtxInitials = (activeSellerForFilter?.initials || myInitialsFromName || "").toLowerCase();
 
+  // Active "view as <seller>" mode for backend users (so a backend in seller
+  // mode behaves as that seller for window/lock resolution and countdown).
+  // NOTE: activeSellerContext is intentionally NOT used in backend mode for
+  // filtering — backend mode aggregates across all sellers regardless.
+  const effectiveSellerEmail = (getEffectiveSellerEmail(appUser ?? null) || "").toLowerCase();
+
+  // The "selected seller" for backend admin == backendFilter (only when it's
+  // an actual seller email). For sellers it's their own email. When a backend
+  // user is in seller-view mode we use the active seller's email.
+  // Backend mode: selected seller comes ONLY from the seller selector (never
+  // from activeSellerContext). Seller mode: use the effective seller context.
+  const selectedSellerEmail: string | null = isAdmin
+    ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
+    : (sellerCtxEmail || null);
+
   // Compact audit context (used as seller_context for sellers; backend = null).
   const auditSellerContext = isAdmin ? null : (sellerCtxEmail || sellerCtxInitials || null);
 
