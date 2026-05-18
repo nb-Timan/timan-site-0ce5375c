@@ -16,6 +16,7 @@ export type SessionUser = AppUser & {
   status?: string | null;
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
+  quick_actions?: string[] | null;
 };
 
 export interface DealerAccessStatus {
