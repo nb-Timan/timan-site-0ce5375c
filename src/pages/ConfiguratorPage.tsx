@@ -860,6 +860,28 @@ export default function ConfiguratorPage() {
           // machine + accessory specifications even without parsing the PDF.
           const contentSummary = buildQuoteContentSummary(state);
 
+          // Order recipients:
+          //  - Always send to nb@timan.dk
+          //  - Always send to "E-mail på udfylder"
+          //  - Also send to "E-mail modtager" if filled in
+          // Normalized + de-duplicated. Invalid addresses are filtered out;
+          // user-entered invalid addresses produce a toast and abort the send.
+          const emailUdfylder = (state.email || '').trim().toLowerCase();
+          const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
+          const invalid = userEntered.filter(e => !emailRe.test(e));
+          if (invalid.length > 0) {
+            toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+              description: invalid.join(', '),
+            });
+            return;
+          }
+          const recipients = Array.from(new Set([
+            'nb@timan.dk',
+            ...userEntered,
+          ]));
+
           const webhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
@@ -869,8 +891,9 @@ export default function ConfiguratorPage() {
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
             telefon: state.telefon,
-            email_udfylder: state.email,
-            email_modtager: state.emailRecipient,
+            email_udfylder: emailUdfylder,
+            email_modtager: emailModtager,
+            recipients,
             kommentar: state.comment,
             pdf_url: '',
             pdf_storage_path: orderSentPdfPath || '',
