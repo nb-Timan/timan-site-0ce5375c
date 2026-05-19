@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped } from '@/lib/configurationsService';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
@@ -169,6 +169,8 @@ export default function ConfiguratorPage() {
     }
   }, [buildOwnershipPayload]);
 
+  const [savingChanges, setSavingChanges] = useState(false);
+
   const lang = state.language;
   const T = (key: string) => t(key, lang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
@@ -206,6 +208,36 @@ export default function ConfiguratorPage() {
   const [wantRecommendation, setWantRecommendation] = useState(false);
   // Phase 33 — optional CRM lead link saved with the configuration.
   const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
+
+  // "Gem ændringer / Save changes" — writes the current edits back to the
+  // SAME saved case (no new row, no new quote/order number). Only enabled
+  // when a saved case has been reopened (savedConfigurationId is set).
+  const handleSaveChanges = useCallback(async () => {
+    if (!savedConfigurationId || savingChanges) return;
+    setSavingChanges(true);
+    try {
+      const ownershipPayload = await getRequiredOwnershipPayload();
+      if (!ownershipPayload) return;
+      const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+      if (res.error) {
+        toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+          description: res.error,
+        });
+        return;
+      }
+      if (res.itemsError) {
+        toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+          description: res.itemsError,
+        });
+        return;
+      }
+      toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
+        description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
+      });
+    } finally {
+      setSavingChanges(false);
+    }
+  }, [savedConfigurationId, savingChanges, getRequiredOwnershipPayload, state]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -260,6 +292,18 @@ export default function ConfiguratorPage() {
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
         setIsSavedCurrent(true);
         if (saved.lead_id) setLinkedLeadId(saved.lead_id);
+        // Restore dealer/seller picker from the saved row so "Forhandler" does
+        // not reset to "Ingen valgt". Prefer the CRM-view row (joined with
+        // dealer_accounts → company name + account number) over the raw save.
+        setOwnership((prev) => ({
+          ...prev,
+          sellerInitials: row.seller_initials ?? prev.sellerInitials,
+          sellerEmail: row.seller_email ?? prev.sellerEmail,
+          sellerName: row.seller_name ?? prev.sellerName,
+          dealerAccountId: row.dealer_account_id ?? prev.dealerAccountId,
+          dealerNumber: row.dealer_account_number ?? row.dealer_number ?? prev.dealerNumber,
+          dealerCompanyName: row.dealer_company_name ?? row.dealer_name ?? prev.dealerCompanyName,
+        }));
         toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
           description: lang === 'da'
             ? 'Den gemte konfiguration er genindlæst.'
@@ -2141,6 +2185,27 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
+            {savedConfigurationId && (
+              <button
+                type="button"
+                onClick={() => void handleSaveChanges()}
+                disabled={savingChanges}
+                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId}
+                className="w-full mb-3 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                {savingChanges
+                  ? (lang === 'da' ? 'Gemmer…' : 'Saving…')
+                  : (lang === 'da' ? 'Gem ændringer' : 'Save changes')}
+                <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
+                  {savedQuoteNumber || savedOrderNumber || ''}
+                </span>
+              </button>
+            )}
             <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
             <AccountPanel
               appUser={appUser}
@@ -2178,10 +2243,23 @@ export default function ConfiguratorPage() {
                 } catch { /* ignore */ }
                 navigate('/portal', { replace: true });
               }}
-              onRestoreState={(restored, configId) => {
+              onRestoreState={(restored, configId, savedOwnership) => {
                 setState(restored);
                 setSavedConfigurationId(configId);
                 setIsSavedCurrent(true);
+                // Restore dealer/seller picker from the saved snapshot so the
+                // "Forhandler" dropdown does not reset to "Ingen valgt".
+                if (savedOwnership) {
+                  setOwnership((prev) => ({
+                    ...prev,
+                    sellerInitials: savedOwnership.seller_initials ?? prev.sellerInitials,
+                    sellerEmail: savedOwnership.seller_email ?? prev.sellerEmail,
+                    sellerName: savedOwnership.seller_name ?? prev.sellerName,
+                    dealerAccountId: savedOwnership.dealer_account_id ?? prev.dealerAccountId,
+                    dealerNumber: savedOwnership.dealer_number ?? prev.dealerNumber,
+                    dealerCompanyName: savedOwnership.dealer_name ?? prev.dealerCompanyName,
+                  }));
+                }
                 toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
                   description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
                 });
