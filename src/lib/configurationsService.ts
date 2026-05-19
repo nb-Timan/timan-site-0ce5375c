@@ -5,6 +5,7 @@ import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
+import { listCrmConfigurations, type CrmConfigurationRow } from '@/lib/crmConfigurationsService';
 
 /**
  * Account-panel ("Min konto") scope.
@@ -498,7 +499,7 @@ function buildRestoredState(
 function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): SavedConfiguration {
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const { state, hasFullState } = buildRestoredState(row, [], storedPayload);
-  const caseType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+  const caseType = row.case_type === 'order' || row.document_type === 'order' || row.case_status === 'ordre_afgivet' ? 'order' : 'quote';
 
   return {
     id: row.id,
@@ -532,6 +533,16 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
     dealer_number: row.dealer_number ?? null,
     dealer_name: row.dealer_name ?? null,
     dealer_account_id: row.dealer_account_id ?? null,
+  };
+}
+
+function crmRowToStoredRow(row: CrmConfigurationRow): Record<string, any> {
+  return {
+    ...row,
+    case_type: row.case_type ?? row.document_type,
+    status: row.status ?? row.case_status,
+    note: row.note ?? null,
+    total_price: row.total_price ?? null,
   };
 }
 
