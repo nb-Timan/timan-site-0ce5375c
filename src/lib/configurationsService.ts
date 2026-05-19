@@ -113,6 +113,14 @@ export interface SavedConfiguration {
   sent_pdf_filename: string | null;
   /** Phase 33 — optional link to a CRM lead. Null when not linked. */
   lead_id: string | null;
+  // Ownership snapshot — used to restore the dealer/seller picker when reopening.
+  seller_initials: string | null;
+  seller_email: string | null;
+  seller_name: string | null;
+  assigned_seller_id: string | null;
+  dealer_number: string | null;
+  dealer_name: string | null;
+  dealer_account_id: string | null;
 }
 
 export const SENT_PDF_BUCKET = 'sent-pdfs';
