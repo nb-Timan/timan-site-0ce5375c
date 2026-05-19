@@ -357,7 +357,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-none md:!max-w-[1200px] max-h-[90vh] overflow-y-auto overflow-x-hidden break-words">
           <DialogHeader>
             <DialogTitle className="text-xl">{tx('myAccount')}</DialogTitle>
           </DialogHeader>
