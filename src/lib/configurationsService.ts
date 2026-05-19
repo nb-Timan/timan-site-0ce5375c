@@ -26,10 +26,9 @@ type AccountScope =
       sellerAppUserId: string | null;
       /** auth.uid of the seller (matches configurations.created_by_user_id). */
       sellerAuthUserId: string | null;
-      /** dealer_accounts.id values where this seller is assigned as account owner. */
-      dealerAccountIds: string[];
     }
   | { kind: 'self'; userId: string };
+
 
 /** Aliases so AK and AKR collapse to the same seller match list. */
 function sellerInitialsAliases(initials: string): string[] {
@@ -62,26 +61,8 @@ async function lookupSellerIds(email: string): Promise<{ appUserId: string | nul
   }
 }
 
-async function lookupDealerAccountIdsForSeller(
-  initialsAliases: string[],
-  email: string | null,
-): Promise<string[]> {
-  try {
-    const parts: string[] = [];
-    if (initialsAliases.length > 0) {
-      parts.push(`assigned_seller_initials.in.(${initialsAliases.join(',')})`);
-    }
-    if (email) parts.push(`assigned_seller_email.eq.${email.toLowerCase()}`);
-    if (parts.length === 0) return [];
-    const { data } = await supabase
-      .from('dealer_accounts')
-      .select('id')
-      .or(parts.join(','));
-    return (data ?? []).map((r) => String((r as { id: string }).id));
-  } catch {
-    return [];
-  }
-}
+
+
 
 async function resolveAccountScope(
   ownerEmail: string,
@@ -92,14 +73,12 @@ async function resolveAccountScope(
   if (view) {
     const ids = await lookupSellerIds(view.email);
     const aliases = sellerInitialsAliases(view.initials);
-    const dealerIds = await lookupDealerAccountIdsForSeller(aliases, view.email);
     return {
       kind: 'seller',
       sellerEmail: view.email,
       sellerInitialsAliases: aliases,
       sellerAppUserId: ids.appUserId,
       sellerAuthUserId: ids.authUserId,
-      dealerAccountIds: dealerIds,
     };
   }
   // 2) If the logged-in email matches a known Timan seller mailbox, scope by that seller.
@@ -107,7 +86,6 @@ async function resolveAccountScope(
   if (own) {
     const ids = await lookupSellerIds(own.email);
     const aliases = sellerInitialsAliases(own.initials);
-    const dealerIds = await lookupDealerAccountIdsForSeller(aliases, own.email);
     return {
       kind: 'seller',
       sellerEmail: own.email,
@@ -116,7 +94,6 @@ async function resolveAccountScope(
       // from the live session over the app_users.auth_user_id mapping.
       sellerAppUserId: ids.appUserId,
       sellerAuthUserId: ids.authUserId ?? authUserId,
-      dealerAccountIds: dealerIds,
     };
   }
   // 3) Look up portal_role to decide between backend (self) and seller (scoped).
@@ -129,14 +106,12 @@ async function resolveAccountScope(
     const role = (data?.portal_role || '').toLowerCase();
     if (role === 'timan_seller') {
       const email = ownerEmail.toLowerCase();
-      const dealerIds = await lookupDealerAccountIdsForSeller([], email);
       return {
         kind: 'seller',
         sellerEmail: email,
         sellerInitialsAliases: [],
         sellerAppUserId: (data?.id as string | null) ?? null,
         sellerAuthUserId: (data?.auth_user_id as string | null) ?? authUserId,
-        dealerAccountIds: dealerIds,
       };
     }
   } catch { /* fall through */ }
@@ -151,26 +126,29 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
   if (scope.kind === 'self') {
     return query.eq('created_by_user_id', scope.userId) as T;
   }
-  // Seller scope: match any of the seller-ownership columns. Mirrors the
-  // visibility used by CRM → Ordrer / Budget so a seller (or backend
-  // viewing-as-seller) sees the same set of cases everywhere — including
-  // rows where only the dealer is assigned to the seller (no per-row
-  // seller_email / seller_initials / assigned_seller_id were stored).
+  // Seller scope: match the seller-ownership columns. Mirrors the visibility
+  // rules used by CRM → Ordrer / Budget (crmConfigurationsService.rowVisibleToScope)
+  // so Min konto shows the SAME set of cases as CRM for the active seller.
+  //
+  // Intentionally does NOT match by dealer_account_id — including the
+  // seller's assigned dealers would pull in rows other sellers created for
+  // those dealers, leaking unrelated orders into Min konto.
   const parts: string[] = [`seller_email.eq.${scope.sellerEmail}`];
   if (scope.sellerInitialsAliases.length > 0) {
     parts.push(`seller_initials.in.(${scope.sellerInitialsAliases.join(',')})`);
   }
   if (scope.sellerAppUserId) {
     parts.push(`assigned_seller_id.eq.${scope.sellerAppUserId}`);
+    // Legacy rows can carry the seller's app_users.id in created_by_user_id
+    // (mirrors CRM → Ordrer rowVisibleToScope fallback).
+    parts.push(`created_by_user_id.eq.${scope.sellerAppUserId}`);
   }
   if (scope.sellerAuthUserId) {
     parts.push(`created_by_user_id.eq.${scope.sellerAuthUserId}`);
   }
-  if (scope.dealerAccountIds.length > 0) {
-    parts.push(`dealer_account_id.in.(${scope.dealerAccountIds.join(',')})`);
-  }
   return query.or(parts.join(',')) as T;
 }
+
 
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 

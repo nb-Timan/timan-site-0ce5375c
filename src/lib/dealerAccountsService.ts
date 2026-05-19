@@ -359,7 +359,15 @@ async function loadDealerActivityOverlay(
     if (n) byNameLc.set(n, d.id);
   }
 
-  const COLS = [
+  // crm_configurations_view does NOT expose case_type (it folds into
+  // document_type). Query the view without case_type, fall back to the
+  // base configurations table (which has case_type) on error.
+  const VIEW_COLS = [
+    "id", "document_type", "case_status",
+    "dealer_account_id", "dealer_number", "dealer_name",
+    "order_sent_at", "quote_sent_at", "submitted_at", "last_saved_at", "created_at",
+  ].join(", ");
+  const TABLE_COLS = [
     "id", "document_type", "case_type", "case_status",
     "dealer_account_id", "dealer_number", "dealer_name",
     "order_sent_at", "quote_sent_at", "submitted_at", "last_saved_at", "created_at",
@@ -368,7 +376,7 @@ async function loadDealerActivityOverlay(
   let rows: Array<Record<string, unknown>> = [];
   const v = await supabase
     .from("crm_configurations_view")
-    .select(COLS)
+    .select(VIEW_COLS)
     .neq("case_status", "deleted")
     .limit(2000);
   if (!v.error && v.data) {
@@ -376,12 +384,13 @@ async function loadDealerActivityOverlay(
   } else {
     const f = await supabase
       .from("configurations")
-      .select(COLS)
+      .select(TABLE_COLS)
       .neq("case_status", "deleted")
       .limit(2000);
     if (f.error) throw f.error;
     rows = (f.data ?? []) as unknown as Array<Record<string, unknown>>;
   }
+
 
   for (const r of rows) {
     // Mirror crmConfigurationsService.rowToConfig: a row is an order when
