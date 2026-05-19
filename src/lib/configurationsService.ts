@@ -26,10 +26,9 @@ type AccountScope =
       sellerAppUserId: string | null;
       /** auth.uid of the seller (matches configurations.created_by_user_id). */
       sellerAuthUserId: string | null;
-      /** dealer_accounts.id values where this seller is assigned as account owner. */
-      dealerAccountIds: string[];
     }
   | { kind: 'self'; userId: string };
+
 
 /** Aliases so AK and AKR collapse to the same seller match list. */
 function sellerInitialsAliases(initials: string): string[] {
