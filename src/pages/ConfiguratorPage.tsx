@@ -2185,6 +2185,27 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
+            {savedConfigurationId && (
+              <button
+                type="button"
+                onClick={() => void handleSaveChanges()}
+                disabled={savingChanges}
+                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId}
+                className="w-full mb-3 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                {savingChanges
+                  ? (lang === 'da' ? 'Gemmer…' : 'Saving…')
+                  : (lang === 'da' ? 'Gem ændringer' : 'Save changes')}
+                <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
+                  {savedQuoteNumber || savedOrderNumber || ''}
+                </span>
+              </button>
+            )}
             <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
             <AccountPanel
               appUser={appUser}
@@ -2222,10 +2243,23 @@ export default function ConfiguratorPage() {
                 } catch { /* ignore */ }
                 navigate('/portal', { replace: true });
               }}
-              onRestoreState={(restored, configId) => {
+              onRestoreState={(restored, configId, savedOwnership) => {
                 setState(restored);
                 setSavedConfigurationId(configId);
                 setIsSavedCurrent(true);
+                // Restore dealer/seller picker from the saved snapshot so the
+                // "Forhandler" dropdown does not reset to "Ingen valgt".
+                if (savedOwnership) {
+                  setOwnership((prev) => ({
+                    ...prev,
+                    sellerInitials: savedOwnership.seller_initials ?? prev.sellerInitials,
+                    sellerEmail: savedOwnership.seller_email ?? prev.sellerEmail,
+                    sellerName: savedOwnership.seller_name ?? prev.sellerName,
+                    dealerAccountId: savedOwnership.dealer_account_id ?? prev.dealerAccountId,
+                    dealerNumber: savedOwnership.dealer_number ?? prev.dealerNumber,
+                    dealerCompanyName: savedOwnership.dealer_name ?? prev.dealerCompanyName,
+                  }));
+                }
                 toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
                   description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
                 });
