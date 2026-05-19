@@ -611,6 +611,26 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
 
   const scope = await resolveAccountScope(ownerEmail, user.id);
 
+  if (scope.kind === 'seller') {
+    const { rows, error } = await listCrmConfigurations({
+      role: 'timan_seller',
+      sellerId: scope.sellerAppUserId,
+      sellerInitials: scope.sellerInitialsAliases[0] ?? null,
+      sellerEmail: scope.sellerEmail,
+      dealerNumber: null,
+      documentType: 'order',
+    });
+    if (error) {
+      console.error('Failed to load CRM-scoped configurations:', error);
+      return [];
+    }
+    const hiddenIds = await listHiddenConfigurationIdsForCurrentUser({ ignoreWhenViewingSellerScope: true });
+    const filtered = hiddenIds.size > 0
+      ? rows.filter((row) => !hiddenIds.has(row.id))
+      : rows;
+    return filtered.map((row) => mapConfigurationRow(crmRowToStoredRow(row), ownerEmail));
+  }
+
   const baseQuery = supabase
     .from('configurations')
     .select('*')
