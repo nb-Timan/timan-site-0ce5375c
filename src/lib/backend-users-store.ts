@@ -87,7 +87,9 @@ export interface BackendUser {
     can_create_tsb: boolean;
     can_manage_users: boolean;
     can_manage_payment_terms: boolean;
+    can_apply_extra_dealer_discount: boolean;
   };
+
   /** CRM — responsible Timan Sælger for this account. Null = unassigned. */
   account_owner_user_id: string | null;
   account_owner_name: string | null;
