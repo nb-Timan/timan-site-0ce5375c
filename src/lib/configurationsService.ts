@@ -62,6 +62,27 @@ async function lookupSellerIds(email: string): Promise<{ appUserId: string | nul
   }
 }
 
+async function lookupDealerAccountIdsForSeller(
+  initialsAliases: string[],
+  email: string | null,
+): Promise<string[]> {
+  try {
+    const parts: string[] = [];
+    if (initialsAliases.length > 0) {
+      parts.push(`assigned_seller_initials.in.(${initialsAliases.join(',')})`);
+    }
+    if (email) parts.push(`assigned_seller_email.eq.${email.toLowerCase()}`);
+    if (parts.length === 0) return [];
+    const { data } = await supabase
+      .from('dealer_accounts')
+      .select('id')
+      .or(parts.join(','));
+    return (data ?? []).map((r) => String((r as { id: string }).id));
+  } catch {
+    return [];
+  }
+}
+
 async function resolveAccountScope(
   ownerEmail: string,
   authUserId: string,
@@ -70,26 +91,32 @@ async function resolveAccountScope(
   const view = getActiveSellerView(ownerEmail);
   if (view) {
     const ids = await lookupSellerIds(view.email);
+    const aliases = sellerInitialsAliases(view.initials);
+    const dealerIds = await lookupDealerAccountIdsForSeller(aliases, view.email);
     return {
       kind: 'seller',
       sellerEmail: view.email,
-      sellerInitialsAliases: sellerInitialsAliases(view.initials),
+      sellerInitialsAliases: aliases,
       sellerAppUserId: ids.appUserId,
       sellerAuthUserId: ids.authUserId,
+      dealerAccountIds: dealerIds,
     };
   }
   // 2) If the logged-in email matches a known Timan seller mailbox, scope by that seller.
   const own = getSellerViewByEmail(ownerEmail);
   if (own) {
     const ids = await lookupSellerIds(own.email);
+    const aliases = sellerInitialsAliases(own.initials);
+    const dealerIds = await lookupDealerAccountIdsForSeller(aliases, own.email);
     return {
       kind: 'seller',
       sellerEmail: own.email,
-      sellerInitialsAliases: sellerInitialsAliases(own.initials),
+      sellerInitialsAliases: aliases,
       // When the seller is the actually logged-in user, prefer the auth.uid
       // from the live session over the app_users.auth_user_id mapping.
       sellerAppUserId: ids.appUserId,
       sellerAuthUserId: ids.authUserId ?? authUserId,
+      dealerAccountIds: dealerIds,
     };
   }
   // 3) Look up portal_role to decide between backend (self) and seller (scoped).
@@ -101,12 +128,15 @@ async function resolveAccountScope(
       .maybeSingle();
     const role = (data?.portal_role || '').toLowerCase();
     if (role === 'timan_seller') {
+      const email = ownerEmail.toLowerCase();
+      const dealerIds = await lookupDealerAccountIdsForSeller([], email);
       return {
         kind: 'seller',
-        sellerEmail: ownerEmail.toLowerCase(),
+        sellerEmail: email,
         sellerInitialsAliases: [],
         sellerAppUserId: (data?.id as string | null) ?? null,
         sellerAuthUserId: (data?.auth_user_id as string | null) ?? authUserId,
+        dealerAccountIds: dealerIds,
       };
     }
   } catch { /* fall through */ }
@@ -121,10 +151,11 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
   if (scope.kind === 'self') {
     return query.eq('created_by_user_id', scope.userId) as T;
   }
-  // Seller scope: match any of the seller-ownership columns. This keeps the
-  // same view used by CRM dealer-detail / Budget while older rows that only
-  // carry assigned_seller_id or created_by_user_id (no seller_email/initials)
-  // remain visible in Min konto.
+  // Seller scope: match any of the seller-ownership columns. Mirrors the
+  // visibility used by CRM → Ordrer / Budget so a seller (or backend
+  // viewing-as-seller) sees the same set of cases everywhere — including
+  // rows where only the dealer is assigned to the seller (no per-row
+  // seller_email / seller_initials / assigned_seller_id were stored).
   const parts: string[] = [`seller_email.eq.${scope.sellerEmail}`];
   if (scope.sellerInitialsAliases.length > 0) {
     parts.push(`seller_initials.in.(${scope.sellerInitialsAliases.join(',')})`);
@@ -134,6 +165,9 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
   }
   if (scope.sellerAuthUserId) {
     parts.push(`created_by_user_id.eq.${scope.sellerAuthUserId}`);
+  }
+  if (scope.dealerAccountIds.length > 0) {
+    parts.push(`dealer_account_id.in.(${scope.dealerAccountIds.join(',')})`);
   }
   return query.or(parts.join(',')) as T;
 }
