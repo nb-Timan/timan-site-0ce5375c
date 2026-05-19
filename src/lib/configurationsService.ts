@@ -18,7 +18,15 @@ import { normalizeSellerInitials } from '@/lib/sellerInitials';
  *                (dealer / importer / service partner / dealer user).
  */
 type AccountScope =
-  | { kind: 'seller'; sellerEmail: string; sellerInitialsAliases: string[] }
+  | {
+      kind: 'seller';
+      sellerEmail: string;
+      sellerInitialsAliases: string[];
+      /** app_users.id of the seller (matches configurations.assigned_seller_id). */
+      sellerAppUserId: string | null;
+      /** auth.uid of the seller (matches configurations.created_by_user_id). */
+      sellerAuthUserId: string | null;
+    }
   | { kind: 'self'; userId: string };
 
 /** Aliases so AK and AKR collapse to the same seller match list. */
@@ -28,6 +36,30 @@ function sellerInitialsAliases(initials: string): string[] {
   return [norm];
 }
 
+/**
+ * Look up the seller's app_users.id + auth_user_id so the seller scope can
+ * also match rows where seller_email / seller_initials were not populated
+ * (legacy / direct configurator save paths) but assigned_seller_id or
+ * created_by_user_id correctly point at the seller. Without this, orders
+ * created by BP on behalf of a dealer can be visible on the CRM dealer
+ * detail page and in Budget yet missing from "Min konto".
+ */
+async function lookupSellerIds(email: string): Promise<{ appUserId: string | null; authUserId: string | null }> {
+  try {
+    const { data } = await supabase
+      .from('app_users')
+      .select('id, auth_user_id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+    return {
+      appUserId: (data?.id as string | null) ?? null,
+      authUserId: (data?.auth_user_id as string | null) ?? null,
+    };
+  } catch {
+    return { appUserId: null, authUserId: null };
+  }
+}
+
 async function resolveAccountScope(
   ownerEmail: string,
   authUserId: string,
@@ -35,35 +67,44 @@ async function resolveAccountScope(
   // 1) "View as seller" override (backend users) — strictly scope to that seller.
   const view = getActiveSellerView(ownerEmail);
   if (view) {
+    const ids = await lookupSellerIds(view.email);
     return {
       kind: 'seller',
       sellerEmail: view.email,
       sellerInitialsAliases: sellerInitialsAliases(view.initials),
+      sellerAppUserId: ids.appUserId,
+      sellerAuthUserId: ids.authUserId,
     };
   }
   // 2) If the logged-in email matches a known Timan seller mailbox, scope by that seller.
   const own = getSellerViewByEmail(ownerEmail);
   if (own) {
+    const ids = await lookupSellerIds(own.email);
     return {
       kind: 'seller',
       sellerEmail: own.email,
       sellerInitialsAliases: sellerInitialsAliases(own.initials),
+      // When the seller is the actually logged-in user, prefer the auth.uid
+      // from the live session over the app_users.auth_user_id mapping.
+      sellerAppUserId: ids.appUserId,
+      sellerAuthUserId: ids.authUserId ?? authUserId,
     };
   }
   // 3) Look up portal_role to decide between backend (self) and seller (scoped).
   try {
     const { data } = await supabase
       .from('app_users')
-      .select('portal_role,email')
+      .select('id, auth_user_id, portal_role, email')
       .eq('email', ownerEmail.toLowerCase())
       .maybeSingle();
     const role = (data?.portal_role || '').toLowerCase();
     if (role === 'timan_seller') {
-      // Unknown seller email — best-effort scope by email only.
       return {
         kind: 'seller',
         sellerEmail: ownerEmail.toLowerCase(),
         sellerInitialsAliases: [],
+        sellerAppUserId: (data?.id as string | null) ?? null,
+        sellerAuthUserId: (data?.auth_user_id as string | null) ?? authUserId,
       };
     }
   } catch { /* fall through */ }
@@ -78,9 +119,19 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
   if (scope.kind === 'self') {
     return query.eq('created_by_user_id', scope.userId) as T;
   }
+  // Seller scope: match any of the seller-ownership columns. This keeps the
+  // same view used by CRM dealer-detail / Budget while older rows that only
+  // carry assigned_seller_id or created_by_user_id (no seller_email/initials)
+  // remain visible in Min konto.
   const parts: string[] = [`seller_email.eq.${scope.sellerEmail}`];
   if (scope.sellerInitialsAliases.length > 0) {
     parts.push(`seller_initials.in.(${scope.sellerInitialsAliases.join(',')})`);
+  }
+  if (scope.sellerAppUserId) {
+    parts.push(`assigned_seller_id.eq.${scope.sellerAppUserId}`);
+  }
+  if (scope.sellerAuthUserId) {
+    parts.push(`created_by_user_id.eq.${scope.sellerAuthUserId}`);
   }
   return query.or(parts.join(',')) as T;
 }

@@ -384,8 +384,15 @@ async function loadDealerActivityOverlay(
   }
 
   for (const r of rows) {
-    const docType = (r.document_type as string) || (r.case_type as string) || "";
-    if (docType !== "quote" && docType !== "order") continue;
+    // Mirror crmConfigurationsService.rowToConfig: a row is an order when
+    // document_type='order' OR case_type='order' OR case_status='ordre_afgivet'.
+    // Otherwise it's a quote (only if document_type/case_type say quote).
+    const rawDocType = (r.document_type as string | null) ?? null;
+    const rawCaseType = (r.case_type as string | null) ?? null;
+    const caseStatus = (r.case_status as string | null) ?? null;
+    const isOrder = rawDocType === "order" || rawCaseType === "order" || caseStatus === "ordre_afgivet";
+    const isQuote = !isOrder && (rawDocType === "quote" || rawCaseType === "quote");
+    if (!isOrder && !isQuote) continue;
 
     let dealerId: string | undefined;
     const accId = r.dealer_account_id as string | null;
@@ -401,8 +408,8 @@ async function loadDealerActivityOverlay(
     if (!dealerId) continue;
 
     const agg = byDealerId.get(dealerId) ?? { quote: 0, order: 0, last: null };
-    if (docType === "quote") agg.quote += 1;
-    else agg.order += 1;
+    if (isOrder) agg.order += 1;
+    else agg.quote += 1;
     const candidates = [
       r.order_sent_at, r.quote_sent_at, r.submitted_at, r.last_saved_at, r.created_at,
     ].filter((x): x is string => typeof x === "string" && !!x);
