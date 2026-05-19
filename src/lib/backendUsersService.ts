@@ -150,7 +150,9 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
       can_create_tsb: perms.can_create_tsb ?? isBackend,
       can_manage_users: perms.can_manage_users ?? isBackend,
       can_manage_payment_terms: perms.can_manage_payment_terms ?? (isBackend || role === "timan_seller"),
+      can_apply_extra_dealer_discount: perms.can_apply_extra_dealer_discount ?? isBackend,
     },
+
     account_owner_user_id: (row.account_owner_user_id as string | null) ?? null,
     account_owner_name:    (row.account_owner_name    as string | null) ?? null,
     account_owner_initials:(row.account_owner_initials as string | null) ?? null,

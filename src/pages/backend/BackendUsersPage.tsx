@@ -720,6 +720,8 @@ function EditUserModal({
                 { value: "can_create_tsb", label: "Can create TSB" },
                 { value: "can_manage_users", label: "Can manage users" },
                 { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
+                { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount" },
+
               ]}
               checked={(Object.entries(draft.perms) as [keyof BackendUser["perms"], boolean][])
                 .filter(([, v]) => v)

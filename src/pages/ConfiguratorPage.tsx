@@ -100,18 +100,42 @@ export default function ConfiguratorPage() {
     setConfigLanguage(next);
     setGlobalLanguage(next);
   }, [setConfigLanguage, setGlobalLanguage]);
+  // Phase 38 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
+  // permission stored in app_users.permissions.can_apply_extra_dealer_discount.
+  // Defaults: Timan Backend = enabled; all other roles = disabled. A manual
+  // value (true/false) saved on the user always overrides the role default.
+  const activePortalRole = derivePortalRole(appUser);
+  const canApplyExtraDealerDiscount = (() => {
+    const flag = appUser?.permissions?.can_apply_extra_dealer_discount;
+    if (flag === true) return true;
+    if (flag === false) return false;
+    // No explicit override → role default. Backend = true, others = false.
+    // Preserve legacy: respect the older top-level can_edit_discount flag
+    // when an admin already enabled it for a non-backend user.
+    if (activePortalRole === 'timan_backend') return true;
+    return !!appUser?.can_edit_discount;
+  })();
   const permissions = {
     canSeePrices: appUser?.can_view_prices ?? false,
     canSubmitOrder: appUser?.can_submit_order ?? false,
-    canSetDiscount: appUser?.can_edit_discount ?? false,
+    canSetDiscount: canApplyExtraDealerDiscount,
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
+
+  // Phase 38 — security: when the user is not allowed to apply an extra
+  // dealer discount, force the stored value to 0 so calcConfiguration, the
+  // PDF, the order/quote payload, the email and any persisted state cannot
+  // include it. Runs on every change to permission or state.
+  useEffect(() => {
+    if (!canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
+      setState((s) => ({ ...s, manualDealerDiscountPct: 0 }));
+    }
+  }, [canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
 
   // Phase 27 — Payment terms: visible only when the ACTIVE mode/role is
   // Backend or Timan Sælger AND the user has `can_manage_payment_terms`.
   // derivePortalRole() respects the "Vis som rolle" / seller view-as mode,
   // so a Backend user previewing as Timan Forhandler will be hidden.
-  const activePortalRole = derivePortalRole(appUser);
   const canManagePaymentTerms = (() => {
     const isBackend = activePortalRole === 'timan_backend';
     const isSeller = activePortalRole === 'timan_seller';
@@ -120,6 +144,7 @@ export default function ConfiguratorPage() {
     if (flag === false) return false;
     return true;
   })();
+
 
   // ── Phase 23 r2: in-configurator Sælger / Forhandler picker ────────
   // Single source of truth for both the Step 4 form picker and the basket
