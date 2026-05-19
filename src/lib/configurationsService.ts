@@ -61,26 +61,8 @@ async function lookupSellerIds(email: string): Promise<{ appUserId: string | nul
   }
 }
 
-async function lookupDealerAccountIdsForSeller(
-  initialsAliases: string[],
-  email: string | null,
-): Promise<string[]> {
-  try {
-    const parts: string[] = [];
-    if (initialsAliases.length > 0) {
-      parts.push(`assigned_seller_initials.in.(${initialsAliases.join(',')})`);
-    }
-    if (email) parts.push(`assigned_seller_email.eq.${email.toLowerCase()}`);
-    if (parts.length === 0) return [];
-    const { data } = await supabase
-      .from('dealer_accounts')
-      .select('id')
-      .or(parts.join(','));
-    return (data ?? []).map((r) => String((r as { id: string }).id));
-  } catch {
-    return [];
-  }
-}
+
+
 
 async function resolveAccountScope(
   ownerEmail: string,
