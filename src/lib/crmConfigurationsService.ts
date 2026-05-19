@@ -29,12 +29,17 @@ export type CrmDocumentType = 'quote' | 'order';
 export interface CrmConfigurationRow {
   id: string;
   document_type: CrmDocumentType;
+  /** Raw case_type from configurations when exposed by the source. */
+  case_type: string | null;
   case_status: string | null;
+  status: string | null;
   created_at: string;
   last_saved_at: string | null;
   title: string | null;
   quote_number: string | null;
   order_number: string | null;
+  total_price: number | null;
+  note: unknown | null;
 
   seller_initials: string | null;
   seller_email: string | null;
@@ -84,12 +89,16 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   return {
     id: String(row.id),
     document_type: isOrderLike ? 'order' : 'quote',
+    case_type: rawCaseType,
     case_status: caseStatus,
+    status: (row.status as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     last_saved_at: (row.last_saved_at as string | null) ?? null,
     title: (row.title as string | null) ?? null,
     quote_number: (row.quote_number as string | null) ?? null,
     order_number: (row.order_number as string | null) ?? null,
+    total_price: row.total_price == null ? null : Number(row.total_price),
+    note: row.note ?? null,
     seller_initials: (row.seller_initials as string | null) ?? null,
     seller_email: (row.seller_email as string | null) ?? null,
     seller_name: (row.seller_name as string | null) ?? null,
