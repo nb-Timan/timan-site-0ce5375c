@@ -671,6 +671,7 @@ export async function fetchDealerAccountsForSeller(opts: {
           user_ids: [],
         } satisfies DealerAccountStats;
         statsMap[d.id] = base;
+        base.order_count = 0;
         for (const key of dealerKeysForStatsRow(base)) keyToDealerId.set(key, d.id);
       }
       for (const order of ordersRes.rows) {
