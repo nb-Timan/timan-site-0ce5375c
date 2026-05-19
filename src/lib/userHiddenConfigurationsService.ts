@@ -22,7 +22,10 @@ function isMissingTableError(error: { code?: string; message?: string } | null):
   return m.includes('does not exist') || m.includes('not found');
 }
 
-export async function listHiddenConfigurationIdsForCurrentUser(): Promise<Set<string>> {
+export async function listHiddenConfigurationIdsForCurrentUser(
+  opts: { ignoreWhenViewingSellerScope?: boolean } = {},
+): Promise<Set<string>> {
+  if (opts.ignoreWhenViewingSellerScope) return new Set();
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Set();
