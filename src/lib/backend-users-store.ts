@@ -147,7 +147,9 @@ function seedUser(
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
       can_manage_payment_terms: isBackend || role === "timan_seller",
+      can_apply_extra_dealer_discount: isBackend,
     },
+
     account_owner_user_id: null,
     account_owner_name: null,
     account_owner_initials: null,
