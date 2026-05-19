@@ -260,6 +260,18 @@ export default function ConfiguratorPage() {
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
         setIsSavedCurrent(true);
         if (saved.lead_id) setLinkedLeadId(saved.lead_id);
+        // Restore dealer/seller picker from the saved row so "Forhandler" does
+        // not reset to "Ingen valgt". Prefer the CRM-view row (joined with
+        // dealer_accounts → company name + account number) over the raw save.
+        setOwnership((prev) => ({
+          ...prev,
+          sellerInitials: row.seller_initials ?? prev.sellerInitials,
+          sellerEmail: row.seller_email ?? prev.sellerEmail,
+          sellerName: row.seller_name ?? prev.sellerName,
+          dealerAccountId: row.dealer_account_id ?? prev.dealerAccountId,
+          dealerNumber: row.dealer_account_number ?? row.dealer_number ?? prev.dealerNumber,
+          dealerCompanyName: row.dealer_company_name ?? row.dealer_name ?? prev.dealerCompanyName,
+        }));
         toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
           description: lang === 'da'
             ? 'Den gemte konfiguration er genindlæst.'
