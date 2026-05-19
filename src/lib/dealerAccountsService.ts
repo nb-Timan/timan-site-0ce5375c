@@ -10,6 +10,8 @@
 
 import { supabase } from "@/lib/supabase";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import { listScopedOrdersWithValue } from "@/lib/crmConfigurationsService";
+import { dealerKeyOf } from "@/lib/crmRelationsService";
 
 export interface DealerAccount {
   id: string;
@@ -333,6 +335,29 @@ function normalizeDealerName(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+async function lookupSellerIdForOrderScope(email: string | null): Promise<string | null> {
+  if (!email) return null;
+  try {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (error) throw error;
+    return (data?.id as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function dealerKeysForStatsRow(row: Pick<DealerAccountStats, "id" | "account_number" | "company_name">): Set<string> {
+  return new Set([
+    dealerKeyOf({ dealer_account_id: row.id, dealer_number: null, dealer_account_number: null, dealer_company_name: null, dealer_name: null }),
+    dealerKeyOf({ dealer_account_id: null, dealer_number: row.account_number, dealer_account_number: null, dealer_company_name: null, dealer_name: null }),
+    dealerKeyOf({ dealer_account_id: null, dealer_number: null, dealer_account_number: null, dealer_company_name: row.company_name, dealer_name: null }),
+  ].filter((x): x is string => Boolean(x)));
+}
+
 /**
  * Phase 31 — Build per-dealer quote/order counts and last_activity_at from
  * configurator documents (crm_configurations_view, fallback configurations).
@@ -612,6 +637,57 @@ export async function fetchDealerAccountsForSeller(opts: {
   const dealers = dRes.rows.filter((d) => keep.has(d.id));
   const statsMap: Record<string, DealerAccountStats> = {};
   for (const s of sRes.rows) if (keep.has(s.id)) statsMap[s.id] = s;
+  try {
+    const sellerId = await lookupSellerIdForOrderScope(email);
+    const ordersRes = await listScopedOrdersWithValue({
+      role: "timan_seller",
+      sellerId,
+      sellerInitials: initials,
+      sellerEmail: email,
+      dealerNumber: null,
+    });
+    if (!ordersRes.error) {
+      const orderCountByDealerId = new Map<string, number>();
+      const keyToDealerId = new Map<string, string>();
+      for (const d of dealers) {
+        const s = statsMap[d.id];
+        const base = s ?? {
+          id: d.id,
+          account_number: d.account_number,
+          company_name: d.company_name,
+          customer_type: d.customer_type,
+          customer_type_label: d.customer_type_label,
+          country: d.country,
+          assigned_seller_initials: d.assigned_seller_initials,
+          assigned_seller_name: d.assigned_seller_name,
+          assigned_seller_email: d.assigned_seller_email,
+          is_blocked: d.is_blocked,
+          is_deleted: d.is_deleted,
+          user_count: 0,
+          activity_count: 0,
+          quote_count: 0,
+          order_count: 0,
+          last_activity_at: null,
+          user_ids: [],
+        } satisfies DealerAccountStats;
+        statsMap[d.id] = base;
+        base.order_count = 0;
+        for (const key of dealerKeysForStatsRow(base)) keyToDealerId.set(key, d.id);
+      }
+      for (const order of ordersRes.rows) {
+        const key = dealerKeyOf(order);
+        const dealerId = key ? keyToDealerId.get(key) : undefined;
+        if (!dealerId) continue;
+        orderCountByDealerId.set(dealerId, (orderCountByDealerId.get(dealerId) ?? 0) + 1);
+      }
+      for (const [dealerId, count] of orderCountByDealerId.entries()) {
+        const s = statsMap[dealerId];
+        if (s) s.order_count = count;
+      }
+    }
+  } catch (e) {
+    console.warn("[dealerAccountsService] scoped order overlay failed", e);
+  }
   return { dealers, stats: statsMap, error: sRes.error };
 }
 
