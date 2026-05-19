@@ -222,7 +222,15 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       return;
     }
 
-    onRestoreState(saved.state_json, saved.id);
+    onRestoreState(saved.state_json, saved.id, {
+      seller_initials: saved.seller_initials,
+      seller_email: saved.seller_email,
+      seller_name: saved.seller_name,
+      assigned_seller_id: saved.assigned_seller_id,
+      dealer_number: saved.dealer_number,
+      dealer_name: saved.dealer_name,
+      dealer_account_id: saved.dealer_account_id,
+    });
     setOpen(false);
   };
 
