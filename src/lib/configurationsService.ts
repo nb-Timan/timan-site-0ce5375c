@@ -960,6 +960,98 @@ export async function saveConfiguration(
   };
 }
 
+/**
+ * Update an existing saved configuration in place (no new row, no new reference numbers).
+ * Used by the "Gem ændringer / Save changes" button when a previously saved case has been
+ * reopened from Min konto or CRM. Preserves quote/order numbers and ownership unless an
+ * explicit ownership payload is passed in.
+ */
+export async function updateConfiguration(
+  id: string,
+  state: ConfiguratorState,
+  options?: { ownership?: SaveOwnership },
+): Promise<{ error: string | null; itemsError: string | null }> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { error: authError ? formatSupabaseError(authError) : 'No authenticated user', itemsError: null };
+  }
+
+  let subtotal = 0;
+  let totalPrice = 0;
+  try {
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(state);
+    subtotal = Math.round(totals.subtotal || 0);
+    totalPrice = Math.round(totals.finalPrice || 0);
+  } catch { /* ignore */ }
+
+  // Preserve existing internal_note / pdf flags by reading the row first.
+  let internalNote = state.internalNote ?? '';
+  let pdfDownloaded = false;
+  let pdfDownloadedAt: string | null = null;
+  try {
+    const { data: row } = await supabase
+      .from('configurations')
+      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (row) {
+      const storedPayload = parseStoredConfigurationPayload((row as Record<string, unknown>).note);
+      internalNote = state.internalNote
+        ?? ((row as Record<string, unknown>).internal_note as string | null)
+        ?? storedPayload?.internalNote
+        ?? '';
+      pdfDownloaded = Boolean((row as Record<string, unknown>).pdf_downloaded ?? storedPayload?.pdf_downloaded);
+      pdfDownloadedAt = ((row as Record<string, unknown>).pdf_downloaded_at as string | null)
+        ?? storedPayload?.pdf_downloaded_at
+        ?? null;
+    }
+  } catch { /* ignore */ }
+
+  const now = new Date().toISOString();
+  const storedNote = serializeStoredConfigurationPayload(state, internalNote, pdfDownloaded, pdfDownloadedAt);
+
+  const patch: Record<string, unknown> = {
+    state_json: state,
+    note: storedNote,
+    internal_note: internalNote,
+    language: state.language,
+    delivery_date: state.date || null,
+    delivery_method: state.deliveryMethod || null,
+    delivery_startup_option: state.deliveryDeliverStartup,
+    payment_terms: state.paymentTerms ?? null,
+    subtotal,
+    total_price: totalPrice,
+    last_saved_at: now,
+    ...(options?.ownership ? {
+      seller_initials: options.ownership.seller_initials ?? null,
+      seller_email: options.ownership.seller_email ?? null,
+      seller_name: options.ownership.seller_name ?? null,
+      assigned_seller_id: options.ownership.assigned_seller_id ?? null,
+      dealer_number: options.ownership.dealer_number ?? null,
+      dealer_name: options.ownership.dealer_name ?? null,
+      dealer_account_id: options.ownership.dealer_account_id ?? null,
+    } : {}),
+  };
+
+  const { error } = await updateConfigurationRow(id, patch);
+  if (error) {
+    console.error('[updateConfiguration] update error:', error);
+    return { error: formatSupabaseError(error), itemsError: null };
+  }
+
+  // Replace configuration_items so machine/accessory rows reflect the edits.
+  const { error: delErr } = await supabase
+    .from('configuration_items')
+    .delete()
+    .eq('configuration_id', id);
+  if (delErr) {
+    console.warn('[updateConfiguration] delete items failed (continuing):', delErr);
+  }
+  const itemsError = await saveConfigurationItems(id, state);
+  return { error: null, itemsError };
+}
+
 /** Update the flow/document type (quote ↔ order) on a saved configuration.
  * Persists case_type, document_type, state_json.flowType, and ensures a reference number exists.
  */
