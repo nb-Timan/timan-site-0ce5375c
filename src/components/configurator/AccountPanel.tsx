@@ -43,7 +43,15 @@ interface Props {
   language: Language;
   currentState: ConfiguratorState;
   onLogout: () => void;
-  onRestoreState: (state: ConfiguratorState, configId: string) => void;
+  onRestoreState: (state: ConfiguratorState, configId: string, ownership?: {
+    seller_initials: string | null;
+    seller_email: string | null;
+    seller_name: string | null;
+    assigned_seller_id: string | null;
+    dealer_number: string | null;
+    dealer_name: string | null;
+    dealer_account_id: string | null;
+  }) => void;
   onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
   /** Optional pre-built ownership payload (from the in-configurator picker). */
   ownershipOverride?: () => Promise<ConfiguratorOwnership>;
