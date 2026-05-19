@@ -10,6 +10,8 @@
 
 import { supabase } from "@/lib/supabase";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import { listScopedOrdersWithValue } from "@/lib/crmConfigurationsService";
+import { dealerKeyOf } from "@/lib/crmRelationsService";
 
 export interface DealerAccount {
   id: string;
@@ -331,6 +333,29 @@ interface DealerActivityOverlay {
 
 function normalizeDealerName(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function lookupSellerIdForOrderScope(email: string | null): Promise<string | null> {
+  if (!email) return null;
+  try {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (error) throw error;
+    return (data?.id as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function dealerKeysForStatsRow(row: Pick<DealerAccountStats, "id" | "account_number" | "company_name">): Set<string> {
+  return new Set([
+    dealerKeyOf({ dealer_account_id: row.id, dealer_number: null, dealer_account_number: null, dealer_company_name: null, dealer_name: null }),
+    dealerKeyOf({ dealer_account_id: null, dealer_number: row.account_number, dealer_account_number: null, dealer_company_name: null, dealer_name: null }),
+    dealerKeyOf({ dealer_account_id: null, dealer_number: null, dealer_account_number: null, dealer_company_name: row.company_name, dealer_name: null }),
+  ].filter((x): x is string => Boolean(x)));
 }
 
 /**
