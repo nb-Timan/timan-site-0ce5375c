@@ -209,6 +209,36 @@ export default function ConfiguratorPage() {
   // Phase 33 — optional CRM lead link saved with the configuration.
   const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
 
+  // "Gem ændringer / Save changes" — writes the current edits back to the
+  // SAME saved case (no new row, no new quote/order number). Only enabled
+  // when a saved case has been reopened (savedConfigurationId is set).
+  const handleSaveChanges = useCallback(async () => {
+    if (!savedConfigurationId || savingChanges) return;
+    setSavingChanges(true);
+    try {
+      const ownershipPayload = await getRequiredOwnershipPayload();
+      if (!ownershipPayload) return;
+      const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+      if (res.error) {
+        toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+          description: res.error,
+        });
+        return;
+      }
+      if (res.itemsError) {
+        toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+          description: res.itemsError,
+        });
+        return;
+      }
+      toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
+        description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
+      });
+    } finally {
+      setSavingChanges(false);
+    }
+  }, [savedConfigurationId, savingChanges, getRequiredOwnershipPayload, state]);
+
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
   // CRM visibility) and restore the full state — including ownership —
