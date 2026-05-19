@@ -656,6 +656,13 @@ function mapConfigurationRowWithItems(
     sent_pdf_path: row.sent_pdf_path ?? null,
     sent_pdf_filename: row.sent_pdf_filename ?? null,
     lead_id: row.lead_id ?? null,
+    seller_initials: row.seller_initials ?? null,
+    seller_email: row.seller_email ?? null,
+    seller_name: row.seller_name ?? null,
+    assigned_seller_id: row.assigned_seller_id ?? null,
+    dealer_number: row.dealer_number ?? null,
+    dealer_name: row.dealer_name ?? null,
+    dealer_account_id: row.dealer_account_id ?? null,
   };
 }
 
