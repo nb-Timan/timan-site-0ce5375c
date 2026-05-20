@@ -48,6 +48,7 @@ function writeLocal(rows: CrmLogin[]): void {
 }
 
 export async function logLogin(input: NewCrmLogin): Promise<CrmLogin> {
+  const ua = (typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 120) : null);
   const row: CrmLogin = {
     id: uuid(),
     user_id: input.user_id ?? null,
@@ -57,9 +58,12 @@ export async function logLogin(input: NewCrmLogin): Promise<CrmLogin> {
     account_name: input.account_name ?? null,
     login_date: new Date().toISOString(),
     ip_placeholder: input.ip_placeholder ?? null,
-    device_placeholder: input.device_placeholder ?? typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 120) : null,
+    device_placeholder: input.device_placeholder ?? ua,
   };
 
+  // Keep a local copy first so the UI never loses the event, but DO NOT
+  // surface the "saved locally" toast for table-missing — that's expected
+  // until docs/sql/phase39_crm_logins.sql has been run.
   writeLocal([row, ...readLocal()]);
 
   try {
@@ -74,12 +78,21 @@ export async function logLogin(input: NewCrmLogin): Promise<CrmLogin> {
       ip_placeholder: row.ip_placeholder,
       device_placeholder: row.device_placeholder,
     });
-    if (error) notifyLocalFallback({ table: "crm_logins", action: "insert", error });
+    if (error) {
+      console.error("[crm_logins] insert failed:", error.code, error.message, error.details);
+      // PGRST205 = table missing in schema cache. Don't pop the local-fallback
+      // toast on every login until the SQL migration is run.
+      if (error.code !== "PGRST205") {
+        notifyLocalFallback({ table: "crm_logins", action: "insert", error });
+      }
+    }
   } catch (err) {
+    console.error("[crm_logins] insert threw:", err);
     notifyLocalFallback({ table: "crm_logins", action: "insert", error: err });
   }
   return row;
 }
+
 
 export interface ListLoginsOpts { ownerUserId?: string | null; accountId?: string | null; limit?: number }
 
