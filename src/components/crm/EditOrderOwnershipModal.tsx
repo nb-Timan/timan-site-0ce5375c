@@ -10,6 +10,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { fetchDealerAccounts, DealerAccount } from '@/lib/dealerAccountsService';
 import { updateConfigurationOwnership } from '@/lib/configurationsService';
 import { CrmConfigurationRow } from '@/lib/crmConfigurationsService';
+import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 
 interface SellerOpt {
   id: string;
