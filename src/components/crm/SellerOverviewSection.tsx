@@ -89,16 +89,15 @@ function ownerMatchesSeller(
 }
 
 function isOpenLead(lead: CrmLead): boolean {
-  const stage = (lead.pipeline_stage || "").toLowerCase();
-  return stage !== "won" && stage !== "lost";
+  return isOpenLeadShared(lead);
 }
 function isHotLead(lead: CrmLead): boolean {
-  // Hot lead = (demo has run AND offer sent) OR (stage = "Offer sent" / "Negotiation" after demo)
+  // Hot lead = (demo has run AND offer sent) OR active demo / offer stages
+  // following a held demo. Source of truth is next_activity (with legacy
+  // pipeline_stage fallback) via the shared status helper.
   const demoRan = lead.demo_has_run === "yes";
-  const stage = (lead.pipeline_stage || "").toLowerCase();
-  const inLateStage = stage === "offer sent" || stage === "negotiation";
-  const offerSent = inLateStage; // proxy — we don't have separate offer_sent flag
-  return (demoRan && offerSent) || (inLateStage && demoRan);
+  const inLateStage = isOfferLead(lead) || isDemoLead(lead);
+  return demoRan && inLateStage;
 }
 
 function isOfferSentActivity(a: CrmActivity): boolean {
