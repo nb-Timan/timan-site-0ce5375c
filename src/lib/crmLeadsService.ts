@@ -166,6 +166,9 @@ export interface CrmDemoLead {
   attachments: { name: string; size: number }[];
   created_at: string;
   source?: "user" | "seed";
+  /** Phase 38 — when this demo lead was converted from a CRM lead, points
+   *  back to the originating crm_leads.id. NULL for standalone demo leads. */
+  source_lead_id?: string | null;
 }
 
 const LS_LEADS = "timan.crm.leads.v1";
