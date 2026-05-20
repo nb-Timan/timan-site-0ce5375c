@@ -64,7 +64,7 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
   }, [appUser?.email, isInternal]);
 
   const { suggested, others } = useMemo(() => {
-    const open = leads.filter(l => l.pipeline_stage !== 'Won' && l.pipeline_stage !== 'Lost');
+    const open = leads.filter(l => !isLeadClosed(l));
     const myEmail = (appUser?.email || '').toLowerCase();
     let scoped = open;
     if (isCrmAdmin(role)) {
