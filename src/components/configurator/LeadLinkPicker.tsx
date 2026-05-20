@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { isLeadClosed } from '@/lib/leadStatus';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
