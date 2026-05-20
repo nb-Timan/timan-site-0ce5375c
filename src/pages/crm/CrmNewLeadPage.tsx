@@ -342,6 +342,7 @@ export default function CrmNewLeadPage() {
     return () => { cancelled = true; };
   }, [isEdit, editId]);
 
+  const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
     const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
@@ -350,12 +351,13 @@ export default function CrmNewLeadPage() {
       const de = (d.assigned_seller_email || '').toLowerCase();
       const mine = (mineEmail !== '' && de === mineEmail)
         || (mineInitials !== '' && sellerInitialsMatch(d.assigned_seller_initials, mineInitials));
-      return dealerToOption(d, mine);
+      const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+      return dealerToOption(d, mine, liveInitials);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, appUser, sellers, responsibleSellerId]);
+  }, [dealers, appUser, sellers, responsibleSellerId, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const dealerTriggerLabel = selectedDealer
