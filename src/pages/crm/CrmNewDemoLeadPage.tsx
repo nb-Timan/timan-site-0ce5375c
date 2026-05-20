@@ -287,6 +287,7 @@ export default function CrmNewDemoLeadPage() {
   }, [fromLeadId]);
 
 
+  const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selected = sellers.find(s => s.id === responsibleSellerId);
     const mineEmail = (selected?.email || appUser?.email || '').toLowerCase();
@@ -295,12 +296,13 @@ export default function CrmNewDemoLeadPage() {
       const de = (d.assigned_seller_email || '').toLowerCase();
       const mine = (mineEmail !== '' && de === mineEmail)
         || (mineInitials !== '' && sellerInitialsMatch(d.assigned_seller_initials, mineInitials));
-      return dealerToOption(d, mine);
+      const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+      return dealerToOption(d, mine, liveInitials);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, sellers, responsibleSellerId, appUser?.email]);
+  }, [dealers, sellers, responsibleSellerId, appUser?.email, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
   const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
