@@ -2294,8 +2294,8 @@ export default function ConfiguratorPage() {
                   <polyline points="7 3 7 8 15 8" />
                 </svg>
                 {savingChanges
-                  ? (lang === 'da' ? 'Gemmer…' : 'Saving…')
-                  : (lang === 'da' ? 'Gem ændringer' : 'Save changes')}
+                  ? T('savingChangesBtn')
+                  : T('saveChangesBtn')}
                 <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                   {savedQuoteNumber || savedOrderNumber || ''}
                 </span>
