@@ -31,6 +31,7 @@ import { isCrmAdmin, canSellerSeeAccount } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { listCrmAccounts, accountDisplayName, type CrmAccount } from "@/lib/crmAccountsService";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
+import { isOpenLead, isWonLead, isOfferLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { listActivities, logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { listBudgetLines, listForecasts, listSalesActuals, fmtDKK, type BudgetLine, type BudgetForecast, type SalesActual } from "@/lib/crmBudgetService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
