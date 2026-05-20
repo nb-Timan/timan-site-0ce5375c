@@ -110,7 +110,7 @@ function classifyUrgency(lead: Pick<CrmLead, "next_followup_date">, now: Date): 
   return "later"; // very far future still counts as on-track
 }
 
-const OPEN_STAGES: ReadonlySet<string> = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
+// OPEN_STAGES is replaced by the shared isOpenLead() helper from leadStatus.ts
 
 const MACHINES: Array<{ key: string; label: string }> = [
   { key: "RC-751",     label: "RC-751" },
