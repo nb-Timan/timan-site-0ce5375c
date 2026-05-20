@@ -94,9 +94,9 @@ const T: Record<string, Record<Language, string>> = {
 const MACHINE_KEYS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"] as const;
 type MachineKey = typeof MACHINE_KEYS[number];
 
-const OPEN_STAGES = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
-const WON_STAGES  = new Set(["Won"]);
-const OFFER_STAGES = new Set(["Offer sent", "Negotiation"]);
+// Status buckets now derive from next_activity via shared helpers
+// (isOpenLead / isWonLead / isOfferLead). Legacy pipeline_stage values are
+// still honoured as fallback inside those helpers.
 const QUOTE_TYPES = new Set(["quote_created", "quote_sent", "quote_revised"]);
 const ORDER_TYPES = new Set(["order_created", "order_sent"]);
 
