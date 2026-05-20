@@ -15,6 +15,7 @@ import {
 } from '@/lib/crmLeadsService';
 import {
   effectiveLeadStatus,
+  effectiveLeadProbability,
   LEAD_DISPLAY_STATUSES,
   type LeadDisplayStatus,
   NEXT_ACTIVITY_WON,
