@@ -274,8 +274,8 @@ export default function CrmAccountDetailPage() {
       const mk = machineFromLead(l);
       if (!mk) continue;
       const v = l.estimated_value || 0;
-      if (OPEN_STAGES.has(l.pipeline_stage)) map[mk].pipeline += v;
-      else if (WON_STAGES.has(l.pipeline_stage)) map[mk].orders += v;
+      if (isOpenLead(l)) map[mk].pipeline += v;
+      else if (isWonLead(l)) map[mk].orders += v;
     }
     for (const a of activities) {
       if (!ORDER_TYPES.has(a.activity_type)) continue;
@@ -301,7 +301,7 @@ export default function CrmAccountDetailPage() {
   const urgency = useMemo(() => {
     const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
     for (const l of leads) {
-      if (!OPEN_STAGES.has(l.pipeline_stage)) continue;
+      if (!isOpenLead(l)) continue;
       buckets[classifyUrgency(l.next_followup_date, now)].push(l);
     }
     return buckets;
@@ -309,7 +309,7 @@ export default function CrmAccountDetailPage() {
 
   // Offers (pipeline list) & orders list
   const offers = useMemo(() => {
-    const fromLeads = leads.filter((l) => OFFER_STAGES.has(l.pipeline_stage));
+    const fromLeads = leads.filter((l) => isOfferLead(l));
     const fromActs = activities.filter((a) => QUOTE_TYPES.has(a.activity_type));
     return { count: fromLeads.length + fromActs.length, leadOffers: fromLeads, actOffers: fromActs };
   }, [leads, activities]);
@@ -326,7 +326,7 @@ export default function CrmAccountDetailPage() {
         status: a.status,
       }));
     const fromLeads = leads
-      .filter((l) => WON_STAGES.has(l.pipeline_stage))
+      .filter((l) => isWonLead(l))
       .map((l) => ({
         id: l.id,
         ref: l.id.slice(0, 8),
@@ -510,7 +510,7 @@ export default function CrmAccountDetailPage() {
                 </thead>
                 <tbody>
                   {leads.slice(0, 10).map((l) => {
-                    const u = OPEN_STAGES.has(l.pipeline_stage) ? classifyUrgency(l.next_followup_date, now) : "later";
+                    const u = isOpenLead(l) ? classifyUrgency(l.next_followup_date, now) : "later";
                     return (
                       <tr key={l.id} className="border-b border-gray-50">
                         <td className="py-2 pr-4">
