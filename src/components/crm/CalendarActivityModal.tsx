@@ -107,17 +107,17 @@ function fromLocalInputValue(v: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
-  const initials = d.assigned_seller_initials || "—";
-  const label = `${d.company_name} · ${d.account_number}${initials !== "—" ? ` · ${initials}` : ""}`;
+function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): DealerOption {
+  const initials = liveInitials || d.assigned_seller_initials || "";
+  const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ""}`;
   return {
     value: `dealer:${d.account_number}`,
     label,
-    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(" ").toLowerCase(),
+    searchKey: [d.company_name, d.account_number, d.city, d.country, initials].filter(Boolean).join(" ").toLowerCase(),
     isMine: mine,
     account_number: d.account_number,
     company_name: d.company_name,
-    assigned_seller_initials: d.assigned_seller_initials,
+    assigned_seller_initials: initials || d.assigned_seller_initials,
     assigned_seller_email: d.assigned_seller_email,
     account_id: null,
   };
