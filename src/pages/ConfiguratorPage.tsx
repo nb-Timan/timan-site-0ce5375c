@@ -979,6 +979,19 @@ export default function ConfiguratorPage() {
 
       // Send webhook for Ordre flow
       if (state.flowType === 'order') {
+        // ── Duplicate-send protection (server-side) ──
+        // Re-read the current row from Supabase by id. If the order is
+        // already submitted, abort BEFORE generating PDF / sending email /
+        // calling n8n / updating order_sent_at. Do not trust local state.
+        if (activeCaseId) {
+          const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
+          if (lockCheck.locked) {
+            setOrderLocked(true);
+            toast.error('Denne ordre er allerede afgivet og kan ikke sendes igen.');
+            setConfirmModalOpen(false);
+            return;
+          }
+        }
         // Idempotent save: only create a new row if no case exists yet.
         // Reuse activeCaseId from the save block above to avoid duplicates.
         if (!activeCaseId && appUser) {
