@@ -2301,7 +2301,9 @@ export default function ConfiguratorPage() {
                 </span>
               </button>
             )}
-            <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+            <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
+              <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+            </fieldset>
             <AccountPanel
               appUser={appUser}
               language={lang}
