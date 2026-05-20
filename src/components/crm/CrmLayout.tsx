@@ -34,7 +34,7 @@ interface NavItem { key: keyof typeof T; to: string; icon: typeof LayoutDashboar
 const NAV: NavItem[] = [
   { key: 'dashboard',  to: '/portal/crm/dashboard',  icon: LayoutDashboard },
   { key: 'my_dealers', to: '/portal/crm/my-dealers', icon: Store },
-  { key: 'accounts',   to: '/portal/crm/accounts',   icon: Building2 },
+  
   { key: 'leads',      to: '/portal/crm/leads',      icon: Sparkles },
   { key: 'quotes',     to: '/portal/crm/quotes',     icon: FileText },
   { key: 'orders',     to: '/portal/crm/orders',     icon: ShoppingCart },
