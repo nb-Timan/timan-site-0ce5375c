@@ -231,9 +231,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       </div>
                       {SELLER_VIEWS.map(v => {
                         const d = viewDisplay(v);
-                        const label = d.full_name
-                          ? `${d.initials} ${d.full_name}`
-                          : `${d.initials} ${sellerSuffix}`;
+                        const firstName = (d.full_name || '').trim().split(/\s+/)[0] || '';
+                        const label = d.initials && firstName
+                          ? `${d.initials} ${firstName}`
+                          : d.initials
+                            ? `${d.initials} ${sellerSuffix}`
+                            : firstName || v.email;
                         return (
                           <button
                             key={v.key}
