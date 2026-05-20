@@ -349,6 +349,7 @@ export default function CrmNewDemoLeadPage() {
         notes_after_demo: notesAfter || null,
         result_status: status,
         attachments: files,
+        source_lead_id: sourceLeadId,
       });
       toast.success(tt('created_ok', lang));
       navigate('/portal/crm/demo-leads');
