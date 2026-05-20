@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -8,7 +8,8 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createDemoLead, DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
+  createDemoLead, getLead, formatLeadNo,
+  DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
