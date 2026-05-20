@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Crown, Filter, Flame, Users } from "lucide-react";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
+import { isOpenLead as isOpenLeadShared, isOfferLead, isDemoLead } from "@/lib/leadStatus";
 import {
   listBudgetLines, listForecasts, listSalesActuals,
   BUDGET_SELLERS, availableYears,
