@@ -571,7 +571,7 @@ export default function CrmNewLeadPage() {
 
           <Section title={tt('sec_next_act', lang)}>
             <Field label={tt('lbl_next_activity', lang)} required full>
-              <select className={inputCls} value={nextActivity} onChange={e=>setNextActivity(e.target.value)}>
+              <select className={inputCls} value={nextActivity} onChange={e=>handleNextActivityChange(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
                 {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
