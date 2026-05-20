@@ -165,9 +165,8 @@ function ordersByMachine(activities: CrmActivity[]): Record<string, number> {
 
 function pipelineByMachine(leads: CrmLead[]): Record<string, number> {
   const out: Record<string, number> = {};
-  const open = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
   for (const l of leads) {
-    if (!open.has(l.pipeline_stage)) continue;
+    if (!isOpenLead(l)) continue;
     for (const mt of l.machine_types || []) {
       for (const m of MACHINES) {
         if ((mt || "").toLowerCase().includes(m.key.toLowerCase())) {
