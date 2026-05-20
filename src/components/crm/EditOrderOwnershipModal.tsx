@@ -189,12 +189,15 @@ export default function EditOrderOwnershipModal({ row, canEdit, onClose, onSaved
                   size={8}
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 disabled:bg-slate-50"
                 >
-                  {filteredDealers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.company_name} · #{d.account_number}
-                      {d.assigned_seller_initials ? ` · ${d.assigned_seller_initials}` : ''}
-                    </option>
-                  ))}
+                  {filteredDealers.map((d) => {
+                    const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+                    return (
+                      <option key={d.id} value={d.id}>
+                        {d.company_name} · #{d.account_number}
+                        {liveInitials ? ` · ${liveInitials}` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Nuværende: {row.dealer_name || (row.dealer_number ? `#${row.dealer_number}` : '—')}
