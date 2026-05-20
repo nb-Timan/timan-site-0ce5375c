@@ -2251,9 +2251,9 @@ export default function ConfiguratorPage() {
                   {state.flowType === 'order' && orderLocked ? (
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
-                        Ordre afgivet
+                        {T('orderSubmittedBadge')}
                       </span>
-                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title="Denne ordre er allerede afgivet og kan ikke sendes igen.">
+                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title={T('orderCannotResendTitle')}>
                         {T('sendOrder')}
                       </button>
                     </div>
