@@ -210,6 +210,7 @@ export default function CalendarActivityModal(props: Props) {
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
   // when dealer_accounts isn't accessible (e.g. seller without backend RLS).
+  const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const mineInitials = (currentSeller?.initials || "").toUpperCase();
     const mineEmail = (currentSeller?.email || "").toLowerCase();
@@ -218,7 +219,8 @@ export default function CalendarActivityModal(props: Props) {
       const de = (d.assigned_seller_email || "").toLowerCase();
       const mine = (mineInitials !== "" && sellerInitialsMatch(d.assigned_seller_initials, mineInitials))
                 || (mineEmail !== "" && de === mineEmail);
-      return dealerToOption(d, mine);
+      const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+      return dealerToOption(d, mine, liveInitials);
     });
 
     // Fallback: seed with CRM accounts that aren't already represented by an account_number match.
@@ -235,7 +237,7 @@ export default function CalendarActivityModal(props: Props) {
     const mine = all.filter((o) => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = all.filter((o) => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: all };
-  }, [dealers, accounts, currentSeller]);
+  }, [dealers, accounts, currentSeller, sellerDir]);
 
   const selectedOption = allOptions.find((o) => o.value === selectedValue) || null;
   const triggerLabel = selectedValue === "none" || !selectedOption
