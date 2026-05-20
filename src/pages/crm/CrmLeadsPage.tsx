@@ -40,6 +40,7 @@ type TKey =
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
+  | 'convert_to_demo'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
