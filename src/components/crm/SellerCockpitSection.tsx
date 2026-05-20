@@ -20,6 +20,7 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
 import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
+import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import {
   listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
@@ -109,7 +110,7 @@ function classifyUrgency(lead: Pick<CrmLead, "next_followup_date">, now: Date): 
   return "later"; // very far future still counts as on-track
 }
 
-const OPEN_STAGES: ReadonlySet<string> = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
+// OPEN_STAGES is replaced by the shared isOpenLead() helper from leadStatus.ts
 
 const MACHINES: Array<{ key: string; label: string }> = [
   { key: "RC-751",     label: "RC-751" },
@@ -164,9 +165,8 @@ function ordersByMachine(activities: CrmActivity[]): Record<string, number> {
 
 function pipelineByMachine(leads: CrmLead[]): Record<string, number> {
   const out: Record<string, number> = {};
-  const open = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
   for (const l of leads) {
-    if (!open.has(l.pipeline_stage)) continue;
+    if (!isOpenLead(l)) continue;
     for (const mt of l.machine_types || []) {
       for (const m of MACHINES) {
         if ((mt || "").toLowerCase().includes(m.key.toLowerCase())) {
@@ -297,7 +297,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // ── Lead urgency buckets ──
   const now = new Date();
-  const openLeads = scopedLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage));
+  const openLeads = scopedLeads.filter(l => isOpenLead(l));
   const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
   for (const l of openLeads) buckets[classifyUrgency(l, now)].push(l);
   const totalLeads = openLeads.length;
@@ -373,9 +373,9 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
       const ownLeads = allLeads.filter(l =>
         (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
       );
-      const ownPipeline = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage)).length;
-      const overdue = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
-      const noFollow = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
+      const ownPipeline = ownLeads.filter(l => isOpenLead(l)).length;
+      const overdue = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "overdue").length;
+      const noFollow = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
       return {
         initials: seller.initials,
@@ -528,7 +528,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                                   {l.contact_information && <div>{l.contact_information}</div>}
                                   {l.linked_dealer_id && <div className="text-slate-500">Dealer: {l.linked_dealer_id}</div>}
                                   {l.machine_types?.length > 0 && <div>{l.machine_types.join(", ")}</div>}
-                                  <div className="text-slate-500">{l.pipeline_stage} · {fmtDate(l.next_followup_date, lang)}</div>
+                                  <div className="text-slate-500">{effectiveLeadStatus(l)} · {fmtDate(l.next_followup_date, lang)}</div>
                                   {l.estimated_value != null && <div className="font-medium">{l.estimated_value.toLocaleString("da-DK")} kr.</div>}
                                   {l.owner_name && <div className="text-slate-500">{l.owner_name}</div>}
                                 </div>

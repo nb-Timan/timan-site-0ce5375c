@@ -31,6 +31,7 @@ import { isCrmAdmin, canSellerSeeAccount } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { listCrmAccounts, accountDisplayName, type CrmAccount } from "@/lib/crmAccountsService";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
+import { isOpenLead, isWonLead, isOfferLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { listActivities, logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { listBudgetLines, listForecasts, listSalesActuals, fmtDKK, type BudgetLine, type BudgetForecast, type SalesActual } from "@/lib/crmBudgetService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,9 +94,9 @@ const T: Record<string, Record<Language, string>> = {
 const MACHINE_KEYS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"] as const;
 type MachineKey = typeof MACHINE_KEYS[number];
 
-const OPEN_STAGES = new Set(["Lead", "Qualified", "Offer sent", "Negotiation"]);
-const WON_STAGES  = new Set(["Won"]);
-const OFFER_STAGES = new Set(["Offer sent", "Negotiation"]);
+// Status buckets now derive from next_activity via shared helpers
+// (isOpenLead / isWonLead / isOfferLead). Legacy pipeline_stage values are
+// still honoured as fallback inside those helpers.
 const QUOTE_TYPES = new Set(["quote_created", "quote_sent", "quote_revised"]);
 const ORDER_TYPES = new Set(["order_created", "order_sent"]);
 
@@ -273,8 +274,8 @@ export default function CrmAccountDetailPage() {
       const mk = machineFromLead(l);
       if (!mk) continue;
       const v = l.estimated_value || 0;
-      if (OPEN_STAGES.has(l.pipeline_stage)) map[mk].pipeline += v;
-      else if (WON_STAGES.has(l.pipeline_stage)) map[mk].orders += v;
+      if (isOpenLead(l)) map[mk].pipeline += v;
+      else if (isWonLead(l)) map[mk].orders += v;
     }
     for (const a of activities) {
       if (!ORDER_TYPES.has(a.activity_type)) continue;
@@ -300,7 +301,7 @@ export default function CrmAccountDetailPage() {
   const urgency = useMemo(() => {
     const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
     for (const l of leads) {
-      if (!OPEN_STAGES.has(l.pipeline_stage)) continue;
+      if (!isOpenLead(l)) continue;
       buckets[classifyUrgency(l.next_followup_date, now)].push(l);
     }
     return buckets;
@@ -308,7 +309,7 @@ export default function CrmAccountDetailPage() {
 
   // Offers (pipeline list) & orders list
   const offers = useMemo(() => {
-    const fromLeads = leads.filter((l) => OFFER_STAGES.has(l.pipeline_stage));
+    const fromLeads = leads.filter((l) => isOfferLead(l));
     const fromActs = activities.filter((a) => QUOTE_TYPES.has(a.activity_type));
     return { count: fromLeads.length + fromActs.length, leadOffers: fromLeads, actOffers: fromActs };
   }, [leads, activities]);
@@ -325,7 +326,7 @@ export default function CrmAccountDetailPage() {
         status: a.status,
       }));
     const fromLeads = leads
-      .filter((l) => WON_STAGES.has(l.pipeline_stage))
+      .filter((l) => isWonLead(l))
       .map((l) => ({
         id: l.id,
         ref: l.id.slice(0, 8),
@@ -509,14 +510,14 @@ export default function CrmAccountDetailPage() {
                 </thead>
                 <tbody>
                   {leads.slice(0, 10).map((l) => {
-                    const u = OPEN_STAGES.has(l.pipeline_stage) ? classifyUrgency(l.next_followup_date, now) : "later";
+                    const u = isOpenLead(l) ? classifyUrgency(l.next_followup_date, now) : "later";
                     return (
                       <tr key={l.id} className="border-b border-gray-50">
                         <td className="py-2 pr-4">
                           <span className={cn("inline-block h-2 w-2 rounded-full mr-2", urgencyDot(u))} />
                           <span className="text-gray-900">{l.title}</span>
                         </td>
-                        <td className="py-2 px-2 text-gray-700">{l.pipeline_stage}</td>
+                        <td className="py-2 px-2 text-gray-700">{effectiveLeadStatus(l)}</td>
                         <td className="py-2 px-2 text-gray-700">{fmtDate(l.next_followup_date, lang)}</td>
                         <td className="py-2 px-2 text-gray-700">{l.owner_name || "—"}</td>
                         <td className="py-2 pl-2 text-right tabular-nums">{fmtDKK(l.estimated_value || 0)}</td>
@@ -547,7 +548,7 @@ export default function CrmAccountDetailPage() {
                   <li key={l.id} className="py-2 flex items-center justify-between text-sm">
                     <div className="min-w-0">
                       <div className="font-medium text-gray-900 truncate">{l.title}</div>
-                      <div className="text-xs text-gray-500">{l.pipeline_stage} · {fmtDate(l.expected_close_date || l.next_followup_date, lang)}</div>
+                      <div className="text-xs text-gray-500">{effectiveLeadStatus(l)} · {fmtDate(l.expected_close_date || l.next_followup_date, lang)}</div>
                     </div>
                     <div className="tabular-nums text-gray-700">{fmtDKK(l.estimated_value || 0)}</div>
                   </li>
