@@ -242,6 +242,22 @@ export default function ConfiguratorPage() {
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
   // when a saved case has been reopened (savedConfigurationId is set).
+  // Resolve the "already submitted order" lock whenever the loaded case
+  // changes. Re-reads the row from Supabase so we never trust stale local
+  // state. When no case is loaded, the lock is cleared.
+  useEffect(() => {
+    let cancelled = false;
+    if (!savedConfigurationId) {
+      setOrderLocked(false);
+      return;
+    }
+    (async () => {
+      const res = await fetchIsOrderSubmitted(savedConfigurationId);
+      if (!cancelled) setOrderLocked(res.locked);
+    })();
+    return () => { cancelled = true; };
+  }, [savedConfigurationId]);
+
   const handleSaveChanges = useCallback(async () => {
     if (!savedConfigurationId || savingChanges) return;
     setSavingChanges(true);
