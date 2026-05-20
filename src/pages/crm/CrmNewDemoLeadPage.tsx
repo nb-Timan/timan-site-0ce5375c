@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
+import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 
 // ---------- i18n. English is the fallback. ----------
 type TKey =
