@@ -254,6 +254,38 @@ export default function CrmNewDemoLeadPage() {
     return () => { cancelled = true; };
   }, [sellers, appUser?.email, responsibleSellerId]);
 
+  // Phase 38 — prefill from originating lead.
+  useEffect(() => {
+    if (!fromLeadId) return;
+    let cancelled = false;
+    (async () => {
+      const lead = await getLead(fromLeadId);
+      if (cancelled || !lead) return;
+      setSourceLeadId(lead.id);
+      setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+      setTitle(prev => prev || lead.title || '');
+      if (lead.owner_user_id) setResponsibleSellerId(prev => prev || lead.owner_user_id || '');
+      if (lead.owner_name) setResponsibleName(prev => prev || lead.owner_name || '');
+      if (lead.linked_dealer_id) {
+        setDealerCompany(prev => prev || lead.linked_dealer_id || '');
+        setDealerCompanyLabel(prev => prev || lead.linked_dealer_id || '');
+      }
+      if (lead.contact_information) setCustomerName(prev => prev || lead.contact_information || '');
+      if (lead.notes) setNotes(prev => prev || lead.notes || '');
+      // machine_types → demoMachine (single) + machine_category default.
+      const types = (lead.machine_types || []).filter(Boolean);
+      if (types.length) {
+        const matched = types.find(t => (DEMO_MACHINE_OPTIONS as readonly string[]).includes(t));
+        if (matched) setDemoMachine(prev => prev.length ? prev : [matched]);
+        setMachineCategory(prev => prev.length ? prev : ['Timan machine']);
+      }
+      if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
+      if (lead.probability != null) setProbability(String(lead.probability));
+    })();
+    return () => { cancelled = true; };
+  }, [fromLeadId]);
+
+
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selected = sellers.find(s => s.id === responsibleSellerId);
     const mineEmail = (selected?.email || appUser?.email || '').toLowerCase();
