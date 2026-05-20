@@ -40,6 +40,7 @@ type TKey =
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
+  | 'convert_to_demo'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
@@ -90,6 +91,7 @@ const T: Record<TKey, Record<Language, string>> = {
   closed_ok:     { da: 'Leadet er lukket.', en: 'Lead closed.', de: 'Lead geschlossen.', it: 'Lead chiuso.', hu: 'Lead lezárva.' },
   close_err:     { da: 'Kunne ikke lukke leadet.', en: 'Could not close lead.', de: 'Lead konnte nicht geschlossen werden.', it: 'Impossibile chiudere il lead.', hu: 'Nem sikerült lezárni a leadet.' },
   verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.' },
+  convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
@@ -499,16 +501,25 @@ export default function CrmLeadsPage() {
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-3">
                           {r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const lead = openLeads.find(l => l.id === r.id);
-                                if (lead) setCloseTarget(lead);
-                              }}
-                              className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
-                            >
-                              <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
-                            </button>
+                            <>
+                              <Link
+                                to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[12px] text-violet-700 hover:underline"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
+                              </Link>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const lead = openLeads.find(l => l.id === r.id);
+                                  if (lead) setCloseTarget(lead);
+                                }}
+                                className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
+                              >
+                                <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
+                              </button>
+                            </>
                           )}
                           {r.detail_href ? (
                             <Link to={r.detail_href} onClick={e => e.stopPropagation()}

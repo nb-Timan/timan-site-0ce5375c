@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -8,7 +8,8 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createDemoLead, DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
+  createDemoLead, getLead, formatLeadNo,
+  DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
@@ -36,7 +37,8 @@ type TKey =
   | 'pick_files' | 'mine_dealers' | 'other_dealers' | 'loading_dealers'
   | 'no_match' | 'val_title' | 'val_seller' | 'val_dealer'
   | 'created_ok' | 'created_err' | 'search_dealer'
-  | 'val_demo_type' | 'val_demo_machine' | 'val_demo_equipment' | 'ph_addr';
+  | 'val_demo_type' | 'val_demo_machine' | 'val_demo_equipment' | 'ph_addr'
+  | 'from_lead_banner' | 'from_lead_link';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Nyt demo lead', en: 'New demo lead', de: 'Neuer Demo-Lead', it: 'Nuovo demo lead', hu: 'Új demo lead' },
@@ -91,6 +93,8 @@ const T: Record<TKey, Record<Language, string>> = {
   val_demo_machine: { da: 'Vælg mindst én demonstreret maskine.', en: 'Select at least one demonstrated machine.', de: 'Wählen Sie mindestens eine vorgeführte Maschine.', it: 'Seleziona almeno una macchina dimostrata.', hu: 'Válasszon legalább egy bemutatott gépet.' },
   val_demo_equipment: { da: 'Vælg mindst ét demonstreret udstyr.', en: 'Select at least one demonstrated equipment item.', de: 'Wählen Sie mindestens ein vorgeführtes Zubehör.', it: 'Seleziona almeno un accessorio dimostrato.', hu: 'Válasszon legalább egy bemutatott eszközt.' },
   ph_addr:       { da: 'Begynd at skrive adresse…', en: 'Start typing address…', de: 'Adresse eingeben…', it: 'Inizia a digitare l\'indirizzo…', hu: 'Kezdjen címet írni…' },
+  from_lead_banner: { da: 'Oprettet fra lead', en: 'Created from lead', de: 'Erstellt aus Lead', it: 'Creato dal lead', hu: 'Leadből létrehozva' },
+  from_lead_link:   { da: 'Åbn oprindeligt lead', en: 'Open original lead', de: 'Ursprünglichen Lead öffnen', it: 'Apri lead originale', hu: 'Eredeti lead megnyitása' },
 };
 
 function tt(k: TKey, lang: Language): string {
@@ -165,6 +169,8 @@ export default function CrmNewDemoLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromLeadId = searchParams.get('fromLead') || '';
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
@@ -197,6 +203,11 @@ export default function CrmNewDemoLeadPage() {
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Phase 38 — prefill from a CRM lead when ?fromLead=<id> is in the URL.
+  const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
+  const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
+
 
   // Dealers + sellers
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -242,6 +253,38 @@ export default function CrmNewDemoLeadPage() {
     })();
     return () => { cancelled = true; };
   }, [sellers, appUser?.email, responsibleSellerId]);
+
+  // Phase 38 — prefill from originating lead.
+  useEffect(() => {
+    if (!fromLeadId) return;
+    let cancelled = false;
+    (async () => {
+      const lead = await getLead(fromLeadId);
+      if (cancelled || !lead) return;
+      setSourceLeadId(lead.id);
+      setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+      setTitle(prev => prev || lead.title || '');
+      if (lead.owner_user_id) setResponsibleSellerId(prev => prev || lead.owner_user_id || '');
+      if (lead.owner_name) setResponsibleName(prev => prev || lead.owner_name || '');
+      if (lead.linked_dealer_id) {
+        setDealerCompany(prev => prev || lead.linked_dealer_id || '');
+        setDealerCompanyLabel(prev => prev || lead.linked_dealer_id || '');
+      }
+      if (lead.contact_information) setCustomerName(prev => prev || lead.contact_information || '');
+      if (lead.notes) setNotes(prev => prev || lead.notes || '');
+      // machine_types → demoMachine (single) + machine_category default.
+      const types = (lead.machine_types || []).filter(Boolean);
+      if (types.length) {
+        const matched = types.find(t => (DEMO_MACHINE_OPTIONS as readonly string[]).includes(t));
+        if (matched) setDemoMachine(prev => prev.length ? prev : [matched]);
+        setMachineCategory(prev => prev.length ? prev : ['Timan machine']);
+      }
+      if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
+      if (lead.probability != null) setProbability(String(lead.probability));
+    })();
+    return () => { cancelled = true; };
+  }, [fromLeadId]);
+
 
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selected = sellers.find(s => s.id === responsibleSellerId);
@@ -306,6 +349,7 @@ export default function CrmNewDemoLeadPage() {
         notes_after_demo: notesAfter || null,
         result_status: status,
         attachments: files,
+        source_lead_id: sourceLeadId,
       });
       toast.success(tt('created_ok', lang));
       navigate('/portal/crm/demo-leads');
@@ -329,6 +373,19 @@ export default function CrmNewDemoLeadPage() {
             <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
           </Link>
         </div>
+
+        {sourceLeadId && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
+            <span>
+              {tt('from_lead_banner', lang)}{' '}
+              <span className="font-mono">{formatLeadNo(sourceLeadNo)}</span>
+            </span>
+            <Link to={`/portal/crm/leads/${sourceLeadId}`} className="text-xs text-violet-800 hover:underline">
+              {tt('from_lead_link', lang)} →
+            </Link>
+          </div>
+        )}
+
 
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)}>

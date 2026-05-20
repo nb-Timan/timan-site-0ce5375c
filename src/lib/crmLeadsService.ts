@@ -130,6 +130,8 @@ export interface CrmLead {
    *  this lead. Independent from estimated_value — only this field affects
    *  the working forecast (CRM Budget). 0 / null = not in Arbejdsbudget. */
   move_to_working_qty?: number | null;
+  /** Phase 38 — set after this lead has been converted into a demo lead. */
+  converted_demo_lead_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,6 +168,9 @@ export interface CrmDemoLead {
   attachments: { name: string; size: number }[];
   created_at: string;
   source?: "user" | "seed";
+  /** Phase 38 — when this demo lead was converted from a CRM lead, points
+   *  back to the originating crm_leads.id. NULL for standalone demo leads. */
+  source_lead_id?: string | null;
 }
 
 const LS_LEADS = "timan.crm.leads.v1";
@@ -505,6 +510,7 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
       competitor_name: row.competitor_name,
       notes_after_demo: row.notes_after_demo,
       result_status: row.result_status,
+      source_lead_id: row.source_lead_id ?? null,
     }).select("demo_no").maybeSingle();
     if (error) notifyLocalFallback({ table: "crm_demo_leads", action: "insert", error });
     if (data && typeof (data as { demo_no?: number }).demo_no === "number") {
@@ -516,6 +522,29 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
   } catch (err) {
     notifyLocalFallback({ table: "crm_demo_leads", action: "insert", error: err });
   }
+
+  // Phase 38 — back-link the originating lead.
+  if (row.source_lead_id) {
+    try {
+      const { error } = await supabase.from("crm_leads")
+        .update({ converted_demo_lead_id: row.id })
+        .eq("id", row.source_lead_id);
+      if (error) {
+        console.warn("[crm.createDemoLead] could not set converted_demo_lead_id", error);
+        notifyLocalFallback({ table: "crm_leads", action: "update converted_demo_lead_id", error });
+      }
+      // Mirror on local cache so the link is visible immediately.
+      const ls = readLS<CrmLead>(LS_LEADS);
+      const idx = ls.findIndex(r => r.id === row.source_lead_id);
+      if (idx >= 0) {
+        ls[idx] = { ...ls[idx], converted_demo_lead_id: row.id, updated_at: now };
+        writeLS(LS_LEADS, ls);
+      }
+    } catch (err) {
+      console.warn("[crm.createDemoLead] back-link failed", err);
+    }
+  }
+
 
   try {
     await logActivity({
