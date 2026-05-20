@@ -98,7 +98,8 @@ const App = () => (
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
-              <Route path="/portal/crm/accounts"   element={<CrmAccountsPage />} />
+              <Route path="/portal/crm/accounts"   element={<Navigate to="/portal/crm/my-dealers" replace />} />
+              <Route path="/portal/crm/konti"      element={<Navigate to="/portal/crm/my-dealers" replace />} />
               <Route path="/portal/crm/my-dealers" element={<CrmMyDealersPage />} />
               <Route path="/portal/crm/my-dealers/:accountNumber" element={<CrmDealerDetailPage />} />
               <Route path="/portal/crm/accounts/:id" element={<CrmAccountDetailPage />} />
