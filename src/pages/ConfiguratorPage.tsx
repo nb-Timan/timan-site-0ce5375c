@@ -2392,6 +2392,15 @@ export default function ConfiguratorPage() {
                     }
                     return (
                       <div key={idx}>
+                        {item.isMachine && item.index && (
+                          <div className="mt-2 mb-3 pl-2">
+                            <input type="text" maxLength={20}
+                              value={state.reqNumbers[`machine_${item.index}`] || ''}
+                              onChange={e => setReqNumber(item.index!, e.target.value)}
+                              placeholder="Rekv. nr. / Req. no. / Po. nr."
+                              className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
+                          </div>
+                        )}
                         <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
@@ -2409,15 +2418,6 @@ export default function ConfiguratorPage() {
                             <span className="mr-2">{item.varenr}</span>
                           </div>
                         )}
-                        {item.isMachine && item.index && (
-                          <div className="mt-2 mb-3 pl-2">
-                            <input type="text" maxLength={20}
-                              value={state.reqNumbers[`machine_${item.index}`] || ''}
-                              onChange={e => setReqNumber(item.index!, e.target.value)}
-                              placeholder="Rekv. nr. / Req. no. / Po. nr."
-                              className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
-                          </div>
-                        )}
                         {state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
                             <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">
@@ -2430,6 +2430,7 @@ export default function ConfiguratorPage() {
                         )}
                       </div>
                     );
+
                   })}
                 </div>
 
