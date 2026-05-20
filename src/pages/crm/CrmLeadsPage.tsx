@@ -15,6 +15,7 @@ import {
 } from '@/lib/crmLeadsService';
 import {
   effectiveLeadStatus,
+  effectiveLeadProbability,
   LEAD_DISPLAY_STATUSES,
   type LeadDisplayStatus,
   NEXT_ACTIVITY_WON,
@@ -117,6 +118,7 @@ interface UnifiedLead {
   date: string | null;
   next_followup: string | null;
   status: string | null;
+  probability: number | null;
   value: number | null;
   detail_href: string | null;
 }
@@ -187,6 +189,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     date: l.first_contact_date || l.created_at,
     next_followup: l.next_followup_date,
     status: effectiveLeadStatus(l),
+    probability: effectiveLeadProbability(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
   };
@@ -209,6 +212,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
     date: d.demo_date || d.created_at,
     next_followup: d.followup_date,
     status: d.result_status,
+    probability: null,
     value: d.estimated_value,
     detail_href: `/portal/crm/demo-leads/${d.id}`,
   };
@@ -481,10 +485,15 @@ export default function CrmLeadsPage() {
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup, lang)}</td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
-                          <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
-                            STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                            {localizeStatus(r.status, lang)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
+                              STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
+                              {localizeStatus(r.status, lang)}
+                            </span>
+                            {r.probability != null && (
+                              <span className="text-[11px] font-medium text-gray-600 tabular-nums">{r.probability}%</span>
+                            )}
+                          </div>
                         ) : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right">

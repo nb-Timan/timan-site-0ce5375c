@@ -575,7 +575,9 @@ export default function CrmNewLeadPage() {
                 <option value="">{tt('pick', lang)}</option>
                 {NEXT_ACTIVITY_OPTIONS
                   .filter(o => o !== 'Closed with order' && o !== 'Closed without order')
-                  .map(o => <option key={o} value={o}>{o}</option>)}
+                  .slice()
+                  .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b))
+                  .map(o => <option key={o} value={o}>{o} — {nextActivityToProbability(o)}%</option>)}
                 {/* Preserve current value if it's a closed status (legacy/edited lead) so it still displays */}
                 {(nextActivity === 'Closed with order' || nextActivity === 'Closed without order') && (
                   <option value={nextActivity}>{nextActivity}</option>
