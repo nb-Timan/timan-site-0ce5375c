@@ -122,18 +122,40 @@ interface UnifiedLead {
 }
 
 const STAGE_CLR: Record<string, string> = {
-  Lead:        'bg-sky-50 text-sky-700 border-sky-200',
-  Qualified:   'bg-violet-50 text-violet-700 border-violet-200',
-  'Offer sent':'bg-amber-50 text-amber-800 border-amber-200',
-  Negotiation: 'bg-orange-50 text-orange-700 border-orange-200',
-  Won:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Lost:        'bg-rose-50 text-rose-700 border-rose-200',
-  'Hot lead':  'bg-rose-50 text-rose-700 border-rose-200',
-  'Warm lead': 'bg-amber-50 text-amber-800 border-amber-200',
-  'Cold lead': 'bg-sky-50 text-sky-700 border-sky-200',
+  // New canonical lead-status buckets (effectiveLeadStatus output).
+  Lead:           'bg-sky-50 text-sky-700 border-sky-200',
+  'Demo planlagt':'bg-violet-50 text-violet-700 border-violet-200',
+  'Tilbud sendt': 'bg-amber-50 text-amber-800 border-amber-200',
+  'Follow-up':    'bg-orange-50 text-orange-700 border-orange-200',
+  Vundet:         'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Tabt:           'bg-rose-50 text-rose-700 border-rose-200',
+  // Legacy pipeline_stage labels (still rendered for demos / legacy strings).
+  Qualified:      'bg-violet-50 text-violet-700 border-violet-200',
+  'Offer sent':   'bg-amber-50 text-amber-800 border-amber-200',
+  Negotiation:    'bg-orange-50 text-orange-700 border-orange-200',
+  Won:            'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Lost:           'bg-rose-50 text-rose-700 border-rose-200',
+  // Demo result statuses.
+  'Hot lead':     'bg-rose-50 text-rose-700 border-rose-200',
+  'Warm lead':    'bg-amber-50 text-amber-800 border-amber-200',
+  'Cold lead':    'bg-sky-50 text-sky-700 border-sky-200',
   'Offer requested': 'bg-violet-50 text-violet-700 border-violet-200',
-  'No fit':    'bg-gray-100 text-gray-700 border-gray-200',
+  'No fit':       'bg-gray-100 text-gray-700 border-gray-200',
 };
+
+const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
+  Lead: 'st_Lead',
+  'Demo planlagt': 'st_Demo',
+  'Tilbud sendt': 'st_Tilbud',
+  'Follow-up': 'st_Followup',
+  Vundet: 'st_Vundet',
+  Tabt: 'st_Tabt',
+};
+function localizeStatus(s: string | null | undefined, lang: Language): string {
+  if (!s) return '—';
+  const k = ST_TKEY[s as LeadDisplayStatus];
+  return k ? tt(k, lang) : s;
+}
 
 function formatKr(n: number | null | undefined): string {
   if (n == null) return '—';
