@@ -239,6 +239,13 @@ export default function CrmLeadsPage() {
   const [tab, setTab] = useState<TabKey>(isAdmin ? 'all' : 'mine');
   const [q, setQ] = useState('');
   const [stage, setStage] = useState<string>('');
+  const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
+
+  const refreshLeads = async () => {
+    const openAll = await listLeads({});
+    const openResolved = await resolveSeedOwners(openAll);
+    setOpenLeads(openResolved);
+  };
 
   useEffect(() => { setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin]);
 
