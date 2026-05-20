@@ -130,9 +130,12 @@ export function isLeadClosed(
     | undefined
     | Pick<CrmLead, "next_activity" | "pipeline_stage">,
 ): boolean {
-  const na = typeof leadOrActivity === "object" && leadOrActivity !== null
-    ? effectiveNextActivity(leadOrActivity)
-    : (leadOrActivity ?? null);
+  let na: string | null;
+  if (leadOrActivity && typeof leadOrActivity === "object") {
+    na = effectiveNextActivity(leadOrActivity);
+  } else {
+    na = (leadOrActivity as string | null | undefined) ?? null;
+  }
   const status = nextActivityToLeadStatus(na);
   return status === "Vundet" || status === "Tabt";
 }
