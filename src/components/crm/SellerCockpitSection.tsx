@@ -20,6 +20,7 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
 import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
+import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import {
   listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
