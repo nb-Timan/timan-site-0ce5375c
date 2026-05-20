@@ -361,7 +361,16 @@ export default function CrmNewLeadPage() {
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
-  const isLost = stage === 'Lost';
+  const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
+
+  // Auto-derive probability + legacy pipeline stage from next_activity selection.
+  function handleNextActivityChange(na: string) {
+    setNextActivity(na);
+    if (na) {
+      setProbability(String(nextActivityToProbability(na)));
+      setStage(deriveLegacyPipelineStage(na));
+    }
+  }
 
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
