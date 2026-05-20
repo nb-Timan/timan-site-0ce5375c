@@ -186,7 +186,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     equipment: null,
     date: l.first_contact_date || l.created_at,
     next_followup: l.next_followup_date,
-    status: l.pipeline_stage,
+    status: effectiveLeadStatus(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
   };
