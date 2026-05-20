@@ -998,7 +998,7 @@ export default function ConfiguratorPage() {
           const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
           if (lockCheck.locked) {
             setOrderLocked(true);
-            toast.error('Denne ordre er allerede afgivet og kan ikke sendes igen.');
+            toast.error(T('orderCannotResendTitle'));
             setConfirmModalOpen(false);
             return;
           }
