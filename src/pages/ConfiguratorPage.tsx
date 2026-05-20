@@ -2228,7 +2228,16 @@ export default function ConfiguratorPage() {
                       {T('startNewConfig')}
                     </button>
                   </div>
-                  {state.flowType === 'order' && !permissions.canSubmitOrder ? (
+                  {state.flowType === 'order' && orderLocked ? (
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
+                        Ordre afgivet
+                      </span>
+                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title="Denne ordre er allerede afgivet og kan ikke sendes igen.">
+                        {T('sendOrder')}
+                      </button>
+                    </div>
+                  ) : state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
                       {T('onlyDealerCanOrder')}
                     </button>
