@@ -1469,10 +1469,10 @@ export default function ConfiguratorPage() {
               <button
                 onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
                 disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? 'Denne ordre er allerede afgivet og kan ikke sendes igen.' : undefined}
+                title={state.flowType === 'order' && orderLocked ? T('orderCannotResendTitle') : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {state.flowType === 'order' && orderLocked
-                  ? 'Ordre afgivet'
+                  ? T('orderSubmittedBadge')
                   : submitting
                     ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                     : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
