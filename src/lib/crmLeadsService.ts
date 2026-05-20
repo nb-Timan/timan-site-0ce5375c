@@ -130,6 +130,8 @@ export interface CrmLead {
    *  this lead. Independent from estimated_value — only this field affects
    *  the working forecast (CRM Budget). 0 / null = not in Arbejdsbudget. */
   move_to_working_qty?: number | null;
+  /** Phase 38 — set after this lead has been converted into a demo lead. */
+  converted_demo_lead_id?: string | null;
   created_at: string;
   updated_at: string;
 }
