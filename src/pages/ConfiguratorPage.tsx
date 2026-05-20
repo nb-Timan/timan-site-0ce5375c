@@ -333,6 +333,7 @@ export default function ConfiguratorPage() {
         }
         setState(saved.state_json);
         setSavedConfigurationId(saved.id);
+        setOrderLocked(isSavedConfigurationOrderLocked(saved));
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
