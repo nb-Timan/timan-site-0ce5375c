@@ -204,6 +204,11 @@ export default function CrmNewDemoLeadPage() {
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Phase 38 — prefill from a CRM lead when ?fromLead=<id> is in the URL.
+  const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
+  const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
+
+
   // Dealers + sellers
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealersLoading, setDealersLoading] = useState(false);
