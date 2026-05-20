@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
