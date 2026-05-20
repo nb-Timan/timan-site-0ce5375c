@@ -777,5 +777,5 @@ const translations: Record<Language, Record<string, string>> = {
 };
 
 export function t(key: string, lang: Language = 'da'): string {
-  return translations[lang]?.[key] ?? translations.da?.[key] ?? key;
+  return translations[lang]?.[key] ?? translations.en?.[key] ?? translations.da?.[key] ?? key;
 }
