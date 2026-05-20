@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted } from '@/lib/configurationsService';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
@@ -221,6 +221,11 @@ export default function ConfiguratorPage() {
   const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
   const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
   const [savedSourceQuoteNumber, setSavedSourceQuoteNumber] = useState<string | null>(null);
+  // Duplicate-send protection: when the currently-open saved case is an
+  // already-submitted order, lock the UI (read-only, hide send button).
+  // Set on resume / AccountPanel restore, and verified server-side just
+  // before the order webhook fires.
+  const [orderLocked, setOrderLocked] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
@@ -237,6 +242,22 @@ export default function ConfiguratorPage() {
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
   // when a saved case has been reopened (savedConfigurationId is set).
+  // Resolve the "already submitted order" lock whenever the loaded case
+  // changes. Re-reads the row from Supabase so we never trust stale local
+  // state. When no case is loaded, the lock is cleared.
+  useEffect(() => {
+    let cancelled = false;
+    if (!savedConfigurationId) {
+      setOrderLocked(false);
+      return;
+    }
+    (async () => {
+      const res = await fetchIsOrderSubmitted(savedConfigurationId);
+      if (!cancelled) setOrderLocked(res.locked);
+    })();
+    return () => { cancelled = true; };
+  }, [savedConfigurationId]);
+
   const handleSaveChanges = useCallback(async () => {
     if (!savedConfigurationId || savingChanges) return;
     setSavingChanges(true);
@@ -312,6 +333,7 @@ export default function ConfiguratorPage() {
         }
         setState(saved.state_json);
         setSavedConfigurationId(saved.id);
+        setOrderLocked(isSavedConfigurationOrderLocked(saved));
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
@@ -957,6 +979,19 @@ export default function ConfiguratorPage() {
 
       // Send webhook for Ordre flow
       if (state.flowType === 'order') {
+        // ── Duplicate-send protection (server-side) ──
+        // Re-read the current row from Supabase by id. If the order is
+        // already submitted, abort BEFORE generating PDF / sending email /
+        // calling n8n / updating order_sent_at. Do not trust local state.
+        if (activeCaseId) {
+          const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
+          if (lockCheck.locked) {
+            setOrderLocked(true);
+            toast.error('Denne ordre er allerede afgivet og kan ikke sendes igen.');
+            setConfirmModalOpen(false);
+            return;
+          }
+        }
         // Idempotent save: only create a new row if no case exists yet.
         // Reuse activeCaseId from the save block above to avoid duplicates.
         if (!activeCaseId && appUser) {
@@ -1421,12 +1456,15 @@ export default function ConfiguratorPage() {
                 {T('close')}
               </button>
               <button
-                onClick={() => { if (!submitting) setConfirmSubmitOpen(true); }}
-                disabled={submitting}
+                onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
+                disabled={submitting || (state.flowType === 'order' && orderLocked)}
+                title={state.flowType === 'order' && orderLocked ? 'Denne ordre er allerede afgivet og kan ikke sendes igen.' : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-                {submitting
-                  ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                  : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
+                {state.flowType === 'order' && orderLocked
+                  ? 'Ordre afgivet'
+                  : submitting
+                    ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
+                    : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
               </button>
             </div>
           </div>
@@ -2193,7 +2231,16 @@ export default function ConfiguratorPage() {
                       {T('startNewConfig')}
                     </button>
                   </div>
-                  {state.flowType === 'order' && !permissions.canSubmitOrder ? (
+                  {state.flowType === 'order' && orderLocked ? (
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
+                        Ordre afgivet
+                      </span>
+                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title="Denne ordre er allerede afgivet og kan ikke sendes igen.">
+                        {T('sendOrder')}
+                      </button>
+                    </div>
+                  ) : state.flowType === 'order' && !permissions.canSubmitOrder ? (
                     <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed">
                       {T('onlyDealerCanOrder')}
                     </button>
