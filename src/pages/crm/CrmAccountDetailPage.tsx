@@ -517,7 +517,7 @@ export default function CrmAccountDetailPage() {
                           <span className={cn("inline-block h-2 w-2 rounded-full mr-2", urgencyDot(u))} />
                           <span className="text-gray-900">{l.title}</span>
                         </td>
-                        <td className="py-2 px-2 text-gray-700">{l.pipeline_stage}</td>
+                        <td className="py-2 px-2 text-gray-700">{effectiveLeadStatus(l)}</td>
                         <td className="py-2 px-2 text-gray-700">{fmtDate(l.next_followup_date, lang)}</td>
                         <td className="py-2 px-2 text-gray-700">{l.owner_name || "—"}</td>
                         <td className="py-2 pl-2 text-right tabular-nums">{fmtDKK(l.estimated_value || 0)}</td>
