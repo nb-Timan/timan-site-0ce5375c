@@ -1605,7 +1605,13 @@ export default function ConfiguratorPage() {
       {/* Main layout */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
         <main className="lg:col-span-3">
-          <div className="space-y-6">
+          {state.flowType === 'order' && orderLocked && (
+            <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
+              <span><strong>Ordre afgivet</strong> — denne ordre er allerede afsendt og er skrivebeskyttet.</span>
+              <span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>
+            </div>
+          )}
+          <fieldset disabled={state.flowType === 'order' && orderLocked} className={(state.flowType === 'order' && orderLocked) ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={(state.flowType === 'order' && orderLocked) ? { pointerEvents: 'none' } : undefined}>
             {/* Step 1 */}
             {state.step === 1 && (
               <div className="bg-white rounded-2xl shadow p-6">
