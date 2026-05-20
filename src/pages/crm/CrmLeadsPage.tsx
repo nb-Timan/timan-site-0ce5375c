@@ -35,7 +35,11 @@ type TKey =
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_equipment' | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
-  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link';
+  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link'
+  | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
+  | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
+  | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
+  | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Leadek' },
