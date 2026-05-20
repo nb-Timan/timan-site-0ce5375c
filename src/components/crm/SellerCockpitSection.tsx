@@ -528,7 +528,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                                   {l.contact_information && <div>{l.contact_information}</div>}
                                   {l.linked_dealer_id && <div className="text-slate-500">Dealer: {l.linked_dealer_id}</div>}
                                   {l.machine_types?.length > 0 && <div>{l.machine_types.join(", ")}</div>}
-                                  <div className="text-slate-500">{l.pipeline_stage} · {fmtDate(l.next_followup_date, lang)}</div>
+                                  <div className="text-slate-500">{effectiveLeadStatus(l)} · {fmtDate(l.next_followup_date, lang)}</div>
                                   {l.estimated_value != null && <div className="font-medium">{l.estimated_value.toLocaleString("da-DK")} kr.</div>}
                                   {l.owner_name && <div className="text-slate-500">{l.owner_name}</div>}
                                 </div>
