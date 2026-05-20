@@ -263,11 +263,21 @@ export default function CrmNewDemoLeadPage() {
 
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
+  const errDemoType = machineCategory.length === 0 ? tt('val_demo_type', lang) : '';
+  const errDemoMachine = demoMachine.length === 0 ? tt('val_demo_machine', lang) : '';
+  const errDemoEquipment = demoEquipment.length === 0 ? tt('val_demo_equipment', lang) : '';
+  const [showErrors, setShowErrors] = useState(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim())        { toast.error(tt('val_title', lang)); return; }
     if (!responsibleSellerId) { toast.error(tt('val_seller', lang)); return; }
     if (!dealerCompany)       { toast.error(tt('val_dealer', lang)); return; }
+    if (errDemoType || errDemoMachine || errDemoEquipment) {
+      setShowErrors(true);
+      toast.error(errDemoType || errDemoMachine || errDemoEquipment);
+      return;
+    }
     setSubmitting(true);
     try {
       const chosen = sellers.find(s => s.id === responsibleSellerId);
