@@ -27,6 +27,7 @@ interface Props {
 }
 
 export default function EditOrderOwnershipModal({ row, canEdit, onClose, onSaved }: Props) {
+  const sellerDir = useSellerDirectory();
   const [sellers, setSellers] = useState<SellerOpt[]>([]);
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [loading, setLoading] = useState(true);
