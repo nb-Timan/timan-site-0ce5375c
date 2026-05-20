@@ -21,6 +21,7 @@ import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitie
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { listScopedOpenQuotes, type ScopedConfiguration } from '@/lib/crmRelationsService';
 import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { effectiveLeadStatus } from '@/lib/leadStatus';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
