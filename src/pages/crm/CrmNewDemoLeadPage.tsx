@@ -374,6 +374,19 @@ export default function CrmNewDemoLeadPage() {
           </Link>
         </div>
 
+        {sourceLeadId && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
+            <span>
+              {tt('from_lead_banner', lang)}{' '}
+              <span className="font-mono">{formatLeadNo(sourceLeadNo)}</span>
+            </span>
+            <Link to={`/portal/crm/leads/${sourceLeadId}`} className="text-xs text-violet-800 hover:underline">
+              {tt('from_lead_link', lang)} →
+            </Link>
+          </div>
+        )}
+
+
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)}>
             <Field label={tt('lbl_title', lang)} required full>
