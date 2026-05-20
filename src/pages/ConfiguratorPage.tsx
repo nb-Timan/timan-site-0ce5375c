@@ -262,7 +262,7 @@ export default function ConfiguratorPage() {
     if (!savedConfigurationId || savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
-      toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+      toast.error(T('orderAlreadySubmittedToast'));
       return;
     }
     setSavingChanges(true);
