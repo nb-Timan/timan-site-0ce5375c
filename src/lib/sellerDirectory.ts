@@ -197,3 +197,31 @@ export function resolveSellerDisplay(
     matched: false,
   };
 }
+
+/**
+ * Resolve the *live* seller initials for a dealer_accounts row.
+ *
+ * Dealer dropdowns historically render `dealer.assigned_seller_initials` as
+ * frozen text (e.g. "AK"). When the dealer's `assigned_seller_email` matches
+ * a current `app_users` row, we instead return that user's *current*
+ * `app_users.initials` (e.g. "AKR"), so backend edits flow through
+ * everywhere without bulk-updating dealer rows. Falls back to the stored
+ * initials when no match is found — never invents a value.
+ */
+export function resolveDealerSellerInitials(
+  dealer: {
+    assigned_seller_email?: string | null;
+    assigned_seller_initials?: string | null;
+  },
+  dir: SellerDirectory,
+): string {
+  const display = resolveSellerDisplay(
+    {
+      email: dealer.assigned_seller_email ?? null,
+      initialsKey: dealer.assigned_seller_initials ?? null,
+      fallbackInitials: dealer.assigned_seller_initials ?? null,
+    },
+    dir,
+  );
+  return display.initials;
+}
