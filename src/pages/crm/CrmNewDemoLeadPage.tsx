@@ -87,6 +87,10 @@ const T: Record<TKey, Record<Language, string>> = {
   val_dealer:    { da: 'Vælg en forhandler.', en: 'Select a dealer.', de: 'Wählen Sie einen Händler.', it: 'Selezionare un rivenditore.', hu: 'Válasszon kereskedőt.' },
   created_ok:    { da: 'Demo lead oprettet', en: 'Demo lead created', de: 'Demo-Lead erstellt', it: 'Demo lead creato', hu: 'Demo lead létrehozva' },
   created_err:   { da: 'Kunne ikke oprette demo lead', en: 'Could not create demo lead', de: 'Demo-Lead konnte nicht erstellt werden', it: 'Impossibile creare il demo lead', hu: 'Nem sikerült létrehozni a demo leadet' },
+  val_demo_type: { da: 'Vælg demo-type.', en: 'Select demo type.', de: 'Demo-Typ auswählen.', it: 'Seleziona il tipo di demo.', hu: 'Válasszon demó típust.' },
+  val_demo_machine: { da: 'Vælg mindst én demonstreret maskine.', en: 'Select at least one demonstrated machine.', de: 'Wählen Sie mindestens eine vorgeführte Maschine.', it: 'Seleziona almeno una macchina dimostrata.', hu: 'Válasszon legalább egy bemutatott gépet.' },
+  val_demo_equipment: { da: 'Vælg mindst ét demonstreret udstyr.', en: 'Select at least one demonstrated equipment item.', de: 'Wählen Sie mindestens ein vorgeführtes Zubehör.', it: 'Seleziona almeno un accessorio dimostrato.', hu: 'Válasszon legalább egy bemutatott eszközt.' },
+  ph_addr:       { da: 'Begynd at skrive adresse…', en: 'Start typing address…', de: 'Adresse eingeben…', it: 'Inizia a digitare l\'indirizzo…', hu: 'Kezdjen címet írni…' },
 };
 
 function tt(k: TKey, lang: Language): string {
