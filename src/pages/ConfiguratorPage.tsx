@@ -2268,8 +2268,9 @@ export default function ConfiguratorPage() {
                 </div>
               </div>
             )}
-          </div>
+          </fieldset>
         </main>
+
 
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
