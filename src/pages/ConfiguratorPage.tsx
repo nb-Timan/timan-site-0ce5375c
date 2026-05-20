@@ -221,6 +221,11 @@ export default function ConfiguratorPage() {
   const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
   const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
   const [savedSourceQuoteNumber, setSavedSourceQuoteNumber] = useState<string | null>(null);
+  // Duplicate-send protection: when the currently-open saved case is an
+  // already-submitted order, lock the UI (read-only, hide send button).
+  // Set on resume / AccountPanel restore, and verified server-side just
+  // before the order webhook fires.
+  const [orderLocked, setOrderLocked] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
