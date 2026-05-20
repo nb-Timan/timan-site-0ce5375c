@@ -260,8 +260,19 @@ export default function ConfiguratorPage() {
 
   const handleSaveChanges = useCallback(async () => {
     if (!savedConfigurationId || savingChanges) return;
+    // Block saving on already-submitted orders (local + server re-check).
+    if (orderLocked) {
+      toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+      return;
+    }
     setSavingChanges(true);
     try {
+      const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
+      if (serverCheck.locked) {
+        setOrderLocked(true);
+        toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+        return;
+      }
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
       const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
@@ -283,7 +294,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, getRequiredOwnershipPayload, state]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
