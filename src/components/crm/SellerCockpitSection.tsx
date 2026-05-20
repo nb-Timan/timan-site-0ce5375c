@@ -298,7 +298,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // ── Lead urgency buckets ──
   const now = new Date();
-  const openLeads = scopedLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage));
+  const openLeads = scopedLeads.filter(l => isOpenLead(l));
   const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
   for (const l of openLeads) buckets[classifyUrgency(l, now)].push(l);
   const totalLeads = openLeads.length;
@@ -374,9 +374,9 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
       const ownLeads = allLeads.filter(l =>
         (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
       );
-      const ownPipeline = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage)).length;
-      const overdue = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "overdue").length;
-      const noFollow = ownLeads.filter(l => OPEN_STAGES.has(l.pipeline_stage) && classifyUrgency(l, now) === "none").length;
+      const ownPipeline = ownLeads.filter(l => isOpenLead(l)).length;
+      const overdue = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "overdue").length;
+      const noFollow = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
       return {
         initials: seller.initials,
