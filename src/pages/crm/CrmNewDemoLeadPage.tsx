@@ -169,6 +169,8 @@ export default function CrmNewDemoLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromLeadId = searchParams.get('fromLead') || '';
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
