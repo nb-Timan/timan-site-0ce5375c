@@ -8,12 +8,24 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  listLeads, listDemoLeads, resolveSeedOwners,
-  CrmLead, CrmDemoLead, PIPELINE_STAGES,
+  listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead,
+  CrmLead, CrmDemoLead,
   formatLeadNo, formatDemoNo,
+  LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
 } from '@/lib/crmLeadsService';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
+import {
+  effectiveLeadStatus,
+  LEAD_DISPLAY_STATUSES,
+  type LeadDisplayStatus,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_LOST,
+  deriveLegacyPipelineStage,
+} from '@/lib/leadStatus';
+import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 // ---- i18n. English fallback. ----
 type TKey =
