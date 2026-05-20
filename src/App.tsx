@@ -9,7 +9,7 @@ import PortalPage from "./pages/PortalPage";
 import PortalAreaPage from "./pages/PortalAreaPage";
 import PortalCrmPage from "./pages/PortalCrmPage";
 import CrmDashboardPage from "./pages/crm/CrmDashboardPage";
-import CrmAccountsPage from "./pages/crm/CrmAccountsPage";
+
 import CrmMyDealersPage from "./pages/crm/CrmMyDealersPage";
 import CrmDealerDetailPage from "./pages/crm/CrmDealerDetailPage";
 import CrmAccountDetailPage from "./pages/crm/CrmAccountDetailPage";
