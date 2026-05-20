@@ -185,13 +185,13 @@ interface DealerOption {
   account_number: string;
 }
 
-function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
-  const initials = d.assigned_seller_initials || '';
+function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): DealerOption {
+  const initials = liveInitials || d.assigned_seller_initials || '';
   const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ''}`;
   return {
     value: d.account_number,
     label,
-    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(' ').toLowerCase(),
+    searchKey: [d.company_name, d.account_number, d.city, d.country, initials].filter(Boolean).join(' ').toLowerCase(),
     isMine: mine,
     company_name: d.company_name,
     account_number: d.account_number,
