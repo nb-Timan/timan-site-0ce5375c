@@ -8,12 +8,24 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  listLeads, listDemoLeads, resolveSeedOwners,
-  CrmLead, CrmDemoLead, PIPELINE_STAGES,
+  listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead,
+  CrmLead, CrmDemoLead,
   formatLeadNo, formatDemoNo,
+  LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
 } from '@/lib/crmLeadsService';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
+import {
+  effectiveLeadStatus,
+  LEAD_DISPLAY_STATUSES,
+  type LeadDisplayStatus,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_LOST,
+  deriveLegacyPipelineStage,
+} from '@/lib/leadStatus';
+import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -23,7 +35,11 @@ type TKey =
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_equipment' | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
-  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link';
+  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link'
+  | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
+  | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
+  | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
+  | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Leadek' },
@@ -57,6 +73,28 @@ const T: Record<TKey, Record<Language, string>> = {
   demo_lbl:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
   unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan' },
   open_link:     { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
+  close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás' },
+  close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása' },
+  close_sub:     { da: 'Markér leadet som vundet eller tabt.', en: 'Mark the lead as won or lost.', de: 'Lead als gewonnen oder verloren markieren.', it: 'Segna il lead come vinto o perso.', hu: 'Jelölje a leadet nyertesnek vagy elveszettnek.' },
+  won_label:     { da: 'Ordre vundet', en: 'Order won', de: 'Auftrag gewonnen', it: 'Ordine vinto', hu: 'Megrendelés nyertes' },
+  lost_label:    { da: 'Ordre tabt', en: 'Order lost', de: 'Auftrag verloren', it: 'Ordine perso', hu: 'Megrendelés elveszett' },
+  lost_analysis_title: { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése' },
+  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
+  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
+  lost_reason:   { da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum verloren', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
+  lost_comment:  { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
+  save:          { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés' },
+  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
+  pick:          { da: 'Vælg…', en: 'Select…', de: 'Wählen…', it: 'Seleziona…', hu: 'Válasszon…' },
+  closed_ok:     { da: 'Leadet er lukket.', en: 'Lead closed.', de: 'Lead geschlossen.', it: 'Lead chiuso.', hu: 'Lead lezárva.' },
+  close_err:     { da: 'Kunne ikke lukke leadet.', en: 'Could not close lead.', de: 'Lead konnte nicht geschlossen werden.', it: 'Impossibile chiudere il lead.', hu: 'Nem sikerült lezárni a leadet.' },
+  verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.' },
+  st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
+  st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
+  st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
+  st_Followup:   { da: 'Follow-up', en: 'Follow-up', de: 'Follow-up', it: 'Follow-up', hu: 'Utánkövetés' },
+  st_Vundet:     { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes' },
+  st_Tabt:       { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett' },
 };
 function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
@@ -84,18 +122,40 @@ interface UnifiedLead {
 }
 
 const STAGE_CLR: Record<string, string> = {
-  Lead:        'bg-sky-50 text-sky-700 border-sky-200',
-  Qualified:   'bg-violet-50 text-violet-700 border-violet-200',
-  'Offer sent':'bg-amber-50 text-amber-800 border-amber-200',
-  Negotiation: 'bg-orange-50 text-orange-700 border-orange-200',
-  Won:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Lost:        'bg-rose-50 text-rose-700 border-rose-200',
-  'Hot lead':  'bg-rose-50 text-rose-700 border-rose-200',
-  'Warm lead': 'bg-amber-50 text-amber-800 border-amber-200',
-  'Cold lead': 'bg-sky-50 text-sky-700 border-sky-200',
+  // New canonical lead-status buckets (effectiveLeadStatus output).
+  Lead:           'bg-sky-50 text-sky-700 border-sky-200',
+  'Demo planlagt':'bg-violet-50 text-violet-700 border-violet-200',
+  'Tilbud sendt': 'bg-amber-50 text-amber-800 border-amber-200',
+  'Follow-up':    'bg-orange-50 text-orange-700 border-orange-200',
+  Vundet:         'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Tabt:           'bg-rose-50 text-rose-700 border-rose-200',
+  // Legacy pipeline_stage labels (still rendered for demos / legacy strings).
+  Qualified:      'bg-violet-50 text-violet-700 border-violet-200',
+  'Offer sent':   'bg-amber-50 text-amber-800 border-amber-200',
+  Negotiation:    'bg-orange-50 text-orange-700 border-orange-200',
+  Won:            'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Lost:           'bg-rose-50 text-rose-700 border-rose-200',
+  // Demo result statuses.
+  'Hot lead':     'bg-rose-50 text-rose-700 border-rose-200',
+  'Warm lead':    'bg-amber-50 text-amber-800 border-amber-200',
+  'Cold lead':    'bg-sky-50 text-sky-700 border-sky-200',
   'Offer requested': 'bg-violet-50 text-violet-700 border-violet-200',
-  'No fit':    'bg-gray-100 text-gray-700 border-gray-200',
+  'No fit':       'bg-gray-100 text-gray-700 border-gray-200',
 };
+
+const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
+  Lead: 'st_Lead',
+  'Demo planlagt': 'st_Demo',
+  'Tilbud sendt': 'st_Tilbud',
+  'Follow-up': 'st_Followup',
+  Vundet: 'st_Vundet',
+  Tabt: 'st_Tabt',
+};
+function localizeStatus(s: string | null | undefined, lang: Language): string {
+  if (!s) return '—';
+  const k = ST_TKEY[s as LeadDisplayStatus];
+  return k ? tt(k, lang) : s;
+}
 
 function formatKr(n: number | null | undefined): string {
   if (n == null) return '—';
@@ -126,7 +186,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     equipment: null,
     date: l.first_contact_date || l.created_at,
     next_followup: l.next_followup_date,
-    status: l.pipeline_stage,
+    status: effectiveLeadStatus(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
   };
@@ -179,6 +239,13 @@ export default function CrmLeadsPage() {
   const [tab, setTab] = useState<TabKey>(isAdmin ? 'all' : 'mine');
   const [q, setQ] = useState('');
   const [stage, setStage] = useState<string>('');
+  const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
+
+  const refreshLeads = async () => {
+    const openAll = await listLeads({});
+    const openResolved = await resolveSeedOwners(openAll);
+    setOpenLeads(openResolved);
+  };
 
   useEffect(() => { setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin]);
 
@@ -339,7 +406,7 @@ export default function CrmLeadsPage() {
         <select value={stage} onChange={e=>setStage(e.target.value)}
           className="rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
-          {PIPELINE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {LEAD_DISPLAY_STATUSES.map(s => <option key={s} value={s}>{localizeStatus(s, lang)}</option>)}
           <option disabled>──────────</option>
           {['Hot lead','Warm lead','Cold lead','Offer requested','No fit'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -416,19 +483,33 @@ export default function CrmLeadsPage() {
                         {r.status ? (
                           <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
                             STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                            {r.status}
+                            {localizeStatus(r.status, lang)}
                           </span>
                         ) : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        {r.detail_href ? (
-                          <Link to={r.detail_href} onClick={e => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
-                            {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
-                        ) : (
-                          <span className="text-[12px] text-gray-400">—</span>
-                        )}
+                        <div className="flex items-center justify-end gap-3">
+                          {r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const lead = openLeads.find(l => l.id === r.id);
+                                if (lead) setCloseTarget(lead);
+                              }}
+                              className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
+                            </button>
+                          )}
+                          {r.detail_href ? (
+                            <Link to={r.detail_href} onClick={e => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
+                              {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
+                            </Link>
+                          ) : (
+                            <span className="text-[12px] text-gray-400">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -438,6 +519,150 @@ export default function CrmLeadsPage() {
           </div>
         )}
       </div>
+
+      <WonLostDialog
+        lead={closeTarget}
+        lang={lang}
+        onOpenChange={(open) => { if (!open) setCloseTarget(null); }}
+        onSaved={async () => { setCloseTarget(null); await refreshLeads(); }}
+      />
     </CrmLayout>
+  );
+}
+
+// ============================================================================
+// Won/Lost close dialog
+// ============================================================================
+function WonLostDialog({
+  lead, lang, onOpenChange, onSaved,
+}: {
+  lead: CrmLead | null;
+  lang: Language;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [mode, setMode] = useState<'won' | 'lost' | null>(null);
+  const [competitor, setCompetitor] = useState('');
+  const [competitorOther, setCompetitorOther] = useState('');
+  const [reason, setReason] = useState('');
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMode(null);
+    setCompetitor(''); setCompetitorOther(''); setReason(''); setComment('');
+  }, [lead?.id]);
+
+  if (!lead) return null;
+
+  async function handleSave() {
+    if (!lead) return;
+    setSaving(true);
+    try {
+      const isWon = mode === 'won';
+      const nextActivity = isWon ? NEXT_ACTIVITY_WON : NEXT_ACTIVITY_LOST;
+      const closedAt = new Date().toISOString();
+      await updateLead(lead.id, {
+        next_activity: nextActivity,
+        probability: isWon ? 100 : 0,
+        pipeline_stage: deriveLegacyPipelineStage(nextActivity),
+        status: 'closed',
+        ...(isWon ? {} : {
+          lost_competitor: competitor === 'Andre' ? (competitorOther || 'Andre') : (competitor || null),
+          lost_reason: reason || null,
+          lost_comment: comment || null,
+        }),
+        updated_at: closedAt,
+      } as any);
+      // Verify before showing success.
+      const fresh = await getLead(lead.id);
+      const ok = !!fresh && fresh.next_activity === nextActivity;
+      if (!ok) { toast.error(tt('verify_err', lang)); return; }
+      toast.success(tt('closed_ok', lang));
+      onSaved();
+    } catch (e) {
+      console.error(e);
+      toast.error(tt('close_err', lang));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isLost = mode === 'lost';
+  return (
+    <Dialog open={!!lead} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{tt('close_title', lang)}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-gray-600 -mt-2">{tt('close_sub', lang)}</p>
+
+        {mode === null && (
+          <div className="grid grid-cols-1 gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => setMode('won')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-sm font-medium transition"
+            >
+              <CheckCircle2 className="h-4 w-4" /> {tt('won_label', lang)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('lost')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-sm font-medium transition"
+            >
+              <XCircle className="h-4 w-4" /> {tt('lost_label', lang)}
+            </button>
+          </div>
+        )}
+
+        {isLost && (
+          <div className="space-y-3 mt-1">
+            <div className="flex items-center gap-2 text-rose-800 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4" /> {tt('lost_analysis_title', lang)}
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_to', lang)}</label>
+              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                value={competitor} onChange={e => setCompetitor(e.target.value)}>
+                <option value="">{tt('pick', lang)}</option>
+                {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            {competitor === 'Andre' && (
+              <div>
+                <label className="text-[12px] font-medium text-gray-700">{tt('lost_other', lang)}</label>
+                <input className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                  value={competitorOther} onChange={e => setCompetitorOther(e.target.value)} />
+              </div>
+            )}
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_reason', lang)}</label>
+              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                value={reason} onChange={e => setReason(e.target.value)}>
+                <option value="">{tt('pick', lang)}</option>
+                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_comment', lang)}</label>
+              <textarea className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white min-h-[80px]"
+                value={comment} onChange={e => setComment(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="mt-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            {tt('cancel', lang)}
+          </Button>
+          {mode !== null && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? '…' : tt('save', lang)}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1486,6 +1486,8 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
         const { updateLead } = await import('@/lib/crmLeadsService');
         await updateLead(linkedLeadId, {
           pipeline_stage: 'Offer sent',
+          next_activity: 'Offer sent to the customer',
+          probability: 70,
           notes: [
             (row.title as string | null) || '',
             `Tilbud afgivet via konfiguratoren${row.quote_number ? ` — ${row.quote_number}` : ''}`,

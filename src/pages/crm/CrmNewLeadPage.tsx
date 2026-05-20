@@ -9,9 +9,14 @@ import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createLead, updateLead, getLead, MACHINE_TYPE_OPTIONS, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
-  CUSTOMER_TYPE_OPTIONS, PIPELINE_STAGES, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
 } from '@/lib/crmLeadsService';
+import {
+  nextActivityToProbability,
+  deriveLegacyPipelineStage,
+  NEXT_ACTIVITY_LOST,
+} from '@/lib/leadStatus';
 import { listConfigurationsForLead, type CrmLeadQuoteRow } from '@/lib/crmConfigurationsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
@@ -356,7 +361,16 @@ export default function CrmNewLeadPage() {
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
-  const isLost = stage === 'Lost';
+  const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
+
+  // Auto-derive probability + legacy pipeline stage from next_activity selection.
+  function handleNextActivityChange(na: string) {
+    setNextActivity(na);
+    if (na) {
+      setProbability(String(nextActivityToProbability(na)));
+      setStage(deriveLegacyPipelineStage(na));
+    }
+  }
 
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
@@ -557,7 +571,7 @@ export default function CrmNewLeadPage() {
 
           <Section title={tt('sec_next_act', lang)}>
             <Field label={tt('lbl_next_activity', lang)} required full>
-              <select className={inputCls} value={nextActivity} onChange={e=>setNextActivity(e.target.value)}>
+              <select className={inputCls} value={nextActivity} onChange={e=>handleNextActivityChange(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
                 {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -631,18 +645,7 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_pipeline', lang)} full>
-              <div className="flex flex-wrap gap-2">
-                {PIPELINE_STAGES.map(s => (
-                  <button type="button" key={s} onClick={()=>setStage(s)}
-                    className={cn('px-3.5 py-2 rounded-xl text-sm border transition',
-                      stage===s ? (s==='Lost' ? 'bg-rose-600 border-rose-600 text-white' : s==='Won' ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-[#2d5a27] border-[#2d5a27] text-white')
-                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
 
           {isLost && (
