@@ -93,6 +93,8 @@ const T: Record<TKey, Record<Language, string>> = {
   val_demo_machine: { da: 'Vælg mindst én demonstreret maskine.', en: 'Select at least one demonstrated machine.', de: 'Wählen Sie mindestens eine vorgeführte Maschine.', it: 'Seleziona almeno una macchina dimostrata.', hu: 'Válasszon legalább egy bemutatott gépet.' },
   val_demo_equipment: { da: 'Vælg mindst ét demonstreret udstyr.', en: 'Select at least one demonstrated equipment item.', de: 'Wählen Sie mindestens ein vorgeführtes Zubehör.', it: 'Seleziona almeno un accessorio dimostrato.', hu: 'Válasszon legalább egy bemutatott eszközt.' },
   ph_addr:       { da: 'Begynd at skrive adresse…', en: 'Start typing address…', de: 'Adresse eingeben…', it: 'Inizia a digitare l\'indirizzo…', hu: 'Kezdjen címet írni…' },
+  from_lead_banner: { da: 'Oprettet fra lead', en: 'Created from lead', de: 'Erstellt aus Lead', it: 'Creato dal lead', hu: 'Leadből létrehozva' },
+  from_lead_link:   { da: 'Åbn oprindeligt lead', en: 'Open original lead', de: 'Ursprünglichen Lead öffnen', it: 'Apri lead originale', hu: 'Eredeti lead megnyitása' },
 };
 
 function tt(k: TKey, lang: Language): string {
