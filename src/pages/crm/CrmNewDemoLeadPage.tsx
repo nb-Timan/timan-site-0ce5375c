@@ -37,7 +37,8 @@ type TKey =
   | 'pick_files' | 'mine_dealers' | 'other_dealers' | 'loading_dealers'
   | 'no_match' | 'val_title' | 'val_seller' | 'val_dealer'
   | 'created_ok' | 'created_err' | 'search_dealer'
-  | 'val_demo_type' | 'val_demo_machine' | 'val_demo_equipment' | 'ph_addr';
+  | 'val_demo_type' | 'val_demo_machine' | 'val_demo_equipment' | 'ph_addr'
+  | 'from_lead_banner' | 'from_lead_link';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Nyt demo lead', en: 'New demo lead', de: 'Neuer Demo-Lead', it: 'Nuovo demo lead', hu: 'Új demo lead' },
