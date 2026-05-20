@@ -399,7 +399,7 @@ export default function CrmLeadsPage() {
         <select value={stage} onChange={e=>setStage(e.target.value)}
           className="rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
-          {PIPELINE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {LEAD_DISPLAY_STATUSES.map(s => <option key={s} value={s}>{localizeStatus(s, lang)}</option>)}
           <option disabled>──────────</option>
           {['Hot lead','Warm lead','Cold lead','Offer requested','No fit'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
