@@ -170,6 +170,14 @@ const translations: Record<Language, Record<string, string>> = {
     machineInfo: 'Maskine Information',
     packagingCostTitle: 'Pakkeomkostning',
     downloadPdfLabel: 'Download PDF',
+    orderSubmittedBadge: 'Ordre afgivet',
+    orderLockedReadonly: 'Ordre afgivet – skrivebeskyttet',
+    orderLockedBannerStrong: 'Ordre afgivet',
+    orderLockedBannerText: 'denne ordre er allerede afsendt og er skrivebeskyttet.',
+    orderAlreadySubmittedToast: 'Denne ordre er allerede afgivet og kan ikke ændres.',
+    orderCannotResendTitle: 'Denne ordre er allerede afgivet og kan ikke sendes igen.',
+    saveChangesBtn: 'Gem ændringer',
+    savingChangesBtn: 'Gemmer…',
   },
   en: {
     step1Title: 'Step 1: Select Machines & Quantity',
@@ -337,6 +345,14 @@ const translations: Record<Language, Record<string, string>> = {
     machineInfo: 'Machine Information',
     packagingCostTitle: 'Packaging cost',
     downloadPdfLabel: 'Download PDF',
+    orderSubmittedBadge: 'Order submitted',
+    orderLockedReadonly: 'Order submitted — read-only',
+    orderLockedBannerStrong: 'Order submitted',
+    orderLockedBannerText: 'this order has already been sent and is read-only.',
+    orderAlreadySubmittedToast: 'This order has already been submitted and cannot be changed.',
+    orderCannotResendTitle: 'This order has already been submitted and cannot be sent again.',
+    saveChangesBtn: 'Save changes',
+    savingChangesBtn: 'Saving…',
   },
   de: {
     step1Title: 'Schritt 1: Maschinen & Anzahl wählen',
@@ -469,6 +485,14 @@ const translations: Record<Language, Record<string, string>> = {
     startupOther: 'Maschinenstart / Andere Vereinbarung (siehe Kommentar)',
     startupRequired: 'Bitte wählen Sie eine Startmethode.',
     startupTitle: 'Inbetriebnahme bei Lieferung',
+    orderSubmittedBadge: 'Bestellung erteilt',
+    orderLockedReadonly: 'Bestellung erteilt – schreibgeschützt',
+    orderLockedBannerStrong: 'Bestellung erteilt',
+    orderLockedBannerText: 'diese Bestellung wurde bereits gesendet und ist schreibgeschützt.',
+    orderAlreadySubmittedToast: 'Diese Bestellung wurde bereits erteilt und kann nicht geändert werden.',
+    orderCannotResendTitle: 'Diese Bestellung wurde bereits erteilt und kann nicht erneut gesendet werden.',
+    saveChangesBtn: 'Änderungen speichern',
+    savingChangesBtn: 'Speichern…',
   },
   it: {
     step1Title: 'Passo 1: Seleziona Macchine e Quantità',
@@ -601,6 +625,14 @@ const translations: Record<Language, Record<string, string>> = {
     startupOther: 'Avviamento macchina / Altro accordo (vedi commento)',
     startupRequired: 'Selezionare un metodo di avviamento.',
     startupTitle: 'Avviamento alla consegna',
+    orderSubmittedBadge: 'Ordine inviato',
+    orderLockedReadonly: 'Ordine inviato – sola lettura',
+    orderLockedBannerStrong: 'Ordine inviato',
+    orderLockedBannerText: 'questo ordine è già stato inviato ed è in sola lettura.',
+    orderAlreadySubmittedToast: 'Questo ordine è già stato inviato e non può essere modificato.',
+    orderCannotResendTitle: 'Questo ordine è già stato inviato e non può essere inviato di nuovo.',
+    saveChangesBtn: 'Salva modifiche',
+    savingChangesBtn: 'Salvataggio…',
   },
   hu: {
     step1Title: '1. lépés: Gép és Mennyiség',
@@ -733,9 +765,17 @@ const translations: Record<Language, Record<string, string>> = {
     startupOther: 'Gépindítás / Egyéb megállapodás (lásd megjegyzés)',
     startupRequired: 'Kérjük, válasszon indítási módot.',
     startupTitle: 'Indítás szállításkor',
+    orderSubmittedBadge: 'Rendelés leadva',
+    orderLockedReadonly: 'Rendelés leadva – csak olvasható',
+    orderLockedBannerStrong: 'Rendelés leadva',
+    orderLockedBannerText: 'ez a rendelés már elküldésre került és csak olvasható.',
+    orderAlreadySubmittedToast: 'Ez a rendelés már leadva, nem módosítható.',
+    orderCannotResendTitle: 'Ez a rendelés már leadva, nem küldhető el újra.',
+    saveChangesBtn: 'Módosítások mentése',
+    savingChangesBtn: 'Mentés…',
   },
 };
 
 export function t(key: string, lang: Language = 'da'): string {
-  return translations[lang]?.[key] ?? translations.da?.[key] ?? key;
+  return translations[lang]?.[key] ?? translations.en?.[key] ?? translations.da?.[key] ?? key;
 }

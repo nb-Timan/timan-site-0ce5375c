@@ -262,7 +262,7 @@ export default function ConfiguratorPage() {
     if (!savedConfigurationId || savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
-      toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+      toast.error(T('orderAlreadySubmittedToast'));
       return;
     }
     setSavingChanges(true);
@@ -270,7 +270,7 @@ export default function ConfiguratorPage() {
       const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
       if (serverCheck.locked) {
         setOrderLocked(true);
-        toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+        toast.error(T('orderAlreadySubmittedToast'));
         return;
       }
       const ownershipPayload = await getRequiredOwnershipPayload();
@@ -998,7 +998,7 @@ export default function ConfiguratorPage() {
           const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
           if (lockCheck.locked) {
             setOrderLocked(true);
-            toast.error('Denne ordre er allerede afgivet og kan ikke sendes igen.');
+            toast.error(T('orderCannotResendTitle'));
             setConfirmModalOpen(false);
             return;
           }
@@ -1469,10 +1469,10 @@ export default function ConfiguratorPage() {
               <button
                 onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
                 disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? 'Denne ordre er allerede afgivet og kan ikke sendes igen.' : undefined}
+                title={state.flowType === 'order' && orderLocked ? T('orderCannotResendTitle') : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {state.flowType === 'order' && orderLocked
-                  ? 'Ordre afgivet'
+                  ? T('orderSubmittedBadge')
                   : submitting
                     ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
                     : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
@@ -1607,7 +1607,7 @@ export default function ConfiguratorPage() {
         <main className="lg:col-span-3">
           {state.flowType === 'order' && orderLocked && (
             <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
-              <span><strong>Ordre afgivet</strong> — denne ordre er allerede afsendt og er skrivebeskyttet.</span>
+              <span><strong>{T('orderLockedBannerStrong')}</strong> — {T('orderLockedBannerText')}</span>
               <span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>
             </div>
           )}
@@ -2251,9 +2251,9 @@ export default function ConfiguratorPage() {
                   {state.flowType === 'order' && orderLocked ? (
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
-                        Ordre afgivet
+                        {T('orderSubmittedBadge')}
                       </span>
-                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title="Denne ordre er allerede afgivet og kan ikke sendes igen.">
+                      <button disabled className="px-6 py-3 bg-gray-400 rounded-lg font-medium text-white cursor-not-allowed" title={T('orderCannotResendTitle')}>
                         {T('sendOrder')}
                       </button>
                     </div>
@@ -2277,7 +2277,7 @@ export default function ConfiguratorPage() {
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
             {state.flowType === 'order' && orderLocked && (
               <div className="w-full mb-3 px-4 py-2 bg-amber-100 border border-amber-300 text-amber-900 text-sm font-semibold rounded-lg text-center">
-                Ordre afgivet — skrivebeskyttet
+                {T('orderLockedReadonly')}
               </div>
             )}
             {savedConfigurationId && !(state.flowType === 'order' && orderLocked) && (
@@ -2294,8 +2294,8 @@ export default function ConfiguratorPage() {
                   <polyline points="7 3 7 8 15 8" />
                 </svg>
                 {savingChanges
-                  ? (lang === 'da' ? 'Gemmer…' : 'Saving…')
-                  : (lang === 'da' ? 'Gem ændringer' : 'Save changes')}
+                  ? T('savingChangesBtn')
+                  : T('saveChangesBtn')}
                 <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                   {savedQuoteNumber || savedOrderNumber || ''}
                 </span>
