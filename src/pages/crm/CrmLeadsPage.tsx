@@ -212,6 +212,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
     date: d.demo_date || d.created_at,
     next_followup: d.followup_date,
     status: d.result_status,
+    probability: null,
     value: d.estimated_value,
     detail_href: `/portal/crm/demo-leads/${d.id}`,
   };
