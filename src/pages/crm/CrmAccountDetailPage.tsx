@@ -548,7 +548,7 @@ export default function CrmAccountDetailPage() {
                   <li key={l.id} className="py-2 flex items-center justify-between text-sm">
                     <div className="min-w-0">
                       <div className="font-medium text-gray-900 truncate">{l.title}</div>
-                      <div className="text-xs text-gray-500">{l.pipeline_stage} · {fmtDate(l.expected_close_date || l.next_followup_date, lang)}</div>
+                      <div className="text-xs text-gray-500">{effectiveLeadStatus(l)} · {fmtDate(l.expected_close_date || l.next_followup_date, lang)}</div>
                     </div>
                     <div className="tabular-nums text-gray-700">{fmtDKK(l.estimated_value || 0)}</div>
                   </li>
