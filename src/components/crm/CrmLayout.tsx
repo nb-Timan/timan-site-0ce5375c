@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, LayoutDashboard, Building2, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -34,7 +34,7 @@ interface NavItem { key: keyof typeof T; to: string; icon: typeof LayoutDashboar
 const NAV: NavItem[] = [
   { key: 'dashboard',  to: '/portal/crm/dashboard',  icon: LayoutDashboard },
   { key: 'my_dealers', to: '/portal/crm/my-dealers', icon: Store },
-  { key: 'accounts',   to: '/portal/crm/accounts',   icon: Building2 },
+  
   { key: 'leads',      to: '/portal/crm/leads',      icon: Sparkles },
   { key: 'quotes',     to: '/portal/crm/quotes',     icon: FileText },
   { key: 'orders',     to: '/portal/crm/orders',     icon: ShoppingCart },
