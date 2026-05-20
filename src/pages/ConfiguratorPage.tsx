@@ -270,7 +270,7 @@ export default function ConfiguratorPage() {
       const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
       if (serverCheck.locked) {
         setOrderLocked(true);
-        toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+        toast.error(T('orderAlreadySubmittedToast'));
         return;
       }
       const ownershipPayload = await getRequiredOwnershipPayload();
