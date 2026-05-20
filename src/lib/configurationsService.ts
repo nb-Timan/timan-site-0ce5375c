@@ -1580,3 +1580,81 @@ export async function getSentPdfSignedUrl(
   return { url: data.signedUrl, error: null };
 }
 
+
+// ────────────────────────────────────────────────────────────
+// Submitted-order lock helpers (duplicate-send protection)
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Returns true when the given configuration row represents an order that
+ * has already been submitted. A row counts as locked if ANY of:
+ *   - document_type = 'order' AND order_sent_at is not null
+ *   - case_type = 'order' AND order_sent_at is not null
+ *   - case_status = 'ordre_afgivet'
+ *   - status = 'ordre_afgivet'
+ *   - status = 'order_submitted'
+ *   - order_number exists AND order_sent_at exists
+ */
+export function isOrderRowSubmitted(row: Record<string, unknown> | null | undefined): boolean {
+  if (!row) return false;
+  const documentType = (row.document_type as string | null) ?? null;
+  const caseType = (row.case_type as string | null) ?? null;
+  const caseStatus = (row.case_status as string | null) ?? null;
+  const status = (row.status as string | null) ?? null;
+  const orderSentAt = (row.order_sent_at as string | null) ?? null;
+  const orderNumber = (row.order_number as string | null) ?? null;
+
+  if (caseStatus === 'ordre_afgivet') return true;
+  if (status === 'ordre_afgivet') return true;
+  if (status === 'order_submitted') return true;
+  if (orderSentAt && (documentType === 'order' || caseType === 'order')) return true;
+  if (orderSentAt && orderNumber) return true;
+  return false;
+}
+
+/** Same logic but for the SavedConfiguration shape. */
+export function isSavedConfigurationOrderLocked(
+  saved: Partial<SavedConfiguration> | null | undefined,
+): boolean {
+  if (!saved) return false;
+  return isOrderRowSubmitted({
+    document_type: (saved as Record<string, unknown>).document_type ?? null,
+    case_type: saved.case_type ?? null,
+    case_status: saved.case_status ?? null,
+    status: (saved as Record<string, unknown>).status ?? null,
+    order_sent_at: saved.order_sent_at ?? null,
+    order_number: saved.order_number ?? null,
+  });
+}
+
+/**
+ * SERVER-SIDE pre-send guard: re-reads the row from Supabase and reports
+ * whether it is already a submitted/locked order. Used immediately before
+ * the order webhook is fired so stale local state cannot trigger a
+ * duplicate order email.
+ */
+export async function fetchIsOrderSubmitted(id: string): Promise<{
+  locked: boolean;
+  orderNumber: string | null;
+  error?: string;
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('configurations')
+      .select('document_type, case_type, case_status, status, order_sent_at, order_number')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { locked: false, orderNumber: null };
+    return {
+      locked: isOrderRowSubmitted(data as Record<string, unknown>),
+      orderNumber: (data as { order_number?: string | null }).order_number ?? null,
+    };
+  } catch (e) {
+    return {
+      locked: false,
+      orderNumber: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
