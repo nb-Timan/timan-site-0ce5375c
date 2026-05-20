@@ -2370,9 +2370,11 @@ export default function ConfiguratorPage() {
                   {calcResult.lineItems.map((item, idx) => {
                     if (item.subtotal) {
                       return (
-                        <div key={idx} className="flex justify-between items-end text-sm font-semibold text-gray-800 pt-3 border-t border-dashed border-emerald-200 mt-2 mb-2">
-                          <span>{item.txt}</span>
-                          {permissions.canSeePrices && <span className="price-col">{formatMoney(item.price, lang)}</span>}
+                        <div key={idx} className="mt-2 mb-4 pb-3 border-b border-dashed border-emerald-400">
+                          <div className="flex justify-between items-end text-sm font-semibold text-gray-800">
+                            <span>{item.txt}</span>
+                            {permissions.canSeePrices && <span className="price-col">{formatMoney(item.price, lang)}</span>}
+                          </div>
                         </div>
                       );
                     }
