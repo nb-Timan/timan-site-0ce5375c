@@ -485,10 +485,15 @@ export default function CrmLeadsPage() {
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup, lang)}</td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
-                          <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
-                            STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                            {localizeStatus(r.status, lang)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
+                              STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
+                              {localizeStatus(r.status, lang)}
+                            </span>
+                            {r.probability != null && (
+                              <span className="text-[11px] font-medium text-gray-600 tabular-nums">{r.probability}%</span>
+                            )}
+                          </div>
                         ) : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right">
