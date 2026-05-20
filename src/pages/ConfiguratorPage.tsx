@@ -260,8 +260,19 @@ export default function ConfiguratorPage() {
 
   const handleSaveChanges = useCallback(async () => {
     if (!savedConfigurationId || savingChanges) return;
+    // Block saving on already-submitted orders (local + server re-check).
+    if (orderLocked) {
+      toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+      return;
+    }
     setSavingChanges(true);
     try {
+      const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
+      if (serverCheck.locked) {
+        setOrderLocked(true);
+        toast.error('Denne ordre er allerede afgivet og kan ikke ændres.');
+        return;
+      }
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
       const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
@@ -283,7 +294,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, getRequiredOwnershipPayload, state]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -1594,7 +1605,13 @@ export default function ConfiguratorPage() {
       {/* Main layout */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
         <main className="lg:col-span-3">
-          <div className="space-y-6">
+          {state.flowType === 'order' && orderLocked && (
+            <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
+              <span><strong>Ordre afgivet</strong> — denne ordre er allerede afsendt og er skrivebeskyttet.</span>
+              <span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>
+            </div>
+          )}
+          <fieldset disabled={state.flowType === 'order' && orderLocked} className={(state.flowType === 'order' && orderLocked) ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={(state.flowType === 'order' && orderLocked) ? { pointerEvents: 'none' } : undefined}>
             {/* Step 1 */}
             {state.step === 1 && (
               <div className="bg-white rounded-2xl shadow p-6">
@@ -2251,13 +2268,19 @@ export default function ConfiguratorPage() {
                 </div>
               </div>
             )}
-          </div>
+          </fieldset>
         </main>
+
 
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
-            {savedConfigurationId && (
+            {state.flowType === 'order' && orderLocked && (
+              <div className="w-full mb-3 px-4 py-2 bg-amber-100 border border-amber-300 text-amber-900 text-sm font-semibold rounded-lg text-center">
+                Ordre afgivet — skrivebeskyttet
+              </div>
+            )}
+            {savedConfigurationId && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
@@ -2278,7 +2301,9 @@ export default function ConfiguratorPage() {
                 </span>
               </button>
             )}
-            <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+            <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
+              <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+            </fieldset>
             <AccountPanel
               appUser={appUser}
               language={lang}
