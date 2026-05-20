@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import { useSellerDirectory, resolveDealerSellerInitials } from "@/lib/sellerDirectory";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -106,17 +107,17 @@ function fromLocalInputValue(v: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
-  const initials = d.assigned_seller_initials || "—";
-  const label = `${d.company_name} · ${d.account_number}${initials !== "—" ? ` · ${initials}` : ""}`;
+function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): DealerOption {
+  const initials = liveInitials || d.assigned_seller_initials || "";
+  const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ""}`;
   return {
     value: `dealer:${d.account_number}`,
     label,
-    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(" ").toLowerCase(),
+    searchKey: [d.company_name, d.account_number, d.city, d.country, initials].filter(Boolean).join(" ").toLowerCase(),
     isMine: mine,
     account_number: d.account_number,
     company_name: d.company_name,
-    assigned_seller_initials: d.assigned_seller_initials,
+    assigned_seller_initials: initials || d.assigned_seller_initials,
     assigned_seller_email: d.assigned_seller_email,
     account_id: null,
   };
@@ -209,6 +210,7 @@ export default function CalendarActivityModal(props: Props) {
 
   // Build dealer options grouped by "mine" / "others", with a CRM-accounts fallback
   // when dealer_accounts isn't accessible (e.g. seller without backend RLS).
+  const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const mineInitials = (currentSeller?.initials || "").toUpperCase();
     const mineEmail = (currentSeller?.email || "").toLowerCase();
@@ -217,7 +219,8 @@ export default function CalendarActivityModal(props: Props) {
       const de = (d.assigned_seller_email || "").toLowerCase();
       const mine = (mineInitials !== "" && sellerInitialsMatch(d.assigned_seller_initials, mineInitials))
                 || (mineEmail !== "" && de === mineEmail);
-      return dealerToOption(d, mine);
+      const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+      return dealerToOption(d, mine, liveInitials);
     });
 
     // Fallback: seed with CRM accounts that aren't already represented by an account_number match.
@@ -234,7 +237,7 @@ export default function CalendarActivityModal(props: Props) {
     const mine = all.filter((o) => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = all.filter((o) => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: all };
-  }, [dealers, accounts, currentSeller]);
+  }, [dealers, accounts, currentSeller, sellerDir]);
 
   const selectedOption = allOptions.find((o) => o.value === selectedValue) || null;
   const triggerLabel = selectedValue === "none" || !selectedOption

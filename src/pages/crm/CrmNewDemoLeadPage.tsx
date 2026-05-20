@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
+import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 
 // ---------- i18n. English is the fallback. ----------
@@ -154,13 +155,13 @@ interface DealerOption {
   searchKey: string;
   isMine: boolean;
 }
-function dealerToOption(d: DealerAccount, mine: boolean): DealerOption {
-  const initials = d.assigned_seller_initials || '';
+function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): DealerOption {
+  const initials = liveInitials || d.assigned_seller_initials || '';
   const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ''}`;
   return {
     value: d.account_number,
     label,
-    searchKey: [d.company_name, d.account_number, d.city, d.country].filter(Boolean).join(' ').toLowerCase(),
+    searchKey: [d.company_name, d.account_number, d.city, d.country, initials].filter(Boolean).join(' ').toLowerCase(),
     isMine: mine,
   };
 }
@@ -286,6 +287,7 @@ export default function CrmNewDemoLeadPage() {
   }, [fromLeadId]);
 
 
+  const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selected = sellers.find(s => s.id === responsibleSellerId);
     const mineEmail = (selected?.email || appUser?.email || '').toLowerCase();
@@ -294,12 +296,13 @@ export default function CrmNewDemoLeadPage() {
       const de = (d.assigned_seller_email || '').toLowerCase();
       const mine = (mineEmail !== '' && de === mineEmail)
         || (mineInitials !== '' && sellerInitialsMatch(d.assigned_seller_initials, mineInitials));
-      return dealerToOption(d, mine);
+      const liveInitials = resolveDealerSellerInitials(d, sellerDir);
+      return dealerToOption(d, mine, liveInitials);
     });
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, sellers, responsibleSellerId, appUser?.email]);
+  }, [dealers, sellers, responsibleSellerId, appUser?.email, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
   const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
