@@ -483,19 +483,33 @@ export default function CrmLeadsPage() {
                         {r.status ? (
                           <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
                             STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                            {r.status}
+                            {localizeStatus(r.status, lang)}
                           </span>
                         ) : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        {r.detail_href ? (
-                          <Link to={r.detail_href} onClick={e => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
-                            {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
-                        ) : (
-                          <span className="text-[12px] text-gray-400">—</span>
-                        )}
+                        <div className="flex items-center justify-end gap-3">
+                          {r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const lead = openLeads.find(l => l.id === r.id);
+                                if (lead) setCloseTarget(lead);
+                              }}
+                              className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
+                            </button>
+                          )}
+                          {r.detail_href ? (
+                            <Link to={r.detail_href} onClick={e => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
+                              {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
+                            </Link>
+                          ) : (
+                            <span className="text-[12px] text-gray-400">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -505,6 +519,150 @@ export default function CrmLeadsPage() {
           </div>
         )}
       </div>
+
+      <WonLostDialog
+        lead={closeTarget}
+        lang={lang}
+        onOpenChange={(open) => { if (!open) setCloseTarget(null); }}
+        onSaved={async () => { setCloseTarget(null); await refreshLeads(); }}
+      />
     </CrmLayout>
+  );
+}
+
+// ============================================================================
+// Won/Lost close dialog
+// ============================================================================
+function WonLostDialog({
+  lead, lang, onOpenChange, onSaved,
+}: {
+  lead: CrmLead | null;
+  lang: Language;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [mode, setMode] = useState<'won' | 'lost' | null>(null);
+  const [competitor, setCompetitor] = useState('');
+  const [competitorOther, setCompetitorOther] = useState('');
+  const [reason, setReason] = useState('');
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMode(null);
+    setCompetitor(''); setCompetitorOther(''); setReason(''); setComment('');
+  }, [lead?.id]);
+
+  if (!lead) return null;
+
+  async function handleSave() {
+    if (!lead) return;
+    setSaving(true);
+    try {
+      const isWon = mode === 'won';
+      const nextActivity = isWon ? NEXT_ACTIVITY_WON : NEXT_ACTIVITY_LOST;
+      const closedAt = new Date().toISOString();
+      await updateLead(lead.id, {
+        next_activity: nextActivity,
+        probability: isWon ? 100 : 0,
+        pipeline_stage: deriveLegacyPipelineStage(nextActivity),
+        status: 'closed',
+        ...(isWon ? {} : {
+          lost_competitor: competitor === 'Andre' ? (competitorOther || 'Andre') : (competitor || null),
+          lost_reason: reason || null,
+          lost_comment: comment || null,
+        }),
+        updated_at: closedAt,
+      } as any);
+      // Verify before showing success.
+      const fresh = await getLead(lead.id);
+      const ok = !!fresh && fresh.next_activity === nextActivity;
+      if (!ok) { toast.error(tt('verify_err', lang)); return; }
+      toast.success(tt('closed_ok', lang));
+      onSaved();
+    } catch (e) {
+      console.error(e);
+      toast.error(tt('close_err', lang));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isLost = mode === 'lost';
+  return (
+    <Dialog open={!!lead} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{tt('close_title', lang)}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-gray-600 -mt-2">{tt('close_sub', lang)}</p>
+
+        {mode === null && (
+          <div className="grid grid-cols-1 gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => setMode('won')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-sm font-medium transition"
+            >
+              <CheckCircle2 className="h-4 w-4" /> {tt('won_label', lang)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('lost')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-sm font-medium transition"
+            >
+              <XCircle className="h-4 w-4" /> {tt('lost_label', lang)}
+            </button>
+          </div>
+        )}
+
+        {isLost && (
+          <div className="space-y-3 mt-1">
+            <div className="flex items-center gap-2 text-rose-800 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4" /> {tt('lost_analysis_title', lang)}
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_to', lang)}</label>
+              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                value={competitor} onChange={e => setCompetitor(e.target.value)}>
+                <option value="">{tt('pick', lang)}</option>
+                {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            {competitor === 'Andre' && (
+              <div>
+                <label className="text-[12px] font-medium text-gray-700">{tt('lost_other', lang)}</label>
+                <input className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                  value={competitorOther} onChange={e => setCompetitorOther(e.target.value)} />
+              </div>
+            )}
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_reason', lang)}</label>
+              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                value={reason} onChange={e => setReason(e.target.value)}>
+                <option value="">{tt('pick', lang)}</option>
+                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-gray-700">{tt('lost_comment', lang)}</label>
+              <textarea className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white min-h-[80px]"
+                value={comment} onChange={e => setComment(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="mt-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            {tt('cancel', lang)}
+          </Button>
+          {mode !== null && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? '…' : tt('save', lang)}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
