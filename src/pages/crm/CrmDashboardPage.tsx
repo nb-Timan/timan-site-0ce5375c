@@ -1341,25 +1341,25 @@ function buildPipelineRows(args: {
     });
   }
 
-  // Lead / Forhandling / Tabt → crm_leads pipeline_stage
+  // Lead / Forhandling / Tabt → next_activity (legacy pipeline_stage fallback)
   for (const l of args.leads) {
-    const stage = (l.pipeline_stage || '').toLowerCase();
+    const status = effectiveLeadStatus(l);
     let bucket: StageMeta['key'] | null = null;
-    if (stage === 'lead' || stage === 'qualified' || stage === 'offer sent') bucket = 'lead';
-    else if (stage === 'negotiation') bucket = 'neg';
-    else if (stage === 'lost') bucket = 'lost';
-    else if (stage === 'won') continue; // won handled by orders to avoid double-counting
+    if (status === 'Vundet') continue; // won handled by orders to avoid double-counting
+    if (status === 'Tabt') bucket = 'lost';
+    else if (status === 'Tilbud sendt') continue; // handled via openQuotes
+    else if (status === 'Demo planlagt') bucket = 'demo';
+    else if (status === 'Follow-up') bucket = 'neg';
     else bucket = 'lead';
-    if (!bucket) continue;
     const row: PipelineRow = {
       id: l.id,
-      type: bucket === 'neg' ? 'Forhandling' : bucket === 'lost' ? 'Tabt' : 'Lead',
+      type: bucket === 'neg' ? 'Forhandling' : bucket === 'lost' ? 'Tabt' : bucket === 'demo' ? 'Demo' : 'Lead',
       number: formatLeadNo(l.lead_no),
       title: l.title || '—',
       dealer: '—',
       seller: l.owner_name || '—',
       value: l.estimated_value || 0,
-      status: l.pipeline_stage || '—',
+      status,
       date: l.updated_at || l.created_at,
       href: `/portal/crm/leads/${l.id}`,
     };
