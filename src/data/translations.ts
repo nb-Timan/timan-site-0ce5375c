@@ -765,6 +765,14 @@ const translations: Record<Language, Record<string, string>> = {
     startupOther: 'Gépindítás / Egyéb megállapodás (lásd megjegyzés)',
     startupRequired: 'Kérjük, válasszon indítási módot.',
     startupTitle: 'Indítás szállításkor',
+    orderSubmittedBadge: 'Rendelés leadva',
+    orderLockedReadonly: 'Rendelés leadva – csak olvasható',
+    orderLockedBannerStrong: 'Rendelés leadva',
+    orderLockedBannerText: 'ez a rendelés már elküldésre került és csak olvasható.',
+    orderAlreadySubmittedToast: 'Ez a rendelés már leadva, nem módosítható.',
+    orderCannotResendTitle: 'Ez a rendelés már leadva, nem küldhető el újra.',
+    saveChangesBtn: 'Módosítások mentése',
+    savingChangesBtn: 'Mentés…',
   },
 };
 
