@@ -426,7 +426,7 @@ export default function CrmNewDemoLeadPage() {
               <input className={inputCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />
             </Field>
             <Field label={tt('lbl_customer_addr', lang)} full>
-              <input className={inputCls} value={customerAddress} onChange={e=>setCustomerAddress(e.target.value)} />
+              <AddressAutocomplete className={inputCls} value={customerAddress} onChange={setCustomerAddress} placeholder={tt('ph_addr', lang)} />
             </Field>
             <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
@@ -435,19 +435,25 @@ export default function CrmNewDemoLeadPage() {
 
           <Section title={tt('sec_demo_type', lang)} subtitle={tt('sec_demo_type_sub', lang)}>
             <div className="md:col-span-2">
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_type', lang)} <span className="text-rose-500">*</span></div>
               <Chips options={DEMO_MACHINE_CATEGORY} value={machineCategory} onChange={setMachineCategory} />
+              {showErrors && errDemoType && <p className="mt-1.5 text-xs text-rose-600">{errDemoType}</p>}
             </div>
           </Section>
 
           <Section title={tt('sec_demo_machine', lang)}>
             <div className="md:col-span-2">
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_machine', lang)} <span className="text-rose-500">*</span></div>
               <Chips options={DEMO_MACHINE_OPTIONS} value={demoMachine} onChange={setDemoMachine} single />
+              {showErrors && errDemoMachine && <p className="mt-1.5 text-xs text-rose-600">{errDemoMachine}</p>}
             </div>
           </Section>
 
           <Section title={tt('sec_demo_equipment', lang)} subtitle={tt('sec_demo_equipment_sub', lang)}>
             <div className="md:col-span-2">
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_equipment', lang)} <span className="text-rose-500">*</span></div>
               <Chips options={DEMO_EQUIPMENT_OPTIONS} value={demoEquipment} onChange={setDemoEquipment} />
+              {showErrors && errDemoEquipment && <p className="mt-1.5 text-xs text-rose-600">{errDemoEquipment}</p>}
             </div>
           </Section>
 
