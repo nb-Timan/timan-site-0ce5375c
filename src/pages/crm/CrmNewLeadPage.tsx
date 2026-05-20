@@ -573,7 +573,13 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_next_activity', lang)} required full>
               <select className={inputCls} value={nextActivity} onChange={e=>handleNextActivityChange(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {NEXT_ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {NEXT_ACTIVITY_OPTIONS
+                  .filter(o => o !== 'Closed with order' && o !== 'Closed without order')
+                  .map(o => <option key={o} value={o}>{o}</option>)}
+                {/* Preserve current value if it's a closed status (legacy/edited lead) so it still displays */}
+                {(nextActivity === 'Closed with order' || nextActivity === 'Closed without order') && (
+                  <option value={nextActivity}>{nextActivity}</option>
+                )}
               </select>
             </Field>
           </Section>
