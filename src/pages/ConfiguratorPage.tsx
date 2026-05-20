@@ -2275,7 +2275,12 @@ export default function ConfiguratorPage() {
         {/* Sidebar */}
         <aside className="lg:col-span-2 no-print">
           <div className="bg-white rounded-2xl p-6 lg:sticky lg:top-8 bg-emerald-50 border-2 border-emerald-100">
-            {savedConfigurationId && (
+            {state.flowType === 'order' && orderLocked && (
+              <div className="w-full mb-3 px-4 py-2 bg-amber-100 border border-amber-300 text-amber-900 text-sm font-semibold rounded-lg text-center">
+                Ordre afgivet — skrivebeskyttet
+              </div>
+            )}
+            {savedConfigurationId && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
