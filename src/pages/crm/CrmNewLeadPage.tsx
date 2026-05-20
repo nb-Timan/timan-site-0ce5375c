@@ -645,18 +645,7 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_pipeline', lang)} full>
-              <div className="flex flex-wrap gap-2">
-                {PIPELINE_STAGES.map(s => (
-                  <button type="button" key={s} onClick={()=>setStage(s)}
-                    className={cn('px-3.5 py-2 rounded-xl text-sm border transition',
-                      stage===s ? (s==='Lost' ? 'bg-rose-600 border-rose-600 text-white' : s==='Won' ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-[#2d5a27] border-[#2d5a27] text-white')
-                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
 
           {isLost && (
