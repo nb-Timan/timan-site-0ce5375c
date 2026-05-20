@@ -118,6 +118,7 @@ interface UnifiedLead {
   date: string | null;
   next_followup: string | null;
   status: string | null;
+  probability: number | null;
   value: number | null;
   detail_href: string | null;
 }
