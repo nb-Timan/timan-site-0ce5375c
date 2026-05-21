@@ -13,6 +13,7 @@ import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/c
 import LeadLinkPicker from '@/components/configurator/LeadLinkPicker';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
