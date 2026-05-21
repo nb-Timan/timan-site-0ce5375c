@@ -44,7 +44,12 @@ interface LoginStepProps {
     preferred_currency?: string | null;
     company_dealer?: string | null;
     module_access?: string[] | null;
+    allowed_areas?: string[] | null;
+    allowed_modules?: string[] | null;
     status?: string | null;
+    dealer_number?: string | null;
+    permissions?: Record<string, boolean> | null;
+    quick_actions?: string[] | null;
   }) => void;
 }
 
