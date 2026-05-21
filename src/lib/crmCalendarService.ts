@@ -13,47 +13,103 @@ import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import type { Language } from "@/types/configurator";
 
 // ---------- n8n Outlook calendar sync (PRODUCTION webhook) ----------
-// First test scope: only sync activities owned by NB / nb@timan.dk.
-// URL is read from VITE_N8N_CRM_CALENDAR_WEBHOOK_URL; if unset, sync is skipped silently.
+// Sync runs for every Timan seller. user_email is resolved from app_users
+// (by seller_user_id or by initials), falling back to a hardcoded map.
 const N8N_CRM_CALENDAR_WEBHOOK_URL: string =
   (import.meta.env.VITE_N8N_CRM_CALENDAR_WEBHOOK_URL as string | undefined) ||
   "https://n8n.srv1509152.hstgr.cloud/webhook/fbfd673a-5225-4d86-bb8e-7aa639e1fc43";
-const N8N_SYNC_ALLOWED_EMAILS = new Set<string>(["nb@timan.dk"]);
 
-function resolveActivityOwnerEmail(row: CalendarActivity): string | null {
+const TIMAN_SELLER_EMAIL_FALLBACK: Record<string, string> = {
+  NB: "nb@timan.dk",
+  AKR: "akr@timan.dk",
+  AK: "akr@timan.dk",
+  BP: "bp@timan.dk",
+  EM: "em@timan.dk",
+  JTN: "jtn@timan.dk",
+};
+
+async function resolveActivityOwnerEmail(row: CalendarActivity): Promise<string | null> {
+  // 1. Direct user_id relation → app_users.email
+  if (row.seller_user_id) {
+    try {
+      const { data } = await supabase
+        .from("app_users")
+        .select("email")
+        .eq("id", row.seller_user_id)
+        .maybeSingle();
+      if (data?.email) return String(data.email).toLowerCase();
+    } catch (err) {
+      console.warn("[n8n.crm_calendar] app_users lookup by id failed:", err);
+    }
+  }
+
   const initials = (row.seller_initials || "").trim().toUpperCase();
+
+  // 2. Initials → app_users.email (try initials column then seller_code)
+  if (initials) {
+    try {
+      const { data } = await supabase
+        .from("app_users")
+        .select("email, initials, seller_code")
+        .or(`initials.eq.${initials},seller_code.eq.${initials}`)
+        .limit(1)
+        .maybeSingle();
+      if (data?.email) return String(data.email).toLowerCase();
+    } catch (err) {
+      console.warn("[n8n.crm_calendar] app_users lookup by initials failed:", err);
+    }
+  }
+
+  // 3. BUDGET_SELLERS map
   if (initials) {
     const hit = BUDGET_SELLERS.find(s => s.initials.toUpperCase() === initials);
     if (hit?.email) return hit.email.toLowerCase();
   }
+
+  // 4. Other email fields on the row
   if (row.dealer_assigned_seller_email) return row.dealer_assigned_seller_email.toLowerCase();
   if (row.created_by_email) return row.created_by_email.toLowerCase();
+
+  // 5. Hardcoded Timan fallback
+  if (initials && TIMAN_SELLER_EMAIL_FALLBACK[initials]) {
+    return TIMAN_SELLER_EMAIL_FALLBACK[initials];
+  }
   return null;
 }
 
 function syncCrmActivityToN8n(row: CalendarActivity): void {
   try {
     if (!N8N_CRM_CALENDAR_WEBHOOK_URL) return;
-    const email = resolveActivityOwnerEmail(row);
-    if (!email || !N8N_SYNC_ALLOWED_EMAILS.has(email)) return;
-    const payload = {
-      title: row.title || "",
-      description: row.note || "Oprettet fra Timan CRM",
-      start: row.start_datetime,
-      end: row.end_datetime || row.start_datetime,
-      user_email: email,
-      activity_id: row.id,
-      activity_type: row.activity_type,
-      dealer_name: row.dealer_name,
-    };
     // Fire-and-forget; never block UI or Supabase save.
-    fetch(N8N_CRM_CALENDAR_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).catch((err) => {
-      console.error("[n8n.crm_calendar] webhook POST failed:", err);
-    });
+    void (async () => {
+      try {
+        const email = await resolveActivityOwnerEmail(row);
+        if (!email) {
+          console.warn("[n8n.crm_calendar] skipped — no user_email for activity", row.id);
+          return;
+        }
+        const payload = {
+          title: row.title || "",
+          description: row.note || "Oprettet fra Timan CRM",
+          start: row.start_datetime,
+          end: row.end_datetime || row.start_datetime,
+          user_email: email,
+          activity_id: row.id,
+          activity_type: row.activity_type,
+          dealer_name: row.dealer_name,
+        };
+        const res = await fetch(N8N_CRM_CALENDAR_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          console.error("[n8n.crm_calendar] webhook returned", res.status, res.statusText);
+        }
+      } catch (err) {
+        console.error("[n8n.crm_calendar] webhook POST failed:", err);
+      }
+    })();
   } catch (err) {
     console.error("[n8n.crm_calendar] sync error (non-blocking):", err);
   }
