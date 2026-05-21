@@ -9,7 +9,54 @@
 import { supabase } from "@/lib/supabase";
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
+import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import type { Language } from "@/types/configurator";
+
+// ---------- n8n Outlook calendar sync (PRODUCTION webhook) ----------
+// First test scope: only sync activities owned by NB / nb@timan.dk.
+// URL is read from VITE_N8N_CRM_CALENDAR_WEBHOOK_URL; if unset, sync is skipped silently.
+const N8N_CRM_CALENDAR_WEBHOOK_URL: string =
+  (import.meta.env.VITE_N8N_CRM_CALENDAR_WEBHOOK_URL as string | undefined) || "";
+const N8N_SYNC_ALLOWED_EMAILS = new Set<string>(["nb@timan.dk"]);
+
+function resolveActivityOwnerEmail(row: CalendarActivity): string | null {
+  const initials = (row.seller_initials || "").trim().toUpperCase();
+  if (initials) {
+    const hit = BUDGET_SELLERS.find(s => s.initials.toUpperCase() === initials);
+    if (hit?.email) return hit.email.toLowerCase();
+  }
+  if (row.dealer_assigned_seller_email) return row.dealer_assigned_seller_email.toLowerCase();
+  if (row.created_by_email) return row.created_by_email.toLowerCase();
+  return null;
+}
+
+function syncCrmActivityToN8n(row: CalendarActivity): void {
+  try {
+    if (!N8N_CRM_CALENDAR_WEBHOOK_URL) return;
+    const email = resolveActivityOwnerEmail(row);
+    if (!email || !N8N_SYNC_ALLOWED_EMAILS.has(email)) return;
+    const payload = {
+      title: row.title || "",
+      description: row.note || "Oprettet fra Timan CRM",
+      start: row.start_datetime,
+      end: row.end_datetime || row.start_datetime,
+      user_email: email,
+      activity_id: row.id,
+      activity_type: row.activity_type,
+      dealer_name: row.dealer_name,
+    };
+    // Fire-and-forget; never block UI or Supabase save.
+    fetch(N8N_CRM_CALENDAR_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch((err) => {
+      console.error("[n8n.crm_calendar] webhook POST failed:", err);
+    });
+  } catch (err) {
+    console.error("[n8n.crm_calendar] sync error (non-blocking):", err);
+  }
+}
 
 export type CalendarActivityType =
   | "demo"
@@ -155,6 +202,7 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     }
   } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "insert", error: err }); }
   audit("create", row);
+  syncCrmActivityToN8n(row);
   return row;
 }
 
@@ -227,6 +275,7 @@ export async function updateActivity(id: string, patch: Partial<NewCalendarActiv
     }
   } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "update", error: err }); }
   audit("update", next, before);
+  syncCrmActivityToN8n(next);
   return next;
 }
 
