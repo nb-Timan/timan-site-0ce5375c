@@ -235,7 +235,14 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         preferred_currency: appUserRow.preferred_currency ?? null,
         company_dealer: appUserRow.company_dealer ?? null,
         module_access: appUserRow.module_access ?? null,
+        allowed_areas: appUserRow.allowed_areas ?? null,
+        allowed_modules: appUserRow.allowed_modules ?? null,
         status: appUserRow.status ?? null,
+        dealer_number: appUserRow.dealer_number ?? null,
+        // Phase 40 — pass per-user permissions (incl. can_apply_extra_dealer_discount)
+        // so direct login matches Backend "Vis som" behavior.
+        permissions: (appUserRow.permissions as Record<string, boolean> | null) ?? null,
+        quick_actions: (appUserRow.quick_actions as string[] | null) ?? null,
       });
     } catch (err) {
       setError(tx('loginError', language));
