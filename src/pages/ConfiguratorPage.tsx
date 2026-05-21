@@ -101,21 +101,33 @@ export default function ConfiguratorPage() {
     setConfigLanguage(next);
     setGlobalLanguage(next);
   }, [setConfigLanguage, setGlobalLanguage]);
-  // Phase 38 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
+  // Phase 38/40 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
   // permission stored in app_users.permissions.can_apply_extra_dealer_discount.
-  // Defaults: Timan Backend = enabled; all other roles = disabled. A manual
-  // value (true/false) saved on the user always overrides the role default.
+  // We read from the EFFECTIVE portal user so that:
+  //   - direct login uses the logged-in user's app_users row, and
+  //   - Backend "Vis som <bruger>" uses the previewed user's row,
+  // both via the same code path. Falls back to logged-in user when no view-as.
+  const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
   const activePortalRole = derivePortalRole(appUser);
   const canApplyExtraDealerDiscount = (() => {
-    const flag = appUser?.permissions?.can_apply_extra_dealer_discount;
+    const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
     if (flag === true) return true;
     if (flag === false) return false;
     // No explicit override → role default. Backend = true, others = false.
     // Preserve legacy: respect the older top-level can_edit_discount flag
     // when an admin already enabled it for a non-backend user.
     if (activePortalRole === 'timan_backend') return true;
-    return !!appUser?.can_edit_discount;
+    return !!effectiveUser?.can_edit_discount;
   })();
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug('[extra-dealer-discount]', {
+      loggedInEmail: appUser?.email,
+      effectiveEmail: effectiveUser?.email,
+      permission: effectiveUser?.permissions?.can_apply_extra_dealer_discount,
+      resolved: canApplyExtraDealerDiscount,
+    });
+  }
   const permissions = {
     canSeePrices: appUser?.can_view_prices ?? false,
     canSubmitOrder: appUser?.can_submit_order ?? false,
