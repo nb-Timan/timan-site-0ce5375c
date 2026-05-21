@@ -476,11 +476,11 @@ export default function CalendarActivityModal(props: Props) {
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2">
-            <Checkbox id="outlook" disabled />
-            <Label htmlFor="outlook" className="text-xs text-gray-500 cursor-not-allowed">
-              {T.outlook_lbl[lang]} <span className="ml-2 text-[10px] text-gray-400">({T.outlook_status[lang]})</span>
-            </Label>
+          <div className="flex items-center gap-2 rounded-lg border border-dashed border-emerald-200 bg-emerald-50 px-3 py-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+            <span className="text-xs text-emerald-800">
+              {T.outlook_lbl[lang]}: <span className="text-emerald-700">{T.outlook_status[lang]}</span>
+            </span>
           </div>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
