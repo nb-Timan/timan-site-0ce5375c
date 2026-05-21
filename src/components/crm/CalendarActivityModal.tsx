@@ -54,8 +54,8 @@ const T: Record<string, Record<Language, string>> = {
   sellers_pick:     { da: "Vælg sælgere",         en: "Pick sellers",      de: "Verkäufer wählen", it: "Seleziona venditori", hu: "Válassz értékesítőket" },
   sellers_none:     { da: "Ingen valgt",          en: "None selected",     de: "Keine ausgewählt", it: "Nessuno selezionato", hu: "Nincs kiválasztva" },
   note_lbl:         { da: "Note",                 en: "Note",              de: "Notiz",            it: "Nota",              hu: "Jegyzet" },
-  outlook_lbl:      { da: "Synkroniser til Outlook", en: "Sync to Outlook", de: "Mit Outlook synchronisieren", it: "Sincronizza con Outlook", hu: "Szinkron Outlookkal" },
-  outlook_status:   { da: "Outlook status: Ikke aktiveret endnu", en: "Outlook status: Not enabled yet", de: "Outlook-Status: Noch nicht aktiviert", it: "Stato Outlook: Non ancora attivo", hu: "Outlook állapot: Még nincs aktiválva" },
+  outlook_lbl:      { da: "Outlook sync", en: "Outlook sync", de: "Outlook-Sync", it: "Sincronizzazione Outlook", hu: "Outlook szinkron" },
+  outlook_status:   { da: "Aktiveret – sender automatisk via n8n", en: "Active – sent automatically via n8n", de: "Aktiv – automatisch via n8n", it: "Attivo – inviato automaticamente tramite n8n", hu: "Aktív – automatikus küldés n8n-en keresztül" },
   status_lbl:       { da: "Status",               en: "Status",            de: "Status",           it: "Stato",             hu: "Állapot" },
   status_planned:   { da: "Planlagt",             en: "Planned",           de: "Geplant",          it: "Pianificato",       hu: "Tervezett" },
   status_done:      { da: "Færdig",               en: "Done",              de: "Erledigt",         it: "Fatto",             hu: "Kész" },
@@ -476,11 +476,11 @@ export default function CalendarActivityModal(props: Props) {
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2">
-            <Checkbox id="outlook" disabled />
-            <Label htmlFor="outlook" className="text-xs text-gray-500 cursor-not-allowed">
-              {T.outlook_lbl[lang]} <span className="ml-2 text-[10px] text-gray-400">({T.outlook_status[lang]})</span>
-            </Label>
+          <div className="flex items-center gap-2 rounded-lg border border-dashed border-emerald-200 bg-emerald-50 px-3 py-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+            <span className="text-xs text-emerald-800">
+              {T.outlook_lbl[lang]}: <span className="text-emerald-700">{T.outlook_status[lang]}</span>
+            </span>
           </div>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
