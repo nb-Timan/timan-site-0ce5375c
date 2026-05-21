@@ -16,7 +16,8 @@ import type { Language } from "@/types/configurator";
 // First test scope: only sync activities owned by NB / nb@timan.dk.
 // URL is read from VITE_N8N_CRM_CALENDAR_WEBHOOK_URL; if unset, sync is skipped silently.
 const N8N_CRM_CALENDAR_WEBHOOK_URL: string =
-  (import.meta.env.VITE_N8N_CRM_CALENDAR_WEBHOOK_URL as string | undefined) || "";
+  (import.meta.env.VITE_N8N_CRM_CALENDAR_WEBHOOK_URL as string | undefined) ||
+  "https://n8n.srv1509152.hstgr.cloud/webhook/fbfd673a-5225-4d86-bb8e-7aa639e1fc43";
 const N8N_SYNC_ALLOWED_EMAILS = new Set<string>(["nb@timan.dk"]);
 
 function resolveActivityOwnerEmail(row: CalendarActivity): string | null {
