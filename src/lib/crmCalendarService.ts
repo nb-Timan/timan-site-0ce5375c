@@ -202,6 +202,7 @@ export async function createActivity(input: NewCalendarActivity): Promise<Calend
     }
   } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "insert", error: err }); }
   audit("create", row);
+  syncCrmActivityToN8n(row);
   return row;
 }
 
