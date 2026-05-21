@@ -275,6 +275,7 @@ export async function updateActivity(id: string, patch: Partial<NewCalendarActiv
     }
   } catch (err) { notifyLocalFallback({ table: "crm_calendar_activities", action: "update", error: err }); }
   audit("update", next, before);
+  syncCrmActivityToN8n(next);
   return next;
 }
 
