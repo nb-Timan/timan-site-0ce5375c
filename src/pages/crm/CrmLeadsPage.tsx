@@ -123,6 +123,9 @@ interface UnifiedLead {
   probability: number | null;
   value: number | null;
   detail_href: string | null;
+  /** Phase 40 — true when the lead was created via the configurator's
+   *  "Save as lead" shortcut and still needs completion in CRM. */
+  incomplete?: boolean;
 }
 
 const STAGE_CLR: Record<string, string> = {
@@ -194,6 +197,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     probability: effectiveLeadProbability(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
+    incomplete: l.incomplete_from_configurator === true,
   };
 }
 
@@ -463,9 +467,14 @@ export default function CrmLeadsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="font-mono text-[11px] tabular-nums text-slate-500 shrink-0">{r.display_no}</span>
                           <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
+                          {r.incomplete && (
+                            <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
+                              {({ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead' } as Record<Language, string>)[lang]}
+                            </span>
+                          )}
                         </div>
                         {r.customer && r.customer !== r.title && (
                           <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>

@@ -132,6 +132,11 @@ export interface CrmLead {
   move_to_working_qty?: number | null;
   /** Phase 38 — set after this lead has been converted into a demo lead. */
   converted_demo_lead_id?: string | null;
+  /** Phase 40 — true when the lead was created via the configurator's
+   *  "Save as lead" shortcut and still needs the seller to fill in the
+   *  required CRM fields. Cleared automatically when the lead is saved
+   *  through the normal CRM edit form. */
+  incomplete_from_configurator?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -293,6 +298,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_comment: row.lost_comment,
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
+      incomplete_from_configurator: row.incomplete_from_configurator ?? false,
     }).select("lead_no").maybeSingle();
     if (error) notifyLocalFallback({ table: "crm_leads", action: "insert", error });
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
@@ -394,6 +400,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       lost_comment: merged.lost_comment,
       status: merged.status,
       move_to_working_qty: merged.move_to_working_qty ?? 0,
+      incomplete_from_configurator: merged.incomplete_from_configurator ?? false,
     }).eq("id", id);
     if (error) notifyLocalFallback({ table: "crm_leads", action: "update", error });
   } catch (err) {

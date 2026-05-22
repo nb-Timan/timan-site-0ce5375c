@@ -88,6 +88,7 @@ export interface BackendUser {
     can_manage_users: boolean;
     can_manage_payment_terms: boolean;
     can_apply_extra_dealer_discount: boolean;
+    can_save_configurator_as_lead: boolean;
   };
 
   /** CRM — responsible Timan Sælger for this account. Null = unassigned. */
@@ -148,6 +149,7 @@ function seedUser(
       can_manage_users: isBackend,
       can_manage_payment_terms: isBackend || role === "timan_seller",
       can_apply_extra_dealer_discount: isBackend,
+      can_save_configurator_as_lead: isBackend || role === "timan_seller",
     },
 
     account_owner_user_id: null,
