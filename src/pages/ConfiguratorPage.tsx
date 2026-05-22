@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
