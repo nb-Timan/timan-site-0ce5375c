@@ -5,7 +5,7 @@ import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
-import { listCrmConfigurations, type CrmConfigurationRow } from '@/lib/crmConfigurationsService';
+
 
 /**
  * Account-panel ("Min konto") scope.
