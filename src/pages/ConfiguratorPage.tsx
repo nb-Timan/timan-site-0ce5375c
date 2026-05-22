@@ -2484,38 +2484,8 @@ export default function ConfiguratorPage() {
                       {T('onlyDealerCanOrder')}
                     </button>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      {state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
-                        const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
-                        const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
-                        const disabledTitle = !hasRequired
-                          ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
-                              en: 'Fill in dealer, company, contact and email.',
-                              de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
-                              it: 'Compila concessionario, azienda, contatto ed email.',
-                              hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
-                          : linkedLeadId
-                            ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
-                                en: 'This configuration is already linked to a lead.',
-                                de: 'Bereits mit einem Lead verknüpft.',
-                                it: 'Già collegata a un lead.',
-                                hu: 'Már leadhez van kapcsolva.' }[lang]
-                            : '';
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveAsLead()}
-                            disabled={!hasRequired || savingAsLead || !!linkedLeadId}
-                            title={disabledTitle}
-                            className="px-4 py-2 text-sm font-medium text-sky-700 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {savingAsLead ? '…' : label}
-                          </button>
-                        );
-                      })()}
-                      <button onClick={openConfirmation}
-                        className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
-                    </div>
+                    <button onClick={openConfirmation}
+                      className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
                   )}
                 </div>
               </div>
