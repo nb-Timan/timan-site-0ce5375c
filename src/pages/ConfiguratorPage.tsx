@@ -2484,38 +2484,8 @@ export default function ConfiguratorPage() {
                       {T('onlyDealerCanOrder')}
                     </button>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      {state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
-                        const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
-                        const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
-                        const disabledTitle = !hasRequired
-                          ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
-                              en: 'Fill in dealer, company, contact and email.',
-                              de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
-                              it: 'Compila concessionario, azienda, contatto ed email.',
-                              hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
-                          : linkedLeadId
-                            ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
-                                en: 'This configuration is already linked to a lead.',
-                                de: 'Bereits mit einem Lead verknüpft.',
-                                it: 'Già collegata a un lead.',
-                                hu: 'Már leadhez van kapcsolva.' }[lang]
-                            : '';
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveAsLead()}
-                            disabled={!hasRequired || savingAsLead || !!linkedLeadId}
-                            title={disabledTitle}
-                            className="px-4 py-2 text-sm font-medium text-sky-700 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {savingAsLead ? '…' : label}
-                          </button>
-                        );
-                      })()}
-                      <button onClick={openConfirmation}
-                        className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
-                    </div>
+                    <button onClick={openConfirmation}
+                      className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg">{T('sendOrder')}</button>
                   )}
                 </div>
               </div>
@@ -2557,6 +2527,38 @@ export default function ConfiguratorPage() {
                 )}
               </button>
             )}
+            {state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
+              const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
+              const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
+              const disabledTitle = !hasRequired
+                ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
+                    en: 'Fill in dealer, company, contact and email.',
+                    de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
+                    it: 'Compila concessionario, azienda, contatto ed email.',
+                    hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
+                : linkedLeadId
+                  ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
+                      en: 'This configuration is already linked to a lead.',
+                      de: 'Bereits mit einem Lead verknüpft.',
+                      it: 'Già collegata a un lead.',
+                      hu: 'Már leadhez van kapcsolva.' }[lang]
+                  : '';
+              return (
+                <button
+                  type="button"
+                  onClick={() => void handleSaveAsLead()}
+                  disabled={!hasRequired || savingAsLead || !!linkedLeadId}
+                  title={disabledTitle}
+                  className="w-full mb-3 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                  {savingAsLead ? '…' : label}
+                </button>
+              );
+            })()}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
               <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
             </fieldset>
