@@ -447,40 +447,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
           <div className="pt-3">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800">{tx('savedCases')}</h3>
-              {canSave ? (
-                <button
-                  onClick={() => setShowSaveInput(v => !v)}
-                  className="text-sm text-emerald-700 hover:text-emerald-900 font-medium"
-                >
-                  {tx('saveCurrent')}
-                </button>
-              ) : (
-                <span className="text-xs text-gray-400 italic max-w-[240px] text-right">
-                  {tx('saveHint')}
-                </span>
-              )}
             </div>
 
-            {showSaveInput && (
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={saveLabel}
-                  onChange={e => setSaveLabel(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSave()}
-                  placeholder={tx('nameCase')}
-                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
-                  autoFocus
-                />
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
-                >
-                  {saving ? '...' : tx('save')}
-                </button>
-              </div>
-            )}
 
             {savedItems.length === 0 ? (
               <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>

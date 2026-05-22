@@ -285,7 +285,7 @@ export default function ConfiguratorPage() {
   }, [savedConfigurationId]);
 
   const handleSaveChanges = useCallback(async () => {
-    if (!savedConfigurationId || savingChanges) return;
+    if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
       toast.error(T('orderAlreadySubmittedToast'));
@@ -293,34 +293,71 @@ export default function ConfiguratorPage() {
     }
     setSavingChanges(true);
     try {
-      const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
-      if (serverCheck.locked) {
-        setOrderLocked(true);
-        toast.error(T('orderAlreadySubmittedToast'));
-        return;
-      }
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
-      const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
-      if (res.error) {
-        toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
-          description: res.error,
+
+      if (savedConfigurationId) {
+        const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
+        if (serverCheck.locked) {
+          setOrderLocked(true);
+          toast.error(T('orderAlreadySubmittedToast'));
+          return;
+        }
+        const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+        if (res.error) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+            description: res.error,
+          });
+          return;
+        }
+        if (res.itemsError) {
+          toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+            description: res.itemsError,
+          });
+          return;
+        }
+        toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
+          description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
         });
-        return;
-      }
-      if (res.itemsError) {
-        toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
-          description: res.itemsError,
+      } else {
+        if (!appUser) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
+          return;
+        }
+        const label = state.firmanavn
+          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+        const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
+          ownership: ownershipPayload,
+          leadId: linkedLeadId,
         });
-        return;
+        if (saveRes.error) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
+            description: saveRes.error,
+          });
+          return;
+        }
+        if (saveRes.id) {
+          setSavedConfigurationId(saveRes.id);
+          setSavedQuoteNumber(saveRes.quote_number);
+          setSavedOrderNumber(saveRes.order_number);
+          setSavedSourceQuoteNumber(saveRes.source_quote_number);
+          setIsSavedCurrent(true);
+        }
+        if (saveRes.itemsError) {
+          toast.error(state.language === 'da' ? 'Sag gemt, men linjer fejlede' : 'Case saved, but line items failed', {
+            description: saveRes.itemsError,
+          });
+          return;
+        }
+        toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
+          description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
+        });
       }
-      toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
-        description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
-      });
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
@@ -2476,12 +2513,12 @@ export default function ConfiguratorPage() {
                 {T('orderLockedReadonly')}
               </div>
             )}
-            {savedConfigurationId && !(state.flowType === 'order' && orderLocked) && (
+            {state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
                 disabled={savingChanges}
-                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId}
+                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId || ''}
                 className="w-full mb-3 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -2491,10 +2528,14 @@ export default function ConfiguratorPage() {
                 </svg>
                 {savingChanges
                   ? T('savingChangesBtn')
-                  : T('saveChangesBtn')}
-                <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
-                  {savedQuoteNumber || savedOrderNumber || ''}
-                </span>
+                  : savedConfigurationId
+                    ? T('saveChangesBtn')
+                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang])}
+                {savedConfigurationId && (
+                  <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
+                    {savedQuoteNumber || savedOrderNumber || ''}
+                  </span>
+                )}
               </button>
             )}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
