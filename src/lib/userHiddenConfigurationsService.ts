@@ -54,11 +54,15 @@ export async function hideConfigurationForCurrentUser(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget ind' };
 
+    // Use INSERT with ignoreDuplicates so Postgres does NOT attempt an
+    // ON CONFLICT DO UPDATE path. An UPDATE path would require an UPDATE
+    // RLS policy WITH CHECK on configuration_user_hidden — which we
+    // intentionally do not grant (hides are append-only per user).
     const { error } = await supabase
       .from(TABLE)
       .upsert(
         { user_id: user.id, configuration_id: configurationId },
-        { onConflict: 'user_id,configuration_id' },
+        { onConflict: 'user_id,configuration_id', ignoreDuplicates: true },
       );
 
     if (error) {
