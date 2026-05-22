@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
-import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
+import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 
@@ -148,6 +148,30 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
     parts.push(`created_by_user_id.eq.${scope.sellerAuthUserId}`);
   }
   return query.or(parts.join(',')) as T;
+}
+
+
+/**
+ * Resolve the Min-konto hide scope for the current logged-in user.
+ *
+ * Mirrors resolveAccountScope() so a hide written by NB-viewing-as-BP and
+ * a hide written by BP-direct both target the same `effective_seller_email`
+ * — keeping the case hidden in BP's Min konto across both sessions.
+ */
+export async function resolveHideScopeForCurrentUser(
+  ownerEmail: string,
+): Promise<HideScope> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { kind: 'self' };
+    const scope = await resolveAccountScope(ownerEmail, user.id);
+    if (scope.kind === 'seller') {
+      return { kind: 'seller', sellerEmail: scope.sellerEmail };
+    }
+    return { kind: 'self' };
+  } catch {
+    return { kind: 'self' };
+  }
 }
 
 
@@ -618,8 +642,10 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     return [];
   }
 
-  const hiddenIds = await listHiddenConfigurationIdsForCurrentUser(
-    scope.kind === 'seller' ? { ignoreWhenViewingSellerScope: true } : undefined,
+  const hiddenIds = await listHiddenConfigurationIdsForScope(
+    scope.kind === 'seller'
+      ? { kind: 'seller', sellerEmail: scope.sellerEmail }
+      : { kind: 'self' },
   );
   const filtered = hiddenIds.size > 0
     ? (data || []).filter((row) => !hiddenIds.has(String((row as { id: string }).id)))

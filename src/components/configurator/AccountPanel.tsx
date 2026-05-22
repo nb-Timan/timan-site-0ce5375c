@@ -22,7 +22,8 @@ import {
   SavedStatus,
   getSentPdfSignedUrl,
 } from '@/lib/configurationsService';
-import { hideConfigurationForCurrentUser } from '@/lib/userHiddenConfigurationsService';
+import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService';
+import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import {
   buildConfiguratorOwnership,
@@ -188,7 +189,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     if (!confirmHideId || hiding) return;
     setHiding(true);
     try {
-      const { error } = await hideConfigurationForCurrentUser(confirmHideId);
+      const scope = await resolveHideScopeForCurrentUser(userEmail);
+      const { error } = await hideConfigurationForScope(confirmHideId, scope);
       if (error) {
         toast.error(tx('hideFailed'), { description: error });
         return;
