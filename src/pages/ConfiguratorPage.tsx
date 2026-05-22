@@ -251,6 +251,18 @@ export default function ConfiguratorPage() {
   const [wantRecommendation, setWantRecommendation] = useState(false);
   // Phase 33 — optional CRM lead link saved with the configuration.
   const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
+  // Phase 40 — bump to force LeadLinkPicker to refetch after we create
+  // a new lead via the "Gem som lead" shortcut, so the new lead shows up
+  // and is selected automatically.
+  const [leadPickerKey, setLeadPickerKey] = useState(0);
+  const [savingAsLead, setSavingAsLead] = useState(false);
+
+  const canSaveConfiguratorAsLead = (() => {
+    const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
+    if (flag === true) return true;
+    if (flag === false) return false;
+    return activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
+  })();
 
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
