@@ -721,6 +721,7 @@ function EditUserModal({
                 { value: "can_manage_users", label: "Can manage users" },
                 { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
                 { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount" },
+                { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
 
               ]}
               checked={(Object.entries(draft.perms) as [keyof BackendUser["perms"], boolean][])
