@@ -209,7 +209,34 @@ export async function listCrmConfigurations(
     }
   }
 
-  return { rows: rows.filter((r) => rowVisibleToScope(r, filter)) };
+  return {
+    rows: rows
+      .filter((r) => isSentForCrm(r, docType))
+      .filter((r) => rowVisibleToScope(r, filter)),
+  };
+}
+
+/**
+ * CRM visibility gate: drafts saved with "Gem sag"/"Gem ændringer" must NOT
+ * appear in CRM → Tilbud / Ordrer. Only show rows where the quote or order
+ * has actually been sent/submitted.
+ *
+ * Quote sent  → quote_sent_at is not null
+ * Order sent  → order_sent_at is not null OR case_status/status = 'ordre_afgivet'
+ *
+ * Saved-but-not-sent rows remain in "Min konto" (configurationsService loads
+ * those independently and is NOT affected by this filter).
+ */
+export function isSentForCrm(row: CrmConfigurationRow, docType: CrmDocumentType): boolean {
+  if (docType === 'order') {
+    if (row.order_sent_at) return true;
+    if (row.submitted_at) return true;
+    if ((row.case_status || '').toLowerCase() === 'ordre_afgivet') return true;
+    if ((row.status || '').toLowerCase() === 'ordre_afgivet') return true;
+    return false;
+  }
+  // quote
+  return Boolean(row.quote_sent_at);
 }
 
 /**
