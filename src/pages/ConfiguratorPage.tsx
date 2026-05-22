@@ -2209,6 +2209,7 @@ export default function ConfiguratorPage() {
                 {state.flowType === 'quote' && (
                   <div className="max-w-lg mx-auto mb-5">
                     <LeadLinkPicker
+                      key={leadPickerKey}
                       appUser={appUser}
                       value={linkedLeadId}
                       onChange={setLinkedLeadId}
