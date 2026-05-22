@@ -536,16 +536,6 @@ function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): Save
   };
 }
 
-function crmRowToStoredRow(row: CrmConfigurationRow): Record<string, any> {
-  return {
-    ...row,
-    case_type: row.case_type ?? row.document_type,
-    status: row.status ?? row.case_status,
-    note: row.note ?? null,
-    total_price: row.total_price ?? null,
-  };
-}
-
 async function loadConfigurationRowById(id: string, userId: string) {
   const { data, error } = await supabase
     .from('configurations')
