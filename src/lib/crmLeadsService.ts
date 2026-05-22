@@ -298,6 +298,7 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_comment: row.lost_comment,
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
+      incomplete_from_configurator: row.incomplete_from_configurator ?? false,
     }).select("lead_no").maybeSingle();
     if (error) notifyLocalFallback({ table: "crm_leads", action: "insert", error });
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
