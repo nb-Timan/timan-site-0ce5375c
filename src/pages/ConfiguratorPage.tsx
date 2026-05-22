@@ -285,7 +285,7 @@ export default function ConfiguratorPage() {
   }, [savedConfigurationId]);
 
   const handleSaveChanges = useCallback(async () => {
-    if (!savedConfigurationId || savingChanges) return;
+    if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
       toast.error(T('orderAlreadySubmittedToast'));
@@ -293,34 +293,71 @@ export default function ConfiguratorPage() {
     }
     setSavingChanges(true);
     try {
-      const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
-      if (serverCheck.locked) {
-        setOrderLocked(true);
-        toast.error(T('orderAlreadySubmittedToast'));
-        return;
-      }
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
-      const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
-      if (res.error) {
-        toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
-          description: res.error,
+
+      if (savedConfigurationId) {
+        const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
+        if (serverCheck.locked) {
+          setOrderLocked(true);
+          toast.error(T('orderAlreadySubmittedToast'));
+          return;
+        }
+        const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+        if (res.error) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+            description: res.error,
+          });
+          return;
+        }
+        if (res.itemsError) {
+          toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+            description: res.itemsError,
+          });
+          return;
+        }
+        toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
+          description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
         });
-        return;
-      }
-      if (res.itemsError) {
-        toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
-          description: res.itemsError,
+      } else {
+        if (!appUser) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
+          return;
+        }
+        const label = state.firmanavn
+          ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+          : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+        const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
+          ownership: ownershipPayload,
+          leadId: linkedLeadId,
         });
-        return;
+        if (saveRes.error) {
+          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
+            description: saveRes.error,
+          });
+          return;
+        }
+        if (saveRes.id) {
+          setSavedConfigurationId(saveRes.id);
+          setSavedQuoteNumber(saveRes.quote_number);
+          setSavedOrderNumber(saveRes.order_number);
+          setSavedSourceQuoteNumber(saveRes.source_quote_number);
+          setIsSavedCurrent(true);
+        }
+        if (saveRes.itemsError) {
+          toast.error(state.language === 'da' ? 'Sag gemt, men linjer fejlede' : 'Case saved, but line items failed', {
+            description: saveRes.itemsError,
+          });
+          return;
+        }
+        toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
+          description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
+        });
       }
-      toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
-        description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
-      });
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
