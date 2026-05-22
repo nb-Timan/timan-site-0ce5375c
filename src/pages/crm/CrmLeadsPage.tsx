@@ -197,6 +197,7 @@ function mapOpen(l: CrmLead): UnifiedLead {
     probability: effectiveLeadProbability(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
+    incomplete: l.incomplete_from_configurator === true,
   };
 }
 
