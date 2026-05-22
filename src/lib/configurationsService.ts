@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
-import { listHiddenConfigurationIdsForCurrentUser } from '@/lib/userHiddenConfigurationsService';
+import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 
@@ -618,8 +618,10 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     return [];
   }
 
-  const hiddenIds = await listHiddenConfigurationIdsForCurrentUser(
-    scope.kind === 'seller' ? { ignoreWhenViewingSellerScope: true } : undefined,
+  const hiddenIds = await listHiddenConfigurationIdsForScope(
+    scope.kind === 'seller'
+      ? { kind: 'seller', sellerEmail: scope.sellerEmail }
+      : { kind: 'self' },
   );
   const filtered = hiddenIds.size > 0
     ? (data || []).filter((row) => !hiddenIds.has(String((row as { id: string }).id)))
