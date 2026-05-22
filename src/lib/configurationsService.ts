@@ -611,26 +611,10 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
 
   const scope = await resolveAccountScope(ownerEmail, user.id);
 
-  if (scope.kind === 'seller') {
-    const { rows, error } = await listCrmConfigurations({
-      role: 'timan_seller',
-      sellerId: scope.sellerAppUserId,
-      sellerInitials: scope.sellerInitialsAliases[0] ?? null,
-      sellerEmail: scope.sellerEmail,
-      dealerNumber: null,
-      documentType: 'order',
-    });
-    if (error) {
-      console.error('Failed to load CRM-scoped configurations:', error);
-      return [];
-    }
-    const hiddenIds = await listHiddenConfigurationIdsForCurrentUser({ ignoreWhenViewingSellerScope: true });
-    const filtered = hiddenIds.size > 0
-      ? rows.filter((row) => !hiddenIds.has(row.id))
-      : rows;
-    return filtered.map((row) => mapConfigurationRow(crmRowToStoredRow(row), ownerEmail));
-  }
-
+  // Unified query path: filter by seller-ownership columns (seller scope) or
+  // created_by_user_id (self scope). Importantly this does NOT restrict to
+  // document_type='order' — Min konto must show both saved quotes and orders
+  // for the active seller (incl. backend "viewing as <seller>" mode).
   const baseQuery = supabase
     .from('configurations')
     .select('*')
@@ -644,9 +628,9 @@ export async function loadConfigurations(ownerEmail: string): Promise<SavedConfi
     return [];
   }
 
-  // Phase 28 — also hide rows the current user has personally removed
-  // from their Min konto list (does not affect CRM/Dashboard/Budget).
-  const hiddenIds = await listHiddenConfigurationIdsForCurrentUser();
+  const hiddenIds = await listHiddenConfigurationIdsForCurrentUser(
+    scope.kind === 'seller' ? { ignoreWhenViewingSellerScope: true } : undefined,
+  );
   const filtered = hiddenIds.size > 0
     ? (data || []).filter((row) => !hiddenIds.has(String((row as { id: string }).id)))
     : (data || []);
