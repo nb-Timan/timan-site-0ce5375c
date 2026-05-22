@@ -123,6 +123,9 @@ interface UnifiedLead {
   probability: number | null;
   value: number | null;
   detail_href: string | null;
+  /** Phase 40 — true when the lead was created via the configurator's
+   *  "Save as lead" shortcut and still needs completion in CRM. */
+  incomplete?: boolean;
 }
 
 const STAGE_CLR: Record<string, string> = {
