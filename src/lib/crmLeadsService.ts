@@ -400,6 +400,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       lost_comment: merged.lost_comment,
       status: merged.status,
       move_to_working_qty: merged.move_to_working_qty ?? 0,
+      incomplete_from_configurator: merged.incomplete_from_configurator ?? false,
     }).eq("id", id);
     if (error) notifyLocalFallback({ table: "crm_leads", action: "update", error });
   } catch (err) {
