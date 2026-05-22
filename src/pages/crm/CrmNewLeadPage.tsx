@@ -421,6 +421,9 @@ export default function CrmNewLeadPage() {
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
         status: 'open',
+        // Phase 40 — required fields are validated above, so a successful
+        // save here means the lead is no longer "incomplete from configurator".
+        incomplete_from_configurator: false,
       };
       if (isEdit && editId) {
         await updateLead(editId, payload);
