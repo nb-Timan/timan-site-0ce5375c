@@ -402,25 +402,64 @@ export default function ConfiguratorPage() {
       setLinkedLeadId(created.id);
       setLeadPickerKey(k => k + 1);
 
-      // If the configuration is already saved in Supabase, persist the link.
-      if (savedConfigurationId) {
-        try {
-          await supabase.from('configurations')
-            .update({ lead_id: created.id })
-            .eq('id', savedConfigurationId);
-        } catch (e) {
-          console.warn('[handleSaveAsLead] update lead_id on configuration failed:', e);
+      // Also persist the configurator state as a saved case linked to this
+      // lead, so it shows up in "Min konto" and stays editable. Update the
+      // existing row when savedConfigurationId is already set, otherwise
+      // create a new row. Does not send PDF/email/order.
+      try {
+        const ownershipPayload = await getRequiredOwnershipPayload();
+        if (ownershipPayload && appUser) {
+          if (savedConfigurationId) {
+            const updRes = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+            if (updRes.error) throw new Error(updRes.error);
+            try {
+              await supabase.from('configurations')
+                .update({ lead_id: created.id })
+                .eq('id', savedConfigurationId);
+            } catch (e) {
+              console.warn('[handleSaveAsLead] link lead_id failed:', e);
+            }
+          } else {
+            const label = state.firmanavn
+              ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
+              : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
+            const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
+              ownership: ownershipPayload,
+              leadId: created.id,
+            });
+            if (saveRes.error) throw new Error(saveRes.error);
+            if (saveRes.id) {
+              setSavedConfigurationId(saveRes.id);
+              setSavedQuoteNumber(saveRes.quote_number);
+              setSavedOrderNumber(saveRes.order_number);
+              setSavedSourceQuoteNumber(saveRes.source_quote_number);
+              setIsSavedCurrent(true);
+            }
+          }
+        } else {
+          console.warn('[handleSaveAsLead] missing ownership/appUser — configuration not saved');
         }
+      } catch (e) {
+        console.error('[handleSaveAsLead] save configuration failed:', e);
+        toast.error(
+          { da: 'Lead gemt, men konfiguration kunne ikke gemmes',
+            en: 'Lead saved, but configuration could not be saved',
+            de: 'Lead gespeichert, aber Konfiguration konnte nicht gespeichert werden',
+            it: 'Lead salvato, ma impossibile salvare la configurazione',
+            hu: 'Lead mentve, de a konfiguráció mentése sikertelen' }[lang],
+          { description: e instanceof Error ? e.message : String(e) },
+        );
+        return;
       }
 
-      toast.success({ da: 'Lead gemt', en: 'Lead saved', de: 'Lead gespeichert', it: 'Lead salvato', hu: 'Lead mentve' }[lang]);
+      toast.success({ da: 'Lead og konfiguration gemt', en: 'Lead and configuration saved', de: 'Lead und Konfiguration gespeichert', it: 'Lead e configurazione salvati', hu: 'Lead és konfiguráció mentve' }[lang]);
     } catch (err) {
       console.error('[handleSaveAsLead] failed:', err);
       toast.error({ da: 'Kunne ikke gemme lead', en: 'Failed to save lead', de: 'Lead konnte nicht gespeichert werden', it: 'Impossibile salvare il lead', hu: 'A lead mentése sikertelen' }[lang]);
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId]);
+  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId, getRequiredOwnershipPayload]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
