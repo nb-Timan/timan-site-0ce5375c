@@ -321,6 +321,106 @@ export default function ConfiguratorPage() {
     }
   }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state]);
 
+  // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
+  // current configurator state without sending the quote. Only available on
+  // the Tilbud flow for users with can_save_configurator_as_lead.
+  const handleSaveAsLead = useCallback(async () => {
+    if (savingAsLead) return;
+    // Duplicate protection: configuration already linked to a lead.
+    if (linkedLeadId) {
+      toast.info(
+        { da: 'Denne konfiguration er allerede knyttet til et lead.',
+          en: 'This configuration is already linked to a lead.',
+          de: 'Diese Konfiguration ist bereits mit einem Lead verknüpft.',
+          it: 'Questa configurazione è già collegata a un lead.',
+          hu: 'Ez a konfiguráció már egy leadhez van kapcsolva.' }[lang]
+      );
+      return;
+    }
+    setSavingAsLead(true);
+    try {
+      const { createLead } = await import('@/lib/crmLeadsService');
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const { resolveSellerId: resolveSid } = await import('@/lib/resolveSellerId');
+      const totals = calcConfigurationTotals(state);
+
+      // Build a short notes string with selected machines + accessories so
+      // the seller can see what was configured before finishing the lead.
+      let notes = '';
+      try {
+        const summary = buildQuoteContentSummary(state);
+        const lines: string[] = [];
+        for (const g of summary.machines) {
+          lines.push(`${g.qty} × ${g.model_name}`);
+          const accNames = new Set<string>();
+          for (const u of g.units) for (const a of u.accessories) accNames.add(a.name);
+          if (accNames.size > 0) lines.push('  • ' + Array.from(accNames).join(', '));
+        }
+        notes = lines.join('\n');
+      } catch { /* */ }
+      if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+
+      const sellerId = ownership.sellerEmail
+        ? await resolveSid(ownership.sellerEmail)
+        : await resolveSid(appUser?.email);
+
+      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
+      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
+        .filter(Boolean).join(' · ') || null;
+
+      const created = await createLead({
+        title,
+        owner_user_id: sellerId,
+        owner_name: ownership.sellerName || appUser?.display_name || null,
+        owner_email: ownership.sellerEmail || appUser?.email || null,
+        linked_dealer_id: ownership.dealerNumber || null,
+        first_contact_date: new Date().toISOString().slice(0, 10),
+        expected_close_date: null,
+        next_followup_date: null,
+        machine_types: machineTypes,
+        next_activity: 'New lead',
+        demo_has_run: null,
+        contact_type: null,
+        customer_type: null,
+        contact_information: contactInfo,
+        trade_fair: null,
+        country: null,
+        notes: notes || null,
+        estimated_value: Math.round(totals.finalPrice || 0),
+        probability: 10,
+        pipeline_stage: 'Lead',
+        lost_competitor: null,
+        lost_reason: null,
+        lost_comment: null,
+        attachments: [],
+        status: 'open',
+        incomplete_from_configurator: true,
+      });
+
+      setLinkedLeadId(created.id);
+      setLeadPickerKey(k => k + 1);
+
+      // If the configuration is already saved in Supabase, persist the link.
+      if (savedConfigurationId) {
+        try {
+          await supabase.from('configurations')
+            .update({ lead_id: created.id })
+            .eq('id', savedConfigurationId);
+        } catch (e) {
+          console.warn('[handleSaveAsLead] update lead_id on configuration failed:', e);
+        }
+      }
+
+      toast.success({ da: 'Lead gemt', en: 'Lead saved', de: 'Lead gespeichert', it: 'Lead salvato', hu: 'Lead mentve' }[lang]);
+    } catch (err) {
+      console.error('[handleSaveAsLead] failed:', err);
+      toast.error({ da: 'Kunne ikke gemme lead', en: 'Failed to save lead', de: 'Lead konnte nicht gespeichert werden', it: 'Impossibile salvare il lead', hu: 'A lead mentése sikertelen' }[lang]);
+    } finally {
+      setSavingAsLead(false);
+    }
+  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId]);
+
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
   // CRM visibility) and restore the full state — including ownership —
