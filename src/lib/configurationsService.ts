@@ -151,6 +151,30 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
 }
 
 
+/**
+ * Resolve the Min-konto hide scope for the current logged-in user.
+ *
+ * Mirrors resolveAccountScope() so a hide written by NB-viewing-as-BP and
+ * a hide written by BP-direct both target the same `effective_seller_email`
+ * — keeping the case hidden in BP's Min konto across both sessions.
+ */
+export async function resolveHideScopeForCurrentUser(
+  ownerEmail: string,
+): Promise<HideScope> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { kind: 'self' };
+    const scope = await resolveAccountScope(ownerEmail, user.id);
+    if (scope.kind === 'seller') {
+      return { kind: 'seller', sellerEmail: scope.sellerEmail };
+    }
+    return { kind: 'self' };
+  } catch {
+    return { kind: 'self' };
+  }
+}
+
+
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
 export interface SavedConfiguration {
