@@ -319,6 +319,13 @@ export default function ConfiguratorPage() {
         toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
           description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
         });
+        // Readback verification — confirm the row is visible in current Min konto scope.
+        try {
+          const items = await loadConfigurations(appUser!.email.toLowerCase());
+          if (!items.some(i => i.id === savedConfigurationId)) {
+            toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
+          }
+        } catch { /* ignore */ }
       } else {
         if (!appUser) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
@@ -350,9 +357,21 @@ export default function ConfiguratorPage() {
           });
           return;
         }
-        toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
-          description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
-        });
+        // Readback verification before showing success.
+        let visibleInScope = true;
+        if (saveRes.id) {
+          try {
+            const items = await loadConfigurations(appUser.email.toLowerCase());
+            visibleInScope = items.some(i => i.id === saveRes.id);
+          } catch { /* ignore */ }
+        }
+        if (!visibleInScope) {
+          toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
+        } else {
+          toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
+            description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
+          });
+        }
       }
     } finally {
       setSavingChanges(false);
