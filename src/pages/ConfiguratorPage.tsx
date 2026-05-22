@@ -2513,12 +2513,12 @@ export default function ConfiguratorPage() {
                 {T('orderLockedReadonly')}
               </div>
             )}
-            {savedConfigurationId && !(state.flowType === 'order' && orderLocked) && (
+            {state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
                 disabled={savingChanges}
-                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId}
+                title={savedQuoteNumber || savedOrderNumber || savedConfigurationId || ''}
                 className="w-full mb-3 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -2528,10 +2528,14 @@ export default function ConfiguratorPage() {
                 </svg>
                 {savingChanges
                   ? T('savingChangesBtn')
-                  : T('saveChangesBtn')}
-                <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
-                  {savedQuoteNumber || savedOrderNumber || ''}
-                </span>
+                  : savedConfigurationId
+                    ? T('saveChangesBtn')
+                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang])}
+                {savedConfigurationId && (
+                  <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
+                    {savedQuoteNumber || savedOrderNumber || ''}
+                  </span>
+                )}
               </button>
             )}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
