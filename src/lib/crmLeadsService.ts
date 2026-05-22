@@ -132,6 +132,11 @@ export interface CrmLead {
   move_to_working_qty?: number | null;
   /** Phase 38 — set after this lead has been converted into a demo lead. */
   converted_demo_lead_id?: string | null;
+  /** Phase 40 — true when the lead was created via the configurator's
+   *  "Save as lead" shortcut and still needs the seller to fill in the
+   *  required CRM fields. Cleared automatically when the lead is saved
+   *  through the normal CRM edit form. */
+  incomplete_from_configurator?: boolean | null;
   created_at: string;
   updated_at: string;
 }
