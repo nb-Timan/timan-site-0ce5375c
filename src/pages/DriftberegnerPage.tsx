@@ -5,6 +5,12 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import {
+  servicePartsData,
+  calculateYearlyServiceCost,
+  computeRelevantInterval,
+  type ServiceMachineKey,
+} from '@/lib/serviceBasisData';
 
 // ---------------- Locales (from mockup) ----------------
 type LangKey = 'da' | 'de' | 'en';
