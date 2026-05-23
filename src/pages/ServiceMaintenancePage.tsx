@@ -91,7 +91,13 @@ const T: Record<string, Record<Language, string>> = {
   colQty: { da: 'Antal', en: 'Qty', de: 'Anzahl', it: 'Qta', hu: 'Db' },
   colSum: { da: 'Sum', en: 'Sum', de: 'Summe', it: 'Somma', hu: 'Összeg' },
   colTotal: { da: 'Total', en: 'Total', de: 'Gesamt', it: 'Totale', hu: 'Összesen' },
-  partsAutoHelp: { da: 'Standardlinjer fra servicegrundlaget er indsat automatisk. Du kan tilføje ekstra reservedele nedenfor.', en: 'Default lines from the service basis are inserted automatically. You can add extra spare parts below.', de: 'Standardpositionen aus der Servicegrundlage wurden automatisch eingefügt. Sie können unten weitere Ersatzteile hinzufügen.', it: 'Le righe predefinite della base di servizio sono inserite automaticamente. Puoi aggiungere altri ricambi sotto.', hu: 'A szervizalap alapértelmezett sorai automatikusan beillesztve. Lent további alkatrészeket adhatsz hozzá.' },
+  extraTitle: { da: 'Ekstra reservedele uden for servicekit', en: 'Extra spare parts outside service kit', de: 'Zusätzliche Ersatzteile außerhalb des Servicekits', it: 'Ricambi extra fuori dal kit di servizio', hu: 'Extra alkatrészek a szervizkészleten kívül' },
+  extraAdd: { da: 'Tilføj ekstra reservedel', en: 'Add extra spare part', de: 'Zusätzliches Ersatzteil hinzufügen', it: 'Aggiungi ricambio extra', hu: 'Extra alkatrész hozzáadása' },
+  extraEmpty: { da: 'Ingen ekstra reservedele tilføjet.', en: 'No extra spare parts added.', de: 'Keine zusätzlichen Ersatzteile.', it: 'Nessun ricambio extra.', hu: 'Nincs extra alkatrész.' },
+  totalKit: { da: 'Total servicekit', en: 'Total service kit', de: 'Servicekit gesamt', it: 'Totale kit servizio', hu: 'Szervizkészlet összesen' },
+  totalExtra: { da: 'Total ekstra reservedele', en: 'Total extra parts', de: 'Zusätzliche Teile gesamt', it: 'Totale ricambi extra', hu: 'Extra alkatrészek összesen' },
+  totalGrand: { da: 'Total samlet', en: 'Grand total', de: 'Gesamtsumme', it: 'Totale generale', hu: 'Mindösszesen' },
+  remove: { da: 'Slet', en: 'Remove', de: 'Entfernen', it: 'Rimuovi', hu: 'Törlés' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
