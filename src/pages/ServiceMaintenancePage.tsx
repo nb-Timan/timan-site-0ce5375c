@@ -136,24 +136,47 @@ export default function ServiceMaintenancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
-  // Compute interval options: prefer shared serviceBasisData (matches
-  // Driftberegner), fall back to DB-seeded service_intervals.
+  // Intervals come exclusively from the shared serviceBasisData
+  // (same source as TCO/Driftberegner "Se grundlag"). No DB fallback.
   const basisIntervals = useMemo(() => getBasisIntervals(form.machine_type), [form.machine_type]);
   const hasBasis = !!findServiceMachineType(form.machine_type)?.basisKey;
   useEffect(() => {
-    if (basisIntervals.length > 0) {
-      setIntervals(basisIntervals.map((h) => ({ id: `basis-${h}`, machine_type: form.machine_type, interval_hours: h, label: `${h} timer`, active: true })));
-      return;
-    }
-    listServiceIntervals(form.machine_type).then(setIntervals).catch(() => setIntervals([]));
+    setIntervals(
+      basisIntervals.map((h) => ({
+        id: `basis-${h}`,
+        machine_type: form.machine_type,
+        interval_hours: h,
+        label: `${h} timer`,
+        active: true,
+      })),
+    );
   }, [form.machine_type, basisIntervals]);
 
-  // Reset selected interval whenever machine type changes so a stale
-  // value from another machine isn't saved by accident.
+  // Reset interval when machine type changes.
   useEffect(() => {
     setForm((f) => ({ ...f, service_interval_hours: '' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.machine_type]);
+
+  // Selected service step (rows + total) from serviceBasisData.
+  const selectedStep = useMemo(
+    () => getBasisStep(form.machine_type, Number(form.service_interval_hours) || null),
+    [form.machine_type, form.service_interval_hours],
+  );
+
+  // Auto-fill the "spare parts used" textarea with the basis rows
+  // whenever machine type or interval changes. The user can still
+  // append extra lines manually afterwards.
+  useEffect(() => {
+    if (!selectedStep) return;
+    const header = `${form.machine_type} — ${form.service_interval_hours} timer`;
+    const lines = selectedStep.rows.map(
+      (r) => `${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`,
+    );
+    const total = `Total: ${selectedStep.stepTotal.toFixed(2)} kr`;
+    setForm((f) => ({ ...f, spare_parts_used: [header, ...lines, total].join('\n') }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStep]);
 
   const reload = useMemo(() => async () => {
     try {
