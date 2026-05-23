@@ -500,21 +500,28 @@ export default function ServiceMaintenancePage() {
                           </TableCell>
                           <TableCell>
                             <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
                               className="text-right"
                               value={r.price}
-                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
+                                const parts = v.split('.');
+                                const cleaned = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : v;
+                                setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: cleaned } : x));
+                              }}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
-                              type="number"
-                              min={0}
+                              type="text"
+                              inputMode="numeric"
                               className="text-right"
                               value={r.qty}
-                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: e.target.value } : x))}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, '');
+                                setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: v } : x));
+                              }}
                             />
                           </TableCell>
                           <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
