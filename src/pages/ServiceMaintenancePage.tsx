@@ -120,7 +120,7 @@ export default function ServiceMaintenancePage() {
   const dealerName = appUser?.company_dealer ?? null;
   const [form, setForm] = useState({
     serial_number: '',
-    machine_type: 'RC-1000',
+    machine_type: SERVICE_MACHINE_TYPES[0].value,
     dealer_number: dealerNumber ?? '',
     dealer_name: dealerName ?? '',
     customer_name: '',
@@ -136,8 +136,23 @@ export default function ServiceMaintenancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
+  // Compute interval options: prefer shared serviceBasisData (matches
+  // Driftberegner), fall back to DB-seeded service_intervals.
+  const basisIntervals = useMemo(() => getBasisIntervals(form.machine_type), [form.machine_type]);
+  const hasBasis = !!findServiceMachineType(form.machine_type)?.basisKey;
   useEffect(() => {
+    if (basisIntervals.length > 0) {
+      setIntervals(basisIntervals.map((h) => ({ id: `basis-${h}`, machine_type: form.machine_type, interval_hours: h, label: `${h} timer`, active: true })));
+      return;
+    }
     listServiceIntervals(form.machine_type).then(setIntervals).catch(() => setIntervals([]));
+  }, [form.machine_type, basisIntervals]);
+
+  // Reset selected interval whenever machine type changes so a stale
+  // value from another machine isn't saved by accident.
+  useEffect(() => {
+    setForm((f) => ({ ...f, service_interval_hours: '' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.machine_type]);
 
   const reload = useMemo(() => async () => {
