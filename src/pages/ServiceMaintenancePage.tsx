@@ -30,8 +30,10 @@ import {
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType } from '@/lib/serviceMachineTypes';
 
 const ALL_DEALERS = '__all__';
+const ALL_TYPES = '__all_types__';
 
 const T: Record<string, Record<Language, string>> = {
   back: { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza a Műszaki & Szervizhez' },
