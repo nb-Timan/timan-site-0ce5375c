@@ -229,7 +229,20 @@ export default function ServiceMaintenancePage() {
             <TabsContent value="overview" className="mt-6">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                  <div><Label className="text-xs">{t('filterDealer')}</Label><Input value={fDealer} onChange={e => setFDealer(e.target.value)} placeholder={t('filterDealer')} /></div>
+                  <div>
+                    <Label className="text-xs">{t('filterDealer')}</Label>
+                    <Select value={fDealer || ALL_DEALERS} onValueChange={(v) => setFDealer(v === ALL_DEALERS ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder={t('filterDealer')} /></SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value={ALL_DEALERS}>{t('filterDealer')}</SelectItem>
+                        {dealers.map(d => (
+                          <SelectItem key={d.id} value={d.account_number}>
+                            {d.account_number} — {d.company_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div><Label className="text-xs">{t('filterType')}</Label><Input value={fType} onChange={e => setFType(e.target.value)} placeholder="RC-1000" /></div>
                   <div><Label className="text-xs">{t('filterSerial')}</Label><Input value={fSerial} onChange={e => setFSerial(e.target.value)} placeholder="…" /></div>
                   <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => reload()}><Filter className="h-4 w-4 mr-2" />{t('search')}</Button></div>
