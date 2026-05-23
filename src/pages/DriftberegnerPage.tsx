@@ -110,7 +110,9 @@ const locales: Record<LangKey, Locale> = {
 
 type MachineKey = ServiceMachineKey;
 
+const formatPriceDK = (amount: number) =>
   new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' kr.';
+
 type Common = {
   fuelPrice: number; daysPerYear: number; hoursPerDay: number;
   depreciationYears: number; interestRate: number;
@@ -135,34 +137,6 @@ const num = (v: string | number) => {
   return isNaN(n) ? 0 : n;
 };
 
-// Calculate the yearly service cost for a machine based on its service intervals
-// and the number of operating hours per year. Service plan repeats in cycles
-// of length = max defined interval.
-function calculateYearlyServiceCost(machineKey: MachineKey, yearlyHours: number): number {
-  const svc = servicePartsData[machineKey];
-  if (!svc || yearlyHours <= 0) return 0;
-
-  const intervals = svc.intervals;
-  if (intervals.length === 0) return 0;
-
-  const cycleLength = Math.max(...intervals);
-  if (cycleLength <= 0) return 0;
-
-  const cycleTotal = intervals.reduce(
-    (sum, h) => sum + (svc.steps[h]?.stepTotal ?? 0),
-    0
-  );
-
-  const fullCycles = Math.floor(yearlyHours / cycleLength);
-  const remainder = yearlyHours - fullCycles * cycleLength;
-
-  const remainderTotal = intervals.reduce(
-    (sum, h) => (h <= remainder ? sum + (svc.steps[h]?.stepTotal ?? 0) : sum),
-    0
-  );
-
-  return fullCycles * cycleTotal + remainderTotal;
-}
 
 function calculateCosts(common: Common, machine: Machine, serviceCostYear: number) {
   const totalHours = num(common.daysPerYear) * num(common.hoursPerDay);
