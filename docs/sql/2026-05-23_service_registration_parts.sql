@@ -1,5 +1,6 @@
 -- Phase 44 — Service registration: structured parts + total prices.
--- Run this in the external Supabase project (SQL editor).
+-- Run this in the external Supabase project (SQL editor) AFTER phase43_service_maintenance.sql.
+-- Actual service registration table used by the app: public.service_registrations.
 -- Safe to run multiple times.
 
 alter table public.service_registrations
@@ -27,32 +28,53 @@ create index if not exists service_registration_parts_item_idx
 
 alter table public.service_registration_parts enable row level security;
 
-drop policy if exists "parts select via parent" on public.service_registration_parts;
-create policy "parts select via parent"
+drop policy if exists service_registration_parts_select on public.service_registration_parts;
+create policy service_registration_parts_select
   on public.service_registration_parts for select
+  to authenticated
   using (
-    exists (
+    public.is_timan_backend()
+    or exists (
       select 1 from public.service_registrations r
       where r.id = service_registration_parts.service_registration_id
+        and r.dealer_number is not null
+        and r.dealer_number = public.current_user_dealer_number()
     )
   );
 
-drop policy if exists "parts insert via parent" on public.service_registration_parts;
-create policy "parts insert via parent"
+drop policy if exists service_registration_parts_insert on public.service_registration_parts;
+create policy service_registration_parts_insert
   on public.service_registration_parts for insert
+  to authenticated
   with check (
-    exists (
+    public.is_timan_backend()
+    or exists (
       select 1 from public.service_registrations r
       where r.id = service_registration_parts.service_registration_id
+        and r.dealer_number is not null
+        and r.dealer_number = public.current_user_dealer_number()
     )
   );
 
-drop policy if exists "parts delete via parent" on public.service_registration_parts;
-create policy "parts delete via parent"
-  on public.service_registration_parts for delete
+drop policy if exists service_registration_parts_update on public.service_registration_parts;
+create policy service_registration_parts_update
+  on public.service_registration_parts for update
+  to authenticated
   using (
-    exists (
+    public.is_timan_backend()
+    or exists (
       select 1 from public.service_registrations r
       where r.id = service_registration_parts.service_registration_id
+        and r.dealer_number is not null
+        and r.dealer_number = public.current_user_dealer_number()
+    )
+  )
+  with check (
+    public.is_timan_backend()
+    or exists (
+      select 1 from public.service_registrations r
+      where r.id = service_registration_parts.service_registration_id
+        and r.dealer_number is not null
+        and r.dealer_number = public.current_user_dealer_number()
     )
   );
