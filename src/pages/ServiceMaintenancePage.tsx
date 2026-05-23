@@ -254,11 +254,12 @@ export default function ServiceMaintenancePage() {
         service_plan_completed: form.service_plan_completed,
         notes: form.notes.trim() || null,
         faults_found: form.faults_found.trim() || null,
-        spare_parts_used: form.spare_parts_used.trim() || null,
+        spare_parts_used: serializeParts(form.machine_type, form.service_interval_hours, selectedStep, extraRows, kitTotal, extraTotal, grandTotal),
         attachment_urls: [],
       }, appUser.email ?? null);
       toast({ title: t('saved'), description: t('savedDesc') });
-      setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '', spare_parts_used: '' }));
+      setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
+      setExtraParts([]);
       await reload();
       if (isBackend) setTab('overview');
     } catch (err) {
