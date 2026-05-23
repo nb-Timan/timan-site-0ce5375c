@@ -30,7 +30,7 @@ import {
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
-import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType } from '@/lib/serviceMachineTypes';
+import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
