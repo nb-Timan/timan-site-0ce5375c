@@ -145,8 +145,8 @@ export default function ServiceMaintenancePage() {
     service_plan_completed: true,
     notes: '',
     faults_found: '',
-    spare_parts_used: '',
   });
+  const [extraParts, setExtraParts] = useState<Array<{ id: string; name: string; price: string; qty: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
