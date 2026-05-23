@@ -361,12 +361,25 @@ export default function ServiceMaintenancePage() {
                 <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
               </Field>
               <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
-                <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                {intervals.length > 0 ? (
+                  <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.service_interval_hours}
+                      onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
+                      placeholder={t('intervalHoursPlaceholder')}
+                    />
+                    {!hasBasis && <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>}
+                  </div>
+                )}
               </Field>
               <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
                 <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
