@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wrench, Upload, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Wrench, Upload, Search, Filter, Plus, Trash2 } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -91,7 +91,13 @@ const T: Record<string, Record<Language, string>> = {
   colQty: { da: 'Antal', en: 'Qty', de: 'Anzahl', it: 'Qta', hu: 'Db' },
   colSum: { da: 'Sum', en: 'Sum', de: 'Summe', it: 'Somma', hu: 'Összeg' },
   colTotal: { da: 'Total', en: 'Total', de: 'Gesamt', it: 'Totale', hu: 'Összesen' },
-  partsAutoHelp: { da: 'Standardlinjer fra servicegrundlaget er indsat automatisk. Du kan tilføje ekstra reservedele nedenfor.', en: 'Default lines from the service basis are inserted automatically. You can add extra spare parts below.', de: 'Standardpositionen aus der Servicegrundlage wurden automatisch eingefügt. Sie können unten weitere Ersatzteile hinzufügen.', it: 'Le righe predefinite della base di servizio sono inserite automaticamente. Puoi aggiungere altri ricambi sotto.', hu: 'A szervizalap alapértelmezett sorai automatikusan beillesztve. Lent további alkatrészeket adhatsz hozzá.' },
+  extraTitle: { da: 'Ekstra reservedele uden for servicekit', en: 'Extra spare parts outside service kit', de: 'Zusätzliche Ersatzteile außerhalb des Servicekits', it: 'Ricambi extra fuori dal kit di servizio', hu: 'Extra alkatrészek a szervizkészleten kívül' },
+  extraAdd: { da: 'Tilføj ekstra reservedel', en: 'Add extra spare part', de: 'Zusätzliches Ersatzteil hinzufügen', it: 'Aggiungi ricambio extra', hu: 'Extra alkatrész hozzáadása' },
+  extraEmpty: { da: 'Ingen ekstra reservedele tilføjet.', en: 'No extra spare parts added.', de: 'Keine zusätzlichen Ersatzteile.', it: 'Nessun ricambio extra.', hu: 'Nincs extra alkatrész.' },
+  totalKit: { da: 'Total servicekit', en: 'Total service kit', de: 'Servicekit gesamt', it: 'Totale kit servizio', hu: 'Szervizkészlet összesen' },
+  totalExtra: { da: 'Total ekstra reservedele', en: 'Total extra parts', de: 'Zusätzliche Teile gesamt', it: 'Totale ricambi extra', hu: 'Extra alkatrészek összesen' },
+  totalGrand: { da: 'Total samlet', en: 'Grand total', de: 'Gesamtsumme', it: 'Totale generale', hu: 'Mindösszesen' },
+  remove: { da: 'Slet', en: 'Remove', de: 'Entfernen', it: 'Rimuovi', hu: 'Törlés' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
@@ -139,8 +145,8 @@ export default function ServiceMaintenancePage() {
     service_plan_completed: true,
     notes: '',
     faults_found: '',
-    spare_parts_used: '',
   });
+  const [extraParts, setExtraParts] = useState<Array<{ id: string; name: string; price: string; qty: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -172,19 +178,15 @@ export default function ServiceMaintenancePage() {
     [form.machine_type, form.service_interval_hours],
   );
 
-  // Auto-fill the "spare parts used" textarea with the basis rows
-  // whenever machine type or interval changes. The user can still
-  // append extra lines manually afterwards.
-  useEffect(() => {
-    if (!selectedStep) return;
-    const header = `${form.machine_type} — ${form.service_interval_hours} timer`;
-    const lines = selectedStep.rows.map(
-      (r) => `${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`,
-    );
-    const total = `Total: ${selectedStep.stepTotal.toFixed(2)} kr`;
-    setForm((f) => ({ ...f, spare_parts_used: [header, ...lines, total].join('\n') }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStep]);
+  // Extra parts totals
+  const extraRows = useMemo(() => extraParts.map((p) => {
+    const price = Number(p.price) || 0;
+    const qty = Number(p.qty) || 0;
+    return { ...p, priceNum: price, qtyNum: qty, sum: price * qty };
+  }), [extraParts]);
+  const extraTotal = useMemo(() => extraRows.reduce((s, r) => s + r.sum, 0), [extraRows]);
+  const kitTotal = selectedStep?.stepTotal ?? 0;
+  const grandTotal = kitTotal + extraTotal;
 
   const reload = useMemo(() => async () => {
     try {
@@ -252,11 +254,12 @@ export default function ServiceMaintenancePage() {
         service_plan_completed: form.service_plan_completed,
         notes: form.notes.trim() || null,
         faults_found: form.faults_found.trim() || null,
-        spare_parts_used: form.spare_parts_used.trim() || null,
+        spare_parts_used: serializeParts(form.machine_type, form.service_interval_hours, selectedStep, extraRows, kitTotal, extraTotal, grandTotal),
         attachment_urls: [],
       }, appUser.email ?? null);
       toast({ title: t('saved'), description: t('savedDesc') });
-      setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '', spare_parts_used: '' }));
+      setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
+      setExtraParts([]);
       await reload();
       if (isBackend) setTab('overview');
     } catch (err) {
@@ -454,10 +457,102 @@ export default function ServiceMaintenancePage() {
               </div>
               <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
               <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
-              <Field label={t('fParts')} full>
-                <Textarea rows={6} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} />
-                {selectedStep && <p className="text-xs text-gray-500 mt-1">{t('partsAutoHelp')}</p>}
-              </Field>
+              <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex items-center justify-between">
+                  <span>{t('extraTitle')}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setExtraParts((rows) => [...rows, { id: '', name: '', price: '', qty: '1' }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />{t('extraAdd')}
+                  </Button>
+                </div>
+                {extraParts.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-gray-500 text-center">{t('extraEmpty')}</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colItemNo')}</TableHead>
+                        <TableHead>{t('colItemName')}</TableHead>
+                        <TableHead className="text-right w-32">{t('colUnitPrice')}</TableHead>
+                        <TableHead className="text-right w-20">{t('colQty')}</TableHead>
+                        <TableHead className="text-right w-28">{t('colSum')}</TableHead>
+                        <TableHead className="w-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {extraRows.map((r, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <Input
+                              value={r.id}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, id: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={r.name}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="text-right"
+                              value={r.price}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              className="text-right"
+                              value={r.qty}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={t('remove')}
+                              onClick={() => setExtraParts((rows) => rows.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              {(selectedStep || extraParts.length > 0) && (
+                <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalKit')}</span>
+                      <div className="font-semibold">{kitTotal.toFixed(2)} kr</div>
+                    </div>
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalExtra')}</span>
+                      <div className="font-semibold">{extraTotal.toFixed(2)} kr</div>
+                    </div>
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalGrand')}</span>
+                      <div className="font-bold text-base">{grandTotal.toFixed(2)} kr</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <Label className="text-xs text-gray-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
                 <Input type="file" disabled className="mt-1 opacity-60" />
@@ -506,9 +601,45 @@ export default function ServiceMaintenancePage() {
   );
 }
 
+type ExtraRow = { id: string; name: string; priceNum: number; qtyNum: number; sum: number };
+
+function serializeParts(
+  machineType: string,
+  intervalHours: string,
+  selectedStep: { rows: { id: string; name: string; price: number; count: number; sum: number }[]; stepTotal: number } | null,
+  extras: ExtraRow[],
+  kitTotal: number,
+  extraTotal: number,
+  grandTotal: number,
+): string | null {
+  const parts: string[] = [];
+  if (selectedStep) {
+    parts.push(`[Servicekit] ${machineType} — ${intervalHours} timer`);
+    selectedStep.rows.forEach((r) => {
+      parts.push(`${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`);
+    });
+    parts.push(`Total servicekit: ${kitTotal.toFixed(2)} kr`);
+  }
+  if (extras.length > 0) {
+    parts.push('');
+    parts.push('[Ekstra reservedele uden for servicekit]');
+    extras.forEach((r) => {
+      parts.push(`${r.id || '-'}\t${r.name || '-'}\t${r.qtyNum} stk\t${r.priceNum.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`);
+    });
+    parts.push(`Total ekstra: ${extraTotal.toFixed(2)} kr`);
+  }
+  if (selectedStep || extras.length > 0) {
+    parts.push('');
+    parts.push(`Total samlet: ${grandTotal.toFixed(2)} kr`);
+  }
+  const out = parts.join('\n').trim();
+  return out || null;
+}
+
 function Field({ label, error, full, children }: { label: string; error?: string | null; full?: boolean; children: React.ReactNode }) {
   return (
     <div className={full ? 'md:col-span-2' : ''}>
+
       <Label className="text-xs">{label}</Label>
       <div className="mt-1">{children}</div>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
