@@ -74,6 +74,10 @@ const T: Record<string, Record<Language, string>> = {
   saved: { da: 'Service registreret', en: 'Service registered', de: 'Service erfasst', it: 'Servizio registrato', hu: 'Szerviz regisztrálva' },
   savedDesc: { da: 'Registreringen er gemt og knyttet til maskinen.', en: 'Registration saved and linked to the machine.', de: 'Erfassung gespeichert und der Maschine zugeordnet.', it: 'Registrazione salvata e collegata alla macchina.', hu: 'A regisztráció elmentve és a géphez kapcsolva.' },
   saveError: { da: 'Kunne ikke gemme', en: 'Could not save', de: 'Speichern fehlgeschlagen', it: 'Salvataggio non riuscito', hu: 'Mentés sikertelen' },
+  ownDealer: { da: 'Egen forhandler', en: 'Own dealer', de: 'Eigener Händler', it: 'Proprio rivenditore', hu: 'Saját kereskedő' },
+  dealerLocked: { da: 'Forhandler er låst til din konto', en: 'Dealer locked to your account', de: 'Händler ist mit Ihrem Konto verknüpft', it: 'Rivenditore bloccato sul tuo account', hu: 'A kereskedő a fiókodhoz van rögzítve' },
+  dealerLockedHelp: { da: 'Du kan kun registrere service for din egen forhandlerkonto.', en: 'You can only register service for your own dealer account.', de: 'Sie können Service nur für Ihr eigenes Händlerkonto erfassen.', it: 'Puoi registrare servizi solo per il tuo account rivenditore.', hu: 'Csak a saját kereskedői fiókodhoz regisztrálhatsz szervizt.' },
+  noDealerLink: { da: 'Din bruger er ikke knyttet til en forhandlerkonto. Kontakt Timan.', en: 'Your user is not linked to a dealer account. Contact Timan.', de: 'Ihr Benutzer ist keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan.', it: 'Il tuo utente non è collegato a un account rivenditore. Contatta Timan.', hu: 'A felhasználód nincs kereskedői fiókhoz rendelve. Lépj kapcsolatba a Timannal.' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
