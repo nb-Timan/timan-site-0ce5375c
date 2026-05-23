@@ -11,6 +11,8 @@
 import {
   servicePartsData,
   type ServiceMachineKey,
+  type ServiceStep,
+  type ServicePartRow,
 } from '@/lib/serviceBasisData';
 
 export interface ServiceMachineType {
