@@ -277,7 +277,18 @@ export default function ServiceMaintenancePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div><Label className="text-xs">{t('filterType')}</Label><Input value={fType} onChange={e => setFType(e.target.value)} placeholder="RC-1000" /></div>
+                  <div>
+                    <Label className="text-xs">{t('filterType')}</Label>
+                    <Select value={fType || ALL_TYPES} onValueChange={(v) => setFType(v === ALL_TYPES ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder={t('allTypes')} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_TYPES}>{t('allTypes')}</SelectItem>
+                        {SERVICE_MACHINE_TYPES.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div><Label className="text-xs">{t('filterSerial')}</Label><Input value={fSerial} onChange={e => setFSerial(e.target.value)} placeholder="…" /></div>
                   <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => reload()}><Filter className="h-4 w-4 mr-2" />{t('search')}</Button></div>
                 </div>
