@@ -36,6 +36,7 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'tsb_portal',      title: { da: 'TSB Portal', en: 'TSB Portal', de: 'TSB Portal', it: 'Portale TSB', hu: 'TSB Portál' } },
       { key: 'warranty_reg',    title: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' } },
       { key: 'service_info',    title: { da: 'Serviceinformation', en: 'Service information', de: 'Serviceinformationen', it: 'Informazioni di assistenza', hu: 'Szervizinformáció' } },
+      { key: 'service_maintenance', title: { da: 'Service registrering og vedligehold', en: 'Service registration and maintenance', de: 'Serviceerfassung und Wartung', it: 'Registrazione servizio e manutenzione', hu: 'Szervizregisztráció és karbantartás' } },
     ],
   },
   {

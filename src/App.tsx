@@ -45,6 +45,7 @@ import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
+import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
 import BackendUsersPage from "./pages/backend/BackendUsersPage";
 import BackendRolesPage from "./pages/backend/BackendRolesPage";
 import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
               {/* Serviceinformation */}
               <Route path="/portal/service/information" element={<ServiceInformationPage />} />
+              <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
               <Route path="/portal/backend/users" element={<BackendUsersPage />} />
               <Route path="/portal/backend/roles" element={<BackendRolesPage />} />

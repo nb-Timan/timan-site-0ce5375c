@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -89,6 +89,12 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/service/warranty';
             } else if (p.key === 'service_info') {
               href = '/portal/service/information';
+            } else if (p.key === 'service_maintenance') {
+              href = '/portal/service/maintenance';
+              icon = Wrench;
+              description = lang === 'da'
+                ? 'Registrer udført service og se servicehistorik pr. maskine.'
+                : 'Register completed service and view service history per machine.';
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
               icon = Users;
