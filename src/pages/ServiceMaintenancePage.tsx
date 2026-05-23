@@ -384,7 +384,7 @@ export default function ServiceMaintenancePage() {
                 <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
               </Field>
               <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
-                {intervals.length > 0 ? (
+                {hasBasis ? (
                   <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
@@ -400,20 +400,56 @@ export default function ServiceMaintenancePage() {
                       onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
                       placeholder={t('intervalHoursPlaceholder')}
                     />
-                    {!hasBasis && <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>}
+                    <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>
                   </div>
                 )}
               </Field>
               <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
                 <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
               </Field>
+              {selectedStep && (
+                <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+                    {t('basisTitle')} — {form.machine_type} / {form.service_interval_hours} timer
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colItemNo')}</TableHead>
+                        <TableHead>{t('colItemName')}</TableHead>
+                        <TableHead className="text-right">{t('colUnitPrice')}</TableHead>
+                        <TableHead className="text-right">{t('colQty')}</TableHead>
+                        <TableHead className="text-right">{t('colSum')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedStep.rows.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                          <TableCell>{r.name}</TableCell>
+                          <TableCell className="text-right">{r.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{r.count}</TableCell>
+                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-right font-semibold">{t('colTotal')}</TableCell>
+                        <TableCell className="text-right font-semibold">{selectedStep.stepTotal.toFixed(2)} kr</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <div className="md:col-span-2 flex items-center gap-2">
                 <Checkbox id="plan" checked={form.service_plan_completed} onCheckedChange={(v) => setForm({ ...form, service_plan_completed: v === true })} />
                 <Label htmlFor="plan">{t('fPlan')}</Label>
               </div>
               <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
               <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
-              <Field label={t('fParts')} full><Textarea rows={2} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} /></Field>
+              <Field label={t('fParts')} full>
+                <Textarea rows={6} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} />
+                {selectedStep && <p className="text-xs text-gray-500 mt-1">{t('partsAutoHelp')}</p>}
+              </Field>
               <div className="md:col-span-2">
                 <Label className="text-xs text-gray-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
                 <Input type="file" disabled className="mt-1 opacity-60" />
