@@ -457,10 +457,102 @@ export default function ServiceMaintenancePage() {
               </div>
               <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
               <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
-              <Field label={t('fParts')} full>
-                <Textarea rows={6} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} />
-                {selectedStep && <p className="text-xs text-gray-500 mt-1">{t('partsAutoHelp')}</p>}
-              </Field>
+              <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex items-center justify-between">
+                  <span>{t('extraTitle')}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setExtraParts((rows) => [...rows, { id: '', name: '', price: '', qty: '1' }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />{t('extraAdd')}
+                  </Button>
+                </div>
+                {extraParts.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-gray-500 text-center">{t('extraEmpty')}</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colItemNo')}</TableHead>
+                        <TableHead>{t('colItemName')}</TableHead>
+                        <TableHead className="text-right w-32">{t('colUnitPrice')}</TableHead>
+                        <TableHead className="text-right w-20">{t('colQty')}</TableHead>
+                        <TableHead className="text-right w-28">{t('colSum')}</TableHead>
+                        <TableHead className="w-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {extraRows.map((r, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <Input
+                              value={r.id}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, id: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={r.name}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="text-right"
+                              value={r.price}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              className="text-right"
+                              value={r.qty}
+                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: e.target.value } : x))}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={t('remove')}
+                              onClick={() => setExtraParts((rows) => rows.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              {(selectedStep || extraParts.length > 0) && (
+                <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalKit')}</span>
+                      <div className="font-semibold">{kitTotal.toFixed(2)} kr</div>
+                    </div>
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalExtra')}</span>
+                      <div className="font-semibold">{extraTotal.toFixed(2)} kr</div>
+                    </div>
+                    <div className="flex justify-between sm:block">
+                      <span className="text-gray-600">{t('totalGrand')}</span>
+                      <div className="font-bold text-base">{grandTotal.toFixed(2)} kr</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <Label className="text-xs text-gray-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
                 <Input type="file" disabled className="mt-1 opacity-60" />
