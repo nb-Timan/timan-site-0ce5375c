@@ -24,13 +24,13 @@ import {
   ServiceMachine,
   ServiceRegistration,
   ServiceInterval,
-  listServiceIntervals,
+  
   listServiceMachines,
   listServiceRegistrations,
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
-import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType } from '@/lib/serviceMachineTypes';
+import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
@@ -84,6 +84,14 @@ const T: Record<string, Record<Language, string>> = {
   allTypes: { da: 'Alle maskintyper', en: 'All machine types', de: 'Alle Maschinentypen', it: 'Tutti i tipi', hu: 'Minden géptípus' },
   basisMissing: { da: 'Servicegrundlag ikke opsat endnu for denne maskintype.', en: 'Service basis not configured yet for this machine type.', de: 'Servicegrundlage für diesen Maschinentyp noch nicht eingerichtet.', it: 'Base di servizio non ancora configurata per questo tipo di macchina.', hu: 'Ehhez a géptípushoz még nincs szervizalap beállítva.' },
   intervalHoursPlaceholder: { da: 'Timer, fx 250', en: 'Hours, e.g. 250', de: 'Stunden, z. B. 250', it: 'Ore, es. 250', hu: 'Óra, pl. 250' },
+  basisTitle: { da: 'Servicegrundlag', en: 'Service basis', de: 'Servicegrundlage', it: 'Base servizio', hu: 'Szervizalap' },
+  colItemNo: { da: 'Varenr', en: 'Item no.', de: 'Art.-Nr.', it: 'Cod.', hu: 'Cikkszám' },
+  colItemName: { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
+  colUnitPrice: { da: 'Stk pris', en: 'Unit price', de: 'Stückpreis', it: 'Prezzo unit.', hu: 'Egységár' },
+  colQty: { da: 'Antal', en: 'Qty', de: 'Anzahl', it: 'Qta', hu: 'Db' },
+  colSum: { da: 'Sum', en: 'Sum', de: 'Summe', it: 'Somma', hu: 'Összeg' },
+  colTotal: { da: 'Total', en: 'Total', de: 'Gesamt', it: 'Totale', hu: 'Összesen' },
+  partsAutoHelp: { da: 'Standardlinjer fra servicegrundlaget er indsat automatisk. Du kan tilføje ekstra reservedele nedenfor.', en: 'Default lines from the service basis are inserted automatically. You can add extra spare parts below.', de: 'Standardpositionen aus der Servicegrundlage wurden automatisch eingefügt. Sie können unten weitere Ersatzteile hinzufügen.', it: 'Le righe predefinite della base di servizio sono inserite automaticamente. Puoi aggiungere altri ricambi sotto.', hu: 'A szervizalap alapértelmezett sorai automatikusan beillesztve. Lent további alkatrészeket adhatsz hozzá.' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
@@ -136,24 +144,47 @@ export default function ServiceMaintenancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
-  // Compute interval options: prefer shared serviceBasisData (matches
-  // Driftberegner), fall back to DB-seeded service_intervals.
+  // Intervals come exclusively from the shared serviceBasisData
+  // (same source as TCO/Driftberegner "Se grundlag"). No DB fallback.
   const basisIntervals = useMemo(() => getBasisIntervals(form.machine_type), [form.machine_type]);
   const hasBasis = !!findServiceMachineType(form.machine_type)?.basisKey;
   useEffect(() => {
-    if (basisIntervals.length > 0) {
-      setIntervals(basisIntervals.map((h) => ({ id: `basis-${h}`, machine_type: form.machine_type, interval_hours: h, label: `${h} timer`, active: true })));
-      return;
-    }
-    listServiceIntervals(form.machine_type).then(setIntervals).catch(() => setIntervals([]));
+    setIntervals(
+      basisIntervals.map((h) => ({
+        id: `basis-${h}`,
+        machine_type: form.machine_type,
+        interval_hours: h,
+        label: `${h} timer`,
+        active: true,
+      })),
+    );
   }, [form.machine_type, basisIntervals]);
 
-  // Reset selected interval whenever machine type changes so a stale
-  // value from another machine isn't saved by accident.
+  // Reset interval when machine type changes.
   useEffect(() => {
     setForm((f) => ({ ...f, service_interval_hours: '' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.machine_type]);
+
+  // Selected service step (rows + total) from serviceBasisData.
+  const selectedStep = useMemo(
+    () => getBasisStep(form.machine_type, Number(form.service_interval_hours) || null),
+    [form.machine_type, form.service_interval_hours],
+  );
+
+  // Auto-fill the "spare parts used" textarea with the basis rows
+  // whenever machine type or interval changes. The user can still
+  // append extra lines manually afterwards.
+  useEffect(() => {
+    if (!selectedStep) return;
+    const header = `${form.machine_type} — ${form.service_interval_hours} timer`;
+    const lines = selectedStep.rows.map(
+      (r) => `${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`,
+    );
+    const total = `Total: ${selectedStep.stepTotal.toFixed(2)} kr`;
+    setForm((f) => ({ ...f, spare_parts_used: [header, ...lines, total].join('\n') }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStep]);
 
   const reload = useMemo(() => async () => {
     try {
@@ -361,7 +392,7 @@ export default function ServiceMaintenancePage() {
                 <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
               </Field>
               <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
-                {intervals.length > 0 ? (
+                {hasBasis ? (
                   <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
@@ -377,20 +408,56 @@ export default function ServiceMaintenancePage() {
                       onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
                       placeholder={t('intervalHoursPlaceholder')}
                     />
-                    {!hasBasis && <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>}
+                    <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>
                   </div>
                 )}
               </Field>
               <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
                 <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
               </Field>
+              {selectedStep && (
+                <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+                    {t('basisTitle')} — {form.machine_type} / {form.service_interval_hours} timer
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colItemNo')}</TableHead>
+                        <TableHead>{t('colItemName')}</TableHead>
+                        <TableHead className="text-right">{t('colUnitPrice')}</TableHead>
+                        <TableHead className="text-right">{t('colQty')}</TableHead>
+                        <TableHead className="text-right">{t('colSum')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedStep.rows.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                          <TableCell>{r.name}</TableCell>
+                          <TableCell className="text-right">{r.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{r.count}</TableCell>
+                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-right font-semibold">{t('colTotal')}</TableCell>
+                        <TableCell className="text-right font-semibold">{selectedStep.stepTotal.toFixed(2)} kr</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <div className="md:col-span-2 flex items-center gap-2">
                 <Checkbox id="plan" checked={form.service_plan_completed} onCheckedChange={(v) => setForm({ ...form, service_plan_completed: v === true })} />
                 <Label htmlFor="plan">{t('fPlan')}</Label>
               </div>
               <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
               <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
-              <Field label={t('fParts')} full><Textarea rows={2} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} /></Field>
+              <Field label={t('fParts')} full>
+                <Textarea rows={6} value={form.spare_parts_used} onChange={e => setForm({ ...form, spare_parts_used: e.target.value })} />
+                {selectedStep && <p className="text-xs text-gray-500 mt-1">{t('partsAutoHelp')}</p>}
+              </Field>
               <div className="md:col-span-2">
                 <Label className="text-xs text-gray-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
                 <Input type="file" disabled className="mt-1 opacity-60" />
