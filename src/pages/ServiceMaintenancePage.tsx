@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wrench, Upload, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Wrench, Upload, Search, Filter, Plus, Trash2 } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
