@@ -241,6 +241,26 @@ export default function ServiceMaintenancePage() {
         setSubmitting(false);
         return;
       }
+      const partsPayload = [
+        ...((selectedStep?.rows ?? []).map((r) => ({
+          source_type: 'servicekit' as const,
+          item_number: r.id ?? null,
+          description: r.name ?? null,
+          unit_price: Number(r.price) || 0,
+          quantity: Number(r.count) || 0,
+          line_total: Number(r.sum) || 0,
+        }))),
+        ...extraRows
+          .filter((r) => (r.id?.trim() || r.name?.trim()))
+          .map((r) => ({
+            source_type: 'extra' as const,
+            item_number: r.id?.trim() || null,
+            description: r.name?.trim() || null,
+            unit_price: r.priceNum,
+            quantity: r.qtyNum,
+            line_total: r.sum,
+          })),
+      ];
       await createServiceRegistration({
         serial_number: form.serial_number.trim(),
         machine_type: form.machine_type.trim(),
@@ -256,6 +276,10 @@ export default function ServiceMaintenancePage() {
         faults_found: form.faults_found.trim() || null,
         spare_parts_used: serializeParts(form.machine_type, form.service_interval_hours, selectedStep, extraRows, kitTotal, extraTotal, grandTotal),
         attachment_urls: [],
+        total_servicekit_price: kitTotal,
+        total_extra_parts_price: extraTotal,
+        total_price: grandTotal,
+        parts: partsPayload,
       }, appUser.email ?? null);
       toast({ title: t('saved'), description: t('savedDesc') });
       setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
