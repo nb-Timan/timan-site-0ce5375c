@@ -98,6 +98,12 @@ export default function ServiceMaintenancePage() {
   const [fDealer, setFDealer] = useState('');
   const [fType, setFType] = useState('');
   const [fSerial, setFSerial] = useState('');
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+
+  useEffect(() => {
+    if (!isBackend) return;
+    fetchDealerAccounts().then(r => setDealers(r.rows.filter(d => !d.is_deleted))).catch(() => setDealers([]));
+  }, [isBackend]);
 
   // Form
   const dealerNumber = appUser?.dealer_number ?? null;
