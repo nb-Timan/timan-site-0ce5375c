@@ -311,7 +311,14 @@ export default function ServiceMaintenancePage() {
                 <Input value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
               </Field>
               <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
-                <Input value={form.machine_type} onChange={e => setForm({ ...form, machine_type: e.target.value })} />
+                <Select value={form.machine_type} onValueChange={(v) => setForm({ ...form, machine_type: v })}>
+                  <SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_MACHINE_TYPES.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
                 {isBackend ? (
