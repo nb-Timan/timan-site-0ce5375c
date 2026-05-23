@@ -30,8 +30,10 @@ import {
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType } from '@/lib/serviceMachineTypes';
 
 const ALL_DEALERS = '__all__';
+const ALL_TYPES = '__all_types__';
 
 const T: Record<string, Record<Language, string>> = {
   back: { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza a Műszaki & Szervizhez' },
@@ -78,6 +80,10 @@ const T: Record<string, Record<Language, string>> = {
   dealerLocked: { da: 'Forhandler er låst til din konto', en: 'Dealer locked to your account', de: 'Händler ist mit Ihrem Konto verknüpft', it: 'Rivenditore bloccato sul tuo account', hu: 'A kereskedő a fiókodhoz van rögzítve' },
   dealerLockedHelp: { da: 'Du kan kun registrere service for din egen forhandlerkonto.', en: 'You can only register service for your own dealer account.', de: 'Sie können Service nur für Ihr eigenes Händlerkonto erfassen.', it: 'Puoi registrare servizi solo per il tuo account rivenditore.', hu: 'Csak a saját kereskedői fiókodhoz regisztrálhatsz szervizt.' },
   noDealerLink: { da: 'Din bruger er ikke knyttet til en forhandlerkonto. Kontakt Timan.', en: 'Your user is not linked to a dealer account. Contact Timan.', de: 'Ihr Benutzer ist keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan.', it: 'Il tuo utente non è collegato a un account rivenditore. Contatta Timan.', hu: 'A felhasználód nincs kereskedői fiókhoz rendelve. Lépj kapcsolatba a Timannal.' },
+  selectType: { da: 'Vælg maskintype', en: 'Select machine type', de: 'Maschinentyp wählen', it: 'Seleziona tipo macchina', hu: 'Válassz géptípust' },
+  allTypes: { da: 'Alle maskintyper', en: 'All machine types', de: 'Alle Maschinentypen', it: 'Tutti i tipi', hu: 'Minden géptípus' },
+  basisMissing: { da: 'Servicegrundlag ikke opsat endnu for denne maskintype.', en: 'Service basis not configured yet for this machine type.', de: 'Servicegrundlage für diesen Maschinentyp noch nicht eingerichtet.', it: 'Base di servizio non ancora configurata per questo tipo di macchina.', hu: 'Ehhez a géptípushoz még nincs szervizalap beállítva.' },
+  intervalHoursPlaceholder: { da: 'Timer, fx 250', en: 'Hours, e.g. 250', de: 'Stunden, z. B. 250', it: 'Ore, es. 250', hu: 'Óra, pl. 250' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
@@ -114,7 +120,7 @@ export default function ServiceMaintenancePage() {
   const dealerName = appUser?.company_dealer ?? null;
   const [form, setForm] = useState({
     serial_number: '',
-    machine_type: 'RC-1000',
+    machine_type: SERVICE_MACHINE_TYPES[0].value,
     dealer_number: dealerNumber ?? '',
     dealer_name: dealerName ?? '',
     customer_name: '',
@@ -130,8 +136,23 @@ export default function ServiceMaintenancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
+  // Compute interval options: prefer shared serviceBasisData (matches
+  // Driftberegner), fall back to DB-seeded service_intervals.
+  const basisIntervals = useMemo(() => getBasisIntervals(form.machine_type), [form.machine_type]);
+  const hasBasis = !!findServiceMachineType(form.machine_type)?.basisKey;
   useEffect(() => {
+    if (basisIntervals.length > 0) {
+      setIntervals(basisIntervals.map((h) => ({ id: `basis-${h}`, machine_type: form.machine_type, interval_hours: h, label: `${h} timer`, active: true })));
+      return;
+    }
     listServiceIntervals(form.machine_type).then(setIntervals).catch(() => setIntervals([]));
+  }, [form.machine_type, basisIntervals]);
+
+  // Reset selected interval whenever machine type changes so a stale
+  // value from another machine isn't saved by accident.
+  useEffect(() => {
+    setForm((f) => ({ ...f, service_interval_hours: '' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.machine_type]);
 
   const reload = useMemo(() => async () => {
@@ -256,7 +277,18 @@ export default function ServiceMaintenancePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div><Label className="text-xs">{t('filterType')}</Label><Input value={fType} onChange={e => setFType(e.target.value)} placeholder="RC-1000" /></div>
+                  <div>
+                    <Label className="text-xs">{t('filterType')}</Label>
+                    <Select value={fType || ALL_TYPES} onValueChange={(v) => setFType(v === ALL_TYPES ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder={t('allTypes')} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_TYPES}>{t('allTypes')}</SelectItem>
+                        {SERVICE_MACHINE_TYPES.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div><Label className="text-xs">{t('filterSerial')}</Label><Input value={fSerial} onChange={e => setFSerial(e.target.value)} placeholder="…" /></div>
                   <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => reload()}><Filter className="h-4 w-4 mr-2" />{t('search')}</Button></div>
                 </div>
@@ -279,7 +311,14 @@ export default function ServiceMaintenancePage() {
                 <Input value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
               </Field>
               <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
-                <Input value={form.machine_type} onChange={e => setForm({ ...form, machine_type: e.target.value })} />
+                <Select value={form.machine_type} onValueChange={(v) => setForm({ ...form, machine_type: v })}>
+                  <SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_MACHINE_TYPES.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
                 {isBackend ? (
@@ -322,12 +361,25 @@ export default function ServiceMaintenancePage() {
                 <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
               </Field>
               <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
-                <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                {intervals.length > 0 ? (
+                  <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.service_interval_hours}
+                      onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
+                      placeholder={t('intervalHoursPlaceholder')}
+                    />
+                    {!hasBasis && <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>}
+                  </div>
+                )}
               </Field>
               <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
                 <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
