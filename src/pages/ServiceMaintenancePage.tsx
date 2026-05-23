@@ -24,7 +24,7 @@ import {
   ServiceMachine,
   ServiceRegistration,
   ServiceInterval,
-  listServiceIntervals,
+  
   listServiceMachines,
   listServiceRegistrations,
   createServiceRegistration,
