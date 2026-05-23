@@ -635,7 +635,9 @@ function serializeParts(
   const out = parts.join('\n').trim();
   return out || null;
 }
-  return (
+
+function Field({ label, error, full, children }: { label: string; error?: string | null; full?: boolean; children: React.ReactNode }) {
+
     <div className={full ? 'md:col-span-2' : ''}>
       <Label className="text-xs">{label}</Label>
       <div className="mt-1">{children}</div>
