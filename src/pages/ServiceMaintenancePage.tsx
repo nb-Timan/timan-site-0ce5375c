@@ -84,6 +84,14 @@ const T: Record<string, Record<Language, string>> = {
   allTypes: { da: 'Alle maskintyper', en: 'All machine types', de: 'Alle Maschinentypen', it: 'Tutti i tipi', hu: 'Minden géptípus' },
   basisMissing: { da: 'Servicegrundlag ikke opsat endnu for denne maskintype.', en: 'Service basis not configured yet for this machine type.', de: 'Servicegrundlage für diesen Maschinentyp noch nicht eingerichtet.', it: 'Base di servizio non ancora configurata per questo tipo di macchina.', hu: 'Ehhez a géptípushoz még nincs szervizalap beállítva.' },
   intervalHoursPlaceholder: { da: 'Timer, fx 250', en: 'Hours, e.g. 250', de: 'Stunden, z. B. 250', it: 'Ore, es. 250', hu: 'Óra, pl. 250' },
+  basisTitle: { da: 'Servicegrundlag', en: 'Service basis', de: 'Servicegrundlage', it: 'Base servizio', hu: 'Szervizalap' },
+  colItemNo: { da: 'Varenr', en: 'Item no.', de: 'Art.-Nr.', it: 'Cod.', hu: 'Cikkszám' },
+  colItemName: { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
+  colUnitPrice: { da: 'Stk pris', en: 'Unit price', de: 'Stückpreis', it: 'Prezzo unit.', hu: 'Egységár' },
+  colQty: { da: 'Antal', en: 'Qty', de: 'Anzahl', it: 'Qta', hu: 'Db' },
+  colSum: { da: 'Sum', en: 'Sum', de: 'Summe', it: 'Somma', hu: 'Összeg' },
+  colTotal: { da: 'Total', en: 'Total', de: 'Gesamt', it: 'Totale', hu: 'Összesen' },
+  partsAutoHelp: { da: 'Standardlinjer fra servicegrundlaget er indsat automatisk. Du kan tilføje ekstra reservedele nedenfor.', en: 'Default lines from the service basis are inserted automatically. You can add extra spare parts below.', de: 'Standardpositionen aus der Servicegrundlage wurden automatisch eingefügt. Sie können unten weitere Ersatzteile hinzufügen.', it: 'Le righe predefinite della base di servizio sono inserite automaticamente. Puoi aggiungere altri ricambi sotto.', hu: 'A szervizalap alapértelmezett sorai automatikusan beillesztve. Lent további alkatrészeket adhatsz hozzá.' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
