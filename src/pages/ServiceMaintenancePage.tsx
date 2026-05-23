@@ -601,7 +601,40 @@ export default function ServiceMaintenancePage() {
   );
 }
 
-function Field({ label, error, full, children }: { label: string; error?: string | null; full?: boolean; children: React.ReactNode }) {
+type ExtraRow = { id: string; name: string; priceNum: number; qtyNum: number; sum: number };
+
+function serializeParts(
+  machineType: string,
+  intervalHours: string,
+  selectedStep: { rows: { id: string; name: string; price: number; count: number; sum: number }[]; stepTotal: number } | null,
+  extras: ExtraRow[],
+  kitTotal: number,
+  extraTotal: number,
+  grandTotal: number,
+): string | null {
+  const parts: string[] = [];
+  if (selectedStep) {
+    parts.push(`[Servicekit] ${machineType} — ${intervalHours} timer`);
+    selectedStep.rows.forEach((r) => {
+      parts.push(`${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`);
+    });
+    parts.push(`Total servicekit: ${kitTotal.toFixed(2)} kr`);
+  }
+  if (extras.length > 0) {
+    parts.push('');
+    parts.push('[Ekstra reservedele uden for servicekit]');
+    extras.forEach((r) => {
+      parts.push(`${r.id || '-'}\t${r.name || '-'}\t${r.qtyNum} stk\t${r.priceNum.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`);
+    });
+    parts.push(`Total ekstra: ${extraTotal.toFixed(2)} kr`);
+  }
+  if (selectedStep || extras.length > 0) {
+    parts.push('');
+    parts.push(`Total samlet: ${grandTotal.toFixed(2)} kr`);
+  }
+  const out = parts.join('\n').trim();
+  return out || null;
+}
   return (
     <div className={full ? 'md:col-span-2' : ''}>
       <Label className="text-xs">{label}</Label>
