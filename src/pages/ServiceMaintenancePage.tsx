@@ -312,24 +312,6 @@ export default function ServiceMaintenancePage() {
                   </div>
                 )}
               </Field>
-                    onValueChange={(v) => {
-                      const d = dealers.find(x => x.account_number === v);
-                      setForm({ ...form, dealer_number: v, dealer_name: d?.company_name ?? '' });
-                    }}
-                  >
-                    <SelectTrigger><SelectValue placeholder={t('fDealer')} /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {dealers.map(d => (
-                        <SelectItem key={d.id} value={d.account_number}>
-                          {d.account_number} — {d.company_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={form.dealer_name} onChange={e => setForm({ ...form, dealer_name: e.target.value })} placeholder={form.dealer_number || ''} />
-                )}
-              </Field>
               <Field label={t('fCustomer')}>
                 <Input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} />
               </Field>
