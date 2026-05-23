@@ -36,6 +36,9 @@ export interface ServiceRegistration {
   faults_found: string | null;
   spare_parts_used: string | null;
   attachment_urls: string[];
+  total_servicekit_price: number | null;
+  total_extra_parts_price: number | null;
+  total_price: number | null;
   created_by_email: string | null;
   created_at: string;
 }
@@ -46,6 +49,21 @@ export interface ServiceInterval {
   interval_hours: number;
   label: string | null;
   active: boolean;
+}
+
+export interface ServiceRegistrationPartInput {
+  source_type: 'servicekit' | 'extra';
+  item_number: string | null;
+  description: string | null;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+}
+
+export interface ServiceRegistrationPart extends ServiceRegistrationPartInput {
+  id: string;
+  service_registration_id: string;
+  created_at: string;
 }
 
 export interface NewServiceRegistration {
@@ -63,6 +81,10 @@ export interface NewServiceRegistration {
   faults_found: string | null;
   spare_parts_used: string | null;
   attachment_urls: string[];
+  total_servicekit_price: number;
+  total_extra_parts_price: number;
+  total_price: number;
+  parts: ServiceRegistrationPartInput[];
 }
 
 export async function listServiceIntervals(machineType?: string): Promise<ServiceInterval[]> {
@@ -130,6 +152,29 @@ async function ensureMachine(payload: NewServiceRegistration, createdByEmail: st
   return inserted as ServiceMachine;
 }
 
+/** Coerce to a safe finite number for numeric columns. Never sends empty strings. */
+function num(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v.replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+export async function listServiceRegistrationParts(
+  serviceRegistrationId: string,
+): Promise<ServiceRegistrationPart[]> {
+  const { data, error } = await supabase
+    .from('service_registration_parts')
+    .select('*')
+    .eq('service_registration_id', serviceRegistrationId)
+    .order('source_type')
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []) as ServiceRegistrationPart[];
+}
+
 export async function createServiceRegistration(
   payload: NewServiceRegistration,
   createdByEmail: string | null,
@@ -145,18 +190,45 @@ export async function createServiceRegistration(
       machine_type: payload.machine_type,
       customer_name: payload.customer_name,
       service_date: payload.service_date,
-      operating_hours: payload.operating_hours,
-      service_interval_hours: payload.service_interval_hours,
+      operating_hours: num(payload.operating_hours),
+      service_interval_hours: num(payload.service_interval_hours),
       technician_name: payload.technician_name,
       service_plan_completed: payload.service_plan_completed,
       notes: payload.notes,
       faults_found: payload.faults_found,
       spare_parts_used: payload.spare_parts_used,
       attachment_urls: payload.attachment_urls,
+      total_servicekit_price: num(payload.total_servicekit_price),
+      total_extra_parts_price: num(payload.total_extra_parts_price),
+      total_price: num(payload.total_price),
       created_by_email: createdByEmail,
     })
     .select('*')
     .single();
   if (error) throw error;
-  return data as ServiceRegistration;
+  const registration = data as ServiceRegistration;
+
+  // Persist structured parts (servicekit + extra). Non-fatal if it fails so the
+  // main registration is never lost; surfaced via console for ops.
+  const partRows = (payload.parts ?? [])
+    .filter((p) => (p.item_number?.trim() || p.description?.trim()))
+    .map((p) => ({
+      service_registration_id: registration.id,
+      source_type: p.source_type,
+      item_number: p.item_number?.trim() || null,
+      description: p.description?.trim() || null,
+      unit_price: num(p.unit_price),
+      quantity: num(p.quantity),
+      line_total: num(p.line_total),
+    }));
+  if (partRows.length) {
+    const { error: partsErr } = await supabase
+      .from('service_registration_parts')
+      .insert(partRows);
+    if (partsErr) {
+      console.error('[service-maintenance] parts insert failed', partsErr);
+    }
+  }
+
+  return registration;
 }
