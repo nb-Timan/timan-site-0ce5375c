@@ -80,6 +80,10 @@ const T: Record<string, Record<Language, string>> = {
   dealerLocked: { da: 'Forhandler er låst til din konto', en: 'Dealer locked to your account', de: 'Händler ist mit Ihrem Konto verknüpft', it: 'Rivenditore bloccato sul tuo account', hu: 'A kereskedő a fiókodhoz van rögzítve' },
   dealerLockedHelp: { da: 'Du kan kun registrere service for din egen forhandlerkonto.', en: 'You can only register service for your own dealer account.', de: 'Sie können Service nur für Ihr eigenes Händlerkonto erfassen.', it: 'Puoi registrare servizi solo per il tuo account rivenditore.', hu: 'Csak a saját kereskedői fiókodhoz regisztrálhatsz szervizt.' },
   noDealerLink: { da: 'Din bruger er ikke knyttet til en forhandlerkonto. Kontakt Timan.', en: 'Your user is not linked to a dealer account. Contact Timan.', de: 'Ihr Benutzer ist keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan.', it: 'Il tuo utente non è collegato a un account rivenditore. Contatta Timan.', hu: 'A felhasználód nincs kereskedői fiókhoz rendelve. Lépj kapcsolatba a Timannal.' },
+  selectType: { da: 'Vælg maskintype', en: 'Select machine type', de: 'Maschinentyp wählen', it: 'Seleziona tipo macchina', hu: 'Válassz géptípust' },
+  allTypes: { da: 'Alle maskintyper', en: 'All machine types', de: 'Alle Maschinentypen', it: 'Tutti i tipi', hu: 'Minden géptípus' },
+  basisMissing: { da: 'Servicegrundlag ikke opsat endnu for denne maskintype.', en: 'Service basis not configured yet for this machine type.', de: 'Servicegrundlage für diesen Maschinentyp noch nicht eingerichtet.', it: 'Base di servizio non ancora configurata per questo tipo di macchina.', hu: 'Ehhez a géptípushoz még nincs szervizalap beállítva.' },
+  intervalHoursPlaceholder: { da: 'Timer, fx 250', en: 'Hours, e.g. 250', de: 'Stunden, z. B. 250', it: 'Ore, es. 250', hu: 'Óra, pl. 250' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
