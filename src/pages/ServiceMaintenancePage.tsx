@@ -178,19 +178,15 @@ export default function ServiceMaintenancePage() {
     [form.machine_type, form.service_interval_hours],
   );
 
-  // Auto-fill the "spare parts used" textarea with the basis rows
-  // whenever machine type or interval changes. The user can still
-  // append extra lines manually afterwards.
-  useEffect(() => {
-    if (!selectedStep) return;
-    const header = `${form.machine_type} — ${form.service_interval_hours} timer`;
-    const lines = selectedStep.rows.map(
-      (r) => `${r.id}\t${r.name}\t${r.count} stk\t${r.price.toFixed(2)} kr\t${r.sum.toFixed(2)} kr`,
-    );
-    const total = `Total: ${selectedStep.stepTotal.toFixed(2)} kr`;
-    setForm((f) => ({ ...f, spare_parts_used: [header, ...lines, total].join('\n') }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStep]);
+  // Extra parts totals
+  const extraRows = useMemo(() => extraParts.map((p) => {
+    const price = Number(p.price) || 0;
+    const qty = Number(p.qty) || 0;
+    return { ...p, priceNum: price, qtyNum: qty, sum: price * qty };
+  }), [extraParts]);
+  const extraTotal = useMemo(() => extraRows.reduce((s, r) => s + r.sum, 0), [extraRows]);
+  const kitTotal = selectedStep?.stepTotal ?? 0;
+  const grandTotal = kitTotal + extraTotal;
 
   const reload = useMemo(() => async () => {
     try {
