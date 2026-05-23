@@ -51,3 +51,13 @@ export function getBasisIntervals(value: string | null | undefined): number[] {
   const svc = servicePartsData[m.basisKey];
   return svc ? [...svc.intervals].sort((a, b) => a - b) : [];
 }
+
+/** Service step (rows + total) for a machine type + interval, or null. */
+export function getBasisStep(value: string | null | undefined, intervalHours: number | null | undefined): ServiceStep | null {
+  const m = findServiceMachineType(value);
+  if (!m?.basisKey || intervalHours == null) return null;
+  const svc = servicePartsData[m.basisKey];
+  return svc?.steps[intervalHours] ?? null;
+}
+
+export type { ServicePartRow, ServiceStep };
