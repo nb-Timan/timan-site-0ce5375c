@@ -178,11 +178,20 @@ export default function ServiceMaintenancePage() {
 
     setSubmitting(true);
     try {
+      // Dealer-scoped users: ignore any dealer values from UI/state, always
+      // force the logged-in user's own dealer account.
+      const effectiveDealerNumber = isBackend ? (form.dealer_number.trim() || null) : (dealerNumber || null);
+      const effectiveDealerName = isBackend ? (form.dealer_name.trim() || null) : (dealerName || null);
+      if (!isBackend && !effectiveDealerNumber) {
+        toast({ title: t('saveError'), description: t('noDealerLink'), variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
       await createServiceRegistration({
         serial_number: form.serial_number.trim(),
         machine_type: form.machine_type.trim(),
-        dealer_number: form.dealer_number.trim() || null,
-        dealer_name: form.dealer_name.trim() || null,
+        dealer_number: effectiveDealerNumber,
+        dealer_name: effectiveDealerName,
         customer_name: form.customer_name.trim() || null,
         service_date: form.service_date,
         operating_hours: Number(form.operating_hours) || 0,
