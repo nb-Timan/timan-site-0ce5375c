@@ -281,10 +281,37 @@ export default function ServiceMaintenancePage() {
               <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
                 <Input value={form.machine_type} onChange={e => setForm({ ...form, machine_type: e.target.value })} />
               </Field>
-              <Field label={t('fDealer')} error={errors.dealer_name ? t('required') : null}>
+              <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
                 {isBackend ? (
                   <Select
                     value={form.dealer_number || ''}
+                    onValueChange={(v) => {
+                      const d = dealers.find(x => x.account_number === v);
+                      setForm({ ...form, dealer_number: v, dealer_name: d?.company_name ?? '' });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder={t('fDealer')} /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {dealers.map(d => (
+                        <SelectItem key={d.id} value={d.account_number}>
+                          {d.account_number} — {d.company_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div>
+                    <Input
+                      value={dealerNumber ? `${dealerNumber}${dealerName ? ' — ' + dealerName : ''}` : ''}
+                      placeholder={t('noDealerLink')}
+                      disabled
+                      readOnly
+                      aria-label={t('dealerLocked')}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{t('dealerLockedHelp')}</p>
+                  </div>
+                )}
+              </Field>
                     onValueChange={(v) => {
                       const d = dealers.find(x => x.account_number === v);
                       setForm({ ...form, dealer_number: v, dealer_name: d?.company_name ?? '' });
