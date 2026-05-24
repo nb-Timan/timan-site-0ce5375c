@@ -398,15 +398,30 @@ export default function ServiceMaintenancePage() {
                   <TableHead>{t('fInterval')}</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {latestRegs.map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell>{r.service_date}</TableCell>
-                      <TableCell className="font-medium">{r.serial_number}</TableCell>
-                      <TableCell>{r.machine_type}</TableCell>
-                      <TableCell>{r.dealer_name ?? r.dealer_number ?? '—'}</TableCell>
-                      <TableCell>{r.service_interval_hours} h</TableCell>
-                    </TableRow>
-                  ))}
+                  {latestRegs.map(r => {
+                    const machine: ServiceMachine = machines.find(m => m.serial_number.toLowerCase() === r.serial_number.toLowerCase()) ?? {
+                      id: r.machine_id ?? r.id,
+                      serial_number: r.serial_number,
+                      machine_type: r.machine_type,
+                      dealer_account_id: r.dealer_account_id,
+                      dealer_number: r.dealer_number,
+                      dealer_name: r.dealer_name,
+                      customer_name: r.customer_name,
+                      customer_email: null,
+                      customer_phone: null,
+                      created_at: r.created_at,
+                      updated_at: r.created_at,
+                    };
+                    return (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => historyOpen(machine)}>
+                        <TableCell>{r.service_date}</TableCell>
+                        <TableCell className="font-medium">{r.serial_number}</TableCell>
+                        <TableCell>{r.machine_type}</TableCell>
+                        <TableCell>{r.dealer_name ?? r.dealer_number ?? '—'}</TableCell>
+                        <TableCell>{r.service_interval_hours} h</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
