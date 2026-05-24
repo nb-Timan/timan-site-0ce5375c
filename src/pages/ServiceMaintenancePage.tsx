@@ -94,6 +94,22 @@ const T: Record<string, Record<Language, string>> = {
   totalExtra: { da: 'Total ekstra reservedele', en: 'Total extra parts', de: 'Zusätzliche Teile gesamt', it: 'Totale ricambi extra', hu: 'Extra alkatrészek összesen' },
   totalGrand: { da: 'Total samlet', en: 'Grand total', de: 'Gesamtsumme', it: 'Totale generale', hu: 'Mindösszesen' },
   remove: { da: 'Slet', en: 'Remove', de: 'Entfernen', it: 'Rimuovi', hu: 'Törlés' },
+  dashTitle: { da: 'Service dashboard', en: 'Service dashboard', de: 'Service-Dashboard', it: 'Dashboard servizio', hu: 'Szerviz dashboard' },
+  dashSubtitle: { da: 'Overblik over service registreringer og maskiner.', en: 'Overview of service registrations and machines.', de: 'Überblick über Serviceerfassungen und Maschinen.', it: 'Panoramica delle registrazioni e delle macchine.', hu: 'Áttekintés a szervizregisztrációkról és gépekről.' },
+  statTotal: { da: 'Service registreringer i alt', en: 'Total service registrations', de: 'Serviceerfassungen gesamt', it: 'Registrazioni totali', hu: 'Összes regisztráció' },
+  statMonth: { da: 'Service denne måned', en: 'Service this month', de: 'Service diesen Monat', it: 'Servizi questo mese', hu: 'Szerviz e hónapban' },
+  statTop: { da: 'Mest servicerede maskine', en: 'Most serviced machine', de: 'Meistgewartete Maschine', it: 'Macchina più servita', hu: 'Leggyakrabban szervizelt gép' },
+  statDealers: { da: 'Aktive forhandlere', en: 'Active dealers', de: 'Aktive Händler', it: 'Rivenditori attivi', hu: 'Aktív kereskedők' },
+  latest: { da: 'Seneste service registreringer', en: 'Latest service registrations', de: 'Neueste Serviceerfassungen', it: 'Ultime registrazioni', hu: 'Legutóbbi regisztrációk' },
+  empty: { da: 'Ingen data endnu.', en: 'No data yet.', de: 'Noch keine Daten.', it: 'Nessun dato.', hu: 'Még nincs adat.' },
+  dealersTitle: { da: 'Forhandlere', en: 'Dealers', de: 'Händler', it: 'Rivenditori', hu: 'Kereskedők' },
+  dealersSubtitle: { da: 'Forhandlere knyttet til service registreringer.', en: 'Dealers linked to service registrations.', de: 'Mit Serviceerfassungen verknüpfte Händler.', it: 'Rivenditori collegati alle registrazioni.', hu: 'A regisztrációkhoz kapcsolt kereskedők.' },
+  machinesTitle: { da: 'Maskiner', en: 'Machines', de: 'Maschinen', it: 'Macchine', hu: 'Gépek' },
+  machinesSubtitle: { da: 'Alle maskiner med service historik.', en: 'All machines with service history.', de: 'Alle Maschinen mit Service-Historie.', it: 'Tutte le macchine con cronologia.', hu: 'Minden gép szervizelőzményekkel.' },
+  settingsTitle: { da: 'Indstillinger', en: 'Settings', de: 'Einstellungen', it: 'Impostazioni', hu: 'Beállítások' },
+  settingsBody: { da: 'Modulindstillinger kommer snart.', en: 'Module settings coming soon.', de: 'Moduleinstellungen folgen in Kürze.', it: 'Impostazioni del modulo in arrivo.', hu: 'A modulbeállítások hamarosan elérhetők.' },
+  createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása' },
+  registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk' },
 };
 
 type Tab = 'overview' | 'new' | 'mine';
