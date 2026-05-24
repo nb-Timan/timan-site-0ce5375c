@@ -305,7 +305,7 @@ export default function ServiceMaintenancePage() {
       setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
       setExtraParts([]);
       await reload();
-      if (isBackend) setTab('overview');
+      if (isBackend) setView('registrations');
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : String(err);
