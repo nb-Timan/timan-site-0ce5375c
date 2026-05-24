@@ -1,15 +1,11 @@
 // Phase 43 — Service registrering og vedligehold
-// Two-part page: (1) Timan internal machine overview, (2) Create service registration.
-// Dealer users see only their own machines/registrations + the create form.
+// Sidebar-based module mirroring TSB Portal / Garantiregistrering structure.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wrench, Upload, Search, Filter, Plus, Trash2 } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { Wrench, Upload, Search, Filter, Plus, Trash2, Building2, Calendar, ClipboardList } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import PortalHeader from '@/components/portal/PortalHeader';
-import PortalFooter from '@/components/portal/PortalFooter';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,13 +20,13 @@ import {
   ServiceMachine,
   ServiceRegistration,
   ServiceInterval,
-  
   listServiceMachines,
   listServiceRegistrations,
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
+import { ServiceMaintenanceSidebarLayout, type ServiceMaintView } from '@/components/service/ServiceMaintenanceSidebarLayout';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
@@ -98,20 +94,44 @@ const T: Record<string, Record<Language, string>> = {
   totalExtra: { da: 'Total ekstra reservedele', en: 'Total extra parts', de: 'Zusätzliche Teile gesamt', it: 'Totale ricambi extra', hu: 'Extra alkatrészek összesen' },
   totalGrand: { da: 'Total samlet', en: 'Grand total', de: 'Gesamtsumme', it: 'Totale generale', hu: 'Mindösszesen' },
   remove: { da: 'Slet', en: 'Remove', de: 'Entfernen', it: 'Rimuovi', hu: 'Törlés' },
+  dashTitle: { da: 'Service dashboard', en: 'Service dashboard', de: 'Service-Dashboard', it: 'Dashboard servizio', hu: 'Szerviz dashboard' },
+  dashSubtitle: { da: 'Overblik over service registreringer og maskiner.', en: 'Overview of service registrations and machines.', de: 'Überblick über Serviceerfassungen und Maschinen.', it: 'Panoramica delle registrazioni e delle macchine.', hu: 'Áttekintés a szervizregisztrációkról és gépekről.' },
+  statTotal: { da: 'Service registreringer i alt', en: 'Total service registrations', de: 'Serviceerfassungen gesamt', it: 'Registrazioni totali', hu: 'Összes regisztráció' },
+  statMonth: { da: 'Service denne måned', en: 'Service this month', de: 'Service diesen Monat', it: 'Servizi questo mese', hu: 'Szerviz e hónapban' },
+  statTop: { da: 'Mest servicerede maskine', en: 'Most serviced machine', de: 'Meistgewartete Maschine', it: 'Macchina più servita', hu: 'Leggyakrabban szervizelt gép' },
+  statDealers: { da: 'Aktive forhandlere', en: 'Active dealers', de: 'Aktive Händler', it: 'Rivenditori attivi', hu: 'Aktív kereskedők' },
+  latest: { da: 'Seneste service registreringer', en: 'Latest service registrations', de: 'Neueste Serviceerfassungen', it: 'Ultime registrazioni', hu: 'Legutóbbi regisztrációk' },
+  empty: { da: 'Ingen data endnu.', en: 'No data yet.', de: 'Noch keine Daten.', it: 'Nessun dato.', hu: 'Még nincs adat.' },
+  dealersTitle: { da: 'Forhandlere', en: 'Dealers', de: 'Händler', it: 'Rivenditori', hu: 'Kereskedők' },
+  dealersSubtitle: { da: 'Forhandlere knyttet til service registreringer.', en: 'Dealers linked to service registrations.', de: 'Mit Serviceerfassungen verknüpfte Händler.', it: 'Rivenditori collegati alle registrazioni.', hu: 'A regisztrációkhoz kapcsolt kereskedők.' },
+  machinesTitle: { da: 'Maskiner', en: 'Machines', de: 'Maschinen', it: 'Macchine', hu: 'Gépek' },
+  machinesSubtitle: { da: 'Alle maskiner med service historik.', en: 'All machines with service history.', de: 'Alle Maschinen mit Service-Historie.', it: 'Tutte le macchine con cronologia.', hu: 'Minden gép szervizelőzményekkel.' },
+  settingsTitle: { da: 'Indstillinger', en: 'Settings', de: 'Einstellungen', it: 'Impostazioni', hu: 'Beállítások' },
+  settingsBody: { da: 'Modulindstillinger kommer snart.', en: 'Module settings coming soon.', de: 'Moduleinstellungen folgen in Kürze.', it: 'Impostazioni del modulo in arrivo.', hu: 'A modulbeállítások hamarosan elérhetők.' },
+  createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása' },
+  registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk' },
 };
 
-type Tab = 'overview' | 'new' | 'mine';
+const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines', 'settings'];
+function parseView(v: string | null, fallback: ServiceMaintView): ServiceMaintView {
+  return (VIEWS as string[]).includes(v ?? '') ? (v as ServiceMaintView) : fallback;
+}
 
 export default function ServiceMaintenancePage() {
-  const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
-  const navigate = useNavigate();
+  const { appUser, loading } = useAppUser();
+  const { language: lang } = useLanguage();
   const t = (k: keyof typeof T) => T[k][lang] || T[k].en;
 
   const portalRole = derivePortalRole(appUser);
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
 
-  const [tab, setTab] = useState<Tab>(isBackend ? 'overview' : 'new');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = parseView(searchParams.get('view'), 'dashboard');
+  const setView = (v: ServiceMaintView) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('view', v);
+    setSearchParams(next, { replace: false });
+  };
   const [machines, setMachines] = useState<ServiceMachine[]>([]);
   const [registrations, setRegistrations] = useState<ServiceRegistration[]>([]);
   const [intervals, setIntervals] = useState<ServiceInterval[]>([]);
@@ -285,7 +305,7 @@ export default function ServiceMaintenancePage() {
       setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
       setExtraParts([]);
       await reload();
-      if (isBackend) setTab('overview');
+      if (isBackend) setView('registrations');
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -295,342 +315,452 @@ export default function ServiceMaintenancePage() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
-        <Link to="/portal/teknik-service" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" />{t('back')}
-        </Link>
-        <div className="mb-8 flex items-start gap-4">
-          <div className="w-14 h-14 rounded-xl bg-[#2d5a27]/10 flex items-center justify-center"><Wrench className="h-8 w-8 text-[#2d5a27]" /></div>
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{t('title')}</h1>
-            <p className="text-gray-600 text-base mt-1 max-w-3xl">{t('subtitle')}</p>
+  // ─── Dashboard stats ──────────────────────────────────────────────
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const regsThisMonth = registrations.filter(r => (r.service_date || '').startsWith(monthKey)).length;
+  const topMachine = (() => {
+    const counts = new Map<string, number>();
+    registrations.forEach(r => counts.set(r.serial_number, (counts.get(r.serial_number) || 0) + 1));
+    let best: { serial: string; count: number } | null = null;
+    counts.forEach((count, serial) => { if (!best || count > best.count) best = { serial, count }; });
+    return best;
+  })();
+  const activeDealerCount = new Set(registrations.map(r => r.dealer_number).filter(Boolean)).size;
+  const latestRegs = [...registrations].sort((a, b) => (b.service_date || '').localeCompare(a.service_date || '')).slice(0, 5);
+
+  const intro = (
+    <div className="flex items-start gap-4">
+      <div className="w-12 h-12 rounded-xl bg-[#2d5a27]/10 flex items-center justify-center">
+        <Wrench className="h-6 w-6 text-[#2d5a27]" />
+      </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-black text-slate-900">{t('title')}</h1>
+        <p className="text-slate-600 text-sm mt-1 max-w-3xl">{t('subtitle')}</p>
+      </div>
+    </div>
+  );
+
+  const filterBar = isBackend ? (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+      <div>
+        <Label className="text-xs">{t('filterDealer')}</Label>
+        <Select value={fDealer || ALL_DEALERS} onValueChange={(v) => setFDealer(v === ALL_DEALERS ? '' : v)}>
+          <SelectTrigger><SelectValue placeholder={t('filterDealer')} /></SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value={ALL_DEALERS}>{t('filterDealer')}</SelectItem>
+            {dealers.map(d => (
+              <SelectItem key={d.id} value={d.account_number}>
+                {d.account_number} — {d.company_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">{t('filterType')}</Label>
+        <Select value={fType || ALL_TYPES} onValueChange={(v) => setFType(v === ALL_TYPES ? '' : v)}>
+          <SelectTrigger><SelectValue placeholder={t('allTypes')} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_TYPES}>{t('allTypes')}</SelectItem>
+            {SERVICE_MACHINE_TYPES.map((m) => (
+              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div><Label className="text-xs">{t('filterSerial')}</Label><Input value={fSerial} onChange={e => setFSerial(e.target.value)} placeholder="…" /></div>
+      <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => reload()}><Filter className="h-4 w-4 mr-2" />{t('search')}</Button></div>
+    </div>
+  ) : null;
+
+  const renderView = () => {
+    if (view === 'dashboard') {
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <DashCard icon={ClipboardList} label={t('statTotal')} value={registrations.length} />
+            <DashCard icon={Calendar} label={t('statMonth')} value={regsThisMonth} />
+            <DashCard icon={Wrench} label={t('statTop')} value={topMachine ? `${topMachine.serial} (${topMachine.count})` : '—'} />
+            <DashCard icon={Building2} label={t('statDealers')} value={activeDealerCount} />
           </div>
-        </div>
-
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-          <TabsList>
-            {isBackend && <TabsTrigger value="overview">{t('tabOverview')}</TabsTrigger>}
-            {!isBackend && <TabsTrigger value="mine">{t('tabMine')}</TabsTrigger>}
-            <TabsTrigger value="new">{t('tabNew')}</TabsTrigger>
-          </TabsList>
-
-          {isBackend && (
-            <TabsContent value="overview" className="mt-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                  <div>
-                    <Label className="text-xs">{t('filterDealer')}</Label>
-                    <Select value={fDealer || ALL_DEALERS} onValueChange={(v) => setFDealer(v === ALL_DEALERS ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder={t('filterDealer')} /></SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value={ALL_DEALERS}>{t('filterDealer')}</SelectItem>
-                        {dealers.map(d => (
-                          <SelectItem key={d.id} value={d.account_number}>
-                            {d.account_number} — {d.company_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">{t('filterType')}</Label>
-                    <Select value={fType || ALL_TYPES} onValueChange={(v) => setFType(v === ALL_TYPES ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder={t('allTypes')} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL_TYPES}>{t('allTypes')}</SelectItem>
-                        {SERVICE_MACHINE_TYPES.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div><Label className="text-xs">{t('filterSerial')}</Label><Input value={fSerial} onChange={e => setFSerial(e.target.value)} placeholder="…" /></div>
-                  <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => reload()}><Filter className="h-4 w-4 mr-2" />{t('search')}</Button></div>
-                </div>
-                <MachineTable machines={machines} t={t} lastServiceFor={lastServiceFor} onOpen={historyOpen} />
-              </div>
-            </TabsContent>
-          )}
-
-          {!isBackend && (
-            <TabsContent value="mine" className="mt-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <MachineTable machines={machines} t={t} lastServiceFor={lastServiceFor} onOpen={historyOpen} />
-              </div>
-            </TabsContent>
-          )}
-
-          <TabsContent value="new" className="mt-6">
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label={t('fSerial')} error={errors.serial_number ? t('required') : null}>
-                <Input value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
-              </Field>
-              <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
-                <Select value={form.machine_type} onValueChange={(v) => setForm({ ...form, machine_type: v })}>
-                  <SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger>
-                  <SelectContent>
-                    {SERVICE_MACHINE_TYPES.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
-                {isBackend ? (
-                  <Select
-                    value={form.dealer_number || ''}
-                    onValueChange={(v) => {
-                      const d = dealers.find(x => x.account_number === v);
-                      setForm({ ...form, dealer_number: v, dealer_name: d?.company_name ?? '' });
-                    }}
-                  >
-                    <SelectTrigger><SelectValue placeholder={t('fDealer')} /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {dealers.map(d => (
-                        <SelectItem key={d.id} value={d.account_number}>
-                          {d.account_number} — {d.company_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div>
-                    <Input
-                      value={dealerNumber ? `${dealerNumber}${dealerName ? ' — ' + dealerName : ''}` : ''}
-                      placeholder={t('noDealerLink')}
-                      disabled
-                      readOnly
-                      aria-label={t('dealerLocked')}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{t('dealerLockedHelp')}</p>
-                  </div>
-                )}
-              </Field>
-              <Field label={t('fCustomer')}>
-                <Input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} />
-              </Field>
-              <Field label={t('fDate')} error={errors.service_date ? t('required') : null}>
-                <Input type="date" value={form.service_date} onChange={e => setForm({ ...form, service_date: e.target.value })} />
-              </Field>
-              <Field label={t('fHours')} error={errors.operating_hours ? t('required') : null}>
-                <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
-              </Field>
-              <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
-                {hasBasis ? (
-                  <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
-                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
-                      {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={form.service_interval_hours}
-                      onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
-                      placeholder={t('intervalHoursPlaceholder')}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{t('basisMissing')}</p>
-                  </div>
-                )}
-              </Field>
-              <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
-                <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
-              </Field>
-              {selectedStep && (
-                <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
-                    {t('basisTitle')} — {form.machine_type} / {form.service_interval_hours} timer
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('colItemNo')}</TableHead>
-                        <TableHead>{t('colItemName')}</TableHead>
-                        <TableHead className="text-right">{t('colUnitPrice')}</TableHead>
-                        <TableHead className="text-right">{t('colQty')}</TableHead>
-                        <TableHead className="text-right">{t('colSum')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedStep.rows.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                          <TableCell>{r.name}</TableCell>
-                          <TableCell className="text-right">{r.price.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{r.count}</TableCell>
-                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-right font-semibold">{t('colTotal')}</TableCell>
-                        <TableCell className="text-right font-semibold">{selectedStep.stepTotal.toFixed(2)} kr</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              <div className="md:col-span-2 flex items-center gap-2">
-                <Checkbox id="plan" checked={form.service_plan_completed} onCheckedChange={(v) => setForm({ ...form, service_plan_completed: v === true })} />
-                <Label htmlFor="plan">{t('fPlan')}</Label>
-              </div>
-              <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
-              <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
-              <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex items-center justify-between">
-                  <span>{t('extraTitle')}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setExtraParts((rows) => [...rows, { id: '', name: '', price: '', qty: '1' }])}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />{t('extraAdd')}
-                  </Button>
-                </div>
-                {extraParts.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-gray-500 text-center">{t('extraEmpty')}</div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('colItemNo')}</TableHead>
-                        <TableHead>{t('colItemName')}</TableHead>
-                        <TableHead className="text-right w-32">{t('colUnitPrice')}</TableHead>
-                        <TableHead className="text-right w-20">{t('colQty')}</TableHead>
-                        <TableHead className="text-right w-28">{t('colSum')}</TableHead>
-                        <TableHead className="w-12"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {extraRows.map((r, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell>
-                            <Input
-                              value={r.id}
-                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, id: e.target.value } : x))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={r.name}
-                              onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              className="text-right"
-                              value={r.price}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
-                                const parts = v.split('.');
-                                const cleaned = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : v;
-                                setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: cleaned } : x));
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              className="text-right"
-                              value={r.qty}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^0-9]/g, '');
-                                setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: v } : x));
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              aria-label={t('remove')}
-                              onClick={() => setExtraParts((rows) => rows.filter((_, i) => i !== idx))}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-              {(selectedStep || extraParts.length > 0) && (
-                <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-600">{t('totalKit')}</span>
-                      <div className="font-semibold">{kitTotal.toFixed(2)} kr</div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-600">{t('totalExtra')}</span>
-                      <div className="font-semibold">{extraTotal.toFixed(2)} kr</div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-600">{t('totalGrand')}</span>
-                      <div className="font-bold text-base">{grandTotal.toFixed(2)} kr</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="md:col-span-2">
-                <Label className="text-xs text-gray-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
-                <Input type="file" disabled className="mt-1 opacity-60" />
-              </div>
-              <div className="md:col-span-2 flex justify-end">
-                <Button type="submit" disabled={submitting}>{submitting ? t('saving') : t('save')}</Button>
-              </div>
-            </form>
-          </TabsContent>
-        </Tabs>
-
-        {historyFor && (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setHistoryFor(null)}>
-            <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">{t('history')} — {historyFor.serial_number} ({historyFor.machine_type})</h2>
-                <Button variant="secondary" onClick={() => setHistoryFor(null)}>{t('closeHistory')}</Button>
-              </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">{t('latest')}</h2>
+            {latestRegs.length === 0 ? (
+              <div className="text-sm text-slate-500 py-6 text-center">{t('empty')}</div>
+            ) : (
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>{t('colLastService')}</TableHead>
-                  <TableHead>{t('colHours')}</TableHead>
+                  <TableHead>{t('colSerial')}</TableHead>
+                  <TableHead>{t('colType')}</TableHead>
+                  <TableHead>{t('colDealer')}</TableHead>
                   <TableHead>{t('fInterval')}</TableHead>
-                  <TableHead>{t('fTech')}</TableHead>
-                  <TableHead>{t('fNotes')}</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {historyRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-gray-500">{t('none')}</TableCell></TableRow>}
-                  {historyRows.map(r => (
+                  {latestRegs.map(r => (
                     <TableRow key={r.id}>
                       <TableCell>{r.service_date}</TableCell>
-                      <TableCell>{r.operating_hours ?? '—'}</TableCell>
+                      <TableCell className="font-medium">{r.serial_number}</TableCell>
+                      <TableCell>{r.machine_type}</TableCell>
+                      <TableCell>{r.dealer_name ?? r.dealer_number ?? '—'}</TableCell>
                       <TableCell>{r.service_interval_hours} h</TableCell>
-                      <TableCell>{r.technician_name ?? '—'}</TableCell>
-                      <TableCell className="max-w-xs truncate" title={r.notes ?? ''}>{r.notes ?? '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (view === 'registrations' || view === 'machines') {
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          {filterBar}
+          <MachineTable machines={machines} t={t} lastServiceFor={lastServiceFor} onOpen={historyOpen} />
+        </div>
+      );
+    }
+
+    if (view === 'dealers') {
+      const dealerSummary = (() => {
+        const m = new Map<string, { name: string; count: number }>();
+        registrations.forEach(r => {
+          const key = r.dealer_number || '—';
+          const cur = m.get(key) || { name: r.dealer_name || key, count: 0 };
+          cur.count += 1;
+          m.set(key, cur);
+        });
+        return Array.from(m.entries()).map(([number, v]) => ({ number, ...v }));
+      })();
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 mb-4">{t('dealersTitle')}</h2>
+          <p className="text-sm text-slate-500 mb-4">{t('dealersSubtitle')}</p>
+          {dealerSummary.length === 0 ? (
+            <div className="text-sm text-slate-500 py-6 text-center">{t('empty')}</div>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>{t('filterDealer')}</TableHead>
+                <TableHead>{t('colItemName')}</TableHead>
+                <TableHead className="text-right">{t('statTotal')}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {dealerSummary.map(d => (
+                  <TableRow key={d.number}>
+                    <TableCell className="font-mono text-xs">{d.number}</TableCell>
+                    <TableCell>{d.name}</TableCell>
+                    <TableCell className="text-right">{d.count}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      );
+    }
+
+    if (view === 'settings') {
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 mb-3">{t('settingsTitle')}</h2>
+          <p className="text-sm text-slate-500">{t('settingsBody')}</p>
+        </div>
+      );
+    }
+
+    // view === 'create'
+    return (
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label={t('fSerial')} error={errors.serial_number ? t('required') : null}>
+          <Input value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
+        </Field>
+        <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
+          <Select value={form.machine_type} onValueChange={(v) => setForm({ ...form, machine_type: v })}>
+            <SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger>
+            <SelectContent>
+              {SERVICE_MACHINE_TYPES.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
+          {isBackend ? (
+            <Select
+              value={form.dealer_number || ''}
+              onValueChange={(v) => {
+                const d = dealers.find(x => x.account_number === v);
+                setForm({ ...form, dealer_number: v, dealer_name: d?.company_name ?? '' });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder={t('fDealer')} /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {dealers.map(d => (
+                  <SelectItem key={d.id} value={d.account_number}>
+                    {d.account_number} — {d.company_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div>
+              <Input
+                value={dealerNumber ? `${dealerNumber}${dealerName ? ' — ' + dealerName : ''}` : ''}
+                placeholder={t('noDealerLink')}
+                disabled
+                readOnly
+                aria-label={t('dealerLocked')}
+              />
+              <p className="text-xs text-slate-500 mt-1">{t('dealerLockedHelp')}</p>
+            </div>
+          )}
+        </Field>
+        <Field label={t('fCustomer')}>
+          <Input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} />
+        </Field>
+        <Field label={t('fDate')} error={errors.service_date ? t('required') : null}>
+          <Input type="date" value={form.service_date} onChange={e => setForm({ ...form, service_date: e.target.value })} />
+        </Field>
+        <Field label={t('fHours')} error={errors.operating_hours ? t('required') : null}>
+          <Input type="number" min={0} value={form.operating_hours} onChange={e => setForm({ ...form, operating_hours: e.target.value })} />
+        </Field>
+        <Field label={t('fInterval')} error={errors.service_interval_hours ? t('required') : null}>
+          {hasBasis ? (
+            <Select value={form.service_interval_hours} onValueChange={(v) => setForm({ ...form, service_interval_hours: v })}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                {intervals.map(i => <SelectItem key={i.id} value={String(i.interval_hours)}>{i.label || `${i.interval_hours} h`}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div>
+              <Input
+                type="number"
+                min={0}
+                value={form.service_interval_hours}
+                onChange={e => setForm({ ...form, service_interval_hours: e.target.value })}
+                placeholder={t('intervalHoursPlaceholder')}
+              />
+              <p className="text-xs text-slate-500 mt-1">{t('basisMissing')}</p>
+            </div>
+          )}
+        </Field>
+        <Field label={t('fTech')} error={errors.technician_name ? t('required') : null}>
+          <Input value={form.technician_name} onChange={e => setForm({ ...form, technician_name: e.target.value })} />
+        </Field>
+        {selectedStep && (
+          <div className="md:col-span-2 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
+              {t('basisTitle')} — {form.machine_type} / {form.service_interval_hours} timer
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('colItemNo')}</TableHead>
+                  <TableHead>{t('colItemName')}</TableHead>
+                  <TableHead className="text-right">{t('colUnitPrice')}</TableHead>
+                  <TableHead className="text-right">{t('colQty')}</TableHead>
+                  <TableHead className="text-right">{t('colSum')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedStep.rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                    <TableCell>{r.name}</TableCell>
+                    <TableCell className="text-right">{r.price.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{r.count}</TableCell>
+                    <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow>
+                  <TableCell colSpan={4} className="text-right font-semibold">{t('colTotal')}</TableCell>
+                  <TableCell className="text-right font-semibold">{selectedStep.stepTotal.toFixed(2)} kr</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <div className="md:col-span-2 flex items-center gap-2">
+          <Checkbox id="plan" checked={form.service_plan_completed} onCheckedChange={(v) => setForm({ ...form, service_plan_completed: v === true })} />
+          <Label htmlFor="plan">{t('fPlan')}</Label>
+        </div>
+        <Field label={t('fNotes')} full><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
+        <Field label={t('fFaults')} full><Textarea rows={2} value={form.faults_found} onChange={e => setForm({ ...form, faults_found: e.target.value })} /></Field>
+        <div className="md:col-span-2 border border-slate-200 rounded-lg overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 flex items-center justify-between">
+            <span>{t('extraTitle')}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setExtraParts((rows) => [...rows, { id: '', name: '', price: '', qty: '1' }])}
+            >
+              <Plus className="h-4 w-4 mr-1" />{t('extraAdd')}
+            </Button>
+          </div>
+          {extraParts.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-slate-500 text-center">{t('extraEmpty')}</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('colItemNo')}</TableHead>
+                  <TableHead>{t('colItemName')}</TableHead>
+                  <TableHead className="text-right w-32">{t('colUnitPrice')}</TableHead>
+                  <TableHead className="text-right w-20">{t('colQty')}</TableHead>
+                  <TableHead className="text-right w-28">{t('colSum')}</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {extraRows.map((r, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <Input
+                        value={r.id}
+                        onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, id: e.target.value } : x))}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={r.name}
+                        onChange={(e) => setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        className="text-right"
+                        value={r.price}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
+                          const parts = v.split('.');
+                          const cleaned = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : v;
+                          setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, price: cleaned } : x));
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        className="text-right"
+                        value={r.qty}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          setExtraParts((rows) => rows.map((x, i) => i === idx ? { ...x, qty: v } : x));
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">{r.sum.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label={t('remove')}
+                        onClick={() => setExtraParts((rows) => rows.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+        {(selectedStep || extraParts.length > 0) && (
+          <div className="md:col-span-2 border border-slate-200 rounded-lg p-4 bg-slate-50">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div className="flex justify-between sm:block">
+                <span className="text-slate-600">{t('totalKit')}</span>
+                <div className="font-semibold">{kitTotal.toFixed(2)} kr</div>
+              </div>
+              <div className="flex justify-between sm:block">
+                <span className="text-slate-600">{t('totalExtra')}</span>
+                <div className="font-semibold">{extraTotal.toFixed(2)} kr</div>
+              </div>
+              <div className="flex justify-between sm:block">
+                <span className="text-slate-600">{t('totalGrand')}</span>
+                <div className="font-bold text-base">{grandTotal.toFixed(2)} kr</div>
+              </div>
             </div>
           </div>
         )}
-      </main>
-      <PortalFooter language={lang} />
+        <div className="md:col-span-2">
+          <Label className="text-xs text-slate-500 flex items-center gap-2"><Upload className="h-4 w-4" />{t('fUpload')}</Label>
+          <Input type="file" disabled className="mt-1 opacity-60" />
+        </div>
+        <div className="md:col-span-2 flex justify-end">
+          <Button type="submit" disabled={submitting}>{submitting ? t('saving') : t('save')}</Button>
+        </div>
+      </form>
+    );
+  };
+
+  return (
+    <ServiceMaintenanceSidebarLayout
+      currentView={view}
+      onViewChange={setView}
+      isInternal={isBackend}
+      intro={intro}
+    >
+      {renderView()}
+
+      {historyFor && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setHistoryFor(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">{t('history')} — {historyFor.serial_number} ({historyFor.machine_type})</h2>
+              <Button variant="secondary" onClick={() => setHistoryFor(null)}>{t('closeHistory')}</Button>
+            </div>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>{t('colLastService')}</TableHead>
+                <TableHead>{t('colHours')}</TableHead>
+                <TableHead>{t('fInterval')}</TableHead>
+                <TableHead>{t('fTech')}</TableHead>
+                <TableHead>{t('fNotes')}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {historyRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500">{t('none')}</TableCell></TableRow>}
+                {historyRows.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.service_date}</TableCell>
+                    <TableCell>{r.operating_hours ?? '—'}</TableCell>
+                    <TableCell>{r.service_interval_hours} h</TableCell>
+                    <TableCell>{r.technician_name ?? '—'}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={r.notes ?? ''}>{r.notes ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+    </ServiceMaintenanceSidebarLayout>
+  );
+}
+
+function DashCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <Icon className="h-4 w-4" />
+        <span>{label}</span>
+      </div>
+      <div className="mt-2 text-2xl font-bold text-slate-900 truncate">{value}</div>
     </div>
   );
 }
+
 
 type ExtraRow = { id: string; name: string; priceNum: number; qtyNum: number; sum: number };
 
