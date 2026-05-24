@@ -112,18 +112,26 @@ const T: Record<string, Record<Language, string>> = {
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk' },
 };
 
-type Tab = 'overview' | 'new' | 'mine';
+const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines', 'settings'];
+function parseView(v: string | null, fallback: ServiceMaintView): ServiceMaintView {
+  return (VIEWS as string[]).includes(v ?? '') ? (v as ServiceMaintView) : fallback;
+}
 
 export default function ServiceMaintenancePage() {
-  const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
-  const navigate = useNavigate();
+  const { appUser, loading } = useAppUser();
+  const { language: lang } = useLanguage();
   const t = (k: keyof typeof T) => T[k][lang] || T[k].en;
 
   const portalRole = derivePortalRole(appUser);
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
 
-  const [tab, setTab] = useState<Tab>(isBackend ? 'overview' : 'new');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = parseView(searchParams.get('view'), 'dashboard');
+  const setView = (v: ServiceMaintView) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('view', v);
+    setSearchParams(next, { replace: false });
+  };
   const [machines, setMachines] = useState<ServiceMachine[]>([]);
   const [registrations, setRegistrations] = useState<ServiceRegistration[]>([]);
   const [intervals, setIntervals] = useState<ServiceInterval[]>([]);
