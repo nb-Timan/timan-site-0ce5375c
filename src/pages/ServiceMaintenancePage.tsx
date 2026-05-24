@@ -1,15 +1,11 @@
 // Phase 43 — Service registrering og vedligehold
-// Two-part page: (1) Timan internal machine overview, (2) Create service registration.
-// Dealer users see only their own machines/registrations + the create form.
+// Sidebar-based module mirroring TSB Portal / Garantiregistrering structure.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wrench, Upload, Search, Filter, Plus, Trash2 } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { Wrench, Upload, Search, Filter, Plus, Trash2, Building2, Calendar, ClipboardList } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import PortalHeader from '@/components/portal/PortalHeader';
-import PortalFooter from '@/components/portal/PortalFooter';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,13 +20,13 @@ import {
   ServiceMachine,
   ServiceRegistration,
   ServiceInterval,
-  
   listServiceMachines,
   listServiceRegistrations,
   createServiceRegistration,
 } from '@/lib/serviceMaintenanceService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
+import { ServiceMaintenanceSidebarLayout, type ServiceMaintView } from '@/components/service/ServiceMaintenanceSidebarLayout';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
