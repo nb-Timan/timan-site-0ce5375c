@@ -46,6 +46,9 @@ import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
 import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
+import ServiceTicketsPage from "./pages/service/ServiceTicketsPage";
+import MachineSearchPage from "./pages/service/MachineSearchPage";
+
 import BackendUsersPage from "./pages/backend/BackendUsersPage";
 import BackendRolesPage from "./pages/backend/BackendRolesPage";
 import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
@@ -142,6 +145,9 @@ const App = () => (
               {/* Serviceinformation */}
               <Route path="/portal/service/information" element={<ServiceInformationPage />} />
               <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
+              <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
+              <Route path="/portal/service/machines" element={<MachineSearchPage />} />
+
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
               <Route path="/portal/backend/users" element={<BackendUsersPage />} />
               <Route path="/portal/backend/roles" element={<BackendRolesPage />} />

@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -95,6 +95,19 @@ export default function PortalAreaPage({ areaId }: Props) {
               description = lang === 'da'
                 ? 'Registrer udført service og se servicehistorik pr. maskine.'
                 : 'Register completed service and view service history per machine.';
+            } else if (p.key === 'service_tickets') {
+              href = '/portal/service/tickets';
+              icon = Ticket;
+              description = lang === 'da'
+                ? 'Opret, følg og håndter servicehenvendelser pr. maskine.'
+                : 'Create, track and handle service requests per machine.';
+            } else if (p.key === 'machine_search') {
+              href = '/portal/service/machines';
+              icon = Search;
+              description = lang === 'da'
+                ? 'Find en maskine på serienummer og se samlet maskinprofil.'
+                : 'Find a machine by serial number and see a full machine profile.';
+
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
               icon = Users;

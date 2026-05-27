@@ -37,7 +37,10 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'warranty_reg',    title: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' } },
       { key: 'service_info',    title: { da: 'Serviceinformation', en: 'Service information', de: 'Serviceinformationen', it: 'Informazioni di assistenza', hu: 'Szervizinformáció' } },
       { key: 'service_maintenance', title: { da: 'Service registrering og vedligehold', en: 'Service registration and maintenance', de: 'Serviceerfassung und Wartung', it: 'Registrazione servizio e manutenzione', hu: 'Szervizregisztráció és karbantartás' } },
+      { key: 'service_tickets', title: { da: 'Service tickets', en: 'Service tickets', de: 'Service-Tickets', it: 'Ticket di assistenza', hu: 'Szervizjegyek' } },
+      { key: 'machine_search',  title: { da: 'Søg på maskine', en: 'Search machine', de: 'Maschine suchen', it: 'Cerca macchina', hu: 'Gép keresése' } },
     ],
+
   },
   {
     id: 'salg_marketing',

@@ -58,41 +58,44 @@ export type ModuleAccessKey =
   | 'tsb'
   | 'warranty'
   | 'service_information'
+  | 'service_tickets'
+  | 'machine_search'
   | 'byg_din_timan'
   | 'tilbud'
   | 'ordre'
   | 'sales_tools'
   | 'resources';
 
+
 // ---------- Default per-role module access ----------
 export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
     'teknik_service', 'salg_marketing', 'timan_backend', 'timan_crm',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_seller: [
     'teknik_service', 'salg_marketing', 'timan_crm',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_service: [
     'teknik_service',
-    'claims', 'tsb', 'warranty', 'service_information',
+    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
   ],
   timan_importer: [
     'teknik_service', 'salg_marketing',
-    'claims', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_dealer: [
     'teknik_service', 'salg_marketing',
-    'claims', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_service_partner: [
     'teknik_service', 'salg_marketing',
-    'claims', 'warranty', 'service_information',
+    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   // Read-only / visual access only
@@ -102,6 +105,7 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   ],
   // Awaiting admin approval — no module access until approved.
   pending: [],
+
 };
 
 // ---------- Action permissions per role ----------
