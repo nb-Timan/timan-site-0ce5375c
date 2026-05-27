@@ -76,12 +76,15 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   tsb: "TSB",
   warranty: "Warranty",
   service_information: "Serviceinformation",
+  service_tickets: "Service tickets",
+  machine_search: "Søg på maskine",
   byg_din_timan: "Configurator",
   resources: "Ressourcer",
   sales_tools: "Diverse",
   tilbud: "Tilbud",
   ordre: "Ordrer",
 };
+
 
 const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
   users: "Users",
