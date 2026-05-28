@@ -712,7 +712,7 @@ export default function MachineSearchPage() {
                             const partsLoading = !!historyPartsLoading[reg.id];
                             const summary = [reg.spare_parts_used, reg.notes].filter(Boolean).join(" — ");
                             return (
-                              <>
+                              <React.Fragment key={reg.id}>
                                 <TableRow key={reg.id}>
                                   <TableCell className="whitespace-nowrap font-medium">{fmtDateShort(reg.service_date)}</TableCell>
                                   <TableCell>{fmt(reg.operating_hours)}</TableCell>
