@@ -730,3 +730,91 @@ export async function getMachineDocumentSignedUrl(
   }
   return data.signedUrl;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4j — Service history (read-only) for machine profile
+// ---------------------------------------------------------------------------
+
+export interface ServiceRegistrationRow {
+  id: string;
+  machine_id: string | null;
+  serial_number: string;
+  dealer_account_id: string | null;
+  dealer_number: string | null;
+  dealer_name: string | null;
+  machine_type: string;
+  customer_name: string | null;
+  service_date: string;
+  operating_hours: number | null;
+  service_interval_hours: number;
+  technician_name: string | null;
+  service_plan_completed: boolean;
+  notes: string | null;
+  faults_found: string | null;
+  spare_parts_used: string | null;
+  attachment_urls: string[] | null;
+  total_servicekit_price: number | null;
+  total_extra_parts_price: number | null;
+  total_price: number | null;
+  created_by_email: string | null;
+  created_at: string;
+}
+
+export interface ServiceRegistrationPartRow {
+  id: string;
+  service_registration_id: string;
+  source_type: "servicekit" | "extra";
+  item_number: string | null;
+  description: string | null;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+  created_at: string;
+}
+
+/**
+ * Fetch service registrations for a machine — by machine_id or
+ * serial_number (case-insensitive). Newest first. RLS enforces scoping
+ * (internal Timan vs. dealer/importer/service partner).
+ */
+export async function fetchServiceHistoryForMachine(
+  machineId: string | null,
+  serialNumber: string | null,
+): Promise<ServiceRegistrationRow[]> {
+  const safeSerial = (serialNumber || "").replace(/[(),]/g, "");
+  let query = supabase
+    .from("service_registrations")
+    .select("*")
+    .order("service_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (machineId && safeSerial) {
+    query = query.or(`machine_id.eq.${machineId},serial_number.ilike.${safeSerial}`);
+  } else if (machineId) {
+    query = query.eq("machine_id", machineId);
+  } else if (safeSerial) {
+    query = query.ilike("serial_number", safeSerial);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as unknown as ServiceRegistrationRow[]) || [];
+}
+
+/** Fetch parts (servicekit + extra) for a single service registration. RLS-scoped. */
+export async function fetchServiceRegistrationParts(
+  serviceRegistrationId: string,
+): Promise<ServiceRegistrationPartRow[]> {
+  const { data, error } = await supabase
+    .from("service_registration_parts")
+    .select("*")
+    .eq("service_registration_id", serviceRegistrationId)
+    .order("source_type")
+    .order("created_at");
+  if (error) throw error;
+  return (data as unknown as ServiceRegistrationPartRow[]) || [];
+}
+
