@@ -224,7 +224,11 @@ export default function ServiceTicketsPage() {
               </TableHeader>
               <TableBody>
                 {tickets.map((t) => (
-                  <TableRow key={t.id}>
+                  <TableRow
+                    key={t.id}
+                    className="cursor-pointer hover:bg-slate-50"
+                    onClick={() => navigate(`/portal/service/tickets/${t.id}`)}
+                  >
                     <TableCell className="font-mono text-xs">{t.ticket_number || "—"}</TableCell>
                     <TableCell className="font-medium">{t.title}</TableCell>
                     <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>

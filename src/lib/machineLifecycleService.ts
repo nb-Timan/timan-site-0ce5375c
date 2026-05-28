@@ -185,4 +185,50 @@ export async function createServiceTicket(input: NewServiceTicketInput): Promise
   return { id: (data as { id: string }).id };
 }
 
+export interface ServiceTicketDetail {
+  id: string;
+  ticket_number: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  description: string;
+  serial_number: string;
+  machine_type: string | null;
+  dealer_name: string | null;
+  customer_name: string | null;
+  contact_person: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  operating_hours: number | null;
+  created_at: string | null;
+  created_by_email: string | null;
+  assigned_name: string | null;
+  closed_at: string | null;
+}
+
+/**
+ * Fetch a single service ticket by ID. Returns null if not found or hidden by RLS.
+ * Throws on other Supabase errors.
+ */
+export async function fetchServiceTicketById(id: string): Promise<ServiceTicketDetail | null> {
+  const { data, error } = await supabase
+    .from("service_tickets")
+    .select(
+      "id, ticket_number, title, status, priority, category, description, " +
+      "serial_number, machine_type, dealer_name, customer_name, " +
+      "contact_person, contact_email, contact_phone, operating_hours, " +
+      "created_at, created_by_email, assigned_name, closed_at"
+    )
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // no rows (RLS or genuinely missing)
+    throw error;
+  }
+  return (data as unknown as ServiceTicketDetail) || null;
+}
+
+
 

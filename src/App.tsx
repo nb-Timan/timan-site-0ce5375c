@@ -47,6 +47,7 @@ import WarrantyPage from "./pages/WarrantyPage";
 import ServiceInformationPage from "./pages/ServiceInformationPage";
 import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
 import ServiceTicketsPage from "./pages/service/ServiceTicketsPage";
+import ServiceTicketDetailPage from "./pages/service/ServiceTicketDetailPage";
 import MachineSearchPage from "./pages/service/MachineSearchPage";
 
 import BackendUsersPage from "./pages/backend/BackendUsersPage";
@@ -146,6 +147,7 @@ const App = () => (
               <Route path="/portal/service/information" element={<ServiceInformationPage />} />
               <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
               <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
+              <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />
               <Route path="/portal/service/machines" element={<MachineSearchPage />} />
 
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
