@@ -20,6 +20,8 @@ import {
   createExternalComment,
   ServiceTicketComment,
   updateServiceTicketFields,
+  fetchInternalCommentsForTicket,
+  createInternalComment,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
