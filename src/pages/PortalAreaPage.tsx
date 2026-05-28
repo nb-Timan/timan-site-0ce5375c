@@ -113,21 +113,15 @@ export default function PortalAreaPage({ areaId }: Props) {
             } else if (p.key === 'service_maintenance') {
               href = '/portal/service/maintenance';
               icon = Wrench;
-              description = lang === 'da'
-                ? 'Registrer udført service og se servicehistorik pr. maskine.'
-                : 'Register completed service and view service history per machine.';
+              description = T.desc_service_maintenance[lang];
             } else if (p.key === 'service_tickets') {
               href = '/portal/service/tickets';
               icon = Ticket;
-              description = lang === 'da'
-                ? 'Opret, følg og håndter servicehenvendelser pr. maskine.'
-                : 'Create, track and handle service requests per machine.';
+              description = T.desc_service_tickets[lang];
             } else if (p.key === 'machine_search') {
               href = '/portal/service/machines';
               icon = Search;
-              description = lang === 'da'
-                ? 'Find en maskine på serienummer og se samlet maskinprofil.'
-                : 'Find a machine by serial number and see a full machine profile.';
+              description = T.desc_machine_search[lang];
 
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
