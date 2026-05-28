@@ -299,6 +299,58 @@ export async function createExternalComment(
   return { id: (data as { id: string }).id };
 }
 
+export async function fetchInternalCommentsForTicket(
+  ticketId: string
+): Promise<ServiceTicketComment[]> {
+  const { data, error } = await supabase
+    .from("service_ticket_comments")
+    .select("id, ticket_id, comment_type, body, created_at, created_by_email, created_by_name, created_by_user_id")
+    .eq("ticket_id", ticketId)
+    .eq("comment_type", "internal")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data as unknown as ServiceTicketComment[]) || [];
+}
+
+export interface NewInternalCommentInput {
+  ticket_id: string;
+  body: string;
+  created_by_email?: string | null;
+  created_by_name?: string | null;
+  created_by_user_id?: string | null;
+}
+
+/**
+ * Insert a new internal comment. comment_type is forced to "internal".
+ */
+export async function createInternalComment(
+  input: NewInternalCommentInput
+): Promise<{ id: string }> {
+  const body = input.body.trim();
+  if (!body) throw new Error("body required");
+
+  const { data: sess } = await supabase.auth.getSession();
+  const fallbackEmail = sess.session?.user?.email ?? null;
+  const fallbackUserId = sess.session?.user?.id ?? null;
+
+  const payload = {
+    ticket_id: input.ticket_id,
+    comment_type: "internal",
+    body,
+    created_by_email: input.created_by_email ?? fallbackEmail,
+    created_by_name: input.created_by_name ?? null,
+    created_by_user_id: input.created_by_user_id ?? fallbackUserId,
+  };
+
+  const { data, error } = await supabase
+    .from("service_ticket_comments")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: (data as { id: string }).id };
+}
+
 
 
 

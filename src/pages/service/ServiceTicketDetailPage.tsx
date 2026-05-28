@@ -20,6 +20,8 @@ import {
   createExternalComment,
   ServiceTicketComment,
   updateServiceTicketFields,
+  fetchInternalCommentsForTicket,
+  createInternalComment,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,17 @@ const T: Record<string, Record<Language, string>> = {
   emptyErr:         { da: "Skriv en kommentar først.", en: "Please write a comment first.", de: "Bitte zuerst einen Kommentar schreiben.", it: "Scrivi prima un commento.", hu: "Először írj egy megjegyzést." },
   saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
   saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
+
+  // Internal notes
+  internalNotesTitle:   { da: "Interne Timan-noter", en: "Internal Timan notes", de: "Interne Timan-Notizen", it: "Note interne Timan", hu: "Belső Timan jegyzetek" },
+  internalNotesLoading: { da: "Indlæser interne noter…", en: "Loading internal notes…", de: "Interne Notizen werden geladen…", it: "Caricamento note interne…", hu: "Belső jegyzetek betöltése…" },
+  internalNotesEmpty:   { da: "Ingen interne noter endnu.", en: "No internal notes yet.", de: "Noch keine internen Notizen.", it: "Nessuna nota interna.", hu: "Még nincsenek belső jegyzetek." },
+  internalNotesLoadErr: { da: "Kunne ikke hente interne noter.", en: "Could not load internal notes.", de: "Interne Notizen konnten nicht geladen werden.", it: "Impossibile caricare le note interne.", hu: "Nem sikerült betölteni a belső jegyzeteket." },
+  writeInternalNote:    { da: "Skriv intern note", en: "Write internal note", de: "Interne Notiz schreiben", it: "Scrivi nota interna", hu: "Belső jegyzet írása" },
+  addInternalNote:      { da: "Tilføj intern note", en: "Add internal note", de: "Interne Notiz hinzufügen", it: "Aggiungi nota interna", hu: "Belső jegyzet hozzáadása" },
+  internalNoteAdded:    { da: "Intern note tilføjet", en: "Internal note added", de: "Interne Notiz hinzugefügt", it: "Nota interna aggiunta", hu: "Belső jegyzet hozzáadva" },
+  internalNoteEmptyErr: { da: "Skriv en intern note først.", en: "Please write an internal note first.", de: "Bitte zuerst eine interne Notiz schreiben.", it: "Scrivi prima una nota interna.", hu: "Először írj egy belső jegyzetet." },
+  internalNoteSaveErr:  { da: "Kunne ikke gemme intern note.", en: "Could not save internal note.", de: "Interne Notiz konnte nicht gespeichert werden.", it: "Impossibile salvare la nota interna.", hu: "Nem sikerült menteni a belső jegyzetet." },
 
   // Edit
   editTitle:        { da: "Opdater sag", en: "Update ticket", de: "Ticket aktualisieren", it: "Aggiorna ticket", hu: "Jegy frissítése" },
@@ -165,6 +178,13 @@ export default function ServiceTicketDetailPage() {
   const [editAssigned, setEditAssigned] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Internal notes (Timan-internal only)
+  const [internalNotes, setInternalNotes] = useState<ServiceTicketComment[]>([]);
+  const [internalNotesLoading, setInternalNotesLoading] = useState(false);
+  const [internalNotesError, setInternalNotesError] = useState<string | null>(null);
+  const [newInternalNote, setNewInternalNote] = useState("");
+  const [savingInternalNote, setSavingInternalNote] = useState(false);
+
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
 
 
@@ -184,6 +204,21 @@ export default function ServiceTicketDetailPage() {
       setCommentsError(T.commentsLoadErr[lang]);
     } finally {
       setCommentsLoading(false);
+    }
+  };
+
+  const loadInternalNotes = async (id: string) => {
+    if (!canEdit) return; // skip for non-internal users
+    setInternalNotesLoading(true);
+    setInternalNotesError(null);
+    try {
+      const rows = await fetchInternalCommentsForTicket(id);
+      setInternalNotes(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] internal notes load error", e);
+      setInternalNotesError(T.internalNotesLoadErr[lang]);
+    } finally {
+      setInternalNotesLoading(false);
     }
   };
 
@@ -209,6 +244,7 @@ export default function ServiceTicketDetailPage() {
             setEditCategory(data.category || "");
             setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
+            await loadInternalNotes(ticketId);
           }
 
         }
@@ -245,6 +281,32 @@ export default function ServiceTicketDetailPage() {
       toast.error(T.saveErr[lang]);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddInternalNote = async () => {
+    if (!ticketId || !canEdit) return;
+    const body = newInternalNote.trim();
+    if (!body) {
+      toast.error(T.internalNoteEmptyErr[lang]);
+      return;
+    }
+    setSavingInternalNote(true);
+    try {
+      await createInternalComment({
+        ticket_id: ticketId,
+        body,
+        created_by_email: appUser.email,
+        created_by_name: appUser.display_name ?? null,
+      });
+      setNewInternalNote("");
+      toast.success(T.internalNoteAdded[lang]);
+      await loadInternalNotes(ticketId);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] save internal note error", e);
+      toast.error(T.internalNoteSaveErr[lang]);
+    } finally {
+      setSavingInternalNote(false);
     }
   };
 
@@ -498,6 +560,63 @@ export default function ServiceTicketDetailPage() {
                       T.saveChanges[lang]
                     )}
                   </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Internal notes (Timan-internal only) */}
+            {canEdit && (
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.internalNotesTitle[lang]}
+                </h3>
+
+                {internalNotesLoading ? (
+                  <div className="text-sm text-slate-500 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {T.internalNotesLoading[lang]}
+                  </div>
+                ) : internalNotesError ? (
+                  <div className="text-sm text-red-600">{internalNotesError}</div>
+                ) : internalNotes.length === 0 ? (
+                  <div className="text-sm text-slate-500">{T.internalNotesEmpty[lang]}</div>
+                ) : (
+                  <ul className="space-y-3">
+                    {internalNotes.map((n) => (
+                      <li key={n.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm text-slate-900 whitespace-pre-wrap">{n.body}</p>
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span className="font-medium text-slate-700">
+                            {n.created_by_name || n.created_by_email || "—"}
+                          </span>
+                          <span>{formatDateTime(n.created_at)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    {T.writeInternalNote[lang]}
+                  </label>
+                  <Textarea
+                    value={newInternalNote}
+                    onChange={(e) => setNewInternalNote(e.target.value)}
+                    rows={3}
+                    disabled={savingInternalNote}
+                    placeholder={T.writeInternalNote[lang]}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={handleAddInternalNote} disabled={savingInternalNote}>
+                      {savingInternalNote ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                        </span>
+                      ) : (
+                        T.addInternalNote[lang]
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
