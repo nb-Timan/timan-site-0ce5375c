@@ -237,7 +237,41 @@ export default function MachineSearchPage() {
     return () => { cancelled = true; };
   }, [machine, lang]);
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Fetch documents whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setDocuments([]);
+      setDocumentsError(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setDocumentsLoading(true);
+      setDocumentsError(null);
+      try {
+        const list = await fetchMachineDocumentsForMachine(machine.id, machine.serial_number);
+        if (!cancelled) setDocuments(list);
+      } catch (e) {
+        console.error("[MachineSearch] documents load error", e);
+        if (!cancelled) setDocumentsError(T.docError[lang]);
+      } finally {
+        if (!cancelled) setDocumentsLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
+  const handleOpenDocument = async (doc: MachineDocumentRow) => {
+    try {
+      const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[MachineSearch] open document error", e);
+      alert(T.docOpenError[lang]);
+    }
+  };
+
     if (e.key === "Enter") handleSearch();
   };
 
