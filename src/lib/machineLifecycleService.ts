@@ -90,3 +90,99 @@ export async function fetchServiceTicketsForMachine(
   return (data as unknown as ServiceTicket[]) || [];
 }
 
+/**
+ * Fetch all service tickets visible to the current user (scoped by RLS).
+ * Dealers see only their own tickets; internal users see everything.
+ */
+export async function fetchVisibleServiceTickets(limit = 200): Promise<ServiceTicket[]> {
+  const { data, error } = await supabase
+    .from("service_tickets")
+    .select(TICKET_COLS + ", serial_number")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as unknown as ServiceTicket[]) || [];
+}
+
+export interface NewServiceTicketInput {
+  title: string;
+  description: string;
+  serial_number: string;
+  machine_type?: string | null;
+  dealer_account_id?: string | null;
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+  customer_name?: string | null;
+  contact_person?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  operating_hours?: number | null;
+  priority: string;
+  status: string;
+  category?: string | null;
+  assigned_email?: string | null;
+  assigned_name?: string | null;
+}
+
+/**
+ * Insert a new service ticket. If a machine row exists for the given
+ * serial_number it is linked via machine_id. Otherwise the ticket is
+ * still created and only serial_number is stored.
+ *
+ * Uses the standard supabase-js client — RLS decides whether the insert
+ * is allowed (dealer scope vs. internal).
+ */
+export async function createServiceTicket(input: NewServiceTicketInput): Promise<{ id: string }> {
+  const serial = input.serial_number.trim();
+  if (!serial) throw new Error("serial_number required");
+
+  // Best-effort machine lookup. RLS may hide it — that's OK, then machine_id stays null.
+  let machineId: string | null = null;
+  try {
+    const { data: m } = await supabase
+      .from("machines")
+      .select("id")
+      .ilike("serial_number", serial)
+      .limit(1);
+    if (m && m[0]) machineId = (m[0] as { id: string }).id;
+  } catch {
+    machineId = null;
+  }
+
+  const { data: sess } = await supabase.auth.getSession();
+  const createdByEmail = sess.session?.user?.email ?? null;
+  const createdByUserId = sess.session?.user?.id ?? null;
+
+  const payload = {
+    machine_id: machineId,
+    serial_number: serial,
+    machine_type: input.machine_type || null,
+    dealer_account_id: input.dealer_account_id || null,
+    dealer_number: input.dealer_number || null,
+    dealer_name: input.dealer_name || null,
+    customer_name: input.customer_name || null,
+    contact_person: input.contact_person || null,
+    contact_email: input.contact_email || null,
+    contact_phone: input.contact_phone || null,
+    operating_hours: input.operating_hours ?? null,
+    title: input.title.trim(),
+    description: input.description.trim(),
+    priority: input.priority,
+    status: input.status,
+    category: input.category || null,
+    assigned_email: input.assigned_email || null,
+    assigned_name: input.assigned_name || null,
+    created_by_user_id: createdByUserId,
+    created_by_email: createdByEmail,
+  };
+
+  const { data, error } = await supabase
+    .from("service_tickets")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: (data as { id: string }).id };
+}
+
+

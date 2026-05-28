@@ -1,34 +1,163 @@
 /**
- * Phase 1 placeholder — "Service tickets".
- * Empty page shell only. No data, no SQL. Real list/create/detail comes in Phase 3.
+ * Phase 4b — Service tickets list + create.
+ * Read-only list of tickets visible via RLS, plus an "Opret service ticket"
+ * dialog that inserts into public.service_tickets.
+ *
+ * No claims/TSB/warranty changes. No file upload. No internal notes here.
+ * Standard supabase-js client only — RLS controls visibility.
  */
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Ticket } from "lucide-react";
+import { ArrowLeft, Ticket, Plus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { derivePortalRole } from "@/lib/portalAccess";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 
+import {
+  ServiceTicket,
+  fetchVisibleServiceTickets,
+  createServiceTicket,
+  NewServiceTicketInput,
+} from "@/lib/machineLifecycleService";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+
 const T: Record<string, Record<Language, string>> = {
-  back:    { da: "Tilbage til Teknik & Service", en: "Back to Technical & Service", de: "Zurück zu Technik & Service", it: "Torna a Tecnico & Assistenza", hu: "Vissza a Műszaki & Szerviz oldalra" },
-  title:   { da: "Service tickets", en: "Service tickets", de: "Service-Tickets", it: "Ticket di assistenza", hu: "Szervizjegyek" },
-  lead:    { da: "Opret, følg og håndter servicehenvendelser pr. maskine.", en: "Create, track and handle service requests per machine.", de: "Service-Anfragen pro Maschine erstellen, verfolgen und bearbeiten.", it: "Crea, monitora e gestisci le richieste di assistenza per macchina.", hu: "Szerviz kérések létrehozása, követése és kezelése gépenként." },
-  soon:    { da: "Kommer snart", en: "Coming soon", de: "Bald verfügbar", it: "In arrivo", hu: "Hamarosan" },
-  body:    { da: "Dette modul er under opbygning. Næste fase tilføjer liste, opret-formular og detalje-visning.", en: "This module is being built. The next phase will add list, create form and detail view.", de: "Dieses Modul wird aufgebaut. Die nächste Phase ergänzt Liste, Erstellungsformular und Detailansicht.", it: "Questo modulo è in costruzione. La prossima fase aggiungerà elenco, modulo di creazione e vista dettagliata.", hu: "Ez a modul fejlesztés alatt áll. A következő fázis hozza a listát, létrehozó űrlapot és részletes nézetet." },
+  back:   { da: "Tilbage til Teknik & Service", en: "Back to Technical & Service", de: "Zurück zu Technik & Service", it: "Torna a Tecnico & Assistenza", hu: "Vissza a Műszaki & Szerviz oldalra" },
+  title:  { da: "Service tickets", en: "Service tickets", de: "Service-Tickets", it: "Ticket di assistenza", hu: "Szervizjegyek" },
+  lead:   { da: "Opret, følg og håndter servicehenvendelser pr. maskine.", en: "Create, track and handle service requests per machine.", de: "Service-Anfragen pro Maschine erstellen, verfolgen und bearbeiten.", it: "Crea, monitora e gestisci le richieste di assistenza per macchina.", hu: "Szerviz kérések létrehozása, követése és kezelése gépenként." },
+  createBtn: { da: "Opret service ticket", en: "Create service ticket", de: "Service-Ticket erstellen", it: "Crea ticket di assistenza", hu: "Szervizjegy létrehozása" },
+  loading: { da: "Indlæser…", en: "Loading…", de: "Lädt…", it: "Caricamento…", hu: "Betöltés…" },
+  loadErr: { da: "Kunne ikke hente service tickets.", en: "Could not load service tickets.", de: "Service-Tickets konnten nicht geladen werden.", it: "Impossibile caricare i ticket di assistenza.", hu: "Nem sikerült betölteni a szervizjegyeket." },
+  empty:   { da: "Ingen service tickets endnu.", en: "No service tickets yet.", de: "Noch keine Service-Tickets.", it: "Nessun ticket di assistenza.", hu: "Még nincs szervizjegy." },
+
+  // Columns
+  colNumber: { da: "Ticketnr.", en: "Ticket no.", de: "Ticket-Nr.", it: "N. ticket", hu: "Jegy szám" },
+  colTitle:  { da: "Titel", en: "Title", de: "Titel", it: "Titolo", hu: "Cím" },
+  colSerial: { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Gyári szám" },
+  colStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz" },
+  colPrio:   { da: "Prioritet", en: "Priority", de: "Priorität", it: "Priorità", hu: "Prioritás" },
+  colDealer: { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
+  colCreated:{ da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+
+  // Form
+  fTitle:   { da: "Titel *", en: "Title *", de: "Titel *", it: "Titolo *", hu: "Cím *" },
+  fDesc:    { da: "Beskrivelse *", en: "Description *", de: "Beschreibung *", it: "Descrizione *", hu: "Leírás *" },
+  fSerial:  { da: "Serienummer / maskinnummer *", en: "Serial / machine number *", de: "Serien- / Maschinennummer *", it: "Numero di serie / macchina *", hu: "Gyári / gép szám *" },
+  fMtype:   { da: "Maskintype", en: "Machine type", de: "Maschinentyp", it: "Tipo macchina", hu: "Gép típusa" },
+  fDealer:  { da: "Forhandler *", en: "Dealer *", de: "Händler *", it: "Rivenditore *", hu: "Forgalmazó *" },
+  fCust:    { da: "Kunde / bruger", en: "Customer / user", de: "Kunde / Anwender", it: "Cliente / utente", hu: "Ügyfél / felhasználó" },
+  fContact: { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó" },
+  fEmail:   { da: "Kontaktmail", en: "Contact email", de: "Kontakt-E-Mail", it: "Email di contatto", hu: "Kapcsolat e-mail" },
+  fPhone:   { da: "Telefonnummer", en: "Phone number", de: "Telefonnummer", it: "Numero di telefono", hu: "Telefonszám" },
+  fHours:   { da: "Driftstimer", en: "Operating hours", de: "Betriebsstunden", it: "Ore di funzionamento", hu: "Üzemórák" },
+  fPrio:    { da: "Prioritet *", en: "Priority *", de: "Priorität *", it: "Priorità *", hu: "Prioritás *" },
+  fStatus:  { da: "Status *", en: "Status *", de: "Status *", it: "Stato *", hu: "Státusz *" },
+  fCat:     { da: "Kategori", en: "Category", de: "Kategorie", it: "Categoria", hu: "Kategória" },
+  fAssign:  { da: "Ansvarlig Timan-medarbejder", en: "Assigned Timan staff", de: "Zuständige/r Timan-Mitarbeiter/in", it: "Responsabile Timan", hu: "Felelős Timan munkatárs" },
+  cancel:   { da: "Annullér", en: "Cancel", de: "Abbrechen", it: "Annulla", hu: "Mégse" },
+  save:     { da: "Opret", en: "Create", de: "Erstellen", it: "Crea", hu: "Létrehozás" },
+  saving:   { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
+  saved:    { da: "Service ticket oprettet", en: "Service ticket created", de: "Service-Ticket erstellt", it: "Ticket di assistenza creato", hu: "Szervizjegy létrehozva" },
+  saveErr:  { da: "Kunne ikke oprette ticket. Tjek dine rettigheder og prøv igen.", en: "Could not create ticket. Check your permissions and try again.", de: "Ticket konnte nicht erstellt werden. Berechtigungen prüfen.", it: "Impossibile creare il ticket. Verifica i permessi.", hu: "A jegy létrehozása sikertelen. Ellenőrizze a jogosultságot." },
+  dealerLocked: { da: "Forhandler er låst til din egen organisation.", en: "Dealer is locked to your own organisation.", de: "Händler ist auf Ihre Organisation festgelegt.", it: "Rivenditore bloccato sulla tua organizzazione.", hu: "A forgalmazó a saját szervezetére van rögzítve." },
+  selectDealer: { da: "Vælg forhandler…", en: "Select dealer…", de: "Händler wählen…", it: "Seleziona rivenditore…", hu: "Válasszon forgalmazót…" },
+  required: { da: "Udfyld de obligatoriske felter.", en: "Fill in the required fields.", de: "Bitte Pflichtfelder ausfüllen.", it: "Compila i campi obbligatori.", hu: "Töltse ki a kötelező mezőket." },
 };
+
+const STATUS_OPTIONS = [
+  "created","in_progress","waiting_timan","waiting_dealer","waiting_customer",
+  "waiting_parts","resolved","closed",
+];
+const PRIORITY_OPTIONS = ["low","normal","high","critical_machine_stopped"];
+const CATEGORY_OPTIONS = [
+  "engine","hydraulics","electronics","remote_control","transmission",
+  "service","spare_part","software","safety","other",
+];
+
+function statusClass(s: string): string {
+  const x = (s || "").toLowerCase();
+  if (x === "created") return "bg-slate-100 text-slate-700";
+  if (x === "in_progress") return "bg-blue-100 text-blue-700";
+  if (x.startsWith("waiting_")) return "bg-amber-100 text-amber-700";
+  if (x === "resolved") return "bg-green-100 text-green-700";
+  if (x === "closed") return "bg-slate-100 text-slate-600";
+  if (x.startsWith("converted_")) return "bg-purple-100 text-purple-700";
+  return "bg-slate-100 text-slate-700";
+}
+function prioClass(p: string): string {
+  const x = (p || "").toLowerCase();
+  if (x === "low") return "bg-sky-100 text-sky-700";
+  if (x === "normal") return "bg-slate-100 text-slate-700";
+  if (x === "high") return "bg-orange-100 text-orange-700";
+  if (x === "critical_machine_stopped") return "bg-red-100 text-red-700";
+  return "bg-slate-100 text-slate-700";
+}
+function fmtDate(v: string | null | undefined): string {
+  if (!v) return "—";
+  try {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleString();
+  } catch { return v as string; }
+}
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const effectiveUser = useEffectivePortalUser(appUser);
+
+  const portalRole = derivePortalRole(effectiveUser);
+  const isInternal =
+    portalRole === "timan_backend" ||
+    portalRole === "timan_seller" ||
+    portalRole === "timan_service";
+
+  const [tickets, setTickets] = useState<ServiceTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
   }
+
+  const reload = async () => {
+    setLoading(true);
+    setLoadErr(null);
+    try {
+      const list = await fetchVisibleServiceTickets();
+      setTickets(list);
+    } catch (e) {
+      console.error("[ServiceTickets] load error", e);
+      setLoadErr(T.loadErr[lang]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
@@ -52,25 +181,337 @@ export default function ServiceTicketsPage() {
       </div>
 
       <main className="mx-auto max-w-7xl px-6 py-10 flex-1 w-full">
-        <div className="mb-8 flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">
-            <Ticket className="h-6 w-6" />
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">
+              <Ticket className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black tracking-tight">{T.title[lang]}</h1>
+              <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">{T.title[lang]}</h1>
-            <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
-          </div>
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
+          >
+            <Plus className="h-4 w-4" />
+            {T.createBtn[lang]}
+          </Button>
         </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm text-center">
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 mb-4">
-            {T.soon[lang]}
-          </span>
-          <p className="text-sm text-slate-600 max-w-xl mx-auto">{T.body[lang]}</p>
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="p-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> {T.loading[lang]}
+            </div>
+          ) : loadErr ? (
+            <div className="p-10 text-center text-sm text-red-600">{loadErr}</div>
+          ) : tickets.length === 0 ? (
+            <div className="p-10 text-center text-sm text-slate-500">{T.empty[lang]}</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{T.colNumber[lang]}</TableHead>
+                  <TableHead>{T.colTitle[lang]}</TableHead>
+                  <TableHead>{T.colSerial[lang]}</TableHead>
+                  <TableHead>{T.colStatus[lang]}</TableHead>
+                  <TableHead>{T.colPrio[lang]}</TableHead>
+                  <TableHead>{T.colDealer[lang]}</TableHead>
+                  <TableHead>{T.colCreated[lang]}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tickets.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-mono text-xs">{t.ticket_number || "—"}</TableCell>
+                    <TableCell className="font-medium">{t.title}</TableCell>
+                    <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>
+                    <TableCell>
+                      <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
+                        {t.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + prioClass(t.priority)}>
+                        {t.priority}
+                      </span>
+                    </TableCell>
+                    <TableCell>{t.dealer_name || "—"}</TableCell>
+                    <TableCell className="text-xs text-slate-500">{fmtDate(t.created_at)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </section>
       </main>
 
+      <CreateTicketDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        lang={lang}
+        isInternal={isInternal}
+        lockedDealerNumber={isInternal ? null : (appUser.dealer_number ?? null)}
+        lockedDealerName={isInternal ? null : (appUser.company_dealer ?? null)}
+        onCreated={() => { setCreateOpen(false); reload(); }}
+      />
+
       <PortalFooter language={lang} />
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------- */
+/* Create dialog                                                         */
+/* -------------------------------------------------------------------- */
+
+function CreateTicketDialog(props: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  lang: Language;
+  isInternal: boolean;
+  lockedDealerNumber: string | null;
+  lockedDealerName: string | null;
+  onCreated: () => void;
+}) {
+  const { open, onOpenChange, lang, isInternal, lockedDealerNumber, lockedDealerName, onCreated } = props;
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [serial, setSerial] = useState("");
+  const [mtype, setMtype] = useState("");
+  const [customer, setCustomer] = useState("");
+  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [hours, setHours] = useState<string>("");
+  const [priority, setPriority] = useState<string>("normal");
+  const [status, setStatus] = useState<string>("created");
+  const [category, setCategory] = useState<string>("");
+  const [assigned, setAssigned] = useState<string>("");
+
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealerId, setDealerId] = useState<string>(""); // dealer_account_id for internal users
+
+  const [saving, setSaving] = useState(false);
+
+  // Reset on open
+  useEffect(() => {
+    if (!open) return;
+    setTitle(""); setDescription(""); setSerial(""); setMtype("");
+    setCustomer(""); setContact(""); setEmail(""); setPhone(""); setHours("");
+    setPriority("normal"); setStatus("created"); setCategory(""); setAssigned("");
+    setDealerId("");
+  }, [open]);
+
+  // Load dealers for internal users
+  useEffect(() => {
+    if (!open || !isInternal) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchDealerAccounts({ includeDeleted: false });
+        if (!cancelled) setDealers(res.rows);
+      } catch (e) {
+        console.error("[ServiceTickets] dealer fetch failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, isInternal]);
+
+  const selectedDealer = useMemo(
+    () => dealers.find((d) => d.id === dealerId) || null,
+    [dealers, dealerId],
+  );
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !description.trim() || !serial.trim() || !priority || !status) {
+      toast.error(T.required[lang]);
+      return;
+    }
+    // Resolve dealer info
+    let dealer_account_id: string | null = null;
+    let dealer_number: string | null = null;
+    let dealer_name: string | null = null;
+    if (isInternal) {
+      if (!selectedDealer) {
+        toast.error(T.required[lang]);
+        return;
+      }
+      dealer_account_id = selectedDealer.id;
+      dealer_number = selectedDealer.account_number;
+      dealer_name = selectedDealer.company_name;
+    } else {
+      dealer_number = lockedDealerNumber;
+      dealer_name = lockedDealerName;
+      if (!dealer_number) {
+        toast.error(T.required[lang]);
+        return;
+      }
+    }
+
+    const input: NewServiceTicketInput = {
+      title, description, serial_number: serial,
+      machine_type: mtype || null,
+      dealer_account_id, dealer_number, dealer_name,
+      customer_name: customer || null,
+      contact_person: contact || null,
+      contact_email: email || null,
+      contact_phone: phone || null,
+      operating_hours: hours.trim() === "" ? null : Number(hours),
+      priority, status,
+      category: category || null,
+      assigned_name: assigned || null,
+    };
+
+    setSaving(true);
+    try {
+      await createServiceTicket(input);
+      toast.success(T.saved[lang]);
+      onCreated();
+    } catch (e) {
+      console.error("[ServiceTickets] create error", e);
+      toast.error(T.saveErr[lang]);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{T.createBtn[lang]}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+          <div className="md:col-span-2">
+            <Label>{T.fTitle[lang]}</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label>{T.fDesc[lang]}</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
+          </div>
+
+          <div>
+            <Label>{T.fSerial[lang]}</Label>
+            <Input value={serial} onChange={(e) => setSerial(e.target.value)} />
+          </div>
+          <div>
+            <Label>{T.fMtype[lang]}</Label>
+            <Input value={mtype} onChange={(e) => setMtype(e.target.value)} />
+          </div>
+
+          {/* Dealer */}
+          <div className="md:col-span-2">
+            <Label>{T.fDealer[lang]}</Label>
+            {isInternal ? (
+              <select
+                value={dealerId}
+                onChange={(e) => setDealerId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">{T.selectDealer[lang]}</option>
+                {dealers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.company_name} {d.account_number ? `(${d.account_number})` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <Input value={lockedDealerName || lockedDealerNumber || ""} disabled />
+                <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+              </>
+            )}
+          </div>
+
+          <div>
+            <Label>{T.fCust[lang]}</Label>
+            <Input value={customer} onChange={(e) => setCustomer(e.target.value)} />
+          </div>
+          <div>
+            <Label>{T.fContact[lang]}</Label>
+            <Input value={contact} onChange={(e) => setContact(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>{T.fEmail[lang]}</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <Label>{T.fPhone[lang]}</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>{T.fHours[lang]}</Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label>{T.fPrio[lang]}</Label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <Label>{T.fStatus[lang]}</Label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <Label>{T.fCat[lang]}</Label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">—</option>
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <Label>{T.fAssign[lang]}</Label>
+            <Input value={assigned} onChange={(e) => setAssigned(e.target.value)} />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            {T.cancel[lang]}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {saving ? T.saving[lang] : T.save[lang]}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
