@@ -4,7 +4,8 @@
  */
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2 } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
@@ -12,9 +13,17 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
-import { fetchServiceTicketById, ServiceTicketDetail } from "@/lib/machineLifecycleService";
+import {
+  fetchServiceTicketById,
+  ServiceTicketDetail,
+  fetchExternalCommentsForTicket,
+  createExternalComment,
+  ServiceTicketComment,
+} from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 const T: Record<string, Record<Language, string>> = {
   back:      { da: "Tilbage til Service tickets", en: "Back to Service tickets", de: "Zurück zu Service-Tickets", it: "Torna ai ticket di assistenza", hu: "Vissza a szerviz jegyekhez" },
@@ -42,6 +51,18 @@ const T: Record<string, Record<Language, string>> = {
   createdBy:     { da: "Oprettet af", en: "Created by", de: "Erstellt von", it: "Creato da", hu: "Létrehozta" },
   assigned:      { da: "Ansvarlig Timan-medarbejder", en: "Assigned Timan staff", de: "Zuständige/r Timan-Mitarbeiter/in", it: "Responsabile Timan", hu: "Felelős Timan munkatárs" },
   closedAt:      { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+
+  // Comments
+  commentsTitle:    { da: "Kommentarer", en: "Comments", de: "Kommentare", it: "Commenti", hu: "Megjegyzések" },
+  commentsLoading:  { da: "Indlæser kommentarer…", en: "Loading comments…", de: "Kommentare werden geladen…", it: "Caricamento commenti…", hu: "Megjegyzések betöltése…" },
+  commentsEmpty:    { da: "Ingen kommentarer endnu.", en: "No comments yet.", de: "Noch keine Kommentare.", it: "Nessun commento.", hu: "Még nincsenek megjegyzések." },
+  commentsLoadErr:  { da: "Kunne ikke hente kommentarer.", en: "Could not load comments.", de: "Kommentare konnten nicht geladen werden.", it: "Impossibile caricare i commenti.", hu: "Nem sikerült betölteni a megjegyzéseket." },
+  writeComment:     { da: "Skriv kommentar", en: "Write a comment", de: "Kommentar schreiben", it: "Scrivi un commento", hu: "Megjegyzés írása" },
+  addComment:       { da: "Tilføj kommentar", en: "Add comment", de: "Kommentar hinzufügen", it: "Aggiungi commento", hu: "Megjegyzés hozzáadása" },
+  added:            { da: "Kommentar tilføjet", en: "Comment added", de: "Kommentar hinzugefügt", it: "Commento aggiunto", hu: "Megjegyzés hozzáadva" },
+  emptyErr:         { da: "Skriv en kommentar først.", en: "Please write a comment first.", de: "Bitte zuerst einen Kommentar schreiben.", it: "Scrivi prima un commento.", hu: "Először írj egy megjegyzést." },
+  saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
+  saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -75,10 +96,30 @@ export default function ServiceTicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [comments, setComments] = useState<ServiceTicketComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [saving, setSaving] = useState(false);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
   }
+
+  const loadComments = async (id: string) => {
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const rows = await fetchExternalCommentsForTicket(id);
+      setComments(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] comments load error", e);
+      setCommentsError(T.commentsLoadErr[lang]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!ticketId) {
@@ -97,6 +138,7 @@ export default function ServiceTicketDetailPage() {
             setError(T.notFound[lang]);
           } else {
             setTicket(data);
+            await loadComments(ticketId);
           }
         }
       } catch (e) {
@@ -108,6 +150,32 @@ export default function ServiceTicketDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [ticketId, lang]);
+
+  const handleAddComment = async () => {
+    if (!ticketId) return;
+    const body = newComment.trim();
+    if (!body) {
+      toast.error(T.emptyErr[lang]);
+      return;
+    }
+    setSaving(true);
+    try {
+      await createExternalComment({
+        ticket_id: ticketId,
+        body,
+        created_by_email: appUser.email,
+        created_by_name: appUser.display_name ?? null,
+      });
+      setNewComment("");
+      toast.success(T.added[lang]);
+      await loadComments(ticketId);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] save comment error", e);
+      toast.error(T.saveErr[lang]);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
@@ -250,6 +318,64 @@ export default function ServiceTicketDetailPage() {
                       <span className="font-medium">{formatDateTime(ticket.closed_at)}</span>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Comments */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-slate-500" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.commentsTitle[lang]}
+                </h3>
+              </div>
+
+              {commentsLoading ? (
+                <div className="text-sm text-slate-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> {T.commentsLoading[lang]}
+                </div>
+              ) : commentsError ? (
+                <div className="text-sm text-red-600">{commentsError}</div>
+              ) : comments.length === 0 ? (
+                <div className="text-sm text-slate-500">{T.commentsEmpty[lang]}</div>
+              ) : (
+                <ul className="space-y-3">
+                  {comments.map((c) => (
+                    <li key={c.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm text-slate-900 whitespace-pre-wrap">{c.body}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span className="font-medium text-slate-700">
+                          {c.created_by_name || c.created_by_email || "—"}
+                        </span>
+                        <span>{formatDateTime(c.created_at)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  {T.writeComment[lang]}
+                </label>
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  rows={3}
+                  disabled={saving}
+                  placeholder={T.writeComment[lang]}
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleAddComment} disabled={saving}>
+                    {saving ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                      </span>
+                    ) : (
+                      T.addComment[lang]
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
