@@ -300,6 +300,33 @@ export default function MachineSearchPage() {
     return () => { cancelled = true; };
   }, [machine, lang]);
 
+  // Fetch service history whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setServiceHistory([]);
+      setServiceHistoryError(null);
+      setExpandedHistoryId(null);
+      setHistoryParts({});
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setServiceHistoryLoading(true);
+      setServiceHistoryError(null);
+      try {
+        const list = await fetchServiceHistoryForMachine(machine.id, machine.serial_number);
+        if (!cancelled) setServiceHistory(list);
+      } catch (e) {
+        console.error("[MachineSearch] service history load error", e);
+        if (!cancelled) setServiceHistoryError(T.shError[lang]);
+      } finally {
+        if (!cancelled) setServiceHistoryLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
   const handleOpenDocument = async (doc: MachineDocumentRow) => {
     try {
       const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
@@ -307,6 +334,24 @@ export default function MachineSearchPage() {
     } catch (e) {
       console.error("[MachineSearch] open document error", e);
       alert(T.docOpenError[lang]);
+    }
+  };
+
+  const handleToggleHistory = async (reg: ServiceRegistrationRow) => {
+    if (expandedHistoryId === reg.id) {
+      setExpandedHistoryId(null);
+      return;
+    }
+    setExpandedHistoryId(reg.id);
+    if (historyParts[reg.id]) return;
+    setHistoryPartsLoading(prev => ({ ...prev, [reg.id]: true }));
+    try {
+      const parts = await fetchServiceRegistrationParts(reg.id);
+      setHistoryParts(prev => ({ ...prev, [reg.id]: parts }));
+    } catch (e) {
+      console.error("[MachineSearch] service history parts error", e);
+    } finally {
+      setHistoryPartsLoading(prev => ({ ...prev, [reg.id]: false }));
     }
   };
 
