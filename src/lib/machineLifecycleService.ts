@@ -226,7 +226,11 @@ export async function fetchServiceTicketById(id: string): Promise<ServiceTicketD
   if (error) {
     if (error.code === "PGRST116") return null; // no rows (RLS or genuinely missing)
     throw error;
+  }
+  return (data as unknown as ServiceTicketDetail) || null;
 }
+
+
 
 export interface ServiceTicketComment {
   id: string;
