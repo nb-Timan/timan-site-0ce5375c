@@ -192,6 +192,13 @@ export default function MachineSearchPage() {
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
 
+  const [serviceHistory, setServiceHistory] = useState<ServiceRegistrationRow[]>([]);
+  const [serviceHistoryLoading, setServiceHistoryLoading] = useState(false);
+  const [serviceHistoryError, setServiceHistoryError] = useState<string | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyParts, setHistoryParts] = useState<Record<string, ServiceRegistrationPartRow[]>>({});
+  const [historyPartsLoading, setHistoryPartsLoading] = useState<Record<string, boolean>>({});
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
