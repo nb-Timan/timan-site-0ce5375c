@@ -398,6 +398,74 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!ticket || !ticketId) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    // Reset native input so the same file can be reselected later
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (files.length === 0) return;
+
+    // Pre-validate all files
+    for (const f of files) {
+      if (f.size > MAX_UPLOAD_BYTES) { toast.error(T.fileTooLarge[lang]); return; }
+      if (!isAllowedUploadFile(f)) { toast.error(T.fileTypeBad[lang]); return; }
+    }
+
+    setUploading(true);
+    let okCount = 0;
+    let metaWarn = false;
+    try {
+      for (const file of files) {
+        try {
+          const res = await uploadServiceTicketFile({ ticket, file });
+          if (!res.document) {
+            metaWarn = true;
+          } else {
+            okCount += 1;
+            // Best-effort activity log
+            try {
+              await createMachineActivityLog({
+                machine_id: ticket.machine_id,
+                serial_number: ticket.serial_number,
+                event_type: "document_uploaded",
+                title: "Dokument uploadet",
+                description: file.name,
+                related_entity_type: "service_ticket",
+                related_entity_id: ticket.id,
+                visibility: "dealer_visible",
+              });
+            } catch (logErr) {
+              console.error("[ServiceTicketDetail] activity log (document_uploaded) failed", logErr);
+            }
+          }
+        } catch (err) {
+          console.error("[ServiceTicketDetail] upload failed", err);
+          const msg = err instanceof Error ? err.message : "";
+          if (msg === "file_too_large") toast.error(T.fileTooLarge[lang]);
+          else if (msg === "file_type_not_allowed") toast.error(T.fileTypeBad[lang]);
+          else toast.error(T.fileUploadErr[lang]);
+        }
+      }
+      if (okCount > 0) toast.success(T.fileUploaded[lang]);
+      if (metaWarn) toast.error(T.fileMetaWarn[lang]);
+      await loadDocuments(ticketId);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleOpenDocument = async (doc: MachineDocumentRow) => {
+    try {
+      const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[ServiceTicketDetail] signed url error", e);
+      toast.error(T.fileSignErr[lang]);
+    }
+  };
+
+
+
   const reloadTicket = async () => {
     if (!ticketId) return;
     const data = await fetchServiceTicketById(ticketId);
