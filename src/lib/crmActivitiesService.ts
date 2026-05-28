@@ -1,15 +1,16 @@
 /**
  * CRM activities — append-only event stream for sales activity.
  *
- * Source of truth: public.crm_activities (Phase 4 SQL).
- * Fallback: localStorage so the UI never crashes when the table is missing.
+ * Source of truth: public.crm_activities.
+ * Fallback: localStorage so the UI never crashes when the table rejects a write.
  *
- * Activities are written from the React app at the moment a quote/order is
- * created, sent or modified, plus on login. Reads are scoped on the client
- * via crmScope.ts (Timan Sælger sees only their own assigned accounts).
+ * The live table schema uses dealer_* / seller_* columns. Legacy caller fields
+ * like account_id, assigned_owner_user_id, created_by_name, value and currency
+ * are kept in the TypeScript API for compatibility, but are inserted under
+ * meta unless they map cleanly to current columns.
  */
 import { supabase } from "@/lib/supabase";
-import { notifyLocalFallback } from "@/lib/persistenceWarning";
+import { toast } from "sonner";
 
 export type CrmActivityType =
   | "quote_created"
@@ -50,6 +51,14 @@ export interface CrmActivity {
 
 export interface NewCrmActivity {
   activity_type: CrmActivityType;
+  dealer_account_id?: string | null;
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+  seller_user_id?: string | null;
+  seller_email?: string | null;
+  seller_initials?: string | null;
+  seller_name?: string | null;
+  created_by_email?: string | null;
   account_id?: string | null;
   account_name?: string | null;
   created_by_user_id?: string | null;
@@ -92,6 +101,85 @@ function writeLocal(rows: CrmActivity[]): void {
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `act_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function errorDebug(error: unknown): SupabaseErrorLike {
+  if (!error || typeof error !== "object") return { message: String(error ?? "Unknown error") };
+  const e = error as Record<string, unknown>;
+  return {
+    code: typeof e.code === "string" ? e.code : undefined,
+    message: typeof e.message === "string" ? e.message : undefined,
+    details: typeof e.details === "string" || e.details === null ? e.details : undefined,
+    hint: typeof e.hint === "string" || e.hint === null ? e.hint : undefined,
+  };
+}
+
+function logInsertFailure(error: unknown, payload: Record<string, unknown>): void {
+  const debug = errorDebug(error);
+  console.error("[crm_activities] insert failed", {
+    code: debug.code,
+    message: debug.message,
+    details: debug.details,
+    hint: debug.hint,
+    payload,
+  });
+}
+
+function notifyActivitySyncFailure(error: unknown): void {
+  const debug = errorDebug(error);
+  try {
+    toast.warning("Aktivitet kunne ikke synkroniseres", {
+      description: [debug.code, debug.message, "crm_activities · insert"].filter(Boolean).join(" · "),
+      duration: 8000,
+    });
+  } catch {
+    /* toast unavailable — console.error above is authoritative */
+  }
+}
+
+function metaString(meta: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = meta?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function looksLikeEmail(value: string | null | undefined): boolean {
+  return !!value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function withDefinedMeta(input: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
+function mapDbActivity(row: Record<string, unknown>): CrmActivity {
+  const meta = (row.meta && typeof row.meta === "object" ? row.meta : null) as Record<string, unknown> | null;
+  return {
+    id: String(row.id ?? ""),
+    activity_type: row.activity_type as CrmActivityType,
+    activity_date: String(row.activity_date ?? row.created_at ?? new Date().toISOString()),
+    account_id: (row.account_id as string | null | undefined) ?? (row.dealer_account_id as string | null | undefined) ?? null,
+    account_name: (row.account_name as string | null | undefined) ?? (row.dealer_name as string | null | undefined) ?? null,
+    created_by_user_id: (row.created_by_user_id as string | null | undefined) ?? null,
+    created_by_name: (row.created_by_name as string | null | undefined) ?? (row.created_by_email as string | null | undefined) ?? null,
+    assigned_owner_user_id: (row.assigned_owner_user_id as string | null | undefined) ?? (row.seller_user_id as string | null | undefined) ?? null,
+    assigned_owner_name: (row.assigned_owner_name as string | null | undefined) ?? (row.seller_name as string | null | undefined) ?? (row.seller_initials as string | null | undefined) ?? null,
+    title: (row.title as string | null | undefined) ?? null,
+    description: (row.description as string | null | undefined) ?? null,
+    status: (row.status as string | null | undefined) ?? null,
+    quote_id: (row.quote_id as string | null | undefined) ?? null,
+    order_id: (row.order_id as string | null | undefined) ?? null,
+    configuration_id: (row.configuration_id as string | null | undefined) ?? null,
+    value: (row.value as number | null | undefined) ?? (typeof meta?.value === "number" ? meta.value : null),
+    currency: (row.currency as string | null | undefined) ?? (typeof meta?.currency === "string" ? meta.currency : null),
+    meta,
+    created_at: String(row.created_at ?? row.activity_date ?? new Date().toISOString()),
+  };
 }
 
 export interface LogActivityOptions {
@@ -140,42 +228,55 @@ export async function logActivity(
   const local = readLocal();
   writeLocal([row, ...local]);
 
+  const inputMeta = input.meta ?? null;
+  const meta = withDefinedMeta({
+    ...(inputMeta ?? {}),
+    legacy_account_id: input.account_id ?? undefined,
+    legacy_account_name: input.account_name ?? undefined,
+    legacy_created_by_name: input.created_by_name ?? undefined,
+    legacy_assigned_owner_user_id: input.assigned_owner_user_id ?? undefined,
+    legacy_assigned_owner_name: input.assigned_owner_name ?? undefined,
+    value: input.value ?? undefined,
+    currency: input.currency ?? undefined,
+  });
+
   const payload = {
     id: row.id,
     activity_type: row.activity_type,
-    activity_date: row.activity_date,
-    account_id: row.account_id,
-    account_name: row.account_name,
-    created_by_user_id: row.created_by_user_id,
-    created_by_name: row.created_by_name,
-    assigned_owner_user_id: row.assigned_owner_user_id,
-    assigned_owner_name: row.assigned_owner_name,
     title: row.title,
     description: row.description,
-    status: row.status,
+    configuration_id: row.configuration_id,
     quote_id: row.quote_id,
     order_id: row.order_id,
-    configuration_id: row.configuration_id,
-    value: row.value,
-    currency: row.currency,
-    meta: row.meta,
+    dealer_account_id: input.dealer_account_id ?? metaString(inputMeta, "dealer_account_id"),
+    dealer_number: input.dealer_number ?? metaString(inputMeta, "dealer_number"),
+    dealer_name: input.dealer_name ?? metaString(inputMeta, "dealer_name"),
+    seller_user_id: input.seller_user_id ?? row.assigned_owner_user_id,
+    seller_email: input.seller_email ?? metaString(inputMeta, "seller_email"),
+    seller_initials: input.seller_initials ?? metaString(inputMeta, "seller_initials"),
+    seller_name: input.seller_name ?? row.assigned_owner_name,
+    status: row.status,
+    meta,
+    created_by_user_id: row.created_by_user_id,
+    created_by_email: input.created_by_email ?? (looksLikeEmail(input.created_by_name) ? input.created_by_name ?? null : null),
+    created_at: row.created_at,
   };
 
   try {
     const { error } = await supabase.from("crm_activities").insert(payload);
     if (error) {
+      logInsertFailure(error, payload);
       if (opts.strict) {
-        console.error("[crm.logActivity] strict insert failed:", { error, payload });
         throw error;
       }
-      notifyLocalFallback({ table: "crm_activities", action: "insert", error });
+      notifyActivitySyncFailure(error);
     }
   } catch (err) {
+    logInsertFailure(err, payload);
     if (opts.strict) {
-      console.error("[crm.logActivity] strict insert threw:", { err, payload });
       throw err;
     }
-    notifyLocalFallback({ table: "crm_activities", action: "insert", error: err });
+    notifyActivitySyncFailure(err);
   }
   return row;
 }
@@ -189,12 +290,12 @@ export interface ListActivitiesOpts {
 export async function listActivities(opts: ListActivitiesOpts = {}): Promise<CrmActivity[]> {
   const limit = opts.limit ?? 200;
   try {
-    let q = supabase.from("crm_activities").select("*").order("activity_date", { ascending: false }).limit(limit);
-    if (opts.ownerUserId) q = q.eq("assigned_owner_user_id", opts.ownerUserId);
-    if (opts.accountId) q = q.eq("account_id", opts.accountId);
+    let q = supabase.from("crm_activities").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (opts.ownerUserId) q = q.eq("seller_user_id", opts.ownerUserId);
+    if (opts.accountId) q = q.eq("dealer_account_id", opts.accountId);
     const { data, error } = await q;
     if (error) throw error;
-    if (data && data.length > 0) return data as unknown as CrmActivity[];
+    if (data && data.length > 0) return (data as Record<string, unknown>[]).map(mapDbActivity);
   } catch (err) {
     console.warn("[crm.listActivities] supabase failed → local fallback:", err);
   }
