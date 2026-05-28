@@ -564,6 +564,63 @@ export default function ServiceTicketDetailPage() {
               </div>
             )}
 
+            {/* Internal notes (Timan-internal only) */}
+            {canEdit && (
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.internalNotesTitle[lang]}
+                </h3>
+
+                {internalNotesLoading ? (
+                  <div className="text-sm text-slate-500 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {T.internalNotesLoading[lang]}
+                  </div>
+                ) : internalNotesError ? (
+                  <div className="text-sm text-red-600">{internalNotesError}</div>
+                ) : internalNotes.length === 0 ? (
+                  <div className="text-sm text-slate-500">{T.internalNotesEmpty[lang]}</div>
+                ) : (
+                  <ul className="space-y-3">
+                    {internalNotes.map((n) => (
+                      <li key={n.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm text-slate-900 whitespace-pre-wrap">{n.body}</p>
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span className="font-medium text-slate-700">
+                            {n.created_by_name || n.created_by_email || "—"}
+                          </span>
+                          <span>{formatDateTime(n.created_at)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    {T.writeInternalNote[lang]}
+                  </label>
+                  <Textarea
+                    value={newInternalNote}
+                    onChange={(e) => setNewInternalNote(e.target.value)}
+                    rows={3}
+                    disabled={savingInternalNote}
+                    placeholder={T.writeInternalNote[lang]}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={handleAddInternalNote} disabled={savingInternalNote}>
+                      {savingInternalNote ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                        </span>
+                      ) : (
+                        T.addInternalNote[lang]
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Comments */}
 
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
