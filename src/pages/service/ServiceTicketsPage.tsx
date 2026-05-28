@@ -80,7 +80,35 @@ const T: Record<string, Record<Language, string>> = {
   dealerLocked: { da: "Forhandler er låst til din egen organisation.", en: "Dealer is locked to your own organisation.", de: "Händler ist auf Ihre Organisation festgelegt.", it: "Rivenditore bloccato sulla tua organizzazione.", hu: "A forgalmazó a saját szervezetére van rögzítve." },
   selectDealer: { da: "Vælg forhandler…", en: "Select dealer…", de: "Händler wählen…", it: "Seleziona rivenditore…", hu: "Válasszon forgalmazót…" },
   required: { da: "Udfyld de obligatoriske felter.", en: "Fill in the required fields.", de: "Bitte Pflichtfelder ausfüllen.", it: "Compila i campi obbligatori.", hu: "Töltse ki a kötelező mezőket." },
+  noDealerLink: { da: "Din bruger er ikke koblet til en forhandlerkonto.", en: "Your user is not linked to a dealer account.", de: "Ihr Benutzer ist keinem Händlerkonto zugeordnet.", it: "Il tuo utente non è collegato a un account rivenditore.", hu: "Felhasználója nincs forgalmazói fiókhoz kapcsolva." },
+  mtypeSelect: { da: "Vælg maskintype…", en: "Select machine type…", de: "Maschinentyp wählen…", it: "Seleziona tipo macchina…", hu: "Válasszon gép típust…" },
+  mtypeOther: { da: "Andet", en: "Other", de: "Andere", it: "Altro", hu: "Egyéb" },
+  mtypeOtherLabel: { da: "Anden maskintype", en: "Other machine type", de: "Anderer Maschinentyp", it: "Altro tipo macchina", hu: "Egyéb gép típus" },
+  mtypeAutoFilled: { da: "Foreslået ud fra serienummer", en: "Suggested from serial number", de: "Vorgeschlagen anhand der Seriennummer", it: "Suggerito dal numero di serie", hu: "Javaslat a gyári szám alapján" },
+  fEquip: { da: "Redskab / udstyr", en: "Equipment / attachment", de: "Anbaugerät / Ausstattung", it: "Attrezzatura / accessorio", hu: "Eszköz / felszerelés" },
+  equipOtherLabel: { da: "Andet redskab / udstyr", en: "Other equipment", de: "Anderes Anbaugerät", it: "Altra attrezzatura", hu: "Egyéb eszköz" },
 };
+
+const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+const SERIAL_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
+  { prefix: "411000", type: "RC-1000s" },
+  { prefix: "410040", type: "RC-751" },
+  { prefix: "712000", type: "Timan 3330" },
+  { prefix: "999-888", type: "Timan 2620" },
+];
+const EQUIPMENT_OPTIONS = [
+  "Slagleklipper","Y-slagle sæt","Rotorclipper","Fingerripper","Skivehøster",
+  "Hammerklipper","Stativ","Fjernbetjening",
+];
+
+function suggestMachineType(serial: string): string | null {
+  const s = serial.trim();
+  if (!s) return null;
+  for (const m of SERIAL_PREFIX_MAP) {
+    if (s.startsWith(m.prefix)) return m.type;
+  }
+  return null;
+}
 
 const STATUS_OPTIONS = [
   "created","in_progress","waiting_timan","waiting_dealer","waiting_customer",
@@ -285,7 +313,15 @@ function CreateTicketDialog(props: {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [serial, setSerial] = useState("");
-  const [mtype, setMtype] = useState("");
+  // Machine type: one of MACHINE_TYPE_OPTIONS, "" (none), or "__other__"
+  const [mtypeChoice, setMtypeChoice] = useState<string>("");
+  const [mtypeOther, setMtypeOther] = useState<string>("");
+  const [mtypeAutoFilled, setMtypeAutoFilled] = useState<boolean>(false);
+  // Equipment multi-select
+  const [equipment, setEquipment] = useState<string[]>([]);
+  const [equipmentOther, setEquipmentOther] = useState<string>("");
+  const [equipOtherChecked, setEquipOtherChecked] = useState<boolean>(false);
+
   const [customer, setCustomer] = useState("");
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
@@ -304,11 +340,37 @@ function CreateTicketDialog(props: {
   // Reset on open
   useEffect(() => {
     if (!open) return;
-    setTitle(""); setDescription(""); setSerial(""); setMtype("");
+    setTitle(""); setDescription(""); setSerial("");
+    setMtypeChoice(""); setMtypeOther(""); setMtypeAutoFilled(false);
+    setEquipment([]); setEquipmentOther(""); setEquipOtherChecked(false);
     setCustomer(""); setContact(""); setEmail(""); setPhone(""); setHours("");
     setPriority("normal"); setStatus("created"); setCategory(""); setAssigned("");
     setDealerId("");
   }, [open]);
+
+  // Auto-suggest machine type from serial number.
+  // Only overwrite when field is empty OR previously auto-filled.
+  const handleSerialChange = (next: string) => {
+    setSerial(next);
+    const suggested = suggestMachineType(next);
+    if (suggested && MACHINE_TYPE_OPTIONS.includes(suggested)) {
+      if (mtypeChoice === "" || mtypeAutoFilled) {
+        setMtypeChoice(suggested);
+        setMtypeAutoFilled(true);
+      }
+    }
+  };
+
+  const handleMtypeChange = (next: string) => {
+    setMtypeChoice(next);
+    setMtypeAutoFilled(false);
+  };
+
+  const toggleEquipment = (item: string, checked: boolean) => {
+    setEquipment((prev) =>
+      checked ? Array.from(new Set([...prev, item])) : prev.filter((x) => x !== item),
+    );
+  };
 
   // Load dealers for internal users
   useEffect(() => {
@@ -329,6 +391,17 @@ function CreateTicketDialog(props: {
     () => dealers.find((d) => d.id === dealerId) || null,
     [dealers, dealerId],
   );
+
+  const resolvedMtype = (): string | null => {
+    if (mtypeChoice === "__other__") return mtypeOther.trim() || null;
+    return mtypeChoice.trim() || null;
+  };
+
+  const resolvedEquipment = (): string[] => {
+    const list = [...equipment];
+    if (equipOtherChecked && equipmentOther.trim()) list.push(equipmentOther.trim());
+    return list;
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !serial.trim() || !priority || !status) {
@@ -351,14 +424,23 @@ function CreateTicketDialog(props: {
       dealer_number = lockedDealerNumber;
       dealer_name = lockedDealerName;
       if (!dealer_number) {
-        toast.error(T.required[lang]);
+        toast.error(T.noDealerLink[lang]);
         return;
       }
     }
 
+    // Equipment is stored as an extra line in description for now
+    // (no dedicated column yet — temporary).
+    const equipList = resolvedEquipment();
+    const finalDescription = equipList.length > 0
+      ? `${description.trim()}\n\n${T.fEquip[lang]}: ${equipList.join(", ")}`
+      : description.trim();
+
     const input: NewServiceTicketInput = {
-      title, description, serial_number: serial,
-      machine_type: mtype || null,
+      title,
+      description: finalDescription,
+      serial_number: serial,
+      machine_type: resolvedMtype(),
       dealer_account_id, dealer_number, dealer_name,
       customer_name: customer || null,
       contact_person: contact || null,
@@ -403,11 +485,63 @@ function CreateTicketDialog(props: {
 
           <div>
             <Label>{T.fSerial[lang]}</Label>
-            <Input value={serial} onChange={(e) => setSerial(e.target.value)} />
+            <Input value={serial} onChange={(e) => handleSerialChange(e.target.value)} />
           </div>
           <div>
             <Label>{T.fMtype[lang]}</Label>
-            <Input value={mtype} onChange={(e) => setMtype(e.target.value)} />
+            <select
+              value={mtypeChoice}
+              onChange={(e) => handleMtypeChange(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">{T.mtypeSelect[lang]}</option>
+              {MACHINE_TYPE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              <option value="__other__">{T.mtypeOther[lang]}</option>
+            </select>
+            {mtypeAutoFilled && mtypeChoice && mtypeChoice !== "__other__" ? (
+              <p className="mt-1 text-xs text-slate-500">{T.mtypeAutoFilled[lang]}</p>
+            ) : null}
+            {mtypeChoice === "__other__" ? (
+              <Input
+                className="mt-2"
+                placeholder={T.mtypeOtherLabel[lang]}
+                value={mtypeOther}
+                onChange={(e) => setMtypeOther(e.target.value)}
+              />
+            ) : null}
+          </div>
+
+          {/* Equipment / attachment (multi-select). Stored temporarily in description. */}
+          <div className="md:col-span-2">
+            <Label>{T.fEquip[lang]}</Label>
+            <div className="mt-1 grid grid-cols-2 md:grid-cols-3 gap-2 rounded-md border border-input bg-background p-3 text-sm">
+              {EQUIPMENT_OPTIONS.map((item) => (
+                <label key={item} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={equipment.includes(item)}
+                    onChange={(e) => toggleEquipment(item, e.target.checked)}
+                  />
+                  <span>{item}</span>
+                </label>
+              ))}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={equipOtherChecked}
+                  onChange={(e) => setEquipOtherChecked(e.target.checked)}
+                />
+                <span>{T.mtypeOther[lang]}</span>
+              </label>
+            </div>
+            {equipOtherChecked ? (
+              <Input
+                className="mt-2"
+                placeholder={T.equipOtherLabel[lang]}
+                value={equipmentOther}
+                onChange={(e) => setEquipmentOther(e.target.value)}
+              />
+            ) : null}
           </div>
 
           {/* Dealer */}
@@ -428,8 +562,20 @@ function CreateTicketDialog(props: {
               </select>
             ) : (
               <>
-                <Input value={lockedDealerName || lockedDealerNumber || ""} disabled />
-                <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                <Input
+                  value={
+                    lockedDealerName && lockedDealerNumber
+                      ? `${lockedDealerName} (${lockedDealerNumber})`
+                      : (lockedDealerName || lockedDealerNumber || "")
+                  }
+                  readOnly
+                  className="bg-slate-50 cursor-default"
+                />
+                {lockedDealerNumber ? (
+                  <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-red-600">{T.noDealerLink[lang]}</p>
+                )}
               </>
             )}
           </div>
