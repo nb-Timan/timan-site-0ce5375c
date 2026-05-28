@@ -158,6 +158,16 @@ export default function ServiceTicketDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Editable fields (Timan-internal only)
+  const [editStatus, setEditStatus] = useState<string>("created");
+  const [editPriority, setEditPriority] = useState<string>("normal");
+  const [editCategory, setEditCategory] = useState<string>("");
+  const [editAssigned, setEditAssigned] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
