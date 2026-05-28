@@ -37,7 +37,7 @@ export default function ServiceInformationPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => navigate(getPortalBackTarget(location.pathname))}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
@@ -48,7 +48,7 @@ export default function ServiceInformationPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-10 flex-1 w-full">
+      <main className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-black tracking-tight">Serviceinformation</h1>
           <p className="mt-1 text-sm text-slate-500">
