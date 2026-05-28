@@ -138,6 +138,10 @@ export default function MachineSearchPage() {
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
 
+  const [activities, setActivities] = useState<MachineActivityLogRow[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
