@@ -214,7 +214,15 @@ export default function ServiceTicketDetailPage() {
   const [newInternalNote, setNewInternalNote] = useState("");
   const [savingInternalNote, setSavingInternalNote] = useState(false);
 
+  // Files / documents
+  const [documents, setDocuments] = useState<MachineDocumentRow[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+
 
 
   if (!appUser) {
