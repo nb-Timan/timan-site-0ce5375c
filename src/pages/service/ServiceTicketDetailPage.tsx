@@ -298,6 +298,8 @@ export default function ServiceTicketDetailPage() {
             setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
             await loadInternalNotes(ticketId);
+            await loadDocuments(ticketId);
+
           }
 
         }
