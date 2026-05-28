@@ -204,8 +204,13 @@ export default function ServiceTicketDetailPage() {
             setError(T.notFound[lang]);
           } else {
             setTicket(data);
+            setEditStatus(data.status || "created");
+            setEditPriority(data.priority || "normal");
+            setEditCategory(data.category || "");
+            setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
           }
+
         }
       } catch (e) {
         console.error("[ServiceTicketDetail] load error", e);
