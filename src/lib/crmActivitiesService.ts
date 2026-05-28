@@ -201,6 +201,7 @@ export async function logActivity(
   opts: LogActivityOptions = {},
 ): Promise<CrmActivity> {
   const now = new Date().toISOString();
+  let insertFailureLogged = false;
   const row: CrmActivity = {
     id: uuid(),
     activity_type: input.activity_type,
@@ -266,13 +267,14 @@ export async function logActivity(
     const { error } = await supabase.from("crm_activities").insert(payload);
     if (error) {
       logInsertFailure(error, payload);
+      insertFailureLogged = true;
       if (opts.strict) {
         throw error;
       }
       notifyActivitySyncFailure(error);
     }
   } catch (err) {
-    logInsertFailure(err, payload);
+    if (!insertFailureLogged) logInsertFailure(err, payload);
     if (opts.strict) {
       throw err;
     }
