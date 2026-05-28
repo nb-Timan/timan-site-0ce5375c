@@ -431,7 +431,79 @@ export default function ServiceTicketDetailPage() {
               </div>
             </div>
 
+            {/* Edit (Timan internal only) */}
+            {canEdit && (
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.editTitle[lang]}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.status[lang]}</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      {STATUS_VALUES.map((s) => (
+                        <option key={s} value={s}>{statusLabel(s)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.priority[lang]}</label>
+                    <select
+                      value={editPriority}
+                      onChange={(e) => setEditPriority(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      {PRIORITY_VALUES.map((p) => (
+                        <option key={p} value={p}>{priorityLabel(p)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.category[lang]}</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">{T.none[lang]}</option>
+                      {CATEGORY_VALUES.map((c) => (
+                        <option key={c} value={c}>{categoryLabel(c)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.assigned[lang]}</label>
+                    <Input
+                      value={editAssigned}
+                      onChange={(e) => setEditAssigned(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                    {savingEdit ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                      </span>
+                    ) : (
+                      T.saveChanges[lang]
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Comments */}
+
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-slate-500" />
