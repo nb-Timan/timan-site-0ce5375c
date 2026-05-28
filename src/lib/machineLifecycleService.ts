@@ -302,3 +302,48 @@ export async function createExternalComment(
 
 
 
+
+export interface UpdateServiceTicketFieldsInput {
+  status: string;
+  priority: string;
+  category: string | null;
+  assigned_name: string | null;
+}
+
+/**
+ * Update editable fields on a service ticket. Only Timan-internal users
+ * should call this (UI guards). RLS on public.service_tickets remains
+ * the source of truth for write authorization.
+ *
+ * - closed_at is set to NOW() when status === "closed".
+ * - closed_at is preserved when status is a converted_* value.
+ * - closed_at is cleared in all other cases.
+ */
+export async function updateServiceTicketFields(
+  ticketId: string,
+  input: UpdateServiceTicketFieldsInput
+): Promise<void> {
+  const isClosed = input.status === "closed";
+  const isConverted = input.status.startsWith("converted_");
+
+  const patch: Record<string, unknown> = {
+    status: input.status,
+    priority: input.priority,
+    category: input.category,
+    assigned_name: input.assigned_name,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isClosed) {
+    patch.closed_at = new Date().toISOString();
+  } else if (!isConverted) {
+    patch.closed_at = null;
+  }
+  // converted_*: leave closed_at untouched
+
+  const { error } = await supabase
+    .from("service_tickets")
+    .update(patch)
+    .eq("id", ticketId);
+  if (error) throw error;
+}

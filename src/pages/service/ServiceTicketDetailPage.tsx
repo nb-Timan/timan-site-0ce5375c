@@ -19,11 +19,14 @@ import {
   fetchExternalCommentsForTicket,
   createExternalComment,
   ServiceTicketComment,
+  updateServiceTicketFields,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
 
 const T: Record<string, Record<Language, string>> = {
   back:      { da: "Tilbage til Service tickets", en: "Back to Service tickets", de: "Zurück zu Service-Tickets", it: "Torna ai ticket di assistenza", hu: "Vissza a szerviz jegyekhez" },
@@ -63,7 +66,60 @@ const T: Record<string, Record<Language, string>> = {
   emptyErr:         { da: "Skriv en kommentar først.", en: "Please write a comment first.", de: "Bitte zuerst einen Kommentar schreiben.", it: "Scrivi prima un commento.", hu: "Először írj egy megjegyzést." },
   saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
   saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
+
+  // Edit
+  editTitle:        { da: "Opdater sag", en: "Update ticket", de: "Ticket aktualisieren", it: "Aggiorna ticket", hu: "Jegy frissítése" },
+  saveChanges:      { da: "Gem ændringer", en: "Save changes", de: "Änderungen speichern", it: "Salva modifiche", hu: "Módosítások mentése" },
+  updated:          { da: "Service ticket opdateret", en: "Service ticket updated", de: "Service-Ticket aktualisiert", it: "Ticket di assistenza aggiornato", hu: "Szerviz jegy frissítve" },
+  updateErr:        { da: "Kunne ikke opdatere service ticket.", en: "Could not update service ticket.", de: "Service-Ticket konnte nicht aktualisiert werden.", it: "Impossibile aggiornare il ticket.", hu: "Nem sikerült frissíteni a szerviz jegyet." },
+  none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuna", hu: "Nincs" },
+
+  // Status options
+  st_created:               { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  st_in_progress:           { da: "Under behandling", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
+  st_waiting_timan:         { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
+  st_waiting_dealer:        { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
+  st_waiting_customer:      { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
+  st_waiting_parts:         { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár" },
+  st_resolved:              { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva" },
+  st_closed:                { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+  st_converted_to_claim:    { da: "Konverteret til claim", en: "Converted to claim", de: "In Claim umgewandelt", it: "Convertito in reclamo", hu: "Claim-mé alakítva" },
+  st_converted_to_warranty: { da: "Konverteret til garanti", en: "Converted to warranty", de: "In Garantie umgewandelt", it: "Convertito in garanzia", hu: "Garanciává alakítva" },
+  st_converted_to_tsb:      { da: "Konverteret til TSB", en: "Converted to TSB", de: "In TSB umgewandelt", it: "Convertito in TSB", hu: "TSB-vé alakítva" },
+
+  // Priority options
+  pr_low:                       { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
+  pr_normal:                    { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
+  pr_high:                      { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
+  pr_critical_machine_stopped:  { da: "Kritisk / maskine stoppet", en: "Critical / machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+
+  // Category options
+  cat_engine:         { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
+  cat_hydraulics:     { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika" },
+  cat_electronics:    { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika" },
+  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító" },
+  cat_transmission:   { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű" },
+  cat_service:        { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz" },
+  cat_spare_part:     { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész" },
+  cat_software:       { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
+  cat_safety:         { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
+  cat_other:          { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
 };
+
+const STATUS_VALUES = [
+  "created", "in_progress",
+  "waiting_timan", "waiting_dealer", "waiting_customer", "waiting_parts",
+  "resolved", "closed",
+  "converted_to_claim", "converted_to_warranty", "converted_to_tsb",
+] as const;
+const PRIORITY_VALUES = ["low", "normal", "high", "critical_machine_stopped"] as const;
+const CATEGORY_VALUES = [
+  "engine", "hydraulics", "electronics", "remote_control", "transmission",
+  "service", "spare_part", "software", "safety", "other",
+] as const;
+
+const INTERNAL_ROLES = new Set(["timan_backend", "timan_seller", "timan_service"]);
+
 
 function statusBadgeClasses(status: string): string {
   const s = (status || "").toLowerCase();
@@ -102,6 +158,16 @@ export default function ServiceTicketDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Editable fields (Timan-internal only)
+  const [editStatus, setEditStatus] = useState<string>("created");
+  const [editPriority, setEditPriority] = useState<string>("normal");
+  const [editCategory, setEditCategory] = useState<string>("");
+  const [editAssigned, setEditAssigned] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
@@ -138,8 +204,13 @@ export default function ServiceTicketDetailPage() {
             setError(T.notFound[lang]);
           } else {
             setTicket(data);
+            setEditStatus(data.status || "created");
+            setEditPriority(data.priority || "normal");
+            setEditCategory(data.category || "");
+            setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
           }
+
         }
       } catch (e) {
         console.error("[ServiceTicketDetail] load error", e);
@@ -177,7 +248,44 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const reloadTicket = async () => {
+    if (!ticketId) return;
+    const data = await fetchServiceTicketById(ticketId);
+    if (data) {
+      setTicket(data);
+      setEditStatus(data.status || "created");
+      setEditPriority(data.priority || "normal");
+      setEditCategory(data.category || "");
+      setEditAssigned(data.assigned_name || "");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!ticketId || !canEdit) return;
+    setSavingEdit(true);
+    try {
+      await updateServiceTicketFields(ticketId, {
+        status: editStatus,
+        priority: editPriority,
+        category: editCategory || null,
+        assigned_name: editAssigned.trim() || null,
+      });
+      toast.success(T.updated[lang]);
+      await reloadTicket();
+    } catch (e) {
+      console.error("[ServiceTicketDetail] update error", e);
+      toast.error(T.updateErr[lang]);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const statusLabel = (v: string) => T[`st_${v}`]?.[lang] ?? v;
+  const priorityLabel = (v: string) => T[`pr_${v}`]?.[lang] ?? v;
+  const categoryLabel = (v: string) => T[`cat_${v}`]?.[lang] ?? v;
+
   return (
+
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
         user={appUser}
@@ -224,12 +332,13 @@ export default function ServiceTicketDetailPage() {
                   <p className="text-2xl font-bold text-slate-900">{ticket.ticket_number || ticket.id.slice(0, 8)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge className={statusBadgeClasses(ticket.status)}>{ticket.status}</Badge>
-                  <Badge className={priorityBadgeClasses(ticket.priority)}>{ticket.priority}</Badge>
+                  <Badge className={statusBadgeClasses(ticket.status)}>{statusLabel(ticket.status)}</Badge>
+                  <Badge className={priorityBadgeClasses(ticket.priority)}>{priorityLabel(ticket.priority)}</Badge>
                   {ticket.category && (
-                    <Badge variant="outline">{ticket.category}</Badge>
+                    <Badge variant="outline">{categoryLabel(ticket.category)}</Badge>
                   )}
                 </div>
+
               </div>
               <h2 className="mt-4 text-xl font-semibold text-slate-900">{ticket.title}</h2>
               {ticket.description && (
@@ -322,7 +431,79 @@ export default function ServiceTicketDetailPage() {
               </div>
             </div>
 
+            {/* Edit (Timan internal only) */}
+            {canEdit && (
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.editTitle[lang]}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.status[lang]}</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      {STATUS_VALUES.map((s) => (
+                        <option key={s} value={s}>{statusLabel(s)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.priority[lang]}</label>
+                    <select
+                      value={editPriority}
+                      onChange={(e) => setEditPriority(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      {PRIORITY_VALUES.map((p) => (
+                        <option key={p} value={p}>{priorityLabel(p)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.category[lang]}</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">{T.none[lang]}</option>
+                      {CATEGORY_VALUES.map((c) => (
+                        <option key={c} value={c}>{categoryLabel(c)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{T.assigned[lang]}</label>
+                    <Input
+                      value={editAssigned}
+                      onChange={(e) => setEditAssigned(e.target.value)}
+                      disabled={savingEdit}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                    {savingEdit ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                      </span>
+                    ) : (
+                      T.saveChanges[lang]
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Comments */}
+
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-slate-500" />
