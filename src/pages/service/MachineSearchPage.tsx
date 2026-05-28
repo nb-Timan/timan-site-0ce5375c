@@ -669,7 +669,149 @@ export default function MachineSearchPage() {
                 </div>
               )}
 
-              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && activeTab !== "documents" && (
+              {activeTab === "service_history" && (
+                <div>
+                  {serviceHistoryLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : serviceHistoryError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{serviceHistoryError}</div>
+                  ) : serviceHistory.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.shEmpty[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.shDate[lang]}</TableHead>
+                            <TableHead>{T.shHours[lang]}</TableHead>
+                            <TableHead>{T.shInterval[lang]}</TableHead>
+                            <TableHead>{T.shTechnician[lang]}</TableHead>
+                            <TableHead>{T.shDealer[lang]}</TableHead>
+                            <TableHead>{T.shPlanCompleted[lang]}</TableHead>
+                            <TableHead className="text-right">{T.shTotal[lang]}</TableHead>
+                            <TableHead>{T.shPartsNotes[lang]}</TableHead>
+                            <TableHead className="text-right"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {serviceHistory.map(reg => {
+                            const expanded = expandedHistoryId === reg.id;
+                            const parts = historyParts[reg.id] || [];
+                            const partsLoading = !!historyPartsLoading[reg.id];
+                            const summary = [reg.spare_parts_used, reg.notes].filter(Boolean).join(" — ");
+                            return (
+                              <>
+                                <TableRow key={reg.id}>
+                                  <TableCell className="whitespace-nowrap font-medium">{fmtDateShort(reg.service_date)}</TableCell>
+                                  <TableCell>{fmt(reg.operating_hours)}</TableCell>
+                                  <TableCell>{reg.service_interval_hours} {T.shHoursUnit[lang]}</TableCell>
+                                  <TableCell>{fmt(reg.technician_name)}</TableCell>
+                                  <TableCell>{fmt(reg.dealer_name || reg.dealer_number)}</TableCell>
+                                  <TableCell>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${reg.service_plan_completed ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                      {reg.service_plan_completed ? T.shYes[lang] : T.shNo[lang]}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right whitespace-nowrap font-medium">{fmtMoney(reg.total_price)}</TableCell>
+                                  <TableCell className="text-slate-600 text-xs max-w-[260px] truncate" title={summary}>{summary || dash}</TableCell>
+                                  <TableCell className="text-right">
+                                    <button
+                                      onClick={() => handleToggleHistory(reg)}
+                                      className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      {expanded ? T.shCollapse[lang] : T.shExpand[lang]}
+                                    </button>
+                                  </TableCell>
+                                </TableRow>
+                                {expanded && (
+                                  <TableRow key={reg.id + "-detail"}>
+                                    <TableCell colSpan={9} className="bg-slate-50">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm py-2">
+                                        <div>
+                                          <div className="text-slate-500">{T.shNotes[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.notes)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-slate-500">{T.shFaults[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.faults_found)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-slate-500">{T.shSpareParts[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.spare_parts_used)}</div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div>
+                                            <div className="text-slate-500">{T.shKitPrice[lang]}</div>
+                                            <div className="font-medium">{fmtMoney(reg.total_servicekit_price)}</div>
+                                          </div>
+                                          <div>
+                                            <div className="text-slate-500">{T.shExtraPrice[lang]}</div>
+                                            <div className="font-medium">{fmtMoney(reg.total_extra_parts_price)}</div>
+                                          </div>
+                                          <div>
+                                            <div className="text-slate-500">{T.shTotal[lang]}</div>
+                                            <div className="font-bold">{fmtMoney(reg.total_price)}</div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3">
+                                        <div className="text-slate-500 text-sm mb-1">{T.shPartsList[lang]}</div>
+                                        {partsLoading ? (
+                                          <div className="py-3 flex items-center gap-2 text-xs text-slate-500">
+                                            <Loader2 className="h-3 w-3 animate-spin" /> {T.searching[lang]}
+                                          </div>
+                                        ) : parts.length === 0 ? (
+                                          <div className="text-xs text-slate-500 py-2">—</div>
+                                        ) : (
+                                          <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
+                                            <Table>
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead>{T.shPartSource[lang]}</TableHead>
+                                                  <TableHead>{T.shPartItem[lang]}</TableHead>
+                                                  <TableHead>{T.shPartDesc[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartQty[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartUnit[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartLine[lang]}</TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {parts.map(p => (
+                                                  <TableRow key={p.id}>
+                                                    <TableCell className="text-xs">
+                                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${p.source_type === "servicekit" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-700"}`}>
+                                                        {p.source_type === "servicekit" ? T.shSrcKit[lang] : T.shSrcExtra[lang]}
+                                                      </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">{fmt(p.item_number)}</TableCell>
+                                                    <TableCell className="text-xs">{fmt(p.description)}</TableCell>
+                                                    <TableCell className="text-right">{p.quantity}</TableCell>
+                                                    <TableCell className="text-right">{fmtMoney(p.unit_price)}</TableCell>
+                                                    <TableCell className="text-right font-medium">{fmtMoney(p.line_total)}</TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && activeTab !== "documents" && activeTab !== "service_history" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>
