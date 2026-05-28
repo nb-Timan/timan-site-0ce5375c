@@ -237,10 +237,11 @@ export async function fetchServiceTicketById(id: string): Promise<ServiceTicketD
     .from("service_tickets")
     .select(
       "id, ticket_number, title, status, priority, category, description, " +
-      "serial_number, machine_id, machine_type, dealer_name, customer_name, " +
+      "serial_number, machine_id, machine_type, dealer_number, dealer_name, customer_name, " +
       "contact_person, contact_email, contact_phone, operating_hours, " +
       "created_at, created_by_email, assigned_name, closed_at"
     )
+
     .eq("id", id)
     .single();
 
