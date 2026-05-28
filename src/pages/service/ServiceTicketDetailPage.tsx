@@ -2,9 +2,9 @@
  * Phase 4c — Service ticket detail (read-only).
  * Fetches a single ticket by ID via RLS-scoped supabase client.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -23,12 +23,19 @@ import {
   fetchInternalCommentsForTicket,
   createInternalComment,
   createMachineActivityLog,
+  uploadServiceTicketFile,
+  fetchMachineDocumentsForTicket,
+  getMachineDocumentSignedUrl,
+  MachineDocumentRow,
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadFile,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 
 
 const T: Record<string, Record<Language, string>> = {
