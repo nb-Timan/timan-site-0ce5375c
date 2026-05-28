@@ -52,5 +52,5 @@ export async function findMachineByIdentifier(rawQuery: string): Promise<Machine
     .limit(1);
 
   if (error) throw error;
-  return (data && data[0] ? (data[0] as MachineRecord) : null);
+  return (data && data[0] ? (data[0] as unknown as MachineRecord) : null);
 }
