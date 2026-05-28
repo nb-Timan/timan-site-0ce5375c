@@ -3,7 +3,7 @@
  * Search by serial_number or machine_number against public.machines (RLS).
  * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
-import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
+import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import { Language } from "@/types/configurator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -99,6 +99,37 @@ const T: Record<string, Record<Language, string>> = {
   docRelTicket:   { da: "Service ticket", en: "Service ticket", de: "Service-Ticket", it: "Ticket di assistenza", hu: "Szerviz jegy" },
   docVisInternal: { da: "Intern", en: "Internal", de: "Intern", it: "Interna", hu: "Belső" },
   docVisDealer:   { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
+
+  // Service history
+  shDate:         { da: "Servicedato", en: "Service date", de: "Servicedatum", it: "Data assistenza", hu: "Szerviz dátuma" },
+  shHours:        { da: "Driftstimer", en: "Operating hours", de: "Betriebsstunden", it: "Ore di funzionamento", hu: "Üzemórák" },
+  shInterval:     { da: "Serviceinterval", en: "Service interval", de: "Serviceintervall", it: "Intervallo assistenza", hu: "Szerviz intervallum" },
+  shTechnician:   { da: "Tekniker", en: "Technician", de: "Techniker", it: "Tecnico", hu: "Szerelő" },
+  shDealer:       { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
+  shPlanCompleted:{ da: "Serviceplan udført", en: "Service plan completed", de: "Serviceplan ausgeführt", it: "Piano assistenza completato", hu: "Szerviz terv elvégezve" },
+  shTotal:        { da: "Totalpris", en: "Total price", de: "Gesamtpreis", it: "Prezzo totale", hu: "Végösszeg" },
+  shPartsNotes:   { da: "Reservedele / noter", en: "Spare parts / notes", de: "Ersatzteile / Notizen", it: "Ricambi / note", hu: "Alkatrészek / jegyzetek" },
+  shYes:          { da: "Ja", en: "Yes", de: "Ja", it: "Sì", hu: "Igen" },
+  shNo:           { da: "Nej", en: "No", de: "Nein", it: "No", hu: "Nem" },
+  shEmpty:        { da: "Ingen servicehistorik fundet for denne maskine.", en: "No service history found for this machine.", de: "Keine Servicehistorie für diese Maschine gefunden.", it: "Nessuno storico di assistenza trovato per questa macchina.", hu: "Nincs szerviz előzmény ehhez a géphez." },
+  shError:        { da: "Kunne ikke hente servicehistorik.", en: "Could not load service history.", de: "Servicehistorie konnte nicht geladen werden.", it: "Impossibile caricare lo storico assistenza.", hu: "Nem sikerült betölteni a szerviz előzményeket." },
+  shHoursUnit:    { da: "timer", en: "hours", de: "Std.", it: "ore", hu: "óra" },
+  shNotes:        { da: "Bemærkninger", en: "Notes", de: "Notizen", it: "Note", hu: "Megjegyzések" },
+  shFaults:       { da: "Fejl fundet", en: "Faults found", de: "Festgestellte Fehler", it: "Difetti riscontrati", hu: "Talált hibák" },
+  shSpareParts:   { da: "Reservedele brugt", en: "Spare parts used", de: "Verwendete Ersatzteile", it: "Ricambi utilizzati", hu: "Felhasznált alkatrészek" },
+  shKitPrice:     { da: "Servicekit-pris", en: "Service kit price", de: "Servicekit-Preis", it: "Prezzo kit assistenza", hu: "Szerviz kit ára" },
+  shExtraPrice:   { da: "Ekstra reservedele-pris", en: "Extra parts price", de: "Preis Zusatzteile", it: "Prezzo ricambi extra", hu: "Extra alkatrészek ára" },
+  shPartsList:    { da: "Reservedelsliste", en: "Parts list", de: "Teileliste", it: "Elenco ricambi", hu: "Alkatrészlista" },
+  shExpand:       { da: "Vis detaljer", en: "Show details", de: "Details anzeigen", it: "Mostra dettagli", hu: "Részletek" },
+  shCollapse:     { da: "Skjul detaljer", en: "Hide details", de: "Details ausblenden", it: "Nascondi dettagli", hu: "Részletek elrejtése" },
+  shPartItem:     { da: "Varenr.", en: "Item no.", de: "Artikelnr.", it: "Codice", hu: "Cikkszám" },
+  shPartDesc:     { da: "Beskrivelse", en: "Description", de: "Beschreibung", it: "Descrizione", hu: "Leírás" },
+  shPartQty:      { da: "Antal", en: "Qty", de: "Menge", it: "Qtà", hu: "Db" },
+  shPartUnit:     { da: "Stk-pris", en: "Unit price", de: "Einzelpreis", it: "Prezzo unit.", hu: "Egységár" },
+  shPartLine:     { da: "Linjetotal", en: "Line total", de: "Zeilensumme", it: "Totale riga", hu: "Sor összesen" },
+  shPartSource:   { da: "Kilde", en: "Source", de: "Quelle", it: "Origine", hu: "Forrás" },
+  shSrcKit:       { da: "Servicekit", en: "Service kit", de: "Servicekit", it: "Kit assistenza", hu: "Szerviz kit" },
+  shSrcExtra:     { da: "Ekstra", en: "Extra", de: "Zusatz", it: "Extra", hu: "Extra" },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -132,6 +163,15 @@ function fmtDateShort(v: string | null | undefined): string {
   }
 }
 
+function fmtMoney(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
+  try {
+    return new Intl.NumberFormat("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+  } catch {
+    return String(v);
+  }
+}
+
 export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -160,6 +200,13 @@ export default function MachineSearchPage() {
   const [documents, setDocuments] = useState<MachineDocumentRow[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+
+  const [serviceHistory, setServiceHistory] = useState<ServiceRegistrationRow[]>([]);
+  const [serviceHistoryLoading, setServiceHistoryLoading] = useState(false);
+  const [serviceHistoryError, setServiceHistoryError] = useState<string | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyParts, setHistoryParts] = useState<Record<string, ServiceRegistrationPartRow[]>>({});
+  const [historyPartsLoading, setHistoryPartsLoading] = useState<Record<string, boolean>>({});
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -262,6 +309,33 @@ export default function MachineSearchPage() {
     return () => { cancelled = true; };
   }, [machine, lang]);
 
+  // Fetch service history whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setServiceHistory([]);
+      setServiceHistoryError(null);
+      setExpandedHistoryId(null);
+      setHistoryParts({});
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setServiceHistoryLoading(true);
+      setServiceHistoryError(null);
+      try {
+        const list = await fetchServiceHistoryForMachine(machine.id, machine.serial_number);
+        if (!cancelled) setServiceHistory(list);
+      } catch (e) {
+        console.error("[MachineSearch] service history load error", e);
+        if (!cancelled) setServiceHistoryError(T.shError[lang]);
+      } finally {
+        if (!cancelled) setServiceHistoryLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
   const handleOpenDocument = async (doc: MachineDocumentRow) => {
     try {
       const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
@@ -269,6 +343,24 @@ export default function MachineSearchPage() {
     } catch (e) {
       console.error("[MachineSearch] open document error", e);
       alert(T.docOpenError[lang]);
+    }
+  };
+
+  const handleToggleHistory = async (reg: ServiceRegistrationRow) => {
+    if (expandedHistoryId === reg.id) {
+      setExpandedHistoryId(null);
+      return;
+    }
+    setExpandedHistoryId(reg.id);
+    if (historyParts[reg.id]) return;
+    setHistoryPartsLoading(prev => ({ ...prev, [reg.id]: true }));
+    try {
+      const parts = await fetchServiceRegistrationParts(reg.id);
+      setHistoryParts(prev => ({ ...prev, [reg.id]: parts }));
+    } catch (e) {
+      console.error("[MachineSearch] service history parts error", e);
+    } finally {
+      setHistoryPartsLoading(prev => ({ ...prev, [reg.id]: false }));
     }
   };
 
@@ -586,7 +678,149 @@ export default function MachineSearchPage() {
                 </div>
               )}
 
-              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && activeTab !== "documents" && (
+              {activeTab === "service_history" && (
+                <div>
+                  {serviceHistoryLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : serviceHistoryError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{serviceHistoryError}</div>
+                  ) : serviceHistory.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.shEmpty[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.shDate[lang]}</TableHead>
+                            <TableHead>{T.shHours[lang]}</TableHead>
+                            <TableHead>{T.shInterval[lang]}</TableHead>
+                            <TableHead>{T.shTechnician[lang]}</TableHead>
+                            <TableHead>{T.shDealer[lang]}</TableHead>
+                            <TableHead>{T.shPlanCompleted[lang]}</TableHead>
+                            <TableHead className="text-right">{T.shTotal[lang]}</TableHead>
+                            <TableHead>{T.shPartsNotes[lang]}</TableHead>
+                            <TableHead className="text-right"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {serviceHistory.map(reg => {
+                            const expanded = expandedHistoryId === reg.id;
+                            const parts = historyParts[reg.id] || [];
+                            const partsLoading = !!historyPartsLoading[reg.id];
+                            const summary = [reg.spare_parts_used, reg.notes].filter(Boolean).join(" — ");
+                            return (
+                              <React.Fragment key={reg.id}>
+                                <TableRow key={reg.id}>
+                                  <TableCell className="whitespace-nowrap font-medium">{fmtDateShort(reg.service_date)}</TableCell>
+                                  <TableCell>{fmt(reg.operating_hours)}</TableCell>
+                                  <TableCell>{reg.service_interval_hours} {T.shHoursUnit[lang]}</TableCell>
+                                  <TableCell>{fmt(reg.technician_name)}</TableCell>
+                                  <TableCell>{fmt(reg.dealer_name || reg.dealer_number)}</TableCell>
+                                  <TableCell>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${reg.service_plan_completed ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                      {reg.service_plan_completed ? T.shYes[lang] : T.shNo[lang]}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right whitespace-nowrap font-medium">{fmtMoney(reg.total_price)}</TableCell>
+                                  <TableCell className="text-slate-600 text-xs max-w-[260px] truncate" title={summary}>{summary || dash}</TableCell>
+                                  <TableCell className="text-right">
+                                    <button
+                                      onClick={() => handleToggleHistory(reg)}
+                                      className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      {expanded ? T.shCollapse[lang] : T.shExpand[lang]}
+                                    </button>
+                                  </TableCell>
+                                </TableRow>
+                                {expanded && (
+                                  <TableRow key={reg.id + "-detail"}>
+                                    <TableCell colSpan={9} className="bg-slate-50">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm py-2">
+                                        <div>
+                                          <div className="text-slate-500">{T.shNotes[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.notes)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-slate-500">{T.shFaults[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.faults_found)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-slate-500">{T.shSpareParts[lang]}</div>
+                                          <div className="font-medium whitespace-pre-wrap">{fmt(reg.spare_parts_used)}</div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div>
+                                            <div className="text-slate-500">{T.shKitPrice[lang]}</div>
+                                            <div className="font-medium">{fmtMoney(reg.total_servicekit_price)}</div>
+                                          </div>
+                                          <div>
+                                            <div className="text-slate-500">{T.shExtraPrice[lang]}</div>
+                                            <div className="font-medium">{fmtMoney(reg.total_extra_parts_price)}</div>
+                                          </div>
+                                          <div>
+                                            <div className="text-slate-500">{T.shTotal[lang]}</div>
+                                            <div className="font-bold">{fmtMoney(reg.total_price)}</div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3">
+                                        <div className="text-slate-500 text-sm mb-1">{T.shPartsList[lang]}</div>
+                                        {partsLoading ? (
+                                          <div className="py-3 flex items-center gap-2 text-xs text-slate-500">
+                                            <Loader2 className="h-3 w-3 animate-spin" /> {T.searching[lang]}
+                                          </div>
+                                        ) : parts.length === 0 ? (
+                                          <div className="text-xs text-slate-500 py-2">—</div>
+                                        ) : (
+                                          <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
+                                            <Table>
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead>{T.shPartSource[lang]}</TableHead>
+                                                  <TableHead>{T.shPartItem[lang]}</TableHead>
+                                                  <TableHead>{T.shPartDesc[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartQty[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartUnit[lang]}</TableHead>
+                                                  <TableHead className="text-right">{T.shPartLine[lang]}</TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {parts.map(p => (
+                                                  <TableRow key={p.id}>
+                                                    <TableCell className="text-xs">
+                                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${p.source_type === "servicekit" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-700"}`}>
+                                                        {p.source_type === "servicekit" ? T.shSrcKit[lang] : T.shSrcExtra[lang]}
+                                                      </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">{fmt(p.item_number)}</TableCell>
+                                                    <TableCell className="text-xs">{fmt(p.description)}</TableCell>
+                                                    <TableCell className="text-right">{p.quantity}</TableCell>
+                                                    <TableCell className="text-right">{fmtMoney(p.unit_price)}</TableCell>
+                                                    <TableCell className="text-right font-medium">{fmtMoney(p.line_total)}</TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && activeTab !== "documents" && activeTab !== "service_history" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>
