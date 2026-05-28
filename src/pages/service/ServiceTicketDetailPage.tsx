@@ -358,6 +358,7 @@ export default function ServiceTicketDetailPage() {
 
   const handleSaveEdit = async () => {
     if (!ticketId || !canEdit) return;
+    const previousStatus = ticket?.status ?? null;
     setSavingEdit(true);
     try {
       await updateServiceTicketFields(ticketId, {
@@ -366,6 +367,23 @@ export default function ServiceTicketDetailPage() {
         category: editCategory || null,
         assigned_name: editAssigned.trim() || null,
       });
+      // Log status change if it actually changed
+      if (ticket && previousStatus && previousStatus !== editStatus) {
+        try {
+          await createMachineActivityLog({
+            machine_id: ticket.machine_id,
+            serial_number: ticket.serial_number,
+            event_type: "service_ticket_status_changed",
+            title: "Status ændret",
+            description: `Fra ${previousStatus} til ${editStatus}`,
+            related_entity_type: "service_ticket",
+            related_entity_id: ticket.id,
+            visibility: "dealer_visible",
+          });
+        } catch (logErr) {
+          console.error("[ServiceTicketDetail] activity log (status_changed) failed", logErr);
+        }
+      }
       toast.success(T.updated[lang]);
       await reloadTicket();
     } catch (e) {
