@@ -298,8 +298,7 @@ export async function createExternalComment(
   if (error) throw error;
   return { id: (data as { id: string }).id };
 }
-  return (data as unknown as ServiceTicketDetail) || null;
-}
+
 
 
 
