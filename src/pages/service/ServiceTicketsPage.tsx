@@ -485,11 +485,63 @@ function CreateTicketDialog(props: {
 
           <div>
             <Label>{T.fSerial[lang]}</Label>
-            <Input value={serial} onChange={(e) => setSerial(e.target.value)} />
+            <Input value={serial} onChange={(e) => handleSerialChange(e.target.value)} />
           </div>
           <div>
             <Label>{T.fMtype[lang]}</Label>
-            <Input value={mtype} onChange={(e) => setMtype(e.target.value)} />
+            <select
+              value={mtypeChoice}
+              onChange={(e) => handleMtypeChange(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">{T.mtypeSelect[lang]}</option>
+              {MACHINE_TYPE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              <option value="__other__">{T.mtypeOther[lang]}</option>
+            </select>
+            {mtypeAutoFilled && mtypeChoice && mtypeChoice !== "__other__" ? (
+              <p className="mt-1 text-xs text-slate-500">{T.mtypeAutoFilled[lang]}</p>
+            ) : null}
+            {mtypeChoice === "__other__" ? (
+              <Input
+                className="mt-2"
+                placeholder={T.mtypeOtherLabel[lang]}
+                value={mtypeOther}
+                onChange={(e) => setMtypeOther(e.target.value)}
+              />
+            ) : null}
+          </div>
+
+          {/* Equipment / attachment (multi-select). Stored temporarily in description. */}
+          <div className="md:col-span-2">
+            <Label>{T.fEquip[lang]}</Label>
+            <div className="mt-1 grid grid-cols-2 md:grid-cols-3 gap-2 rounded-md border border-input bg-background p-3 text-sm">
+              {EQUIPMENT_OPTIONS.map((item) => (
+                <label key={item} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={equipment.includes(item)}
+                    onChange={(e) => toggleEquipment(item, e.target.checked)}
+                  />
+                  <span>{item}</span>
+                </label>
+              ))}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={equipOtherChecked}
+                  onChange={(e) => setEquipOtherChecked(e.target.checked)}
+                />
+                <span>{T.mtypeOther[lang]}</span>
+              </label>
+            </div>
+            {equipOtherChecked ? (
+              <Input
+                className="mt-2"
+                placeholder={T.equipOtherLabel[lang]}
+                value={equipmentOther}
+                onChange={(e) => setEquipmentOther(e.target.value)}
+              />
+            ) : null}
           </div>
 
           {/* Dealer */}
@@ -510,8 +562,20 @@ function CreateTicketDialog(props: {
               </select>
             ) : (
               <>
-                <Input value={lockedDealerName || lockedDealerNumber || ""} disabled />
-                <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                <Input
+                  value={
+                    lockedDealerName && lockedDealerNumber
+                      ? `${lockedDealerName} (${lockedDealerNumber})`
+                      : (lockedDealerName || lockedDealerNumber || "")
+                  }
+                  readOnly
+                  className="bg-slate-50 cursor-default"
+                />
+                {lockedDealerNumber ? (
+                  <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-red-600">{T.noDealerLink[lang]}</p>
+                )}
               </>
             )}
           </div>
