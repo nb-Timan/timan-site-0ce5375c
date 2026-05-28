@@ -163,6 +163,15 @@ function fmtDateShort(v: string | null | undefined): string {
   }
 }
 
+function fmtMoney(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
+  try {
+    return new Intl.NumberFormat("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+  } catch {
+    return String(v);
+  }
+}
+
 export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
