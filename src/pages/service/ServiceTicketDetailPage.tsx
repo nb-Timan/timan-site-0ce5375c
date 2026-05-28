@@ -207,6 +207,21 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const loadInternalNotes = async (id: string) => {
+    if (!canEdit) return; // skip for non-internal users
+    setInternalNotesLoading(true);
+    setInternalNotesError(null);
+    try {
+      const rows = await fetchInternalCommentsForTicket(id);
+      setInternalNotes(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] internal notes load error", e);
+      setInternalNotesError(T.internalNotesLoadErr[lang]);
+    } finally {
+      setInternalNotesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!ticketId) {
       setLoading(false);
