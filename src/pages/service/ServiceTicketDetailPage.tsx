@@ -284,6 +284,32 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const handleAddInternalNote = async () => {
+    if (!ticketId || !canEdit) return;
+    const body = newInternalNote.trim();
+    if (!body) {
+      toast.error(T.internalNoteEmptyErr[lang]);
+      return;
+    }
+    setSavingInternalNote(true);
+    try {
+      await createInternalComment({
+        ticket_id: ticketId,
+        body,
+        created_by_email: appUser.email,
+        created_by_name: appUser.display_name ?? null,
+      });
+      setNewInternalNote("");
+      toast.success(T.internalNoteAdded[lang]);
+      await loadInternalNotes(ticketId);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] save internal note error", e);
+      toast.error(T.internalNoteSaveErr[lang]);
+    } finally {
+      setSavingInternalNote(false);
+    }
+  };
+
   const reloadTicket = async () => {
     if (!ticketId) return;
     const data = await fetchServiceTicketById(ticketId);
