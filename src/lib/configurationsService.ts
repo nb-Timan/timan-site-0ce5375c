@@ -1502,14 +1502,17 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
           activity_type: 'quote_sent',
           configuration_id: id,
           quote_id: id,
-          lead_id: linkedLeadId,
+          // crm_activities has no lead_id column — keep linkage in meta.
+          meta: { lead_id: linkedLeadId },
           title: (row.quote_number as string | null) || 'Tilbud afgivet via konfiguratoren',
           description: 'Tilbud afgivet via konfiguratoren',
           status: 'aktiv',
           created_by_user_id: (row.created_by_user_id as string | null) ?? user.id,
           assigned_owner_user_id: (row.assigned_seller_id as string | null) ?? null,
-        } as any);
-      } catch { /* */ }
+        });
+      } catch (e) {
+        console.warn('[markPdfDownloaded] linked-lead activity log failed (ignored):', e);
+      }
     }
   }
 }
