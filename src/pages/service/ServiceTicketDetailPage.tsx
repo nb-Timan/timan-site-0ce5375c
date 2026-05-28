@@ -332,12 +332,13 @@ export default function ServiceTicketDetailPage() {
                   <p className="text-2xl font-bold text-slate-900">{ticket.ticket_number || ticket.id.slice(0, 8)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge className={statusBadgeClasses(ticket.status)}>{ticket.status}</Badge>
-                  <Badge className={priorityBadgeClasses(ticket.priority)}>{ticket.priority}</Badge>
+                  <Badge className={statusBadgeClasses(ticket.status)}>{statusLabel(ticket.status)}</Badge>
+                  <Badge className={priorityBadgeClasses(ticket.priority)}>{priorityLabel(ticket.priority)}</Badge>
                   {ticket.category && (
-                    <Badge variant="outline">{ticket.category}</Badge>
+                    <Badge variant="outline">{categoryLabel(ticket.category)}</Badge>
                   )}
                 </div>
+
               </div>
               <h2 className="mt-4 text-xl font-semibold text-slate-900">{ticket.title}</h2>
               {ticket.description && (
