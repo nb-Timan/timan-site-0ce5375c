@@ -22,6 +22,7 @@ import {
   updateServiceTicketFields,
   fetchInternalCommentsForTicket,
   createInternalComment,
+  createMachineActivityLog,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
@@ -273,6 +274,23 @@ export default function ServiceTicketDetailPage() {
         created_by_email: appUser.email,
         created_by_name: appUser.display_name ?? null,
       });
+      // Best-effort activity log
+      if (ticket) {
+        try {
+          await createMachineActivityLog({
+            machine_id: ticket.machine_id,
+            serial_number: ticket.serial_number,
+            event_type: "external_comment_added",
+            title: "Kommentar tilføjet",
+            description: body.length > 120 ? body.slice(0, 117) + "…" : body,
+            related_entity_type: "service_ticket",
+            related_entity_id: ticket.id,
+            visibility: "dealer_visible",
+          });
+        } catch (logErr) {
+          console.error("[ServiceTicketDetail] activity log (external_comment) failed", logErr);
+        }
+      }
       setNewComment("");
       toast.success(T.added[lang]);
       await loadComments(ticketId);
@@ -299,6 +317,22 @@ export default function ServiceTicketDetailPage() {
         created_by_email: appUser.email,
         created_by_name: appUser.display_name ?? null,
       });
+      if (ticket) {
+        try {
+          await createMachineActivityLog({
+            machine_id: ticket.machine_id,
+            serial_number: ticket.serial_number,
+            event_type: "internal_note_added",
+            title: "Intern note tilføjet",
+            description: body.length > 120 ? body.slice(0, 117) + "…" : body,
+            related_entity_type: "service_ticket",
+            related_entity_id: ticket.id,
+            visibility: "internal",
+          });
+        } catch (logErr) {
+          console.error("[ServiceTicketDetail] activity log (internal_note) failed", logErr);
+        }
+      }
       setNewInternalNote("");
       toast.success(T.internalNoteAdded[lang]);
       await loadInternalNotes(ticketId);
@@ -324,6 +358,7 @@ export default function ServiceTicketDetailPage() {
 
   const handleSaveEdit = async () => {
     if (!ticketId || !canEdit) return;
+    const previousStatus = ticket?.status ?? null;
     setSavingEdit(true);
     try {
       await updateServiceTicketFields(ticketId, {
@@ -332,6 +367,23 @@ export default function ServiceTicketDetailPage() {
         category: editCategory || null,
         assigned_name: editAssigned.trim() || null,
       });
+      // Log status change if it actually changed
+      if (ticket && previousStatus && previousStatus !== editStatus) {
+        try {
+          await createMachineActivityLog({
+            machine_id: ticket.machine_id,
+            serial_number: ticket.serial_number,
+            event_type: "service_ticket_status_changed",
+            title: "Status ændret",
+            description: `Fra ${previousStatus} til ${editStatus}`,
+            related_entity_type: "service_ticket",
+            related_entity_id: ticket.id,
+            visibility: "dealer_visible",
+          });
+        } catch (logErr) {
+          console.error("[ServiceTicketDetail] activity log (status_changed) failed", logErr);
+        }
+      }
       toast.success(T.updated[lang]);
       await reloadTicket();
     } catch (e) {

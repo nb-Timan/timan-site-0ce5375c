@@ -179,10 +179,28 @@ export async function createServiceTicket(input: NewServiceTicketInput): Promise
   const { data, error } = await supabase
     .from("service_tickets")
     .insert(payload)
-    .select("id")
+    .select("id, machine_id, serial_number, title")
     .single();
   if (error) throw error;
-  return { id: (data as { id: string }).id };
+  const row = data as { id: string; machine_id: string | null; serial_number: string; title: string };
+
+  // Best-effort activity log — never fail the ticket create on log errors.
+  try {
+    await createMachineActivityLog({
+      machine_id: row.machine_id,
+      serial_number: row.serial_number,
+      event_type: "service_ticket_created",
+      title: "Service ticket oprettet",
+      description: row.title,
+      related_entity_type: "service_ticket",
+      related_entity_id: row.id,
+      visibility: "dealer_visible",
+    });
+  } catch (logErr) {
+    console.error("[machineLifecycleService] activity log (ticket_created) failed:", logErr);
+  }
+
+  return { id: row.id };
 }
 
 export interface ServiceTicketDetail {
@@ -194,6 +212,7 @@ export interface ServiceTicketDetail {
   category: string | null;
   description: string;
   serial_number: string;
+  machine_id: string | null;
   machine_type: string | null;
   dealer_name: string | null;
   customer_name: string | null;
@@ -216,12 +235,13 @@ export async function fetchServiceTicketById(id: string): Promise<ServiceTicketD
     .from("service_tickets")
     .select(
       "id, ticket_number, title, status, priority, category, description, " +
-      "serial_number, machine_type, dealer_name, customer_name, " +
+      "serial_number, machine_id, machine_type, dealer_name, customer_name, " +
       "contact_person, contact_email, contact_phone, operating_hours, " +
       "created_at, created_by_email, assigned_name, closed_at"
     )
     .eq("id", id)
     .single();
+
 
   if (error) {
     if (error.code === "PGRST116") return null; // no rows (RLS or genuinely missing)
@@ -398,4 +418,109 @@ export async function updateServiceTicketFields(
     .update(patch)
     .eq("id", ticketId);
   if (error) throw error;
+}
+
+
+// =====================================================================
+// Phase 4h — machine activity log
+// =====================================================================
+
+export type MachineActivityVisibility = "internal" | "dealer_visible";
+
+export interface MachineActivityLogRow {
+  id: string;
+  machine_id: string | null;
+  serial_number: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  visibility: MachineActivityVisibility;
+  created_by_user_id: string | null;
+  created_by_email: string | null;
+  created_at: string | null;
+}
+
+export interface NewMachineActivityLogInput {
+  machine_id?: string | null;
+  serial_number: string;
+  event_type: string;
+  title: string;
+  description?: string | null;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
+  visibility: MachineActivityVisibility;
+}
+
+/**
+ * Insert a row into public.machine_activity_log via the standard supabase
+ * client. RLS decides whether the insert is allowed and, on read, whether
+ * the row is visible (internal-only vs. dealer_visible).
+ * created_by_user_id / _email are taken from the active session.
+ */
+export async function createMachineActivityLog(
+  input: NewMachineActivityLogInput
+): Promise<{ id: string }> {
+  const serial = (input.serial_number || "").trim();
+  if (!serial) throw new Error("serial_number required");
+
+  const { data: sess } = await supabase.auth.getSession();
+  const userId = sess.session?.user?.id ?? null;
+  const email = sess.session?.user?.email ?? null;
+
+  const payload = {
+    machine_id: input.machine_id ?? null,
+    serial_number: serial,
+    event_type: input.event_type,
+    title: input.title,
+    description: input.description ?? null,
+    related_entity_type: input.related_entity_type ?? null,
+    related_entity_id: input.related_entity_id ?? null,
+    visibility: input.visibility,
+    created_by_user_id: userId,
+    created_by_email: email,
+  };
+
+  const { data, error } = await supabase
+    .from("machine_activity_log")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: (data as { id: string }).id };
+}
+
+/**
+ * Fetch the activity log for a machine. RLS scopes visibility — dealers
+ * see only dealer_visible rows; Timan-internal users see everything.
+ */
+export async function fetchMachineActivityLog(
+  machineId: string | null,
+  serialNumber: string | null
+): Promise<MachineActivityLogRow[]> {
+  const safeSerial = (serialNumber || "").replace(/[(),]/g, "");
+  let query = supabase
+    .from("machine_activity_log")
+    .select(
+      "id, machine_id, serial_number, event_type, title, description, " +
+      "related_entity_type, related_entity_id, visibility, " +
+      "created_by_user_id, created_by_email, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (machineId && safeSerial) {
+    query = query.or(`machine_id.eq.${machineId},serial_number.ilike.${safeSerial}`);
+  } else if (machineId) {
+    query = query.eq("machine_id", machineId);
+  } else if (safeSerial) {
+    query = query.ilike("serial_number", safeSerial);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as unknown as MachineActivityLogRow[]) || [];
 }

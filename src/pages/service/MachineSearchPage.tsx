@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
-import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket } from "@/lib/machineLifecycleService";
+import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow } from "@/lib/machineLifecycleService";
 import { Language } from "@/types/configurator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -75,6 +75,15 @@ const T: Record<string, Record<Language, string>> = {
   ticketAssigned:{ da: "Ansvarlig", en: "Assigned", de: "Zuständig", it: "Assegnato a", hu: "Felelős" },
   noTickets:    { da: "Ingen service tickets fundet for denne maskine.", en: "No service tickets found for this machine.", de: "Keine Service-Tickets für diese Maschine gefunden.", it: "Nessun ticket di assistenza trovato per questa macchina.", hu: "Nincs szerviz jegy ehhez a géphez." },
   ticketsError: { da: "Kunne ikke hente service tickets.", en: "Could not load service tickets.", de: "Service-Tickets konnten nicht geladen werden.", it: "Impossibile caricare i ticket di assistenza.", hu: "Nem sikerült betölteni a szerviz jegyeket." },
+
+  // Activity log
+  actDate:        { da: "Dato", en: "Date", de: "Datum", it: "Data", hu: "Dátum" },
+  actTitle:       { da: "Titel", en: "Title", de: "Titel", it: "Titolo", hu: "Cím" },
+  actDescription: { da: "Beskrivelse", en: "Description", de: "Beschreibung", it: "Descrizione", hu: "Leírás" },
+  actType:        { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
+  actCreatedBy:   { da: "Oprettet af", en: "Created by", de: "Erstellt von", it: "Creato da", hu: "Létrehozta" },
+  actEmpty:       { da: "Ingen aktiviteter fundet for denne maskine.", en: "No activities found for this machine.", de: "Keine Aktivitäten für diese Maschine gefunden.", it: "Nessuna attività trovata per questa macchina.", hu: "Nincs tevékenység ehhez a géphez." },
+  actError:       { da: "Kunne ikke hente aktivitetslog.", en: "Could not load activity log.", de: "Aktivitätsprotokoll konnte nicht geladen werden.", it: "Impossibile caricare il registro attività.", hu: "Nem sikerült betölteni a tevékenységnaplót." },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -129,6 +138,10 @@ export default function MachineSearchPage() {
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
 
+  const [activities, setActivities] = useState<MachineActivityLogRow[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
@@ -174,6 +187,31 @@ export default function MachineSearchPage() {
         if (!cancelled) setTicketsError(T.ticketsError[lang]);
       } finally {
         if (!cancelled) setTicketsLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
+  // Fetch activity log whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setActivities([]);
+      setActivitiesError(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setActivitiesLoading(true);
+      setActivitiesError(null);
+      try {
+        const list = await fetchMachineActivityLog(machine.id, machine.serial_number);
+        if (!cancelled) setActivities(list);
+      } catch (e) {
+        console.error("[MachineSearch] activity log load error", e);
+        if (!cancelled) setActivitiesError(T.actError[lang]);
+      } finally {
+        if (!cancelled) setActivitiesLoading(false);
       }
     }
     load();
@@ -388,7 +426,54 @@ export default function MachineSearchPage() {
                 </div>
               )}
 
-              {activeTab !== "overview" && activeTab !== "tickets" && (
+              {activeTab === "activity" && (
+                <div>
+                  {activitiesLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : activitiesError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{activitiesError}</div>
+                  ) : activities.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.actEmpty[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.actDate[lang]}</TableHead>
+                            <TableHead>{T.actTitle[lang]}</TableHead>
+                            <TableHead>{T.actDescription[lang]}</TableHead>
+                            <TableHead>{T.actType[lang]}</TableHead>
+                            <TableHead>{T.actCreatedBy[lang]}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {activities.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell className="whitespace-nowrap">{fmtDateShort(a.created_at)}</TableCell>
+                              <TableCell className="font-medium">
+                                {a.title}
+                                {a.visibility === "internal" && (
+                                  <span className="ml-2 inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                    internal
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-slate-600">{fmt(a.description)}</TableCell>
+                              <TableCell className="text-slate-500 text-xs">{a.event_type}</TableCell>
+                              <TableCell className="text-slate-600">{fmt(a.created_by_email)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>
