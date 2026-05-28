@@ -51,6 +51,18 @@ const T: Record<string, Record<Language, string>> = {
   createdBy:     { da: "Oprettet af", en: "Created by", de: "Erstellt von", it: "Creato da", hu: "Létrehozta" },
   assigned:      { da: "Ansvarlig Timan-medarbejder", en: "Assigned Timan staff", de: "Zuständige/r Timan-Mitarbeiter/in", it: "Responsabile Timan", hu: "Felelős Timan munkatárs" },
   closedAt:      { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+
+  // Comments
+  commentsTitle:    { da: "Kommentarer", en: "Comments", de: "Kommentare", it: "Commenti", hu: "Megjegyzések" },
+  commentsLoading:  { da: "Indlæser kommentarer…", en: "Loading comments…", de: "Kommentare werden geladen…", it: "Caricamento commenti…", hu: "Megjegyzések betöltése…" },
+  commentsEmpty:    { da: "Ingen kommentarer endnu.", en: "No comments yet.", de: "Noch keine Kommentare.", it: "Nessun commento.", hu: "Még nincsenek megjegyzések." },
+  commentsLoadErr:  { da: "Kunne ikke hente kommentarer.", en: "Could not load comments.", de: "Kommentare konnten nicht geladen werden.", it: "Impossibile caricare i commenti.", hu: "Nem sikerült betölteni a megjegyzéseket." },
+  writeComment:     { da: "Skriv kommentar", en: "Write a comment", de: "Kommentar schreiben", it: "Scrivi un commento", hu: "Megjegyzés írása" },
+  addComment:       { da: "Tilføj kommentar", en: "Add comment", de: "Kommentar hinzufügen", it: "Aggiungi commento", hu: "Megjegyzés hozzáadása" },
+  added:            { da: "Kommentar tilføjet", en: "Comment added", de: "Kommentar hinzugefügt", it: "Commento aggiunto", hu: "Megjegyzés hozzáadva" },
+  emptyErr:         { da: "Skriv en kommentar først.", en: "Please write a comment first.", de: "Bitte zuerst einen Kommentar schreiben.", it: "Scrivi prima un commento.", hu: "Először írj egy megjegyzést." },
+  saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
+  saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
 };
 
 function statusBadgeClasses(status: string): string {
