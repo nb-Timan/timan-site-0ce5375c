@@ -4,7 +4,8 @@
  */
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2 } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
@@ -12,9 +13,17 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
-import { fetchServiceTicketById, ServiceTicketDetail } from "@/lib/machineLifecycleService";
+import {
+  fetchServiceTicketById,
+  ServiceTicketDetail,
+  fetchExternalCommentsForTicket,
+  createExternalComment,
+  ServiceTicketComment,
+} from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 const T: Record<string, Record<Language, string>> = {
   back:      { da: "Tilbage til Service tickets", en: "Back to Service tickets", de: "Zurück zu Service-Tickets", it: "Torna ai ticket di assistenza", hu: "Vissza a szerviz jegyekhez" },
