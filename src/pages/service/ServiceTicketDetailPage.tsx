@@ -22,6 +22,7 @@ import {
   updateServiceTicketFields,
   fetchInternalCommentsForTicket,
   createInternalComment,
+  createMachineActivityLog,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
