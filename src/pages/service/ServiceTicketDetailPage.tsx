@@ -259,6 +259,22 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const loadDocuments = async (id: string) => {
+    setDocsLoading(true);
+    setDocsError(null);
+    try {
+      const rows = await fetchMachineDocumentsForTicket(id);
+      setDocuments(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] documents load error", e);
+      setDocsError(T.filesLoadErr[lang]);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+
+
   useEffect(() => {
     if (!ticketId) {
       setLoading(false);
