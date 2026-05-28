@@ -84,6 +84,21 @@ const T: Record<string, Record<Language, string>> = {
   actCreatedBy:   { da: "Oprettet af", en: "Created by", de: "Erstellt von", it: "Creato da", hu: "Létrehozta" },
   actEmpty:       { da: "Ingen aktiviteter fundet for denne maskine.", en: "No activities found for this machine.", de: "Keine Aktivitäten für diese Maschine gefunden.", it: "Nessuna attività trovata per questa macchina.", hu: "Nincs tevékenység ehhez a géphez." },
   actError:       { da: "Kunne ikke hente aktivitetslog.", en: "Could not load activity log.", de: "Aktivitätsprotokoll konnte nicht geladen werden.", it: "Impossibile caricare il registro attività.", hu: "Nem sikerült betölteni a tevékenységnaplót." },
+
+  // Documents
+  docFile:        { da: "Filnavn", en: "File name", de: "Dateiname", it: "Nome file", hu: "Fájlnév" },
+  docType:        { da: "Filtype", en: "File type", de: "Dateityp", it: "Tipo file", hu: "Fájltípus" },
+  docRelated:     { da: "Relateret til", en: "Related to", de: "Bezug zu", it: "Relativo a", hu: "Kapcsolódik" },
+  docUploaded:    { da: "Uploadet", en: "Uploaded", de: "Hochgeladen", it: "Caricato", hu: "Feltöltve" },
+  docUploadedBy:  { da: "Uploadet af", en: "Uploaded by", de: "Hochgeladen von", it: "Caricato da", hu: "Feltöltötte" },
+  docVisibility:  { da: "Synlighed", en: "Visibility", de: "Sichtbarkeit", it: "Visibilità", hu: "Láthatóság" },
+  docOpen:        { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyit" },
+  docEmpty:       { da: "Ingen dokumenter fundet for denne maskine.", en: "No documents found for this machine.", de: "Keine Dokumente für diese Maschine gefunden.", it: "Nessun documento trovato per questa macchina.", hu: "Nincs dokumentum ehhez a géphez." },
+  docError:       { da: "Kunne ikke hente dokumenter.", en: "Could not load documents.", de: "Dokumente konnten nicht geladen werden.", it: "Impossibile caricare i documenti.", hu: "Nem sikerült betölteni a dokumentumokat." },
+  docOpenError:   { da: "Kunne ikke åbne filen.", en: "Could not open the file.", de: "Datei konnte nicht geöffnet werden.", it: "Impossibile aprire il file.", hu: "Nem sikerült megnyitni a fájlt." },
+  docRelTicket:   { da: "Service ticket", en: "Service ticket", de: "Service-Ticket", it: "Ticket di assistenza", hu: "Szerviz jegy" },
+  docVisInternal: { da: "Intern", en: "Internal", de: "Intern", it: "Interna", hu: "Belső" },
+  docVisDealer:   { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
 };
 
 function statusBadgeClasses(status: string): string {
