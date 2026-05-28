@@ -214,6 +214,7 @@ export interface ServiceTicketDetail {
   serial_number: string;
   machine_id: string | null;
   machine_type: string | null;
+  dealer_number: string | null;
   dealer_name: string | null;
   customer_name: string | null;
   contact_person: string | null;
@@ -226,6 +227,7 @@ export interface ServiceTicketDetail {
   closed_at: string | null;
 }
 
+
 /**
  * Fetch a single service ticket by ID. Returns null if not found or hidden by RLS.
  * Throws on other Supabase errors.
@@ -235,10 +237,11 @@ export async function fetchServiceTicketById(id: string): Promise<ServiceTicketD
     .from("service_tickets")
     .select(
       "id, ticket_number, title, status, priority, category, description, " +
-      "serial_number, machine_id, machine_type, dealer_name, customer_name, " +
+      "serial_number, machine_id, machine_type, dealer_number, dealer_name, customer_name, " +
       "contact_person, contact_email, contact_phone, operating_hours, " +
       "created_at, created_by_email, assigned_name, closed_at"
     )
+
     .eq("id", id)
     .single();
 
@@ -523,4 +526,173 @@ export async function fetchMachineActivityLog(
   const { data, error } = await query;
   if (error) throw error;
   return (data as unknown as MachineActivityLogRow[]) || [];
+}
+
+
+// =====================================================================
+// Phase 4i-2 — service ticket file uploads (machine-uploads bucket)
+// =====================================================================
+
+export const MACHINE_UPLOADS_BUCKET = "machine-uploads";
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
+
+const ALLOWED_EXTENSIONS = new Set([
+  "doc", "docx", "xls", "xlsx",
+]);
+
+/**
+ * Returns true if the file is one of the allowed types:
+ *   image/*, application/pdf, video/*, .doc, .docx, .xls, .xlsx
+ */
+export function isAllowedUploadFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  if (mime.startsWith("video/")) return true;
+  if (mime === "application/pdf") return true;
+  // Office files: trust extension as fallback (Windows may not set mime)
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (ALLOWED_EXTENSIONS.has(ext)) return true;
+  // Some browsers report office mimes explicitly
+  if (
+    mime === "application/msword" ||
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/vnd.ms-excel" ||
+    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) return true;
+  return false;
+}
+
+/** Sanitize a filename: keep alphanumerics, dot, dash, underscore. */
+export function sanitizeUploadFilename(name: string): string {
+  const trimmed = name.trim().replace(/\s+/g, "_");
+  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
+  // Avoid empty / hidden names
+  return cleaned.replace(/^\.+/, "").slice(0, 180) || "file";
+}
+
+export interface MachineDocumentRow {
+  id: string;
+  machine_id: string | null;
+  serial_number: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  file_name: string;
+  file_type: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  visibility: string;
+  uploaded_by_email: string | null;
+  uploaded_by_user_id: string | null;
+  created_at: string | null;
+}
+
+export interface UploadTicketFileParams {
+  ticket: ServiceTicketDetail;
+  file: File;
+}
+
+export interface UploadTicketFileResult {
+  document: MachineDocumentRow | null;
+  storage_path: string;
+}
+
+/**
+ * Upload a single file to machine-uploads bucket and insert metadata into
+ * public.machine_documents. RLS on both storage.objects and machine_documents
+ * decides whether the operation is allowed.
+ *
+ * Path layout:
+ *   dealer/{dealer_number}/machine/{serial_number}/ticket/{ticket_id}/{ts}-{filename}
+ */
+export async function uploadServiceTicketFile(
+  params: UploadTicketFileParams
+): Promise<UploadTicketFileResult> {
+  const { ticket, file } = params;
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("file_too_large");
+  if (!isAllowedUploadFile(file)) throw new Error("file_type_not_allowed");
+  if (!ticket.dealer_number) throw new Error("missing_dealer_number");
+  if (!ticket.serial_number) throw new Error("missing_serial_number");
+
+  const safeName = sanitizeUploadFilename(file.name);
+  const dealerSeg = sanitizeUploadFilename(ticket.dealer_number);
+  const serialSeg = sanitizeUploadFilename(ticket.serial_number);
+  const path =
+    `dealer/${dealerSeg}/machine/${serialSeg}/ticket/${ticket.id}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(MACHINE_UPLOADS_BUCKET)
+    .upload(path, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+  if (uploadError) throw uploadError;
+
+  const { data: sess } = await supabase.auth.getSession();
+  const userId = sess.session?.user?.id ?? null;
+  const email = sess.session?.user?.email ?? null;
+
+  const metaPayload = {
+    machine_id: ticket.machine_id,
+    serial_number: ticket.serial_number,
+    related_entity_type: "service_ticket",
+    related_entity_id: ticket.id,
+    file_name: file.name,
+    file_type: file.type || null,
+    storage_bucket: MACHINE_UPLOADS_BUCKET,
+    storage_path: path,
+    visibility: "dealer_visible",
+    uploaded_by_email: email,
+    uploaded_by_user_id: userId,
+  };
+
+  const { data: docRow, error: metaError } = await supabase
+    .from("machine_documents")
+    .insert(metaPayload)
+    .select(
+      "id, machine_id, serial_number, related_entity_type, related_entity_id, " +
+      "file_name, file_type, storage_bucket, storage_path, visibility, " +
+      "uploaded_by_email, uploaded_by_user_id, created_at"
+    )
+    .single();
+
+  if (metaError) {
+    console.error("[machineLifecycleService] machine_documents insert failed:", metaError);
+    // Per spec: storage file may remain; surface a soft error.
+    return { document: null, storage_path: path };
+  }
+
+  return { document: docRow as unknown as MachineDocumentRow, storage_path: path };
+}
+
+/** Fetch all documents linked to a service ticket. RLS-scoped. */
+export async function fetchMachineDocumentsForTicket(
+  ticketId: string
+): Promise<MachineDocumentRow[]> {
+  const { data, error } = await supabase
+    .from("machine_documents")
+    .select(
+      "id, machine_id, serial_number, related_entity_type, related_entity_id, " +
+      "file_name, file_type, storage_bucket, storage_path, visibility, " +
+      "uploaded_by_email, uploaded_by_user_id, created_at"
+    )
+    .eq("related_entity_type", "service_ticket")
+    .eq("related_entity_id", ticketId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as MachineDocumentRow[]) || [];
+}
+
+/** Generate a short-lived signed URL for a document in machine-uploads. */
+export async function getMachineDocumentSignedUrl(
+  bucket: string,
+  path: string,
+  expiresInSeconds = 60 * 60
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, expiresInSeconds);
+  if (error || !data?.signedUrl) {
+    throw error ?? new Error("signed_url_failed");
+  }
+  return data.signedUrl;
 }

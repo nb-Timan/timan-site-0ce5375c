@@ -2,9 +2,9 @@
  * Phase 4c — Service ticket detail (read-only).
  * Fetches a single ticket by ID via RLS-scoped supabase client.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -23,12 +23,19 @@ import {
   fetchInternalCommentsForTicket,
   createInternalComment,
   createMachineActivityLog,
+  uploadServiceTicketFile,
+  fetchMachineDocumentsForTicket,
+  getMachineDocumentSignedUrl,
+  MachineDocumentRow,
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadFile,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 
 
 const T: Record<string, Record<Language, string>> = {
@@ -118,7 +125,28 @@ const T: Record<string, Record<Language, string>> = {
   cat_software:       { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
   cat_safety:         { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
   cat_other:          { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
+
+  // Files / documentation
+  filesTitle:        { da: "Filer / dokumentation", en: "Files / documentation", de: "Dateien / Dokumentation", it: "File / documentazione", hu: "Fájlok / dokumentáció" },
+  filesEmpty:        { da: "Ingen filer uploadet endnu.", en: "No files uploaded yet.", de: "Noch keine Dateien hochgeladen.", it: "Nessun file caricato.", hu: "Még nincsenek feltöltött fájlok." },
+  filesLoading:      { da: "Indlæser filer…", en: "Loading files…", de: "Dateien werden geladen…", it: "Caricamento file…", hu: "Fájlok betöltése…" },
+  filesLoadErr:      { da: "Kunne ikke hente filer.", en: "Could not load files.", de: "Dateien konnten nicht geladen werden.", it: "Impossibile caricare i file.", hu: "Nem sikerült betölteni a fájlokat." },
+  fileSelect:        { da: "Vælg fil(er) at uploade", en: "Select file(s) to upload", de: "Datei(en) zum Hochladen auswählen", it: "Seleziona file da caricare", hu: "Válassz fájl(oka)t a feltöltéshez" },
+  fileUpload:        { da: "Upload", en: "Upload", de: "Hochladen", it: "Carica", hu: "Feltöltés" },
+  fileUploading:     { da: "Uploader…", en: "Uploading…", de: "Wird hochgeladen…", it: "Caricamento…", hu: "Feltöltés…" },
+  fileUploaded:      { da: "Fil uploadet", en: "File uploaded", de: "Datei hochgeladen", it: "File caricato", hu: "Fájl feltöltve" },
+  fileOpen:          { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyitás" },
+  fileTooLarge:      { da: "Filen er for stor. Maks 25 MB.", en: "File is too large. Max 25 MB.", de: "Datei ist zu groß. Max. 25 MB.", it: "File troppo grande. Max 25 MB.", hu: "A fájl túl nagy. Max. 25 MB." },
+  fileTypeBad:       { da: "Filtypen er ikke tilladt.", en: "File type is not allowed.", de: "Dateityp ist nicht erlaubt.", it: "Tipo di file non consentito.", hu: "A fájltípus nem engedélyezett." },
+  fileUploadErr:     { da: "Kunne ikke uploade filen.", en: "Could not upload the file.", de: "Datei konnte nicht hochgeladen werden.", it: "Impossibile caricare il file.", hu: "Nem sikerült feltölteni a fájlt." },
+  fileMetaWarn:      { da: "Filen blev gemt, men kunne ikke registreres i databasen.", en: "File was stored but could not be registered in the database.", de: "Datei wurde gespeichert, konnte aber nicht in der Datenbank registriert werden.", it: "Il file è stato salvato ma non registrato nel database.", hu: "A fájl mentésre került, de nem sikerült a regisztrációja." },
+  fileSignErr:       { da: "Kunne ikke åbne filen.", en: "Could not open the file.", de: "Datei konnte nicht geöffnet werden.", it: "Impossibile aprire il file.", hu: "Nem sikerült megnyitni a fájlt." },
+  fileColName:       { da: "Filnavn", en: "File name", de: "Dateiname", it: "Nome file", hu: "Fájlnév" },
+  fileColType:       { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
+  fileColDate:       { da: "Uploadet", en: "Uploaded", de: "Hochgeladen", it: "Caricato", hu: "Feltöltve" },
+  fileColBy:         { da: "Uploadet af", en: "Uploaded by", de: "Hochgeladen von", it: "Caricato da", hu: "Feltöltötte" },
 };
+
 
 const STATUS_VALUES = [
   "created", "in_progress",
@@ -186,7 +214,15 @@ export default function ServiceTicketDetailPage() {
   const [newInternalNote, setNewInternalNote] = useState("");
   const [savingInternalNote, setSavingInternalNote] = useState(false);
 
+  // Files / documents
+  const [documents, setDocuments] = useState<MachineDocumentRow[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+
 
 
   if (!appUser) {
@@ -223,6 +259,22 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const loadDocuments = async (id: string) => {
+    setDocsLoading(true);
+    setDocsError(null);
+    try {
+      const rows = await fetchMachineDocumentsForTicket(id);
+      setDocuments(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] documents load error", e);
+      setDocsError(T.filesLoadErr[lang]);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+
+
   useEffect(() => {
     if (!ticketId) {
       setLoading(false);
@@ -246,6 +298,8 @@ export default function ServiceTicketDetailPage() {
             setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
             await loadInternalNotes(ticketId);
+            await loadDocuments(ticketId);
+
           }
 
         }
@@ -343,6 +397,74 @@ export default function ServiceTicketDetailPage() {
       setSavingInternalNote(false);
     }
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!ticket || !ticketId) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    // Reset native input so the same file can be reselected later
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (files.length === 0) return;
+
+    // Pre-validate all files
+    for (const f of files) {
+      if (f.size > MAX_UPLOAD_BYTES) { toast.error(T.fileTooLarge[lang]); return; }
+      if (!isAllowedUploadFile(f)) { toast.error(T.fileTypeBad[lang]); return; }
+    }
+
+    setUploading(true);
+    let okCount = 0;
+    let metaWarn = false;
+    try {
+      for (const file of files) {
+        try {
+          const res = await uploadServiceTicketFile({ ticket, file });
+          if (!res.document) {
+            metaWarn = true;
+          } else {
+            okCount += 1;
+            // Best-effort activity log
+            try {
+              await createMachineActivityLog({
+                machine_id: ticket.machine_id,
+                serial_number: ticket.serial_number,
+                event_type: "document_uploaded",
+                title: "Dokument uploadet",
+                description: file.name,
+                related_entity_type: "service_ticket",
+                related_entity_id: ticket.id,
+                visibility: "dealer_visible",
+              });
+            } catch (logErr) {
+              console.error("[ServiceTicketDetail] activity log (document_uploaded) failed", logErr);
+            }
+          }
+        } catch (err) {
+          console.error("[ServiceTicketDetail] upload failed", err);
+          const msg = err instanceof Error ? err.message : "";
+          if (msg === "file_too_large") toast.error(T.fileTooLarge[lang]);
+          else if (msg === "file_type_not_allowed") toast.error(T.fileTypeBad[lang]);
+          else toast.error(T.fileUploadErr[lang]);
+        }
+      }
+      if (okCount > 0) toast.success(T.fileUploaded[lang]);
+      if (metaWarn) toast.error(T.fileMetaWarn[lang]);
+      await loadDocuments(ticketId);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleOpenDocument = async (doc: MachineDocumentRow) => {
+    try {
+      const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[ServiceTicketDetail] signed url error", e);
+      toast.error(T.fileSignErr[lang]);
+    }
+  };
+
+
 
   const reloadTicket = async () => {
     if (!ticketId) return;
@@ -673,7 +795,87 @@ export default function ServiceTicketDetailPage() {
               </div>
             )}
 
+            {/* Files / documentation */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-slate-500" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.filesTitle[lang]}
+                </h3>
+              </div>
+
+              {docsLoading ? (
+                <div className="text-sm text-slate-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> {T.filesLoading[lang]}
+                </div>
+              ) : docsError ? (
+                <div className="text-sm text-red-600">{docsError}</div>
+              ) : documents.length === 0 ? (
+                <div className="text-sm text-slate-500">{T.filesEmpty[lang]}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="py-2 pr-3 font-semibold">{T.fileColName[lang]}</th>
+                        <th className="py-2 pr-3 font-semibold">{T.fileColType[lang]}</th>
+                        <th className="py-2 pr-3 font-semibold">{T.fileColDate[lang]}</th>
+                        <th className="py-2 pr-3 font-semibold">{T.fileColBy[lang]}</th>
+                        <th className="py-2 pr-3 font-semibold text-right">&nbsp;</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {documents.map((d) => (
+                        <tr key={d.id}>
+                          <td className="py-2 pr-3 font-medium text-slate-900 break-all">{d.file_name}</td>
+                          <td className="py-2 pr-3 text-slate-600">{d.file_type || "—"}</td>
+                          <td className="py-2 pr-3 text-slate-600">{formatDateTime(d.created_at)}</td>
+                          <td className="py-2 pr-3 text-slate-600">{d.uploaded_by_email || "—"}</td>
+                          <td className="py-2 pr-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDocument(d)}
+                            >
+                              <Download className="h-4 w-4 mr-1" /> {T.fileOpen[lang]}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-200 space-y-2">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  {T.fileSelect[lang]}
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf,video/*,.doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={handleFileChange}
+                    disabled={uploading}
+                    className="block text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+                  />
+                  {uploading && (
+                    <span className="inline-flex items-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" /> {T.fileUploading[lang]}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">
+                  {/* Max size hint, language-agnostic numeric */}
+                  Max 25 MB. image/*, PDF, video/*, .doc, .docx, .xls, .xlsx
+                </p>
+              </div>
+            </div>
+
             {/* Comments */}
+
 
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
               <div className="flex items-center gap-2">
