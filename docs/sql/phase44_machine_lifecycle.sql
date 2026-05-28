@@ -489,9 +489,12 @@ create policy mal_select on public.machine_activity_log
         or public.is_timan_backend()
         or exists (
           select 1 from public.machines m
-          where m.id = machine_activity_log.machine_id
-            and m.dealer_number is not null
+          where m.dealer_number is not null
             and m.dealer_number = public.current_user_dealer_number()
+            and (
+              m.id = machine_activity_log.machine_id
+              or lower(m.serial_number) = lower(machine_activity_log.serial_number)
+            )
         )
       )
     )
@@ -507,12 +510,16 @@ create policy mal_insert on public.machine_activity_log
       visibility = 'dealer_visible'
       and exists (
         select 1 from public.machines m
-        where m.id = machine_activity_log.machine_id
-          and m.dealer_number is not null
+        where m.dealer_number is not null
           and m.dealer_number = public.current_user_dealer_number()
+          and (
+            m.id = machine_activity_log.machine_id
+            or lower(m.serial_number) = lower(machine_activity_log.serial_number)
+          )
       )
     )
   );
+
 
 drop policy if exists mal_write_internal on public.machine_activity_log;
 create policy mal_write_internal on public.machine_activity_log
@@ -543,9 +550,12 @@ create policy md_select on public.machine_documents
         or public.is_timan_backend()
         or exists (
           select 1 from public.machines m
-          where m.id = machine_documents.machine_id
-            and m.dealer_number is not null
+          where m.dealer_number is not null
             and m.dealer_number = public.current_user_dealer_number()
+            and (
+              m.id = machine_documents.machine_id
+              or lower(m.serial_number) = lower(machine_documents.serial_number)
+            )
         )
       )
     )
@@ -561,12 +571,16 @@ create policy md_insert on public.machine_documents
       visibility = 'dealer_visible'
       and exists (
         select 1 from public.machines m
-        where m.id = machine_documents.machine_id
-          and m.dealer_number is not null
+        where m.dealer_number is not null
           and m.dealer_number = public.current_user_dealer_number()
+          and (
+            m.id = machine_documents.machine_id
+            or lower(m.serial_number) = lower(machine_documents.serial_number)
+          )
       )
     )
   );
+
 
 drop policy if exists md_update_internal on public.machine_documents;
 create policy md_update_internal on public.machine_documents
