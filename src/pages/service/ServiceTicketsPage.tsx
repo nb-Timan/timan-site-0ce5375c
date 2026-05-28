@@ -80,7 +80,35 @@ const T: Record<string, Record<Language, string>> = {
   dealerLocked: { da: "Forhandler er låst til din egen organisation.", en: "Dealer is locked to your own organisation.", de: "Händler ist auf Ihre Organisation festgelegt.", it: "Rivenditore bloccato sulla tua organizzazione.", hu: "A forgalmazó a saját szervezetére van rögzítve." },
   selectDealer: { da: "Vælg forhandler…", en: "Select dealer…", de: "Händler wählen…", it: "Seleziona rivenditore…", hu: "Válasszon forgalmazót…" },
   required: { da: "Udfyld de obligatoriske felter.", en: "Fill in the required fields.", de: "Bitte Pflichtfelder ausfüllen.", it: "Compila i campi obbligatori.", hu: "Töltse ki a kötelező mezőket." },
+  noDealerLink: { da: "Din bruger er ikke koblet til en forhandlerkonto.", en: "Your user is not linked to a dealer account.", de: "Ihr Benutzer ist keinem Händlerkonto zugeordnet.", it: "Il tuo utente non è collegato a un account rivenditore.", hu: "Felhasználója nincs forgalmazói fiókhoz kapcsolva." },
+  mtypeSelect: { da: "Vælg maskintype…", en: "Select machine type…", de: "Maschinentyp wählen…", it: "Seleziona tipo macchina…", hu: "Válasszon gép típust…" },
+  mtypeOther: { da: "Andet", en: "Other", de: "Andere", it: "Altro", hu: "Egyéb" },
+  mtypeOtherLabel: { da: "Anden maskintype", en: "Other machine type", de: "Anderer Maschinentyp", it: "Altro tipo macchina", hu: "Egyéb gép típus" },
+  mtypeAutoFilled: { da: "Foreslået ud fra serienummer", en: "Suggested from serial number", de: "Vorgeschlagen anhand der Seriennummer", it: "Suggerito dal numero di serie", hu: "Javaslat a gyári szám alapján" },
+  fEquip: { da: "Redskab / udstyr", en: "Equipment / attachment", de: "Anbaugerät / Ausstattung", it: "Attrezzatura / accessorio", hu: "Eszköz / felszerelés" },
+  equipOtherLabel: { da: "Andet redskab / udstyr", en: "Other equipment", de: "Anderes Anbaugerät", it: "Altra attrezzatura", hu: "Egyéb eszköz" },
 };
+
+const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+const SERIAL_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
+  { prefix: "411000", type: "RC-1000s" },
+  { prefix: "410040", type: "RC-751" },
+  { prefix: "712000", type: "Timan 3330" },
+  { prefix: "999-888", type: "Timan 2620" },
+];
+const EQUIPMENT_OPTIONS = [
+  "Slagleklipper","Y-slagle sæt","Rotorclipper","Fingerripper","Skivehøster",
+  "Hammerklipper","Stativ","Fjernbetjening",
+];
+
+function suggestMachineType(serial: string): string | null {
+  const s = serial.trim();
+  if (!s) return null;
+  for (const m of SERIAL_PREFIX_MAP) {
+    if (s.startsWith(m.prefix)) return m.type;
+  }
+  return null;
+}
 
 const STATUS_OPTIONS = [
   "created","in_progress","waiting_timan","waiting_dealer","waiting_customer",
