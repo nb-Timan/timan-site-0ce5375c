@@ -178,6 +178,13 @@ export default function ServiceTicketDetailPage() {
   const [editAssigned, setEditAssigned] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Internal notes (Timan-internal only)
+  const [internalNotes, setInternalNotes] = useState<ServiceTicketComment[]>([]);
+  const [internalNotesLoading, setInternalNotesLoading] = useState(false);
+  const [internalNotesError, setInternalNotesError] = useState<string | null>(null);
+  const [newInternalNote, setNewInternalNote] = useState("");
+  const [savingInternalNote, setSavingInternalNote] = useState(false);
+
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
 
 
