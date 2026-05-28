@@ -426,7 +426,54 @@ export default function MachineSearchPage() {
                 </div>
               )}
 
-              {activeTab !== "overview" && activeTab !== "tickets" && (
+              {activeTab === "activity" && (
+                <div>
+                  {activitiesLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : activitiesError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{activitiesError}</div>
+                  ) : activities.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.actEmpty[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.actDate[lang]}</TableHead>
+                            <TableHead>{T.actTitle[lang]}</TableHead>
+                            <TableHead>{T.actDescription[lang]}</TableHead>
+                            <TableHead>{T.actType[lang]}</TableHead>
+                            <TableHead>{T.actCreatedBy[lang]}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {activities.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell className="whitespace-nowrap">{fmtDateShort(a.created_at)}</TableCell>
+                              <TableCell className="font-medium">
+                                {a.title}
+                                {a.visibility === "internal" && (
+                                  <span className="ml-2 inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                    internal
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-slate-600">{fmt(a.description)}</TableCell>
+                              <TableCell className="text-slate-500 text-xs">{a.event_type}</TableCell>
+                              <TableCell className="text-slate-600">{fmt(a.created_by_email)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>
