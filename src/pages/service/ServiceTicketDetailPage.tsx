@@ -69,6 +69,17 @@ const T: Record<string, Record<Language, string>> = {
   saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
   saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
 
+  // Internal notes
+  internalNotesTitle:   { da: "Interne Timan-noter", en: "Internal Timan notes", de: "Interne Timan-Notizen", it: "Note interne Timan", hu: "Belső Timan jegyzetek" },
+  internalNotesLoading: { da: "Indlæser interne noter…", en: "Loading internal notes…", de: "Interne Notizen werden geladen…", it: "Caricamento note interne…", hu: "Belső jegyzetek betöltése…" },
+  internalNotesEmpty:   { da: "Ingen interne noter endnu.", en: "No internal notes yet.", de: "Noch keine internen Notizen.", it: "Nessuna nota interna.", hu: "Még nincsenek belső jegyzetek." },
+  internalNotesLoadErr: { da: "Kunne ikke hente interne noter.", en: "Could not load internal notes.", de: "Interne Notizen konnten nicht geladen werden.", it: "Impossibile caricare le note interne.", hu: "Nem sikerült betölteni a belső jegyzeteket." },
+  writeInternalNote:    { da: "Skriv intern note", en: "Write internal note", de: "Interne Notiz schreiben", it: "Scrivi nota interna", hu: "Belső jegyzet írása" },
+  addInternalNote:      { da: "Tilføj intern note", en: "Add internal note", de: "Interne Notiz hinzufügen", it: "Aggiungi nota interna", hu: "Belső jegyzet hozzáadása" },
+  internalNoteAdded:    { da: "Intern note tilføjet", en: "Internal note added", de: "Interne Notiz hinzugefügt", it: "Nota interna aggiunta", hu: "Belső jegyzet hozzáadva" },
+  internalNoteEmptyErr: { da: "Skriv en intern note først.", en: "Please write an internal note first.", de: "Bitte zuerst eine interne Notiz schreiben.", it: "Scrivi prima una nota interna.", hu: "Először írj egy belső jegyzetet." },
+  internalNoteSaveErr:  { da: "Kunne ikke gemme intern note.", en: "Could not save internal note.", de: "Interne Notiz konnte nicht gespeichert werden.", it: "Impossibile salvare la nota interna.", hu: "Nem sikerült menteni a belső jegyzetet." },
+
   // Edit
   editTitle:        { da: "Opdater sag", en: "Update ticket", de: "Ticket aktualisieren", it: "Aggiorna ticket", hu: "Jegy frissítése" },
   saveChanges:      { da: "Gem ændringer", en: "Save changes", de: "Änderungen speichern", it: "Salva modifiche", hu: "Módosítások mentése" },
