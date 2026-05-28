@@ -214,6 +214,7 @@ export interface ServiceTicketDetail {
   serial_number: string;
   machine_id: string | null;
   machine_type: string | null;
+  dealer_number: string | null;
   dealer_name: string | null;
   customer_name: string | null;
   contact_person: string | null;
@@ -225,6 +226,7 @@ export interface ServiceTicketDetail {
   assigned_name: string | null;
   closed_at: string | null;
 }
+
 
 /**
  * Fetch a single service ticket by ID. Returns null if not found or hidden by RLS.
