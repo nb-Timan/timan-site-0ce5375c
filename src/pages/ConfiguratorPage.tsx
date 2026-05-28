@@ -1277,27 +1277,30 @@ export default function ConfiguratorPage() {
           // machine + accessory specifications even without parsing the PDF.
           const contentSummary = buildQuoteContentSummary(state);
 
-          // Order recipients:
-          //  - Always send to nb@timan.dk
-          //  - Always send to "E-mail på udfylder"
-          //  - Also send to "E-mail modtager" if filled in
-          // Normalized + de-duplicated. Invalid addresses are filtered out;
-          // user-entered invalid addresses produce a toast and abort the send.
+          // Order recipients (Krav 1):
+          //  - Always include nb@timan.dk (orders go TO Timan — destination).
+          //  - If "E-mail modtager" is filled → it is the primary external
+          //    recipient. Multiple addresses may be separated by , or ;.
+          //  - "E-mail på udfylder" is ONLY used as fallback when modtager is
+          //    empty; it must never override an explicit modtager.
           const emailUdfylder = (state.email || '').trim().toLowerCase();
-          const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+          const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
           const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
-          const invalid = userEntered.filter(e => !emailRe.test(e));
+          const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+          const modtagerList = splitAddrs(emailModtagerRaw);
+          const externalList = modtagerList.length > 0 ? modtagerList : (emailUdfylder ? [emailUdfylder] : []);
+          const invalid = externalList.filter(e => !emailRe.test(e));
           if (invalid.length > 0) {
-            toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+            toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
               description: invalid.join(', '),
             });
             return;
           }
           const recipients = Array.from(new Set([
             'nb@timan.dk',
-            ...userEntered,
+            ...externalList,
           ]));
+          const emailModtager = modtagerList.join(', ');
 
           const webhookPayload = {
             case_id: activeCaseId || '',
