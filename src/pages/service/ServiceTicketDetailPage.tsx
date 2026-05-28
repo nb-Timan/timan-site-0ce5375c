@@ -321,6 +321,64 @@ export default function ServiceTicketDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Comments */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-slate-500" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  {T.commentsTitle[lang]}
+                </h3>
+              </div>
+
+              {commentsLoading ? (
+                <div className="text-sm text-slate-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> {T.commentsLoading[lang]}
+                </div>
+              ) : commentsError ? (
+                <div className="text-sm text-red-600">{commentsError}</div>
+              ) : comments.length === 0 ? (
+                <div className="text-sm text-slate-500">{T.commentsEmpty[lang]}</div>
+              ) : (
+                <ul className="space-y-3">
+                  {comments.map((c) => (
+                    <li key={c.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm text-slate-900 whitespace-pre-wrap">{c.body}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span className="font-medium text-slate-700">
+                          {c.created_by_name || c.created_by_email || "—"}
+                        </span>
+                        <span>{formatDateTime(c.created_at)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  {T.writeComment[lang]}
+                </label>
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  rows={3}
+                  disabled={saving}
+                  placeholder={T.writeComment[lang]}
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleAddComment} disabled={saving}>
+                    {saving ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {T.saving[lang]}
+                      </span>
+                    ) : (
+                      T.addComment[lang]
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         ) : null}
       </main>
