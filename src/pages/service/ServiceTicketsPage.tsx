@@ -197,7 +197,7 @@ export default function ServiceTicketsPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => navigate(getPortalBackTarget(location.pathname))}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
@@ -208,7 +208,7 @@ export default function ServiceTicketsPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-10 flex-1 w-full">
+      <main className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">

@@ -120,7 +120,7 @@ export function ClaimsAdminSidebarLayout({
 
       {/* Back-to-portal link, kept in this project's style */}
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1400px] px-6">
+        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => navigate(getPortalBackTarget(location.pathname))}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
@@ -131,7 +131,7 @@ export function ClaimsAdminSidebarLayout({
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1400px] gap-6 px-6 py-6">
+      <div className="mx-auto flex max-w-[1700px] gap-6 px-4 sm:px-6 lg:px-8 py-6">
         <aside className="hidden w-64 shrink-0 lg:block">
           <nav className="sticky top-[88px] space-y-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             {nav.map((item) => {
