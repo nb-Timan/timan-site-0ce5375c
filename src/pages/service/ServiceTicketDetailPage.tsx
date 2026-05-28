@@ -96,10 +96,30 @@ export default function ServiceTicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [comments, setComments] = useState<ServiceTicketComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [saving, setSaving] = useState(false);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
   }
+
+  const loadComments = async (id: string) => {
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const rows = await fetchExternalCommentsForTicket(id);
+      setComments(rows);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] comments load error", e);
+      setCommentsError(T.commentsLoadErr[lang]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!ticketId) {
@@ -118,6 +138,7 @@ export default function ServiceTicketDetailPage() {
             setError(T.notFound[lang]);
           } else {
             setTicket(data);
+            await loadComments(ticketId);
           }
         }
       } catch (e) {
@@ -129,6 +150,32 @@ export default function ServiceTicketDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [ticketId, lang]);
+
+  const handleAddComment = async () => {
+    if (!ticketId) return;
+    const body = newComment.trim();
+    if (!body) {
+      toast.error(T.emptyErr[lang]);
+      return;
+    }
+    setSaving(true);
+    try {
+      await createExternalComment({
+        ticket_id: ticketId,
+        body,
+        created_by_email: appUser.email,
+        created_by_name: appUser.display_name ?? null,
+      });
+      setNewComment("");
+      toast.success(T.added[lang]);
+      await loadComments(ticketId);
+    } catch (e) {
+      console.error("[ServiceTicketDetail] save comment error", e);
+      toast.error(T.saveErr[lang]);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
