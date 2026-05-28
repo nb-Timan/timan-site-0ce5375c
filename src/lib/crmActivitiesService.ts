@@ -116,8 +116,8 @@ function errorDebug(error: unknown): SupabaseErrorLike {
   return {
     code: typeof e.code === "string" ? e.code : undefined,
     message: typeof e.message === "string" ? e.message : undefined,
-    details: typeof e.details === "string" || e.details === null ? e.details : undefined,
-    hint: typeof e.hint === "string" || e.hint === null ? e.hint : undefined,
+    details: typeof e.details === "string" || e.details === null ? (e.details as string | null) : undefined,
+    hint: typeof e.hint === "string" || e.hint === null ? (e.hint as string | null) : undefined,
   };
 }
 
