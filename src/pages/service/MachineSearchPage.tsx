@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
-import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow } from "@/lib/machineLifecycleService";
+import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
 import { Language } from "@/types/configurator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -84,6 +84,21 @@ const T: Record<string, Record<Language, string>> = {
   actCreatedBy:   { da: "Oprettet af", en: "Created by", de: "Erstellt von", it: "Creato da", hu: "Létrehozta" },
   actEmpty:       { da: "Ingen aktiviteter fundet for denne maskine.", en: "No activities found for this machine.", de: "Keine Aktivitäten für diese Maschine gefunden.", it: "Nessuna attività trovata per questa macchina.", hu: "Nincs tevékenység ehhez a géphez." },
   actError:       { da: "Kunne ikke hente aktivitetslog.", en: "Could not load activity log.", de: "Aktivitätsprotokoll konnte nicht geladen werden.", it: "Impossibile caricare il registro attività.", hu: "Nem sikerült betölteni a tevékenységnaplót." },
+
+  // Documents
+  docFile:        { da: "Filnavn", en: "File name", de: "Dateiname", it: "Nome file", hu: "Fájlnév" },
+  docType:        { da: "Filtype", en: "File type", de: "Dateityp", it: "Tipo file", hu: "Fájltípus" },
+  docRelated:     { da: "Relateret til", en: "Related to", de: "Bezug zu", it: "Relativo a", hu: "Kapcsolódik" },
+  docUploaded:    { da: "Uploadet", en: "Uploaded", de: "Hochgeladen", it: "Caricato", hu: "Feltöltve" },
+  docUploadedBy:  { da: "Uploadet af", en: "Uploaded by", de: "Hochgeladen von", it: "Caricato da", hu: "Feltöltötte" },
+  docVisibility:  { da: "Synlighed", en: "Visibility", de: "Sichtbarkeit", it: "Visibilità", hu: "Láthatóság" },
+  docOpen:        { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyit" },
+  docEmpty:       { da: "Ingen dokumenter fundet for denne maskine.", en: "No documents found for this machine.", de: "Keine Dokumente für diese Maschine gefunden.", it: "Nessun documento trovato per questa macchina.", hu: "Nincs dokumentum ehhez a géphez." },
+  docError:       { da: "Kunne ikke hente dokumenter.", en: "Could not load documents.", de: "Dokumente konnten nicht geladen werden.", it: "Impossibile caricare i documenti.", hu: "Nem sikerült betölteni a dokumentumokat." },
+  docOpenError:   { da: "Kunne ikke åbne filen.", en: "Could not open the file.", de: "Datei konnte nicht geöffnet werden.", it: "Impossibile aprire il file.", hu: "Nem sikerült megnyitni a fájlt." },
+  docRelTicket:   { da: "Service ticket", en: "Service ticket", de: "Service-Ticket", it: "Ticket di assistenza", hu: "Szerviz jegy" },
+  docVisInternal: { da: "Intern", en: "Internal", de: "Intern", it: "Interna", hu: "Belső" },
+  docVisDealer:   { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -141,6 +156,10 @@ export default function MachineSearchPage() {
   const [activities, setActivities] = useState<MachineActivityLogRow[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
+  const [documents, setDocuments] = useState<MachineDocumentRow[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -217,6 +236,41 @@ export default function MachineSearchPage() {
     load();
     return () => { cancelled = true; };
   }, [machine, lang]);
+
+  // Fetch documents whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setDocuments([]);
+      setDocumentsError(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setDocumentsLoading(true);
+      setDocumentsError(null);
+      try {
+        const list = await fetchMachineDocumentsForMachine(machine.id, machine.serial_number);
+        if (!cancelled) setDocuments(list);
+      } catch (e) {
+        console.error("[MachineSearch] documents load error", e);
+        if (!cancelled) setDocumentsError(T.docError[lang]);
+      } finally {
+        if (!cancelled) setDocumentsLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
+  const handleOpenDocument = async (doc: MachineDocumentRow) => {
+    try {
+      const url = await getMachineDocumentSignedUrl(doc.storage_bucket, doc.storage_path, 60 * 60);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[MachineSearch] open document error", e);
+      alert(T.docOpenError[lang]);
+    }
+  };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch();
@@ -473,7 +527,66 @@ export default function MachineSearchPage() {
                 </div>
               )}
 
-              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && (
+              {activeTab === "documents" && (
+                <div>
+                  {documentsLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : documentsError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{documentsError}</div>
+                  ) : documents.filter(d => isInternal || d.visibility !== "internal").length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.docEmpty[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.docFile[lang]}</TableHead>
+                            <TableHead>{T.docType[lang]}</TableHead>
+                            <TableHead>{T.docRelated[lang]}</TableHead>
+                            <TableHead>{T.docUploaded[lang]}</TableHead>
+                            <TableHead>{T.docUploadedBy[lang]}</TableHead>
+                            <TableHead>{T.docVisibility[lang]}</TableHead>
+                            <TableHead className="text-right">{T.docOpen[lang]}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {documents
+                            .filter(d => isInternal || d.visibility !== "internal")
+                            .map(d => (
+                            <TableRow key={d.id}>
+                              <TableCell className="font-medium">{d.file_name}</TableCell>
+                              <TableCell className="text-slate-500 text-xs">{fmt(d.file_type)}</TableCell>
+                              <TableCell className="text-slate-600 text-xs">
+                                {d.related_entity_type === "service_ticket" ? T.docRelTicket[lang] : fmt(d.related_entity_type)}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">{fmtDateShort(d.created_at)}</TableCell>
+                              <TableCell className="text-slate-600">{fmt(d.uploaded_by_email)}</TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${d.visibility === "internal" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-700"}`}>
+                                  {d.visibility === "internal" ? T.docVisInternal[lang] : T.docVisDealer[lang]}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <button
+                                  onClick={() => handleOpenDocument(d)}
+                                  className="inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                                >
+                                  {T.docOpen[lang]}
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && activeTab !== "activity" && activeTab !== "documents" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>
