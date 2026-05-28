@@ -248,7 +248,44 @@ export default function ServiceTicketDetailPage() {
     }
   };
 
+  const reloadTicket = async () => {
+    if (!ticketId) return;
+    const data = await fetchServiceTicketById(ticketId);
+    if (data) {
+      setTicket(data);
+      setEditStatus(data.status || "created");
+      setEditPriority(data.priority || "normal");
+      setEditCategory(data.category || "");
+      setEditAssigned(data.assigned_name || "");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!ticketId || !canEdit) return;
+    setSavingEdit(true);
+    try {
+      await updateServiceTicketFields(ticketId, {
+        status: editStatus,
+        priority: editPriority,
+        category: editCategory || null,
+        assigned_name: editAssigned.trim() || null,
+      });
+      toast.success(T.updated[lang]);
+      await reloadTicket();
+    } catch (e) {
+      console.error("[ServiceTicketDetail] update error", e);
+      toast.error(T.updateErr[lang]);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const statusLabel = (v: string) => T[`st_${v}`]?.[lang] ?? v;
+  const priorityLabel = (v: string) => T[`pr_${v}`]?.[lang] ?? v;
+  const categoryLabel = (v: string) => T[`cat_${v}`]?.[lang] ?? v;
+
   return (
+
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
         user={appUser}
