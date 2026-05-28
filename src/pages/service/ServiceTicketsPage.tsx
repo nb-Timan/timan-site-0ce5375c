@@ -313,7 +313,15 @@ function CreateTicketDialog(props: {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [serial, setSerial] = useState("");
-  const [mtype, setMtype] = useState("");
+  // Machine type: one of MACHINE_TYPE_OPTIONS, "" (none), or "__other__"
+  const [mtypeChoice, setMtypeChoice] = useState<string>("");
+  const [mtypeOther, setMtypeOther] = useState<string>("");
+  const [mtypeAutoFilled, setMtypeAutoFilled] = useState<boolean>(false);
+  // Equipment multi-select
+  const [equipment, setEquipment] = useState<string[]>([]);
+  const [equipmentOther, setEquipmentOther] = useState<string>("");
+  const [equipOtherChecked, setEquipOtherChecked] = useState<boolean>(false);
+
   const [customer, setCustomer] = useState("");
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
@@ -332,11 +340,37 @@ function CreateTicketDialog(props: {
   // Reset on open
   useEffect(() => {
     if (!open) return;
-    setTitle(""); setDescription(""); setSerial(""); setMtype("");
+    setTitle(""); setDescription(""); setSerial("");
+    setMtypeChoice(""); setMtypeOther(""); setMtypeAutoFilled(false);
+    setEquipment([]); setEquipmentOther(""); setEquipOtherChecked(false);
     setCustomer(""); setContact(""); setEmail(""); setPhone(""); setHours("");
     setPriority("normal"); setStatus("created"); setCategory(""); setAssigned("");
     setDealerId("");
   }, [open]);
+
+  // Auto-suggest machine type from serial number.
+  // Only overwrite when field is empty OR previously auto-filled.
+  const handleSerialChange = (next: string) => {
+    setSerial(next);
+    const suggested = suggestMachineType(next);
+    if (suggested && MACHINE_TYPE_OPTIONS.includes(suggested)) {
+      if (mtypeChoice === "" || mtypeAutoFilled) {
+        setMtypeChoice(suggested);
+        setMtypeAutoFilled(true);
+      }
+    }
+  };
+
+  const handleMtypeChange = (next: string) => {
+    setMtypeChoice(next);
+    setMtypeAutoFilled(false);
+  };
+
+  const toggleEquipment = (item: string, checked: boolean) => {
+    setEquipment((prev) =>
+      checked ? Array.from(new Set([...prev, item])) : prev.filter((x) => x !== item),
+    );
+  };
 
   // Load dealers for internal users
   useEffect(() => {
