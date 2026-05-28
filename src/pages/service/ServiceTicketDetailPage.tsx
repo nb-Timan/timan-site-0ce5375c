@@ -19,11 +19,14 @@ import {
   fetchExternalCommentsForTicket,
   createExternalComment,
   ServiceTicketComment,
+  updateServiceTicketFields,
 } from "@/lib/machineLifecycleService";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
 
 const T: Record<string, Record<Language, string>> = {
   back:      { da: "Tilbage til Service tickets", en: "Back to Service tickets", de: "Zurück zu Service-Tickets", it: "Torna ai ticket di assistenza", hu: "Vissza a szerviz jegyekhez" },
