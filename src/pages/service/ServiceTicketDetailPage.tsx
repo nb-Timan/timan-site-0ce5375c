@@ -125,7 +125,28 @@ const T: Record<string, Record<Language, string>> = {
   cat_software:       { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
   cat_safety:         { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
   cat_other:          { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
+
+  // Files / documentation
+  filesTitle:        { da: "Filer / dokumentation", en: "Files / documentation", de: "Dateien / Dokumentation", it: "File / documentazione", hu: "Fájlok / dokumentáció" },
+  filesEmpty:        { da: "Ingen filer uploadet endnu.", en: "No files uploaded yet.", de: "Noch keine Dateien hochgeladen.", it: "Nessun file caricato.", hu: "Még nincsenek feltöltött fájlok." },
+  filesLoading:      { da: "Indlæser filer…", en: "Loading files…", de: "Dateien werden geladen…", it: "Caricamento file…", hu: "Fájlok betöltése…" },
+  filesLoadErr:      { da: "Kunne ikke hente filer.", en: "Could not load files.", de: "Dateien konnten nicht geladen werden.", it: "Impossibile caricare i file.", hu: "Nem sikerült betölteni a fájlokat." },
+  fileSelect:        { da: "Vælg fil(er) at uploade", en: "Select file(s) to upload", de: "Datei(en) zum Hochladen auswählen", it: "Seleziona file da caricare", hu: "Válassz fájl(oka)t a feltöltéshez" },
+  fileUpload:        { da: "Upload", en: "Upload", de: "Hochladen", it: "Carica", hu: "Feltöltés" },
+  fileUploading:     { da: "Uploader…", en: "Uploading…", de: "Wird hochgeladen…", it: "Caricamento…", hu: "Feltöltés…" },
+  fileUploaded:      { da: "Fil uploadet", en: "File uploaded", de: "Datei hochgeladen", it: "File caricato", hu: "Fájl feltöltve" },
+  fileOpen:          { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyitás" },
+  fileTooLarge:      { da: "Filen er for stor. Maks 25 MB.", en: "File is too large. Max 25 MB.", de: "Datei ist zu groß. Max. 25 MB.", it: "File troppo grande. Max 25 MB.", hu: "A fájl túl nagy. Max. 25 MB." },
+  fileTypeBad:       { da: "Filtypen er ikke tilladt.", en: "File type is not allowed.", de: "Dateityp ist nicht erlaubt.", it: "Tipo di file non consentito.", hu: "A fájltípus nem engedélyezett." },
+  fileUploadErr:     { da: "Kunne ikke uploade filen.", en: "Could not upload the file.", de: "Datei konnte nicht hochgeladen werden.", it: "Impossibile caricare il file.", hu: "Nem sikerült feltölteni a fájlt." },
+  fileMetaWarn:      { da: "Filen blev gemt, men kunne ikke registreres i databasen.", en: "File was stored but could not be registered in the database.", de: "Datei wurde gespeichert, konnte aber nicht in der Datenbank registriert werden.", it: "Il file è stato salvato ma non registrato nel database.", hu: "A fájl mentésre került, de nem sikerült a regisztrációja." },
+  fileSignErr:       { da: "Kunne ikke åbne filen.", en: "Could not open the file.", de: "Datei konnte nicht geöffnet werden.", it: "Impossibile aprire il file.", hu: "Nem sikerült megnyitni a fájlt." },
+  fileColName:       { da: "Filnavn", en: "File name", de: "Dateiname", it: "Nome file", hu: "Fájlnév" },
+  fileColType:       { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
+  fileColDate:       { da: "Uploadet", en: "Uploaded", de: "Hochgeladen", it: "Caricato", hu: "Feltöltve" },
+  fileColBy:         { da: "Uploadet af", en: "Uploaded by", de: "Hochgeladen von", it: "Caricato da", hu: "Feltöltötte" },
 };
+
 
 const STATUS_VALUES = [
   "created", "in_progress",
