@@ -664,6 +664,40 @@ export async function uploadServiceTicketFile(
   return { document: docRow as unknown as MachineDocumentRow, storage_path: path };
 }
 
+/**
+ * Fetch all documents tied to a machine — by machine_id or serial_number.
+ * RLS scopes visibility (dealer-scoped vs. internal).
+ */
+export async function fetchMachineDocumentsForMachine(
+  machineId: string | null,
+  serialNumber: string | null
+): Promise<MachineDocumentRow[]> {
+  const safeSerial = (serialNumber || "").replace(/[(),]/g, "");
+  let query = supabase
+    .from("machine_documents")
+    .select(
+      "id, machine_id, serial_number, related_entity_type, related_entity_id, " +
+      "file_name, file_type, storage_bucket, storage_path, visibility, " +
+      "uploaded_by_email, uploaded_by_user_id, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (machineId && safeSerial) {
+    query = query.or(`machine_id.eq.${machineId},serial_number.ilike.${safeSerial}`);
+  } else if (machineId) {
+    query = query.eq("machine_id", machineId);
+  } else if (safeSerial) {
+    query = query.ilike("serial_number", safeSerial);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as unknown as MachineDocumentRow[]) || [];
+}
+
 /** Fetch all documents linked to a service ticket. RLS-scoped. */
 export async function fetchMachineDocumentsForTicket(
   ticketId: string
