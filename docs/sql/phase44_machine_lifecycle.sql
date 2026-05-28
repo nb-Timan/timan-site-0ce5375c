@@ -25,6 +25,19 @@
 -- =====================================================================
 
 -- =====================================================================
+-- Supabase Data API GRANTs
+-- =====================================================================
+-- PostgREST / GraphQL / supabase-js require explicit schema + table grants.
+-- RLS remains enabled on all tables and controls which rows are visible.
+-- GRANT only allows the API to reach the table; it does NOT bypass RLS.
+--
+-- Anon is NOT granted on Machine Lifecycle tables because:
+--   * Every view requires an authenticated dealer/importer/service partner.
+--   * No public/anonymous machine data is exposed.
+-- =====================================================================
+grant usage on schema public to authenticated;
+
+-- =====================================================================
 -- Helper: is_timan_internal()
 -- Returns true if the current auth.jwt() email belongs to an app_user
 -- whose portal_role is one of: timan_backend, timan_seller, timan_service.
