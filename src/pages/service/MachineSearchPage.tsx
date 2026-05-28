@@ -3,7 +3,7 @@
  * Search by serial_number or machine_number against public.machines (RLS).
  * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
