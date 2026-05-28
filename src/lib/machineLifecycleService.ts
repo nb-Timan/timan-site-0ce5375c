@@ -179,10 +179,28 @@ export async function createServiceTicket(input: NewServiceTicketInput): Promise
   const { data, error } = await supabase
     .from("service_tickets")
     .insert(payload)
-    .select("id")
+    .select("id, machine_id, serial_number, title")
     .single();
   if (error) throw error;
-  return { id: (data as { id: string }).id };
+  const row = data as { id: string; machine_id: string | null; serial_number: string; title: string };
+
+  // Best-effort activity log — never fail the ticket create on log errors.
+  try {
+    await createMachineActivityLog({
+      machine_id: row.machine_id,
+      serial_number: row.serial_number,
+      event_type: "service_ticket_created",
+      title: "Service ticket oprettet",
+      description: row.title,
+      related_entity_type: "service_ticket",
+      related_entity_id: row.id,
+      visibility: "dealer_visible",
+    });
+  } catch (logErr) {
+    console.error("[machineLifecycleService] activity log (ticket_created) failed:", logErr);
+  }
+
+  return { id: row.id };
 }
 
 export interface ServiceTicketDetail {
