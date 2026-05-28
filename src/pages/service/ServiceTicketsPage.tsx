@@ -392,6 +392,17 @@ function CreateTicketDialog(props: {
     [dealers, dealerId],
   );
 
+  const resolvedMtype = (): string | null => {
+    if (mtypeChoice === "__other__") return mtypeOther.trim() || null;
+    return mtypeChoice.trim() || null;
+  };
+
+  const resolvedEquipment = (): string[] => {
+    const list = [...equipment];
+    if (equipOtherChecked && equipmentOther.trim()) list.push(equipmentOther.trim());
+    return list;
+  };
+
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !serial.trim() || !priority || !status) {
       toast.error(T.required[lang]);
@@ -413,14 +424,23 @@ function CreateTicketDialog(props: {
       dealer_number = lockedDealerNumber;
       dealer_name = lockedDealerName;
       if (!dealer_number) {
-        toast.error(T.required[lang]);
+        toast.error(T.noDealerLink[lang]);
         return;
       }
     }
 
+    // Equipment is stored as an extra line in description for now
+    // (no dedicated column yet — temporary).
+    const equipList = resolvedEquipment();
+    const finalDescription = equipList.length > 0
+      ? `${description.trim()}\n\n${T.fEquip[lang]}: ${equipList.join(", ")}`
+      : description.trim();
+
     const input: NewServiceTicketInput = {
-      title, description, serial_number: serial,
-      machine_type: mtype || null,
+      title,
+      description: finalDescription,
+      serial_number: serial,
+      machine_type: resolvedMtype(),
       dealer_account_id, dealer_number, dealer_name,
       customer_name: customer || null,
       contact_person: contact || null,
