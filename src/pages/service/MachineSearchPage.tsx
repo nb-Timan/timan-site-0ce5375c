@@ -157,6 +157,10 @@ export default function MachineSearchPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
+  const [documents, setDocuments] = useState<MachineDocumentRow[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
