@@ -193,6 +193,31 @@ export default function MachineSearchPage() {
     return () => { cancelled = true; };
   }, [machine, lang]);
 
+  // Fetch activity log whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setActivities([]);
+      setActivitiesError(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setActivitiesLoading(true);
+      setActivitiesError(null);
+      try {
+        const list = await fetchMachineActivityLog(machine.id, machine.serial_number);
+        if (!cancelled) setActivities(list);
+      } catch (e) {
+        console.error("[MachineSearch] activity log load error", e);
+        if (!cancelled) setActivitiesError(T.actError[lang]);
+      } finally {
+        if (!cancelled) setActivitiesLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch();
   };
