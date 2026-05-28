@@ -1,9 +1,9 @@
 /**
- * Phase 3 — "Søg på maskine" read-only.
+ * Phase 3+4a — "Søg på maskine" read-only.
  * Search by serial_number or machine_number against public.machines (RLS).
- * Shows tabs; only Overblik renders real data — others are placeholders.
+ * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -13,8 +13,11 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
-import { findMachineByIdentifier, MachineRecord } from "@/lib/machineLifecycleService";
+import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket } from "@/lib/machineLifecycleService";
 import { Language } from "@/types/configurator";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 type TabKey =
   | "overview" | "service_history" | "tickets" | "claims" | "warranties"
@@ -60,7 +63,50 @@ const T: Record<string, Record<Language, string>> = {
   tab_ai:              { da: "AI analyse",          en: "AI analysis",       de: "KI-Analyse",           it: "Analisi AI",        hu: "AI elemzés" },
 
   comingSoon:  { da: "Kommer snart.", en: "Coming soon.", de: "Bald verfügbar.", it: "In arrivo.", hu: "Hamarosan." },
+
+  // Tickets table
+  ticketNumber: { da: "Ticketnummer", en: "Ticket number", de: "Ticket-Nr.", it: "Numero ticket", hu: "Jegy szám" },
+  ticketTitle:  { da: "Titel", en: "Title", de: "Titel", it: "Titolo", hu: "Cím" },
+  ticketStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz" },
+  ticketPriority: { da: "Prioritet", en: "Priority", de: "Priorität", it: "Priorità", hu: "Prioritás" },
+  ticketCategory: { da: "Kategori", en: "Category", de: "Kategorie", it: "Categoria", hu: "Kategória" },
+  ticketDealer: { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
+  ticketCreated:{ da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  ticketAssigned:{ da: "Ansvarlig", en: "Assigned", de: "Zuständig", it: "Assegnato a", hu: "Felelős" },
+  noTickets:    { da: "Ingen service tickets fundet for denne maskine.", en: "No service tickets found for this machine.", de: "Keine Service-Tickets für diese Maschine gefunden.", it: "Nessun ticket di assistenza trovato per questa macchina.", hu: "Nincs szerviz jegy ehhez a géphez." },
+  ticketsError: { da: "Kunne ikke hente service tickets.", en: "Could not load service tickets.", de: "Service-Tickets konnten nicht geladen werden.", it: "Impossibile caricare i ticket di assistenza.", hu: "Nem sikerült betölteni a szerviz jegyeket." },
 };
+
+function statusBadgeClasses(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "created") return "bg-slate-100 text-slate-700";
+  if (s === "in_progress") return "bg-blue-100 text-blue-700";
+  if (["waiting_timan", "waiting_dealer", "waiting_customer", "waiting_parts"].includes(s)) return "bg-amber-100 text-amber-700";
+  if (s === "resolved") return "bg-green-100 text-green-700";
+  if (s === "closed") return "bg-slate-100 text-slate-600";
+  if (["converted_to_claim", "converted_to_warranty", "converted_to_tsb"].includes(s)) return "bg-purple-100 text-purple-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function priorityBadgeClasses(priority: string): string {
+  const p = priority.toLowerCase();
+  if (p === "low") return "bg-sky-100 text-sky-700";
+  if (p === "normal") return "bg-slate-100 text-slate-700";
+  if (p === "high") return "bg-orange-100 text-orange-700";
+  if (p === "critical_machine_stopped") return "bg-red-100 text-red-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function fmtDateShort(v: string | null | undefined): string {
+  if (!v) return "—";
+  try {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  } catch {
+    return v;
+  }
+}
 
 export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
@@ -79,6 +125,10 @@ export default function MachineSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
+  const [tickets, setTickets] = useState<ServiceTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
@@ -91,6 +141,8 @@ export default function MachineSearchPage() {
     setError(null);
     setSearched(true);
     setMachine(null);
+    setTickets([]);
+    setTicketsError(null);
     setActiveTab("overview");
     try {
       const result = await findMachineByIdentifier(q);
@@ -102,6 +154,31 @@ export default function MachineSearchPage() {
       setLoading(false);
     }
   };
+
+  // Fetch tickets whenever a machine is found
+  useEffect(() => {
+    if (!machine) {
+      setTickets([]);
+      setTicketsError(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setTicketsLoading(true);
+      setTicketsError(null);
+      try {
+        const list = await fetchServiceTicketsForMachine(machine.id, machine.serial_number);
+        if (!cancelled) setTickets(list);
+      } catch (e) {
+        console.error("[MachineSearch] tickets load error", e);
+        if (!cancelled) setTicketsError(T.ticketsError[lang]);
+      } finally {
+        if (!cancelled) setTicketsLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [machine, lang]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch();
@@ -241,7 +318,7 @@ export default function MachineSearchPage() {
 
             {/* Tab content */}
             <div className="p-6">
-              {activeTab === "overview" ? (
+              {activeTab === "overview" && (
                 <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
                   <div><dt className="text-slate-500">{T.serial[lang]}</dt><dd className="font-medium">{fmt(machine.serial_number)}</dd></div>
                   <div><dt className="text-slate-500">{T.machineNo[lang]}</dt><dd className="font-medium">{fmt(machine.machine_number)}</dd></div>
@@ -255,7 +332,63 @@ export default function MachineSearchPage() {
                   <div><dt className="text-slate-500">{T.warrantyStart[lang]}</dt><dd className="font-medium">{fmtDate(machine.warranty_start_date)}</dd></div>
                   <div><dt className="text-slate-500">{T.warrantyEnd[lang]}</dt><dd className="font-medium">{fmtDate(machine.warranty_end_date)}</dd></div>
                 </dl>
-              ) : (
+              )}
+
+              {activeTab === "tickets" && (
+                <div>
+                  {ticketsLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {T.searching[lang]}
+                    </div>
+                  ) : ticketsError ? (
+                    <div className="py-10 text-center text-sm text-red-600">{ticketsError}</div>
+                  ) : tickets.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-500">{T.noTickets[lang]}</div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{T.ticketNumber[lang]}</TableHead>
+                            <TableHead>{T.ticketTitle[lang]}</TableHead>
+                            <TableHead>{T.ticketStatus[lang]}</TableHead>
+                            <TableHead>{T.ticketPriority[lang]}</TableHead>
+                            <TableHead>{T.ticketCategory[lang]}</TableHead>
+                            <TableHead>{T.ticketDealer[lang]}</TableHead>
+                            <TableHead>{T.ticketCreated[lang]}</TableHead>
+                            <TableHead>{T.ticketAssigned[lang]}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {tickets.map(t => (
+                            <TableRow key={t.id}>
+                              <TableCell className="font-medium">{fmt(t.ticket_number)}</TableCell>
+                              <TableCell>{fmt(t.title)}</TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClasses(t.status)}`}>
+                                  {t.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${priorityBadgeClasses(t.priority)}`}>
+                                  {t.priority}
+                                </span>
+                              </TableCell>
+                              <TableCell>{fmt(t.category)}</TableCell>
+                              <TableCell>{fmt(t.dealer_name)}</TableCell>
+                              <TableCell>{fmtDateShort(t.created_at)}</TableCell>
+                              <TableCell>{fmt(t.assigned_name)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab !== "overview" && activeTab !== "tickets" && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   {T.comingSoon[lang]}
                 </div>

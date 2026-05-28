@@ -1,6 +1,6 @@
 /**
- * Phase 3 — read-only access to public.machines via supabase-js.
- * Relies on existing RLS policies; never uses service_role.
+ * Phase 3+4a — read-only access to public.machines and public.service_tickets
+ * via supabase-js. Relies on existing RLS policies; never uses service_role.
  */
 import { supabase } from "@/lib/supabase";
 
@@ -25,6 +25,18 @@ export interface MachineRecord {
   current_hours: number | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+export interface ServiceTicket {
+  id: string;
+  ticket_number: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  dealer_name: string | null;
+  created_at: string | null;
+  assigned_name: string | null;
 }
 
 const SELECT_COLS =
@@ -54,3 +66,27 @@ export async function findMachineByIdentifier(rawQuery: string): Promise<Machine
   if (error) throw error;
   return (data && data[0] ? (data[0] as unknown as MachineRecord) : null);
 }
+
+const TICKET_COLS =
+  "id, ticket_number, title, status, priority, category, dealer_name, created_at, assigned_name";
+
+/**
+ * Fetch service tickets linked to a machine by machine_id OR serial_number.
+ * Returns empty array when none match. Throws on Supabase errors.
+ */
+export async function fetchServiceTicketsForMachine(
+  machineId: string,
+  serialNumber: string | null
+): Promise<ServiceTicket[]> {
+  const safeSerial = (serialNumber || "").replace(/[(),]/g, "");
+
+  const { data, error } = await supabase
+    .from("service_tickets")
+    .select(TICKET_COLS)
+    .or(`machine_id.eq.${machineId},serial_number.ilike.${safeSerial}`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data as unknown as ServiceTicket[]) || [];
+}
+
