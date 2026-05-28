@@ -1430,20 +1430,30 @@ export default function ConfiguratorPage() {
           }
         }
 
-        // Recipients: always send to udfylder; include modtager only if non-empty.
-        // Normalized (trim + lowercase) and de-duplicated.
+        // Quote recipients (Krav 1):
+        //  - If "E-mail modtager" is filled → it is the primary (and only)
+        //    recipient. Multiple addresses may be separated by , or ;.
+        //  - "E-mail på udfylder" is ONLY used as fallback when modtager is
+        //    empty; it must never override an explicit modtager.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
-        const emailModtager = (state.emailRecipient || '').trim().toLowerCase();
+        const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
         const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const userEntered = [emailUdfylder, emailModtager].filter(Boolean);
-        const invalid = userEntered.filter(e => !emailRe.test(e));
+        const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+        const modtagerList = splitAddrs(emailModtagerRaw);
+        const baseList = modtagerList.length > 0 ? modtagerList : (emailUdfylder ? [emailUdfylder] : []);
+        const invalid = baseList.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
-          toast.error(lang === 'da' ? 'Ugyldig e-mailadresse' : 'Invalid email address', {
+          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
             description: invalid.join(', '),
           });
           return;
         }
-        const recipients = Array.from(new Set(userEntered));
+        if (baseList.length === 0) {
+          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.');
+          return;
+        }
+        const recipients = Array.from(new Set(baseList));
+        const emailModtager = modtagerList.join(', ');
 
 
         // Upload sent PDF to storage BEFORE webhook so we can include the
