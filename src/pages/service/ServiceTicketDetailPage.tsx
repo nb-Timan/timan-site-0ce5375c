@@ -244,6 +244,7 @@ export default function ServiceTicketDetailPage() {
             setEditCategory(data.category || "");
             setEditAssigned(data.assigned_name || "");
             await loadComments(ticketId);
+            await loadInternalNotes(ticketId);
           }
 
         }
