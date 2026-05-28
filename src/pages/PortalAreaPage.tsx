@@ -15,6 +15,27 @@ import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
   back: { da: 'Tilbage til portal', en: 'Back to portal', de: 'Zurück zum Portal', it: 'Torna al portale', hu: 'Vissza a portálra' },
+  desc_service_maintenance: {
+    da: 'Registrer udført service og se servicehistorik pr. maskine.',
+    en: 'Register completed service and view service history per machine.',
+    de: 'Erfassen Sie durchgeführte Wartungen und zeigen Sie den Wartungsverlauf pro Maschine an.',
+    it: 'Registra gli interventi di assistenza completati e visualizza la cronologia di assistenza per macchina.',
+    hu: 'Rögzítse az elvégzett szervizeléseket és tekintse meg a szervizelési előzményeket gépenként.',
+  },
+  desc_service_tickets: {
+    da: 'Opret, følg og håndter servicehenvendelser pr. maskine.',
+    en: 'Create, track and handle service requests per machine.',
+    de: 'Erstellen, verfolgen und bearbeiten Sie Serviceanfragen pro Maschine.',
+    it: 'Crea, monitora e gestisci le richieste di assistenza per macchina.',
+    hu: 'Hozzon létre, kövessen és kezeljen szerviz kéréseket gépenként.',
+  },
+  desc_machine_search: {
+    da: 'Find en maskine på serienummer og se samlet maskinprofil.',
+    en: 'Find a machine by serial number and see a full machine profile.',
+    de: 'Finden Sie eine Maschine anhand der Seriennummer und zeigen Sie ein vollständiges Maschinenprofil an.',
+    it: 'Trova una macchina tramite numero di serie e visualizza il profilo completo della macchina.',
+    hu: 'Keressen gépet gyári szám alapján és tekintse meg a teljes gépprofilt.',
+  },
 };
 
 interface Props { areaId: PortalAreaId }
@@ -92,21 +113,15 @@ export default function PortalAreaPage({ areaId }: Props) {
             } else if (p.key === 'service_maintenance') {
               href = '/portal/service/maintenance';
               icon = Wrench;
-              description = lang === 'da'
-                ? 'Registrer udført service og se servicehistorik pr. maskine.'
-                : 'Register completed service and view service history per machine.';
+              description = T.desc_service_maintenance[lang];
             } else if (p.key === 'service_tickets') {
               href = '/portal/service/tickets';
               icon = Ticket;
-              description = lang === 'da'
-                ? 'Opret, følg og håndter servicehenvendelser pr. maskine.'
-                : 'Create, track and handle service requests per machine.';
+              description = T.desc_service_tickets[lang];
             } else if (p.key === 'machine_search') {
               href = '/portal/service/machines';
               icon = Search;
-              description = lang === 'da'
-                ? 'Find en maskine på serienummer og se samlet maskinprofil.'
-                : 'Find a machine by serial number and see a full machine profile.';
+              description = T.desc_machine_search[lang];
 
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
