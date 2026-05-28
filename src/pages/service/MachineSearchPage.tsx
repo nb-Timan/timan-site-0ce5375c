@@ -810,7 +810,7 @@ export default function MachineSearchPage() {
                                     </TableCell>
                                   </TableRow>
                                 )}
-                              </>
+                              </React.Fragment>
                             );
                           })}
                         </TableBody>
