@@ -66,7 +66,60 @@ const T: Record<string, Record<Language, string>> = {
   emptyErr:         { da: "Skriv en kommentar først.", en: "Please write a comment first.", de: "Bitte zuerst einen Kommentar schreiben.", it: "Scrivi prima un commento.", hu: "Először írj egy megjegyzést." },
   saveErr:          { da: "Kunne ikke gemme kommentar.", en: "Could not save comment.", de: "Kommentar konnte nicht gespeichert werden.", it: "Impossibile salvare il commento.", hu: "Nem sikerült menteni a megjegyzést." },
   saving:           { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
+
+  // Edit
+  editTitle:        { da: "Opdater sag", en: "Update ticket", de: "Ticket aktualisieren", it: "Aggiorna ticket", hu: "Jegy frissítése" },
+  saveChanges:      { da: "Gem ændringer", en: "Save changes", de: "Änderungen speichern", it: "Salva modifiche", hu: "Módosítások mentése" },
+  updated:          { da: "Service ticket opdateret", en: "Service ticket updated", de: "Service-Ticket aktualisiert", it: "Ticket di assistenza aggiornato", hu: "Szerviz jegy frissítve" },
+  updateErr:        { da: "Kunne ikke opdatere service ticket.", en: "Could not update service ticket.", de: "Service-Ticket konnte nicht aktualisiert werden.", it: "Impossibile aggiornare il ticket.", hu: "Nem sikerült frissíteni a szerviz jegyet." },
+  none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuna", hu: "Nincs" },
+
+  // Status options
+  st_created:               { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  st_in_progress:           { da: "Under behandling", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
+  st_waiting_timan:         { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
+  st_waiting_dealer:        { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
+  st_waiting_customer:      { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
+  st_waiting_parts:         { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár" },
+  st_resolved:              { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva" },
+  st_closed:                { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+  st_converted_to_claim:    { da: "Konverteret til claim", en: "Converted to claim", de: "In Claim umgewandelt", it: "Convertito in reclamo", hu: "Claim-mé alakítva" },
+  st_converted_to_warranty: { da: "Konverteret til garanti", en: "Converted to warranty", de: "In Garantie umgewandelt", it: "Convertito in garanzia", hu: "Garanciává alakítva" },
+  st_converted_to_tsb:      { da: "Konverteret til TSB", en: "Converted to TSB", de: "In TSB umgewandelt", it: "Convertito in TSB", hu: "TSB-vé alakítva" },
+
+  // Priority options
+  pr_low:                       { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
+  pr_normal:                    { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
+  pr_high:                      { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
+  pr_critical_machine_stopped:  { da: "Kritisk / maskine stoppet", en: "Critical / machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+
+  // Category options
+  cat_engine:         { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
+  cat_hydraulics:     { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika" },
+  cat_electronics:    { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika" },
+  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító" },
+  cat_transmission:   { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű" },
+  cat_service:        { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz" },
+  cat_spare_part:     { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész" },
+  cat_software:       { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
+  cat_safety:         { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
+  cat_other:          { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
 };
+
+const STATUS_VALUES = [
+  "created", "in_progress",
+  "waiting_timan", "waiting_dealer", "waiting_customer", "waiting_parts",
+  "resolved", "closed",
+  "converted_to_claim", "converted_to_warranty", "converted_to_tsb",
+] as const;
+const PRIORITY_VALUES = ["low", "normal", "high", "critical_machine_stopped"] as const;
+const CATEGORY_VALUES = [
+  "engine", "hydraulics", "electronics", "remote_control", "transmission",
+  "service", "spare_part", "software", "safety", "other",
+] as const;
+
+const INTERNAL_ROLES = new Set(["timan_backend", "timan_seller", "timan_service"]);
+
 
 function statusBadgeClasses(status: string): string {
   const s = (status || "").toLowerCase();
