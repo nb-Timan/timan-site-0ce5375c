@@ -1948,15 +1948,12 @@ export default function CrmBudgetPage() {
                             const budgetRows = sellerBreakdownFor(linesForAgg, i, "budget");
                             const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
                             const tipTitle = `${monthLabel} · ${productName}`;
-                            // Reference distribution context. The "delta_total"
-                            // is taken from the latest audit entry's `change`
-                            // so the modal can cap fordeling to exactly the
-                            // budgetændring brugeren lige har lavet. Hvis ingen
-                            // audit findes (gammel celle), falder vi tilbage
-                            // til current cell value.
+                            // Reference distribution context. `delta_total`
+                            // is the CELL's current total (b), so modalens
+                            // "Fordelt: X / N" matches det antal stk. cellen
+                            // faktisk viser — ikke kun seneste budgetændring.
                             const latestNew = (latest?.new_value as Record<string, unknown> | null) || null;
                             const latestOld = (latest?.old_value as Record<string, unknown> | null) || null;
-                            const auditChange = latestNew && typeof latestNew.change === "number" ? Math.abs(latestNew.change as number) : 0;
                             const refOld = latestOld && typeof latestOld.value === "number" ? (latestOld.value as number) : b;
                             const refNew = latestNew && typeof latestNew.value === "number" ? (latestNew.value as number) : b;
                             const refCtx: BudgetReferenceContext = {
@@ -1972,7 +1969,7 @@ export default function CrmBudgetPage() {
                               actor_email: appUser?.email || null,
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
-                              delta_total: auditChange > 0 ? auditChange : b,
+                              delta_total: b,
                             };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
