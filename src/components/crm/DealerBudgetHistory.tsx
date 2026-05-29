@@ -51,7 +51,7 @@ export default function DealerBudgetHistory({ year, totals, scopeNumbers, dealer
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listBudgetReferences({ year, budget_type: "work", limit: 1000 })
+    listBudgetReferences({ year, budget_type: "arbejdsbudget", limit: 1000 })
       .then((rows) => { if (!cancelled) setRefs(rows); })
       .catch(() => { if (!cancelled) setRefs([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
