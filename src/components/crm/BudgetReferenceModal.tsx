@@ -123,17 +123,23 @@ export default function BudgetReferenceModal({
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
 
-  // Load dealer/lead/demo lists AND any existing references for this change
-  // group so the user re-enters the same distribution she already saved.
+  // Load dealer/lead/demo lists AND ALL existing references for this cell so
+  // the user re-enters the same distribution she already saved — including
+  // legacy rows that may pre-date reference_group_id.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setDealersLoading(true);
     setLeadsLoading(true);
 
-    const groupId = ctx?.change_id || null;
-    const existingP: Promise<BudgetReference[]> = groupId
-      ? listBudgetReferences({ reference_group_id: groupId, limit: 200 }).catch(() => [])
+    const cellKey = ctx?.cell_key || null;
+    const existingP: Promise<BudgetReference[]> = cellKey
+      ? listBudgetReferences({
+          cell_key: cellKey,
+          year: ctx?.budget_year,
+          budget_type: ctx?.budget_type,
+          limit: 200,
+        }).catch(() => [])
       : Promise.resolve([]);
 
     Promise.all([
@@ -148,8 +154,6 @@ export default function BudgetReferenceModal({
       setDemos(dm);
 
       if (existing.length > 0) {
-        // Re-hydrate the previous distribution. Match dealer back to its
-        // id using the saved label's account_number when possible.
         const seed: RefRow[] = existing.map((ex): RefRow => {
           const accountFromLabel = (ex.dealer_name || "").split("·")[1]?.trim() || null;
           const match = d.find(x =>
@@ -178,7 +182,7 @@ export default function BudgetReferenceModal({
       setLeadsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [open, ctx?.change_id]);
+  }, [open, ctx?.cell_key, ctx?.budget_year, ctx?.budget_type]);
 
   const options = useMemo<DealerOption[]>(() => {
     const ini = (currentSellerInitials || "").toUpperCase();
