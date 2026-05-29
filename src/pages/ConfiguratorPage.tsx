@@ -227,6 +227,7 @@ export default function ConfiguratorPage() {
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
