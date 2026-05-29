@@ -745,6 +745,92 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
   );
 }
 
+interface KpiItem { id: string; title: string; subtitle?: string; href?: string }
+function KpiPopover({ icon, label, value, items, emptyLabel }: {
+  icon: React.ReactNode; label: string; value: React.ReactNode;
+  items: KpiItem[]; emptyLabel: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="text-left bg-white border border-slate-200 rounded-xl p-3 hover:bg-emerald-50/40 cursor-pointer">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+            {icon}{label}
+          </div>
+          <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="px-3 py-2 border-b text-[11px] uppercase font-bold tracking-wide text-slate-500">{label}</div>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-sm text-slate-500">{emptyLabel}</div>
+        ) : (
+          <ul className="max-h-80 overflow-auto divide-y">
+            {items.map((it) => {
+              const content = (
+                <div className="px-3 py-2 hover:bg-slate-50">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{it.title}</div>
+                  {it.subtitle && <div className="text-xs text-slate-500">{it.subtitle}</div>}
+                </div>
+              );
+              return (
+                <li key={it.id}>
+                  {it.href ? <Link to={it.href}>{content}</Link> : content}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
+  const { status, pct } = classifyBudgetStatus(totals);
+  const expected = totals.ytdRealisedQty + totals.pipelineQty;
+  const missingYtd = Math.max(0, totals.ytdBudgetQty - totals.ytdRealisedQty);
+  const missingExpected = Math.max(0, totals.yearBudgetQty - expected);
+  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
+  const widthPct = Math.min(100, Math.max(0, pct));
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Budget {year}</h3>
+        {!totals.noBudget && <span className="text-xs font-bold text-slate-700">{pct}%</span>}
+      </div>
+      {totals.noBudget ? (
+        <p className="text-sm text-slate-500">Intet budget registreret for {year}.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <Metric label="Årsbudget" value={`${Math.round(totals.yearBudgetQty)} stk.`} />
+            <Metric label="Budget YTD" value={`${Math.round(totals.ytdBudgetQty)} stk.`} />
+            <Metric label="Realiseret YTD" value={`${Math.round(totals.ytdRealisedQty)} stk.`} />
+            <Metric label="Pipeline" value={`${Math.round(totals.pipelineQty)} stk.`} />
+            <Metric label="Forventet" value={`${Math.round(expected)} stk.`} />
+            <Metric label="Mangler YTD" value={`${missingYtd} stk.`} />
+            <Metric label="Mangler forventet" value={`${missingExpected} stk.`} />
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400">{label}</div>
+      <div className="text-slate-900 font-semibold">{value}</div>
+    </div>
+  );
+}
+
 function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <li className="flex items-start gap-2">
