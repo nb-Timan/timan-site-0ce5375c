@@ -1373,14 +1373,17 @@ export default function ConfiguratorPage() {
           // unverifiable and were causing false "sent" states.
           let delivered = false;
           let failureReason = '';
+          let webhookHttpStatus: number | null = null;
+          let webhookRespText = '';
           try {
             const webhookRes = await fetch(orderWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
             });
-            const orderRespText = await webhookRes.text().catch(() => '');
-            console.log('[Order webhook] response', webhookRes.status, webhookRes.type, orderRespText);
+            webhookHttpStatus = webhookRes.status;
+            webhookRespText = await webhookRes.text().catch(() => '');
+            console.log('[Order webhook] response', webhookRes.status, webhookRes.type, webhookRespText);
             if (webhookRes.type === 'opaque' || webhookRes.type === 'opaqueredirect') {
               failureReason = 'Opaque response (CORS) — cannot verify delivery';
             } else if (webhookRes.ok) {
@@ -1391,6 +1394,29 @@ export default function ConfiguratorPage() {
           } catch (fetchErr) {
             failureReason = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
             console.error('[Order webhook] fetch failed:', fetchErr);
+          }
+
+          // Audit log (success or failed). Never blocks send flow.
+          if (activeCaseId) {
+            await logConfigurationEmailSend({
+              configurationId: activeCaseId,
+              documentType: 'order',
+              quoteNumber: activeQuoteNumber || null,
+              orderNumber: activeOrderNumber || null,
+              toRecipients: recipients,
+              ccRecipients: [],
+              bccRecipients: [],
+              sendStatus: delivered ? 'success' : 'failed',
+              httpStatus: webhookHttpStatus,
+              errorMessage: delivered ? null : failureReason || null,
+              webhookResponse: webhookRespText || null,
+              webhookUrl: orderWebhookUrl,
+              pdfFilename,
+              pdfStoragePath: orderSentPdfPath || null,
+              createdByEmail: appUser?.email || null,
+              sellerEmail: ownership.sellerEmail || null,
+              sellerInitials: ownership.sellerInitials || null,
+            });
           }
 
           if (delivered) {
@@ -1411,6 +1437,7 @@ export default function ConfiguratorPage() {
               flowType: 'order',
               orderNumber: activeOrderNumber || '',
               quoteNumber: activeQuoteNumber || '',
+              recipients,
             });
           } else {
             toast.error(T('orderSendFailed'), {
