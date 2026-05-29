@@ -57,6 +57,12 @@ import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 
+import MiscPage from "./pages/misc/MiscPage";
+import MiscFormsPage from "./pages/misc/MiscFormsPage";
+import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
+import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
+import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
+
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useEffect } from "react";
 import { useAppUser } from "@/context/AppUserContext";
@@ -126,6 +132,12 @@ const App = () => (
               <Route path="/portal/resources" element={<ResourcesPage />} />
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
+              {/* Salg & Marketing > Diverse > Formularer */}
+              <Route path="/portal/misc" element={<MiscPage />} />
+              <Route path="/portal/misc/forms" element={<MiscFormsPage />} />
+              <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
+              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
+              <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
               <Route path="/portal/service/claims" element={<ClaimsPage />} />
               <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
               <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
