@@ -28,7 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { createBudgetReference } from "@/lib/budgetReferencesService";
+import { createBudgetReference, deleteBudgetReferenceGroup, listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import { listLeads, listDemoLeads, formatLeadNo, formatDemoNo, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
@@ -48,6 +48,13 @@ export interface BudgetReferenceContext {
   new_value: number | null;
   actor_email: string | null;
   actor_name: string | null;
+  /** Stabil id for den budgetændring (typisk audit-id). Gemmes på alle
+   *  reference-rækker fra dette gem og bruges til at finde/erstatte dem
+   *  hvis brugeren åbner fordelingen igen. */
+  change_id: string | null;
+  /** Totalen brugeren må fordele i denne modal. Typisk |new − old| fra
+   *  den seneste budgetændring; falder tilbage til current cell value. */
+  delta_total: number;
 }
 
 interface Props {
@@ -59,6 +66,7 @@ interface Props {
   currentSellerInitials?: string | null;
   currentSellerEmail?: string | null;
 }
+
 
 interface DealerOption {
   value: string;
@@ -115,28 +123,62 @@ export default function BudgetReferenceModal({
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
 
+  // Load dealer/lead/demo lists AND any existing references for this change
+  // group so the user re-enters the same distribution she already saved.
   useEffect(() => {
     if (!open) return;
-    setRows([newRow()]);
     let cancelled = false;
     setDealersLoading(true);
     setLeadsLoading(true);
+
+    const groupId = ctx?.change_id || null;
+    const existingP: Promise<BudgetReference[]> = groupId
+      ? listBudgetReferences({ reference_group_id: groupId, limit: 200 }).catch(() => [])
+      : Promise.resolve([]);
+
     Promise.all([
       fetchDealerAccounts({ includeDeleted: false }).then(r => r.rows).catch(() => [] as DealerAccount[]),
       listLeads({ limit: 500 }).catch(() => [] as CrmLead[]),
       listDemoLeads({ limit: 500 }).catch(() => [] as CrmDemoLead[]),
-    ]).then(([d, l, dm]) => {
+      existingP,
+    ]).then(([d, l, dm, existing]) => {
       if (cancelled) return;
       setDealers(d);
       setLeads(l);
       setDemos(dm);
+
+      if (existing.length > 0) {
+        // Re-hydrate the previous distribution. Match dealer back to its
+        // id using the saved label's account_number when possible.
+        const seed: RefRow[] = existing.map((ex): RefRow => {
+          const accountFromLabel = (ex.dealer_name || "").split("·")[1]?.trim() || null;
+          const match = d.find(x =>
+            (accountFromLabel && x.account_number === accountFromLabel) ||
+            (ex.dealer_name && x.company_name && ex.dealer_name.startsWith(x.company_name))
+          );
+          return {
+            uid: typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `r-${Math.random().toString(36).slice(2)}`,
+            dealerId: match?.id || "",
+            contact: ex.contact_name || "",
+            qty: ex.delta_qty ?? 1,
+            leadId: ex.lead_id || "",
+            demoId: ex.demo_id || "",
+            note: ex.note || "",
+          };
+        });
+        setRows(seed);
+      } else {
+        setRows([newRow()]);
+      }
     }).finally(() => {
       if (cancelled) return;
       setDealersLoading(false);
       setLeadsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, ctx?.change_id]);
 
   const options = useMemo<DealerOption[]>(() => {
     const ini = (currentSellerInitials || "").toUpperCase();
@@ -150,8 +192,26 @@ export default function BudgetReferenceModal({
     return filtered.map(dealerToOption).sort((a, b) => a.label.localeCompare(b.label));
   }, [dealers, isAdmin, currentSellerInitials, currentSellerEmail]);
 
+  // Total stk. brugeren må fordele i denne modal. Kommer fra ctx.delta_total
+  // (typisk = |new − old| af seneste budgetændring). Aldrig negativ.
+  const totalAllowed = Math.max(0, Math.trunc(ctx?.delta_total ?? 0));
+  const allocated = rows.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
+  const overAllocated = allocated > totalAllowed;
+  const underAllocated = allocated < totalAllowed;
+  const remaining = totalAllowed - allocated;
+
   function patchRow(uid: string, patch: Partial<RefRow>) {
-    setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
+    setRows((rs) => rs.map((r) => {
+      if (r.uid !== uid) return r;
+      const next = { ...r, ...patch };
+      // Cap qty so the running total never exceeds the allowed total.
+      if (patch.qty != null && totalAllowed > 0) {
+        const otherSum = rs.reduce((s, x) => s + (x.uid === uid ? 0 : Math.max(0, x.qty || 0)), 0);
+        const room = Math.max(0, totalAllowed - otherSum);
+        next.qty = Math.min(Math.max(0, Math.trunc(next.qty || 0)), room);
+      }
+      return next;
+    }));
   }
   function removeRow(uid: string) {
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.uid !== uid)));
@@ -170,11 +230,30 @@ export default function BudgetReferenceModal({
     if (!ctx) { onClose(); return; }
     const filled = rows.filter(rowHasContent);
     if (filled.length === 0) {
-      toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
+      // Saving empty on an existing group should still clear the previous
+      // distribution so the user can wipe it.
+      if (ctx.change_id) {
+        try { await deleteBudgetReferenceGroup(ctx.change_id); } catch { /* */ }
+        toast.message("Reference-fordeling ryddet");
+        onSaved?.();
+      } else {
+        toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
+      }
       onClose(); return;
+    }
+    const sum = filled.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
+    if (totalAllowed > 0 && sum > totalAllowed) {
+      toast.error(`Du har fordelt ${sum} stk., men budgetændringen er kun ${totalAllowed} stk.`);
+      return;
     }
     setBusy(true);
     try {
+      // Replace strategy: if we have a stable change_id, clear the old group
+      // first so re-saving doesn't stack duplicates on top of the previous
+      // distribution.
+      if (ctx.change_id) {
+        await deleteBudgetReferenceGroup(ctx.change_id);
+      }
       for (const r of filled) {
         const opt = options.find((o) => o.value === r.dealerId) || null;
         const dealerLabel = opt
@@ -202,6 +281,7 @@ export default function BudgetReferenceModal({
           created_by_email: ctx.actor_email,
           created_by_name: ctx.actor_name,
           delta_qty: qty,
+          reference_group_id: ctx.change_id,
         });
       }
       toast.success(filled.length === 1 ? "Reference gemt" : `${filled.length} referencer gemt`);
@@ -213,6 +293,7 @@ export default function BudgetReferenceModal({
       setBusy(false);
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -239,6 +320,32 @@ export default function BudgetReferenceModal({
           </div>
         )}
 
+        {/* Allocation summary: explains that the qty inputs distribute the
+            recent budget change, not extra budget on top. */}
+        <div
+          className={cn(
+            "text-xs rounded-lg border px-3 py-2 flex items-center justify-between gap-3",
+            overAllocated
+              ? "border-rose-300 bg-rose-50 text-rose-800"
+              : underAllocated
+                ? "border-amber-300 bg-amber-50 text-amber-900"
+                : "border-emerald-300 bg-emerald-50 text-emerald-800",
+          )}
+        >
+          <span>
+            Fordelt: <span className="font-semibold tabular-nums">{allocated}</span> / <span className="font-semibold tabular-nums">{totalAllowed}</span> stk.
+          </span>
+          <span className="text-[11px]">
+            {totalAllowed === 0
+              ? "Ingen budgetændring at fordele"
+              : overAllocated
+                ? `${allocated - totalAllowed} stk. for meget`
+                : underAllocated
+                  ? `${remaining} stk. ikke fordelt`
+                  : "Alt fordelt"}
+          </span>
+        </div>
+
         <div className="space-y-3">
           {rows.map((r, idx) => (
             <ReferenceRowEditor
@@ -253,6 +360,7 @@ export default function BudgetReferenceModal({
               leads={leads}
               demos={demos}
               leadsLoading={leadsLoading}
+              qtyRoomForRow={Math.max(0, totalAllowed - (allocated - Math.max(0, r.qty || 0)))}
               onChange={(patch) => patchRow(r.uid, patch)}
               onRemove={() => removeRow(r.uid)}
             />
@@ -262,7 +370,7 @@ export default function BudgetReferenceModal({
             variant="ghost"
             size="sm"
             onClick={addRow}
-            disabled={busy}
+            disabled={busy || (totalAllowed > 0 && allocated >= totalAllowed)}
             className="w-full border border-dashed border-slate-300 hover:bg-slate-50"
           >
             <Plus className="h-3.5 w-3.5 mr-1" /> Tilføj reference
@@ -271,15 +379,18 @@ export default function BudgetReferenceModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>Annullér</Button>
-          <Button onClick={handleSave} disabled={busy}>{busy ? "Gemmer…" : "Gem referencer"}</Button>
+          <Button onClick={handleSave} disabled={busy || overAllocated}>
+            {busy ? "Gemmer…" : "Gem referencer"}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
 }
 
 function ReferenceRowEditor({
-  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, onChange, onRemove,
+  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, qtyRoomForRow, onChange, onRemove,
 }: {
   index: number;
   row: RefRow;
@@ -291,9 +402,12 @@ function ReferenceRowEditor({
   leads: CrmLead[];
   demos: CrmDemoLead[];
   leadsLoading: boolean;
+  /** Largest qty this row may hold without exceeding the modal-wide total. */
+  qtyRoomForRow: number;
   onChange: (patch: Partial<RefRow>) => void;
   onRemove: () => void;
 }) {
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const selected = options.find((o) => o.value === row.dealerId) || null;
   const triggerLabel = selected
@@ -433,7 +547,9 @@ function ReferenceRowEditor({
               onChange={(e) => setQty(parseInt(e.target.value, 10))}
               disabled={busy}
             />
-            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" disabled={busy} onClick={() => setQty(row.qty + 1)}>
+            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0"
+              disabled={busy || row.qty >= qtyRoomForRow}
+              onClick={() => setQty(row.qty + 1)}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
