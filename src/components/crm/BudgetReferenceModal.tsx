@@ -28,7 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { createBudgetReference, deleteBudgetReferenceGroup, listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
+import { createBudgetReference, deleteBudgetReferencesForCell, listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import { listLeads, listDemoLeads, formatLeadNo, formatDemoNo, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
@@ -52,8 +52,9 @@ export interface BudgetReferenceContext {
    *  reference-rækker fra dette gem og bruges til at finde/erstatte dem
    *  hvis brugeren åbner fordelingen igen. */
   change_id: string | null;
-  /** Totalen brugeren må fordele i denne modal. Typisk |new − old| fra
-   *  den seneste budgetændring; falder tilbage til current cell value. */
+  /** Totalen brugeren må fordele i denne modal. Det er CELLENS aktuelle
+   *  antal stk. (ikke kun den seneste budgetændring), så modal afspejler
+   *  hele cellens samlede fordeling. */
   delta_total: number;
 }
 
@@ -123,17 +124,23 @@ export default function BudgetReferenceModal({
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
 
-  // Load dealer/lead/demo lists AND any existing references for this change
-  // group so the user re-enters the same distribution she already saved.
+  // Load dealer/lead/demo lists AND ALL existing references for this cell so
+  // the user re-enters the same distribution she already saved — including
+  // legacy rows that may pre-date reference_group_id.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setDealersLoading(true);
     setLeadsLoading(true);
 
-    const groupId = ctx?.change_id || null;
-    const existingP: Promise<BudgetReference[]> = groupId
-      ? listBudgetReferences({ reference_group_id: groupId, limit: 200 }).catch(() => [])
+    const cellKey = ctx?.cell_key || null;
+    const existingP: Promise<BudgetReference[]> = cellKey
+      ? listBudgetReferences({
+          cell_key: cellKey,
+          year: ctx?.budget_year,
+          budget_type: ctx?.budget_type,
+          limit: 200,
+        }).catch(() => [])
       : Promise.resolve([]);
 
     Promise.all([
@@ -148,8 +155,6 @@ export default function BudgetReferenceModal({
       setDemos(dm);
 
       if (existing.length > 0) {
-        // Re-hydrate the previous distribution. Match dealer back to its
-        // id using the saved label's account_number when possible.
         const seed: RefRow[] = existing.map((ex): RefRow => {
           const accountFromLabel = (ex.dealer_name || "").split("·")[1]?.trim() || null;
           const match = d.find(x =>
@@ -178,7 +183,7 @@ export default function BudgetReferenceModal({
       setLeadsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [open, ctx?.change_id]);
+  }, [open, ctx?.cell_key, ctx?.budget_year, ctx?.budget_type]);
 
   const options = useMemo<DealerOption[]>(() => {
     const ini = (currentSellerInitials || "").toUpperCase();
@@ -229,31 +234,31 @@ export default function BudgetReferenceModal({
   async function handleSave() {
     if (!ctx) { onClose(); return; }
     const filled = rows.filter(rowHasContent);
+    const cellTarget = {
+      cell_key: ctx.cell_key,
+      budget_year: ctx.budget_year,
+      budget_type: ctx.budget_type,
+    };
     if (filled.length === 0) {
-      // Saving empty on an existing group should still clear the previous
-      // distribution so the user can wipe it.
-      if (ctx.change_id) {
-        try { await deleteBudgetReferenceGroup(ctx.change_id); } catch { /* */ }
-        toast.message("Reference-fordeling ryddet");
-        onSaved?.();
-      } else {
-        toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
-      }
+      // Empty save = wipe every reference row for this cell so the user
+      // can clean up over-allocations.
+      try { await deleteBudgetReferencesForCell(cellTarget); } catch { /* */ }
+      toast.message("Reference-fordeling ryddet");
+      onSaved?.();
       onClose(); return;
     }
     const sum = filled.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
     if (totalAllowed > 0 && sum > totalAllowed) {
-      toast.error(`Du har fordelt ${sum} stk., men budgetændringen er kun ${totalAllowed} stk.`);
+      toast.error(`Du har fordelt ${sum} stk., men cellen har kun ${totalAllowed} stk.`);
       return;
     }
     setBusy(true);
     try {
-      // Replace strategy: if we have a stable change_id, clear the old group
-      // first so re-saving doesn't stack duplicates on top of the previous
-      // distribution.
-      if (ctx.change_id) {
-        await deleteBudgetReferenceGroup(ctx.change_id);
-      }
+      // Replace strategy keyed on the cell itself: clear ALL prior rows for
+      // (cell_key, year, type) — including legacy rows without a group_id —
+      // so re-saving never stacks duplicates and always matches what the
+      // modal showed.
+      await deleteBudgetReferencesForCell(cellTarget);
       for (const r of filled) {
         const opt = options.find((o) => o.value === r.dealerId) || null;
         const dealerLabel = opt
