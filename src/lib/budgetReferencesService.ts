@@ -73,7 +73,7 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
   writeLocal([row, ...readLocal()]);
   // Supabase insert (best-effort)
   try {
-    const { error } = await supabase.from("budget_references").insert({
+    const fullPayload = {
       id: row.id,
       created_at: row.created_at,
       cell_key: row.cell_key,
@@ -96,22 +96,18 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       created_by_email: row.created_by_email,
       created_by_name: row.created_by_name,
       delta_qty: row.delta_qty,
-    });
+      reference_group_id: row.reference_group_id,
+    };
+    const { error } = await supabase.from("budget_references").insert(fullPayload);
     if (error) {
-      // If the delta_qty column hasn't been added yet, retry without it so
-      // the insert still succeeds in environments where Phase 46 hasn't run.
+      // If a newer column hasn't been added yet (Phase 46 / Phase 47), retry
+      // without those fields so the insert still succeeds in older envs.
       const msg = (error.message || "").toLowerCase();
-      if (msg.includes("delta_qty")) {
-        const { error: retryErr } = await supabase.from("budget_references").insert({
-          id: row.id, created_at: row.created_at, cell_key: row.cell_key, budget_year: row.budget_year,
-          seller_initials: row.seller_initials, seller_email: row.seller_email,
-          product_code: row.product_code, model_name: row.model_name, category: row.category,
-          month: row.month, month_idx: row.month_idx, budget_type: row.budget_type,
-          old_value: row.old_value, new_value: row.new_value,
-          dealer_name: row.dealer_name, contact_name: row.contact_name,
-          lead_id: row.lead_id, demo_id: row.demo_id, note: row.note,
-          created_by_email: row.created_by_email, created_by_name: row.created_by_name,
-        });
+      const stripped: Record<string, unknown> = { ...fullPayload };
+      if (msg.includes("delta_qty")) delete stripped.delta_qty;
+      if (msg.includes("reference_group_id")) delete stripped.reference_group_id;
+      if (Object.keys(stripped).length !== Object.keys(fullPayload).length) {
+        const { error: retryErr } = await supabase.from("budget_references").insert(stripped);
         if (retryErr) notifyLocalFallback({ table: "budget_references", action: "insert", error: retryErr });
       } else {
         notifyLocalFallback({ table: "budget_references", action: "insert", error });
@@ -121,6 +117,27 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
     notifyLocalFallback({ table: "budget_references", action: "insert", error: err });
   }
   return row;
+}
+
+/** Delete every reference row that belongs to the given change group.
+ *  Used when the user re-opens a distribution and saves a new one — we
+ *  replace the previous group rather than stacking duplicates on top. */
+export async function deleteBudgetReferenceGroup(groupId: string): Promise<void> {
+  if (!groupId) return;
+  try {
+    const { error } = await supabase
+      .from("budget_references")
+      .delete()
+      .eq("reference_group_id", groupId);
+    if (error) notifyLocalFallback({ table: "budget_references", action: "delete-group", error });
+  } catch (err) {
+    notifyLocalFallback({ table: "budget_references", action: "delete-group", error: err });
+  }
+  // Local fallback mirror
+  try {
+    const remaining = readLocal().filter(r => r.reference_group_id !== groupId);
+    writeLocal(remaining);
+  } catch { /* */ }
 }
 
 export async function listBudgetReferences(opts: {
