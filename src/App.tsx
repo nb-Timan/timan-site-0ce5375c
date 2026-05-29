@@ -132,6 +132,12 @@ const App = () => (
               <Route path="/portal/resources" element={<ResourcesPage />} />
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
+              {/* Salg & Marketing > Diverse > Formularer */}
+              <Route path="/portal/misc" element={<MiscPage />} />
+              <Route path="/portal/misc/forms" element={<MiscFormsPage />} />
+              <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
+              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
+              <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
               <Route path="/portal/service/claims" element={<ClaimsPage />} />
               <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
               <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
