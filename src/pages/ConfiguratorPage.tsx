@@ -565,11 +565,18 @@ export default function ConfiguratorPage() {
         }
         setState(saved.state_json);
         setSavedConfigurationId(saved.id);
-        setOrderLocked(isSavedConfigurationOrderLocked(saved));
+        const lockedOnLoad = isSavedConfigurationOrderLocked(saved);
+        setOrderLocked(lockedOnLoad);
+        // If the saved row is a submitted order, force flowType='order' so
+        // every UI guard that keys on state.flowType lights up correctly,
+        // even if the persisted state_json still says 'quote' (legacy data
+        // or a quote that was later converted/submitted as an order).
+        if (lockedOnLoad) setFlowType('order');
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
         setIsSavedCurrent(true);
+
         if (saved.lead_id) setLinkedLeadId(saved.lead_id);
         // Restore dealer/seller picker from the saved row so "Forhandler" does
         // not reset to "Ingen valgt". Prefer the CRM-view row (joined with
