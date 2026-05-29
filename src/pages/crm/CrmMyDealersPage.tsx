@@ -92,6 +92,8 @@ export default function CrmMyDealersPage() {
   const [q, setQ] = useState("");
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
+  const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
+  const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
