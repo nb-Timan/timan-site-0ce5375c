@@ -57,6 +57,12 @@ import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
 import NotFound from "./pages/NotFound.tsx";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 
+import MiscPage from "./pages/misc/MiscPage";
+import MiscFormsPage from "./pages/misc/MiscFormsPage";
+import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
+import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
+import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
+
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useEffect } from "react";
 import { useAppUser } from "@/context/AppUserContext";
