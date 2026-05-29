@@ -2104,7 +2104,6 @@ export default function CrmBudgetPage() {
                             const workRows = sellerBreakdownFor(linesForAgg, i, "working");
                             const latestNewW = (latest?.new_value as Record<string, unknown> | null) || null;
                             const latestOldW = (latest?.old_value as Record<string, unknown> | null) || null;
-                            const auditChangeW = latestNewW && typeof latestNewW.change === "number" ? Math.abs(latestNewW.change as number) : 0;
                             const refOldW = latestOldW && typeof latestOldW.value === "number" ? (latestOldW.value as number) : w;
                             const refNewW = latestNewW && typeof latestNewW.value === "number" ? (latestNewW.value as number) : w;
                             const refCtx: BudgetReferenceContext = {
@@ -2120,7 +2119,7 @@ export default function CrmBudgetPage() {
                               actor_email: appUser?.email || null,
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
-                              delta_total: auditChangeW > 0 ? auditChangeW : w,
+                              delta_total: w,
                             };
                             const cellLeads = leadWorkingByMonth[i];
                             return (
