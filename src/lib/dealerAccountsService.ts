@@ -695,13 +695,23 @@ export async function fetchDealerAccountsForSeller(opts: {
 // Pending user count — for the notification bell
 // ============================================================
 
+let pendingUserCountRpcMissing = false;
+
 export async function fetchPendingUserCount(): Promise<number> {
   try {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) return 0;
-    // Try the SECURITY DEFINER RPC first (phase 11)
-    const rpc = await supabase.rpc("pending_user_count");
-    if (!rpc.error && typeof rpc.data === "number") return rpc.data;
+    // Try the SECURITY DEFINER RPC first (phase 11) — skip if previously missing
+    if (!pendingUserCountRpcMissing) {
+      const rpc = await supabase.rpc("pending_user_count");
+      if (!rpc.error && typeof rpc.data === "number") return rpc.data;
+      // PGRST202 = function not found in schema cache (404). Stop retrying.
+      const code = (rpc.error as { code?: string } | null)?.code;
+      if (code === "PGRST202" || code === "404") {
+        pendingUserCountRpcMissing = true;
+        console.warn("[dealerAccountsService] pending_user_count RPC missing — using fallback. Apply docs/sql/phase11_dealer_user_relationship.sql.");
+      }
+    }
     // Fallback: count via SELECT (requires RLS to allow it)
     const { count } = await supabase
       .from("app_users")
@@ -712,6 +722,7 @@ export async function fetchPendingUserCount(): Promise<number> {
     return 0;
   }
 }
+
 
 
 // ============================================================
