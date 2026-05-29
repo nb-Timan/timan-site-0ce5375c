@@ -609,9 +609,9 @@ export default function CrmDealerDetailPage() {
             {budgetTotals && !budgetTotals.noBudget && (
               <DealerBudgetHistory
                 year={budgetYear}
-                totals={budgetTotals}
                 scopeNumbers={scopeNumbers}
                 dealersInScope={dealers.filter((d) => scopeNumberSet.has(String(d.account_number)))}
+                wonOrdersInScope={wonOrdersInScope}
               />
             )}
           </>
