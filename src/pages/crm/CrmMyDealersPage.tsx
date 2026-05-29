@@ -122,6 +122,7 @@ export default function CrmMyDealersPage() {
         const initials = getEffectiveSellerInitials(appUser);
         const effEmail = getEffectiveSellerEmail(appUser);
 
+        let loadedDealers: DealerAccount[] = [];
         if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
@@ -130,7 +131,8 @@ export default function CrmMyDealersPage() {
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          setDealers(dRes.rows);
+          loadedDealers = dRes.rows;
+          setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
           setStatsMap(map);
@@ -143,17 +145,38 @@ export default function CrmMyDealersPage() {
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          setDealers(scopeRes.dealers);
+          loadedDealers = scopeRes.dealers;
+          setDealers(loadedDealers);
           setStatsMap(scopeRes.stats);
           setAllUsers(uRes.users);
           setError(scopeRes.error ?? null);
+        }
+
+        // Build dealer-budget index (YTD budget + realised) — uses the same
+        // crm_budget_dealer_lines + scoped orders source as Budget Dashboard.
+        try {
+          const sellerId = await resolveSellerId(effEmail);
+          const idx = await buildDealerBudgetIndex({
+            year: budgetYear,
+            dealers: loadedDealers,
+            filter: {
+              role: portalRole,
+              sellerId,
+              sellerInitials: initials,
+              sellerEmail: effEmail,
+              dealerNumber: appUser?.dealer_number ?? null,
+            },
+          });
+          if (!cancelled) setBudgetIndex(idx);
+        } catch (e) {
+          console.warn("[CrmMyDealersPage] budget index failed:", e);
         }
       } finally {
         if (!cancelled) setLoadingRows(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, admin, activeMode, activeSellerView]);
+  }, [appUser, admin, activeMode, activeSellerView, budgetYear, portalRole]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
