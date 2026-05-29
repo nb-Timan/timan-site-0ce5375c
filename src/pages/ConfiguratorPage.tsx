@@ -565,11 +565,18 @@ export default function ConfiguratorPage() {
         }
         setState(saved.state_json);
         setSavedConfigurationId(saved.id);
-        setOrderLocked(isSavedConfigurationOrderLocked(saved));
+        const lockedOnLoad = isSavedConfigurationOrderLocked(saved);
+        setOrderLocked(lockedOnLoad);
+        // If the saved row is a submitted order, force flowType='order' so
+        // every UI guard that keys on state.flowType lights up correctly,
+        // even if the persisted state_json still says 'quote' (legacy data
+        // or a quote that was later converted/submitted as an order).
+        if (lockedOnLoad) setFlowType('order');
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
         setIsSavedCurrent(true);
+
         if (saved.lead_id) setLinkedLeadId(saved.lead_id);
         // Restore dealer/seller picker from the saved row so "Forhandler" does
         // not reset to "Ingen valgt". Prefer the CRM-view row (joined with
@@ -1026,10 +1033,17 @@ export default function ConfiguratorPage() {
 
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
+
+    // Hard guard: a submitted order can never reopen the send confirmation.
+    if (orderLocked) {
+      toast.error(T('orderCannotResendTitle'));
+      return;
+    }
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
     }
+
 
     // NOTE: No auto-save here. Saving only happens on:
     // 1) Download PDF (quote), 2) Afsend ordre til Timan (order), 3) "+ Gem nuværende" in My account.
@@ -1806,10 +1820,27 @@ export default function ConfiguratorPage() {
                 {lang === 'da' ? 'Gå til portal forsiden' : 'Go to portal home'}
               </button>
               <button
-                onClick={() => setSuccessModal(null)}
+                onClick={() => {
+                  const wasOrder = successModal?.flowType === 'order';
+                  setSuccessModal(null);
+                  if (wasOrder) {
+                    // Submitted orders are immutable. Drop all in-memory
+                    // case state so the user starts a fresh configuration
+                    // instead of editing the just-sent order in place.
+                    resetState();
+                    setIsSavedCurrent(false);
+                    setSavedConfigurationId(null);
+                    setSavedQuoteNumber(null);
+                    setSavedOrderNumber(null);
+                    setSavedSourceQuoteNumber(null);
+                    setLinkedLeadId(null);
+                    setOrderLocked(false);
+                  }
+                }}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow">
                 {lang === 'da' ? 'Tilbage til konfigurator' : 'Back to configurator'}
               </button>
+
             </div>
           </div>
         </div>
