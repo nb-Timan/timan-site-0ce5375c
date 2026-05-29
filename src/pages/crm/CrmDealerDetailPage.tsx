@@ -543,7 +543,7 @@ export default function CrmDealerDetailPage() {
         const scopeLeads = allLeads.filter((l) =>
           (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
         );
-        const openLeads = scopeLeads.filter((l) => (l.pipeline_stage || "") !== "won" && (l.pipeline_stage || "") !== "lost");
+        const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
         const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
         // Budget totals for this dealer scope (group toggle respected).
         const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
