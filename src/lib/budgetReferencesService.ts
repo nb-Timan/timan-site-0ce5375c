@@ -28,6 +28,10 @@ export interface BudgetReference {
   old_value: number | null;
   new_value: number | null;
   dealer_name: string | null;
+  /** Forhandlerkontonummer (DealerAccount.account_number). Primær kobling til
+   *  forhandler. NULL på gamle rækker fra før Phase 48 — fallback via
+   *  dealer_name håndteres af UI'et. */
+  dealer_account_number: string | null;
   contact_name: string | null;
   lead_id: string | null;
   demo_id: string | null;
