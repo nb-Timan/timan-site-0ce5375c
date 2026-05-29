@@ -47,6 +47,13 @@ import {
   getEffectiveSellerEmail,
   getEffectiveSellerInitials,
 } from "@/lib/activeMode";
+import { resolveSellerId } from "@/lib/resolveSellerId";
+import {
+  buildDealerBudgetIndex,
+  aggregateDealerBudget,
+  classifyBudgetStatus,
+  type DealerBudgetIndex,
+} from "@/lib/crmDealerBudget";
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
@@ -62,6 +69,8 @@ const T: Record<string, Record<Language, string>> = {
   c_quotes:     { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Ajánlat" },
   c_orders:     { da: "Ordrer", en: "Orders", de: "Orders", it: "Ordini", hu: "Rendelés" },
   c_last:       { da: "Sidste aktivitet", en: "Last activity", de: "Letzte Aktivität", it: "Ultima attività", hu: "Utolsó akt." },
+  c_budget_ytd: { da: "Budget YTD", en: "Budget YTD", de: "Budget YTD", it: "Budget YTD", hu: "Budget YTD" },
+  c_budget_status: { da: "Budget status", en: "Budget status", de: "Budget-Status", it: "Stato budget", hu: "Költségvetés-állapot" },
   scope_note:   { da: "Du ser kun forhandlere tildelt dig.", en: "You only see dealers assigned to you.", de: "Nur Ihre zugewiesenen Händler.", it: "Solo i tuoi rivenditori.", hu: "Csak a hozzád rendelt kereskedők." },
   view_as:      { da: "Vises som", en: "Viewing as", de: "Ansicht als", it: "Vista come", hu: "Nézet" },
 };
@@ -83,6 +92,8 @@ export default function CrmMyDealersPage() {
   const [q, setQ] = useState("");
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
+  const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
+  const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
@@ -111,6 +122,7 @@ export default function CrmMyDealersPage() {
         const initials = getEffectiveSellerInitials(appUser);
         const effEmail = getEffectiveSellerEmail(appUser);
 
+        let loadedDealers: DealerAccount[] = [];
         if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
@@ -119,7 +131,8 @@ export default function CrmMyDealersPage() {
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          setDealers(dRes.rows);
+          loadedDealers = dRes.rows;
+          setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
           setStatsMap(map);
@@ -132,17 +145,38 @@ export default function CrmMyDealersPage() {
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          setDealers(scopeRes.dealers);
+          loadedDealers = scopeRes.dealers;
+          setDealers(loadedDealers);
           setStatsMap(scopeRes.stats);
           setAllUsers(uRes.users);
           setError(scopeRes.error ?? null);
+        }
+
+        // Build dealer-budget index (YTD budget + realised) — uses the same
+        // crm_budget_dealer_lines + scoped orders source as Budget Dashboard.
+        try {
+          const sellerId = await resolveSellerId(effEmail);
+          const idx = await buildDealerBudgetIndex({
+            year: budgetYear,
+            dealers: loadedDealers,
+            filter: {
+              role: portalRole,
+              sellerId,
+              sellerInitials: initials,
+              sellerEmail: effEmail,
+              dealerNumber: appUser?.dealer_number ?? null,
+            },
+          });
+          if (!cancelled) setBudgetIndex(idx);
+        } catch (e) {
+          console.warn("[CrmMyDealersPage] budget index failed:", e);
         }
       } finally {
         if (!cancelled) setLoadingRows(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, admin, activeMode, activeSellerView]);
+  }, [appUser, admin, activeMode, activeSellerView, budgetYear, portalRole]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -222,15 +256,17 @@ export default function CrmMyDealersPage() {
               <Th>{T.c_users[lang]}</Th>
               <Th>{T.c_quotes[lang]}</Th>
               <Th>{T.c_orders[lang]}</Th>
+              <Th>{T.c_budget_ytd[lang]}</Th>
+              <Th>{T.c_budget_status[lang]}</Th>
               <Th>{T.c_last[lang]}</Th>
             </tr>
           </thead>
           <tbody>
             {loadingRows && (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
+              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
+              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
               const hasBranches = g.branches.length > 0;
@@ -255,6 +291,10 @@ export default function CrmMyDealersPage() {
                     dealersByAcct,
                     usersExpanded,
                     setUsersExpanded,
+                    budgetIndex,
+                    budgetAccountNumbers: hasBranches
+                      ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
+                      : [g.main.account_number],
                     onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
@@ -263,6 +303,8 @@ export default function CrmMyDealersPage() {
                         r: b, depth: 1, isMain: false, branchCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
+                        budgetIndex,
+                        budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
@@ -294,6 +336,8 @@ interface RowProps {
   dealersByAcct: Map<string, DealerAccount>;
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  budgetIndex: DealerBudgetIndex | null;
+  budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
 }
 
@@ -379,6 +423,8 @@ function renderRow(p: RowProps) {
             <span className="ml-1 text-[10px] text-slate-500">(Σ {p.agg.order_count})</span>
           )}
         </Td>
+        <BudgetYtdCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
+        <BudgetStatusCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
         <Td className="text-slate-500 text-xs whitespace-nowrap">
           {fmtDate(p.agg?.last_activity_at ?? own.last)}
           {eff.inherited && eff.initials && (
@@ -388,7 +434,7 @@ function renderRow(p: RowProps) {
       </tr>
       {usersOpen && linkedUsers.length > 0 && (
         <tr className="bg-slate-50/60">
-          <td colSpan={9} className="px-6 py-3">
+          <td colSpan={11} className="px-6 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
               {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} — {p.r.branch_name || p.r.company_name}
             </p>
@@ -420,4 +466,53 @@ function Th({ children }: { children?: React.ReactNode }) {
 }
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-3 py-3 align-middle ${className}`}>{children}</td>;
+}
+
+function BudgetYtdCell({
+  budgetIndex,
+  accountNumbers,
+}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[] }) {
+  if (!budgetIndex) {
+    return <Td className="text-slate-400 text-xs">…</Td>;
+  }
+  const t = aggregateDealerBudget(budgetIndex, accountNumbers);
+  if (t.noBudget) {
+    return <Td className="text-slate-400 text-xs whitespace-nowrap">Intet budget</Td>;
+  }
+  return (
+    <Td className="text-slate-800 text-sm whitespace-nowrap font-semibold">
+      {Math.round(t.ytdRealisedQty)} / {Math.round(t.ytdBudgetQty)} stk.
+    </Td>
+  );
+}
+
+function BudgetStatusCell({
+  budgetIndex,
+  accountNumbers,
+}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[] }) {
+  if (!budgetIndex) return <Td><span className="text-slate-300 text-xs">…</span></Td>;
+  const t = aggregateDealerBudget(budgetIndex, accountNumbers);
+  const { status, pct } = classifyBudgetStatus(t);
+  if (status === "none") {
+    return <Td><span className="text-slate-400 text-xs">—</span></Td>;
+  }
+  const barColor =
+    status === "green" ? "bg-emerald-500" :
+    status === "yellow" ? "bg-amber-500" :
+    "bg-rose-500";
+  const textColor =
+    status === "green" ? "text-emerald-700" :
+    status === "yellow" ? "text-amber-700" :
+    "text-rose-700";
+  const widthPct = Math.min(100, Math.max(0, pct));
+  return (
+    <Td>
+      <div className="flex items-center gap-2 min-w-[120px]">
+        <div className="h-2 flex-1 rounded-full bg-slate-200 overflow-hidden">
+          <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+        </div>
+        <span className={`text-xs font-bold tabular-nums ${textColor}`}>{pct}%</span>
+      </div>
+    </Td>
+  );
 }

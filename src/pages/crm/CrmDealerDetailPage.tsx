@@ -57,6 +57,17 @@ import {
   type ScopedConfiguration,
 } from "@/lib/crmRelationsService";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import {
+  listLeads, listDemoLeads, formatLeadNo, formatDemoNo,
+  type CrmLead, type CrmDemoLead,
+} from "@/lib/crmLeadsService";
+import {
+  buildDealerBudgetIndex,
+  aggregateDealerBudget,
+  classifyBudgetStatus,
+  type DealerBudgetIndex,
+} from "@/lib/crmDealerBudget";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
@@ -134,6 +145,10 @@ export default function CrmDealerDetailPage() {
   // and only counts via created_by_user_id (misses backend/seller-created ones).
   const [dealerQuotes, setDealerQuotes] = useState<ScopedConfiguration[]>([]);
   const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
+  const [allLeads, setAllLeads] = useState<CrmLead[]>([]);
+  const [allDemos, setAllDemos] = useState<CrmDemoLead[]>([]);
+  const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
+  const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
@@ -187,13 +202,28 @@ export default function CrmDealerDetailPage() {
           sellerEmail,
           dealerNumber: appUser?.dealer_number ?? null,
         } as const;
-        const [qRes, oRes] = await Promise.all([
+        const [qRes, oRes, leadsRes, demosRes] = await Promise.all([
           listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
+          listLeads({ limit: 500 }),
+          listDemoLeads({ limit: 500 }),
         ]);
         if (!cancelled) {
           setDealerQuotes(qRes.rows);
           setDealerOrders(oRes.rows);
+          setAllLeads(leadsRes);
+          setAllDemos(demosRes);
+        }
+        // Dealer budget index (year-scoped) using same data as Budget Dashboard.
+        try {
+          const idx = await buildDealerBudgetIndex({
+            year: budgetYear,
+            dealers: dRes.rows,
+            filter: filterBase,
+          });
+          if (!cancelled) setBudgetIndex(idx);
+        } catch (e) {
+          console.warn('[CrmDealerDetailPage] budget index failed:', e);
         }
       } catch (e) {
         console.warn('[CrmDealerDetailPage] failed to fetch CRM configurations:', e);
@@ -201,7 +231,7 @@ export default function CrmDealerDetailPage() {
       setBusy(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, accountNumber, portalRole]);
+  }, [appUser, accountNumber, portalRole, budgetYear, seller]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
@@ -502,17 +532,82 @@ export default function CrmDealerDetailPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-        <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
-        <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
-        <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_leads")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={liveQuoteCount} />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={liveOrderCount} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={liveWonCount} />
-      </div>
+      {(() => {
+        // Filter leads + demos to this dealer (scope-aware).
+        const dealerIdSet = new Set(scopeNumbers
+          .map((n) => dealers.find((d) => d.account_number === n)?.id)
+          .filter((x): x is string => !!x));
+        const dealerNameSet = new Set(scopeNumbers
+          .map((n) => (dealers.find((d) => d.account_number === n)?.company_name || "").toLowerCase().trim())
+          .filter(Boolean));
+        const scopeLeads = allLeads.filter((l) =>
+          (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
+        );
+        const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
+        const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
+        // Budget totals for this dealer scope (group toggle respected).
+        const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
+        return (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
+              <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
+              <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
+              <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
+              <KpiPopover
+                icon={<TrendingUp className="h-4 w-4" />}
+                label={t("kpi_leads")}
+                value={openLeads.length}
+                items={openLeads.map((l) => ({
+                  id: l.id,
+                  title: `${l.lead_no ? formatLeadNo(l.lead_no) + " · " : ""}${l.title}`,
+                  subtitle: l.pipeline_stage || "—",
+                  href: `/portal/crm/leads/${l.id}`,
+                }))}
+                emptyLabel="Ingen åbne leads"
+              />
+              <KpiPopover
+                icon={<FileText className="h-4 w-4" />}
+                label={t("kpi_quotes")}
+                value={liveQuoteCount}
+                items={dealerQuotesInScope.map((q) => ({
+                  id: q.id,
+                  title: q.title || q.quote_number || q.id,
+                  subtitle: fmtDate(quoteMonthIso(q)),
+                  href: `/portal/crm/quotes`,
+                }))}
+                emptyLabel="Ingen tilbud"
+              />
+              <KpiPopover
+                icon={<FileText className="h-4 w-4" />}
+                label={t("kpi_orders")}
+                value={liveOrderCount}
+                items={dealerOrdersInScope.map((o) => ({
+                  id: o.id,
+                  title: o.title || o.order_number || o.id,
+                  subtitle: fmtDate(o.closed_at),
+                  href: `/portal/crm/orders`,
+                }))}
+                emptyLabel="Ingen ordrer"
+              />
+              <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
+              <KpiPopover
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                label="Demoer"
+                value={scopeDemos.length}
+                items={scopeDemos.map((d) => ({
+                  id: d.id,
+                  title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`,
+                  subtitle: fmtDate(d.demo_date),
+                  href: `/portal/crm/demo-leads/${d.id}`,
+                }))}
+                emptyLabel="Ingen demoer"
+              />
+            </div>
+            {budgetTotals && <DealerBudgetCard totals={budgetTotals} year={budgetYear} />}
+          </>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Master + contact */}
@@ -646,6 +741,92 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
       </div>
       <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
       {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
+    </div>
+  );
+}
+
+interface KpiItem { id: string; title: string; subtitle?: string; href?: string }
+function KpiPopover({ icon, label, value, items, emptyLabel }: {
+  icon: React.ReactNode; label: string; value: React.ReactNode;
+  items: KpiItem[]; emptyLabel: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="text-left bg-white border border-slate-200 rounded-xl p-3 hover:bg-emerald-50/40 cursor-pointer">
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+            {icon}{label}
+          </div>
+          <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="px-3 py-2 border-b text-[11px] uppercase font-bold tracking-wide text-slate-500">{label}</div>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-sm text-slate-500">{emptyLabel}</div>
+        ) : (
+          <ul className="max-h-80 overflow-auto divide-y">
+            {items.map((it) => {
+              const content = (
+                <div className="px-3 py-2 hover:bg-slate-50">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{it.title}</div>
+                  {it.subtitle && <div className="text-xs text-slate-500">{it.subtitle}</div>}
+                </div>
+              );
+              return (
+                <li key={it.id}>
+                  {it.href ? <Link to={it.href}>{content}</Link> : content}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
+  const { status, pct } = classifyBudgetStatus(totals);
+  const expected = totals.ytdRealisedQty + totals.pipelineQty;
+  const missingYtd = Math.max(0, totals.ytdBudgetQty - totals.ytdRealisedQty);
+  const missingExpected = Math.max(0, totals.yearBudgetQty - expected);
+  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
+  const widthPct = Math.min(100, Math.max(0, pct));
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Budget {year}</h3>
+        {!totals.noBudget && <span className="text-xs font-bold text-slate-700">{pct}%</span>}
+      </div>
+      {totals.noBudget ? (
+        <p className="text-sm text-slate-500">Intet budget registreret for {year}.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <Metric label="Årsbudget" value={`${Math.round(totals.yearBudgetQty)} stk.`} />
+            <Metric label="Budget YTD" value={`${Math.round(totals.ytdBudgetQty)} stk.`} />
+            <Metric label="Realiseret YTD" value={`${Math.round(totals.ytdRealisedQty)} stk.`} />
+            <Metric label="Pipeline" value={`${Math.round(totals.pipelineQty)} stk.`} />
+            <Metric label="Forventet" value={`${Math.round(expected)} stk.`} />
+            <Metric label="Mangler YTD" value={`${missingYtd} stk.`} />
+            <Metric label="Mangler forventet" value={`${missingExpected} stk.`} />
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400">{label}</div>
+      <div className="text-slate-900 font-semibold">{value}</div>
     </div>
   );
 }
