@@ -279,6 +279,7 @@ export default function BudgetReferenceModal({
           old_value: ctx.old_value,
           new_value: ctx.new_value,
           dealer_name: dealerLabel,
+          dealer_account_number: opt?.account_number || null,
           contact_name: r.contact.trim() || null,
           lead_id: r.leadId.trim() || null,
           demo_id: r.demoId.trim() || null,
