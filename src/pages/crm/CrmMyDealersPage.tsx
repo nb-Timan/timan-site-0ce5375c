@@ -47,6 +47,13 @@ import {
   getEffectiveSellerEmail,
   getEffectiveSellerInitials,
 } from "@/lib/activeMode";
+import { resolveSellerId } from "@/lib/resolveSellerId";
+import {
+  buildDealerBudgetIndex,
+  aggregateDealerBudget,
+  classifyBudgetStatus,
+  type DealerBudgetIndex,
+} from "@/lib/crmDealerBudget";
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
@@ -62,6 +69,8 @@ const T: Record<string, Record<Language, string>> = {
   c_quotes:     { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Ajánlat" },
   c_orders:     { da: "Ordrer", en: "Orders", de: "Orders", it: "Ordini", hu: "Rendelés" },
   c_last:       { da: "Sidste aktivitet", en: "Last activity", de: "Letzte Aktivität", it: "Ultima attività", hu: "Utolsó akt." },
+  c_budget_ytd: { da: "Budget YTD", en: "Budget YTD", de: "Budget YTD", it: "Budget YTD", hu: "Budget YTD" },
+  c_budget_status: { da: "Budget status", en: "Budget status", de: "Budget-Status", it: "Stato budget", hu: "Költségvetés-állapot" },
   scope_note:   { da: "Du ser kun forhandlere tildelt dig.", en: "You only see dealers assigned to you.", de: "Nur Ihre zugewiesenen Händler.", it: "Solo i tuoi rivenditori.", hu: "Csak a hozzád rendelt kereskedők." },
   view_as:      { da: "Vises som", en: "Viewing as", de: "Ansicht als", it: "Vista come", hu: "Nézet" },
 };
