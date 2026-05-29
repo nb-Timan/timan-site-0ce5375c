@@ -923,7 +923,8 @@ export default function ConfiguratorPage() {
           <span class="font-medium">${T('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
           <span class="font-medium">${T('confirmPhone')}</span><span>${state.telefon || '-'}</span>
           <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
-          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${state.emailRecipient || '-'}</span>
+          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+
           ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
