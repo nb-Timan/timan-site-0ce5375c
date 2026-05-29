@@ -16,8 +16,8 @@
 --   - Dealer / importer / service partner / dealer_user:
 --       may only insert with dealer_account_number = own au.dealer_number.
 --   - Timan Sælger:
---       may insert for dealers they own (app_users.account_owner_user_id)
---       or with dealer_account_number = null.
+--       seller-specific dealer scope is intentionally NOT added here because
+--       the live schema does not expose a reliable SQL relation on app_users.
 --   - Timan Backend / Timan Service:
 --       may insert for any dealer (incl. null).
 --   - All inserts must be tagged with the caller's own app_users.id / email.
@@ -26,7 +26,7 @@
 -- SELECT
 --   - Submitter sees their own.
 --   - Dealer-side users see all rows tagged with their own dealer_number.
---   - Timan Sælger sees rows for dealers they own.
+--   - Timan Sælger has no extra seller-scope SELECT policy in this migration.
 --   - Timan Backend / Timan Service see all.
 --   - service_role: full access (for edge functions / admin code).
 
@@ -113,20 +113,6 @@ with check (
          au.portal_role in ('timan_backend','timan_service')
          or au.role = 'timan_backend'
 
-         -- Timan Sælger: own dealers, or no dealer linkage.
-         or (
-           (au.portal_role = 'timan_seller' or au.role = 'timan_saelger')
-           and (
-             portal_form_submissions.dealer_account_number is null
-             or exists (
-               select 1
-                 from public.app_users dealer
-                where dealer.account_owner_user_id = au.id
-                  and dealer.dealer_number = portal_form_submissions.dealer_account_number
-             )
-           )
-         )
-
          -- Dealer-side users: dealer_account_number must equal own dealer.
          or (
            (
@@ -158,28 +144,11 @@ using (
   )
 );
 
--- 4c) SELECT: Timan Sælger sees submissions from dealers they own
---     (reuses app_users.account_owner_user_id from phase 3).
+-- 4c) SELECT: no Timan Sælger seller-scope policy in this migration.
+--     Existing code has used more than one possible seller relation
+--     (dealer_accounts.assigned_seller_* and older account-owner fields),
+--     so this is intentionally omitted until the live schema is confirmed.
 drop policy if exists "portal_form_submissions read seller scope" on public.portal_form_submissions;
-create policy "portal_form_submissions read seller scope"
-on public.portal_form_submissions
-for select
-to authenticated
-using (
-  exists (
-    select 1
-      from public.app_users me
-      join public.app_users dealer
-        on dealer.account_owner_user_id = me.id
-     where me.auth_user_id = auth.uid()
-       and (me.portal_role = 'timan_seller' or me.role = 'timan_saelger')
-       and (
-         (portal_form_submissions.dealer_account_number is not null
-            and dealer.dealer_number = portal_form_submissions.dealer_account_number)
-         or dealer.id = portal_form_submissions.submitted_by_user_id
-       )
-  )
-);
 
 -- 4d) SELECT: the submitter sees their own submissions.
 drop policy if exists "portal_form_submissions read own" on public.portal_form_submissions;
