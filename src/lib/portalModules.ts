@@ -101,7 +101,7 @@ export const PORTAL_MODULES: PortalModule[] = [
     cta: { da: 'Se mere', en: 'See more', de: 'Mehr ansehen', it: 'Scopri di più', hu: 'További információ' },
     icon: Sparkles,
     href: '/portal/misc',
-    enabled: false,
+    enabled: true,
     accent: 'slate',
   },
   {
