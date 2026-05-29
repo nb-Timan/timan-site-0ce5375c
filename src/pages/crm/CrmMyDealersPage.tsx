@@ -336,6 +336,8 @@ interface RowProps {
   dealersByAcct: Map<string, DealerAccount>;
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
+  budgetIndex: DealerBudgetIndex | null;
+  budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
 }
 
