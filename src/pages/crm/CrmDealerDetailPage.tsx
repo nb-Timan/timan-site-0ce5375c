@@ -67,6 +67,7 @@ import {
   classifyBudgetStatus,
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
+import DealerBudgetHistory from "@/components/crm/DealerBudgetHistory";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
@@ -605,6 +606,14 @@ export default function CrmDealerDetailPage() {
               />
             </div>
             {budgetTotals && <DealerBudgetCard totals={budgetTotals} year={budgetYear} />}
+            {budgetTotals && !budgetTotals.noBudget && (
+              <DealerBudgetHistory
+                year={budgetYear}
+                totals={budgetTotals}
+                scopeNumbers={scopeNumbers}
+                dealersInScope={dealers.filter((d) => scopeNumberSet.has(String(d.account_number)))}
+              />
+            )}
           </>
         );
       })()}
