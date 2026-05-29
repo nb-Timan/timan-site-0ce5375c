@@ -12,13 +12,23 @@
 -- via a typed `form_type` + a flexible `payload jsonb`.
 --
 -- ACCESS MODEL
--- - Dealers / importers / service partners / dealer users: may INSERT their
---   own submissions and SELECT only their own submissions.
--- - Timan Sælger: may SELECT submissions belonging to dealers they own
---   (via app_users.account_owner_user_id), reusing the existing CRM
---   scoping logic from phase3_crm_account_owner.sql.
--- - Timan Backend / Timan Service: may SELECT all submissions.
--- - service_role: full access (for edge functions / admin code).
+-- INSERT
+--   - Dealer / importer / service partner / dealer_user:
+--       may only insert with dealer_account_number = own au.dealer_number.
+--   - Timan Sælger:
+--       may insert for dealers they own (app_users.account_owner_user_id)
+--       or with dealer_account_number = null.
+--   - Timan Backend / Timan Service:
+--       may insert for any dealer (incl. null).
+--   - All inserts must be tagged with the caller's own app_users.id / email.
+--   - dealer_account_number = null is only allowed for form types that do
+--     not require dealer linkage (currently: budget_feedback).
+-- SELECT
+--   - Submitter sees their own.
+--   - Dealer-side users see all rows tagged with their own dealer_number.
+--   - Timan Sælger sees rows for dealers they own.
+--   - Timan Backend / Timan Service see all.
+--   - service_role: full access (for edge functions / admin code).
 
 -- 1) form_type enum ----------------------------------------------------------
 do $$
@@ -31,6 +41,9 @@ begin
     );
   end if;
 end$$;
+
+grant usage on type public.portal_form_type to authenticated;
+grant usage on type public.portal_form_type to service_role;
 
 -- 2) Table -------------------------------------------------------------------
 create table if not exists public.portal_form_submissions (
@@ -66,22 +79,63 @@ grant all on public.portal_form_submissions to service_role;
 -- 4) Row-Level Security ------------------------------------------------------
 alter table public.portal_form_submissions enable row level security;
 
--- 4a) INSERT: any authenticated user may submit their own form.
---     The row must be tagged with their own app_users.id OR their email,
---     so dealers cannot impersonate other dealers/sellers.
+-- 4a) INSERT — strict authorship + dealer-scope + form-type rules.
 drop policy if exists "portal_form_submissions insert own" on public.portal_form_submissions;
-create policy "portal_form_submissions insert own"
+drop policy if exists "portal_form_submissions insert scoped" on public.portal_form_submissions;
+create policy "portal_form_submissions insert scoped"
 on public.portal_form_submissions
 for insert
 to authenticated
 with check (
-  exists (
+  -- (1) Form-type dealer requirement.
+  --     Forms that require a dealer linkage must have a non-null
+  --     dealer_account_number. Extend this list when adding new
+  --     dealer-bound form types to the enum.
+  (
+    portal_form_submissions.dealer_account_number is not null
+    or portal_form_submissions.form_type not in (
+      'dealer_invoice_accept',
+      'company_contact_info'
+    )
+  )
+  -- (2) Authorship + role-based dealer scope.
+  and exists (
     select 1
       from public.app_users au
      where au.user_id = auth.uid()
+       -- Caller must tag the row with their own identity.
        and (
          au.id = portal_form_submissions.submitted_by_user_id
          or lower(au.email) = lower(coalesce(portal_form_submissions.submitted_by_email, ''))
+       )
+       and (
+         -- Timan Backend / Timan Service: may insert for any dealer.
+         au.portal_role in ('timan_backend','timan_service')
+         or au.role = 'timan_backend'
+
+         -- Timan Sælger: own dealers, or no dealer linkage.
+         or (
+           (au.portal_role = 'timan_seller' or au.role = 'timan_saelger')
+           and (
+             portal_form_submissions.dealer_account_number is null
+             or exists (
+               select 1
+                 from public.app_users dealer
+                where dealer.account_owner_user_id = au.id
+                  and dealer.dealer_number = portal_form_submissions.dealer_account_number
+             )
+           )
+         )
+
+         -- Dealer-side users: dealer_account_number must equal own dealer.
+         or (
+           (
+             au.portal_role in ('timan_dealer','timan_importer','timan_service_partner','dealer_user')
+             or au.role = 'partner'
+           )
+           and au.dealer_number is not null
+           and portal_form_submissions.dealer_account_number = au.dealer_number
+         )
        )
   )
 );
@@ -127,7 +181,7 @@ using (
   )
 );
 
--- 4d) SELECT: the submitter sees their own submissions (dealers + everyone else).
+-- 4d) SELECT: the submitter sees their own submissions.
 drop policy if exists "portal_form_submissions read own" on public.portal_form_submissions;
 create policy "portal_form_submissions read own"
 on public.portal_form_submissions
@@ -147,8 +201,6 @@ using (
 
 -- 4e) SELECT: dealer-side users (forhandler / importør / service partner /
 --     dealer_user) see submissions tagged with their own dealer account number.
---     This covers the case where multiple users at the same dealer must see
---     each other's submissions.
 drop policy if exists "portal_form_submissions read same dealer" on public.portal_form_submissions;
 create policy "portal_form_submissions read same dealer"
 on public.portal_form_submissions
@@ -171,5 +223,6 @@ using (
 -- Notes
 -- * No DELETE / UPDATE policies — submissions are append-only from the portal.
 --   Backend corrections go through service_role.
--- * Future form types: extend the portal_form_type enum and add a new
---   payload shape on the frontend; no schema change required here.
+-- * Future form types: extend the portal_form_type enum and (if the form
+--   requires a dealer) add the value to the form-type dealer requirement
+--   list in policy 4a.
