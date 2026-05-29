@@ -794,14 +794,12 @@ function KpiPopover({ icon, label, value, items, emptyLabel }: {
 }
 
 function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
-  const { status, pct } = classifyBudgetStatus(totals);
+  const { pct } = classifyBudgetStatus(totals);
   const expected = totals.ytdRealisedQty + totals.pipelineQty;
   const missingYtd = Math.max(0, totals.ytdBudgetQty - totals.ytdRealisedQty);
   const missingExpected = Math.max(0, totals.yearBudgetQty - expected);
-  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
-  const widthPct = Math.min(100, Math.max(0, pct));
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Budget {year}</h3>
         {!totals.noBudget && <span className="text-xs font-bold text-slate-700">{pct}%</span>}
@@ -810,7 +808,7 @@ function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregat
         <p className="text-sm text-slate-500">Intet budget registreret for {year}.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-sm">
             <Metric label="Årsbudget" value={`${Math.round(totals.yearBudgetQty)} stk.`} />
             <Metric label="Budget YTD" value={`${Math.round(totals.ytdBudgetQty)} stk.`} />
             <Metric label="Realiseret YTD" value={`${Math.round(totals.ytdRealisedQty)} stk.`} />
@@ -819,22 +817,89 @@ function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregat
             <Metric label="Mangler YTD" value={`${missingYtd} stk.`} />
             <Metric label="Mangler forventet" value={`${missingExpected} stk.`} />
           </div>
-          <div className="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
-            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
+          <p className="mt-2 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
         </>
       )}
     </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function HeaderBudgetMini({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
+  const { status, pct } = classifyBudgetStatus(totals);
+  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
+  const widthPct = Math.min(100, Math.max(0, pct));
   return (
-    <div>
-      <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400">{label}</div>
-      <div className="text-slate-900 font-semibold">{value}</div>
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 min-w-[200px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {year}</span>
+        {!totals.noBudget && <span className="text-[11px] font-bold text-slate-700">{pct}%</span>}
+      </div>
+      {totals.noBudget ? (
+        <div className="text-xs text-slate-500 mt-0.5">Intet budget</div>
+      ) : (
+        <>
+          <div className="text-sm font-bold text-slate-900 mt-0.5">
+            {Math.round(totals.ytdRealisedQty)} / {Math.round(totals.ytdBudgetQty)} stk.
+          </div>
+          <div className="mt-1.5 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function Divider() {
+  return <span className="h-4 w-px bg-slate-200 hidden sm:inline-block" aria-hidden />;
+}
+
+function CompactKpi({ icon, label, value }: { icon?: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {icon && <span className="text-slate-400">{icon}</span>}
+      <span className="text-slate-500">{label}:</span>
+      <span className="font-bold text-slate-900">{value}</span>
+    </span>
+  );
+}
+
+function CompactKpiPopover({ icon, label, value, items, emptyLabel }: {
+  icon?: React.ReactNode; label: string; value: React.ReactNode;
+  items: KpiItem[]; emptyLabel: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-emerald-50/60 transition">
+          {icon && <span className="text-slate-400">{icon}</span>}
+          <span className="text-slate-500">{label}:</span>
+          <span className="font-bold text-slate-900">{value}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="px-3 py-2 border-b text-[11px] uppercase font-bold tracking-wide text-slate-500">{label}</div>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-sm text-slate-500">{emptyLabel}</div>
+        ) : (
+          <ul className="max-h-80 overflow-auto divide-y">
+            {items.map((it) => {
+              const content = (
+                <div className="px-3 py-2 hover:bg-slate-50">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{it.title}</div>
+                  {it.subtitle && <div className="text-xs text-slate-500">{it.subtitle}</div>}
+                </div>
+              );
+              return (
+                <li key={it.id}>
+                  {it.href ? <Link to={it.href}>{content}</Link> : content}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
