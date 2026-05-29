@@ -36,6 +36,9 @@ export interface BudgetReference {
   created_by_name: string | null;
   /** Antal stk. denne reference dækker over. NULL = ukendt (gamle rækker). */
   delta_qty: number | null;
+  /** Stabil id for den budgetændring rækken hører til (typisk audit-id).
+   *  Alle rækker fra samme gem deler samme id. NULL = gamle rækker uden gruppe. */
+  reference_group_id: string | null;
 }
 
 export type NewBudgetReference = Omit<BudgetReference, "id" | "created_at">;
