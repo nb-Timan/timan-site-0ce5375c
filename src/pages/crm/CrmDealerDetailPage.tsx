@@ -455,158 +455,156 @@ export default function CrmDealerDetailPage() {
 
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-[#2d5a27]" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">{dealer.branch_name || dealer.company_name}</h2>
-              <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                <span className="font-mono">#{dealer.account_number}</span>
-                <span>·</span>
-                <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-                {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
-                {isBranch && mainDealer && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                    <GitBranch className="h-3 w-3" /> Filial under{" "}
-                    <Link to={`/portal/crm/my-dealers/${mainDealer.account_number}`} className="underline">
-                      {mainDealer.company_name}
-                    </Link>
-                  </span>
-                )}
-                {dealer.is_main_account && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
-                    <Star className="h-3 w-3" /> Hovedkonto
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {admin && (
-              <button
-                onClick={() => setShowEditDealer(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold"
-                title="Rediger forhandleroplysninger"
-              >
-                <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
-              </button>
-            )}
-            {hasGroup && (
-              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
-                <button onClick={() => setScope("branch")}
-                  className={`px-3 py-1.5 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                  {t("branch_only")}
-                </button>
-                <button onClick={() => setScope("group")}
-                  className={`px-3 py-1.5 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                  {t("group_total")} ({branchNumbers.length})
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        {(() => {
+          // derive scope-aware data
+          const dealerIdSet = new Set(scopeNumbers
+            .map((n) => dealers.find((d) => d.account_number === n)?.id)
+            .filter((x): x is string => !!x));
+          const dealerNameSet = new Set(scopeNumbers
+            .map((n) => (dealers.find((d) => d.account_number === n)?.company_name || "").toLowerCase().trim())
+            .filter(Boolean));
+          const scopeLeads = allLeads.filter((l) =>
+            (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
+          );
+          const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
+          const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
+          const openDemos = scopeDemos.filter((d) => !d.result_status);
+          const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
 
-        {/* Next follow-up banner */}
-        <div className="mt-4 rounded-xl border p-3"
-          style={{ borderColor: nextFollowup ? "#bbf7d0" : "#e2e8f0", background: nextFollowup ? "#f0fdf4" : "#f8fafc" }}>
-          <div className="flex items-center gap-2 text-xs uppercase font-bold tracking-wide text-slate-500 mb-1">
-            <CalendarIcon className="h-3.5 w-3.5" /> {t("next_followup")}
-          </div>
-          {nextFollowup ? (
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <div className="font-semibold text-slate-900">{nextFollowup.title}</div>
-                <div className="text-xs text-slate-600">
-                  {fmtDateTime(nextFollowup.date)} · sælger {nextFollowup.seller || "—"} · status {nextFollowup.status}
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const monthActs = activitiesForScope.filter((a) => {
+            const d = new Date(a.start_datetime); return d >= monthStart && d < monthEnd;
+          });
+          const monthTypeCounts: Record<string, number> = {};
+          for (const a of monthActs) monthTypeCounts[a.activity_type] = (monthTypeCounts[a.activity_type] || 0) + 1;
+          const monthTypeStr = Object.entries(monthTypeCounts)
+            .map(([k, n]) => `${n}x ${activityTypeMeta(k as CalendarActivityType).label.da.toLowerCase()}`)
+            .join(", ");
+
+          return (
+            <>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="w-14 h-14 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center shrink-0">
+                    <Building2 className="h-6 w-6 text-[#2d5a27]" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold text-slate-900">{dealer.branch_name || dealer.company_name}</h2>
+                    <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                      <span className="font-mono">#{dealer.account_number}</span>
+                      <span>·</span>
+                      <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
+                      {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+                      {isBranch && mainDealer && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                          <GitBranch className="h-3 w-3" /> Filial under{" "}
+                          <Link to={`/portal/crm/my-dealers/${mainDealer.account_number}`} className="underline">
+                            {mainDealer.company_name}
+                          </Link>
+                        </span>
+                      )}
+                      {dealer.is_main_account && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                          <Star className="h-3 w-3" /> Hovedkonto
+                        </span>
+                      )}
+                    </div>
+                    {/* Compact KPI line */}
+                    <div className="mt-3 flex items-center gap-x-3 gap-y-2 flex-wrap text-sm">
+                      <CompactKpiPopover icon={<FileText className="h-3.5 w-3.5" />} label="Ordrer" value={liveOrderCount}
+                        items={dealerOrdersInScope.map((o) => ({ id: o.id, title: o.title || o.order_number || o.id, subtitle: fmtDate(o.closed_at), href: `/portal/crm/orders` }))}
+                        emptyLabel="Ingen ordrer" />
+                      <Divider />
+                      <CompactKpiPopover icon={<FileText className="h-3.5 w-3.5" />} label="Tilbud" value={liveQuoteCount}
+                        items={dealerQuotesInScope.map((q) => ({ id: q.id, title: q.title || q.quote_number || q.id, subtitle: fmtDate(quoteMonthIso(q)), href: `/portal/crm/quotes` }))}
+                        emptyLabel="Ingen tilbud" />
+                      <Divider />
+                      <CompactKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Pipeline" value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
+                      <Divider />
+                      <CompactKpiPopover icon={<TrendingUp className="h-3.5 w-3.5" />} label="Åbne leads" value={openLeads.length}
+                        items={openLeads.map((l) => ({ id: l.id, title: `${l.lead_no ? formatLeadNo(l.lead_no) + " · " : ""}${l.title}`, subtitle: l.pipeline_stage || "—", href: `/portal/crm/leads/${l.id}` }))}
+                        emptyLabel="Ingen åbne leads" />
+                      <Divider />
+                      <CompactKpiPopover icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Åbne demoer" value={openDemos.length}
+                        items={openDemos.map((d) => ({ id: d.id, title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`, subtitle: fmtDate(d.demo_date), href: `/portal/crm/demo-leads/${d.id}` }))}
+                        emptyLabel="Ingen åbne demoer" />
+                      <Divider />
+                      <CompactKpiPopover icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Total demoer" value={scopeDemos.length}
+                        items={scopeDemos.map((d) => ({ id: d.id, title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`, subtitle: fmtDate(d.demo_date), href: `/portal/crm/demo-leads/${d.id}` }))}
+                        emptyLabel="Ingen demoer" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {admin && (
+                      <button onClick={() => setShowEditDealer(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold"
+                        title="Rediger forhandleroplysninger">
+                        <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
+                      </button>
+                    )}
+                    {hasGroup && (
+                      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
+                        <button onClick={() => setScope("branch")}
+                          className={`px-3 py-1.5 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                          {t("branch_only")}
+                        </button>
+                        <button onClick={() => setScope("group")}
+                          className={`px-3 py-1.5 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                          {t("group_total")} ({branchNumbers.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {budgetTotals && <HeaderBudgetMini totals={budgetTotals} year={budgetYear} />}
                 </div>
               </div>
-              <span className="text-[10px] uppercase font-bold tracking-wide text-emerald-700">
-                {nextFollowup.kind === "activity" ? "Kalender" : "Note"}
-              </span>
-            </div>
-          ) : (
-            <div className="text-sm text-slate-500">{t("none_followup")}</div>
-          )}
-        </div>
+
+              {/* Compact activity strip */}
+              <div className="mt-4 flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-slate-600 border-t border-slate-100 pt-3">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5 text-emerald-700" />
+                  <span className="text-slate-500">Næste opfølgning:</span>
+                  <span className="font-semibold text-slate-800">
+                    {nextFollowup ? `${fmtDate(nextFollowup.date)} · ${nextFollowup.title}` : t("none_followup")}
+                  </span>
+                </span>
+                <Divider />
+                <span>
+                  <span className="text-slate-500">Aktiviteter denne måned:</span>{" "}
+                  <span className="font-semibold text-slate-800">{monthActs.length}</span>
+                  {monthTypeStr && <span className="text-slate-500"> ({monthTypeStr})</span>}
+                </span>
+                <Divider />
+                <span>
+                  <span className="text-slate-500">Seneste aktivitet:</span>{" "}
+                  <span className="font-semibold text-slate-800">{fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)}</span>
+                </span>
+                <Divider />
+                <CompactKpiPopover icon={<ClipboardList className="h-3.5 w-3.5" />} label="Åbne aktiviteter" value={openActs.length}
+                  items={openActs.slice(0, 50).map((a) => ({
+                    id: a.id,
+                    title: a.title || activityTypeMeta(a.activity_type).label.da,
+                    subtitle: fmtDateTime(a.start_datetime),
+                    href: "/portal/crm/calendar",
+                  }))}
+                  emptyLabel="Ingen åbne aktiviteter" />
+              </div>
+            </>
+          );
+        })()}
       </div>
 
-      {/* KPI grid */}
+      {/* Budget + history */}
       {(() => {
-        // Filter leads + demos to this dealer (scope-aware).
-        const dealerIdSet = new Set(scopeNumbers
-          .map((n) => dealers.find((d) => d.account_number === n)?.id)
-          .filter((x): x is string => !!x));
-        const dealerNameSet = new Set(scopeNumbers
-          .map((n) => (dealers.find((d) => d.account_number === n)?.company_name || "").toLowerCase().trim())
-          .filter(Boolean));
-        const scopeLeads = allLeads.filter((l) =>
-          (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
-        );
-        const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
-        const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
-        // Budget totals for this dealer scope (group toggle respected).
         const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
+        if (!budgetTotals) return null;
         return (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-              <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
-              <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
-              <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
-              <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
-              <KpiPopover
-                icon={<TrendingUp className="h-4 w-4" />}
-                label={t("kpi_leads")}
-                value={openLeads.length}
-                items={openLeads.map((l) => ({
-                  id: l.id,
-                  title: `${l.lead_no ? formatLeadNo(l.lead_no) + " · " : ""}${l.title}`,
-                  subtitle: l.pipeline_stage || "—",
-                  href: `/portal/crm/leads/${l.id}`,
-                }))}
-                emptyLabel="Ingen åbne leads"
-              />
-              <KpiPopover
-                icon={<FileText className="h-4 w-4" />}
-                label={t("kpi_quotes")}
-                value={liveQuoteCount}
-                items={dealerQuotesInScope.map((q) => ({
-                  id: q.id,
-                  title: q.title || q.quote_number || q.id,
-                  subtitle: fmtDate(quoteMonthIso(q)),
-                  href: `/portal/crm/quotes`,
-                }))}
-                emptyLabel="Ingen tilbud"
-              />
-              <KpiPopover
-                icon={<FileText className="h-4 w-4" />}
-                label={t("kpi_orders")}
-                value={liveOrderCount}
-                items={dealerOrdersInScope.map((o) => ({
-                  id: o.id,
-                  title: o.title || o.order_number || o.id,
-                  subtitle: fmtDate(o.closed_at),
-                  href: `/portal/crm/orders`,
-                }))}
-                emptyLabel="Ingen ordrer"
-              />
-              <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
-              <KpiPopover
-                icon={<CheckCircle2 className="h-4 w-4" />}
-                label="Demoer"
-                value={scopeDemos.length}
-                items={scopeDemos.map((d) => ({
-                  id: d.id,
-                  title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`,
-                  subtitle: fmtDate(d.demo_date),
-                  href: `/portal/crm/demo-leads/${d.id}`,
-                }))}
-                emptyLabel="Ingen demoer"
-              />
-            </div>
-            {budgetTotals && <DealerBudgetCard totals={budgetTotals} year={budgetYear} />}
-            {budgetTotals && !budgetTotals.noBudget && (
+            <DealerBudgetCard totals={budgetTotals} year={budgetYear} />
+            {!budgetTotals.noBudget && (
               <DealerBudgetHistory
                 year={budgetYear}
                 scopeNumbers={scopeNumbers}
@@ -796,14 +794,12 @@ function KpiPopover({ icon, label, value, items, emptyLabel }: {
 }
 
 function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
-  const { status, pct } = classifyBudgetStatus(totals);
+  const { pct } = classifyBudgetStatus(totals);
   const expected = totals.ytdRealisedQty + totals.pipelineQty;
   const missingYtd = Math.max(0, totals.ytdBudgetQty - totals.ytdRealisedQty);
   const missingExpected = Math.max(0, totals.yearBudgetQty - expected);
-  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
-  const widthPct = Math.min(100, Math.max(0, pct));
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Budget {year}</h3>
         {!totals.noBudget && <span className="text-xs font-bold text-slate-700">{pct}%</span>}
@@ -812,7 +808,7 @@ function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregat
         <p className="text-sm text-slate-500">Intet budget registreret for {year}.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-sm">
             <Metric label="Årsbudget" value={`${Math.round(totals.yearBudgetQty)} stk.`} />
             <Metric label="Budget YTD" value={`${Math.round(totals.ytdBudgetQty)} stk.`} />
             <Metric label="Realiseret YTD" value={`${Math.round(totals.ytdRealisedQty)} stk.`} />
@@ -821,13 +817,89 @@ function DealerBudgetCard({ totals, year }: { totals: ReturnType<typeof aggregat
             <Metric label="Mangler YTD" value={`${missingYtd} stk.`} />
             <Metric label="Mangler forventet" value={`${missingExpected} stk.`} />
           </div>
-          <div className="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
-            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
+          <p className="mt-2 text-[11px] text-slate-400">Pipeline tælles ikke som realiseret.</p>
         </>
       )}
     </div>
+  );
+}
+
+function HeaderBudgetMini({ totals, year }: { totals: ReturnType<typeof aggregateDealerBudget>; year: number }) {
+  const { status, pct } = classifyBudgetStatus(totals);
+  const barColor = status === "green" ? "bg-emerald-500" : status === "yellow" ? "bg-amber-500" : status === "red" ? "bg-rose-500" : "bg-slate-300";
+  const widthPct = Math.min(100, Math.max(0, pct));
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 min-w-[200px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {year}</span>
+        {!totals.noBudget && <span className="text-[11px] font-bold text-slate-700">{pct}%</span>}
+      </div>
+      {totals.noBudget ? (
+        <div className="text-xs text-slate-500 mt-0.5">Intet budget</div>
+      ) : (
+        <>
+          <div className="text-sm font-bold text-slate-900 mt-0.5">
+            {Math.round(totals.ytdRealisedQty)} / {Math.round(totals.ytdBudgetQty)} stk.
+          </div>
+          <div className="mt-1.5 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+            <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="h-4 w-px bg-slate-200 hidden sm:inline-block" aria-hidden />;
+}
+
+function CompactKpi({ icon, label, value }: { icon?: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {icon && <span className="text-slate-400">{icon}</span>}
+      <span className="text-slate-500">{label}:</span>
+      <span className="font-bold text-slate-900">{value}</span>
+    </span>
+  );
+}
+
+function CompactKpiPopover({ icon, label, value, items, emptyLabel }: {
+  icon?: React.ReactNode; label: string; value: React.ReactNode;
+  items: KpiItem[]; emptyLabel: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-emerald-50/60 transition">
+          {icon && <span className="text-slate-400">{icon}</span>}
+          <span className="text-slate-500">{label}:</span>
+          <span className="font-bold text-slate-900">{value}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="px-3 py-2 border-b text-[11px] uppercase font-bold tracking-wide text-slate-500">{label}</div>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-sm text-slate-500">{emptyLabel}</div>
+        ) : (
+          <ul className="max-h-80 overflow-auto divide-y">
+            {items.map((it) => {
+              const content = (
+                <div className="px-3 py-2 hover:bg-slate-50">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{it.title}</div>
+                  {it.subtitle && <div className="text-xs text-slate-500">{it.subtitle}</div>}
+                </div>
+              );
+              return (
+                <li key={it.id}>
+                  {it.href ? <Link to={it.href}>{content}</Link> : content}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
