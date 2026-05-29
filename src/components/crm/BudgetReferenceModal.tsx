@@ -390,7 +390,7 @@ export default function BudgetReferenceModal({
 }
 
 function ReferenceRowEditor({
-  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, onChange, onRemove,
+  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, qtyRoomForRow, onChange, onRemove,
 }: {
   index: number;
   row: RefRow;
@@ -402,9 +402,12 @@ function ReferenceRowEditor({
   leads: CrmLead[];
   demos: CrmDemoLead[];
   leadsLoading: boolean;
+  /** Largest qty this row may hold without exceeding the modal-wide total. */
+  qtyRoomForRow: number;
   onChange: (patch: Partial<RefRow>) => void;
   onRemove: () => void;
 }) {
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const selected = options.find((o) => o.value === row.dealerId) || null;
   const triggerLabel = selected
