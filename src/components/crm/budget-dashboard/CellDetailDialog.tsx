@@ -74,15 +74,19 @@ function quarterMonths(q: Quarter): number[] {
   return [start, start + 1, start + 2];
 }
 function refMatchesMachine(r: BudgetReference, machine: MachineKey): boolean {
+  // Streng model-match (samme regel som DealerBudgetHistory):
+  //   product_code === product_key  ELLER
+  //   product_code === item_number  ELLER
+  //   model_name   === product_name
+  // Her bruger vi MachineKey som product_key/product_name proxy, normaliseret.
+  // Ingen substring-matching — undgår at RC-751-refs lækker ind på RC-1000s.
   const m = norm(machine);
   if (!m) return false;
   if (r.product_code && norm(r.product_code) === m) return true;
   if (r.model_name && norm(r.model_name) === m) return true;
-  // Tolerate references stored with e.g. "Timan 3330" vs "3330" labels.
-  if (r.model_name && norm(r.model_name).includes(m)) return true;
-  if (r.product_code && norm(r.product_code).includes(m)) return true;
   return false;
 }
+
 
 interface RefRow { row: BudgetReference; uncertain: boolean }
 
