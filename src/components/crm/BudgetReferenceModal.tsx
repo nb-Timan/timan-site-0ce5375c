@@ -123,28 +123,62 @@ export default function BudgetReferenceModal({
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
 
+  // Load dealer/lead/demo lists AND any existing references for this change
+  // group so the user re-enters the same distribution she already saved.
   useEffect(() => {
     if (!open) return;
-    setRows([newRow()]);
     let cancelled = false;
     setDealersLoading(true);
     setLeadsLoading(true);
+
+    const groupId = ctx?.change_id || null;
+    const existingP: Promise<BudgetReference[]> = groupId
+      ? listBudgetReferences({ reference_group_id: groupId, limit: 200 }).catch(() => [])
+      : Promise.resolve([]);
+
     Promise.all([
       fetchDealerAccounts({ includeDeleted: false }).then(r => r.rows).catch(() => [] as DealerAccount[]),
       listLeads({ limit: 500 }).catch(() => [] as CrmLead[]),
       listDemoLeads({ limit: 500 }).catch(() => [] as CrmDemoLead[]),
-    ]).then(([d, l, dm]) => {
+      existingP,
+    ]).then(([d, l, dm, existing]) => {
       if (cancelled) return;
       setDealers(d);
       setLeads(l);
       setDemos(dm);
+
+      if (existing.length > 0) {
+        // Re-hydrate the previous distribution. Match dealer back to its
+        // id using the saved label's account_number when possible.
+        const seed: RefRow[] = existing.map((ex): RefRow => {
+          const accountFromLabel = (ex.dealer_name || "").split("·")[1]?.trim() || null;
+          const match = d.find(x =>
+            (accountFromLabel && x.account_number === accountFromLabel) ||
+            (ex.dealer_name && x.company_name && ex.dealer_name.startsWith(x.company_name))
+          );
+          return {
+            uid: typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `r-${Math.random().toString(36).slice(2)}`,
+            dealerId: match?.id || "",
+            contact: ex.contact_name || "",
+            qty: ex.delta_qty ?? 1,
+            leadId: ex.lead_id || "",
+            demoId: ex.demo_id || "",
+            note: ex.note || "",
+          };
+        });
+        setRows(seed);
+      } else {
+        setRows([newRow()]);
+      }
     }).finally(() => {
       if (cancelled) return;
       setDealersLoading(false);
       setLeadsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, ctx?.change_id]);
 
   const options = useMemo<DealerOption[]>(() => {
     const ini = (currentSellerInitials || "").toUpperCase();
@@ -158,8 +192,26 @@ export default function BudgetReferenceModal({
     return filtered.map(dealerToOption).sort((a, b) => a.label.localeCompare(b.label));
   }, [dealers, isAdmin, currentSellerInitials, currentSellerEmail]);
 
+  // Total stk. brugeren må fordele i denne modal. Kommer fra ctx.delta_total
+  // (typisk = |new − old| af seneste budgetændring). Aldrig negativ.
+  const totalAllowed = Math.max(0, Math.trunc(ctx?.delta_total ?? 0));
+  const allocated = rows.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
+  const overAllocated = allocated > totalAllowed;
+  const underAllocated = allocated < totalAllowed;
+  const remaining = totalAllowed - allocated;
+
   function patchRow(uid: string, patch: Partial<RefRow>) {
-    setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
+    setRows((rs) => rs.map((r) => {
+      if (r.uid !== uid) return r;
+      const next = { ...r, ...patch };
+      // Cap qty so the running total never exceeds the allowed total.
+      if (patch.qty != null && totalAllowed > 0) {
+        const otherSum = rs.reduce((s, x) => s + (x.uid === uid ? 0 : Math.max(0, x.qty || 0)), 0);
+        const room = Math.max(0, totalAllowed - otherSum);
+        next.qty = Math.min(Math.max(0, Math.trunc(next.qty || 0)), room);
+      }
+      return next;
+    }));
   }
   function removeRow(uid: string) {
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.uid !== uid)));
@@ -178,11 +230,30 @@ export default function BudgetReferenceModal({
     if (!ctx) { onClose(); return; }
     const filled = rows.filter(rowHasContent);
     if (filled.length === 0) {
-      toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
+      // Saving empty on an existing group should still clear the previous
+      // distribution so the user can wipe it.
+      if (ctx.change_id) {
+        try { await deleteBudgetReferenceGroup(ctx.change_id); } catch { /* */ }
+        toast.message("Reference-fordeling ryddet");
+        onSaved?.();
+      } else {
+        toast.message("Ingen reference angivet", { description: "Lukker uden at gemme." });
+      }
       onClose(); return;
+    }
+    const sum = filled.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
+    if (totalAllowed > 0 && sum > totalAllowed) {
+      toast.error(`Du har fordelt ${sum} stk., men budgetændringen er kun ${totalAllowed} stk.`);
+      return;
     }
     setBusy(true);
     try {
+      // Replace strategy: if we have a stable change_id, clear the old group
+      // first so re-saving doesn't stack duplicates on top of the previous
+      // distribution.
+      if (ctx.change_id) {
+        await deleteBudgetReferenceGroup(ctx.change_id);
+      }
       for (const r of filled) {
         const opt = options.find((o) => o.value === r.dealerId) || null;
         const dealerLabel = opt
@@ -210,6 +281,7 @@ export default function BudgetReferenceModal({
           created_by_email: ctx.actor_email,
           created_by_name: ctx.actor_name,
           delta_qty: qty,
+          reference_group_id: ctx.change_id,
         });
       }
       toast.success(filled.length === 1 ? "Reference gemt" : `${filled.length} referencer gemt`);
@@ -221,6 +293,7 @@ export default function BudgetReferenceModal({
       setBusy(false);
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
