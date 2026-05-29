@@ -547,7 +547,9 @@ function ReferenceRowEditor({
               onChange={(e) => setQty(parseInt(e.target.value, 10))}
               disabled={busy}
             />
-            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" disabled={busy} onClick={() => setQty(row.qty + 1)}>
+            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0"
+              disabled={busy || row.qty >= qtyRoomForRow}
+              onClick={() => setQty(row.qty + 1)}>
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
