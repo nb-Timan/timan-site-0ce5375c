@@ -423,6 +423,8 @@ function renderRow(p: RowProps) {
             <span className="ml-1 text-[10px] text-slate-500">(Σ {p.agg.order_count})</span>
           )}
         </Td>
+        <BudgetYtdCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
+        <BudgetStatusCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
         <Td className="text-slate-500 text-xs whitespace-nowrap">
           {fmtDate(p.agg?.last_activity_at ?? own.last)}
           {eff.inherited && eff.initials && (
