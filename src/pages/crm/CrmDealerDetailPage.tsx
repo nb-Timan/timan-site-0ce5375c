@@ -57,6 +57,17 @@ import {
   type ScopedConfiguration,
 } from "@/lib/crmRelationsService";
 import { resolveSellerId } from "@/lib/resolveSellerId";
+import {
+  listLeads, listDemoLeads, formatLeadNo, formatDemoNo,
+  type CrmLead, type CrmDemoLead,
+} from "@/lib/crmLeadsService";
+import {
+  buildDealerBudgetIndex,
+  aggregateDealerBudget,
+  classifyBudgetStatus,
+  type DealerBudgetIndex,
+} from "@/lib/crmDealerBudget";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
   back:        { da: "Tilbage til Mine forhandlere" },
