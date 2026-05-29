@@ -102,7 +102,7 @@ with check (
   and exists (
     select 1
       from public.app_users au
-     where au.user_id = auth.uid()
+     where au.auth_user_id = auth.uid()
        -- Caller must tag the row with their own identity.
        and (
          au.id = portal_form_submissions.submitted_by_user_id
@@ -150,7 +150,7 @@ using (
   exists (
     select 1
       from public.app_users au
-     where au.user_id = auth.uid()
+     where au.auth_user_id = auth.uid()
        and (
          au.portal_role in ('timan_backend','timan_service')
          or au.role = 'timan_backend'
@@ -171,7 +171,7 @@ using (
       from public.app_users me
       join public.app_users dealer
         on dealer.account_owner_user_id = me.id
-     where me.user_id = auth.uid()
+     where me.auth_user_id = auth.uid()
        and (me.portal_role = 'timan_seller' or me.role = 'timan_saelger')
        and (
          (portal_form_submissions.dealer_account_number is not null
@@ -191,7 +191,7 @@ using (
   exists (
     select 1
       from public.app_users au
-     where au.user_id = auth.uid()
+     where au.auth_user_id = auth.uid()
        and (
          au.id = portal_form_submissions.submitted_by_user_id
          or lower(au.email) = lower(coalesce(portal_form_submissions.submitted_by_email, ''))
@@ -211,7 +211,7 @@ using (
   and exists (
     select 1
       from public.app_users au
-     where au.user_id = auth.uid()
+     where au.auth_user_id = auth.uid()
        and au.dealer_number = portal_form_submissions.dealer_account_number
        and (
          au.portal_role in ('timan_dealer','timan_importer','timan_service_partner','dealer_user')
