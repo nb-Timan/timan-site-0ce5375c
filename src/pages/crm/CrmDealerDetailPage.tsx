@@ -145,6 +145,10 @@ export default function CrmDealerDetailPage() {
   // and only counts via created_by_user_id (misses backend/seller-created ones).
   const [dealerQuotes, setDealerQuotes] = useState<ScopedConfiguration[]>([]);
   const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
+  const [allLeads, setAllLeads] = useState<CrmLead[]>([]);
+  const [allDemos, setAllDemos] = useState<CrmDemoLead[]>([]);
+  const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
+  const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const admin = isCrmAdmin(portalRole);
