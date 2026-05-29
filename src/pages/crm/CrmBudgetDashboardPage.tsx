@@ -55,9 +55,12 @@ export default function CrmBudgetDashboardPage() {
     quarter: Quarter;
     machine: MachineKey;
   } | null>(null);
-  const items = openCell
-    ? data[openCell.seller.email]?.cells?.[openCell.dealerKey]?.[openCell.quarter]?.[openCell.machine]?.items ?? []
-    : [];
+  const cell = openCell
+    ? data[openCell.seller.email]?.cells?.[openCell.dealerKey]?.[openCell.quarter]?.[openCell.machine] ?? null
+    : null;
+  const dealer = openCell
+    ? data[openCell.seller.email]?.dealers?.find((d) => d.key === openCell.dealerKey) ?? null
+    : null;
 
   return (
     <CrmLayout pageTitle="Budget Dashboard">
@@ -114,9 +117,11 @@ export default function CrmBudgetDashboardPage() {
         open={!!openCell}
         onClose={() => setOpenCell(null)}
         seller={openCell?.seller || null}
+        dealer={dealer}
         quarter={openCell?.quarter || null}
         machine={openCell?.machine || null}
-        items={items}
+        cell={cell}
+        year={year}
       />
     </CrmLayout>
   );
