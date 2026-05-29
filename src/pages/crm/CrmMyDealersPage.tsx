@@ -434,7 +434,7 @@ function renderRow(p: RowProps) {
       </tr>
       {usersOpen && linkedUsers.length > 0 && (
         <tr className="bg-slate-50/60">
-          <td colSpan={9} className="px-6 py-3">
+          <td colSpan={11} className="px-6 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
               {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} — {p.r.branch_name || p.r.company_name}
             </p>
