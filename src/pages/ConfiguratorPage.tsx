@@ -1868,6 +1868,18 @@ export default function ConfiguratorPage() {
                     ? `Tilbuddet er sendt med tilbudsnummer ${successModal.quoteNumber || '—'}.`
                     : `The quote has been sent with quote number ${successModal.quoteNumber || '—'}.`)}
             </p>
+            {successModal.recipients && successModal.recipients.length > 0 && (
+              <div className="mb-6 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                  {lang === 'da' ? 'Sendt til' : 'Sent to'}
+                </p>
+                <ul className="space-y-1">
+                  {successModal.recipients.map((r) => (
+                    <li key={r} className="text-sm text-gray-800 break-all">{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => { setSuccessModal(null); navigate('/portal'); }}
