@@ -1296,11 +1296,22 @@ export default function ConfiguratorPage() {
               description: invalid.join(', '),
             });
             return;
-          }
           const recipients = Array.from(new Set([
             'nb@timan.dk',
             ...externalList,
           ]));
+          const emailModtager = modtagerList.join(', ');
+
+          // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
+          console.info('[Configurator send recipients]', {
+            flowType: 'order',
+            enteredRecipient: state.emailRecipient || null,
+            resolvedRecipients: recipients,
+            fillerEmail: emailUdfylder || null,
+            orderDefaultRecipients: ['nb@timan.dk'],
+            quoteDefaultRecipients: [],
+          });
+
           const emailModtager = modtagerList.join(', ');
 
           const webhookPayload = {
