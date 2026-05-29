@@ -133,11 +133,52 @@ export async function deleteBudgetReferenceGroup(groupId: string): Promise<void>
   } catch (err) {
     notifyLocalFallback({ table: "budget_references", action: "delete-group", error: err });
   }
-  // Local fallback mirror
   try {
     const remaining = readLocal().filter(r => r.reference_group_id !== groupId);
     writeLocal(remaining);
   } catch { /* */ }
+}
+
+/** Delete every reference row tied to a specific budget cell (cell_key +
+ *  budget_year + budget_type). Used when re-saving a distribution so we
+ *  replace ALL prior rows for the cell — including legacy rows without a
+ *  reference_group_id. */
+export async function deleteBudgetReferencesForCell(opts: {
+  cell_key: string;
+  budget_year?: number | null;
+  budget_type?: BudgetType | null;
+}): Promise<void> {
+  if (!opts.cell_key) return;
+  try {
+    let q = supabase.from("budget_references").delete().eq("cell_key", opts.cell_key);
+    if (opts.budget_year != null) q = q.eq("budget_year", opts.budget_year);
+    if (opts.budget_type) q = q.eq("budget_type", opts.budget_type);
+    const { error } = await q;
+    if (error) notifyLocalFallback({ table: "budget_references", action: "delete-cell", error });
+  } catch (err) {
+    notifyLocalFallback({ table: "budget_references", action: "delete-cell", error: err });
+  }
+  try {
+    const remaining = readLocal().filter(r => {
+      if (r.cell_key !== opts.cell_key) return true;
+      if (opts.budget_year != null && r.budget_year !== opts.budget_year) return true;
+      if (opts.budget_type && r.budget_type !== opts.budget_type) return true;
+      return false;
+    });
+    writeLocal(remaining);
+  } catch { /* */ }
+}
+
+/** Delete a single reference row by id. */
+export async function deleteBudgetReference(id: string): Promise<void> {
+  if (!id) return;
+  try {
+    const { error } = await supabase.from("budget_references").delete().eq("id", id);
+    if (error) notifyLocalFallback({ table: "budget_references", action: "delete", error });
+  } catch (err) {
+    notifyLocalFallback({ table: "budget_references", action: "delete", error: err });
+  }
+  try { writeLocal(readLocal().filter(r => r.id !== id)); } catch { /* */ }
 }
 
 export async function listBudgetReferences(opts: {
