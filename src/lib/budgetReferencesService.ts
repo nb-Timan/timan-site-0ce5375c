@@ -144,6 +144,7 @@ export async function listBudgetReferences(opts: {
   cell_key?: string;
   year?: number;
   seller_email?: string | null;
+  reference_group_id?: string | null;
   limit?: number;
 } = {}): Promise<BudgetReference[]> {
   const limit = opts.limit ?? 50;
@@ -156,6 +157,7 @@ export async function listBudgetReferences(opts: {
     if (opts.cell_key) q = q.eq("cell_key", opts.cell_key);
     if (opts.year != null) q = q.eq("budget_year", opts.year);
     if (opts.seller_email) q = q.ilike("seller_email", opts.seller_email);
+    if (opts.reference_group_id) q = q.eq("reference_group_id", opts.reference_group_id);
     const { data, error } = await q;
     if (error) throw error;
     if (data && data.length > 0) return data as BudgetReference[];
@@ -170,5 +172,9 @@ export async function listBudgetReferences(opts: {
     const e = opts.seller_email.toLowerCase();
     rows = rows.filter(r => (r.seller_email || "").toLowerCase() === e);
   }
+  if (opts.reference_group_id) {
+    rows = rows.filter(r => r.reference_group_id === opts.reference_group_id);
+  }
   return rows.slice(0, limit);
 }
+
