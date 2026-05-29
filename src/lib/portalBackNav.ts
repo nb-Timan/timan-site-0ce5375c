@@ -26,6 +26,7 @@ const SALES_PREFIXES = [
   '/portal/orders',
   '/portal/resources',
   '/portal/videos',
+  '/portal/misc',
 ];
 
 const BACKEND_CHILD_PREFIXES = [
