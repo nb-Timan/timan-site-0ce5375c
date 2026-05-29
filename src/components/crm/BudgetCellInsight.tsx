@@ -21,6 +21,8 @@ export interface CellReference {
   has_lead: boolean;
   has_demo: boolean;
   note?: string | null;
+  /** Antal stk. denne reference dækker (NULL = ukendt for gamle rækker). */
+  qty?: number | null;
 }
 
 interface Props {
@@ -100,7 +102,9 @@ export default function BudgetCellInsight({
               <ul className="space-y-0.5">
                 {refs.map((r, i) => (
                   <li key={i} className="text-slate-700 truncate">
-                    · {r.dealer_label || "—"} · <span className="text-slate-500">{refKindLabel(r)}</span>
+                    · {r.dealer_label || "—"}
+                    {typeof r.qty === "number" && r.qty > 0 ? ` · ${r.qty} stk.` : ""}
+                    {" · "}<span className="text-slate-500">{refKindLabel(r)}</span>
                   </li>
                 ))}
               </ul>

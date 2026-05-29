@@ -5,20 +5,18 @@
  * Each reference row stores:
  *   - dealer (id / name / account_number / assigned seller initials)
  *   - contact person
- *   - lead id
- *   - demo id
+ *   - antal stk. denne reference dækker (delta_qty)
+ *   - lead id (dropdown filtreret på valgt forhandler)
+ *   - demo id (dropdown filtreret på valgt forhandler)
  *   - note
  *
- * All fields are optional. Empty rows are skipped. References are explanatory
- * metadata only — they NEVER affect budget / pipeline / order calculations.
- *
- * Storage: each row is inserted as one row in public.budget_references with
- * the same cell_key. No schema change required — multiple rows per cell_key
- * naturally form the "list" of references for that cell.
+ * Alle felter er valgfri. Tomme rækker springes over. References er ren
+ * forklarende metadata — de ændrer ALDRIG budget / pipeline / ordreberegning,
+ * og de overskriver ALDRIG eksisterende budgetlinjer eller andre referencer.
  */
 import { useEffect, useMemo, useState } from "react";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
-import { Link2, ChevronsUpDown, Check, Plus, Trash2 } from "lucide-react";
+import { Link2, ChevronsUpDown, Check, Plus, Trash2, Minus } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createBudgetReference } from "@/lib/budgetReferencesService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { listLeads, listDemoLeads, formatLeadNo, formatDemoNo, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
 export interface BudgetReferenceContext {
@@ -74,6 +73,7 @@ interface RefRow {
   uid: string;
   dealerId: string;
   contact: string;
+  qty: number;
   leadId: string;
   demoId: string;
   note: string;
@@ -84,7 +84,7 @@ function newRow(): RefRow {
     uid: typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `r-${Math.random().toString(36).slice(2)}`,
-    dealerId: "", contact: "", leadId: "", demoId: "", note: "",
+    dealerId: "", contact: "", qty: 1, leadId: "", demoId: "", note: "",
   };
 }
 
@@ -111,15 +111,30 @@ export default function BudgetReferenceModal({
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealersLoading, setDealersLoading] = useState(false);
 
+  const [leads, setLeads] = useState<CrmLead[]>([]);
+  const [demos, setDemos] = useState<CrmDemoLead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     setRows([newRow()]);
     let cancelled = false;
     setDealersLoading(true);
-    fetchDealerAccounts({ includeDeleted: false })
-      .then((res) => { if (!cancelled) setDealers(res.rows); })
-      .catch(() => { /* keep empty */ })
-      .finally(() => { if (!cancelled) setDealersLoading(false); });
+    setLeadsLoading(true);
+    Promise.all([
+      fetchDealerAccounts({ includeDeleted: false }).then(r => r.rows).catch(() => [] as DealerAccount[]),
+      listLeads({ limit: 500 }).catch(() => [] as CrmLead[]),
+      listDemoLeads({ limit: 500 }).catch(() => [] as CrmDemoLead[]),
+    ]).then(([d, l, dm]) => {
+      if (cancelled) return;
+      setDealers(d);
+      setLeads(l);
+      setDemos(dm);
+    }).finally(() => {
+      if (cancelled) return;
+      setDealersLoading(false);
+      setLeadsLoading(false);
+    });
     return () => { cancelled = true; };
   }, [open]);
 
@@ -147,6 +162,7 @@ export default function BudgetReferenceModal({
 
   function rowHasContent(r: RefRow): boolean {
     if (r.dealerId) return true;
+    if (r.qty && r.qty !== 0) return true;
     return [r.contact, r.leadId, r.demoId, r.note].some((s) => s.trim().length > 0);
   }
 
@@ -164,6 +180,7 @@ export default function BudgetReferenceModal({
         const dealerLabel = opt
           ? `${opt.company_name}${opt.account_number ? ` · ${opt.account_number}` : ""}${opt.assigned_seller_initials ? ` · ${opt.assigned_seller_initials}` : ""}`
           : null;
+        const qty = Number.isFinite(r.qty) ? Math.trunc(r.qty) : null;
         await createBudgetReference({
           cell_key: ctx.cell_key,
           budget_year: ctx.budget_year,
@@ -184,6 +201,7 @@ export default function BudgetReferenceModal({
           note: r.note.trim() || null,
           created_by_email: ctx.actor_email,
           created_by_name: ctx.actor_name,
+          delta_qty: qty,
         });
       }
       toast.success(filled.length === 1 ? "Reference gemt" : `${filled.length} referencer gemt`);
@@ -205,7 +223,7 @@ export default function BudgetReferenceModal({
             Tilføj reference til budgetændring
           </DialogTitle>
           <DialogDescription>
-            Alle felter er valgfri. Tilknyt en eller flere forhandlere, kontakter, lead/demo eller noter for sporbarhed.
+            Angiv antal stk. denne reference dækker. Felterne ændrer ikke budgettet — de er kun forklarende metadata.
           </DialogDescription>
         </DialogHeader>
 
@@ -232,6 +250,9 @@ export default function BudgetReferenceModal({
               isAdmin={isAdmin}
               busy={busy}
               canRemove={rows.length > 1}
+              leads={leads}
+              demos={demos}
+              leadsLoading={leadsLoading}
               onChange={(patch) => patchRow(r.uid, patch)}
               onRemove={() => removeRow(r.uid)}
             />
@@ -258,7 +279,7 @@ export default function BudgetReferenceModal({
 }
 
 function ReferenceRowEditor({
-  index, row, options, dealersLoading, isAdmin, busy, canRemove, onChange, onRemove,
+  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, onChange, onRemove,
 }: {
   index: number;
   row: RefRow;
@@ -267,6 +288,9 @@ function ReferenceRowEditor({
   isAdmin: boolean;
   busy: boolean;
   canRemove: boolean;
+  leads: CrmLead[];
+  demos: CrmDemoLead[];
+  leadsLoading: boolean;
   onChange: (patch: Partial<RefRow>) => void;
   onRemove: () => void;
 }) {
@@ -277,6 +301,45 @@ function ReferenceRowEditor({
     : dealersLoading
       ? "Henter forhandlere…"
       : isAdmin ? "Vælg forhandler" : "Vælg blandt mine forhandlere";
+
+  // Filtered leads/demos for the currently selected dealer.
+  const dealerAccountNo = (selected?.account_number || "").trim();
+  const dealerCompany = (selected?.company_name || "").trim().toLowerCase();
+  const filteredLeads = useMemo<CrmLead[]>(() => {
+    if (!selected) return [];
+    return leads.filter(l => {
+      const linked = (l.linked_dealer_id || "").trim();
+      if (dealerAccountNo && linked && linked === dealerAccountNo) return true;
+      return false;
+    });
+  }, [leads, selected, dealerAccountNo]);
+  const filteredDemos = useMemo<CrmDemoLead[]>(() => {
+    if (!selected) return [];
+    return demos.filter(d => {
+      const company = (d.dealer_company || "").trim().toLowerCase();
+      return !!company && !!dealerCompany && company === dealerCompany;
+    });
+  }, [demos, selected, dealerCompany]);
+
+  const leadPlaceholder = !selected
+    ? "Vælg forhandler først"
+    : leadsLoading
+      ? "Henter leads…"
+      : filteredLeads.length === 0
+        ? "Ingen leads fundet"
+        : "Ingen — spring over";
+  const demoPlaceholder = !selected
+    ? "Vælg forhandler først"
+    : leadsLoading
+      ? "Henter demoer…"
+      : filteredDemos.length === 0
+        ? "Ingen demoer fundet"
+        : "Ingen — spring over";
+
+  function setQty(v: number) {
+    const safe = Number.isFinite(v) ? Math.max(0, Math.trunc(v)) : 0;
+    onChange({ qty: safe });
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
@@ -324,7 +387,10 @@ function ReferenceRowEditor({
               <CommandList>
                 <CommandEmpty>{dealersLoading ? "Henter forhandlere…" : "Ingen match"}</CommandEmpty>
                 <CommandGroup>
-                  <CommandItem value="" onSelect={() => { onChange({ dealerId: "" }); setPickerOpen(false); }}>
+                  <CommandItem value="" onSelect={() => {
+                    onChange({ dealerId: "", leadId: "", demoId: "" });
+                    setPickerOpen(false);
+                  }}>
                     <Check className={cn("mr-2 h-4 w-4", !row.dealerId ? "opacity-100" : "opacity-0")} />
                     Ingen forhandler
                   </CommandItem>
@@ -332,7 +398,12 @@ function ReferenceRowEditor({
                     <CommandItem
                       key={o.value}
                       value={o.value}
-                      onSelect={() => { onChange({ dealerId: o.value }); setPickerOpen(false); }}
+                      onSelect={() => {
+                        // Reset lead/demo when dealer changes so we never carry
+                        // an ID belonging to a different dealer.
+                        onChange({ dealerId: o.value, leadId: "", demoId: "" });
+                        setPickerOpen(false);
+                      }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", row.dealerId === o.value ? "opacity-100" : "opacity-0")} />
                       <span className="truncate">{o.label}</span>
@@ -345,11 +416,65 @@ function ReferenceRowEditor({
         </Popover>
       </div>
 
-      <Field label="Kontaktperson" v={row.contact} set={(v) => onChange({ contact: v })} placeholder="fx. Lars Hansen" />
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Lead ID" v={row.leadId} set={(v) => onChange({ leadId: v })} placeholder="L-1042" />
-        <Field label="Demo ID" v={row.demoId} set={(v) => onChange({ demoId: v })} placeholder="D-4007" />
+        <Field label="Kontaktperson" v={row.contact} set={(v) => onChange({ contact: v })} placeholder="fx. Lars Hansen" />
+        <div className="space-y-1">
+          <Label className="text-xs">Antal stk. (denne reference)</Label>
+          <div className="inline-flex items-center gap-1 w-full">
+            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" disabled={busy} onClick={() => setQty(row.qty - 1)}>
+              <Minus className="h-3.5 w-3.5" />
+            </Button>
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              className="text-center tabular-nums"
+              value={row.qty}
+              onChange={(e) => setQty(parseInt(e.target.value, 10))}
+              disabled={busy}
+            />
+            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" disabled={busy} onClick={() => setQty(row.qty + 1)}>
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Lead ID (kun for valgt forhandler)</Label>
+          <select
+            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+            value={row.leadId}
+            onChange={(e) => onChange({ leadId: e.target.value })}
+            disabled={busy || !selected || leadsLoading || filteredLeads.length === 0}
+          >
+            <option value="">{leadPlaceholder}</option>
+            {filteredLeads.map(l => (
+              <option key={l.id} value={formatLeadNo(l.lead_no) || l.id}>
+                {formatLeadNo(l.lead_no) || l.id.slice(0, 8)} — {l.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Demo ID (kun for valgt forhandler)</Label>
+          <select
+            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+            value={row.demoId}
+            onChange={(e) => onChange({ demoId: e.target.value })}
+            disabled={busy || !selected || leadsLoading || filteredDemos.length === 0}
+          >
+            <option value="">{demoPlaceholder}</option>
+            {filteredDemos.map(d => (
+              <option key={d.id} value={formatDemoNo(d.demo_no) || d.id}>
+                {formatDemoNo(d.demo_no) || d.id.slice(0, 8)} — {d.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
         <Textarea value={row.note} onChange={(e) => onChange({ note: e.target.value })} rows={2} placeholder="Kort begrundelse / kontekst …" />
