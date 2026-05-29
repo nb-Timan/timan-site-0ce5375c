@@ -574,6 +574,7 @@ export default function CrmBudgetPage() {
           has_lead: !!(r.lead_id && r.lead_id.trim()),
           has_demo: !!(r.demo_id && r.demo_id.trim()),
           note: r.note,
+          qty: r.delta_qty ?? null,
         };
         (map[r.cell_key] ||= []).push(item);
       }

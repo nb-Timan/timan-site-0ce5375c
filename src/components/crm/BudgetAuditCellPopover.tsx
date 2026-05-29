@@ -147,6 +147,9 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
                       </span>
                       <span className="text-slate-500 whitespace-nowrap">{fmtDateTime(ref.created_at)}</span>
                     </div>
+                    {typeof ref.delta_qty === "number" && ref.delta_qty > 0 && (
+                      <div className="text-slate-700">Antal: <span className="font-semibold tabular-nums">{ref.delta_qty} stk.</span></div>
+                    )}
                     {ref.contact_name && <div className="text-slate-600">Kontakt: {ref.contact_name}</div>}
                     {(ref.lead_id || ref.demo_id) && (
                       <div className="text-slate-600">
