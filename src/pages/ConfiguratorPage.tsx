@@ -1025,11 +1025,17 @@ export default function ConfiguratorPage() {
       html += `<div style="margin-top:16px;padding:16px;border:1px solid #fbbf24;border-radius:8px;background:#fefce8;">
         <h2 style="font-weight:700;font-size:14px;margin-bottom:8px;color:#92400e;">${{ da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang]}</h2>
         <div style="white-space:pre-line;font-size:13px;color:#374151;line-height:1.6;">${recText}</div>
-      </div>`;
+  const openConfirmation = async () => {
+    // Hard guard: a submitted order can never reopen the send confirmation.
+    if (orderLocked) {
+      toast.error(T('orderCannotResendTitle'));
+      return;
+    }
+    if (!state.firmanavn || !state.kontaktperson || !state.email) {
+      setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
+      return;
     }
 
-    return html;
-  };
 
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
