@@ -532,17 +532,82 @@ export default function CrmDealerDetailPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-        <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
-        <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
-        <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_leads")} value={"—"} hint="Kommer snart" />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_quotes")} value={liveQuoteCount} />
-        <Kpi icon={<FileText className="h-4 w-4" />} label={t("kpi_orders")} value={liveOrderCount} />
-        <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_won")} value={liveWonCount} />
-      </div>
+      {(() => {
+        // Filter leads + demos to this dealer (scope-aware).
+        const dealerIdSet = new Set(scopeNumbers
+          .map((n) => dealers.find((d) => d.account_number === n)?.id)
+          .filter((x): x is string => !!x));
+        const dealerNameSet = new Set(scopeNumbers
+          .map((n) => (dealers.find((d) => d.account_number === n)?.company_name || "").toLowerCase().trim())
+          .filter(Boolean));
+        const scopeLeads = allLeads.filter((l) =>
+          (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
+        );
+        const openLeads = scopeLeads.filter((l) => (l.pipeline_stage || "") !== "won" && (l.pipeline_stage || "") !== "lost");
+        const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
+        // Budget totals for this dealer scope (group toggle respected).
+        const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
+        return (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              <Kpi icon={<ClipboardList className="h-4 w-4" />} label={t("kpi_open")} value={openActs.length} />
+              <Kpi icon={<CalendarIcon className="h-4 w-4" />} label={t("kpi_week")} value={thisWeekActs.length} />
+              <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("kpi_last")} value={fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)} />
+              <Kpi icon={<AlertCircle className="h-4 w-4" />} label={t("kpi_next")} value={fmtDate(nextFollowup?.date ?? null)} />
+              <KpiPopover
+                icon={<TrendingUp className="h-4 w-4" />}
+                label={t("kpi_leads")}
+                value={openLeads.length}
+                items={openLeads.map((l) => ({
+                  id: l.id,
+                  title: `${l.lead_no ? formatLeadNo(l.lead_no) + " · " : ""}${l.title}`,
+                  subtitle: l.pipeline_stage || "—",
+                  href: `/portal/crm/leads/${l.id}`,
+                }))}
+                emptyLabel="Ingen åbne leads"
+              />
+              <KpiPopover
+                icon={<FileText className="h-4 w-4" />}
+                label={t("kpi_quotes")}
+                value={liveQuoteCount}
+                items={dealerQuotesInScope.map((q) => ({
+                  id: q.id,
+                  title: q.title || q.quote_number || q.id,
+                  subtitle: fmtDate(quoteMonthIso(q)),
+                  href: `/portal/crm/quotes`,
+                }))}
+                emptyLabel="Ingen tilbud"
+              />
+              <KpiPopover
+                icon={<FileText className="h-4 w-4" />}
+                label={t("kpi_orders")}
+                value={liveOrderCount}
+                items={dealerOrdersInScope.map((o) => ({
+                  id: o.id,
+                  title: o.title || o.order_number || o.id,
+                  subtitle: fmtDate(o.closed_at),
+                  href: `/portal/crm/orders`,
+                }))}
+                emptyLabel="Ingen ordrer"
+              />
+              <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("kpi_pipeline")} value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
+              <KpiPopover
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                label="Demoer"
+                value={scopeDemos.length}
+                items={scopeDemos.map((d) => ({
+                  id: d.id,
+                  title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`,
+                  subtitle: fmtDate(d.demo_date),
+                  href: `/portal/crm/demo-leads/${d.id}`,
+                }))}
+                emptyLabel="Ingen demoer"
+              />
+            </div>
+            {budgetTotals && <DealerBudgetCard totals={budgetTotals} year={budgetYear} />}
+          </>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Master + contact */}
