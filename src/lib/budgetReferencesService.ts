@@ -185,6 +185,7 @@ export async function listBudgetReferences(opts: {
   cell_key?: string;
   year?: number;
   seller_email?: string | null;
+  budget_type?: BudgetType | null;
   reference_group_id?: string | null;
   limit?: number;
 } = {}): Promise<BudgetReference[]> {
@@ -198,6 +199,7 @@ export async function listBudgetReferences(opts: {
     if (opts.cell_key) q = q.eq("cell_key", opts.cell_key);
     if (opts.year != null) q = q.eq("budget_year", opts.year);
     if (opts.seller_email) q = q.ilike("seller_email", opts.seller_email);
+    if (opts.budget_type) q = q.eq("budget_type", opts.budget_type);
     if (opts.reference_group_id) q = q.eq("reference_group_id", opts.reference_group_id);
     const { data, error } = await q;
     if (error) throw error;
@@ -205,7 +207,6 @@ export async function listBudgetReferences(opts: {
   } catch (err) {
     console.warn("[budget_references.list] supabase failed → local fallback:", err);
   }
-  // Local fallback
   let rows = readLocal();
   if (opts.cell_key) rows = rows.filter(r => r.cell_key === opts.cell_key);
   if (opts.year != null) rows = rows.filter(r => r.budget_year === opts.year);
@@ -213,6 +214,7 @@ export async function listBudgetReferences(opts: {
     const e = opts.seller_email.toLowerCase();
     rows = rows.filter(r => (r.seller_email || "").toLowerCase() === e);
   }
+  if (opts.budget_type) rows = rows.filter(r => r.budget_type === opts.budget_type);
   if (opts.reference_group_id) {
     rows = rows.filter(r => r.reference_group_id === opts.reference_group_id);
   }
