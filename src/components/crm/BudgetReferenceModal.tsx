@@ -48,6 +48,13 @@ export interface BudgetReferenceContext {
   new_value: number | null;
   actor_email: string | null;
   actor_name: string | null;
+  /** Stabil id for den budgetændring (typisk audit-id). Gemmes på alle
+   *  reference-rækker fra dette gem og bruges til at finde/erstatte dem
+   *  hvis brugeren åbner fordelingen igen. */
+  change_id: string | null;
+  /** Totalen brugeren må fordele i denne modal. Typisk |new − old| fra
+   *  den seneste budgetændring; falder tilbage til current cell value. */
+  delta_total: number;
 }
 
 interface Props {
@@ -59,6 +66,7 @@ interface Props {
   currentSellerInitials?: string | null;
   currentSellerEmail?: string | null;
 }
+
 
 interface DealerOption {
   value: string;
