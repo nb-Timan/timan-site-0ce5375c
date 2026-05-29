@@ -320,6 +320,32 @@ export default function BudgetReferenceModal({
           </div>
         )}
 
+        {/* Allocation summary: explains that the qty inputs distribute the
+            recent budget change, not extra budget on top. */}
+        <div
+          className={cn(
+            "text-xs rounded-lg border px-3 py-2 flex items-center justify-between gap-3",
+            overAllocated
+              ? "border-rose-300 bg-rose-50 text-rose-800"
+              : underAllocated
+                ? "border-amber-300 bg-amber-50 text-amber-900"
+                : "border-emerald-300 bg-emerald-50 text-emerald-800",
+          )}
+        >
+          <span>
+            Fordelt: <span className="font-semibold tabular-nums">{allocated}</span> / <span className="font-semibold tabular-nums">{totalAllowed}</span> stk.
+          </span>
+          <span className="text-[11px]">
+            {totalAllowed === 0
+              ? "Ingen budgetændring at fordele"
+              : overAllocated
+                ? `${allocated - totalAllowed} stk. for meget`
+                : underAllocated
+                  ? `${remaining} stk. ikke fordelt`
+                  : "Alt fordelt"}
+          </span>
+        </div>
+
         <div className="space-y-3">
           {rows.map((r, idx) => (
             <ReferenceRowEditor
@@ -334,6 +360,7 @@ export default function BudgetReferenceModal({
               leads={leads}
               demos={demos}
               leadsLoading={leadsLoading}
+              qtyRoomForRow={Math.max(0, totalAllowed - (allocated - Math.max(0, r.qty || 0)))}
               onChange={(patch) => patchRow(r.uid, patch)}
               onRemove={() => removeRow(r.uid)}
             />
@@ -343,7 +370,7 @@ export default function BudgetReferenceModal({
             variant="ghost"
             size="sm"
             onClick={addRow}
-            disabled={busy}
+            disabled={busy || (totalAllowed > 0 && allocated >= totalAllowed)}
             className="w-full border border-dashed border-slate-300 hover:bg-slate-50"
           >
             <Plus className="h-3.5 w-3.5 mr-1" /> Tilføj reference
@@ -352,8 +379,11 @@ export default function BudgetReferenceModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>Annullér</Button>
-          <Button onClick={handleSave} disabled={busy}>{busy ? "Gemmer…" : "Gem referencer"}</Button>
+          <Button onClick={handleSave} disabled={busy || overAllocated}>
+            {busy ? "Gemmer…" : "Gem referencer"}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
