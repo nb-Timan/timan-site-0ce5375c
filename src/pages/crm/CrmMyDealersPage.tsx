@@ -291,6 +291,10 @@ export default function CrmMyDealersPage() {
                     dealersByAcct,
                     usersExpanded,
                     setUsersExpanded,
+                    budgetIndex,
+                    budgetAccountNumbers: hasBranches
+                      ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
+                      : [g.main.account_number],
                     onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
@@ -299,6 +303,8 @@ export default function CrmMyDealersPage() {
                         r: b, depth: 1, isMain: false, branchCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
+                        budgetIndex,
+                        budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
