@@ -923,7 +923,8 @@ export default function ConfiguratorPage() {
           <span class="font-medium">${T('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
           <span class="font-medium">${T('confirmPhone')}</span><span>${state.telefon || '-'}</span>
           <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
-          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${state.emailRecipient || '-'}</span>
+          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+
           ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
@@ -1302,6 +1303,17 @@ export default function ConfiguratorPage() {
           ]));
           const emailModtager = modtagerList.join(', ');
 
+          // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
+          console.info('[Configurator send recipients]', {
+            flowType: 'order',
+            enteredRecipient: state.emailRecipient || null,
+            resolvedRecipients: recipients,
+            fillerEmail: emailUdfylder || null,
+            orderDefaultRecipients: ['nb@timan.dk'],
+            quoteDefaultRecipients: [],
+          });
+
+
           const webhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
@@ -1457,6 +1469,17 @@ export default function ConfiguratorPage() {
         }
         const recipients = Array.from(new Set(baseList));
         const emailModtager = modtagerList.join(', ');
+
+        // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
+        console.info('[Configurator send recipients]', {
+          flowType: 'quote',
+          enteredRecipient: state.emailRecipient || null,
+          resolvedRecipients: recipients,
+          fillerEmail: emailUdfylder || null,
+          orderDefaultRecipients: ['nb@timan.dk'],
+          quoteDefaultRecipients: [],
+        });
+
 
 
         // Upload sent PDF to storage BEFORE webhook so we can include the

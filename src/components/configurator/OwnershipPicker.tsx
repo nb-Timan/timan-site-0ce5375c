@@ -186,8 +186,23 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
           (d.account_number || '').toLowerCase().includes(q) ||
           (d.company_name || '').toLowerCase().includes(q))
       : dealers;
-    return base.slice(0, 100);
-  }, [dealers, dealerSearch]);
+
+    // KRAV 1: dealers assigned to the active/effective seller float to the top,
+    // then alphabetical by company_name. Match by email (preferred) or initials.
+    const sellerEmail = (value.sellerEmail || '').toLowerCase();
+    const sellerInits = (value.sellerInitials || '').toUpperCase();
+    const isMine = (d: DealerAccount) => {
+      const e = (d.assigned_seller_email || '').toLowerCase();
+      const i = (d.assigned_seller_initials || '').toUpperCase();
+      return (!!sellerEmail && e === sellerEmail) || (!!sellerInits && i === sellerInits);
+    };
+    const alpha = (a: DealerAccount, b: DealerAccount) =>
+      (a.company_name || '').localeCompare(b.company_name || '', 'da', { sensitivity: 'base' });
+    const mine = base.filter(isMine).sort(alpha);
+    const others = base.filter((d) => !isMine(d)).sort(alpha);
+    return [...mine, ...others].slice(0, 200);
+  }, [dealers, dealerSearch, value.sellerEmail, value.sellerInitials]);
+
 
   function pickSeller(initials: string | null) {
     if (initials === null) {
