@@ -1470,6 +1470,17 @@ export default function ConfiguratorPage() {
         const recipients = Array.from(new Set(baseList));
         const emailModtager = modtagerList.join(', ');
 
+        // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
+        console.info('[Configurator send recipients]', {
+          flowType: 'quote',
+          enteredRecipient: state.emailRecipient || null,
+          resolvedRecipients: recipients,
+          fillerEmail: emailUdfylder || null,
+          orderDefaultRecipients: ['nb@timan.dk'],
+          quoteDefaultRecipients: [],
+        });
+
+
 
         // Upload sent PDF to storage BEFORE webhook so we can include the
         // stored path/filename in the email payload (single source of truth).
