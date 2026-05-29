@@ -93,6 +93,7 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       old_value: row.old_value,
       new_value: row.new_value,
       dealer_name: row.dealer_name,
+      dealer_account_number: row.dealer_account_number,
       contact_name: row.contact_name,
       lead_id: row.lead_id,
       demo_id: row.demo_id,
@@ -110,6 +111,7 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       const stripped: Record<string, unknown> = { ...fullPayload };
       if (msg.includes("delta_qty")) delete stripped.delta_qty;
       if (msg.includes("reference_group_id")) delete stripped.reference_group_id;
+      if (msg.includes("dealer_account_number")) delete stripped.dealer_account_number;
       if (Object.keys(stripped).length !== Object.keys(fullPayload).length) {
         const { error: retryErr } = await supabase.from("budget_references").insert(stripped);
         if (retryErr) notifyLocalFallback({ table: "budget_references", action: "insert", error: retryErr });
