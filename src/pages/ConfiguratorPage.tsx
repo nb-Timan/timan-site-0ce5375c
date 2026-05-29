@@ -28,6 +28,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
+import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
@@ -226,9 +227,9 @@ export default function ConfiguratorPage() {
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
@@ -1372,14 +1373,17 @@ export default function ConfiguratorPage() {
           // unverifiable and were causing false "sent" states.
           let delivered = false;
           let failureReason = '';
+          let webhookHttpStatus: number | null = null;
+          let webhookRespText = '';
           try {
             const webhookRes = await fetch(orderWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
             });
-            const orderRespText = await webhookRes.text().catch(() => '');
-            console.log('[Order webhook] response', webhookRes.status, webhookRes.type, orderRespText);
+            webhookHttpStatus = webhookRes.status;
+            webhookRespText = await webhookRes.text().catch(() => '');
+            console.log('[Order webhook] response', webhookRes.status, webhookRes.type, webhookRespText);
             if (webhookRes.type === 'opaque' || webhookRes.type === 'opaqueredirect') {
               failureReason = 'Opaque response (CORS) — cannot verify delivery';
             } else if (webhookRes.ok) {
@@ -1390,6 +1394,29 @@ export default function ConfiguratorPage() {
           } catch (fetchErr) {
             failureReason = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
             console.error('[Order webhook] fetch failed:', fetchErr);
+          }
+
+          // Audit log (success or failed). Never blocks send flow.
+          if (activeCaseId) {
+            await logConfigurationEmailSend({
+              configurationId: activeCaseId,
+              documentType: 'order',
+              quoteNumber: activeQuoteNumber || null,
+              orderNumber: activeOrderNumber || null,
+              toRecipients: recipients,
+              ccRecipients: [],
+              bccRecipients: [],
+              sendStatus: delivered ? 'success' : 'failed',
+              httpStatus: webhookHttpStatus,
+              errorMessage: delivered ? null : failureReason || null,
+              webhookResponse: webhookRespText || null,
+              webhookUrl: orderWebhookUrl,
+              pdfFilename,
+              pdfStoragePath: orderSentPdfPath || null,
+              createdByEmail: appUser?.email || null,
+              sellerEmail: ownership.sellerEmail || null,
+              sellerInitials: ownership.sellerInitials || null,
+            });
           }
 
           if (delivered) {
@@ -1410,6 +1437,7 @@ export default function ConfiguratorPage() {
               flowType: 'order',
               orderNumber: activeOrderNumber || '',
               quoteNumber: activeQuoteNumber || '',
+              recipients,
             });
           } else {
             toast.error(T('orderSendFailed'), {
@@ -1562,14 +1590,17 @@ export default function ConfiguratorPage() {
           // when the webhook never actually fired.
           let delivered = false;
           let failureReason = '';
+          let webhookHttpStatus: number | null = null;
+          let webhookRespText = '';
           try {
             const webhookRes = await fetch(quoteWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
             });
-            const quoteRespText = await webhookRes.text().catch(() => '');
-            console.log('[Quote webhook] response', webhookRes.status, webhookRes.type, quoteRespText);
+            webhookHttpStatus = webhookRes.status;
+            webhookRespText = await webhookRes.text().catch(() => '');
+            console.log('[Quote webhook] response', webhookRes.status, webhookRes.type, webhookRespText);
             if (webhookRes.type === 'opaque' || webhookRes.type === 'opaqueredirect') {
               failureReason = 'Opaque response (CORS) — cannot verify delivery';
             } else if (webhookRes.ok) {
@@ -1580,6 +1611,29 @@ export default function ConfiguratorPage() {
           } catch (fetchErr) {
             failureReason = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
             console.error('[Quote webhook] fetch failed:', fetchErr);
+          }
+
+          // Audit log (success or failed). Never blocks send flow.
+          if (activeCaseId) {
+            await logConfigurationEmailSend({
+              configurationId: activeCaseId,
+              documentType: 'quote',
+              quoteNumber: activeQuoteNumber || null,
+              orderNumber: activeOrderNumber || null,
+              toRecipients: recipients,
+              ccRecipients: [],
+              bccRecipients: [],
+              sendStatus: delivered ? 'success' : 'failed',
+              httpStatus: webhookHttpStatus,
+              errorMessage: delivered ? null : failureReason || null,
+              webhookResponse: webhookRespText || null,
+              webhookUrl: quoteWebhookUrl,
+              pdfFilename,
+              pdfStoragePath: quoteSentPdfPath || null,
+              createdByEmail: appUser?.email || null,
+              sellerEmail: ownership.sellerEmail || null,
+              sellerInitials: ownership.sellerInitials || null,
+            });
           }
 
           if (delivered) {
@@ -1599,6 +1653,7 @@ export default function ConfiguratorPage() {
               flowType: 'quote',
               orderNumber: activeOrderNumber || '',
               quoteNumber: activeQuoteNumber || '',
+              recipients,
             });
           } else {
             toast.error(T('quoteSendFailed'), {
@@ -1813,6 +1868,18 @@ export default function ConfiguratorPage() {
                     ? `Tilbuddet er sendt med tilbudsnummer ${successModal.quoteNumber || '—'}.`
                     : `The quote has been sent with quote number ${successModal.quoteNumber || '—'}.`)}
             </p>
+            {successModal.recipients && successModal.recipients.length > 0 && (
+              <div className="mb-6 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                  {lang === 'da' ? 'Sendt til' : 'Sent to'}
+                </p>
+                <ul className="space-y-1">
+                  {successModal.recipients.map((r) => (
+                    <li key={r} className="text-sm text-gray-800 break-all">{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => { setSuccessModal(null); navigate('/portal'); }}
