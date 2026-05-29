@@ -52,8 +52,9 @@ export interface BudgetReferenceContext {
    *  reference-rækker fra dette gem og bruges til at finde/erstatte dem
    *  hvis brugeren åbner fordelingen igen. */
   change_id: string | null;
-  /** Totalen brugeren må fordele i denne modal. Typisk |new − old| fra
-   *  den seneste budgetændring; falder tilbage til current cell value. */
+  /** Totalen brugeren må fordele i denne modal. Det er CELLENS aktuelle
+   *  antal stk. (ikke kun den seneste budgetændring), så modal afspejler
+   *  hele cellens samlede fordeling. */
   delta_total: number;
 }
 
