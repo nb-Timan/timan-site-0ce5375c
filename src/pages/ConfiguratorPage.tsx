@@ -1034,7 +1034,6 @@ export default function ConfiguratorPage() {
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
 
-  const openConfirmation = async () => {
     // Hard guard: a submitted order can never reopen the send confirmation.
     if (orderLocked) {
       toast.error(T('orderCannotResendTitle'));
