@@ -202,13 +202,28 @@ export default function CrmDealerDetailPage() {
           sellerEmail,
           dealerNumber: appUser?.dealer_number ?? null,
         } as const;
-        const [qRes, oRes] = await Promise.all([
+        const [qRes, oRes, leadsRes, demosRes] = await Promise.all([
           listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
+          listLeads({ limit: 500 }),
+          listDemoLeads({ limit: 500 }),
         ]);
         if (!cancelled) {
           setDealerQuotes(qRes.rows);
           setDealerOrders(oRes.rows);
+          setAllLeads(leadsRes);
+          setAllDemos(demosRes);
+        }
+        // Dealer budget index (year-scoped) using same data as Budget Dashboard.
+        try {
+          const idx = await buildDealerBudgetIndex({
+            year: budgetYear,
+            dealers: dRes.rows,
+            filter: filterBase,
+          });
+          if (!cancelled) setBudgetIndex(idx);
+        } catch (e) {
+          console.warn('[CrmDealerDetailPage] budget index failed:', e);
         }
       } catch (e) {
         console.warn('[CrmDealerDetailPage] failed to fetch CRM configurations:', e);
@@ -216,7 +231,7 @@ export default function CrmDealerDetailPage() {
       setBusy(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, accountNumber, portalRole]);
+  }, [appUser, accountNumber, portalRole, budgetYear, seller]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
