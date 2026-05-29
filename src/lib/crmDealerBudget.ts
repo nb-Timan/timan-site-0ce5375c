@@ -150,14 +150,16 @@ export async function buildDealerBudgetIndex(opts: {
 
   // ── 2. Realised — scoped orders ──
   // Build a canonical dealer-key index identical to crmRelationsService.dealerKeyOf.
+  const nameKey = (s: string | null | undefined) =>
+    (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const keyToAccount = new Map<string, string>();
   for (const d of dealers) {
     if (d.id) keyToAccount.set(`id:${d.id}`, d.account_number);
     if (d.account_number) keyToAccount.set(`num:${d.account_number.trim()}`, d.account_number);
-    const n = normalizeDealerName(d.company_name);
-    if (n) keyToAccount.set(`name:${n.replace(/\s+/g, "")}`, d.account_number);
-    const bn = normalizeDealerName(d.branch_name);
-    if (bn) keyToAccount.set(`name:${bn.replace(/\s+/g, "")}`, d.account_number);
+    const n = nameKey(d.company_name);
+    if (n) keyToAccount.set(`name:${n}`, d.account_number);
+    const bn = nameKey(d.branch_name);
+    if (bn && !keyToAccount.has(`name:${bn}`)) keyToAccount.set(`name:${bn}`, d.account_number);
   }
   const ordersRes = await listScopedOrdersWithValue(filter);
   for (const o of ordersRes.rows) {
