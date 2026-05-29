@@ -256,15 +256,17 @@ export default function CrmMyDealersPage() {
               <Th>{T.c_users[lang]}</Th>
               <Th>{T.c_quotes[lang]}</Th>
               <Th>{T.c_orders[lang]}</Th>
+              <Th>{T.c_budget_ytd[lang]}</Th>
+              <Th>{T.c_budget_status[lang]}</Th>
               <Th>{T.c_last[lang]}</Th>
             </tr>
           </thead>
           <tbody>
             {loadingRows && (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
+              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
+              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
               const hasBranches = g.branches.length > 0;
