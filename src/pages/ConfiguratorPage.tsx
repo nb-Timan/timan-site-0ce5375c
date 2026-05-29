@@ -1820,10 +1820,27 @@ export default function ConfiguratorPage() {
                 {lang === 'da' ? 'Gå til portal forsiden' : 'Go to portal home'}
               </button>
               <button
-                onClick={() => setSuccessModal(null)}
+                onClick={() => {
+                  const wasOrder = successModal?.flowType === 'order';
+                  setSuccessModal(null);
+                  if (wasOrder) {
+                    // Submitted orders are immutable. Drop all in-memory
+                    // case state so the user starts a fresh configuration
+                    // instead of editing the just-sent order in place.
+                    resetState();
+                    setIsSavedCurrent(false);
+                    setSavedConfigurationId(null);
+                    setSavedQuoteNumber(null);
+                    setSavedOrderNumber(null);
+                    setSavedSourceQuoteNumber(null);
+                    setLinkedLeadId(null);
+                    setOrderLocked(false);
+                  }
+                }}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow">
                 {lang === 'da' ? 'Tilbage til konfigurator' : 'Back to configurator'}
               </button>
+
             </div>
           </div>
         </div>
