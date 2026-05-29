@@ -1296,6 +1296,7 @@ export default function ConfiguratorPage() {
               description: invalid.join(', '),
             });
             return;
+          }
           const recipients = Array.from(new Set([
             'nb@timan.dk',
             ...externalList,
@@ -1312,7 +1313,6 @@ export default function ConfiguratorPage() {
             quoteDefaultRecipients: [],
           });
 
-          const emailModtager = modtagerList.join(', ');
 
           const webhookPayload = {
             case_id: activeCaseId || '',
