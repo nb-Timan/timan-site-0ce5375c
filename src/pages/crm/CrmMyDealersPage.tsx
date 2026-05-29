@@ -467,3 +467,52 @@ function Th({ children }: { children?: React.ReactNode }) {
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-3 py-3 align-middle ${className}`}>{children}</td>;
 }
+
+function BudgetYtdCell({
+  budgetIndex,
+  accountNumbers,
+}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[] }) {
+  if (!budgetIndex) {
+    return <Td className="text-slate-400 text-xs">…</Td>;
+  }
+  const t = aggregateDealerBudget(budgetIndex, accountNumbers);
+  if (t.noBudget) {
+    return <Td className="text-slate-400 text-xs whitespace-nowrap">Intet budget</Td>;
+  }
+  return (
+    <Td className="text-slate-800 text-sm whitespace-nowrap font-semibold">
+      {Math.round(t.ytdRealisedQty)} / {Math.round(t.ytdBudgetQty)} stk.
+    </Td>
+  );
+}
+
+function BudgetStatusCell({
+  budgetIndex,
+  accountNumbers,
+}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[] }) {
+  if (!budgetIndex) return <Td><span className="text-slate-300 text-xs">…</span></Td>;
+  const t = aggregateDealerBudget(budgetIndex, accountNumbers);
+  const { status, pct } = classifyBudgetStatus(t);
+  if (status === "none") {
+    return <Td><span className="text-slate-400 text-xs">—</span></Td>;
+  }
+  const barColor =
+    status === "green" ? "bg-emerald-500" :
+    status === "yellow" ? "bg-amber-500" :
+    "bg-rose-500";
+  const textColor =
+    status === "green" ? "text-emerald-700" :
+    status === "yellow" ? "text-amber-700" :
+    "text-rose-700";
+  const widthPct = Math.min(100, Math.max(0, pct));
+  return (
+    <Td>
+      <div className="flex items-center gap-2 min-w-[120px]">
+        <div className="h-2 flex-1 rounded-full bg-slate-200 overflow-hidden">
+          <div className={`h-full ${barColor}`} style={{ width: `${widthPct}%` }} />
+        </div>
+        <span className={`text-xs font-bold tabular-nums ${textColor}`}>{pct}%</span>
+      </div>
+    </Td>
+  );
+}
