@@ -903,6 +903,15 @@ function CompactKpiPopover({ icon, label, value, items, emptyLabel }: {
   );
 }
 
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400">{label}</div>
+      <div className="text-slate-900 font-semibold">{value}</div>
+    </div>
+  );
+}
+
 function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <li className="flex items-start gap-2">
