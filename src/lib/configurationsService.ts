@@ -1554,7 +1554,9 @@ export async function uploadSentPdf(
   const { error: updateError } = await updateConfigurationRow(configurationId, {
     sent_pdf_path: path,
     sent_pdf_filename: filename,
+    sent_pdf_bucket: SENT_PDF_BUCKET,
   });
+
 
   if (updateError) {
     console.error('[uploadSentPdf] failed to persist path:', updateError);
