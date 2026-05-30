@@ -135,6 +135,24 @@ export function isAreaVisible(
     return allowed.includes(area.id);
   }
 
+  // Forhandlerdata: external dealer-side roles see their own dealer record.
+  // Internal Timan roles (backend, seller, service) also see it so they can
+  // verify what external users see. Hidden for slutkunde and unknown roles.
+  if (area.id === 'dealer_data') {
+    if (!portalRole) return false;
+    return (
+      portalRole === 'timan_backend' ||
+      portalRole === 'timan_seller' ||
+      portalRole === 'timan_service' ||
+      portalRole === 'timan_importer' ||
+      portalRole === 'timan_dealer' ||
+      portalRole === 'timan_service_partner' ||
+      portalRole === 'dealer_user'
+    );
+  }
+
+  const key = area.id as ModuleAccessKey;
+
   if (portalRole) {
     return hasModuleAccess(portalRole, key, user.module_access as ModuleAccessKey[] | null | undefined);
   }
