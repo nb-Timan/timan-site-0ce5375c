@@ -90,6 +90,19 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'budget_import', title: { da: 'Budgetimport', en: 'Budget import', de: 'Budget-Import', it: 'Import budget', hu: 'Budget importálás' } },
     ],
   },
+  {
+    id: 'dealer_data',
+    title: { da: 'Forhandlerdata', en: 'Dealer Data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+    description: {
+      da: 'Stamdata, kontaktinformation, brugere og dine tilbud/ordrer.',
+      en: 'Master data, contacts, users and your quotes/orders.',
+      de: 'Stammdaten, Kontakte, Benutzer und Ihre Angebote/Bestellungen.',
+      it: 'Anagrafica, contatti, utenti e preventivi/ordini.',
+      hu: 'Törzsadatok, kapcsolatok, felhasználók és árajánlatok/rendelések.',
+    },
+    moduleIds: [],
+    placeholders: [],
+  },
 ];
 
 /**
