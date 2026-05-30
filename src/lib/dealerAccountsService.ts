@@ -25,6 +25,10 @@ export interface DealerAccount {
   address: string | null;
   email: string | null;
   phone: string | null;
+  vat_number: string | null;
+  primary_contact_name: string | null;
+  primary_contact_email: string | null;
+  primary_contact_phone: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
@@ -42,6 +46,7 @@ export interface DealerAccount {
   created_at: string;
   updated_at: string;
 }
+
 
 export type DealerAccountsSource = "supabase" | "fallback";
 
