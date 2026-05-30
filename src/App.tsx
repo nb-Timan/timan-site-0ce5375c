@@ -108,6 +108,7 @@ const App = () => (
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
+              <Route path="/portal/dealer-data" element={<DealerDataPage />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
               <Route path="/portal/crm/accounts"   element={<Navigate to="/portal/crm/my-dealers" replace />} />
