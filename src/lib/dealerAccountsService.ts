@@ -846,6 +846,30 @@ export async function fetchDealerStatusForUser(
   }
 }
 
+/**
+ * Fetch a single dealer_accounts row by its account_number.
+ * Used by the external "Forhandlerdata" module so the logged-in
+ * dealer/importer/service-partner can view (and edit a small set of)
+ * their own dealer record. RLS limits non-backend users to their own row.
+ */
+export async function fetchDealerAccountByNumber(
+  accountNumber: string | null | undefined,
+): Promise<{ row: DealerAccount | null; error?: string }> {
+  const an = (accountNumber ?? "").trim();
+  if (!an) return { row: null };
+  try {
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .select("*")
+      .eq("account_number", an)
+      .maybeSingle();
+    if (error) throw error;
+    return { row: data ? rowToDealer(data as Record<string, unknown>) : null };
+  } catch (e) {
+    return { row: null, error: describeSupabaseError("fetchDealerAccountByNumber", e) };
+  }
+}
+
 // ============================================================
 // Phase 14 — Create dealer + CSV import
 // ------------------------------------------------------------
