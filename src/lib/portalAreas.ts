@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend';
+export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -90,6 +90,19 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'budget_import', title: { da: 'Budgetimport', en: 'Budget import', de: 'Budget-Import', it: 'Import budget', hu: 'Budget importálás' } },
     ],
   },
+  {
+    id: 'dealer_data',
+    title: { da: 'Forhandlerdata', en: 'Dealer Data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+    description: {
+      da: 'Stamdata, kontaktinformation, brugere og dine tilbud/ordrer.',
+      en: 'Master data, contacts, users and your quotes/orders.',
+      de: 'Stammdaten, Kontakte, Benutzer und Ihre Angebote/Bestellungen.',
+      it: 'Anagrafica, contatti, utenti e preventivi/ordini.',
+      hu: 'Törzsadatok, kapcsolatok, felhasználók és árajánlatok/rendelések.',
+    },
+    moduleIds: [],
+    placeholders: [],
+  },
 ];
 
 /**
@@ -111,7 +124,7 @@ export function isAreaVisible(
   if (user.role === 'slutkunde') return false;
 
   const portalRole = derivePortalRole(user);
-  const key: ModuleAccessKey = area.id;
+  
 
   // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
   // If the admin saved an allowed_areas list, it is the source of truth for
@@ -121,6 +134,24 @@ export function isAreaVisible(
   if (Array.isArray(allowed) && allowed.length > 0) {
     return allowed.includes(area.id);
   }
+
+  // Forhandlerdata: external dealer-side roles see their own dealer record.
+  // Internal Timan roles (backend, seller, service) also see it so they can
+  // verify what external users see. Hidden for slutkunde and unknown roles.
+  if (area.id === 'dealer_data') {
+    if (!portalRole) return false;
+    return (
+      portalRole === 'timan_backend' ||
+      portalRole === 'timan_seller' ||
+      portalRole === 'timan_service' ||
+      portalRole === 'timan_importer' ||
+      portalRole === 'timan_dealer' ||
+      portalRole === 'timan_service_partner' ||
+      portalRole === 'dealer_user'
+    );
+  }
+
+  const key = area.id as ModuleAccessKey;
 
   if (portalRole) {
     return hasModuleAccess(portalRole, key, user.module_access as ModuleAccessKey[] | null | undefined);

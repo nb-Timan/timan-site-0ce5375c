@@ -62,6 +62,7 @@ import MiscFormsPage from "./pages/misc/MiscFormsPage";
 import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
 import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
 import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
+import DealerDataPage from "./pages/portal/DealerDataPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useEffect } from "react";
@@ -107,6 +108,7 @@ const App = () => (
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
+              <Route path="/portal/dealer-data" element={<DealerDataPage />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />
               <Route path="/portal/crm/accounts"   element={<Navigate to="/portal/crm/my-dealers" replace />} />

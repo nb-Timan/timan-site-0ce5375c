@@ -25,6 +25,10 @@ export interface DealerAccount {
   address: string | null;
   email: string | null;
   phone: string | null;
+  vat_number: string | null;
+  primary_contact_name: string | null;
+  primary_contact_email: string | null;
+  primary_contact_phone: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
@@ -42,6 +46,7 @@ export interface DealerAccount {
   created_at: string;
   updated_at: string;
 }
+
 
 export type DealerAccountsSource = "supabase" | "fallback";
 
@@ -64,6 +69,10 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     address: (row.address as string | null) ?? null,
     email: (row.email as string | null) ?? null,
     phone: (row.phone as string | null) ?? null,
+    vat_number: (row.vat_number as string | null) ?? null,
+    primary_contact_name: (row.primary_contact_name as string | null) ?? null,
+    primary_contact_email: (row.primary_contact_email as string | null) ?? null,
+    primary_contact_phone: (row.primary_contact_phone as string | null) ?? null,
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
@@ -225,6 +234,10 @@ export interface UpdateDealerAccountPatch {
   city?: string | null;
   email?: string | null;
   phone?: string | null;
+  vat_number?: string | null;
+  primary_contact_name?: string | null;
+  primary_contact_email?: string | null;
+  primary_contact_phone?: string | null;
   assigned_seller_initials?: string | null;
   assigned_seller_name?: string | null;
   assigned_seller_email?: string | null;
@@ -830,6 +843,30 @@ export async function fetchDealerStatusForUser(
       companyName: null,
       error: e instanceof Error ? e.message : String(e),
     };
+  }
+}
+
+/**
+ * Fetch a single dealer_accounts row by its account_number.
+ * Used by the external "Forhandlerdata" module so the logged-in
+ * dealer/importer/service-partner can view (and edit a small set of)
+ * their own dealer record. RLS limits non-backend users to their own row.
+ */
+export async function fetchDealerAccountByNumber(
+  accountNumber: string | null | undefined,
+): Promise<{ row: DealerAccount | null; error?: string }> {
+  const an = (accountNumber ?? "").trim();
+  if (!an) return { row: null };
+  try {
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .select("*")
+      .eq("account_number", an)
+      .maybeSingle();
+    if (error) throw error;
+    return { row: data ? rowToDealer(data as Record<string, unknown>) : null };
+  } catch (e) {
+    return { row: null, error: describeSupabaseError("fetchDealerAccountByNumber", e) };
   }
 }
 
