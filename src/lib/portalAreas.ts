@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend';
+export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
