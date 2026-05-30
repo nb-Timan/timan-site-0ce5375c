@@ -124,7 +124,7 @@ export function isAreaVisible(
   if (user.role === 'slutkunde') return false;
 
   const portalRole = derivePortalRole(user);
-  const key: ModuleAccessKey = area.id;
+  
 
   // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
   // If the admin saved an allowed_areas list, it is the source of truth for
