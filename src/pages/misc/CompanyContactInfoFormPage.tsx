@@ -339,22 +339,49 @@ export default function CompanyContactInfoFormPage() {
             <>
               <div>
                 <label className={labelCls}>Firma Navn{reqMark}</label>
-                <input className={inputCls} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                <input
+                  className={inputCls + (scope.isExternalDealerUser ? ' bg-gray-100 cursor-not-allowed' : '')}
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  readOnly={scope.isExternalDealerUser}
+                  disabled={scope.isExternalDealerUser}
+                />
               </div>
               <div>
                 <span className={labelCls}>Forhandler{reqMark}</span>
                 <div className="flex flex-col gap-2">
                   <label className="inline-flex items-center gap-2 text-sm text-gray-800">
-                    <input type="radio" name="dealerKind" checked={dealerKind === 'new'} onChange={() => setDealerKind('new')} />
+                    <input
+                      type="radio"
+                      name="dealerKind"
+                      checked={dealerKind === 'new'}
+                      onChange={() => setDealerKind('new')}
+                      disabled={scope.isExternalDealerUser}
+                    />
                     Ny forhandler
                   </label>
                   <label className="inline-flex items-center gap-2 text-sm text-gray-800">
-                    <input type="radio" name="dealerKind" checked={dealerKind === 'existing'} onChange={() => setDealerKind('existing')} />
+                    <input
+                      type="radio"
+                      name="dealerKind"
+                      checked={dealerKind === 'existing'}
+                      onChange={() => setDealerKind('existing')}
+                      disabled={scope.isExternalDealerUser}
+                    />
                     Eksisterende forhandler
-                    {appUser?.dealer_number && (
+                    {scope.lockedDealerNumber ? (
+                      <span className="ml-1 text-xs text-gray-500">
+                        (tilknyttet {scope.lockedDealerName ?? scope.lockedDealerNumber} #{scope.lockedDealerNumber})
+                      </span>
+                    ) : appUser?.dealer_number && (
                       <span className="ml-1 text-xs text-gray-500">(tilknyttet {appUser.dealer_number})</span>
                     )}
                   </label>
+                  {scope.isExternalDealerUser && (
+                    <p className="text-xs text-gray-500">
+                      Din bruger er låst til din egen forhandler — kan ikke ændres her.
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
