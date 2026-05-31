@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useDealerScope } from '@/lib/dealerScope';
 import FormSubmitShell, { Field, inputCls, textareaCls } from './FormSubmitShell';
 
 const MACHINES = ['Timan 3330', 'RC-751', 'RC-1000s', '2620'] as const;
