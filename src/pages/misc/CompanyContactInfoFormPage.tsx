@@ -255,7 +255,7 @@ export default function CompanyContactInfoFormPage() {
         ? scope.lockedDealerNumber
         : (dealerKind === 'existing' ? (appUser?.dealer_number ?? null) : null);
       const dealerNameOut = scope.isExternalDealerUser
-        ? (scope.lockedDealerName ?? companyName.trim() || null)
+        ? (scope.lockedDealerName ?? (companyName.trim() || null))
         : (companyName.trim() || appUser?.company_dealer || null);
       const row = await submitPortalForm({
         form_type: 'company_contact_info',
