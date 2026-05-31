@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
 import {
