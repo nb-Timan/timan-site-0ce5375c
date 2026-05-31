@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
 import {
@@ -49,11 +50,19 @@ export default function FormSubmitShell({
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const scope = useDealerScope({ requireDealer });
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<PortalFormSubmission | null>(null);
 
-  const dealerNumber = appUser?.dealer_number ?? null;
-  const dealerName = appUser?.company_dealer ?? null;
+  // Eksterne brugere låses ALTID til egen dealer_number (uanset requireDealer).
+  // Interne Timan-roller bruger evt. appUser.dealer_number som fallback,
+  // men kan have egen dropdown længere oppe i deres egen form (ikke her).
+  const dealerNumber = scope.isExternalDealerUser
+    ? scope.lockedDealerNumber
+    : appUser?.dealer_number ?? null;
+  const dealerName = scope.isExternalDealerUser
+    ? scope.lockedDealerName
+    : appUser?.company_dealer ?? null;
   const missingDealer = requireDealer && !dealerNumber;
 
   async function handleSubmit(e: FormEvent) {
@@ -121,14 +130,15 @@ export default function FormSubmitShell({
             className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6"
           >
             {dealerNumber && (
-              <div className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-700">{dealerName ?? dealerNumber}</span>
-                {dealerName && <span className="ml-2">({dealerNumber})</span>}
+              <div className="text-xs text-gray-600 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                {scope.isExternalDealerUser ? 'Du indsender som ' : 'Forhandler: '}
+                <span className="font-semibold text-gray-900">{dealerName ?? dealerNumber}</span>
+                <span className="ml-2 text-gray-500">#{dealerNumber}</span>
               </div>
             )}
             {missingDealer && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
-                {T.dealerWarn[lang]}
+                {scope.errorMessage ?? T.dealerWarn[lang]}
               </div>
             )}
 

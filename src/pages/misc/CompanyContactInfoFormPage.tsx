@@ -1,8 +1,9 @@
-import { useMemo, useState, FormEvent } from 'react';
+import { useMemo, useState, useEffect, FormEvent } from 'react';
 import { CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
 import { submitPortalForm, PortalFormSubmission } from '@/lib/portalFormsService';
 
@@ -50,11 +51,23 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function CompanyContactInfoFormPage() {
   const { appUser } = useAppUser();
+  const scope = useDealerScope();
   const navigate = useNavigate();
 
   // ── Section 1: Firma
-  const [companyName, setCompanyName] = useState(appUser?.company_dealer ?? '');
-  const [dealerKind, setDealerKind] = useState<DealerKind>(appUser?.dealer_number ? 'existing' : '');
+  const [companyName, setCompanyName] = useState(scope.lockedDealerName ?? appUser?.company_dealer ?? '');
+  const [dealerKind, setDealerKind] = useState<DealerKind>(
+    scope.isExternalDealerUser ? 'existing' : (appUser?.dealer_number ? 'existing' : ''),
+  );
+
+  // Når scope-data lander (asynkront): prefill firmanavn for ekstern bruger.
+  useEffect(() => {
+    if (scope.isExternalDealerUser) {
+      setDealerKind('existing');
+      if (scope.lockedDealerName) setCompanyName(scope.lockedDealerName);
+    }
+  }, [scope.isExternalDealerUser, scope.lockedDealerName]);
+
   const [address, setAddress] = useState('');
   const [zipCity, setZipCity] = useState('');
   const [country, setCountry] = useState('');
@@ -236,13 +249,18 @@ export default function CompanyContactInfoFormPage() {
 
     setSubmitting(true);
     try {
-      // For "Ny forhandler": dealer_account_number is allowed to be null.
-      // For "Eksisterende forhandler": use the user's linked dealer_number if present.
-      const dealerNumber = dealerKind === 'existing' ? (appUser?.dealer_number ?? null) : null;
+      // Ekstern bruger: altid låst dealer_number (uanset UI).
+      // Intern / "Ny forhandler": kan være null.
+      const dealerNumber = scope.isExternalDealerUser
+        ? scope.lockedDealerNumber
+        : (dealerKind === 'existing' ? (appUser?.dealer_number ?? null) : null);
+      const dealerNameOut = scope.isExternalDealerUser
+        ? (scope.lockedDealerName ?? (companyName.trim() || null))
+        : (companyName.trim() || appUser?.company_dealer || null);
       const row = await submitPortalForm({
         form_type: 'company_contact_info',
         dealer_account_number: dealerNumber,
-        dealer_name: companyName.trim() || appUser?.company_dealer || null,
+        dealer_name: dealerNameOut,
         payload,
       });
       setReceipt(row);
@@ -326,22 +344,49 @@ export default function CompanyContactInfoFormPage() {
             <>
               <div>
                 <label className={labelCls}>Firma Navn{reqMark}</label>
-                <input className={inputCls} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                <input
+                  className={inputCls + (scope.isExternalDealerUser ? ' bg-gray-100 cursor-not-allowed' : '')}
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  readOnly={scope.isExternalDealerUser}
+                  disabled={scope.isExternalDealerUser}
+                />
               </div>
               <div>
                 <span className={labelCls}>Forhandler{reqMark}</span>
                 <div className="flex flex-col gap-2">
                   <label className="inline-flex items-center gap-2 text-sm text-gray-800">
-                    <input type="radio" name="dealerKind" checked={dealerKind === 'new'} onChange={() => setDealerKind('new')} />
+                    <input
+                      type="radio"
+                      name="dealerKind"
+                      checked={dealerKind === 'new'}
+                      onChange={() => setDealerKind('new')}
+                      disabled={scope.isExternalDealerUser}
+                    />
                     Ny forhandler
                   </label>
                   <label className="inline-flex items-center gap-2 text-sm text-gray-800">
-                    <input type="radio" name="dealerKind" checked={dealerKind === 'existing'} onChange={() => setDealerKind('existing')} />
+                    <input
+                      type="radio"
+                      name="dealerKind"
+                      checked={dealerKind === 'existing'}
+                      onChange={() => setDealerKind('existing')}
+                      disabled={scope.isExternalDealerUser}
+                    />
                     Eksisterende forhandler
-                    {appUser?.dealer_number && (
+                    {scope.lockedDealerNumber ? (
+                      <span className="ml-1 text-xs text-gray-500">
+                        (tilknyttet {scope.lockedDealerName ?? scope.lockedDealerNumber} #{scope.lockedDealerNumber})
+                      </span>
+                    ) : appUser?.dealer_number && (
                       <span className="ml-1 text-xs text-gray-500">(tilknyttet {appUser.dealer_number})</span>
                     )}
                   </label>
+                  {scope.isExternalDealerUser && (
+                    <p className="text-xs text-gray-500">
+                      Din bruger er låst til din egen forhandler — kan ikke ændres her.
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
