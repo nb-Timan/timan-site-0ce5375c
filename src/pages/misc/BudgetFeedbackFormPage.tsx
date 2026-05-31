@@ -85,8 +85,8 @@ export default function BudgetFeedbackFormPage() {
 
   function reset() {
     setYear(currentYear + 1);
-    setCompanyName(appUser?.company_dealer ?? '');
-    setAccountNumber(appUser?.dealer_number ?? '');
+    setCompanyName(scope.lockedDealerName ?? appUser?.company_dealer ?? '');
+    setAccountNumber(scope.lockedDealerNumber ?? appUser?.dealer_number ?? '');
     setForecast(emptyForecast());
     setQualityRating('');
     setQualityComment('');
@@ -102,34 +102,47 @@ export default function BudgetFeedbackFormPage() {
     setOpenHouseDetail('');
   }
 
+  const lockDealerFields = scope.isExternalDealerUser;
+
   return (
     <FormSubmitShell
       formType="budget_feedback"
       title={title}
       intro="Intern formular: forventet salg pr. kvartal og feedback til Timan."
-      requireDealer={false}
-      buildPayload={() => ({
-        forecast_year: year,
-        company_name: companyName.trim(),
-        account_number: accountNumber.trim() || null,
-        forecast,
-        feedback: {
-          quality: { rating: qualityRating, comment: qualityComment.trim() || null },
-          technical_support: { rating: supportRating, comment: supportComment.trim() || null },
-          training: { rating: trainingRating, comment: trainingComment.trim() || null },
-        },
-        machines_and_equipment: {
-          missing_tools: missingTools || null,
-          missing_tools_detail: missingTools === 'ja' ? missingToolsDetail.trim() || null : null,
-          size_demand: sizeDemand || null,
-          size_demand_detail:
-            sizeDemand && sizeDemand !== 'Nej' ? sizeDemandDetail.trim() || null : null,
-        },
-        open_house: {
-          has_event: openHouse || null,
-          detail: openHouse === 'ja' ? openHouseDetail.trim() || null : null,
-        },
-      })}
+      requireDealer={scope.isExternalDealerUser}
+      buildPayload={() => {
+        // Eksterne brugere: brug altid låst dealer-nummer/navn — ignorer evt. UI-ændring.
+        const effAccount = scope.isExternalDealerUser
+          ? scope.lockedDealerNumber
+          : accountNumber.trim() || null;
+        const effName = scope.isExternalDealerUser
+          ? scope.lockedDealerName ?? companyName.trim()
+          : companyName.trim();
+        return {
+          forecast_year: year,
+          company_name: effName,
+          account_number: effAccount,
+          dealer_account_number: effAccount,
+          dealer_name: effName,
+          forecast,
+          feedback: {
+            quality: { rating: qualityRating, comment: qualityComment.trim() || null },
+            technical_support: { rating: supportRating, comment: supportComment.trim() || null },
+            training: { rating: trainingRating, comment: trainingComment.trim() || null },
+          },
+          machines_and_equipment: {
+            missing_tools: missingTools || null,
+            missing_tools_detail: missingTools === 'ja' ? missingToolsDetail.trim() || null : null,
+            size_demand: sizeDemand || null,
+            size_demand_detail:
+              sizeDemand && sizeDemand !== 'Nej' ? sizeDemandDetail.trim() || null : null,
+          },
+          open_house: {
+            has_event: openHouse || null,
+            detail: openHouse === 'ja' ? openHouseDetail.trim() || null : null,
+          },
+        };
+      }}
       onReset={reset}
     >
       {/* Year + company */}
@@ -152,7 +165,9 @@ export default function BudgetFeedbackFormPage() {
             required
             value={companyName}
             onChange={e => setCompanyName(e.target.value)}
-            className={inputCls}
+            className={inputCls + (lockDealerFields ? ' bg-gray-100 cursor-not-allowed' : '')}
+            readOnly={lockDealerFields}
+            disabled={lockDealerFields}
           />
         </Field>
         <Field label="Kunde nr. / Kontonr.">
@@ -160,10 +175,17 @@ export default function BudgetFeedbackFormPage() {
             type="text"
             value={accountNumber}
             onChange={e => setAccountNumber(e.target.value)}
-            className={inputCls}
+            className={inputCls + (lockDealerFields ? ' bg-gray-100 cursor-not-allowed' : '')}
+            readOnly={lockDealerFields}
+            disabled={lockDealerFields}
           />
         </Field>
       </div>
+      {lockDealerFields && (
+        <p className="text-xs text-gray-500 -mt-2">
+          Firmanavn og kontonummer er låst til din egen forhandler.
+        </p>
+      )}
 
       {/* Forecast */}
       <section className="space-y-3">
