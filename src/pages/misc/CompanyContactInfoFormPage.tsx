@@ -1,8 +1,9 @@
-import { useMemo, useState, FormEvent } from 'react';
+import { useMemo, useState, useEffect, FormEvent } from 'react';
 import { CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
 import { submitPortalForm, PortalFormSubmission } from '@/lib/portalFormsService';
 
