@@ -51,11 +51,23 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function CompanyContactInfoFormPage() {
   const { appUser } = useAppUser();
+  const scope = useDealerScope();
   const navigate = useNavigate();
 
   // ── Section 1: Firma
-  const [companyName, setCompanyName] = useState(appUser?.company_dealer ?? '');
-  const [dealerKind, setDealerKind] = useState<DealerKind>(appUser?.dealer_number ? 'existing' : '');
+  const [companyName, setCompanyName] = useState(scope.lockedDealerName ?? appUser?.company_dealer ?? '');
+  const [dealerKind, setDealerKind] = useState<DealerKind>(
+    scope.isExternalDealerUser ? 'existing' : (appUser?.dealer_number ? 'existing' : ''),
+  );
+
+  // Når scope-data lander (asynkront): prefill firmanavn for ekstern bruger.
+  useEffect(() => {
+    if (scope.isExternalDealerUser) {
+      setDealerKind('existing');
+      if (scope.lockedDealerName) setCompanyName(scope.lockedDealerName);
+    }
+  }, [scope.isExternalDealerUser, scope.lockedDealerName]);
+
   const [address, setAddress] = useState('');
   const [zipCity, setZipCity] = useState('');
   const [country, setCountry] = useState('');
