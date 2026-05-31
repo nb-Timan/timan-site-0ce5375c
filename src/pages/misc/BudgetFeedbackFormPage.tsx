@@ -40,12 +40,25 @@ const SIZE_DEMAND_OPTIONS = [
 
 export default function BudgetFeedbackFormPage() {
   const { appUser } = useAppUser();
+  const scope = useDealerScope({ requireDealer: true });
   const currentYear = new Date().getFullYear();
   const yearOptions = [currentYear, currentYear + 1, currentYear + 2];
 
   const [year, setYear] = useState<number>(currentYear + 1);
-  const [companyName, setCompanyName] = useState<string>(appUser?.company_dealer ?? '');
-  const [accountNumber, setAccountNumber] = useState<string>(appUser?.dealer_number ?? '');
+  const [companyName, setCompanyName] = useState<string>(
+    scope.lockedDealerName ?? appUser?.company_dealer ?? '',
+  );
+  const [accountNumber, setAccountNumber] = useState<string>(
+    scope.lockedDealerNumber ?? appUser?.dealer_number ?? '',
+  );
+
+  // Eksterne brugere låses til egen forhandler — opdater når scope er hentet.
+  useEffect(() => {
+    if (scope.isExternalDealerUser) {
+      if (scope.lockedDealerName) setCompanyName(scope.lockedDealerName);
+      if (scope.lockedDealerNumber) setAccountNumber(scope.lockedDealerNumber);
+    }
+  }, [scope.isExternalDealerUser, scope.lockedDealerName, scope.lockedDealerNumber]);
 
   const [forecast, setForecast] = useState<ForecastMap>(emptyForecast());
 
