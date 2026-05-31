@@ -130,14 +130,15 @@ export default function FormSubmitShell({
             className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6"
           >
             {dealerNumber && (
-              <div className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-700">{dealerName ?? dealerNumber}</span>
-                {dealerName && <span className="ml-2">({dealerNumber})</span>}
+              <div className="text-xs text-gray-600 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                {scope.isExternalDealerUser ? 'Du indsender som ' : 'Forhandler: '}
+                <span className="font-semibold text-gray-900">{dealerName ?? dealerNumber}</span>
+                <span className="ml-2 text-gray-500">#{dealerNumber}</span>
               </div>
             )}
             {missingDealer && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
-                {T.dealerWarn[lang]}
+                {scope.errorMessage ?? T.dealerWarn[lang]}
               </div>
             )}
 
