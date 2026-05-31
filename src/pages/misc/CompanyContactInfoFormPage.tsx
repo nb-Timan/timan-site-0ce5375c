@@ -249,13 +249,18 @@ export default function CompanyContactInfoFormPage() {
 
     setSubmitting(true);
     try {
-      // For "Ny forhandler": dealer_account_number is allowed to be null.
-      // For "Eksisterende forhandler": use the user's linked dealer_number if present.
-      const dealerNumber = dealerKind === 'existing' ? (appUser?.dealer_number ?? null) : null;
+      // Ekstern bruger: altid låst dealer_number (uanset UI).
+      // Intern / "Ny forhandler": kan være null.
+      const dealerNumber = scope.isExternalDealerUser
+        ? scope.lockedDealerNumber
+        : (dealerKind === 'existing' ? (appUser?.dealer_number ?? null) : null);
+      const dealerNameOut = scope.isExternalDealerUser
+        ? (scope.lockedDealerName ?? companyName.trim() || null)
+        : (companyName.trim() || appUser?.company_dealer || null);
       const row = await submitPortalForm({
         form_type: 'company_contact_info',
         dealer_account_number: dealerNumber,
-        dealer_name: companyName.trim() || appUser?.company_dealer || null,
+        dealer_name: dealerNameOut,
         payload,
       });
       setReceipt(row);
