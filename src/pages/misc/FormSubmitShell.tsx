@@ -50,11 +50,19 @@ export default function FormSubmitShell({
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const scope = useDealerScope({ requireDealer });
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<PortalFormSubmission | null>(null);
 
-  const dealerNumber = appUser?.dealer_number ?? null;
-  const dealerName = appUser?.company_dealer ?? null;
+  // Eksterne brugere låses ALTID til egen dealer_number (uanset requireDealer).
+  // Interne Timan-roller bruger evt. appUser.dealer_number som fallback,
+  // men kan have egen dropdown længere oppe i deres egen form (ikke her).
+  const dealerNumber = scope.isExternalDealerUser
+    ? scope.lockedDealerNumber
+    : appUser?.dealer_number ?? null;
+  const dealerName = scope.isExternalDealerUser
+    ? scope.lockedDealerName
+    : appUser?.company_dealer ?? null;
   const missingDealer = requireDealer && !dealerNumber;
 
   async function handleSubmit(e: FormEvent) {
