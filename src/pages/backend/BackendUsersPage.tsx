@@ -615,18 +615,25 @@ function EditUserModal({
               value={draft.role}
               onChange={(v) => {
                 const newRole = v as PortalRole;
+                const restricted = isPaymentAndDiscountRestrictedRole(newRole);
                 // When role changes, apply role-default quick_actions so the
                 // admin sees the recommended set. Manual changes after this
                 // (in the Quick actions section below) still persist.
+                // Also force payment-terms & extra-dealer-discount perms
+                // to false for dealer-side roles.
                 setDraft({
                   ...draft,
                   role: newRole,
                   quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
+                  perms: restricted
+                    ? { ...draft.perms, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
+                    : draft.perms,
                 });
               }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
+
 
           {/* Status */}
           <Section title="Status">
