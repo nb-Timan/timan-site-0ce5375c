@@ -29,6 +29,7 @@ import {
   getActiveRolePreview,
   canSwitchMode,
 } from '@/lib/activeMode';
+import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
 const cache = new Map<string, SessionUser>();
 
@@ -49,8 +50,8 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     is_active: row.is_active as boolean,
     start_step: (row.start_step as number) ?? 1,
     max_step: (row.max_step as number) ?? 4,
-    can_view_prices: (row.can_view_prices as boolean) ?? false,
-    can_submit_order: (row.can_submit_order as boolean) ?? false,
+    can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
+    can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
     can_edit_discount: (row.can_edit_discount as boolean) ?? false,
     can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
     working_for: (row.working_for as SessionUser['working_for']) ?? null,
