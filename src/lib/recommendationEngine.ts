@@ -223,8 +223,14 @@ export function generateMetadataRecommendations(
 ): MetadataRecommendationOutput | null {
   const selectedIds = collectSelectedIds(state);
   const selectedPlatforms = collectSelectedPlatforms(state);
-  // Add varenrs from selected accessory ids too (so recommendedWith matching by
-  // varenr works even when ids differ).
+  // Treat selected machine platforms as "selected ids" so the base machine is
+  // never recommended back, and add varenrs of selected accessory ids so
+  // recommendedWith matching by varenr works even when ids differ.
+  for (const p of selectedPlatforms) {
+    selectedIds.add(p);
+    const m = getRecommendationMeta(p);
+    if (m?.varenr) selectedIds.add(m.varenr);
+  }
   for (const list of Object.values(ACCESSORIES)) {
     for (const a of list) if (selectedIds.has(a.id) && a.varenr) selectedIds.add(a.varenr);
   }
