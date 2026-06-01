@@ -55,5 +55,6 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     comment: value?.comment ?? '',
     internalNote: value?.internalNote ?? '',
     paymentTerms: resolvePaymentTerms(value?.paymentTerms),
+    customerNeeds: value?.customerNeeds ?? { tasks: [], focus: [] },
   };
 }
