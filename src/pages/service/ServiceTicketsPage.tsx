@@ -290,8 +290,8 @@ export default function ServiceTicketsPage() {
         onOpenChange={setCreateOpen}
         lang={lang}
         isInternal={isInternal}
-        lockedDealerNumber={isInternal ? null : (appUser.dealer_number ?? null)}
-        lockedDealerName={isInternal ? null : (appUser.company_dealer ?? null)}
+        lockedDealerNumber={isInternal ? null : dealerScope.lockedDealerNumber}
+        lockedDealerName={isInternal ? null : dealerScope.lockedDealerName}
         onCreated={() => { setCreateOpen(false); reload(); }}
       />
 
