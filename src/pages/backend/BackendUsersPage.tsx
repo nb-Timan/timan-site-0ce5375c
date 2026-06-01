@@ -351,26 +351,24 @@ export default function BackendUsersPage() {
                           <Check className="h-3.5 w-3.5" /> Approve
                         </button>
                       )}
-                      <button
-                        type="button"
-                        disabled={pendingAction === `${u.id}:invite`}
-                        onClick={() => void runAdminAction(u, "invite")}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
-                        title="Opret/inviter Supabase Auth bruger og send invitationsemail"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                        {pendingAction === `${u.id}:invite` ? "Sender…" : "Inviter"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pendingAction === `${u.id}:reset`}
-                        onClick={() => void runAdminAction(u, "reset")}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
-                        title="Send password reset email"
-                      >
-                        <KeyRound className="h-3.5 w-3.5" />
-                        {pendingAction === `${u.id}:reset` ? "Sender…" : "Reset password"}
-                      </button>
+                      {(() => {
+                        const hasAuth = (u.auth_status ?? "app_only") === "auth_exists";
+                        const action: "invite" | "reset" = hasAuth ? "reset" : "invite";
+                        const label = hasAuth ? "Send reset" : "Inviter";
+                        const sending = pendingAction === `${u.id}:${action}`;
+                        return (
+                          <button
+                            type="button"
+                            disabled={sending}
+                            onClick={() => void runAdminAction(u, action)}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-60 ${hasAuth ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"}`}
+                            title={hasAuth ? "Send password reset email" : "Opret/inviter Supabase Auth bruger og send invitationsemail"}
+                          >
+                            {hasAuth ? <KeyRound className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
+                            {sending ? "Sender…" : label}
+                          </button>
+                        );
+                      })()}
                       <button
                         type="button"
                         onClick={() => setEditingId(u.id)}
