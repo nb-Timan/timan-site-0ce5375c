@@ -3,6 +3,7 @@ import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
+import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
 export type SessionUser = AppUser & {
   email: string;
