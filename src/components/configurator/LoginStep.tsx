@@ -305,24 +305,35 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       });
 
       if (fnError) {
-        // FunctionsHttpError exposes body via context.
+        // FunctionsHttpError exposes body via context. FunctionsFetchError =
+        // network/CORS issue. Most common cause: Edge Function not deployed.
         let serverMsg: string | null = null;
+        let httpStatus: number | null = null;
         try {
           const ctx = (fnError as { context?: Response }).context;
-          if (ctx && typeof ctx.json === 'function') {
-            const b = await ctx.json();
-            serverMsg = b?.error ?? null;
+          if (ctx) {
+            httpStatus = ctx.status ?? null;
+            if (typeof ctx.json === 'function') {
+              const b = await ctx.json().catch(() => null);
+              serverMsg = b?.error ?? b?.message ?? null;
+            }
           }
         } catch { /* ignore */ }
-        const msg = (serverMsg || fnError.message || '').toLowerCase();
-        if (msg.includes('allerede') || msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+        const rawMsg = (serverMsg || fnError.message || '').toString();
+        const lower = rawMsg.toLowerCase();
+        console.error('[signup] edge function error:', { httpStatus, rawMsg, fnError });
+
+        if (httpStatus === 404 || lower.includes('not_found') || lower.includes('not found') || lower.includes('failed to send a request')) {
+          setError("Edge Function 'admin-user-actions' er ikke deployet i Supabase. Kontakt Timan teknisk support.");
+        } else if (httpStatus === 409 || lower.includes('allerede') || lower.includes('already') || lower.includes('registered') || lower.includes('exists')) {
           setError(tx('signupEmailExists', language));
         } else {
-          setError(serverMsg || fnError.message || tx('signupError', language));
+          setError(rawMsg || tx('signupError', language));
         }
         setLoading(false);
         return;
       }
+
 
       if (!data?.ok) {
         const msg = (data?.error || '').toString();
