@@ -54,6 +54,7 @@ export type ModuleAccessKey =
   | 'salg_marketing'
   | 'timan_backend'
   | 'timan_crm'
+  | 'dealer_data'
   | 'claims'
   | 'tsb'
   | 'warranty'
@@ -70,37 +71,37 @@ export type ModuleAccessKey =
 // ---------- Default per-role module access ----------
 export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
-    'teknik_service', 'salg_marketing', 'timan_backend', 'timan_crm',
+    'teknik_service', 'salg_marketing', 'timan_backend', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_seller: [
-    'teknik_service', 'salg_marketing', 'timan_crm',
+    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_service: [
-    'teknik_service',
+    'teknik_service', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
   ],
   timan_importer: [
-    'teknik_service', 'salg_marketing',
+    'teknik_service', 'salg_marketing', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_dealer: [
-    'teknik_service', 'salg_marketing',
+    'teknik_service', 'salg_marketing', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   timan_service_partner: [
-    'teknik_service', 'salg_marketing',
+    'teknik_service', 'salg_marketing', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources',
   ],
   // Read-only / visual access only
   dealer_user: [
-    'teknik_service', 'salg_marketing',
+    'teknik_service', 'salg_marketing', 'dealer_data',
     'service_information', 'byg_din_timan', 'resources', 'sales_tools',
   ],
   // Awaiting admin approval — no module access until approved.
