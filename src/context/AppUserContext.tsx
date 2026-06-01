@@ -47,6 +47,7 @@ interface AppUserContextValue {
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'timan.appUser';
+const SESSION_CACHE_VERSION = 2;
 
 function loadFromStorage(): SessionUser | null {
   try {
@@ -66,7 +67,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   const setAppUser = useCallback((user: SessionUser | null) => {
     setAppUserState(user);
     if (user) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...user, __permission_defaults_version: SESSION_CACHE_VERSION }));
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
       setDealerStatus(null);
@@ -115,7 +116,8 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           // so portal area filtering applies without manual logout.
           && Object.prototype.hasOwnProperty.call(cached, 'permissions')
           && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas')
-          && Object.prototype.hasOwnProperty.call(cached, 'quick_actions');
+          && Object.prototype.hasOwnProperty.call(cached, 'quick_actions')
+          && (cached as SessionUser & { __permission_defaults_version?: number }).__permission_defaults_version === SESSION_CACHE_VERSION;
         if (cacheIsFresh) {
           setLoading(false);
           return;
