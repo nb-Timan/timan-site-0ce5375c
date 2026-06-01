@@ -242,6 +242,7 @@ export default function ConfiguratorPage() {
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [showLeavePortalConfirm, setShowLeavePortalConfirm] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
   const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
   const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
