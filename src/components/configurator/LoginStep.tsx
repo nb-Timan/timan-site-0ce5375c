@@ -98,13 +98,10 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [view, setView] = useState<View>('main');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestError, setGuestError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
   const [showGuestPopup, setShowGuestPopup] = useState(false);
-  const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
 
   // Full signup form state
   const [suFirstName, setSuFirstName] = useState('');
