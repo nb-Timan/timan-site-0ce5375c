@@ -203,14 +203,197 @@ export function scoreRecommendationCandidate(
   return { meta: candidate, score, reasons };
 }
 
+// ─── Grouping & reason text (Phase 3) ───────────────────────────────────────
+
+/** Sales-oriented grouping shown to the customer (prefixed on the bullet). */
+export type RecommendationGroup = "necessary" | "recommended" | "upsell";
+
+const GROUP_PREFIX: Record<RecommendationGroup, Record<Language, string>> = {
+  necessary: {
+    da: "Nødvendigt",
+    en: "Essential",
+    de: "Notwendig",
+    it: "Necessario",
+    hu: "Szükséges",
+  },
+  recommended: {
+    da: "Timan anbefaler",
+    en: "Timan recommends",
+    de: "Timan empfiehlt",
+    it: "Timan consiglia",
+    hu: "Timan ajánlja",
+  },
+  upsell: {
+    da: "Ekstra værdi",
+    en: "Added value",
+    de: "Mehrwert",
+    it: "Valore aggiunto",
+    hu: "Plusz érték",
+  },
+};
+
+/**
+ * Assign a sales group based on category, priority and signals.
+ * Deterministic — same inputs always yield the same group.
+ */
+function groupOf(c: MetadataCandidate): RecommendationGroup {
+  const { meta, reasons } = c;
+  const hasRecWith = reasons.some((r) => r.startsWith("recommendedWith"));
+
+  // Safety + high-priority lights count as "essential" for road/site work.
+  if (meta.category === "accessory_safety" && meta.recommendationPriority <= 2) return "necessary";
+  if (meta.category === "accessory_light" && meta.recommendationPriority === 1 && hasRecWith) {
+    return "necessary";
+  }
+
+  // Service/warranty and pure comfort/protection are framed as upsell.
+  if (
+    meta.category === "service_warranty" ||
+    meta.category === "accessory_comfort" ||
+    meta.category === "accessory_protection"
+  ) {
+    return "upsell";
+  }
+
+  // Strong pairing or high priority → "Timan recommends".
+  if (hasRecWith || meta.recommendationPriority <= 2) return "recommended";
+
+  return "upsell";
+}
+
+// ── Reason snippets (localized, deterministic) ──────────────────────────────
+
+const REASON_SNIPPETS: Record<string, Record<Language, string>> = {
+  safety_traffic: {
+    da: "Øger sikkerheden ved arbejde tæt på trafik og mennesker.",
+    en: "Increases safety when working close to traffic and people.",
+    de: "Erhöht die Sicherheit bei Arbeiten in der Nähe von Verkehr und Personen.",
+    it: "Aumenta la sicurezza vicino a traffico e persone.",
+    hu: "Növeli a biztonságot forgalom és emberek közelében.",
+  },
+  light_dark_season: {
+    da: "Forlænger den effektive arbejdsdag i den mørke sæson.",
+    en: "Extends the productive working day during the dark season.",
+    de: "Verlängert den produktiven Arbeitstag in der dunklen Jahreszeit.",
+    it: "Prolunga la giornata lavorativa nei mesi bui.",
+    hu: "Meghosszabbítja a hatékony munkanapot a sötét időszakban.",
+  },
+  winter_ready: {
+    da: "Gør løsningen klar til vinterdrift.",
+    en: "Makes the solution ready for winter operation.",
+    de: "Macht die Lösung winterfest.",
+    it: "Prepara la soluzione all'uso invernale.",
+    hu: "Felkészíti a megoldást a téli üzemre.",
+  },
+  warranty_uptime: {
+    da: "Reducerer risikoen for driftsstop og styrker totaløkonomien.",
+    en: "Reduces downtime risk and strengthens total cost of ownership.",
+    de: "Reduziert Ausfallrisiken und stärkt die Gesamtwirtschaftlichkeit.",
+    it: "Riduce i fermi macchina e migliora il costo totale di esercizio.",
+    hu: "Csökkenti az állásidő kockázatát és javítja a teljes üzemeltetési költséget.",
+  },
+  comfort_long_days: {
+    da: "Gør lange arbejdsdage mere komfortable for operatøren.",
+    en: "Makes long working days more comfortable for the operator.",
+    de: "Macht lange Arbeitstage komfortabler für den Bediener.",
+    it: "Rende più confortevoli le lunghe giornate di lavoro.",
+    hu: "Kényelmesebbé teszi a hosszú munkanapokat.",
+  },
+  protection_lifetime: {
+    da: "Beskytter mod korrosion og forlænger levetiden.",
+    en: "Protects against corrosion and extends service life.",
+    de: "Schützt vor Korrosion und verlängert die Lebensdauer.",
+    it: "Protegge dalla corrosione ed estende la durata.",
+    hu: "Védi a korróziótól és növeli az élettartamot.",
+  },
+  task_match: {
+    da: "Matcher de valgte maskiners opgaver.",
+    en: "Matches the work tasks of the chosen machines.",
+    de: "Passt zu den Aufgaben der gewählten Maschinen.",
+    it: "Corrisponde ai compiti delle macchine scelte.",
+    hu: "Illeszkedik a kiválasztott gépek feladataihoz.",
+  },
+  pairs_with: {
+    da: "Anbefales sammen med den valgte løsning.",
+    en: "Recommended together with your selection.",
+    de: "Wird zusammen mit Ihrer Auswahl empfohlen.",
+    it: "Consigliato insieme alla selezione.",
+    hu: "A kiválasztással együtt ajánlott.",
+  },
+};
+
+function pickSnippet(key: keyof typeof REASON_SNIPPETS, lang: Language): string {
+  return REASON_SNIPPETS[key][lang] ?? REASON_SNIPPETS[key].da;
+}
+
+/**
+ * Build a richer, sales-style reason string from metadata signals.
+ * Deterministic. Never invents products. Falls back to shortPitch / salesArguments.
+ */
+function buildReason(c: MetadataCandidate, lang: Language): string {
+  const { meta, reasons } = c;
+  const parts: string[] = [];
+
+  // Category-driven primary value statement.
+  switch (meta.category) {
+    case "accessory_safety":
+      parts.push(pickSnippet("safety_traffic", lang));
+      break;
+    case "accessory_light":
+      parts.push(pickSnippet("light_dark_season", lang));
+      break;
+    case "service_warranty":
+      parts.push(pickSnippet("warranty_uptime", lang));
+      break;
+    case "accessory_comfort":
+      parts.push(pickSnippet("comfort_long_days", lang));
+      break;
+    case "accessory_protection":
+      parts.push(pickSnippet("protection_lifetime", lang));
+      break;
+    case "tool_winter_plow":
+    case "tool_winter_blower":
+    case "tool_winter_spreader":
+      parts.push(pickSnippet("winter_ready", lang));
+      break;
+    default: {
+      // For tools/machines: prefer first sales argument, then shortPitch.
+      const sa = meta.salesArguments[0];
+      const saText = sa ? pickLocalized(sa, lang) : "";
+      if (saText) parts.push(saText);
+    }
+  }
+
+  // Secondary signal: workTasks overlap.
+  if (reasons.some((r) => r.startsWith("workTasks overlap"))) {
+    parts.push(pickSnippet("task_match", lang));
+  }
+
+  // Secondary signal: explicit pairing.
+  if (reasons.some((r) => r.startsWith("recommendedWith"))) {
+    parts.push(pickSnippet("pairs_with", lang));
+  }
+
+  // Final fallback: shortPitch if we have nothing yet.
+  if (parts.length === 0) {
+    const pitch = pickLocalized(meta.shortPitch, lang);
+    if (pitch) parts.push(pitch);
+  }
+
+  // Keep it to max two sentences for UI compactness.
+  return parts.slice(0, 2).join(" ");
+}
+
 // ─── Output shape (mirrors RecommendationStructured) ────────────────────────
 
 export interface MetadataRecommendationOutput {
-  /** Localized bullets in the form `${name} – ${shortPitch}`. */
+  /** Localized bullets prefixed with the sales group (e.g. "Nødvendigt: …"). */
   defaultBullets: string[];
   extraBullets: string[];
-  /** Underlying scored candidates, in chosen order. Useful for debug/AI later. */
+  /** Underlying scored candidates, in chosen order (matches `groups`). */
   picked: MetadataCandidate[];
+  /** Group per picked candidate, same order as `picked`. */
+  groups: RecommendationGroup[];
 }
 
 /**
@@ -268,9 +451,7 @@ export function generateMetadataRecommendations(
     return a.meta.name.localeCompare(b.meta.name);
   });
 
-  // Diversify: prefer at most 2 picks per category in the top 5, so the
-  // customer sees a mix (safety + winter + service + …) rather than three
-  // identical-flavoured items.
+  // Diversify: prefer at most 2 picks per category, then fill the rest.
   const picked: MetadataCandidate[] = [];
   const catCount = new Map<string, number>();
   const leftover: MetadataCandidate[] = [];
@@ -285,20 +466,36 @@ export function generateMetadataRecommendations(
     }
     if (picked.length >= 10) break;
   }
-  // If still short, fill from leftover to reach up to 10.
   for (const c of leftover) {
     if (picked.length >= 10) break;
     picked.push(c);
   }
 
-  const allBullets = picked.map((c) => {
-    const label = c.meta.name;
-    const reason = pickLocalized(c.meta.shortPitch, lang);
-    return reason ? `${label} – ${reason}` : label;
+  // Order picks so "necessary" comes first, then "recommended", then "upsell"
+  // — within each group keep the score-based order from above.
+  const groupRank: Record<RecommendationGroup, number> = {
+    necessary: 0,
+    recommended: 1,
+    upsell: 2,
+  };
+  const withGroups = picked.map((c, idx) => ({ c, idx, g: groupOf(c) }));
+  withGroups.sort((a, b) => {
+    const r = groupRank[a.g] - groupRank[b.g];
+    return r !== 0 ? r : a.idx - b.idx;
+  });
+
+  const orderedPicked = withGroups.map((x) => x.c);
+  const groups = withGroups.map((x) => x.g);
+
+  const allBullets = withGroups.map(({ c, g }) => {
+    const prefix = GROUP_PREFIX[g][lang] ?? GROUP_PREFIX[g].da;
+    const reason = buildReason(c, lang);
+    const tail = reason ? ` – ${reason}` : "";
+    return `${prefix}: ${c.meta.name}${tail}`;
   });
 
   const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
   const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
 
-  return { defaultBullets, extraBullets, picked };
+  return { defaultBullets, extraBullets, picked: orderedPicked, groups };
 }
