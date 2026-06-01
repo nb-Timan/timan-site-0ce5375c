@@ -56,6 +56,7 @@ function deriveRole(row: Record<string, unknown>): PortalRole {
     if (partnerType === "importoer") return "timan_importer";
     return "dealer_user";
   }
+  if (row.approved === false || row.status === "pending" || row.status === "inactive") return "pending";
   return "dealer_user";
 }
 
