@@ -22,6 +22,12 @@
 import type { ConfiguratorState, Language } from "@/types/configurator";
 import { getSelectedRecommendationMeta } from "@/lib/recommendationEngine";
 import type { ProductRecommendationMeta } from "@/data/productRecommendationMeta";
+import {
+  needsIndustries,
+  needsTasks,
+  needsSeasons,
+  type CustomerNeeds,
+} from "@/lib/customerNeeds";
 
 export type BenefitTheme =
   | "operation"      // Drift og effektivitet
