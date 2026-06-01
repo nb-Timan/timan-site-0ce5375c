@@ -21,7 +21,7 @@
 
 import type { ConfiguratorState, Language } from "@/types/configurator";
 import { getSelectedRecommendationMeta } from "@/lib/recommendationEngine";
-import { pickLocalized, type ProductRecommendationMeta } from "@/data/productRecommendationMeta";
+import type { ProductRecommendationMeta } from "@/data/productRecommendationMeta";
 
 export type BenefitTheme =
   | "operation"      // Drift og effektivitet
