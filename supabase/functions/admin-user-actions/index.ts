@@ -220,9 +220,27 @@ Deno.serve(async (req) => {
       auth_status: "auth_exists",
       updated_at: new Date().toISOString(),
     };
-    const { error: upsertErr } = await admin
-      .from("app_users")
-      .upsert(upsertPayload, { onConflict: "email" });
+    let upsertErr = (
+      await admin.from("app_users").upsert(upsertPayload, { onConflict: "email" })
+    ).error;
+    if (upsertErr && /auth_status/i.test(upsertErr.message)) {
+      // Phase 10 migration not applied — retry without the optional column.
+      const { auth_status: _drop, ...safePayload } = upsertPayload;
+      upsertErr = (
+        await admin.from("app_users").upsert(safePayload, { onConflict: "email" })
+      ).error;
+    }
+    if (upsertErr && /schema cache|column/i.test(upsertErr.message)) {
+      // Generic fallback: strip any other unknown column flagged by PostgREST.
+      const match = upsertErr.message.match(/'([a-z_]+)' column/i);
+      if (match) {
+        const safePayload: Record<string, unknown> = { ...upsertPayload };
+        delete safePayload[match[1]];
+        upsertErr = (
+          await admin.from("app_users").upsert(safePayload, { onConflict: "email" })
+        ).error;
+      }
+    }
     if (upsertErr) {
       return json(
         { error: `Bruger oprettet i Auth, men profil kunne ikke gemmes: ${upsertErr.message}` },
