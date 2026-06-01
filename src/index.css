@@ -11,9 +11,29 @@ html {
 html, body {
   overflow-x: hidden !important;
   width: 100%;
+  max-width: 100%;
   margin: 0;
   padding: 0;
 }
+
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Prevent iOS Safari auto-zoom on focus: inputs must be >=16px on mobile.
+   Applied only at <=640px so desktop typography (driven by html { font-size: 79% })
+   stays unchanged. Covers native inputs and common select triggers. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select,
+  [role="combobox"],
+  [role="textbox"] {
+    font-size: 16px !important;
+  }
+}
+
 
 @layer base {
   :root {
