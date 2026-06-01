@@ -98,13 +98,10 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   const [view, setView] = useState<View>('main');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestError, setGuestError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
   const [showGuestPopup, setShowGuestPopup] = useState(false);
-  const [pendingGuestEmail, setPendingGuestEmail] = useState<string | null>(null);
 
   // Full signup form state
   const [suFirstName, setSuFirstName] = useState('');
@@ -358,18 +355,11 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   };
 
   const handleGuestContinue = () => {
-    const trimmed = guestEmail.trim();
-    // Email is now optional for the guest flow — popup collects country/postal.
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setGuestError(tx('guestEmailRequired', language));
-      return;
-    }
-    setPendingGuestEmail(trimmed ? trimmed.toLowerCase() : null);
     setShowGuestPopup(true);
   };
 
-  const finalizeGuestEntry = () => {
-    const guestEmailLc = pendingGuestEmail;
+  const finalizeGuestEntry = (guestEmailFromPopup: string) => {
+    const guestEmailLc = guestEmailFromPopup.toLowerCase();
     setShowGuestPopup(false);
 
     if (guestEmailLc) {
@@ -578,17 +568,6 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </div>
 
           {/* Guest continue */}
-          <div>
-            <input
-              type="email"
-              value={guestEmail}
-              onChange={e => { setGuestEmail(e.target.value); setGuestError(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') handleGuestContinue(); }}
-              className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-gray-400 focus:outline-none transition"
-              placeholder={tx('emailPlaceholder', language)}
-            />
-            {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
-          </div>
           <button
             onClick={handleGuestContinue}
             className="w-full py-3 rounded-xl text-sm font-medium text-gray-600 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition"
@@ -609,7 +588,6 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       <GuestVisitorPopup
         open={showGuestPopup}
         language={language as never}
-        email={pendingGuestEmail}
         onCancel={() => setShowGuestPopup(false)}
         onConfirm={finalizeGuestEntry}
       />
