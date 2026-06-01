@@ -42,6 +42,8 @@ import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
+import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
+import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { toast } from 'sonner';
