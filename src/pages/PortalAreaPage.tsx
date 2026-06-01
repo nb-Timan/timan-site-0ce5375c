@@ -52,7 +52,20 @@ export default function PortalAreaPage({ areaId }: Props) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  // Only true end-customers without any portal role get redirected to the
+  // configurator. Dealer-side users (timan_dealer, timan_importer,
+  // timan_service_partner, dealer_user, internal staff) must see the area.
+  {
+    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const dealerSideRoles = new Set([
+      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
+      'timan_backend', 'timan_seller', 'timan_service',
+    ]);
+    const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;
+    if (appUser.role === 'slutkunde' && !hasPortalAccess) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   const area = PORTAL_AREAS.find(a => a.id === areaId);
   if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
