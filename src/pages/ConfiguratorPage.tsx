@@ -1938,7 +1938,14 @@ export default function ConfiguratorPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
           <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
         </div>
-        {appUser?.role !== 'slutkunde' ? (
+        {(() => {
+          const portalRole = (appUser as { portal_role?: string | null } | null)?.portal_role ?? null;
+          const dealerSidePortalRoles = new Set([
+            'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
+            'timan_backend', 'timan_seller', 'timan_service',
+          ]);
+          const showBackToPortal = !!appUser && (appUser.role !== 'slutkunde' || (portalRole ? dealerSidePortalRoles.has(portalRole) : false));
+          return showBackToPortal ? (
           <button
             onClick={() => {
               const hasUnsaved = state.machineConfigs.length > 0 && !isSavedCurrent;
