@@ -27,6 +27,7 @@ export const createEmptyConfiguratorState = (
   comment: '',
   internalNote: '',
   paymentTerms: DEFAULT_PAYMENT_TERMS,
+  customerNeeds: { tasks: [], focus: [] },
 });
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
