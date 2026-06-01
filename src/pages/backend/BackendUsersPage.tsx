@@ -657,29 +657,46 @@ function EditUserModal({
             </p>
           </Section>
 
-          {/* Account Owner (CRM) — only meaningful for dealer-side accounts. */}
+          {/* Account Owner (CRM) — derived from the linked dealer's assigned
+              seller. Shown read-only when a dealer is linked; only editable
+              when no dealer is selected (so internal CRM ownership can still
+              be set for stand-alone dealer-side users). */}
           {ownerApplicable && (
             <Section title="Account Owner (Timan Sælger)">
-              <Select
-                label="Tildelt sælger"
-                value={draft.account_owner_user_id ?? ""}
-                onChange={(v) => applyOwner(v)}
-                options={[
-                  { value: "", label: "— ingen tildelt —" },
-                  ...sellers.map((s) => ({ value: s.id, label: `${s.initials} · ${s.name}` })),
-                ]}
-              />
-              {draft.account_owner_user_id && (
-                <p className="mt-2 text-[11px] text-slate-500">
-                  Ejer: {draft.account_owner_name} ({draft.account_owner_email})
-                </p>
+              {dealerSellerLocked ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <span className="font-semibold">Sælger fra forhandler:</span>{" "}
+                  {draft.seller_initials || "—"}
+                  {draft.account_owner_name ? ` – ${draft.account_owner_name}` : ""}
+                  {draft.seller_email ? ` (${draft.seller_email})` : ""}
+                </div>
+              ) : (
+                <Select
+                  label="Tildelt sælger"
+                  value={draft.account_owner_user_id ?? ""}
+                  onChange={(v) => {
+                    if (!v) {
+                      setDraft({ ...draft, account_owner_user_id: null, account_owner_name: null, account_owner_initials: null, account_owner_email: null });
+                      return;
+                    }
+                    const owner = sellers.find((s) => s.id === v);
+                    if (!owner) return;
+                    setDraft({ ...draft, account_owner_user_id: owner.id, account_owner_name: owner.name, account_owner_initials: owner.initials, account_owner_email: owner.email });
+                  }}
+                  options={[
+                    { value: "", label: "— ingen tildelt —" },
+                    ...sellers.map((s) => ({ value: s.id, label: `${s.initials} · ${s.name}` })),
+                  ]}
+                />
               )}
               <p className="mt-2 text-[11px] text-slate-500">
-                Brugt af kommende CRM/Sales Portal til at filtrere dealers, importører,
-                service partnere, dealer users og tilbud/ordrer.
+                {dealerSellerLocked
+                  ? "Sælger arves fra den valgte forhandler (dealer_accounts.assigned_seller_*). Skift forhandler for at ændre."
+                  : "Brugt af CRM/Sales Portal til at filtrere dealers, importører, service partnere, dealer users og tilbud/ordrer."}
               </p>
             </Section>
           )}
+
 
           {/* Allowed Areas */}
           <Section title="Allowed Areas">
