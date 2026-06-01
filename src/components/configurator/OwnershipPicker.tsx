@@ -25,6 +25,7 @@ import {
   getActiveSellerView,
 } from '@/lib/activeMode';
 import { isExternalDealerRole } from '@/lib/configuratorOwnership';
+import { useDealerScope } from '@/lib/dealerScope';
 import { fetchDealerAccounts, DealerAccount } from '@/lib/dealerAccountsService';
 import { Language } from '@/types/configurator';
 
