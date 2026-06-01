@@ -104,6 +104,12 @@ export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
 /** Multilingual short string. Always required for `da` + `en`; others optional. */
 export type LocalizedShort = { da: string; en: string; de?: string; it?: string; hu?: string };
 
+/** Where this metadata entry originated. Used to track curation provenance. */
+export type MetaSourceType = "manual" | "timan_dk" | "csv_import";
+
+/** Quality of the curated metadata — used by future review workflows. */
+export type DataQuality = "draft" | "reviewed" | "needs_review";
+
 export interface ProductRecommendationMeta {
   /** Internal id from machines.ts (Machine.id or Accessory.id). */
   productId: string;
@@ -139,6 +145,32 @@ export interface ProductRecommendationMeta {
   sourceLink?: string;
   /** Free-form TODO note for the next curation pass. */
   todo?: string;
+
+  // ── Step 6: Source + content fields (all optional, prepared for CSV/JSON import) ──
+  /** Provenance of this metadata entry. Defaults to "manual" when omitted. */
+  sourceType?: MetaSourceType;
+  /** Canonical Timan.dk product page URL (or other authoritative source). */
+  sourceUrl?: string;
+  /** PDF brochure / datasheet URL. */
+  brochureUrl?: string;
+  /** Primary product image URL (hero shot). */
+  imageUrl?: string;
+  /** Primary product video URL (YouTube / Vimeo / mp4). */
+  videoUrl?: string;
+  /** Additional documentation URLs (manuals, spec sheets, certificates). */
+  documentationUrls?: string[];
+  /** Unique Selling Points — short, factual bullets for AI rephrasing. */
+  uspBullets?: LocalizedShort[];
+  /** Customer value bullets — outcome-oriented ("hvad får kunden ud af det"). */
+  customerValueBullets?: LocalizedShort[];
+  /** Quote-ready paragraph used as canned sales copy in quotes/PDFs. */
+  quoteText?: LocalizedShort;
+  /** Internal sales notes — never shown to customers. */
+  internalSalesNotes?: string;
+  /** ISO date (yyyy-mm-dd) of last manual review. */
+  lastReviewedAt?: string;
+  /** Curation quality marker — drives review workflow. */
+  dataQuality?: DataQuality;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
