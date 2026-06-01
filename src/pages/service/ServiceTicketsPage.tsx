@@ -17,6 +17,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { useDealerScope } from "@/lib/dealerScope";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 
