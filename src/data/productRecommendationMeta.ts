@@ -761,3 +761,94 @@ export function pickLocalized(s: LocalizedShort, lang: Language): string {
 export function listCoveredProductIds(): string[] {
   return Object.keys(PRODUCT_RECOMMENDATION_META);
 }
+
+// ─── Step 6: Source/content helpers ─────────────────────────────────────────
+//
+// These helpers expose the new optional fields without touching the
+// recommendation engine. They safely fall back to data already present in
+// machines.ts (imageUrl, videoUrl, varenr) so we don't duplicate large
+// amounts of content by hand.
+
+/** Look up metadata strictly by varenr (item number). */
+export function getRecommendationMetaByVarenr(varenr: string): ProductRecommendationMeta | null {
+  if (!varenr) return null;
+  for (const meta of Object.values(PRODUCT_RECOMMENDATION_META)) {
+    if (meta.varenr === varenr) return meta;
+  }
+  return null;
+}
+
+/** Resolve a productId (or varenr) to its raw entry in machines.ts. */
+function resolveMachineLike(idOrVarenr: string):
+  | { imageUrl?: string; videoUrl?: string; varenr?: string }
+  | null {
+  if (!idOrVarenr) return null;
+  // Machines: keyed by id, but may also match by varenr.
+  const machineById = getMachineById(idOrVarenr);
+  if (machineById) return machineById as { imageUrl?: string; videoUrl?: string; varenr?: string };
+  for (const m of Object.values(PRODUCTS)) {
+    if (m.varenr === idOrVarenr) return m as { imageUrl?: string; videoUrl?: string; varenr?: string };
+  }
+  // Accessories: scan all groups.
+  for (const list of Object.values(ACCESSORIES)) {
+    for (const a of list) {
+      if (a.id === idOrVarenr || a.varenr === idOrVarenr) {
+        return a as { imageUrl?: string; videoUrl?: string; varenr?: string };
+      }
+    }
+  }
+  return null;
+}
+
+export interface ProductSourceLinks {
+  sourceUrl?: string;
+  brochureUrl?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  documentationUrls: string[];
+  /** True when at least one link is non-empty. */
+  hasAny: boolean;
+}
+
+/**
+ * Get all source/media links for a product. Pulls from metadata first, then
+ * falls back to imageUrl/videoUrl already defined in machines.ts. Never throws.
+ */
+export function getProductSourceLinks(idOrVarenr: string): ProductSourceLinks {
+  const meta = getRecommendationMeta(idOrVarenr);
+  const raw = resolveMachineLike(idOrVarenr);
+
+  const sourceUrl = meta?.sourceUrl ?? meta?.sourceLink ?? undefined;
+  const brochureUrl = meta?.brochureUrl ?? undefined;
+  const imageUrl = meta?.imageUrl ?? raw?.imageUrl ?? undefined;
+  const videoUrl = meta?.videoUrl ?? raw?.videoUrl ?? undefined;
+  const documentationUrls = meta?.documentationUrls ?? [];
+
+  return {
+    sourceUrl,
+    brochureUrl,
+    imageUrl,
+    videoUrl,
+    documentationUrls,
+    hasAny: Boolean(sourceUrl || brochureUrl || imageUrl || videoUrl || documentationUrls.length > 0),
+  };
+}
+
+/** Localized quote-ready paragraph, or null if not curated. */
+export function getQuoteText(idOrVarenr: string, lang: Language): string | null {
+  const meta = getRecommendationMeta(idOrVarenr);
+  if (!meta?.quoteText) return null;
+  return pickLocalized(meta.quoteText, lang) || null;
+}
+
+/** Curation quality marker. Defaults to "draft" when not yet annotated. */
+export function getDataQuality(idOrVarenr: string): DataQuality {
+  const meta = getRecommendationMeta(idOrVarenr);
+  return meta?.dataQuality ?? "draft";
+}
+
+/** Source provenance — defaults to "manual" for hand-curated entries. */
+export function getMetaSourceType(idOrVarenr: string): MetaSourceType {
+  const meta = getRecommendationMeta(idOrVarenr);
+  return meta?.sourceType ?? "manual";
+}
