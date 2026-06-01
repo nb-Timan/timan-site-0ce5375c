@@ -17,6 +17,7 @@ import {
   type ToolCapability,
   type ToolProfile,
 } from '@/lib/aiPrompts';
+import { generateMetadataRecommendations } from '@/lib/recommendationEngine';
 
 export interface SalesArgsStructured {
   heading: string;
