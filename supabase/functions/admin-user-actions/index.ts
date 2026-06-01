@@ -220,9 +220,27 @@ Deno.serve(async (req) => {
       auth_status: "auth_exists",
       updated_at: new Date().toISOString(),
     };
-    const { error: upsertErr } = await admin
-      .from("app_users")
-      .upsert(upsertPayload, { onConflict: "email" });
+    let upsertErr = (
+      await admin.from("app_users").upsert(upsertPayload, { onConflict: "email" })
+    ).error;
+    if (upsertErr && /auth_status/i.test(upsertErr.message)) {
+      // Phase 10 migration not applied — retry without the optional column.
+      const { auth_status: _drop, ...safePayload } = upsertPayload;
+      upsertErr = (
+        await admin.from("app_users").upsert(safePayload, { onConflict: "email" })
+      ).error;
+    }
+    if (upsertErr && /schema cache|column/i.test(upsertErr.message)) {
+      // Generic fallback: strip any other unknown column flagged by PostgREST.
+      const match = upsertErr.message.match(/'([a-z_]+)' column/i);
+      if (match) {
+        const safePayload: Record<string, unknown> = { ...upsertPayload };
+        delete safePayload[match[1]];
+        upsertErr = (
+          await admin.from("app_users").upsert(safePayload, { onConflict: "email" })
+        ).error;
+      }
+    }
     if (upsertErr) {
       return json(
         { error: `Bruger oprettet i Auth, men profil kunne ikke gemmes: ${upsertErr.message}` },
@@ -319,11 +337,35 @@ async function touchAppUser(
   patch: Record<string, unknown>,
 ) {
   const fullPatch = { ...patch, updated_at: new Date().toISOString() };
-  // Try by id first (more precise), then by email. Ignore "column does not
-  // exist" errors so this still works before the SQL migration is applied.
-  if (appUserId) {
-    const { error } = await admin.from("app_users").update(fullPatch).eq("id", appUserId);
-    if (!error) return;
-  }
-  await admin.from("app_users").update(fullPatch).eq("email", email);
+  const tryUpdate = async (
+    by: "id" | "email",
+    value: string,
+    body: Record<string, unknown>,
+  ) => admin.from("app_users").update(body).eq(by, value);
+
+  const stripUnknown = (body: Record<string, unknown>, msg: string) => {
+    const copy = { ...body };
+    for (const key of ["auth_status", "last_invited_at", "last_password_reset_at"]) {
+      if (new RegExp(key, "i").test(msg)) delete copy[key];
+    }
+    const m = msg.match(/'([a-z_]+)' column/i);
+    if (m && m[1] in copy) delete copy[m[1]];
+    return copy;
+  };
+
+  const runWithFallback = async (by: "id" | "email", value: string) => {
+    let body = fullPatch;
+    for (let i = 0; i < 4; i++) {
+      const { error } = await tryUpdate(by, value, body);
+      if (!error) return true;
+      if (!/schema cache|column/i.test(error.message)) return false;
+      const next = stripUnknown(body, error.message);
+      if (Object.keys(next).length === Object.keys(body).length) return false;
+      body = next;
+    }
+    return false;
+  };
+
+  if (appUserId && (await runWithFallback("id", appUserId))) return;
+  await runWithFallback("email", email);
 }
