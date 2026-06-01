@@ -620,14 +620,14 @@ function EditUserModal({
           {/* Status */}
           <Section title="Status">
             <div className="flex flex-wrap gap-2">
-              {(["active", "pending", "blocked"] as UserStatus[]).map((s) => (
+              {(["pending", "active", "blocked"] as UserStatus[]).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => {
                     if (s === "active") setDraft({ ...draft, status: s, approved: true, is_active: true });
                     else if (s === "pending") setDraft({ ...draft, status: s, approved: false, is_active: false });
-                    else setDraft({ ...draft, status: s, is_active: false });
+                    else setDraft({ ...draft, status: s, approved: true, is_active: false });
                   }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${
                     draft.status === s
@@ -639,26 +639,11 @@ function EditUserModal({
                 </button>
               ))}
             </div>
-            <div className="mt-3 flex flex-wrap gap-4">
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={draft.approved}
-                  onChange={(e) => setDraft({ ...draft, approved: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                Approved
-              </label>
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={draft.is_active}
-                  onChange={(e) => setDraft({ ...draft, is_active: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                Active
-              </label>
-            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              {draft.status === "pending" && "Pending: Afventer godkendelse — brugeren har ikke adgang til portalen endnu."}
+              {draft.status === "active" && "Active: Har adgang til portalen."}
+              {draft.status === "blocked" && "Blocked: Spærret fra portalen."}
+            </p>
           </Section>
 
           {/* Account Owner (CRM) — only meaningful for dealer-side accounts. */}
