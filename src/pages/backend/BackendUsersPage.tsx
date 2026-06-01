@@ -64,8 +64,9 @@ const STATUS_PILL: Record<UserStatus, string> = {
 const AREA_LABEL: Record<AreaKey, string> = {
   salg_marketing: "Salg & Marketing",
   teknik_service: "Teknik & Service",
-  timan_crm: "Timan CRM",
-  timan_backend: "Timan Backend",
+  dealer_data:    "Forhandlerdata",
+  timan_crm:      "Timan CRM",
+  timan_backend:  "Timan Backend",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
@@ -73,6 +74,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   salg_marketing: "Salg & Marketing",
   timan_backend: "Timan Backend",
   timan_crm: "Timan CRM",
+  dealer_data: "Forhandlerdata",
   claims: "Claims",
   tsb: "TSB",
   warranty: "Warranty",
