@@ -43,6 +43,7 @@ import {
 import {
   fetchBackendUsers,
   saveBackendUser,
+  isPaymentAndDiscountRestrictedRole,
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
@@ -615,18 +616,25 @@ function EditUserModal({
               value={draft.role}
               onChange={(v) => {
                 const newRole = v as PortalRole;
+                const restricted = isPaymentAndDiscountRestrictedRole(newRole);
                 // When role changes, apply role-default quick_actions so the
                 // admin sees the recommended set. Manual changes after this
                 // (in the Quick actions section below) still persist.
+                // Also force payment-terms & extra-dealer-discount perms
+                // to false for dealer-side roles.
                 setDraft({
                   ...draft,
                   role: newRole,
                   quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
+                  perms: restricted
+                    ? { ...draft.perms, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
+                    : draft.perms,
                 });
               }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
+
 
           {/* Status */}
           <Section title="Status">
@@ -727,28 +735,50 @@ function EditUserModal({
 
           {/* Permissions */}
           <Section title="Permissions">
-            <CheckboxGroup
-              items={[
-                { value: "can_create_claims", label: "Can create claims" },
-                { value: "can_approve_claims", label: "Can approve claims" },
-                { value: "can_create_tsb", label: "Can create TSB" },
-                { value: "can_manage_users", label: "Can manage users" },
-                { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
-                { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount" },
-                { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
-
-              ]}
-              checked={(Object.entries(draft.perms) as [keyof BackendUser["perms"], boolean][])
-                .filter(([, v]) => v)
-                .map(([k]) => k)}
-              onChange={(key) =>
-                setDraft({
-                  ...draft,
-                  perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
-                })
-              }
-            />
+            {(() => {
+              const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
+              return (
+                <>
+                  <CheckboxGroup
+                    items={[
+                      { value: "can_create_claims", label: "Can create claims" },
+                      { value: "can_approve_claims", label: "Can approve claims" },
+                      { value: "can_create_tsb", label: "Can create TSB" },
+                      { value: "can_manage_users", label: "Can manage users" },
+                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
+                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
+                      { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
+                    ]}
+                    checked={(Object.entries(
+                      restricted
+                        ? { ...draft.perms, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
+                        : draft.perms,
+                    ) as [keyof BackendUser["perms"], boolean][])
+                      .filter(([, v]) => v)
+                      .map(([k]) => k)}
+                    onChange={(key) => {
+                      if (
+                        restricted &&
+                        (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")
+                      ) {
+                        return;
+                      }
+                      setDraft({
+                        ...draft,
+                        perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
+                      });
+                    }}
+                  />
+                  {restricted && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </Section>
+
 
           {/* Quick actions — portal front-page "Hurtige handlinger" allow-list. */}
           <Section title="Hurtige handlinger / Quick actions">

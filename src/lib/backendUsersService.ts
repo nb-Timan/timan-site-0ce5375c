@@ -200,6 +200,30 @@ export interface SaveResult {
   error?: string;
 }
 
+// Dealer-side roles must never be able to manage payment terms or apply an
+// extra dealer discount — these are reserved for Timan Backend and Timan
+// Sælger. Enforced both in the UI and again at save-time as a security guard.
+export const PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES: PortalRole[] = [
+  "timan_dealer",
+  "timan_importer",
+  "timan_service_partner",
+  "dealer_user",
+  "pending",
+];
+
+export function isPaymentAndDiscountRestrictedRole(role: string | null | undefined): boolean {
+  return !!role && (PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES as string[]).includes(role);
+}
+
+function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
+  if (!isPaymentAndDiscountRestrictedRole(role)) return perms;
+  return {
+    ...perms,
+    can_manage_payment_terms: false,
+    can_apply_extra_dealer_discount: false,
+  };
+}
+
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
   // Prefer explicit toggle values from the draft (admin can flip them
   // independently); fall back to status-derived defaults otherwise.
@@ -209,6 +233,8 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
                : "active";
   const approved = typeof draft.approved === "boolean" ? draft.approved : fromStatus.approved;
   const is_active = typeof draft.is_active === "boolean" ? draft.is_active : fromStatus.is_active;
+
+  const safePerms = sanitizePermsForRole(draft.role, draft.perms);
 
   const fullPatch: Record<string, unknown> = {
     full_name: draft.name,
@@ -230,7 +256,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     allowed_areas: draft.allowed_areas,
     allowed_modules: draft.allowed_modules,
     backend_modules: draft.backend_modules,
-    permissions: draft.perms,
+    permissions: safePerms,
     account_owner_user_id: draft.account_owner_user_id,
     account_owner_name: draft.account_owner_name,
     account_owner_initials: draft.account_owner_initials,
