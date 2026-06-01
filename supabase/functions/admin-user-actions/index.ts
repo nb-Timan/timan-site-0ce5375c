@@ -244,6 +244,13 @@ Deno.serve(async (req) => {
         ).error;
       }
     }
+    if (upsertErr && /role_check|violates check constraint.*role/i.test(upsertErr.message)) {
+      // role enum/check constraint rejects 'slutkunde' — fall back to 'partner'.
+      const safePayload: Record<string, unknown> = { ...upsertPayload, role: "partner" };
+      upsertErr = (
+        await admin.from("app_users").upsert(safePayload, { onConflict: "email" })
+      ).error;
+    }
     if (upsertErr) {
       return json(
         { error: `Bruger oprettet i Auth, men profil kunne ikke gemmes: ${upsertErr.message}` },
