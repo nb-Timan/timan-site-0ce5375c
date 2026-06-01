@@ -6,6 +6,7 @@ import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
 import { startAuthenticatedSession } from '@/lib/visitorTracking';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import type { Language } from '@/types/configurator';
+import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
 async function trackLogin(email: string, loginType: 'login' | 'guest') {
   try {
