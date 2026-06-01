@@ -44,6 +44,8 @@ import {
   fetchBackendUsers,
   saveBackendUser,
   isPaymentAndDiscountRestrictedRole,
+  isDealerSideRole,
+  sanitizeAccessForRole,
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
@@ -64,8 +66,9 @@ const STATUS_PILL: Record<UserStatus, string> = {
 const AREA_LABEL: Record<AreaKey, string> = {
   salg_marketing: "Salg & Marketing",
   teknik_service: "Teknik & Service",
-  timan_crm: "Timan CRM",
-  timan_backend: "Timan Backend",
+  dealer_data:    "Forhandlerdata",
+  timan_crm:      "Timan CRM",
+  timan_backend:  "Timan Backend",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
@@ -73,6 +76,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   salg_marketing: "Salg & Marketing",
   timan_backend: "Timan Backend",
   timan_crm: "Timan CRM",
+  dealer_data: "Forhandlerdata",
   claims: "Claims",
   tsb: "TSB",
   warranty: "Warranty",
@@ -617,12 +621,14 @@ function EditUserModal({
               onChange={(v) => {
                 const newRole = v as PortalRole;
                 const restricted = isPaymentAndDiscountRestrictedRole(newRole);
+                const dealerSide = isDealerSideRole(newRole);
                 // When role changes, apply role-default quick_actions so the
                 // admin sees the recommended set. Manual changes after this
                 // (in the Quick actions section below) still persist.
                 // Also force payment-terms & extra-dealer-discount perms
-                // to false for dealer-side roles.
-                setDraft({
+                // to false for dealer-side roles, and strip Backend/CRM
+                // access for external dealer-side roles.
+                const intermediate: BackendUser = {
                   ...draft,
                   role: newRole,
                   quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
@@ -633,8 +639,10 @@ function EditUserModal({
                     ...(restricted
                       ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
                       : {}),
+                    ...(dealerSide ? { can_manage_users: false } : {}),
                   },
-                });
+                };
+                setDraft(sanitizeAccessForRole(intermediate));
               }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
@@ -713,35 +721,85 @@ function EditUserModal({
 
           {/* Allowed Areas */}
           <Section title="Allowed Areas">
-            <CheckboxGroup
-              items={ALL_AREAS.map((a) => ({ value: a, label: AREA_LABEL[a] }))}
-              checked={draft.allowed_areas}
-              onChange={(v) => setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, v as AreaKey) })}
-            />
+            {(() => {
+              const dealerSide = isDealerSideRole(draft.role);
+              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend", "timan_crm"];
+              return (
+                <>
+                  <CheckboxGroup
+                    items={ALL_AREAS.map((a) => ({
+                      value: a,
+                      label: AREA_LABEL[a],
+                      disabled: dealerSide && FORBIDDEN_AREAS.includes(a),
+                    }))}
+                    checked={draft.allowed_areas}
+                    onChange={(v) => {
+                      const area = v as AreaKey;
+                      if (dealerSide && FORBIDDEN_AREAS.includes(area)) return;
+                      setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area) });
+                    }}
+                  />
+                  {dealerSide && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Eksterne dealer-side roller har ikke adgang til Timan Backend eller Timan CRM. Forhandlerdata erstatter CRM.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </Section>
 
           {/* Allowed Modules */}
           <Section title="Allowed Modules">
-            <CheckboxGroup
-              items={[
-                ...ALL_MODULES.map((m) => ({ value: m, label: MODULE_LABEL[m] || m })),
-                { value: "videos", label: VIDEOS_LABEL, disabled: true },
-              ]}
-              checked={draft.allowed_modules}
-              onChange={(v) => setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, v as ModuleAccessKey) })}
-            />
-            <p className="mt-2 text-[11px] text-slate-500">Backend-meta moduler:</p>
-            <CheckboxGroup
-              items={BACKEND_META_MODULES.map((m) => ({ value: m, label: BACKEND_MODULE_LABEL[m] }))}
-              checked={draft.backend_modules}
-              onChange={(v) => setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) })}
-            />
+            {(() => {
+              const dealerSide = isDealerSideRole(draft.role);
+              const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend", "timan_crm"];
+              return (
+                <>
+                  <CheckboxGroup
+                    items={[
+                      ...ALL_MODULES.map((m) => ({
+                        value: m,
+                        label: MODULE_LABEL[m] || m,
+                        disabled: dealerSide && FORBIDDEN_MODULES.includes(m),
+                      })),
+                      { value: "videos", label: VIDEOS_LABEL, disabled: true },
+                    ]}
+                    checked={draft.allowed_modules}
+                    onChange={(v) => {
+                      const mod = v as ModuleAccessKey;
+                      if (dealerSide && FORBIDDEN_MODULES.includes(mod)) return;
+                      setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod) });
+                    }}
+                  />
+                  <p className="mt-2 text-[11px] text-slate-500">Backend-meta moduler:</p>
+                  <CheckboxGroup
+                    items={BACKEND_META_MODULES.map((m) => ({
+                      value: m,
+                      label: BACKEND_MODULE_LABEL[m],
+                      disabled: dealerSide,
+                    }))}
+                    checked={dealerSide ? [] : draft.backend_modules}
+                    onChange={(v) => {
+                      if (dealerSide) return;
+                      setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) });
+                    }}
+                  />
+                </>
+              );
+            })()}
           </Section>
 
           {/* Permissions */}
           <Section title="Permissions">
             {(() => {
               const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
+              const dealerSide = isDealerSideRole(draft.role);
+              const effectivePerms = {
+                ...draft.perms,
+                ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
+                ...(dealerSide ? { can_manage_users: false } : {}),
+              };
               return (
                 <>
                   <CheckboxGroup
@@ -751,25 +809,17 @@ function EditUserModal({
                       { value: "can_create_claims", label: "Can create claims" },
                       { value: "can_approve_claims", label: "Can approve claims" },
                       { value: "can_create_tsb", label: "Can create TSB" },
-                      { value: "can_manage_users", label: "Can manage users" },
+                      { value: "can_manage_users", label: "Can manage users", disabled: dealerSide },
                       { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
                       { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
                       { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
                     ]}
-                    checked={(Object.entries(
-                      restricted
-                        ? { ...draft.perms, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
-                        : draft.perms,
-                    ) as [keyof BackendUser["perms"], boolean][])
+                    checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
                       .filter(([, v]) => v)
                       .map(([k]) => k)}
                     onChange={(key) => {
-                      if (
-                        restricted &&
-                        (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")
-                      ) {
-                        return;
-                      }
+                      if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
+                      if (dealerSide && key === "can_manage_users") return;
                       setDraft({
                         ...draft,
                         perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
@@ -793,19 +843,27 @@ function EditUserModal({
               Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
               Når intet er valgt manuelt, anvendes standarder for rollen.
             </p>
-            <CheckboxGroup
-              items={QUICK_ACTION_KEYS.map((k) => ({
-                value: k,
-                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
-              }))}
-              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
-              onChange={(key) => {
-                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
-                const k = key as QuickActionKey;
-                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
-                setDraft({ ...draft, quick_actions: next });
-              }}
-            />
+            {(() => {
+              const dealerSide = isDealerSideRole(draft.role);
+              return (
+                <CheckboxGroup
+                  items={QUICK_ACTION_KEYS.map((k) => ({
+                    value: k,
+                    label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
+                    disabled: dealerSide && k === "my_dealers",
+                  }))}
+                  checked={((draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[])
+                    .filter((k) => !(dealerSide && k === "my_dealers"))}
+                  onChange={(key) => {
+                    const k = key as QuickActionKey;
+                    if (dealerSide && k === "my_dealers") return;
+                    const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+                    const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
+                    setDraft({ ...draft, quick_actions: next });
+                  }}
+                />
+              );
+            })()}
           </Section>
         </div>
 
