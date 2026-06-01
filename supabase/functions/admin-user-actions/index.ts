@@ -200,7 +200,10 @@ Deno.serve(async (req) => {
       postal_code: profile.postal_code ?? null,
       country: profile.country ?? null,
       preferred_language: profile.preferred_language ?? "da",
-      role: "pending",
+      // Use 'slutkunde' (end customer) — lowest-privilege role allowed by the
+      // app_users.role check constraint. Access is still blocked by
+      // approved=false, is_active=false, status='pending', portal_role=null.
+      role: "slutkunde",
       portal_role: null,
       partner_type: null,
       approved: false,
