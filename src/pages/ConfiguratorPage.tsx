@@ -1969,9 +1969,10 @@ export default function ConfiguratorPage() {
               {lang === 'it' ? 'Portale' : lang === 'hu' ? 'Portál' : 'Portal'}
             </span>
           </button>
-        ) : (
-          <div className="hidden lg:block w-[116px]" />
-        )}
+          ) : (
+            <div className="hidden lg:block w-[116px]" />
+          );
+        })()}
       </header>
 
       <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>
