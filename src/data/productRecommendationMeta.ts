@@ -34,6 +34,7 @@
  */
 
 import type { Language } from "@/types/configurator";
+import { PRODUCTS, ACCESSORIES, getMachineById } from "@/data/machines";
 
 // ─── Enums / vocabularies ───────────────────────────────────────────────────
 // Kept as string-literal unions so we can grep for usages and keep authoring
