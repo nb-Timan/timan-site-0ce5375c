@@ -131,7 +131,10 @@ export function deriveInitialOwnership(
 export default function OwnershipPicker({ value, onChange, language, variant = 'full' }: Props) {
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
-  const isExternal = isExternalDealerRole(portalRole);
+  // Phase 51 — fælles dealer-scope helper.
+  // Eksterne forhandler-roller låses til egen dealer; interne kan vælge.
+  const dealerScope = useDealerScope();
+  const isExternal = dealerScope.isExternalDealerUser || isExternalDealerRole(portalRole);
   const isCompact = variant === 'compact';
 
   // Lazy-load dealer list (only for internal users; external users don't pick).
