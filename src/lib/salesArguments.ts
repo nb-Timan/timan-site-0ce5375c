@@ -18,6 +18,7 @@ import {
   type ToolProfile,
 } from '@/lib/aiPrompts';
 import { generateMetadataRecommendations } from '@/lib/recommendationEngine';
+import { generateMetadataBenefits } from '@/lib/benefitsEngine';
 
 export interface SalesArgsStructured {
   heading: string;
@@ -1067,6 +1068,21 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
   for (const f of fillers) {
     if (!allBullets.includes(f)) allBullets.push(f);
     if (allBullets.length >= 10) break;
+  }
+
+  // ── PRIMARY: metadata-driven themed benefits (Phase 4) ───────────────────
+  // Only takes over when at least 3 themed bullets can be produced from
+  // selected products' metadata. Otherwise we keep the existing capability-
+  // based bullets below as a safe fallback.
+  const metaBenefits = generateMetadataBenefits(state, lang);
+  if (metaBenefits && metaBenefits.prefixedBullets.length >= 3) {
+    const pb = metaBenefits.prefixedBullets;
+    return {
+      heading,
+      paragraph,
+      defaultBullets: pb.slice(0, Math.min(7, pb.length)),
+      extraBullets: pb.slice(Math.min(7, pb.length), Math.min(10, pb.length)),
+    };
   }
 
   const defaultBullets = allBullets.slice(0, 5);
