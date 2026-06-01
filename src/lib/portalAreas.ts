@@ -121,9 +121,13 @@ export function isAreaVisible(
   user: (AppUser & { portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null }) | null,
 ): boolean {
   if (!user) return false;
-  if (user.role === 'slutkunde') return false;
 
   const portalRole = derivePortalRole(user);
+
+  // Legacy role column may say 'slutkunde' for users that have since been
+  // assigned a real portal_role (e.g. timan_dealer). Only bail when there
+  // is no portal_role to grant access.
+  if (user.role === 'slutkunde' && !portalRole) return false;
   
 
   // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
