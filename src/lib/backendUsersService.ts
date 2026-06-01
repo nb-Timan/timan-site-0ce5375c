@@ -30,6 +30,7 @@ import {
   listBackendUsers as listFallbackUsers,
   updateBackendUser as updateFallbackUser,
 } from "@/lib/backend-users-store";
+import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
 
 export type BackendUsersSource = "supabase" | "fallback";
 
@@ -145,6 +146,8 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     allowed_modules,
     backend_modules,
     perms: {
+      can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
+      can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
       can_create_claims: perms.can_create_claims ?? !isBackend,
       can_approve_claims: perms.can_approve_claims ?? isInternal,
       can_create_tsb: perms.can_create_tsb ?? isBackend,
@@ -256,6 +259,8 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     allowed_areas: draft.allowed_areas,
     allowed_modules: draft.allowed_modules,
     backend_modules: draft.backend_modules,
+    can_view_prices: safePerms.can_view_prices,
+    can_submit_order: safePerms.can_submit_order,
     permissions: safePerms,
     account_owner_user_id: draft.account_owner_user_id,
     account_owner_name: draft.account_owner_name,
@@ -352,6 +357,8 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
     ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
+    ["can_view_prices", row.can_view_prices, safePerms.can_view_prices],
+    ["can_submit_order", row.can_submit_order, safePerms.can_submit_order],
     ["quick_actions",
       draft.quick_actions == null
         ? null
