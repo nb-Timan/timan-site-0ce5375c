@@ -99,7 +99,21 @@ export default function PortalPage() {
     );
   }
 
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  // Only true end-customers without any portal role go straight to the
+  // configurator. Dealer-side users (timan_dealer, timan_importer,
+  // timan_service_partner, dealer_user) must land on /portal even if their
+  // legacy `role` column still says 'slutkunde'.
+  {
+    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const dealerSideRoles = new Set([
+      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
+      'timan_backend', 'timan_seller', 'timan_service',
+    ]);
+    const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;
+    if (appUser.role === 'slutkunde' && !hasPortalAccess) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   // Dealer block / soft-delete gate. Timan staff (no dealer link) are unaffected.
   if (dealerStatus?.isDeleted || dealerStatus?.isBlocked) {
