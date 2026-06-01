@@ -43,6 +43,7 @@ import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermis
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
+import { RecommendationInfoPopover } from '@/components/configurator/RecommendationInfoPopover';
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -3271,9 +3272,15 @@ export default function ConfiguratorPage() {
                             <span className={cn('text-sm leading-relaxed', isChecked ? 'text-amber-900' : 'text-amber-900/60')}>
                               {bullet}
                             </span>
-                            {!isDefault && !isChecked && (
-                              <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{{ da: 'Valgfri', en: 'Optional', de: 'Optional', it: 'Opzionale', hu: 'Opcionális' }[lang]}</span>
-                            )}
+                            <div className="ml-auto flex items-center gap-2 shrink-0">
+                              {!isDefault && !isChecked && (
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{{ da: 'Valgfri', en: 'Optional', de: 'Optional', it: 'Opzionale', hu: 'Opcionális' }[lang]}</span>
+                              )}
+                              <RecommendationInfoPopover
+                                productId={recommendationData.bulletProductIds?.[i]}
+                                lang={lang}
+                              />
+                            </div>
                           </label>
                         );
                       })}

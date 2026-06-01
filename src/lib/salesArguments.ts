@@ -32,6 +32,12 @@ export interface RecommendationStructured {
   paragraph: string;
   defaultBullets: string[];
   extraBullets: string[];
+  /**
+   * Step 7: optional productId per bullet (aligned by index across
+   * defaultBullets ++ extraBullets). Only present for metadata-driven picks;
+   * legacy fallback rules leave this as an empty/missing array.
+   */
+  bulletProductIds?: string[];
 }
 
 // ─── Localized text maps ────────────────────────────────────────────────────
@@ -1168,6 +1174,7 @@ export function generateRecommendations(rawState: ConfiguratorState, lang: L = '
       paragraph: T.recPara[lang](subjectLabel, countWord),
       defaultBullets: metaResult.defaultBullets,
       extraBullets: metaResult.extraBullets,
+      bulletProductIds: metaResult.picked.map(c => c.meta.productId),
     };
   }
 
