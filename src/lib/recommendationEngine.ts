@@ -499,6 +499,16 @@ export function generateMetadataRecommendations(
   const selectedMeta = getSelectedRecommendationMeta(state);
   if (selectedMeta.length === 0 && selectedPlatforms.length === 0) return null;
 
+  // Phase 5: derive bias from optional customer needs on state.
+  const needs: NeedsBias | undefined = state.customerNeeds
+    ? {
+        industries: new Set(needsIndustries(state.customerNeeds as CustomerNeeds)),
+        tasks: new Set(needsTasks(state.customerNeeds as CustomerNeeds)),
+        seasons: new Set(needsSeasons(state.customerNeeds as CustomerNeeds)),
+        focus: new Set((state.customerNeeds.focus ?? []) as string[]),
+      }
+    : undefined;
+
   const catalogue = catalogueIndex();
   const scored: MetadataCandidate[] = [];
 
@@ -511,6 +521,7 @@ export function generateMetadataRecommendations(
       selectedMeta,
       selectedPlatforms,
       selectedIds,
+      needs,
     );
     if (result && result.score > 0) scored.push(result);
   }
