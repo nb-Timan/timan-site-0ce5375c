@@ -43,6 +43,7 @@ import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermis
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
+import { RecommendationInfoPopover } from '@/components/configurator/RecommendationInfoPopover';
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { derivePortalRole } from '@/lib/portalAccess';
