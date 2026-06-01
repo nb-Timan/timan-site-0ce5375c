@@ -355,18 +355,11 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
   };
 
   const handleGuestContinue = () => {
-    const trimmed = guestEmail.trim();
-    // Email is now optional for the guest flow — popup collects country/postal.
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setGuestError(tx('guestEmailRequired', language));
-      return;
-    }
-    setPendingGuestEmail(trimmed ? trimmed.toLowerCase() : null);
     setShowGuestPopup(true);
   };
 
-  const finalizeGuestEntry = () => {
-    const guestEmailLc = pendingGuestEmail;
+  const finalizeGuestEntry = (guestEmailFromPopup: string) => {
+    const guestEmailLc = guestEmailFromPopup.toLowerCase();
     setShowGuestPopup(false);
 
     if (guestEmailLc) {
