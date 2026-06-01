@@ -22,6 +22,12 @@
 import type { ConfiguratorState, Language } from "@/types/configurator";
 import { getSelectedRecommendationMeta } from "@/lib/recommendationEngine";
 import type { ProductRecommendationMeta } from "@/data/productRecommendationMeta";
+import {
+  needsIndustries,
+  needsTasks,
+  needsSeasons,
+  type CustomerNeeds,
+} from "@/lib/customerNeeds";
 
 export type BenefitTheme =
   | "operation"      // Drift og effektivitet
@@ -215,9 +221,17 @@ export function generateMetadataBenefits(
   const metas = getSelectedRecommendationMeta(state);
   if (metas.length === 0) return null;
 
-  const tasks = new Set(metas.flatMap((m) => m.workTasks));
-  const seasons = new Set(metas.flatMap((m) => m.seasonRelevance));
-  const industries = new Set(metas.flatMap((m) => m.industries));
+  // Phase 5: merge optional customer needs into the signal sets so
+  // industry/season/task wording also reflects what the user told us.
+  const needs = (state.customerNeeds ?? null) as CustomerNeeds | null;
+  const needsInd = needsIndustries(needs);
+  const needsTsk = needsTasks(needs);
+  const needsSsn = needsSeasons(needs);
+  const focus = new Set(needs?.focus ?? []);
+
+  const tasks = new Set([...metas.flatMap((m) => m.workTasks), ...needsTsk]);
+  const seasons = new Set([...metas.flatMap((m) => m.seasonRelevance), ...needsSsn]);
+  const industries = new Set([...metas.flatMap((m) => m.industries), ...needsInd]);
   const categories = new Set(metas.map((m) => m.category));
 
   const hasWinter =
@@ -321,6 +335,32 @@ export function generateMetadataBenefits(
   else if (industries.has("municipality")) push("customer_value", TEXT.customerMunicipality);
   else if (industries.has("facility_management")) push("customer_value", TEXT.customerFacility);
   else if (industries.has("landscaping")) push("customer_value", TEXT.customerLandscape);
+
+  // ── Phase 5: focus-driven extra notes (only when user answered) ─────────
+  if (focus.has("driftssikkerhed") && warrantyNames.length === 0 && protectionNames.length === 0) {
+    push("service", t(
+      "Driftssikkerhed er prioriteret – overvej udvidet komponentgaranti eller rustbeskyttelse for at sikre oppetid.",
+      "Reliability is prioritized — consider extended warranty or rust protection to secure uptime.",
+    ));
+  }
+  if (focus.has("sikkerhed") && safetyNames.length === 0 && lightNames.length === 0) {
+    push("safety", t(
+      "Sikkerhed er prioriteret – blitzlys, arbejdslamper og spikes kan tilføjes for at styrke synlighed og greb.",
+      "Safety is prioritized — flashing lights, work lights and spikes can be added to strengthen visibility and grip.",
+    ));
+  }
+  if (focus.has("komfort") && comfortNames.length === 0) {
+    push("work_env", t(
+      "Komfort er prioriteret – aircon, skyderuder og luftaffjedret sæde kan tilføjes for længere arbejdsdage.",
+      "Comfort is prioritized — air-con, sliding windows and air-suspended seat can be added for longer working days.",
+    ));
+  }
+  if (focus.has("pris")) {
+    push("economy", t(
+      "Pris er i fokus – samme platform til flere opgaver giver lavere total-pris pr. opgave uden at gå på kompromis med sikkerhed.",
+      "Price is in focus — one platform for several tasks lowers the total cost per task without compromising safety.",
+    ));
+  }
 
   if (bullets.length < 3) return null;
 

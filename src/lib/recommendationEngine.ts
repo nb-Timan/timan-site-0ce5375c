@@ -29,6 +29,12 @@ import {
   type ProductRecommendationMeta,
   type MachinePlatform,
 } from "@/data/productRecommendationMeta";
+import {
+  needsIndustries,
+  needsTasks,
+  needsSeasons,
+  type CustomerNeeds,
+} from "@/lib/customerNeeds";
 
 export interface MetadataCandidate {
   meta: ProductRecommendationMeta;
@@ -117,6 +123,14 @@ export function getSelectedRecommendationMeta(
   return out;
 }
 
+/** Optional needs bias (Phase 5). Pre-resolved to metadata vocab. */
+export interface NeedsBias {
+  industries: Set<string>;
+  tasks: Set<string>;
+  seasons: Set<string>;
+  focus: Set<string>;
+}
+
 /**
  * Score a single candidate against the customer's selected products.
  * Pure function — easy to unit test later.
@@ -126,6 +140,7 @@ export function scoreRecommendationCandidate(
   selected: ProductRecommendationMeta[],
   selectedPlatforms: MachinePlatform[],
   selectedIds: Set<string>,
+  needs?: NeedsBias,
 ): MetadataCandidate | null {
   // Hard filter 1: never recommend something already chosen.
   if (selectedIds.has(candidate.productId) || selectedIds.has(candidate.varenr)) return null;
@@ -196,12 +211,78 @@ export function scoreRecommendationCandidate(
     reasons.push(`industry overlap=${indHits} (+5)`);
   }
 
+  // ── Phase 5: customer needs bias (optional) ────────────────────────────
+  if (needs) {
+    // Industry stated by customer → boost candidates that target it.
+    if (needs.industries.size > 0) {
+      const hits = candidate.industries.filter((i) => needs.industries.has(i)).length;
+      if (hits > 0) {
+        const bonus = Math.min(hits * 6, 12);
+        score += bonus;
+        reasons.push(`needs.industry=${hits} (+${bonus})`);
+      }
+    }
+    // Tasks stated by customer → strong boost.
+    if (needs.tasks.size > 0) {
+      const hits = candidate.workTasks.filter((t) => needs.tasks.has(t)).length;
+      if (hits > 0) {
+        const bonus = Math.min(hits * 10, 25);
+        score += bonus;
+        reasons.push(`needs.tasks=${hits} (+${bonus})`);
+      }
+    }
+    // Season stated by customer.
+    if (needs.seasons.size > 0) {
+      const hits = candidate.seasonRelevance.filter((s) => needs.seasons.has(s)).length;
+      if (hits > 0) {
+        score += 8;
+        reasons.push("needs.season match (+8)");
+      } else if (
+        candidate.seasonRelevance.includes("all_year") &&
+        !needs.seasons.has("all_year")
+      ) {
+        score += 3;
+        reasons.push("needs.season all_year fallback (+3)");
+      }
+    }
+    // Focus → category boosts. Safety always wins ties.
+    if (needs.focus.size > 0) {
+      const cat = candidate.category;
+      if (needs.focus.has("sikkerhed") && (cat === "accessory_safety" || cat === "accessory_light")) {
+        score += 20;
+        reasons.push("needs.focus=safety (+20)");
+      }
+      if (needs.focus.has("komfort") && cat === "accessory_comfort") {
+        score += 18;
+        reasons.push("needs.focus=comfort (+18)");
+      }
+      if (
+        (needs.focus.has("driftssikkerhed") || needs.focus.has("lav_vedligehold")) &&
+        (cat === "service_warranty" || cat === "accessory_protection")
+      ) {
+        score += 18;
+        reasons.push("needs.focus=uptime (+18)");
+      }
+      if (
+        needs.focus.has("effektivitet") &&
+        (cat.startsWith("tool_") || cat === "accessory_mounting")
+      ) {
+        score += 10;
+        reasons.push("needs.focus=efficiency (+10)");
+      }
+      // "pris" — neutral. We never down-score safety; keep the field as a
+      // signal only (used by benefitsEngine wording).
+    }
+  }
+
   // Category breadth bonus: encourage cross-category coverage so the user
   // sees safety + service + winter etc., not three of the same kind.
   // Handled at selection time (see generateMetadataRecommendations).
 
   return { meta: candidate, score, reasons };
 }
+
+
 
 // ─── Grouping & reason text (Phase 3) ───────────────────────────────────────
 
@@ -424,6 +505,16 @@ export function generateMetadataRecommendations(
   const selectedMeta = getSelectedRecommendationMeta(state);
   if (selectedMeta.length === 0 && selectedPlatforms.length === 0) return null;
 
+  // Phase 5: derive bias from optional customer needs on state.
+  const needs: NeedsBias | undefined = state.customerNeeds
+    ? {
+        industries: new Set(needsIndustries(state.customerNeeds as CustomerNeeds)),
+        tasks: new Set(needsTasks(state.customerNeeds as CustomerNeeds)),
+        seasons: new Set(needsSeasons(state.customerNeeds as CustomerNeeds)),
+        focus: new Set((state.customerNeeds.focus ?? []) as string[]),
+      }
+    : undefined;
+
   const catalogue = catalogueIndex();
   const scored: MetadataCandidate[] = [];
 
@@ -436,6 +527,7 @@ export function generateMetadataRecommendations(
       selectedMeta,
       selectedPlatforms,
       selectedIds,
+      needs,
     );
     if (result && result.score > 0) scored.push(result);
   }

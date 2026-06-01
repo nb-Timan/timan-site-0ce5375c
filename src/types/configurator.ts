@@ -155,6 +155,14 @@ export interface ConfiguratorState {
   internalNote: string;
   // Phase 27 — Information only, never affects totals.
   paymentTerms?: string;
+  // Phase 5 — Optional customer needs answered before recommendations.
+  // Imported as a structural shape to avoid a circular type import.
+  customerNeeds?: {
+    industry?: string;
+    tasks: string[];
+    season?: string;
+    focus: string[];
+  };
 }
 
 export interface LineItem {
