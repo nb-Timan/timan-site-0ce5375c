@@ -46,6 +46,10 @@ interface RequestBody {
   action: "invite" | "reset" | "signup";
   email: string;
   app_user_id?: string | null;
+  // Optional override for password-reset/invite redirect target. When the
+  // frontend sends this we honor it (so the link points back at the same
+  // origin the admin is using), otherwise we fall back to PORTAL_SITE_URL.
+  redirect_to?: string;
   // Only used for action === "signup":
   password?: string;
   profile?: {
@@ -271,8 +275,12 @@ Deno.serve(async (req) => {
     return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
   }
 
-  // ---- 5) Execute the action ----
   const redirectTo = `${PORTAL_SITE_URL}/portal`;
+  const isHttpsUrl = (u: string | undefined): u is string =>
+    !!u && /^https?:\/\//i.test(u);
+  const resetRedirect = isHttpsUrl(body.redirect_to)
+    ? body.redirect_to
+    : `${PORTAL_SITE_URL}/reset-password`;
 
   try {
     if (action === "invite") {
@@ -280,7 +288,7 @@ Deno.serve(async (req) => {
         // Already exists → cannot invite again. Send a password reset instead
         // (admin intent is "let the user into the portal").
         const { error } = await admin.auth.resetPasswordForEmail(targetEmail, {
-          redirectTo: `${PORTAL_SITE_URL}/reset-password`,
+          redirectTo: resetRedirect,
         });
         if (error) throw error;
         await touchAppUser(admin, body.app_user_id ?? null, targetEmail, {
@@ -312,7 +320,7 @@ Deno.serve(async (req) => {
       );
     }
     const { error } = await admin.auth.resetPasswordForEmail(targetEmail, {
-      redirectTo: `${PORTAL_SITE_URL}/reset-password`,
+      redirectTo: resetRedirect,
     });
     if (error) throw error;
     await touchAppUser(admin, body.app_user_id ?? null, targetEmail, {
