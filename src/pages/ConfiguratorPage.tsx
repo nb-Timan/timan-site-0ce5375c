@@ -3079,6 +3079,24 @@ export default function ConfiguratorPage() {
             <DialogTitle>{{ da: 'Tilbud – valgmuligheder', en: 'Quote – options', de: 'Angebot – Optionen', it: 'Preventivo – opzioni', hu: 'Ajánlat – lehetőségek' }[lang]}</DialogTitle>
           </DialogHeader>
 
+          {/* Phase 5: optional customer needs questionnaire — refines recommendations + benefits */}
+          <CustomerNeedsPanel
+            value={state.customerNeeds as CustomerNeeds | undefined}
+            lang={lang}
+            onChange={(next) => {
+              setState((s) => ({ ...s, customerNeeds: next }));
+              // Re-run engines so the modal immediately reflects new bias.
+              const nextState = { ...state, customerNeeds: next };
+              const sa = generateSalesArguments(nextState, lang);
+              setSalesArgsData(sa);
+              setSelectedSalesBullets(new Set(sa.defaultBullets));
+              const rec = generateRecommendations(nextState, lang);
+              setRecommendationData(rec);
+              setSelectedRecBullets(rec ? new Set(rec.defaultBullets) : new Set());
+            }}
+          />
+
+
           {/* Section 1: Sales arguments */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
