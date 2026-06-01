@@ -8,7 +8,7 @@
  *
  *  Plugged into src/lib/salesArguments.ts as the PRIMARY path. If this
  *  engine returns fewer than 3 themed bullets, the caller falls back to the
- *  existing capability-based generator (T.bullet*/T.filler*).
+ *  existing capability-based generator (T.bullet... / T.filler...).
  *
  *  Hard rules:
  *    • Read-only. No state mutations.
