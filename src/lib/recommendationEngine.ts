@@ -29,6 +29,12 @@ import {
   type ProductRecommendationMeta,
   type MachinePlatform,
 } from "@/data/productRecommendationMeta";
+import {
+  needsIndustries,
+  needsTasks,
+  needsSeasons,
+  type CustomerNeeds,
+} from "@/lib/customerNeeds";
 
 export interface MetadataCandidate {
   meta: ProductRecommendationMeta;
