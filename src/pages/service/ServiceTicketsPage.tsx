@@ -17,6 +17,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { useDealerScope } from "@/lib/dealerScope";
 import { getPortalBackTarget } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 
@@ -160,6 +161,10 @@ export default function ServiceTicketsPage() {
     portalRole === "timan_seller" ||
     portalRole === "timan_service";
 
+  // Phase 51 — fælles dealer-scope helper. Eksterne roller låses automatisk
+  // til egen forhandler. Interne Timan-roller kan fortsat vælge i dropdown.
+  const dealerScope = useDealerScope();
+
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -285,8 +290,8 @@ export default function ServiceTicketsPage() {
         onOpenChange={setCreateOpen}
         lang={lang}
         isInternal={isInternal}
-        lockedDealerNumber={isInternal ? null : (appUser.dealer_number ?? null)}
-        lockedDealerName={isInternal ? null : (appUser.company_dealer ?? null)}
+        lockedDealerNumber={isInternal ? null : dealerScope.lockedDealerNumber}
+        lockedDealerName={isInternal ? null : dealerScope.lockedDealerName}
         onCreated={() => { setCreateOpen(false); reload(); }}
       />
 
