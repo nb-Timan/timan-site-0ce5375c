@@ -159,7 +159,9 @@ export default function DealerDataPage() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  // Only true end-customers (no portal role) get bounced to the configurator.
+  // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
+  if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
   const onSave = async () => {
     if (!dealer) return;
