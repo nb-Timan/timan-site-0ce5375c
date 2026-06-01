@@ -127,6 +127,8 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       ...appUser,
       role: target.role,
       partner_type: target.partner_type,
+      can_view_prices: target.can_view_prices,
+      can_submit_order: target.can_submit_order,
       portal_role: target.portal_role ?? 'timan_seller',
       module_access: target.module_access ?? null,
       allowed_areas: target.allowed_areas ?? null,
