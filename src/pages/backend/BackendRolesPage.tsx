@@ -76,6 +76,11 @@ export default function BackendRolesPage() {
     return acc;
   }, {} as Record<PortalRole, number>);
 
+  const usersByRole = PORTAL_ROLES.reduce<Record<PortalRole, BackendUser[]>>((acc, r) => {
+    acc[r] = users.filter((u) => u.role === r);
+    return acc;
+  }, {} as Record<PortalRole, BackendUser[]>);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
@@ -108,9 +113,25 @@ export default function BackendRolesPage() {
                     <h2 className="text-lg font-bold text-slate-900">{PORTAL_ROLE_LABELS[r].da}</h2>
                     <p className="text-sm text-slate-500 mt-1">{ROLE_DESCRIPTION[r]}</p>
                   </div>
-                  <span className="shrink-0 inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white">
-                    {counts[r]} brugere
-                  </span>
+                  <details className="group relative shrink-0">
+                    <summary className="list-none cursor-pointer inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white">
+                      {counts[r]} {counts[r] === 1 ? "bruger" : "brugere"}
+                    </summary>
+                    <div className="absolute right-0 top-7 z-20 hidden w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-xl group-open:block">
+                      {usersByRole[r].length === 0 ? (
+                        <div className="text-slate-400">Ingen brugere i denne rolle.</div>
+                      ) : usersByRole[r].map((u) => (
+                        <div key={u.id} className="border-b border-slate-100 py-2 last:border-0 first:pt-0 last:pb-0">
+                          <div className="font-bold text-slate-900">{u.name}</div>
+                          <div className="text-slate-500">{u.email}</div>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span>{u.company_dealer || u.company || u.dealer_number || "—"}</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-600">{u.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
 
                 <div className="mt-3">
