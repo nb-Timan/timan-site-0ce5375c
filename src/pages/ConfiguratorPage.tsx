@@ -20,6 +20,16 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
@@ -232,6 +242,7 @@ export default function ConfiguratorPage() {
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
+  const [showLeavePortalConfirm, setShowLeavePortalConfirm] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
   const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
   const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
@@ -1929,16 +1940,74 @@ export default function ConfiguratorPage() {
         </div>
         {appUser?.role !== 'slutkunde' ? (
           <button
-            onClick={() => navigate('/portal')}
-            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition"
+            onClick={() => {
+              const hasUnsaved = state.machineConfigs.length > 0 && !isSavedCurrent;
+              if (hasUnsaved) {
+                setShowLeavePortalConfirm(true);
+              } else {
+                navigate('/portal');
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            {lang === 'da' ? 'Til portal' : 'To portal'}
+            <span className="hidden sm:inline">
+              {lang === 'da' ? 'Tilbage til portal'
+                : lang === 'de' ? 'Zurück zum Portal'
+                : lang === 'it' ? 'Torna al portale'
+                : lang === 'hu' ? 'Vissza a portálra'
+                : 'Back to portal'}
+            </span>
+            <span className="sm:hidden">
+              {lang === 'it' ? 'Portale' : lang === 'hu' ? 'Portál' : 'Portal'}
+            </span>
           </button>
         ) : (
           <div className="hidden lg:block w-[116px]" />
         )}
       </header>
+
+      <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {lang === 'da' ? 'Forlad konfigurator?'
+                : lang === 'de' ? 'Konfigurator verlassen?'
+                : lang === 'it' ? 'Uscire dal configuratore?'
+                : lang === 'hu' ? 'Elhagyod a konfigurátort?'
+                : 'Leave configurator?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {lang === 'da' ? 'Du har ikke-gemte ændringer. Vil du forlade konfiguratoren?'
+                : lang === 'de' ? 'Sie haben ungespeicherte Änderungen. Möchten Sie den Konfigurator verlassen?'
+                : lang === 'it' ? 'Hai modifiche non salvate. Vuoi uscire dal configuratore?'
+                : lang === 'hu' ? 'Nem mentett módosításaid vannak. Elhagyod a konfigurátort?'
+                : 'You have unsaved changes. Do you want to leave the configurator?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {lang === 'da' ? 'Bliv her'
+                : lang === 'de' ? 'Hier bleiben'
+                : lang === 'it' ? 'Resta qui'
+                : lang === 'hu' ? 'Maradok'
+                : 'Stay here'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowLeavePortalConfirm(false);
+                navigate('/portal');
+              }}
+            >
+              {lang === 'da' ? 'Forlad konfigurator'
+                : lang === 'de' ? 'Konfigurator verlassen'
+                : lang === 'it' ? 'Esci dal configuratore'
+                : lang === 'hu' ? 'Konfigurátor elhagyása'
+                : 'Leave configurator'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Step Tabs */}
       <div className="max-w-6xl mx-auto mb-4">
