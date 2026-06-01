@@ -46,6 +46,10 @@ interface RequestBody {
   action: "invite" | "reset" | "signup";
   email: string;
   app_user_id?: string | null;
+  // Optional override for password-reset/invite redirect target. When the
+  // frontend sends this we honor it (so the link points back at the same
+  // origin the admin is using), otherwise we fall back to PORTAL_SITE_URL.
+  redirect_to?: string;
   // Only used for action === "signup":
   password?: string;
   profile?: {
