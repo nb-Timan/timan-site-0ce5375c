@@ -1069,6 +1069,21 @@ export function generateSalesArguments(rawState: ConfiguratorState, lang: L = 'd
     if (allBullets.length >= 10) break;
   }
 
+  // ── PRIMARY: metadata-driven themed benefits (Phase 4) ───────────────────
+  // Only takes over when at least 3 themed bullets can be produced from
+  // selected products' metadata. Otherwise we keep the existing capability-
+  // based bullets below as a safe fallback.
+  const metaBenefits = generateMetadataBenefits(state, lang);
+  if (metaBenefits && metaBenefits.prefixedBullets.length >= 3) {
+    const pb = metaBenefits.prefixedBullets;
+    return {
+      heading,
+      paragraph,
+      defaultBullets: pb.slice(0, Math.min(7, pb.length)),
+      extraBullets: pb.slice(Math.min(7, pb.length), Math.min(10, pb.length)),
+    };
+  }
+
   const defaultBullets = allBullets.slice(0, 5);
   const extraBullets = allBullets.slice(5, 10);
 
