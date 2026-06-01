@@ -468,13 +468,43 @@ function EditUserModal({
     return () => { cancelled = true; };
   }, []);
 
+  // Sellers list (from currently loaded users) — pulled from window.__timanUsersSnapshot
+  // populated by BackendUsersPage to avoid prop drilling.
+  const sellers = (typeof window !== "undefined"
+    ? ((window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot ?? [])
+    : []
+  ).filter((u) => u.role === "timan_seller" || u.role === "timan_backend");
+
+  function findOwnerFromDealer(d: { assigned_seller_email?: string | null; assigned_seller_initials?: string | null } | undefined | null) {
+    if (!d) return null;
+    const byEmail = d.assigned_seller_email
+      ? sellers.find((s) => s.email.toLowerCase() === d.assigned_seller_email!.toLowerCase())
+      : null;
+    if (byEmail) return byEmail;
+    const byInit = d.assigned_seller_initials
+      ? sellers.find((s) => s.initials.toUpperCase() === d.assigned_seller_initials!.toUpperCase())
+      : null;
+    return byInit ?? null;
+  }
+
   function applyDealer(dealerId: string) {
     if (!dealerId) {
-      setDraft({ ...draft, dealer_number: null, company_dealer: null, seller_initials: null, seller_email: null });
+      setDraft({
+        ...draft,
+        dealer_number: null,
+        company_dealer: null,
+        seller_initials: null,
+        seller_email: null,
+        account_owner_user_id: null,
+        account_owner_name: null,
+        account_owner_initials: null,
+        account_owner_email: null,
+      });
       return;
     }
     const d = dealers.find((x) => x.id === dealerId);
     if (!d) return;
+    const owner = findOwnerFromDealer(d);
     setDraft({
       ...draft,
       dealer_number: d.account_number,
@@ -484,6 +514,13 @@ function EditUserModal({
       postal_code: draft.postal_code || d.postal_code,
       seller_initials: d.assigned_seller_initials,
       seller_email: d.assigned_seller_email,
+      // Auto-sync CRM owner from the dealer's assigned seller when possible.
+      // If no matching internal seller user exists, keep the dealer's seller
+      // info on the row (seller_initials/email above) and leave owner empty.
+      account_owner_user_id: owner?.id ?? null,
+      account_owner_name: owner?.name ?? d.assigned_seller_name ?? null,
+      account_owner_initials: owner?.initials ?? d.assigned_seller_initials ?? null,
+      account_owner_email: owner?.email ?? d.assigned_seller_email ?? null,
     });
   }
 
@@ -496,37 +533,11 @@ function EditUserModal({
     return arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
   }
 
-  // Sellers list (from currently loaded users) — pulled from window.__timanUsersSnapshot
-  // populated by BackendUsersPage to avoid prop drilling.
-  const sellers = (typeof window !== "undefined"
-    ? ((window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot ?? [])
-    : []
-  ).filter((u) => u.role === "timan_seller" || u.role === "timan_backend");
-
-  function applyOwner(ownerId: string) {
-    if (!ownerId) {
-      setDraft({
-        ...draft,
-        account_owner_user_id: null,
-        account_owner_name: null,
-        account_owner_initials: null,
-        account_owner_email: null,
-      });
-      return;
-    }
-    const owner = sellers.find((s) => s.id === ownerId);
-    if (!owner) return;
-    setDraft({
-      ...draft,
-      account_owner_user_id: owner.id,
-      account_owner_name: owner.name,
-      account_owner_initials: owner.initials,
-      account_owner_email: owner.email,
-    });
-  }
-
   // Owner only applies to dealer-side accounts (non-internal roles).
   const ownerApplicable = !["timan_backend", "timan_seller", "timan_service"].includes(draft.role);
+  // If a dealer is linked, the dealer's assigned seller is the source of
+  // truth — show it read-only and hide the manual dropdown.
+  const dealerSellerLocked = !!draft.dealer_number && (!!draft.seller_initials || !!draft.seller_email);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
