@@ -29,6 +29,7 @@ import {
   getActiveRolePreview,
   canSwitchMode,
 } from '@/lib/activeMode';
+import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
 const cache = new Map<string, SessionUser>();
 
