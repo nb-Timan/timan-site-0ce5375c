@@ -15,7 +15,8 @@ import {
   derivePortalRole, getPortalPermissions, PORTAL_ROLES, PORTAL_ROLE_LABELS,
   PortalRole, DEFAULT_MODULE_ACCESS, ModuleAccessKey,
 } from "@/lib/portalAccess";
-import { listBackendUsers, subscribeBackendUsers, AreaKey } from "@/lib/backend-users-store";
+import { fetchBackendUsers } from "@/lib/backendUsersService";
+import { listBackendUsers, subscribeBackendUsers, AreaKey, BackendUser } from "@/lib/backend-users-store";
 
 const ROLE_DESCRIPTION: Record<PortalRole, string> = {
   timan_backend:         "Fuld administrativ adgang til alle moduler, brugere, roller og audit log.",
@@ -48,10 +49,19 @@ export default function BackendRolesPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [users, setUsers] = useState(() => listBackendUsers());
+  const [users, setUsers] = useState<BackendUser[]>(() => listBackendUsers());
   const [editing, setEditing] = useState<PortalRole | null>(null);
 
-  useEffect(() => subscribeBackendUsers(() => setUsers(listBackendUsers())), []);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const res = await fetchBackendUsers();
+      if (!cancelled) setUsers(res.users);
+    };
+    void load();
+    const unsub = subscribeBackendUsers(() => { void load(); });
+    return () => { cancelled = true; unsub(); };
+  }, []);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
