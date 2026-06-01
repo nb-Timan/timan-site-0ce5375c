@@ -33,7 +33,12 @@ export async function callAdminUserAction(
 
   try {
     const { data, error } = await supabase.functions.invoke("admin-user-actions", {
-      body: { action, email, app_user_id: appUserId ?? null },
+      body: {
+        action,
+        email,
+        app_user_id: appUserId ?? null,
+        redirect_to: `${window.location.origin}/reset-password`,
+      },
     });
     if (error) {
       // FunctionsHttpError exposes the response body in `context`.
