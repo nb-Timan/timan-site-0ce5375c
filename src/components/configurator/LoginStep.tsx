@@ -568,17 +568,6 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           </div>
 
           {/* Guest continue */}
-          <div>
-            <input
-              type="email"
-              value={guestEmail}
-              onChange={e => { setGuestEmail(e.target.value); setGuestError(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') handleGuestContinue(); }}
-              className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-center focus:border-gray-400 focus:outline-none transition"
-              placeholder={tx('emailPlaceholder', language)}
-            />
-            {guestError && <p className="text-red-500 text-xs mt-1 text-center">{guestError}</p>}
-          </div>
           <button
             onClick={handleGuestContinue}
             className="w-full py-3 rounded-xl text-sm font-medium text-gray-600 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition"
@@ -599,7 +588,6 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       <GuestVisitorPopup
         open={showGuestPopup}
         language={language as never}
-        email={pendingGuestEmail}
         onCancel={() => setShowGuestPopup(false)}
         onConfirm={finalizeGuestEntry}
       />
