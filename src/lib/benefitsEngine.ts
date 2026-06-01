@@ -215,9 +215,17 @@ export function generateMetadataBenefits(
   const metas = getSelectedRecommendationMeta(state);
   if (metas.length === 0) return null;
 
-  const tasks = new Set(metas.flatMap((m) => m.workTasks));
-  const seasons = new Set(metas.flatMap((m) => m.seasonRelevance));
-  const industries = new Set(metas.flatMap((m) => m.industries));
+  // Phase 5: merge optional customer needs into the signal sets so
+  // industry/season/task wording also reflects what the user told us.
+  const needs = (state.customerNeeds ?? null) as CustomerNeeds | null;
+  const needsInd = needsIndustries(needs);
+  const needsTsk = needsTasks(needs);
+  const needsSsn = needsSeasons(needs);
+  const focus = new Set(needs?.focus ?? []);
+
+  const tasks = new Set([...metas.flatMap((m) => m.workTasks), ...needsTsk]);
+  const seasons = new Set([...metas.flatMap((m) => m.seasonRelevance), ...needsSsn]);
+  const industries = new Set([...metas.flatMap((m) => m.industries), ...needsInd]);
   const categories = new Set(metas.map((m) => m.category));
 
   const hasWinter =
