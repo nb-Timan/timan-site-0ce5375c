@@ -626,9 +626,14 @@ function EditUserModal({
                   ...draft,
                   role: newRole,
                   quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
-                  perms: restricted
-                    ? { ...draft.perms, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
-                    : draft.perms,
+                  perms: {
+                    ...draft.perms,
+                    can_view_prices: true,
+                    can_submit_order: true,
+                    ...(restricted
+                      ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false }
+                      : {}),
+                  },
                 });
               }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
@@ -741,6 +746,8 @@ function EditUserModal({
                 <>
                   <CheckboxGroup
                     items={[
+                      { value: "can_view_prices", label: "Se priser / Can view prices" },
+                      { value: "can_submit_order", label: "Opret ordre / Can submit order" },
                       { value: "can_create_claims", label: "Can create claims" },
                       { value: "can_approve_claims", label: "Can approve claims" },
                       { value: "can_create_tsb", label: "Can create TSB" },
@@ -771,7 +778,7 @@ function EditUserModal({
                   />
                   {restricted && (
                     <p className="mt-2 text-[11px] text-slate-500">
-                      Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
+                      Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
                     </p>
                   )}
                 </>

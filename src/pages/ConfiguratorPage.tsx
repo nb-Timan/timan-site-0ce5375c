@@ -39,6 +39,7 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
+import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import { cn } from '@/lib/utils';
@@ -120,7 +121,7 @@ export default function ConfiguratorPage() {
   //   - Backend "Vis som <bruger>" uses the previewed user's row,
   // both via the same code path. Falls back to logged-in user when no view-as.
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
-  const activePortalRole = derivePortalRole(appUser);
+  const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
   const canApplyExtraDealerDiscount = (() => {
     const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
     if (flag === true) return true;
@@ -141,8 +142,18 @@ export default function ConfiguratorPage() {
     });
   }
   const permissions = {
-    canSeePrices: appUser?.can_view_prices ?? false,
-    canSubmitOrder: appUser?.can_submit_order ?? false,
+    canSeePrices: defaultCanViewPrices(
+      effectiveUser?.can_view_prices,
+      effectiveUser?.portal_role,
+      effectiveUser?.role,
+      effectiveUser?.partner_type,
+    ),
+    canSubmitOrder: defaultCanSubmitOrder(
+      effectiveUser?.can_submit_order,
+      effectiveUser?.portal_role,
+      effectiveUser?.role,
+      effectiveUser?.partner_type,
+    ),
     canSetDiscount: canApplyExtraDealerDiscount,
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
