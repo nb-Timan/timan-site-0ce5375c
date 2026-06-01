@@ -32,6 +32,7 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
 const AREA_LABEL: Record<AreaKey, string> = {
   salg_marketing: "Salg & Marketing",
   teknik_service: "Teknik & Service",
+  dealer_data:    "Forhandlerdata",
   timan_crm:      "Timan CRM",
   timan_backend:  "Timan Backend",
 };
