@@ -1127,6 +1127,34 @@ export function generateRecommendations(rawState: ConfiguratorState, lang: L = '
 
   if (activeMachineTypes.length === 0) return null;
 
+  // Shared paragraph subject (used by both primary and fallback paths).
+  const heading = T.recHeading[lang];
+  const and = T.and[lang];
+  const machineLabel = activeMachineTypes
+    .filter(t => t !== LOOSE_TOOL_KEY)
+    .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
+    .join(and);
+  const hasLT = activeMachineTypes.includes(LOOSE_TOOL_KEY);
+  const subjectLabel = machineLabel
+    ? (hasLT ? `${machineLabel}${and}${T.looseToolsLabel[lang]}` : machineLabel)
+    : T.looseToolsLabel[lang];
+
+  // ── PRIMARY: metadata-driven, cross-category scoring ────────────────────
+  const metaResult = generateMetadataRecommendations(state, lang);
+  if (metaResult && metaResult.defaultBullets.length > 0) {
+    const totalPicked = metaResult.defaultBullets.length + metaResult.extraBullets.length;
+    const countWord = totalPicked === 1 ? T.recCountOne[lang]
+      : totalPicked === 2 ? T.recCountTwo[lang]
+      : T.recCountFew[lang];
+    return {
+      heading,
+      paragraph: T.recPara[lang](subjectLabel, countWord),
+      defaultBullets: metaResult.defaultBullets,
+      extraBullets: metaResult.extraBullets,
+    };
+  }
+
+  // ── FALLBACK: legacy parent-id rule table (unchanged behaviour) ─────────
   const hasParent = (parentIds: string[]) => parentIds.some(id => selectedIds.has(id));
   const isAlreadySelected = (matchIds: string[]) => matchIds.some(id => selectedIds.has(id));
 
@@ -1140,18 +1168,6 @@ export function generateRecommendations(rawState: ConfiguratorState, lang: L = '
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => a.rule.priority - b.rule.priority);
-
-  const heading = T.recHeading[lang];
-
-  const and = T.and[lang];
-  const machineLabel = activeMachineTypes
-    .filter(t => t !== LOOSE_TOOL_KEY)
-    .map(t => t === 'Timan 3330' ? 'Timan 3330' : t)
-    .join(and);
-  const hasLT = activeMachineTypes.includes(LOOSE_TOOL_KEY);
-  const subjectLabel = machineLabel
-    ? (hasLT ? `${machineLabel}${and}${T.looseToolsLabel[lang]}` : machineLabel)
-    : T.looseToolsLabel[lang];
 
   const pickCount = Math.min(candidates.length, 5);
   const countWord = pickCount === 1 ? T.recCountOne[lang] : pickCount === 2 ? T.recCountTwo[lang] : T.recCountFew[lang];
