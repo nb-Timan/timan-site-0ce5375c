@@ -161,6 +161,10 @@ export default function ServiceTicketsPage() {
     portalRole === "timan_seller" ||
     portalRole === "timan_service";
 
+  // Phase 51 — fælles dealer-scope helper. Eksterne roller låses automatisk
+  // til egen forhandler. Interne Timan-roller kan fortsat vælge i dropdown.
+  const dealerScope = useDealerScope();
+
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
