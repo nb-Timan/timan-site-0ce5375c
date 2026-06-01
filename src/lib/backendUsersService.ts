@@ -265,6 +265,10 @@ export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
+  // Security guard: strip backend/CRM access and disallowed quick actions
+  // when role is dealer-side, regardless of what the UI sent.
+  draft = sanitizeAccessForRole(draft);
+
   // Prefer explicit toggle values from the draft (admin can flip them
   // independently); fall back to status-derived defaults otherwise.
   const fromStatus = statusToColumns(draft.status);
