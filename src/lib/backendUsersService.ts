@@ -219,13 +219,49 @@ export function isPaymentAndDiscountRestrictedRole(role: string | null | undefin
   return !!role && (PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES as string[]).includes(role);
 }
 
+// External dealer-side portal roles. These users must NEVER have Timan
+// Backend or Timan CRM access, no backend meta modules, and no internal
+// quick actions like "Mine forhandlere". Forhandlerdata replaces CRM for them.
+export const DEALER_SIDE_ROLES: PortalRole[] = [
+  "timan_dealer",
+  "timan_importer",
+  "timan_service_partner",
+  "dealer_user",
+];
+
+export function isDealerSideRole(role: string | null | undefined): boolean {
+  return !!role && (DEALER_SIDE_ROLES as string[]).includes(role);
+}
+
 function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
-  if (!isPaymentAndDiscountRestrictedRole(role)) return perms;
-  return {
-    ...perms,
-    can_manage_payment_terms: false,
-    can_apply_extra_dealer_discount: false,
-  };
+  let next = perms;
+  if (isPaymentAndDiscountRestrictedRole(role)) {
+    next = { ...next, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false };
+  }
+  if (isDealerSideRole(role)) {
+    next = { ...next, can_manage_users: false };
+  }
+  return next;
+}
+
+/**
+ * Strip backend/CRM access from dealer-side users and ensure Forhandlerdata
+ * is present. Applied both in the editor UI on role-change and at save-time.
+ */
+export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
+  if (!isDealerSideRole(draft.role)) return draft;
+  const allowed_areas = Array.from(new Set([
+    ...draft.allowed_areas.filter((a) => a !== "timan_backend" && a !== "timan_crm"),
+    "dealer_data" as AreaKey,
+  ]));
+  const allowed_modules = draft.allowed_modules.filter(
+    (m) => m !== "timan_backend" && m !== "timan_crm",
+  );
+  const backend_modules: BackendUser["backend_modules"] = [];
+  const quick_actions = draft.quick_actions == null
+    ? null
+    : draft.quick_actions.filter((q) => q !== "my_dealers");
+  return { ...draft, allowed_areas, allowed_modules, backend_modules, quick_actions };
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
