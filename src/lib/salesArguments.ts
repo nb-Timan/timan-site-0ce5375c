@@ -1174,6 +1174,7 @@ export function generateRecommendations(rawState: ConfiguratorState, lang: L = '
       paragraph: T.recPara[lang](subjectLabel, countWord),
       defaultBullets: metaResult.defaultBullets,
       extraBullets: metaResult.extraBullets,
+      bulletProductIds: metaResult.picked.map(c => c.meta.productId),
     };
   }
 
