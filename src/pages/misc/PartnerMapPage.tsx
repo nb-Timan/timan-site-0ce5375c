@@ -280,8 +280,9 @@ export default function PartnerMapPage() {
                 >
                   <Geographies geography={GEO_URL}>
                     {({ geographies }) => geographies.map((geo) => {
-                      const code: string = geo.properties.iso_a3 || geo.id;
                       const name: string = geo.properties.name;
+                      const NAME_TO_ISO: Record<string,string> = { Germany:'DEU', Denmark:'DNK', France:'FRA', 'United Kingdom':'GBR', Poland:'POL', Italy:'ITA' };
+                      const code = NAME_TO_ISO[name] ?? '';
                       const count = countryCounts[code] ?? 0;
                       const isHover = hoverCountry === name;
                       return (
