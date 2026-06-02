@@ -26,7 +26,9 @@ import {
   listPortalFormSubmissions,
   type PortalFormSubmission,
 } from '@/lib/portalFormsService';
+import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { derivePortalRole } from '@/lib/portalAccess';
+
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 
