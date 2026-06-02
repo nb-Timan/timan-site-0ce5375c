@@ -219,10 +219,10 @@ export default function DealerDataPage() {
   // Status label for dealer_invoice_accept submissions
   const acceptLabel = (payload: Record<string, unknown>): { label: string; tone: 'ok' | 'warn' | 'no' } => {
     const decision = String(payload?.decision ?? payload?.beslutning ?? '').toLowerCase();
-    if (decision.includes('accept') || decision === 'accepteret' || decision === 'ja') return { label: 'Accepteret', tone: 'ok' };
-    if (decision.includes('afvis') || decision === 'nej')                                 return { label: 'Afvist', tone: 'no' };
-    if (decision.includes('ikke') || decision.includes('samarbejd'))                      return { label: 'Ønsker ikke samarbejde', tone: 'warn' };
-    return { label: decision || 'Ukendt', tone: 'warn' };
+    if (decision.includes('accept') || decision === 'accepteret' || decision === 'ja') return { label: T.accepted[lang], tone: 'ok' };
+    if (decision.includes('afvis') || decision === 'nej')                                 return { label: T.rejected[lang], tone: 'no' };
+    if (decision.includes('ikke') || decision.includes('samarbejd'))                      return { label: T.noCoop[lang],    tone: 'warn' };
+    return { label: decision || T.unknown[lang], tone: 'warn' };
   };
 
   return (
