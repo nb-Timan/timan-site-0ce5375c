@@ -669,7 +669,7 @@ export default function CrmDealerDetailPage() {
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   Aktive brugere ({linkedUsers.length})
                 </h3>
-                <Link to="/portal/dealer-data#users" className="text-xs font-semibold text-emerald-700 hover:underline">
+                <Link to={dealer.account_number ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users` : "/portal/dealer-data#users"} className="text-xs font-semibold text-emerald-700 hover:underline">
                   Se alle brugere i Forhandlerdata →
                 </Link>
               </div>
