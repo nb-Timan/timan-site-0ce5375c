@@ -25,9 +25,11 @@ import { PRODUCTS, ACCESSORIES, getLooseToolAccessories, LOOSE_TOOL_KEY } from "
 import {
   PRODUCT_RECOMMENDATION_META,
   getRecommendationMeta,
+  getFunctionGroup,
   pickLocalized,
   type ProductRecommendationMeta,
   type MachinePlatform,
+  type FunctionGroup,
 } from "@/data/productRecommendationMeta";
 import {
   needsIndustries,
