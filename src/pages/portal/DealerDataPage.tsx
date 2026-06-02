@@ -175,10 +175,24 @@ export default function DealerDataPage() {
 
       <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-6">
         <div>
-          <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
-          </Link>
+          {cameFromCrm ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) navigate(-1);
+                else navigate(`/portal/crm/my-dealers/${encodeURIComponent(overrideAccountNumber!)}`);
+              }}
+              className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til forhandler
+            </button>
+          ) : (
+            <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
+              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
+            </Link>
+          )}
         </div>
+
 
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
