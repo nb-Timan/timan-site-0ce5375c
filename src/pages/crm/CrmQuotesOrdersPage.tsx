@@ -101,11 +101,13 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
 
   const [rows, setRows] = useState<CrmConfigurationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(dealerParam);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
