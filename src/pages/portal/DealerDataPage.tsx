@@ -268,13 +268,13 @@ export default function DealerDataPage() {
         {!dealerNumber && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-slate-600">
-              Din bruger er ikke knyttet til en forhandlerkonto endnu. Kontakt Timan for at få adgang til Forhandlerdata.
+              {T.noDealer[lang]}
             </CardContent>
           </Card>
         )}
 
         {dealerNumber && loadingData && (
-          <Card><CardContent className="py-8 text-center text-sm text-slate-500">Indlæser…</CardContent></Card>
+          <Card><CardContent className="py-8 text-center text-sm text-slate-500">{T.loading[lang]}</CardContent></Card>
         )}
 
         {dealerNumber && !loadingData && error && !dealer && (
