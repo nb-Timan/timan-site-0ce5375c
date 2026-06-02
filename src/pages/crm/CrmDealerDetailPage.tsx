@@ -723,31 +723,8 @@ export default function CrmDealerDetailPage() {
           </div>
         </TabsContent>
 
-        {/* COMPANY INFO */}
-        <TabsContent value="company" className="mt-0">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
-              <ul className="text-sm space-y-2">
-                <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
-                <Row icon={<Mail className="h-3.5 w-3.5" />} label={tl("email", lang)} value={dealer.email || "—"} />
-                <Row icon={<Phone className="h-3.5 w-3.5" />} label={tl("phone", lang)} value={dealer.phone || "—"} />
-                {dealer.website && <Row icon={<Globe className="h-3.5 w-3.5" />} label={tl("website", lang)} value={dealer.website} />}
-              </ul>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("master")}</h3>
-              <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
-                <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-                <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
-                {dealer.vat_number && <li><span className="text-slate-500">CVR/VAT:</span> {dealer.vat_number}</li>}
-                <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
-                {dealer.created_at && <li><span className="text-slate-500">Oprettet:</span> {fmtDate(dealer.created_at)}</li>}
-              </ul>
-            </div>
-          </div>
-        </TabsContent>
+
+
       </Tabs>
 
 
