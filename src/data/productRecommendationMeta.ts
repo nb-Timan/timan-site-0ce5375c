@@ -102,6 +102,39 @@ export type Season =
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
 
+/**
+ * Coarse functional grouping used for de-duplication in the recommendation
+ * engine. Two products in the same group cover the same customer need, so
+ * only one should be recommended (e.g. CS-200 Combi vs CS-200 Valsespreder
+ * both = "saltspredning").
+ *
+ * Defaults are derived from `category` via `getFunctionGroup()`. Set this
+ * field on a meta entry only when the default mapping is wrong.
+ */
+export type FunctionGroup =
+  | "klipning"
+  | "vintertjeneste"
+  | "saltspredning"
+  | "snerydning"
+  | "kost"
+  | "ukrudt"
+  | "lys"
+  | "sikkerhed"
+  | "komfort"
+  | "service"
+  | "garanti"
+  | "transport"
+  | "fjernbetjening"
+  | "hydraulik"
+  | "kamera"
+  | "rustbeskyttelse"
+  | "carrier"
+  | "stub"
+  | "loose"
+  | "montering"
+  | "forbrug"
+  | "other";
+
 /** Multilingual short string. Always required for `da` + `en`; others optional. */
 export type LocalizedShort = { da: string; en: string; de?: string; it?: string; hu?: string };
 
