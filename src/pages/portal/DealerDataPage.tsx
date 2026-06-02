@@ -81,9 +81,11 @@ export default function DealerDataPage() {
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
   const [users, setUsers] = useState<DealerUserRow[]>([]);
+  const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [submissions, setSubmissions] = useState<PortalFormSubmission[]>([]);
   const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
+
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
