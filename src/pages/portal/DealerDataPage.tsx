@@ -115,7 +115,7 @@ export default function DealerDataPage() {
           listPortalFormSubmissions({ formType: 'dealer_invoice_accept', limit: 100 }),
           supabase
             .from('app_users')
-            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login')
+            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login, preferred_language')
             .eq('dealer_number', dealerNumber)
             .order('email', { ascending: true }),
         ]);
@@ -135,6 +135,15 @@ export default function DealerDataPage() {
 
         const u = (usersRes.data ?? []) as DealerUserRow[];
         setUsers(u);
+
+        // Load extra dealer_contacts once the dealer row is known.
+        if (dealerRes.row?.id) {
+          const c = await listDealerContacts(dealerRes.row.id);
+          if (!cancelled) setContacts(c);
+        } else {
+          setContacts([]);
+        }
+
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
