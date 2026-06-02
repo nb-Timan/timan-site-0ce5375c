@@ -159,69 +159,138 @@ export default function PartnerMapPage() {
 
   const resetView = () => { setPosition(EUROPE_VIEW); setSelectedId(null); };
 
+  const totalCount = filtered.length;
+  const typeCount = (t: PartnerType) => filtered.filter(p => p.type === t).length;
+  const hoverCountryCode = hoverCountry ? ({ Germany:'DEU', Denmark:'DNK', France:'FRA', 'United Kingdom':'GBR', Poland:'POL', Italy:'ITA' } as Record<string,string>)[hoverCountry] ?? '' : '';
+  const hoverCountryCount = hoverCountry ? (countryCounts[hoverCountryCode] ?? 0) : 0;
+
   return (
     <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
-      <div className="grid grid-cols-12 gap-4 lg:gap-5">
-        {/* Left rail */}
-        <aside className={`${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-black/40 lg:bg-transparent lg:static' : 'hidden lg:block'} lg:col-span-3 xl:col-span-2`}>
-          <div className={`${mobileFiltersOpen ? 'absolute left-0 top-0 bottom-0 w-[85%] max-w-xs bg-white p-4 overflow-y-auto' : ''} lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-4 lg:sticky lg:top-4 space-y-5`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                <Filter className="h-4 w-4" /> {T.filters[lang]}
-              </div>
-              <button onClick={() => setMobileFiltersOpen(false)} className="lg:hidden text-gray-400"><X className="h-5 w-5" /></button>
-            </div>
+      {/* KPI band */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 mb-4 flex items-center gap-4 sm:gap-6 overflow-x-auto">
+        <div className="flex items-center gap-2 shrink-0">
+          <Globe2 className="h-4 w-4 text-gray-400" />
+          <span className="text-[11px] uppercase font-semibold text-gray-500">{T.title[lang]}</span>
+          <span className="text-base font-bold text-gray-900 ml-1">{totalCount}</span>
+        </div>
+        <div className="h-6 w-px bg-gray-100 shrink-0" />
+        {(['dealer','service','importer','demo'] as PartnerType[]).map(t => (
+          <button key={t} onClick={() => { const n = new Set<PartnerType>(); n.add(t); setActiveTypes(n); }}
+            className="flex items-center gap-2 shrink-0 text-xs hover:opacity-80">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: TYPE_COLORS[t] }} />
+            <span className="text-gray-600">{T[t][lang]}</span>
+            <span className="font-bold text-gray-900">{typeCount(t)}</span>
+          </button>
+        ))}
+      </div>
 
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.type[lang]}</div>
-              <div className="space-y-1">
-                {(['dealer','service','importer','demo'] as PartnerType[]).map(t => {
-                  const on = activeTypes.has(t);
-                  return (
-                    <button key={t} onClick={() => toggleType(t)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors ${on ? 'bg-gray-50 text-gray-900' : 'text-gray-400 hover:bg-gray-50'}`}>
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: on ? TYPE_COLORS[t] : '#d1d5db' }} />
-                      <span className="flex-1 text-left">{T[t][lang]}</span>
-                      <span className="text-[10px] text-gray-400">{PARTNERS.filter(p => p.type === t).length}</span>
-                    </button>
-                  );
-                })}
+      <div className="flex gap-4">
+        {/* Collapsible left rail (desktop) */}
+        <aside className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 ${filtersOpen ? 'w-60' : 'w-0'}`}>
+          {filtersOpen && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sticky top-4 space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                  <Filter className="h-4 w-4" /> {T.filters[lang]}
+                </div>
+                <button onClick={() => setFiltersOpen(false)} className="text-gray-400 hover:text-gray-700" title="Skjul filtre">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
               </div>
-            </div>
 
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.seller[lang]}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {(['EM','JTN','BP','AKR','NB'] as Seller[]).map(s => (
-                  <button key={s} onClick={() => toggleSeller(s)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${activeSellers.has(s) ? 'bg-[#2d5a27] text-white border-[#2d5a27]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>{s}</button>
-                ))}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.type[lang]}</div>
+                <div className="space-y-1">
+                  {(['dealer','service','importer','demo'] as PartnerType[]).map(t => {
+                    const on = activeTypes.has(t);
+                    return (
+                      <button key={t} onClick={() => toggleType(t)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors ${on ? 'bg-gray-50 text-gray-900' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: on ? TYPE_COLORS[t] : '#d1d5db' }} />
+                        <span className="flex-1 text-left">{T[t][lang]}</span>
+                        <span className="text-[10px] text-gray-400">{PARTNERS.filter(p => p.type === t).length}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.countryLegend[lang]}</div>
-              <div className="flex items-center gap-1">
-                {[0, 1, 4, 11].map(n => (
-                  <div key={n} className="flex-1 h-2 rounded-sm" style={{ background: countryShade(n) }} title={`${n}+`} />
-                ))}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.seller[lang]}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['EM','JTN','BP','AKR','NB'] as Seller[]).map(s => (
+                    <button key={s} onClick={() => toggleSeller(s)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${activeSellers.has(s) ? 'bg-[#2d5a27] text-white border-[#2d5a27]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
-                <span>0</span><span>1-3</span><span>4-10</span><span>10+</span>
-              </div>
-            </div>
 
-            <button onClick={() => { setSearch(''); setActiveTypes(new Set(['dealer','service','importer','demo'])); setActiveSellers(new Set(['EM','JTN','BP','AKR','NB'])); resetView(); }}
-              className="w-full text-xs font-semibold text-gray-500 hover:text-gray-900 py-2 border-t border-gray-100">{T.reset[lang]}</button>
-          </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.countryLegend[lang]}</div>
+                <div className="flex items-center gap-1">
+                  {[0, 1, 4, 11].map(n => (
+                    <div key={n} className="flex-1 h-2 rounded-sm" style={{ background: countryShade(n) }} title={`${n}+`} />
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
+                  <span>0</span><span>1-3</span><span>4-10</span><span>10+</span>
+                </div>
+              </div>
+
+              <button onClick={() => { setSearch(''); setActiveTypes(new Set(['dealer','service','importer','demo'])); setActiveSellers(new Set(['EM','JTN','BP','AKR','NB'])); resetView(); }}
+                className="w-full text-xs font-semibold text-gray-500 hover:text-gray-900 py-2 border-t border-gray-100">{T.reset[lang]}</button>
+            </div>
+          )}
         </aside>
 
-        {/* Map area */}
-        <section className="col-span-12 lg:col-span-9 xl:col-span-10">
-          <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Mobile filters drawer */}
+        {mobileFiltersOpen && (
+          <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileFiltersOpen(false)}>
+            <div className="absolute left-0 top-0 bottom-0 w-[85%] max-w-xs bg-white p-4 overflow-y-auto space-y-5" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-900 font-bold text-sm"><Filter className="h-4 w-4" /> {T.filters[lang]}</div>
+                <button onClick={() => setMobileFiltersOpen(false)} className="text-gray-400"><X className="h-5 w-5" /></button>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.type[lang]}</div>
+                <div className="space-y-1">
+                  {(['dealer','service','importer','demo'] as PartnerType[]).map(t => {
+                    const on = activeTypes.has(t);
+                    return (
+                      <button key={t} onClick={() => toggleType(t)} className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${on ? 'bg-gray-50 text-gray-900' : 'text-gray-400'}`}>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: on ? TYPE_COLORS[t] : '#d1d5db' }} />
+                        <span className="flex-1 text-left">{T[t][lang]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.seller[lang]}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['EM','JTN','BP','AKR','NB'] as Seller[]).map(s => (
+                    <button key={s} onClick={() => toggleSeller(s)} className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${activeSellers.has(s) ? 'bg-[#2d5a27] text-white border-[#2d5a27]' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Map area — dominant */}
+        <section className="flex-1 min-w-0">
+          <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-[78vh] min-h-[560px]">
+            {/* Collapsed-filter handle */}
+            {!filtersOpen && (
+              <button onClick={() => setFiltersOpen(true)}
+                className="hidden lg:flex absolute top-1/2 -translate-y-1/2 left-3 z-20 w-8 h-16 bg-white rounded-r-lg shadow-md border border-gray-200 items-center justify-center text-gray-500 hover:text-[#2d5a27]" title="Vis filtre">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+
             {/* Floating search */}
             <div className="absolute top-4 left-4 right-4 z-20 flex gap-2 pointer-events-none">
-              <div className="relative flex-1 max-w-md pointer-events-auto">
+              <div className={`relative pointer-events-auto flex-1 max-w-md ${!filtersOpen ? 'lg:ml-12' : ''}`}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T.search[lang]}
@@ -259,17 +328,18 @@ export default function PartnerMapPage() {
               ))}
             </div>
 
-            {/* Hover country tooltip */}
+            {/* Country hover tooltip */}
             {hoverCountry && (
-              <div className="absolute top-20 right-4 z-20 bg-white/95 backdrop-blur rounded-md shadow-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700">
-                {hoverCountry}
+              <div className="absolute top-20 right-4 z-20 bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-200 px-3 py-2 text-xs">
+                <div className="font-semibold text-gray-900">{hoverCountry}</div>
+                <div className="text-gray-500 mt-0.5">{hoverCountryCount} {hoverCountryCount === 1 ? 'partner' : 'partnere'}</div>
               </div>
             )}
 
-            <div className="aspect-[16/10] sm:aspect-[16/9] lg:aspect-[16/8] bg-[#f3f6f8]">
+            <div className="absolute inset-0 bg-[#eef2f4]">
               <ComposableMap
                 projection="geoMercator"
-                projectionConfig={{ scale: 700, center: [12, 53] }}
+                projectionConfig={{ scale: 900, center: [15, 54] }}
                 style={{ width: '100%', height: '100%' }}
               >
                 <ZoomableGroup
@@ -295,7 +365,7 @@ export default function PartnerMapPage() {
                           onClick={() => handleCountryClick(geo, geoCentroid(geo) as [number, number])}
                           style={{
                             default: { fill: countryShade(count), stroke: '#ffffff', strokeWidth: 0.5, outline: 'none', transition: 'fill .2s' },
-                            hover: { fill: isHover ? '#bbf7d0' : countryShade(count), stroke: '#94a3b8', strokeWidth: 0.7, outline: 'none', cursor: 'pointer' },
+                            hover: { fill: isHover ? '#a7f3d0' : countryShade(count), stroke: '#6b7280', strokeWidth: 0.9, outline: 'none', cursor: 'pointer' },
                             pressed: { fill: '#86efac', outline: 'none' },
                           }}
                         />
@@ -303,48 +373,34 @@ export default function PartnerMapPage() {
                     })}
                   </Geographies>
 
-                  {/* Relationship lines */}
-                  {filtered.map(p => p.linked?.map(l => {
-                    const other = PARTNERS.find(q => q.id === l.id);
-                    if (!other) return null;
-                    return (
-                      <line
-                        key={`${p.id}-${l.id}`}
-                        x1={0} y1={0} x2={0} y2={0}
-                        style={{ display: 'none' }}
-                      />
-                    );
-                  }))}
-
                   {filtered.map(p => {
-                    const ringR = p.orders >= 25 ? 16 : p.orders >= 10 ? 11 : 0;
+                    const ringR = p.orders >= 25 ? 22 : p.orders >= 10 ? 15 : 0;
                     const isSel = selectedId === p.id;
                     const isHov = hoveredId === p.id;
                     const color = TYPE_COLORS[p.type];
-                    // scale inverse to zoom so pins stay readable
-                    const k = 1 / Math.max(1, position.zoom * 0.6);
+                    // scale inverse to zoom so pins stay readable, 35% larger baseline
+                    const k = 1.4 / Math.max(1, position.zoom * 0.6);
                     return (
                       <Marker key={p.id} coordinates={p.coords} onClick={() => setSelectedId(p.id)}
                         onMouseEnter={() => setHoveredId(p.id)} onMouseLeave={() => setHoveredId(null)}
                         style={{ default: { cursor: 'pointer' }, hover: { cursor: 'pointer' }, pressed: { cursor: 'pointer' } }}>
                         <g transform={`scale(${k})`}>
                           {ringR > 0 && <circle r={ringR} fill={color} opacity={0.18} />}
-                          {(isSel || isHov) && <circle r={10} fill={color} opacity={0.25} />}
-                          {/* Map marker shape */}
+                          {(isSel || isHov) && <circle r={13} fill={color} opacity={0.25} />}
                           <g transform="translate(0,-2)">
                             <path
-                              d="M0,-14 C-5,-14 -8,-10 -8,-6 C-8,-1 0,8 0,8 C0,8 8,-1 8,-6 C8,-10 5,-14 0,-14 Z"
+                              d="M0,-18 C-6.5,-18 -10.5,-13 -10.5,-8 C-10.5,-1 0,11 0,11 C0,11 10.5,-1 10.5,-8 C10.5,-13 6.5,-18 0,-18 Z"
                               fill={color}
                               stroke="white"
-                              strokeWidth={1.2}
-                              style={{ filter: `drop-shadow(0 ${isHov || isSel ? 3 : 1.5}px ${isHov || isSel ? 3 : 1.5}px rgba(0,0,0,${isHov || isSel ? 0.35 : 0.25}))`, transition: 'all .15s' }}
+                              strokeWidth={1.4}
+                              style={{ filter: `drop-shadow(0 ${isHov || isSel ? 4 : 2}px ${isHov || isSel ? 4 : 2}px rgba(0,0,0,${isHov || isSel ? 0.4 : 0.3}))`, transition: 'all .15s', transform: isHov || isSel ? 'translateY(-2px)' : 'none' }}
                             />
-                            <circle cx={0} cy={-7} r={2.4} fill="white" />
+                            <circle cx={0} cy={-9} r={3.2} fill="white" />
                           </g>
                           {isHov && (
-                            <g transform="translate(0,-22)">
-                              <rect x={-50} y={-12} width={100} height={16} rx={3} fill="#111827" />
-                              <text textAnchor="middle" y={-1} fontSize={8} fill="white" fontWeight={600}>{p.name.length > 22 ? p.name.slice(0,21)+'…' : p.name}</text>
+                            <g transform="translate(0,-28)">
+                              <rect x={-55} y={-13} width={110} height={18} rx={4} fill="#111827" />
+                              <text textAnchor="middle" y={-1} fontSize={9} fill="white" fontWeight={600}>{p.name.length > 22 ? p.name.slice(0,21)+'…' : p.name}</text>
                             </g>
                           )}
                         </g>
@@ -357,6 +413,7 @@ export default function PartnerMapPage() {
           </div>
         </section>
       </div>
+
 
       {/* Slide-in right detail panel (desktop) / bottom sheet (mobile) */}
       {selected && (() => {
