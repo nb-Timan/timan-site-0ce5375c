@@ -291,16 +291,16 @@ export default function DealerDataPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-slate-500" /> Stamdata
+                  <Hash className="h-5 w-5 text-slate-500" /> {T.stamdata[lang]}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <Field label="Firmanavn" value={dealerName} />
-                <Field label="Kontonummer" value={dealer.account_number || '—'} />
-                <Field label="Forhandlertype" value={dealer.customer_type_label || dealer.customer_type || '—'} />
-                <Field label="Land" value={dealer.country || '—'} />
-                <Field label="Tilknyttet Timan-sælger" value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
-                <Field label="Status" value={dealer.is_blocked ? 'Spærret' : dealer.is_deleted ? 'Slettet' : 'Aktiv'} />
+                <Field label={T.companyName[lang]} value={dealerName} />
+                <Field label={T.accountNo[lang]} value={dealer.account_number || '—'} />
+                <Field label={T.dealerType[lang]} value={dealer.customer_type_label || dealer.customer_type || '—'} />
+                <Field label={T.country[lang]} value={dealer.country || '—'} />
+                <Field label={T.seller[lang]} value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
+                <Field label={T.status[lang]} value={dealer.is_blocked ? T.blocked[lang] : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
               </CardContent>
             </Card>
 
