@@ -124,7 +124,18 @@ const L: Record<string, Record<Language, string>> = {
   tab_notes:        { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek" },
   tab_documents:    { da: "Dokumenter", en: "Documents", de: "Dokumente", it: "Documenti", hu: "Dokumentumok" },
   tab_company:      { da: "Firmaoplysninger", en: "Company info", de: "Firmendaten", it: "Dati azienda", hu: "Cégadatok" },
+  tab_users:        { da: "Brugere", en: "Users", de: "Benutzer", it: "Utenti", hu: "Felhasználók" },
+  active_portal_users: { da: "Aktive portalbrugere", en: "Active portal users", de: "Aktive Portalbenutzer", it: "Utenti portale attivi", hu: "Aktív portálfelhasználók" },
+  registered_contacts: { da: "Registrerede kontaktpersoner", en: "Registered contacts", de: "Registrierte Kontakte", it: "Contatti registrati", hu: "Regisztrált kapcsolatok" },
+  open_in_dealer_data: { da: "Åbn Forhandlerdata", en: "Open Dealer Data", de: "Händlerdaten öffnen", it: "Apri Dati Dealer", hu: "Kereskedői adatok megnyitása" },
+  users_and_contacts: { da: "Brugere og kontaktpersoner", en: "Users and contacts", de: "Benutzer und Kontakte", it: "Utenti e contatti", hu: "Felhasználók és kapcsolatok" },
+  no_contacts:      { da: "Ingen kontaktpersoner registreret.", en: "No contacts registered.", de: "Keine Kontakte registriert.", it: "Nessun contatto registrato.", hu: "Nincs regisztrált kapcsolat." },
+  status:           { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
+  last_login:       { da: "Sidste login", en: "Last login", de: "Letzter Login", it: "Ultimo accesso", hu: "Utolsó belépés" },
+  area:             { da: "Område", en: "Area", de: "Bereich", it: "Area", hu: "Terület" },
+  comment:          { da: "Kommentar", en: "Comment", de: "Kommentar", it: "Commento", hu: "Megjegyzés" },
   no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
+
   role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
   phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
   mobile:           { da: "Mobil", en: "Mobile", de: "Mobil", it: "Cellulare", hu: "Mobil" },
@@ -525,6 +536,21 @@ export default function CrmDealerDetailPage() {
           (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
         );
         const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
+        // Demo leads: match by normalized company / branch name across scope.
+        const scopeDealerNames = new Set(
+          scopeNumbers
+            .map((n) => dealers.find((d) => d.account_number === n))
+            .flatMap((d) => d ? [normName(d.company_name), normName(d.branch_name)] : [])
+            .filter(Boolean)
+        );
+        const scopeDemos = allDemos.filter((d) => {
+          const nm = normName(d.dealer_company);
+          return nm && scopeDealerNames.has(nm);
+        });
+        const openDemos = scopeDemos.filter((d) => {
+          const s = (d.result_status || "").toLowerCase();
+          return s !== "won" && s !== "lost" && s !== "closed" && s !== "vundet" && s !== "tabt" && s !== "lukket";
+        });
         const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
 
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -557,11 +583,11 @@ export default function CrmDealerDetailPage() {
               quotes={liveQuoteCount}
               pipelineValue={livePipelineValue}
               openLeads={openLeads.length}
+              openDemos={openDemos.length}
               monthActs={monthActsCount}
-              users={linkedUsers.length}
               fmtKr={fmtKr}
-              dealerAccountNumber={dealer.account_number || ""}
             />
+
 
           </>
         );
@@ -571,11 +597,9 @@ export default function CrmDealerDetailPage() {
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
-            ["contacts", `${tl("tab_contacts", lang)} (${dealerContacts.length || (dealer.primary_contact_name ? 1 : 0)})`],
-            ["activities", tl("tab_activities", lang)],
+            ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
             ["notes", tl("tab_notes", lang)],
             ["documents", tl("tab_documents", lang)],
-            ["company", tl("tab_company", lang)],
           ] as const).map(([val, label]) => (
             <TabsTrigger
               key={val}
@@ -586,6 +610,7 @@ export default function CrmDealerDetailPage() {
             </TabsTrigger>
           ))}
         </TabsList>
+
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
@@ -658,74 +683,17 @@ export default function CrmDealerDetailPage() {
         </TabsContent>
 
 
-        {/* CONTACTS */}
-        <TabsContent value="contacts" className="mt-0">
-          <div className="space-y-4">
-            <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
-
-            {/* Compact users preview — full management lives in Forhandlerdata */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                  Aktive brugere ({linkedUsers.length})
-                </h3>
-                <Link to={dealer.account_number ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users` : "/portal/dealer-data#users"} className="text-xs font-semibold text-emerald-700 hover:underline">
-                  Se alle brugere i Forhandlerdata →
-                </Link>
-              </div>
-              {linkedUsers.length === 0 ? (
-                <p className="text-sm text-slate-500">{t("no_users")}</p>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {linkedUsers.slice(0, 5).map((u) => (
-                    <li key={u.id} className="py-2 flex items-center justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-slate-800 truncate">{u.name}</div>
-                        <div className="text-xs text-slate-500 truncate">{u.email} · {u.role || "—"}</div>
-                      </div>
-                      {u.email && (
-                        <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}>
-                          <Mail className="h-4 w-4 text-emerald-700" />
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-          </div>
+        {/* USERS — portal users + registered contact persons */}
+        <TabsContent value="users" className="mt-0">
+          <UsersAndContactsPanel
+            dealer={dealer}
+            portalUsers={linkedUsers}
+            contacts={dealerContacts}
+            lang={lang}
+          />
         </TabsContent>
 
-        {/* ACTIVITIES */}
-        <TabsContent value="activities" className="mt-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("tab_activities", lang)} ({activitiesForScope.length})</h3>
-            {activitiesForScope.length === 0 ? (
-              <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-            ) : (
-              <ul className="space-y-2">
-                {[...activitiesForScope]
-                  .sort((a, b) => b.start_datetime.localeCompare(a.start_datetime))
-                  .slice(0, 100)
-                  .map(a => (
-                    <li key={a.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-700">{activityTypeMeta(a.activity_type).label.da}</span>
-                          <span>·</span>
-                          <span>{fmtDateTime(a.start_datetime)}</span>
-                          {a.seller_initials && <><span>·</span><span>sælger {a.seller_initials}</span></>}
-                        </div>
-                        {a.status && <span className="text-[10px] uppercase text-slate-500">{a.status}</span>}
-                      </div>
-                      <p className="text-sm text-slate-800">{a.title || "—"}</p>
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </div>
-        </TabsContent>
+
 
         {/* NOTES — internal only, already gated by canAccess at page level */}
         <TabsContent value="notes" className="mt-0">
@@ -781,31 +749,8 @@ export default function CrmDealerDetailPage() {
           </div>
         </TabsContent>
 
-        {/* COMPANY INFO */}
-        <TabsContent value="company" className="mt-0">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
-              <ul className="text-sm space-y-2">
-                <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
-                <Row icon={<Mail className="h-3.5 w-3.5" />} label={tl("email", lang)} value={dealer.email || "—"} />
-                <Row icon={<Phone className="h-3.5 w-3.5" />} label={tl("phone", lang)} value={dealer.phone || "—"} />
-                {dealer.website && <Row icon={<Globe className="h-3.5 w-3.5" />} label={tl("website", lang)} value={dealer.website} />}
-              </ul>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("master")}</h3>
-              <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
-                <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-                <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
-                {dealer.vat_number && <li><span className="text-slate-500">CVR/VAT:</span> {dealer.vat_number}</li>}
-                <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
-                {dealer.created_at && <li><span className="text-slate-500">Oprettet:</span> {fmtDate(dealer.created_at)}</li>}
-              </ul>
-            </div>
-          </div>
-        </TabsContent>
+
+
       </Tabs>
 
 
@@ -1429,41 +1374,50 @@ function ContactHero({
 
 
 // ============================================================================
-// KpiStrip — single horizontal strip with 6 columns
+// KpiStrip — single horizontal strip
+// Order: Orders, Quotes, Leads + Demos (combined), Activities this month, Pipeline
 // ============================================================================
 function KpiStrip({
-  orders, quotes, pipelineValue, openLeads, monthActs, users, fmtKr, dealerAccountNumber,
+  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr,
 }: {
   orders: number; quotes: number; pipelineValue: number;
-  openLeads: number; monthActs: number; users: number;
+  openLeads: number; openDemos: number; monthActs: number;
   fmtKr: (n: number) => string;
-  dealerAccountNumber: string;
 }) {
-  const usersHref = dealerAccountNumber
-    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealerAccountNumber)}#users`
-    : "/portal/dealer-data#users";
-  const cols: Array<{ key: string; label: string; value: string; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
-    { key: "orders",    label: "Ordrer",                  value: String(orders),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-emerald-100 text-emerald-700", link: { href: "/portal/crm/orders", label: "Se ordrer →" } },
-    { key: "quotes",    label: "Tilbud",                  value: String(quotes),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-sky-100 text-sky-700",        link: { href: "/portal/crm/quotes", label: "Se tilbud →" } },
-    { key: "pipeline",  label: "Pipeline",                value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
-    { key: "leads",     label: "Åbne leads",              value: String(openLeads),                       icon: <TrendingUp className="h-4 w-4" />,    tint: "bg-amber-100 text-amber-700",    link: { href: "/portal/crm/leads", label: "Se leads →" } },
-    { key: "acts",      label: "Aktiviteter denne måned", value: String(monthActs),                       icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
-    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700",    link: { href: usersHref, label: "Se brugere →" } },
+  const cols: Array<{ key: string; label: string; value: React.ReactNode; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
+    { key: "orders",   label: "Ordrer", value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: "/portal/crm/orders", label: "Se ordrer →" } },
+    { key: "quotes",   label: "Tilbud", value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: "/portal/crm/quotes", label: "Se tilbud →" } },
+    {
+      key: "leads", label: "Åbne leads + Demo leads", tint: "bg-amber-100 text-amber-700",
+      icon: <TrendingUp className="h-4 w-4" />,
+      value: (
+        <div className="text-sm font-bold text-slate-900 leading-tight space-y-0.5">
+          <div><span className="text-2xl">{openLeads}</span> <span className="text-xs font-semibold text-slate-500">åbne leads</span></div>
+          <div><span className="text-2xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">demo leads</span></div>
+        </div>
+      ),
+      link: { href: "/portal/crm/leads", label: "Se leads →" },
+    },
+    { key: "acts",     label: "Aktiviteter denne måned", value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
+    { key: "pipeline", label: "Pipeline", value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
   ];
 
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
         {cols.map((c) => (
           <div key={c.key} className="p-4 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${c.tint}`}>{c.icon}</span>
               <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 truncate">{c.label}</span>
             </div>
-            <div className={`text-2xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
+            {typeof c.value === "string"
+              ? <div className={`text-2xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
+              : c.value}
             {c.link && (
               <Link to={c.link.href} className="mt-2 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
+
             )}
           </div>
         ))}
@@ -1547,3 +1501,129 @@ function ContactsList({
 
 // Suppress unused-import warning for Smartphone — kept for future mobile-specific UI.
 void Smartphone;
+
+// ============================================================================
+// UsersAndContactsPanel — combines portal users + dealer_contacts, dedup by email
+// ============================================================================
+function UsersAndContactsPanel({
+  dealer, portalUsers, contacts, lang,
+}: {
+  dealer: DealerAccount;
+  portalUsers: BackendUser[];
+  contacts: DealerContact[];
+  lang: Language;
+}) {
+  const dealerDataHref = dealer.account_number
+    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users`
+    : "/portal/dealer-data#users";
+
+  const userEmails = new Set(
+    portalUsers.map((u) => (u.email || "").toLowerCase().trim()).filter(Boolean)
+  );
+  const filteredContacts = contacts.filter(
+    (c) => !c.email || !userEmails.has(c.email.toLowerCase().trim())
+  );
+
+  const areaLabel = (a: string): string => {
+    const key = ("area_" + a) as keyof typeof L;
+    return L[key]?.[lang] ?? a;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Link
+          to={dealerDataHref}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold"
+        >
+          {tl("open_in_dealer_data", lang)} →
+        </Link>
+      </div>
+
+      {/* A. Active portal users */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+          {tl("active_portal_users", lang)} ({portalUsers.length})
+        </h3>
+        {portalUsers.length === 0 ? (
+          <p className="text-sm text-slate-500">{t("no_users")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                <tr>
+                  <th className="py-2 pr-4">{tl("primary_contact", lang).replace("Primær ", "")}</th>
+                  <th className="py-2 pr-4">{tl("email", lang)}</th>
+                  <th className="py-2 pr-4">{tl("role", lang)}</th>
+                  <th className="py-2 pr-4">{tl("status", lang)}</th>
+                  <th className="py-2 pr-4">{tl("last_login", lang)}</th>
+                  <th className="py-2 pr-4">{tl("language", lang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portalUsers.map((u) => (
+                  <tr key={u.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{u.name || "—"}</td>
+                    <td className="py-2 pr-4">{u.email || "—"}</td>
+                    <td className="py-2 pr-4">{u.role || "—"}</td>
+                    <td className="py-2 pr-4">
+                      <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold uppercase">
+                        {u.approved === false ? "pending" : "active"}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(u.last_login_at)}</td>
+                    <td className="py-2 pr-4 uppercase text-xs text-slate-500">{u.language || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* B. Registered contact persons */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+          {tl("registered_contacts", lang)} ({filteredContacts.length})
+        </h3>
+        {filteredContacts.length === 0 ? (
+          <p className="text-sm text-slate-500">{tl("no_contacts", lang)}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                <tr>
+                  <th className="py-2 pr-4">Navn</th>
+                  <th className="py-2 pr-4">{tl("role", lang)} / {tl("area", lang)}</th>
+                  <th className="py-2 pr-4">{tl("phone", lang)}</th>
+                  <th className="py-2 pr-4">{tl("email", lang)}</th>
+                  <th className="py-2 pr-4">{tl("status", lang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContacts.map((c) => (
+                  <tr key={c.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{c.name || "—"}</td>
+                    <td className="py-2 pr-4">
+                      <span className="text-slate-700">{c.role_title || "—"}</span>
+                      <span className="ml-1 text-xs text-slate-400">({areaLabel(c.contact_area)})</span>
+                    </td>
+                    <td className="py-2 pr-4">{c.phone ? <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a> : "—"}</td>
+                    <td className="py-2 pr-4">{c.email ? <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a> : "—"}</td>
+                    <td className="py-2 pr-4">
+                      {c.is_primary && (
+                        <span className="inline-block rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase">
+                          {tl("area_primary", lang)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

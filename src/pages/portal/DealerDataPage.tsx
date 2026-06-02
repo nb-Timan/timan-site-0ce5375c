@@ -26,7 +26,9 @@ import {
   listPortalFormSubmissions,
   type PortalFormSubmission,
 } from '@/lib/portalFormsService';
+import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { derivePortalRole } from '@/lib/portalAccess';
+
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 
@@ -40,7 +42,9 @@ interface DealerUserRow {
   approved: boolean | null;
   is_active: boolean | null;
   last_login: string | null;
+  preferred_language: string | null;
 }
+
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return '—';
@@ -77,9 +81,11 @@ export default function DealerDataPage() {
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
   const [users, setUsers] = useState<DealerUserRow[]>([]);
+  const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [submissions, setSubmissions] = useState<PortalFormSubmission[]>([]);
   const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
+
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +115,7 @@ export default function DealerDataPage() {
           listPortalFormSubmissions({ formType: 'dealer_invoice_accept', limit: 100 }),
           supabase
             .from('app_users')
-            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login')
+            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login, preferred_language')
             .eq('dealer_number', dealerNumber)
             .order('email', { ascending: true }),
         ]);
@@ -129,6 +135,15 @@ export default function DealerDataPage() {
 
         const u = (usersRes.data ?? []) as DealerUserRow[];
         setUsers(u);
+
+        // Load extra dealer_contacts once the dealer row is known.
+        if (dealerRes.row?.id) {
+          const c = await listDealerContacts(dealerRes.row.id);
+          if (!cancelled) setContacts(c);
+        } else {
+          setContacts([]);
+        }
+
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -252,56 +267,107 @@ export default function DealerDataPage() {
             />
 
 
-            {/* 3) Aktive brugere — entry point fra CRM-detail (#users) */}
+            {/* 3) Brugere og kontaktpersoner — entry point fra CRM-detail (#users) */}
             <Card id="users" className="scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-slate-500" /> Aktive brugere
-                  <Badge variant="secondary" className="ml-1">{users.length}</Badge>
+                  <User className="h-5 w-5 text-slate-500" /> Brugere og kontaktpersoner
+                  <Badge variant="secondary" className="ml-1">{users.length + contacts.length}</Badge>
                 </CardTitle>
               </CardHeader>
 
-              <CardContent>
-                {users.length === 0 ? (
-                  <p className="text-sm text-slate-500">Ingen brugere fundet på denne konto.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-left text-xs uppercase text-slate-500 border-b">
-                        <tr>
-                          <th className="py-2 pr-4">Navn</th>
-                          <th className="py-2 pr-4">E-mail</th>
-                          <th className="py-2 pr-4">Rolle</th>
-                          <th className="py-2 pr-4">Status</th>
-                          <th className="py-2 pr-4">Sidste login</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((u) => {
-                          const status = u.status || (u.approved === false ? 'pending' : u.is_active === false ? 'blocked' : 'active');
-                          return (
-                            <tr key={u.id} className="border-b last:border-0">
-                              <td className="py-2 pr-4">{u.full_name || '—'}</td>
-                              <td className="py-2 pr-4">{u.email}</td>
-                              <td className="py-2 pr-4">{u.portal_role || u.role || '—'}</td>
-                              <td className="py-2 pr-4">
-                                <Badge
-                                  variant={status === 'active' ? 'default' : status === 'pending' ? 'secondary' : 'destructive'}
-                                >
-                                  {status}
-                                </Badge>
-                              </td>
-                              <td className="py-2 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(u.last_login)}</td>
-                            </tr>
-                          );
-                        })}
-
-                      </tbody>
-                    </table>
+              <CardContent className="space-y-6">
+                {/* A. Aktive portalbrugere */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Aktive portalbrugere</h3>
+                    <Badge variant="secondary">{users.length}</Badge>
                   </div>
-                )}
+                  {users.length === 0 ? (
+                    <p className="text-sm text-slate-500">Ingen portalbrugere fundet på denne konto.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                          <tr>
+                            <th className="py-2 pr-4">Navn</th>
+                            <th className="py-2 pr-4">E-mail</th>
+                            <th className="py-2 pr-4">Rolle</th>
+                            <th className="py-2 pr-4">Status</th>
+                            <th className="py-2 pr-4">Sidste login</th>
+                            <th className="py-2 pr-4">Sprog</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => {
+                            const status = u.status || (u.approved === false ? 'pending' : u.is_active === false ? 'blocked' : 'active');
+                            return (
+                              <tr key={u.id} className="border-b last:border-0">
+                                <td className="py-2 pr-4">{u.full_name || '—'}</td>
+                                <td className="py-2 pr-4">{u.email}</td>
+                                <td className="py-2 pr-4">{u.portal_role || u.role || '—'}</td>
+                                <td className="py-2 pr-4">
+                                  <Badge
+                                    variant={status === 'active' ? 'default' : status === 'pending' ? 'secondary' : 'destructive'}
+                                  >
+                                    {status}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(u.last_login)}</td>
+                                <td className="py-2 pr-4 uppercase text-xs text-slate-500">{u.preferred_language || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* B. Registrerede kontaktpersoner */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Registrerede kontaktpersoner</h3>
+                    <Badge variant="secondary">{contacts.length}</Badge>
+                  </div>
+                  {contacts.length === 0 ? (
+                    <p className="text-sm text-slate-500">Ingen kontaktpersoner registreret.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                          <tr>
+                            <th className="py-2 pr-4">Navn</th>
+                            <th className="py-2 pr-4">Rolle / område</th>
+                            <th className="py-2 pr-4">Telefon</th>
+                            <th className="py-2 pr-4">E-mail</th>
+                            <th className="py-2 pr-4">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contacts.map((c) => (
+                            <tr key={c.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4">{c.name || '—'}</td>
+                              <td className="py-2 pr-4">
+                                <span className="text-slate-700">{c.role_title || '—'}</span>
+                                <span className="ml-1 text-xs text-slate-400">({c.contact_area})</span>
+                              </td>
+                              <td className="py-2 pr-4">{c.phone ? <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a> : '—'}</td>
+                              <td className="py-2 pr-4">{c.email ? <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a> : '—'}</td>
+                              <td className="py-2 pr-4">
+                                {c.is_primary && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Primær</Badge>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
+
+
 
             {/* 4) Forhandler accept / Fakturering */}
             <Card>
