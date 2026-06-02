@@ -44,7 +44,7 @@ import TsbCountriesPage from "./pages/tsb/TsbCountriesPage";
 import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
-import ServiceInformationPage from "./pages/ServiceInformationPage";
+
 import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
 import ServiceTicketsPage from "./pages/service/ServiceTicketsPage";
 import ServiceTicketDetailPage from "./pages/service/ServiceTicketDetailPage";
@@ -157,8 +157,6 @@ const App = () => (
               <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
               <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
               <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
-              {/* Serviceinformation */}
-              <Route path="/portal/service/information" element={<ServiceInformationPage />} />
               <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
               <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
               <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />

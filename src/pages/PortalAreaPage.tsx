@@ -36,6 +36,37 @@ const T: Record<string, Record<Language, string>> = {
     it: 'Trova una macchina tramite numero di serie e visualizza il profilo completo della macchina.',
     hu: 'Keressen gépet gyári szám alapján és tekintse meg a teljes gépprofilt.',
   },
+  desc_warranty_reg: {
+    da: 'Registrér maskinen inden salg for nemmere og hurtigere service efterfølgende.',
+    en: 'Register the machine before sale for easier and faster service afterwards.',
+    de: 'Registrieren Sie die Maschine vor dem Verkauf, damit der spätere Service einfacher und schneller wird.',
+    it: 'Registra la macchina prima della vendita per rendere l\u2019assistenza successiva più semplice e veloce.',
+    hu: 'Regisztrálja a gépet értékesítés előtt, hogy a későbbi szerviz gyorsabb és egyszerűbb legyen.',
+  },
+  desc_tsb: {
+    da: 'Technical Service Bulletin.',
+    en: 'Technical Service Bulletin.',
+    de: 'Technical Service Bulletin.',
+    it: 'Technical Service Bulletin.',
+    hu: 'Technical Service Bulletin.',
+  },
+  support_section_title: {
+    da: 'Timan Teknik support og firmainformation',
+    en: 'Timan Technical support and company information',
+    de: 'Timan Technik Support und Firmeninformationen',
+    it: 'Supporto tecnico Timan e informazioni aziendali',
+    hu: 'Timan műszaki támogatás és cégadatok',
+  },
+  support_heading: {
+    da: 'Support', en: 'Support', de: 'Support', it: 'Supporto', hu: 'Támogatás',
+  },
+  company_heading: {
+    da: 'Firmainformation', en: 'Company information', de: 'Firmeninformationen', it: 'Informazioni aziendali', hu: 'Cégadatok',
+  },
+  label_phone: { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon' },
+  label_email: { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
+  label_company: { da: 'Virksomhed', en: 'Company', de: 'Unternehmen', it: 'Azienda', hu: 'Vállalat' },
+  label_address: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
 };
 
 interface Props { areaId: PortalAreaId }
@@ -119,10 +150,10 @@ export default function PortalAreaPage({ areaId }: Props) {
               // TSB visibility: any role with 'tsb' module access (default or override)
               if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
               href = '/portal/service/tsb';
+              description = T.desc_tsb[lang];
             } else if (p.key === 'warranty_reg') {
               href = '/portal/service/warranty';
-            } else if (p.key === 'service_info') {
-              href = '/portal/service/information';
+              description = T.desc_warranty_reg[lang];
             } else if (p.key === 'service_maintenance') {
               href = '/portal/service/maintenance';
               icon = Wrench;
@@ -196,6 +227,28 @@ export default function PortalAreaPage({ areaId }: Props) {
             );
           })}
         </div>
+
+        {areaId === 'teknik_service' && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.support_section_title[lang]}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.support_heading[lang]}</h3>
+                <dl className="space-y-2 text-sm text-gray-700">
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_phone[lang]}:</dt><dd><a href="tel:+4596744466" className="text-[#2d5a27] hover:underline">96 74 44 66</a></dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_email[lang]}:</dt><dd><a href="mailto:service@timan.dk" className="text-[#2d5a27] hover:underline">service@timan.dk</a></dd></div>
+                </dl>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.company_heading[lang]}</h3>
+                <dl className="space-y-2 text-sm text-gray-700">
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_company[lang]}:</dt><dd>Timan A/S</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_address[lang]}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
+                </dl>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       <PortalFooter language={lang} />
