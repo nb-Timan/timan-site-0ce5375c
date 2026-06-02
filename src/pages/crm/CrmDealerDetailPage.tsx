@@ -587,15 +587,35 @@ export default function CrmDealerDetailPage() {
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* A. Kontaktinformation */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("company_details", lang)}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone || "—"}</li>
-                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email || "—"}</li>
-                <li><span className="text-slate-500">{tl("language", lang) /* address */}:</span> {[dealer.address, dealer.postal_code, dealer.city, dealer.country].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("address", lang)}:</span> {[dealer.address, dealer.postal_code, dealer.city].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("language", lang)}:</span> {(dealer as unknown as { preferred_language?: string }).preferred_language || "—"}</li>
               </ul>
             </div>
+
+            {/* B. Stamdata */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("master_data", lang)}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
+                <li><span className="text-slate-500">{tl("account_number", lang)}:</span> <span className="font-mono">{dealer.account_number || "—"}</span></li>
+                <li><span className="text-slate-500">{tl("customer_type", lang)}:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
+                <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? "Spærret" : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
+                <li><span className="text-slate-500">{tl("vat", lang)}:</span> {(dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || "—"}</li>
+                <li><span className="text-slate-500">{tl("assigned_seller", lang)}:</span> {dealer.assigned_seller_name || dealer.assigned_seller_initials || "—"}</li>
+                <li><span className="text-slate-500">{tl("created_at_lbl", lang)}:</span> {fmtDate((dealer as unknown as { created_at?: string }).created_at)}</li>
+              </ul>
+            </div>
+
+            {/* C. Næste opfølgning */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("next_followup")}</h3>
               {nextFollowup ? (
@@ -604,6 +624,22 @@ export default function CrmDealerDetailPage() {
                 <p className="text-sm text-slate-500">{t("none_followup")}</p>
               )}
             </div>
+
+            {/* D. Seneste aktiviteter */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
+              {activitiesForScope.slice(0, 4).length === 0 ? (
+                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+              ) : (
+                <ul className="text-sm space-y-1.5">
+                  {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,4).map(a => (
+                    <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || activityTypeMeta(a.activity_type).label.da}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* E. Seneste tilbud */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
               {dealerQuotesInScope.slice(0, 4).length === 0 ? (
@@ -618,6 +654,7 @@ export default function CrmDealerDetailPage() {
             </div>
           </div>
         </TabsContent>
+
 
         {/* CONTACTS */}
         <TabsContent value="contacts" className="mt-0">
