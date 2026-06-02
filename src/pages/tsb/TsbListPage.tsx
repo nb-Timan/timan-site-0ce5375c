@@ -56,7 +56,7 @@ export default function TsbListPage() {
   const tsbs = useTsbs();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser ?? null);
-  const mayCreate = canCreateTsb(portalRole);
+  const mayCreate = canCreateTsb(portalRole, appUser ?? null);
   const [tab, setTab] = useState<AdminTab>("all");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ProcessStatus>("all");
