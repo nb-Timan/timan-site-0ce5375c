@@ -205,6 +205,15 @@ export interface ProductRecommendationMeta {
   lastReviewedAt?: string;
   /** Curation quality marker — drives review workflow. */
   dataQuality?: DataQuality;
+
+  // ── Step 7+ : functional grouping for dedup ──
+  /**
+   * Optional explicit function group. When omitted, the engine derives a
+   * sensible default from `category` (see `getFunctionGroup`). Only set this
+   * when a product needs to break out of its category default — e.g. a
+   * combined winter/snow accessory that should also cover saltspredning.
+   */
+  functionGroup?: FunctionGroup;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
