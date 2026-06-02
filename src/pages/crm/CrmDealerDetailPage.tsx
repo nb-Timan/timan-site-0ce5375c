@@ -503,6 +503,15 @@ export default function CrmDealerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
 
+      {/* Hero contact card — quick contact + actions for sellers on the go */}
+      <ContactHero
+        dealer={dealer}
+        contacts={dealerContacts}
+        lang={lang}
+        onAddActivity={() => setShowNoteModal(true)}
+      />
+
+
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
         {(() => {
