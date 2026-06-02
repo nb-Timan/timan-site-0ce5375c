@@ -423,13 +423,15 @@ function Field({ label, value }: { label: string; value: string }) {
 
 
 function DocsTable({
-  title, icon, rows, numberKey, showStatus,
+  title, icon, rows, numberKey, showStatus, lang, t,
 }: {
   title: string;
   icon: React.ReactNode;
   rows: CrmConfigurationRow[];
   numberKey: 'quote_number' | 'order_number';
   showStatus?: boolean;
+  lang: Language;
+  t: typeof T;
 }) {
   return (
     <Card>
@@ -441,17 +443,17 @@ function DocsTable({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-slate-500">Ingen poster.</p>
+          <p className="text-sm text-slate-500">{t.noEntries[lang]}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-slate-500 border-b">
                 <tr>
-                  <th className="py-2 pr-4">Nr.</th>
-                  <th className="py-2 pr-4">Titel</th>
-                  <th className="py-2 pr-4">Oprettet</th>
-                  {showStatus && <th className="py-2 pr-4">Status</th>}
-                  <th className="py-2 pr-4 text-right">Beløb</th>
+                  <th className="py-2 pr-4">{t.number[lang]}</th>
+                  <th className="py-2 pr-4">{t.title[lang]}</th>
+                  <th className="py-2 pr-4">{t.created[lang]}</th>
+                  {showStatus && <th className="py-2 pr-4">{t.status[lang]}</th>}
+                  <th className="py-2 pr-4 text-right">{t.amount[lang]}</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,9 +461,9 @@ function DocsTable({
                   <tr key={r.id} className="border-b last:border-0">
                     <td className="py-2 pr-4 whitespace-nowrap">{r[numberKey] || '—'}</td>
                     <td className="py-2 pr-4">{r.title || '—'}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(r.created_at, lang)}</td>
                     {showStatus && <td className="py-2 pr-4">{r.case_status || r.status || '—'}</td>}
-                    <td className="py-2 pr-4 text-right">{fmtMoney(r.total_price)}</td>
+                    <td className="py-2 pr-4 text-right">{fmtMoney(r.total_price, lang)}</td>
                   </tr>
                 ))}
               </tbody>
