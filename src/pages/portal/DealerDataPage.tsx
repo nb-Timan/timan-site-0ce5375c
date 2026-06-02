@@ -47,17 +47,62 @@ interface DealerUserRow {
 }
 
 
-function fmtDate(s: string | null | undefined): string {
+import type { Language } from '@/types/configurator';
+
+const LOCALE_MAP: Record<Language, string> = {
+  da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU',
+};
+
+const T = {
+  backPortal:   { da: 'Tilbage til portal',     en: 'Back to portal',         de: 'Zurück zum Portal',          it: 'Torna al portale',           hu: 'Vissza a portálra' },
+  backDealer:   { da: 'Tilbage til forhandler', en: 'Back to dealer',         de: 'Zurück zum Händler',         it: 'Torna al rivenditore',       hu: 'Vissza a kereskedőhöz' },
+  pageTitle:    { da: 'Forhandlerdata',         en: 'Dealer data',            de: 'Händlerdaten',               it: 'Dati rivenditore',           hu: 'Kereskedői adatok' },
+  pageSubtitle: { da: 'Din virksomheds stamdata, kontakter, brugere og handelshistorik hos Timan.', en: 'Your company master data, contacts, users and trading history with Timan.', de: 'Stammdaten, Kontakte, Benutzer und Handelshistorie Ihres Unternehmens bei Timan.', it: 'Dati anagrafici, contatti, utenti e storico commerciale della tua azienda con Timan.', hu: 'Cégének törzsadatai, kapcsolattartói, felhasználói és kereskedelmi előzményei a Timannál.' },
+  noDealer:     { da: 'Din bruger er ikke knyttet til en forhandlerkonto endnu. Kontakt Timan for at få adgang til Forhandlerdata.', en: 'Your user is not linked to a dealer account yet. Contact Timan to get access to Dealer data.', de: 'Ihr Benutzer ist noch keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan für den Zugriff auf die Händlerdaten.', it: 'Il tuo utente non è ancora collegato a un account rivenditore. Contatta Timan per accedere ai Dati rivenditore.', hu: 'A felhasználó még nincs kereskedői fiókhoz rendelve. Vegye fel a kapcsolatot a Timannal a hozzáférésért.' },
+  loading:      { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
+  stamdata:     { da: 'Stamdata', en: 'Master data', de: 'Stammdaten', it: 'Dati anagrafici', hu: 'Törzsadatok' },
+  companyName:  { da: 'Firmanavn', en: 'Company name', de: 'Firmenname', it: 'Ragione sociale', hu: 'Cégnév' },
+  accountNo:    { da: 'Kontonummer', en: 'Account number', de: 'Kontonummer', it: 'Numero conto', hu: 'Számlaszám' },
+  dealerType:   { da: 'Forhandlertype', en: 'Dealer type', de: 'Händlertyp', it: 'Tipo rivenditore', hu: 'Kereskedő típusa' },
+  country:      { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  seller:       { da: 'Tilknyttet Timan-sælger', en: 'Assigned Timan seller', de: 'Zugeordneter Timan-Verkäufer', it: 'Venditore Timan assegnato', hu: 'Hozzárendelt Timan értékesítő' },
+  status:       { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Állapot' },
+  blocked:      { da: 'Spærret', en: 'Blocked', de: 'Gesperrt', it: 'Bloccato', hu: 'Zárolva' },
+  deleted:      { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
+  active:       { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+  users:        { da: 'Registrerede brugere', en: 'Registered users', de: 'Registrierte Benutzer', it: 'Utenti registrati', hu: 'Regisztrált felhasználók' },
+  accept:       { da: 'Forhandler accept / Fakturering', en: 'Dealer acceptance / Invoicing', de: 'Händlerannahme / Rechnungsstellung', it: 'Accettazione rivenditore / Fatturazione', hu: 'Kereskedői elfogadás / Számlázás' },
+  noSubs:       { da: 'Ingen indsendelser fundet.', en: 'No submissions found.', de: 'Keine Einreichungen gefunden.', it: 'Nessun invio trovato.', hu: 'Nem található beküldés.' },
+  date:         { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
+  companyCust:  { da: 'Firma/kunde', en: 'Company/customer', de: 'Firma/Kunde', it: 'Azienda/cliente', hu: 'Cég/ügyfél' },
+  vat:          { da: 'CVR', en: 'VAT', de: 'USt-IdNr.', it: 'P.IVA', hu: 'Adószám' },
+  decision:     { da: 'Beslutning', en: 'Decision', de: 'Entscheidung', it: 'Decisione', hu: 'Döntés' },
+  comment:      { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
+  submittedBy:  { da: 'Indsendt af', en: 'Submitted by', de: 'Eingereicht von', it: 'Inviato da', hu: 'Beküldte' },
+  accepted:     { da: 'Accepteret', en: 'Accepted', de: 'Akzeptiert', it: 'Accettato', hu: 'Elfogadva' },
+  rejected:     { da: 'Afvist', en: 'Rejected', de: 'Abgelehnt', it: 'Rifiutato', hu: 'Elutasítva' },
+  noCoop:       { da: 'Ønsker ikke samarbejde', en: 'Does not want cooperation', de: 'Wünscht keine Zusammenarbeit', it: 'Non desidera collaborazione', hu: 'Nem kíván együttműködni' },
+  unknown:      { da: 'Ukendt', en: 'Unknown', de: 'Unbekannt', it: 'Sconosciuto', hu: 'Ismeretlen' },
+  openQuotes:   { da: 'Åbne tilbud', en: 'Open quotes', de: 'Offene Angebote', it: 'Preventivi aperti', hu: 'Nyitott árajánlatok' },
+  orders:       { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Rendelések' },
+  noEntries:    { da: 'Ingen poster.', en: 'No entries.', de: 'Keine Einträge.', it: 'Nessuna voce.', hu: 'Nincs bejegyzés.' },
+  number:       { da: 'Nr.', en: 'No.', de: 'Nr.', it: 'N.', hu: 'Sz.' },
+  title:        { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  created:      { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
+  amount:       { da: 'Beløb', en: 'Amount', de: 'Betrag', it: 'Importo', hu: 'Összeg' },
+} as const;
+
+function fmtDate(s: string | null | undefined, lang: Language = 'da'): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleDateString('da-DK'); } catch { return '—'; }
+  try { return new Date(s).toLocaleDateString(LOCALE_MAP[lang]); } catch { return '—'; }
 }
-function fmtDateTime(s: string | null | undefined): string {
+function fmtDateTime(s: string | null | undefined, lang: Language = 'da'): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString('da-DK'); } catch { return '—'; }
+  try { return new Date(s).toLocaleString(LOCALE_MAP[lang]); } catch { return '—'; }
 }
-function fmtMoney(n: number | null | undefined): string {
+function fmtMoney(n: number | null | undefined, lang: Language = 'da'): string {
   if (n == null) return '—';
-  try { return new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n); }
+  try { return new Intl.NumberFormat(LOCALE_MAP[lang], { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n); }
   catch { return String(n); }
 }
 
