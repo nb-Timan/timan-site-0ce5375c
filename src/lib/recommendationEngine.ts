@@ -25,9 +25,11 @@ import { PRODUCTS, ACCESSORIES, getLooseToolAccessories, LOOSE_TOOL_KEY } from "
 import {
   PRODUCT_RECOMMENDATION_META,
   getRecommendationMeta,
+  getFunctionGroup,
   pickLocalized,
   type ProductRecommendationMeta,
   type MachinePlatform,
+  type FunctionGroup,
 } from "@/data/productRecommendationMeta";
 import {
   needsIndustries,
@@ -408,61 +410,35 @@ function pickSnippet(key: keyof typeof REASON_SNIPPETS, lang: Language): string 
 }
 
 /**
- * Build a richer, sales-style reason string from metadata signals.
- * Deterministic. Never invents products. Falls back to shortPitch / salesArguments.
+ * Build a short, sales-style reason from metadata signals.
+ * One sentence, deterministic, never invents products.
  */
 function buildReason(c: MetadataCandidate, lang: Language): string {
-  const { meta, reasons } = c;
-  const parts: string[] = [];
+  const { meta } = c;
 
-  // Category-driven primary value statement.
+  // Category-driven primary value statement (single sentence).
   switch (meta.category) {
     case "accessory_safety":
-      parts.push(pickSnippet("safety_traffic", lang));
-      break;
+      return pickSnippet("safety_traffic", lang);
     case "accessory_light":
-      parts.push(pickSnippet("light_dark_season", lang));
-      break;
+      return pickSnippet("light_dark_season", lang);
     case "service_warranty":
-      parts.push(pickSnippet("warranty_uptime", lang));
-      break;
+      return pickSnippet("warranty_uptime", lang);
     case "accessory_comfort":
-      parts.push(pickSnippet("comfort_long_days", lang));
-      break;
+      return pickSnippet("comfort_long_days", lang);
     case "accessory_protection":
-      parts.push(pickSnippet("protection_lifetime", lang));
-      break;
+      return pickSnippet("protection_lifetime", lang);
     case "tool_winter_plow":
     case "tool_winter_blower":
     case "tool_winter_spreader":
-      parts.push(pickSnippet("winter_ready", lang));
-      break;
+      return pickSnippet("winter_ready", lang);
     default: {
-      // For tools/machines: prefer first sales argument, then shortPitch.
       const sa = meta.salesArguments[0];
       const saText = sa ? pickLocalized(sa, lang) : "";
-      if (saText) parts.push(saText);
+      if (saText) return saText;
+      return pickLocalized(meta.shortPitch, lang);
     }
   }
-
-  // Secondary signal: workTasks overlap.
-  if (reasons.some((r) => r.startsWith("workTasks overlap"))) {
-    parts.push(pickSnippet("task_match", lang));
-  }
-
-  // Secondary signal: explicit pairing.
-  if (reasons.some((r) => r.startsWith("recommendedWith"))) {
-    parts.push(pickSnippet("pairs_with", lang));
-  }
-
-  // Final fallback: shortPitch if we have nothing yet.
-  if (parts.length === 0) {
-    const pitch = pickLocalized(meta.shortPitch, lang);
-    if (pitch) parts.push(pitch);
-  }
-
-  // Keep it to max two sentences for UI compactness.
-  return parts.slice(0, 2).join(" ");
 }
 
 // ─── Output shape (mirrors RecommendationStructured) ────────────────────────
@@ -518,9 +494,19 @@ export function generateMetadataRecommendations(
   const catalogue = catalogueIndex();
   const scored: MetadataCandidate[] = [];
 
+  // ── Dedup: collect function groups already covered by the user's basket ──
+  // Two products that solve the same job (e.g. CS-200 Combi vs CS-200
+  // Valsespreder both = saltspredning) should not both be recommended.
+  // Safety / lights are kept separately by virtue of being distinct groups.
+  const coveredGroups = new Set<FunctionGroup>();
+  for (const m of selectedMeta) coveredGroups.add(getFunctionGroup(m));
+
   for (const candidate of Object.values(PRODUCT_RECOMMENDATION_META)) {
     // Safety anchor: candidate must exist in the live product catalogue.
     if (!catalogue.has(candidate.productId) && !catalogue.has(candidate.varenr)) continue;
+
+    // Function-group dedup against the user's basket.
+    if (coveredGroups.has(getFunctionGroup(candidate))) continue;
 
     const result = scoreRecommendationCandidate(
       candidate,
@@ -543,28 +529,22 @@ export function generateMetadataRecommendations(
     return a.meta.name.localeCompare(b.meta.name);
   });
 
-  // Diversify: prefer at most 2 picks per category, then fill the rest.
+  // Within the candidate list: keep at most one pick per functionGroup so the
+  // user never sees two products that solve the same job. Lights/safety stay
+  // distinct because they map to different function groups.
   const picked: MetadataCandidate[] = [];
-  const catCount = new Map<string, number>();
-  const leftover: MetadataCandidate[] = [];
+  const usedGroups = new Set<FunctionGroup>();
+  const MAX_TOTAL = 7; // 5 default + 2 extra
 
   for (const c of scored) {
-    const n = catCount.get(c.meta.category) ?? 0;
-    if (n < 2) {
-      picked.push(c);
-      catCount.set(c.meta.category, n + 1);
-    } else {
-      leftover.push(c);
-    }
-    if (picked.length >= 10) break;
-  }
-  for (const c of leftover) {
-    if (picked.length >= 10) break;
+    const g = getFunctionGroup(c.meta);
+    if (usedGroups.has(g)) continue;
     picked.push(c);
+    usedGroups.add(g);
+    if (picked.length >= MAX_TOTAL) break;
   }
 
-  // Order picks so "necessary" comes first, then "recommended", then "upsell"
-  // — within each group keep the score-based order from above.
+  // Order picks: "necessary" first, then "recommended", then "upsell".
   const groupRank: Record<RecommendationGroup, number> = {
     necessary: 0,
     recommended: 1,
@@ -586,8 +566,9 @@ export function generateMetadataRecommendations(
     return `${prefix}: ${c.meta.name}${tail}`;
   });
 
+  // Caps: max 5 primary + max 2 optional.
   const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
-  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
+  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 2);
 
   return { defaultBullets, extraBullets, picked: orderedPicked, groups };
 }

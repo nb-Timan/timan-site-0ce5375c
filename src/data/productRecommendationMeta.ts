@@ -102,6 +102,39 @@ export type Season =
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
 
+/**
+ * Coarse functional grouping used for de-duplication in the recommendation
+ * engine. Two products in the same group cover the same customer need, so
+ * only one should be recommended (e.g. CS-200 Combi vs CS-200 Valsespreder
+ * both = "saltspredning").
+ *
+ * Defaults are derived from `category` via `getFunctionGroup()`. Set this
+ * field on a meta entry only when the default mapping is wrong.
+ */
+export type FunctionGroup =
+  | "klipning"
+  | "vintertjeneste"
+  | "saltspredning"
+  | "snerydning"
+  | "kost"
+  | "ukrudt"
+  | "lys"
+  | "sikkerhed"
+  | "komfort"
+  | "service"
+  | "garanti"
+  | "transport"
+  | "fjernbetjening"
+  | "hydraulik"
+  | "kamera"
+  | "rustbeskyttelse"
+  | "carrier"
+  | "stub"
+  | "loose"
+  | "montering"
+  | "forbrug"
+  | "other";
+
 /** Multilingual short string. Always required for `da` + `en`; others optional. */
 export type LocalizedShort = { da: string; en: string; de?: string; it?: string; hu?: string };
 
@@ -172,6 +205,15 @@ export interface ProductRecommendationMeta {
   lastReviewedAt?: string;
   /** Curation quality marker — drives review workflow. */
   dataQuality?: DataQuality;
+
+  // ── Step 7+ : functional grouping for dedup ──
+  /**
+   * Optional explicit function group. When omitted, the engine derives a
+   * sensible default from `category` (see `getFunctionGroup`). Only set this
+   * when a product needs to break out of its category default — e.g. a
+   * combined winter/snow accessory that should also cover saltspredning.
+   */
+  functionGroup?: FunctionGroup;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -507,6 +549,45 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     shortPitch: { da: "CS-200 valsespreder til saltning – kræver lad og vogn.", en: "CS-200 roller spreader for salting — requires bed and trailer." },
   },
 
+  // CS-200 Combi variants — minimal entries so the dedup engine treats them
+  // as covering "saltspredning" when present in the basket.
+  "725132": {
+    productId: "725132",
+    varenr: "725132",
+    name: "CS-200 Combi, manuel reg.",
+    category: "tool_winter_spreader",
+    platform: "Timan 3330",
+    compatibleMachines: ["Timan 3330", "Loader Line"],
+    recommendedWith: ["725132__712902", "725132__725120", "725132__V34-029", "725132__V34-055"],
+    industries: ["municipality", "facility_management", "industrial_site"],
+    workTasks: ["de_icing", "snow_plowing"],
+    seasonRelevance: ["winter"],
+    salesArguments: [],
+    technicalAdvantages: [],
+    serviceWarrantyNotes: [],
+    recommendationPriority: 2,
+    shortPitch: { da: "CS-200 Combi – salt og granulat på samme spreder.", en: "CS-200 Combi — salt and granulate on the same spreader." },
+    functionGroup: "saltspredning",
+  },
+  "725138": {
+    productId: "725138",
+    varenr: "725138",
+    name: "CS-200 Combi, el reg.",
+    category: "tool_winter_spreader",
+    platform: "Timan 3330",
+    compatibleMachines: ["Timan 3330", "Loader Line"],
+    recommendedWith: ["725138__712902", "725138__725120", "725138__V34-029", "725138__V34-055"],
+    industries: ["municipality", "facility_management", "industrial_site"],
+    workTasks: ["de_icing", "snow_plowing"],
+    seasonRelevance: ["winter"],
+    salesArguments: [],
+    technicalAdvantages: [],
+    serviceWarrantyNotes: [],
+    recommendationPriority: 2,
+    shortPitch: { da: "CS-200 Combi med el-regulering – præcis dosering fra kabinen.", en: "CS-200 Combi with electric control — precise dosing from the cab." },
+    functionGroup: "saltspredning",
+  },
+
   // ── Stump grinder ────────────────────────────────────────────────────────
   "HFS-1012": {
     productId: "HFS-1012",
@@ -761,6 +842,44 @@ export function pickLocalized(s: LocalizedShort, lang: Language): string {
 export function listCoveredProductIds(): string[] {
   return Object.keys(PRODUCT_RECOMMENDATION_META);
 }
+
+// ─── Function-group derivation (Step: dedup) ────────────────────────────────
+//
+// Maps a product to its coarse functional group so the recommendation engine
+// can skip products whose function is already covered by the user's basket.
+
+const CATEGORY_TO_GROUP: Record<ProductCategory, FunctionGroup> = {
+  machine_remote: "carrier",
+  machine_carrier: "carrier",
+  machine_loader_line: "carrier",
+  tool_mower: "klipning",
+  tool_sweeper: "kost",
+  tool_weedbrush: "ukrudt",
+  tool_winter_plow: "snerydning",
+  tool_winter_blower: "snerydning",
+  tool_winter_spreader: "saltspredning",
+  tool_stump: "stub",
+  tool_loose: "loose",
+  accessory_light: "lys",
+  accessory_safety: "sikkerhed",
+  accessory_comfort: "komfort",
+  accessory_protection: "rustbeskyttelse",
+  accessory_mounting: "montering",
+  accessory_consumable: "forbrug",
+  service_warranty: "garanti",
+};
+
+/**
+ * Resolve the functional group for a product. Uses `meta.functionGroup` when
+ * set, otherwise derives a sensible default from the category. Special-cases
+ * the few products whose names indicate they cover an extra group on top of
+ * their category (e.g. CS-200 Combi covers both saltspredning and snerydning).
+ */
+export function getFunctionGroup(meta: ProductRecommendationMeta): FunctionGroup {
+  if (meta.functionGroup) return meta.functionGroup;
+  return CATEGORY_TO_GROUP[meta.category] ?? "other";
+}
+
 
 // ─── Step 6: Source/content helpers ─────────────────────────────────────────
 //
