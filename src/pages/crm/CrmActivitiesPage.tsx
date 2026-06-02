@@ -75,13 +75,25 @@ export default function CrmActivitiesPage() {
   return (
     <CrmLayout pageTitle="Activities">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="p-4 border-b border-gray-100">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søg…"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+          </div>
+        </div>
         {loading ? (
           <p className="p-6 text-sm text-gray-500">…</p>
-        ) : rows.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{T.empty[lang]}</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {rows.map(a => (
+            {filtered.map(a => (
               <li key={a.id} className="px-5 py-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
