@@ -259,16 +259,7 @@ export default function DealerDataPage() {
               </CardContent>
             </Card>
 
-            {/* 2) Dealer profile (Phase 52 — self-service) */}
-            <DealerProfileEditor
-              dealer={dealer}
-              language={lang}
-              canEdit={canEditProfile}
-              onUpdated={(next) => setDealer(next)}
-            />
-
-
-            {/* 3) Registrerede brugere — portal users + dealer_contacts deduped */}
+            {/* 2) Registrerede brugere — portal users + dealer_contacts deduped */}
             <Card id="users" className="scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -280,6 +271,14 @@ export default function DealerDataPage() {
                 <RegisteredUsersTable portalUsers={users} contacts={contacts} />
               </CardContent>
             </Card>
+
+            {/* 3) Dealer profile (Phase 52 — self-service) */}
+            <DealerProfileEditor
+              dealer={dealer}
+              language={lang}
+              canEdit={canEditProfile}
+              onUpdated={(next) => setDealer(next)}
+            />
 
 
 
