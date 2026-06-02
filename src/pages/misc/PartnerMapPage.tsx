@@ -313,9 +313,7 @@ export default function PartnerMapPage() {
                       position={p.coords}
                       icon={makePinIcon(TYPE_COLORS[p.type], pulse, sel)}
                       eventHandlers={{ click: () => setSelectedId(p.id) }}
-                    >
-                      {/* @ts-expect-error react-leaflet Tooltip via L is omitted; use title via icon tooltip */}
-                    </Marker>
+                    />
                   );
                 })}
               </MapContainer>
