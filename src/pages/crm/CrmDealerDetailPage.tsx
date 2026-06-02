@@ -177,6 +177,7 @@ export default function CrmDealerDetailPage() {
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [notes, setNotes] = useState<DealerNote[]>([]);
+  const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showEditDealer, setShowEditDealer] = useState(false);
