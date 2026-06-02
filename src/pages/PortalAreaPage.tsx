@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, LucideIcon } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -109,7 +109,7 @@ export default function PortalAreaPage({ areaId }: Props) {
           <p className="text-gray-600 text-base mt-2 max-w-3xl">{area.description[lang] || area.description.en}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
           {areaModules.map(m => <ModuleCard key={m.id} module={m} language={lang} />)}
           {area.placeholders.map(p => {
             let href: string | undefined;
@@ -135,6 +135,11 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/service/machines';
               icon = Search;
               description = T.desc_machine_search[lang];
+            } else if (p.key === 'claims') {
+              if (!hasModuleAccess(portalRole, 'claims', moduleOverride)) return null;
+              href = '/portal/service/claims';
+              icon = LifeBuoy;
+              description = lang === 'da' ? 'Opret og følg service- og garantisager direkte i portalen.' : 'Create and track service and warranty claims directly in the portal.';
 
             } else if (p.key === 'users') {
               href = '/portal/backend/users';

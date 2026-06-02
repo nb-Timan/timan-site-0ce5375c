@@ -106,7 +106,7 @@ export const PORTAL_MODULES: PortalModule[] = [
   },
   {
     id: 'claims',
-    title: { da: 'Service / Claims', en: 'Service / Claims', de: 'Service / Reklamationen', it: 'Assistenza / Reclami', hu: 'Szerviz / Reklamációk' },
+    title: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' },
     description: {
       da: 'Opret og følg service- og garantisager direkte i portalen.',
       en: 'Create and track service and warranty claims directly in the portal.',
