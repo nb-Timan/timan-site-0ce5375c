@@ -661,53 +661,37 @@ export default function CrmDealerDetailPage() {
           <div className="space-y-4">
             <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
 
-            {/* Linked portal users */}
+            {/* Compact users preview — full management lives in Forhandlerdata */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
-                {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                  Aktive brugere ({linkedUsers.length})
+                </h3>
+                <Link to="/portal/dealer-data#users" className="text-xs font-semibold text-emerald-700 hover:underline">
+                  Se alle brugere i Forhandlerdata →
+                </Link>
               </div>
               {linkedUsers.length === 0 ? (
                 <p className="text-sm text-slate-500">{t("no_users")}</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="text-xs uppercase text-slate-500">
-                      <tr>
-                        <th className="text-left py-2">Navn</th>
-                        <th className="text-left py-2">{tl("email", lang)}</th>
-                        <th className="text-left py-2">{tl("role", lang)}</th>
-                        <th className="text-left py-2">Status</th>
-                        <th className="text-left py-2">Sidste login</th>
-                        <th className="text-left py-2">{tl("language", lang)}</th>
-                        <th className="text-right py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkedUsers.map(u => (
-                        <tr key={u.id} className="border-t border-slate-100">
-                          <td className="py-2 font-semibold">{u.name}</td>
-                          <td className="py-2 text-slate-600">{u.email}</td>
-                          <td className="py-2 text-slate-600">{u.role}</td>
-                          <td className="py-2">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                              {u.approved ? "Godkendt" : "Afventer"}
-                            </span>
-                          </td>
-                          <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
-                          <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
-                          <td className="py-2 text-right">
-                            <div className="inline-flex gap-1">
-                              {u.email && <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}><Mail className="h-3.5 w-3.5 text-emerald-700" /></a>}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ul className="divide-y divide-slate-100">
+                  {linkedUsers.slice(0, 5).map((u) => (
+                    <li key={u.id} className="py-2 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-800 truncate">{u.name}</div>
+                        <div className="text-xs text-slate-500 truncate">{u.email} · {u.role || "—"}</div>
+                      </div>
+                      {u.email && (
+                        <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}>
+                          <Mail className="h-4 w-4 text-emerald-700" />
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
+
           </div>
         </TabsContent>
 
