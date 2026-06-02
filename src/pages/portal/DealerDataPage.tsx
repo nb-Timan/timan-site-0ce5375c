@@ -4,7 +4,7 @@
 // V1: own-account only — importer/service-partner → sub-dealer relations deferred.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
@@ -62,6 +62,18 @@ export default function DealerDataPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+
+  // Internal Timan roles may view ANY dealer via ?accountNumber=… from CRM.
+  // External dealer roles (forhandler/importer/servicepartner/dealer_user) are
+  // ALWAYS locked to their own dealer_number — query parameter is ignored.
+  const internalRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
+  const isInternal = !!portalRole && internalRoles.has(portalRole);
+  const overrideAccountNumber = isInternal ? (searchParams.get('accountNumber') || '').trim() || null : null;
+  const dealerNumber = overrideAccountNumber ?? appUser?.dealer_number ?? null;
+  const cameFromCrm = !!overrideAccountNumber;
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
   const [users, setUsers] = useState<DealerUserRow[]>([]);
@@ -71,8 +83,6 @@ export default function DealerDataPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const dealerNumber = appUser?.dealer_number ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -165,10 +175,24 @@ export default function DealerDataPage() {
 
       <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-6">
         <div>
-          <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
-          </Link>
+          {cameFromCrm ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) navigate(-1);
+                else navigate(`/portal/crm/my-dealers/${encodeURIComponent(overrideAccountNumber!)}`);
+              }}
+              className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til forhandler
+            </button>
+          ) : (
+            <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
+              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
+            </Link>
+          )}
         </div>
+
 
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
