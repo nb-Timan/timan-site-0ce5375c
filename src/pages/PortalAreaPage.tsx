@@ -227,6 +227,28 @@ export default function PortalAreaPage({ areaId }: Props) {
             );
           })}
         </div>
+
+        {areaId === 'teknik_service' && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.support_section_title[lang]}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.support_heading[lang]}</h3>
+                <dl className="space-y-2 text-sm text-gray-700">
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_phone[lang]}:</dt><dd><a href="tel:+4596744466" className="text-[#2d5a27] hover:underline">96 74 44 66</a></dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_email[lang]}:</dt><dd><a href="mailto:service@timan.dk" className="text-[#2d5a27] hover:underline">service@timan.dk</a></dd></div>
+                </dl>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.company_heading[lang]}</h3>
+                <dl className="space-y-2 text-sm text-gray-700">
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_company[lang]}:</dt><dd>Timan A/S</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_address[lang]}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
+                </dl>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       <PortalFooter language={lang} />
