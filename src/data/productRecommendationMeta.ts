@@ -549,6 +549,45 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     shortPitch: { da: "CS-200 valsespreder til saltning – kræver lad og vogn.", en: "CS-200 roller spreader for salting — requires bed and trailer." },
   },
 
+  // CS-200 Combi variants — minimal entries so the dedup engine treats them
+  // as covering "saltspredning" when present in the basket.
+  "725132": {
+    productId: "725132",
+    varenr: "725132",
+    name: "CS-200 Combi, manuel reg.",
+    category: "tool_winter_spreader",
+    platform: "Timan 3330",
+    compatibleMachines: ["Timan 3330", "Loader Line"],
+    recommendedWith: ["725132__712902", "725132__725120", "725132__V34-029", "725132__V34-055"],
+    industries: ["municipality", "facility_management", "industrial_site"],
+    workTasks: ["de_icing", "snow_plowing"],
+    seasonRelevance: ["winter"],
+    salesArguments: [],
+    technicalAdvantages: [],
+    serviceWarrantyNotes: [],
+    recommendationPriority: 2,
+    shortPitch: { da: "CS-200 Combi – salt og granulat på samme spreder.", en: "CS-200 Combi — salt and granulate on the same spreader." },
+    functionGroup: "saltspredning",
+  },
+  "725138": {
+    productId: "725138",
+    varenr: "725138",
+    name: "CS-200 Combi, el reg.",
+    category: "tool_winter_spreader",
+    platform: "Timan 3330",
+    compatibleMachines: ["Timan 3330", "Loader Line"],
+    recommendedWith: ["725138__712902", "725138__725120", "725138__V34-029", "725138__V34-055"],
+    industries: ["municipality", "facility_management", "industrial_site"],
+    workTasks: ["de_icing", "snow_plowing"],
+    seasonRelevance: ["winter"],
+    salesArguments: [],
+    technicalAdvantages: [],
+    serviceWarrantyNotes: [],
+    recommendationPriority: 2,
+    shortPitch: { da: "CS-200 Combi med el-regulering – præcis dosering fra kabinen.", en: "CS-200 Combi with electric control — precise dosing from the cab." },
+    functionGroup: "saltspredning",
+  },
+
   // ── Stump grinder ────────────────────────────────────────────────────────
   "HFS-1012": {
     productId: "HFS-1012",
