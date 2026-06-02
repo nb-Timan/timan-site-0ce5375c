@@ -675,110 +675,217 @@ export default function CrmDealerDetailPage() {
         );
       })()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Master + contact */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-5">
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
-          <ul className="text-sm space-y-2">
-            <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
-            <Row icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={dealer.email || "—"} />
-            <Row icon={<Phone className="h-3.5 w-3.5" />} label="Telefon" value={dealer.phone || "—"} />
-          </ul>
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mt-5 mb-3">{t("master")}</h3>
-          <ul className="text-sm space-y-1.5">
-            <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
-            <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-            <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
-            <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
-          </ul>
-        </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="flex flex-wrap h-auto bg-slate-100 p-1 mb-4">
+          <TabsTrigger value="overview">{tl("tab_overview", lang)}</TabsTrigger>
+          <TabsTrigger value="contacts">{tl("tab_contacts", lang)}</TabsTrigger>
+          <TabsTrigger value="activities">{tl("tab_activities", lang)}</TabsTrigger>
+          <TabsTrigger value="notes">{tl("tab_notes", lang)}</TabsTrigger>
+          <TabsTrigger value="documents">{tl("tab_documents", lang)}</TabsTrigger>
+          <TabsTrigger value="company">{tl("tab_company", lang)}</TabsTrigger>
+        </TabsList>
 
-        {/* Linked users */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
-            {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
-          </div>
-          {linkedUsers.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("no_users")}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="text-left py-2">Navn</th>
-                    <th className="text-left py-2">Email</th>
-                    <th className="text-left py-2">Rolle</th>
-                    <th className="text-left py-2">Status</th>
-                    <th className="text-left py-2">Sidste login</th>
-                    <th className="text-left py-2">Sprog</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linkedUsers.map(u => (
-                    <tr key={u.id} className="border-t border-slate-100">
-                      <td className="py-2 font-semibold">{u.name}</td>
-                      <td className="py-2 text-slate-600">{u.email}</td>
-                      <td className="py-2 text-slate-600">{u.role}</td>
-                      <td className="py-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                          {u.approved ? "Godkendt" : "Afventer"}
-                        </span>
-                      </td>
-                      <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
-                      <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* OVERVIEW */}
+        <TabsContent value="overview" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("company_details", lang)}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone || "—"}</li>
+                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email || "—"}</li>
+                <li><span className="text-slate-500">{tl("language", lang) /* address */}:</span> {[dealer.address, dealer.postal_code, dealer.city, dealer.country].filter(Boolean).join(", ") || "—"}</li>
+              </ul>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("next_followup")}</h3>
+              {nextFollowup ? (
+                <p className="text-sm text-slate-800"><span className="font-semibold">{fmtDateTime(nextFollowup.date)}</span> · {nextFollowup.title}</p>
+              ) : (
+                <p className="text-sm text-slate-500">{t("none_followup")}</p>
+              )}
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
+              {dealerQuotesInScope.slice(0, 4).length === 0 ? (
+                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+              ) : (
+                <ul className="text-sm space-y-1.5">
+                  {dealerQuotesInScope.slice(0, 4).map(q => (
+                    <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
-      {/* Notehistorik */}
-      <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-            {t("notes")} ({notes.length})
-          </h3>
-          <button onClick={() => setShowNoteModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
-            <Plus className="h-3.5 w-3.5" /> {t("add_note")}
-          </button>
-        </div>
-        {notes.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("no_notes")}</p>
-        ) : (
-          <ul className="space-y-2">
-            {notes.map(n => (
-              <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                    <span>·</span>
-                    <span>{fmtDateTime(n.created_at)}</span>
-                    <span>·</span>
-                    <span>sælger {n.seller_initials || "—"}</span>
-                    {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
-                  </div>
-                  {n.follow_up_date && (
-                    <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                      Opfølgning: {fmtDateTime(n.follow_up_date)}
-                    </span>
-                  )}
+        {/* CONTACTS */}
+        <TabsContent value="contacts" className="mt-0">
+          <div className="space-y-4">
+            <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
+
+            {/* Linked portal users */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
+                {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
+              </div>
+              {linkedUsers.length === 0 ? (
+                <p className="text-sm text-slate-500">{t("no_users")}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="text-left py-2">Navn</th>
+                        <th className="text-left py-2">{tl("email", lang)}</th>
+                        <th className="text-left py-2">{tl("role", lang)}</th>
+                        <th className="text-left py-2">Status</th>
+                        <th className="text-left py-2">Sidste login</th>
+                        <th className="text-left py-2">{tl("language", lang)}</th>
+                        <th className="text-right py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linkedUsers.map(u => (
+                        <tr key={u.id} className="border-t border-slate-100">
+                          <td className="py-2 font-semibold">{u.name}</td>
+                          <td className="py-2 text-slate-600">{u.email}</td>
+                          <td className="py-2 text-slate-600">{u.role}</td>
+                          <td className="py-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                              {u.approved ? "Godkendt" : "Afventer"}
+                            </span>
+                          </td>
+                          <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
+                          <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
+                          <td className="py-2 text-right">
+                            <div className="inline-flex gap-1">
+                              {u.phone_number && <a href={`tel:${u.phone_number}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("call", lang)}><Phone className="h-3.5 w-3.5 text-emerald-700" /></a>}
+                              {u.email && <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}><Mail className="h-3.5 w-3.5 text-emerald-700" /></a>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
-                {n.linked_activity_id && (
-                  <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
-                    Se tilknyttet kalenderaktivitet →
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ACTIVITIES */}
+        <TabsContent value="activities" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("tab_activities", lang)} ({activitiesForScope.length})</h3>
+            {activitiesForScope.length === 0 ? (
+              <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+            ) : (
+              <ul className="space-y-2">
+                {[...activitiesForScope]
+                  .sort((a, b) => b.start_datetime.localeCompare(a.start_datetime))
+                  .slice(0, 100)
+                  .map(a => (
+                    <li key={a.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700">{activityTypeMeta(a.activity_type).label.da}</span>
+                          <span>·</span>
+                          <span>{fmtDateTime(a.start_datetime)}</span>
+                          {a.seller_initials && <><span>·</span><span>sælger {a.seller_initials}</span></>}
+                        </div>
+                        {a.status && <span className="text-[10px] uppercase text-slate-500">{a.status}</span>}
+                      </div>
+                      <p className="text-sm text-slate-800">{a.title || "—"}</p>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* NOTES — internal only, already gated by canAccess at page level */}
+        <TabsContent value="notes" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                {t("notes")} ({notes.length})
+              </h3>
+              <button onClick={() => setShowNoteModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
+                <Plus className="h-3.5 w-3.5" /> {t("add_note")}
+              </button>
+            </div>
+            {notes.length === 0 ? (
+              <p className="text-sm text-slate-500">{t("no_notes")}</p>
+            ) : (
+              <ul className="space-y-2">
+                {notes.map(n => (
+                  <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+                        <span>·</span>
+                        <span>{fmtDateTime(n.created_at)}</span>
+                        <span>·</span>
+                        <span>sælger {n.seller_initials || "—"}</span>
+                        {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
+                      </div>
+                      {n.follow_up_date && (
+                        <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                          Opfølgning: {fmtDateTime(n.follow_up_date)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
+                    {n.linked_activity_id && (
+                      <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
+                        Se tilknyttet kalenderaktivitet →
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* DOCUMENTS — placeholder until document module exists */}
+        <TabsContent value="documents" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+            <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">{tl("no_documents", lang)}</p>
+          </div>
+        </TabsContent>
+
+        {/* COMPANY INFO */}
+        <TabsContent value="company" className="mt-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
+              <ul className="text-sm space-y-2">
+                <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
+                <Row icon={<Mail className="h-3.5 w-3.5" />} label={tl("email", lang)} value={dealer.email || "—"} />
+                <Row icon={<Phone className="h-3.5 w-3.5" />} label={tl("phone", lang)} value={dealer.phone || "—"} />
+                {dealer.website && <Row icon={<Globe className="h-3.5 w-3.5" />} label={tl("website", lang)} value={dealer.website} />}
+              </ul>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("master")}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
+                <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
+                <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
+                {dealer.vat_number && <li><span className="text-slate-500">CVR/VAT:</span> {dealer.vat_number}</li>}
+                <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
+                {dealer.created_at && <li><span className="text-slate-500">Oprettet:</span> {fmtDate(dealer.created_at)}</li>}
+              </ul>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
 
       {showNoteModal && (
         <NoteModal
