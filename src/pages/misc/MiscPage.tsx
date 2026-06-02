@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Map } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
@@ -22,6 +22,15 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Belső űrlapok küldése a Timannak — pl. budget visszajelzés, számla elfogadás és kapcsolati adatok.',
   },
   formsCta: { da: 'Åbn formularer →', en: 'Open forms →', de: 'Formulare öffnen →', it: 'Apri moduli →', hu: 'Űrlapok megnyitása →' },
+  mapTitle: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
+  mapDesc: {
+    da: 'Globalt overblik over Timans partnere — forhandlere, servicepartnere, importører og demo-lokationer.',
+    en: 'Global overview of Timan partners — dealers, service partners, importers and demo locations.',
+    de: 'Globaler Überblick über Timan-Partner — Händler, Servicepartner, Importeure und Demo-Standorte.',
+    it: 'Panoramica globale dei partner Timan — rivenditori, partner di servizio, importatori e demo.',
+    hu: 'Globális áttekintés a Timan partnerekről.',
+  },
+  mapCta: { da: 'Åbn kort →', en: 'Open map →', de: 'Karte öffnen →', it: 'Apri mappa →', hu: 'Térkép megnyitása →' },
 };
 
 export default function MiscPage() {
