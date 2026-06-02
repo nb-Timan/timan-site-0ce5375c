@@ -189,7 +189,7 @@ export default function DealerDataPage() {
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
 
-      <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-6">
+      <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 flex-grow space-y-6">
         <div>
           {cameFromCrm ? (
             <button
