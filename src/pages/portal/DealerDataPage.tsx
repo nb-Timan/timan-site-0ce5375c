@@ -83,13 +83,6 @@ export default function DealerDataPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
-  const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const dealerNumber = appUser?.dealer_number ?? null;
 
   useEffect(() => {
     let cancelled = false;
