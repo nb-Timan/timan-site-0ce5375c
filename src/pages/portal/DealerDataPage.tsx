@@ -42,7 +42,9 @@ interface DealerUserRow {
   approved: boolean | null;
   is_active: boolean | null;
   last_login: string | null;
+  preferred_language: string | null;
 }
+
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return '—';
