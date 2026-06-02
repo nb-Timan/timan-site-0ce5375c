@@ -494,9 +494,19 @@ export function generateMetadataRecommendations(
   const catalogue = catalogueIndex();
   const scored: MetadataCandidate[] = [];
 
+  // ── Dedup: collect function groups already covered by the user's basket ──
+  // Two products that solve the same job (e.g. CS-200 Combi vs CS-200
+  // Valsespreder both = saltspredning) should not both be recommended.
+  // Safety / lights are kept separately by virtue of being distinct groups.
+  const coveredGroups = new Set<FunctionGroup>();
+  for (const m of selectedMeta) coveredGroups.add(getFunctionGroup(m));
+
   for (const candidate of Object.values(PRODUCT_RECOMMENDATION_META)) {
     // Safety anchor: candidate must exist in the live product catalogue.
     if (!catalogue.has(candidate.productId) && !catalogue.has(candidate.varenr)) continue;
+
+    // Function-group dedup against the user's basket.
+    if (coveredGroups.has(getFunctionGroup(candidate))) continue;
 
     const result = scoreRecommendationCandidate(
       candidate,
@@ -519,28 +529,22 @@ export function generateMetadataRecommendations(
     return a.meta.name.localeCompare(b.meta.name);
   });
 
-  // Diversify: prefer at most 2 picks per category, then fill the rest.
+  // Within the candidate list: keep at most one pick per functionGroup so the
+  // user never sees two products that solve the same job. Lights/safety stay
+  // distinct because they map to different function groups.
   const picked: MetadataCandidate[] = [];
-  const catCount = new Map<string, number>();
-  const leftover: MetadataCandidate[] = [];
+  const usedGroups = new Set<FunctionGroup>();
+  const MAX_TOTAL = 7; // 5 default + 2 extra
 
   for (const c of scored) {
-    const n = catCount.get(c.meta.category) ?? 0;
-    if (n < 2) {
-      picked.push(c);
-      catCount.set(c.meta.category, n + 1);
-    } else {
-      leftover.push(c);
-    }
-    if (picked.length >= 10) break;
-  }
-  for (const c of leftover) {
-    if (picked.length >= 10) break;
+    const g = getFunctionGroup(c.meta);
+    if (usedGroups.has(g)) continue;
     picked.push(c);
+    usedGroups.add(g);
+    if (picked.length >= MAX_TOTAL) break;
   }
 
-  // Order picks so "necessary" comes first, then "recommended", then "upsell"
-  // — within each group keep the score-based order from above.
+  // Order picks: "necessary" first, then "recommended", then "upsell".
   const groupRank: Record<RecommendationGroup, number> = {
     necessary: 0,
     recommended: 1,
@@ -562,8 +566,9 @@ export function generateMetadataRecommendations(
     return `${prefix}: ${c.meta.name}${tail}`;
   });
 
+  // Caps: max 5 primary + max 2 optional.
   const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
-  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
+  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 2);
 
   return { defaultBullets, extraBullets, picked: orderedPicked, groups };
 }
