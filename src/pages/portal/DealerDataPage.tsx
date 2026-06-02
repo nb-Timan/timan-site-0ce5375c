@@ -62,10 +62,27 @@ export default function DealerDataPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+
+  // Internal Timan roles may view ANY dealer via ?accountNumber=… from CRM.
+  // External dealer roles (forhandler/importer/servicepartner/dealer_user) are
+  // ALWAYS locked to their own dealer_number — query parameter is ignored.
+  const internalRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
+  const isInternal = !!portalRole && internalRoles.has(portalRole);
+  const overrideAccountNumber = isInternal ? (searchParams.get('accountNumber') || '').trim() || null : null;
+  const dealerNumber = overrideAccountNumber ?? appUser?.dealer_number ?? null;
+  const cameFromCrm = !!overrideAccountNumber;
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
   const [users, setUsers] = useState<DealerUserRow[]>([]);
   const [submissions, setSubmissions] = useState<PortalFormSubmission[]>([]);
+  const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
+  const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
