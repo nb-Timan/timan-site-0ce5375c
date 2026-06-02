@@ -141,6 +141,7 @@ const App = () => (
               <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
               <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
               <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
+              <Route path="/portal/misc/partner-map" element={<PartnerMapPage />} />
               <Route path="/portal/service/claims" element={<ClaimsPage />} />
               <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
               <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
