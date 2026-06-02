@@ -761,7 +761,6 @@ export default function CrmDealerDetailPage() {
                           <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
                           <td className="py-2 text-right">
                             <div className="inline-flex gap-1">
-                              {u.phone_number && <a href={`tel:${u.phone_number}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("call", lang)}><Phone className="h-3.5 w-3.5 text-emerald-700" /></a>}
                               {u.email && <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}><Mail className="h-3.5 w-3.5 text-emerald-700" /></a>}
                             </div>
                           </td>
