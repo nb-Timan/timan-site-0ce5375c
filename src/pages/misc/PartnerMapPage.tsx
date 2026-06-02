@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
 import { geoCentroid } from 'd3-geo';
-import { Search, Users, FileText, ShoppingCart, TrendingUp, ExternalLink, Filter, X, Building2, Wrench, Package, Sparkles, Phone, Home, ChevronLeft } from 'lucide-react';
+import { Search, Users, FileText, ShoppingCart, TrendingUp, ExternalLink, Filter, X, Building2, Wrench, Package, Sparkles, Phone, Home, ChevronLeft, ChevronRight, Globe2 } from 'lucide-react';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
