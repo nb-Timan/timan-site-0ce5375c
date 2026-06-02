@@ -116,8 +116,8 @@ export default function PortalAreaPage({ areaId }: Props) {
             let icon: LucideIcon | undefined;
             let description: string | undefined;
             if (p.key === 'tsb_portal') {
-              // TSB is internal-only — hide card entirely for roles without access
-              if (!canAccessTsb(portalRole)) return null;
+              // TSB visibility: any role with 'tsb' module access (default or override)
+              if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
               href = '/portal/service/tsb';
             } else if (p.key === 'warranty_reg') {
               href = '/portal/service/warranty';
