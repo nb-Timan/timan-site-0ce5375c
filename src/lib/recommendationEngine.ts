@@ -410,61 +410,35 @@ function pickSnippet(key: keyof typeof REASON_SNIPPETS, lang: Language): string 
 }
 
 /**
- * Build a richer, sales-style reason string from metadata signals.
- * Deterministic. Never invents products. Falls back to shortPitch / salesArguments.
+ * Build a short, sales-style reason from metadata signals.
+ * One sentence, deterministic, never invents products.
  */
 function buildReason(c: MetadataCandidate, lang: Language): string {
-  const { meta, reasons } = c;
-  const parts: string[] = [];
+  const { meta } = c;
 
-  // Category-driven primary value statement.
+  // Category-driven primary value statement (single sentence).
   switch (meta.category) {
     case "accessory_safety":
-      parts.push(pickSnippet("safety_traffic", lang));
-      break;
+      return pickSnippet("safety_traffic", lang);
     case "accessory_light":
-      parts.push(pickSnippet("light_dark_season", lang));
-      break;
+      return pickSnippet("light_dark_season", lang);
     case "service_warranty":
-      parts.push(pickSnippet("warranty_uptime", lang));
-      break;
+      return pickSnippet("warranty_uptime", lang);
     case "accessory_comfort":
-      parts.push(pickSnippet("comfort_long_days", lang));
-      break;
+      return pickSnippet("comfort_long_days", lang);
     case "accessory_protection":
-      parts.push(pickSnippet("protection_lifetime", lang));
-      break;
+      return pickSnippet("protection_lifetime", lang);
     case "tool_winter_plow":
     case "tool_winter_blower":
     case "tool_winter_spreader":
-      parts.push(pickSnippet("winter_ready", lang));
-      break;
+      return pickSnippet("winter_ready", lang);
     default: {
-      // For tools/machines: prefer first sales argument, then shortPitch.
       const sa = meta.salesArguments[0];
       const saText = sa ? pickLocalized(sa, lang) : "";
-      if (saText) parts.push(saText);
+      if (saText) return saText;
+      return pickLocalized(meta.shortPitch, lang);
     }
   }
-
-  // Secondary signal: workTasks overlap.
-  if (reasons.some((r) => r.startsWith("workTasks overlap"))) {
-    parts.push(pickSnippet("task_match", lang));
-  }
-
-  // Secondary signal: explicit pairing.
-  if (reasons.some((r) => r.startsWith("recommendedWith"))) {
-    parts.push(pickSnippet("pairs_with", lang));
-  }
-
-  // Final fallback: shortPitch if we have nothing yet.
-  if (parts.length === 0) {
-    const pitch = pickLocalized(meta.shortPitch, lang);
-    if (pitch) parts.push(pitch);
-  }
-
-  // Keep it to max two sentences for UI compactness.
-  return parts.slice(0, 2).join(" ");
 }
 
 // ─── Output shape (mirrors RecommendationStructured) ────────────────────────
