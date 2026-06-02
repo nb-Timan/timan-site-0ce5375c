@@ -150,10 +150,10 @@ export default function PortalAreaPage({ areaId }: Props) {
               // TSB visibility: any role with 'tsb' module access (default or override)
               if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
               href = '/portal/service/tsb';
+              description = T.desc_tsb[lang];
             } else if (p.key === 'warranty_reg') {
               href = '/portal/service/warranty';
-            } else if (p.key === 'service_info') {
-              href = '/portal/service/information';
+              description = T.desc_warranty_reg[lang];
             } else if (p.key === 'service_maintenance') {
               href = '/portal/service/maintenance';
               icon = Wrench;
