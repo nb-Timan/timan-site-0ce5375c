@@ -1204,7 +1204,7 @@ export function generateRecommendations(rawState: ConfiguratorState, lang: L = '
     return `${localLabel} – ${localReason}`;
   });
   const defaultBullets = allBullets.slice(0, Math.min(5, allBullets.length));
-  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 5);
+  const extraBullets = allBullets.slice(defaultBullets.length, defaultBullets.length + 2);
 
   return { heading, paragraph: para, defaultBullets, extraBullets };
 }
