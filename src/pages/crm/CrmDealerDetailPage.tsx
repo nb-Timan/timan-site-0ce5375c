@@ -571,11 +571,9 @@ export default function CrmDealerDetailPage() {
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
-            ["contacts", `${tl("tab_contacts", lang)} (${dealerContacts.length || (dealer.primary_contact_name ? 1 : 0)})`],
-            ["activities", tl("tab_activities", lang)],
+            ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
             ["notes", tl("tab_notes", lang)],
             ["documents", tl("tab_documents", lang)],
-            ["company", tl("tab_company", lang)],
           ] as const).map(([val, label]) => (
             <TabsTrigger
               key={val}
@@ -586,6 +584,7 @@ export default function CrmDealerDetailPage() {
             </TabsTrigger>
           ))}
         </TabsList>
+
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
