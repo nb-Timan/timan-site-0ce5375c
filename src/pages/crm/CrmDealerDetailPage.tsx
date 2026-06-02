@@ -141,8 +141,22 @@ const L: Record<string, Record<Language, string>> = {
   recent_activities:{ da: "Seneste aktiviteter", en: "Recent activities", de: "Letzte Aktivitäten", it: "Attività recenti", hu: "Legutóbbi tevékenységek" },
   recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
   none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
+  contact_info:     { da: "Kontaktinformation", en: "Contact information", de: "Kontaktinformation", it: "Informazioni di contatto", hu: "Kapcsolat" },
+  master_data:      { da: "Stamdata", en: "Master data", de: "Stammdaten", it: "Dati anagrafici", hu: "Törzsadatok" },
+  contact_person:   { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó" },
+  view_users:       { da: "Se brugere", en: "View users", de: "Benutzer anzeigen", it: "Vedi utenti", hu: "Felhasználók megtekintése" },
+  address:          { da: "Adresse", en: "Address", de: "Adresse", it: "Indirizzo", hu: "Cím" },
+  country:          { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
+  customer_type:    { da: "Forhandlertype", en: "Dealer type", de: "Händlertyp", it: "Tipo dealer", hu: "Kereskedő típus" },
+  account_number:   { da: "Kontonummer", en: "Account number", de: "Kundennr.", it: "Numero conto", hu: "Számlaszám" },
+  company_name_lbl: { da: "Firmanavn", en: "Company name", de: "Firmenname", it: "Ragione sociale", hu: "Cégnév" },
+  assigned_seller:  { da: "Tildelt Timan-sælger", en: "Assigned Timan seller", de: "Zugewiesener Timan-Verkäufer", it: "Venditore Timan assegnato", hu: "Kijelölt Timan értékesítő" },
+  created_at_lbl:   { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato il", hu: "Létrehozva" },
+  vat:              { da: "CVR/VAT", en: "VAT", de: "USt-IdNr.", it: "P.IVA", hu: "Adószám" },
+  status_lbl:       { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
 };
 const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
+
 
 
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
@@ -573,15 +587,35 @@ export default function CrmDealerDetailPage() {
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* A. Kontaktinformation */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("company_details", lang)}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone || "—"}</li>
-                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email || "—"}</li>
-                <li><span className="text-slate-500">{tl("language", lang) /* address */}:</span> {[dealer.address, dealer.postal_code, dealer.city, dealer.country].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("address", lang)}:</span> {[dealer.address, dealer.postal_code, dealer.city].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
+                <li><span className="text-slate-500">{tl("language", lang)}:</span> {(dealer as unknown as { preferred_language?: string }).preferred_language || "—"}</li>
               </ul>
             </div>
+
+            {/* B. Stamdata */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("master_data", lang)}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
+                <li><span className="text-slate-500">{tl("account_number", lang)}:</span> <span className="font-mono">{dealer.account_number || "—"}</span></li>
+                <li><span className="text-slate-500">{tl("customer_type", lang)}:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
+                <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? "Spærret" : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
+                <li><span className="text-slate-500">{tl("vat", lang)}:</span> {(dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || "—"}</li>
+                <li><span className="text-slate-500">{tl("assigned_seller", lang)}:</span> {dealer.assigned_seller_name || dealer.assigned_seller_initials || "—"}</li>
+                <li><span className="text-slate-500">{tl("created_at_lbl", lang)}:</span> {fmtDate((dealer as unknown as { created_at?: string }).created_at)}</li>
+              </ul>
+            </div>
+
+            {/* C. Næste opfølgning */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("next_followup")}</h3>
               {nextFollowup ? (
@@ -590,6 +624,22 @@ export default function CrmDealerDetailPage() {
                 <p className="text-sm text-slate-500">{t("none_followup")}</p>
               )}
             </div>
+
+            {/* D. Seneste aktiviteter */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
+              {activitiesForScope.slice(0, 4).length === 0 ? (
+                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+              ) : (
+                <ul className="text-sm space-y-1.5">
+                  {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,4).map(a => (
+                    <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || activityTypeMeta(a.activity_type).label.da}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* E. Seneste tilbud */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
               {dealerQuotesInScope.slice(0, 4).length === 0 ? (
@@ -605,58 +655,43 @@ export default function CrmDealerDetailPage() {
           </div>
         </TabsContent>
 
+
         {/* CONTACTS */}
         <TabsContent value="contacts" className="mt-0">
           <div className="space-y-4">
             <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
 
-            {/* Linked portal users */}
+            {/* Compact users preview — full management lives in Forhandlerdata */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
-                {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                  Aktive brugere ({linkedUsers.length})
+                </h3>
+                <Link to="/portal/dealer-data#users" className="text-xs font-semibold text-emerald-700 hover:underline">
+                  Se alle brugere i Forhandlerdata →
+                </Link>
               </div>
               {linkedUsers.length === 0 ? (
                 <p className="text-sm text-slate-500">{t("no_users")}</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="text-xs uppercase text-slate-500">
-                      <tr>
-                        <th className="text-left py-2">Navn</th>
-                        <th className="text-left py-2">{tl("email", lang)}</th>
-                        <th className="text-left py-2">{tl("role", lang)}</th>
-                        <th className="text-left py-2">Status</th>
-                        <th className="text-left py-2">Sidste login</th>
-                        <th className="text-left py-2">{tl("language", lang)}</th>
-                        <th className="text-right py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkedUsers.map(u => (
-                        <tr key={u.id} className="border-t border-slate-100">
-                          <td className="py-2 font-semibold">{u.name}</td>
-                          <td className="py-2 text-slate-600">{u.email}</td>
-                          <td className="py-2 text-slate-600">{u.role}</td>
-                          <td className="py-2">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                              {u.approved ? "Godkendt" : "Afventer"}
-                            </span>
-                          </td>
-                          <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
-                          <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
-                          <td className="py-2 text-right">
-                            <div className="inline-flex gap-1">
-                              {u.email && <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}><Mail className="h-3.5 w-3.5 text-emerald-700" /></a>}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ul className="divide-y divide-slate-100">
+                  {linkedUsers.slice(0, 5).map((u) => (
+                    <li key={u.id} className="py-2 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-800 truncate">{u.name}</div>
+                        <div className="text-xs text-slate-500 truncate">{u.email} · {u.role || "—"}</div>
+                      </div>
+                      {u.email && (
+                        <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}>
+                          <Mail className="h-4 w-4 text-emerald-700" />
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
+
           </div>
         </TabsContent>
 
@@ -1227,12 +1262,13 @@ function ContactHero({
   const primaryName =
     primaryRow?.name || dealer.primary_contact_name || dealer.sales_contact_name || null;
   const primaryEmail =
-    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || dealer.email || null;
+    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || null;
   const primaryPhone =
-    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || dealer.phone || null;
-  const primaryRole =
-    primaryRow?.role_title ||
-    (primaryRow ? tl(("area_" + primaryRow.contact_area) as keyof typeof L, lang) : tl("area_primary", lang));
+    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || null;
+
+  // Fallbacks: action cards use company-level data if no primary contact.
+  const callPhone = primaryPhone || dealer.phone || null;
+  const mailAddr  = primaryEmail || dealer.email || null;
 
   const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
@@ -1244,15 +1280,15 @@ function ContactHero({
     : undefined;
 
   const actions: HeroAction[] = [
-    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
-    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
+    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: callPhone ? `tel:${callPhone}` : undefined, disabled: !callPhone },
+    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: mailAddr ? `mailto:${mailAddr}` : undefined, disabled: !mailAddr },
     { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-5 w-5" />,       href: mapsHref, disabled: !mapsHref },
     { key: "web",      label: tl("website", lang),          icon: <Globe className="h-5 w-5" />,        href: websiteHref, disabled: !websiteHref },
     { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
     { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-5 w-5" />, onClick: onAddActivity },
   ];
 
-  const initials = (primaryName || dealer.company_name || "?")
+  const initials = (dealer.company_name || "?")
     .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
 
   const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
@@ -1306,12 +1342,6 @@ function ContactHero({
               <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
             </button>
           )}
-          <button
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 w-8 h-8"
-            aria-label="Mere" title="Mere"
-          >
-            <span className="text-lg leading-none">⋯</span>
-          </button>
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
               <div className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {budgetYear}</div>
@@ -1328,36 +1358,43 @@ function ContactHero({
         </div>
       </div>
 
-      {/* Hero card */}
+      {/* Hero card — focus on company contact information */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-5 items-start">
-          {/* Primary contact */}
+          {/* Company contact information */}
           <div className="flex items-start gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base font-bold shrink-0">
               {initials}
             </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">{tl("primary_contact", lang)}</div>
-              {primaryName ? (
-                <>
-                  <div className="text-base font-bold text-slate-900 truncate">{primaryName}</div>
-                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
-                  {(dealer as unknown as { portal_role?: string }).portal_role && (
-                    <div className="mt-0.5 inline-block text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{(dealer as unknown as { portal_role?: string }).portal_role}</div>
-                  )}
-                  <div className="mt-2 space-y-0.5 text-xs">
-                    {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryPhone}</div>}
-                    {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryEmail}</div>}
-                  </div>
-                  <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
-                    {tl("language", lang)}: {langBadge}
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{tl("contact_info", lang)}</div>
+              <div className="space-y-1 text-xs text-slate-700">
+                {addressLine && (
+                  <div className="flex items-start gap-1.5"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" /><span className="truncate">{addressLine}</span></div>
+                )}
+                {dealer.phone && (
+                  <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a></div>
+                )}
+                {dealer.email && (
+                  <div className="flex items-center gap-1.5 min-w-0"><Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`mailto:${dealer.email}`} className="truncate hover:underline">{dealer.email}</a></div>
+                )}
+                {websiteHref && (
+                  <div className="flex items-center gap-1.5 min-w-0"><Globe className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={websiteHref} target="_blank" rel="noreferrer" className="truncate hover:underline">{dealer.website}</a></div>
+                )}
+                {!dealer.phone && !dealer.email && !addressLine && (
+                  <div className="text-slate-400 italic">—</div>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
+                  {tl("language", lang)}: {langBadge}
+                </span>
+                {primaryName && (
+                  <span className="text-[11px] text-slate-500">
+                    {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
                   </span>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-amber-700 mt-1">
-                  <AlertCircle className="h-4 w-4" /> {tl("no_primary", lang)}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -1388,6 +1425,7 @@ function ContactHero({
   );
 }
 
+
 // ============================================================================
 // KpiStrip — single horizontal strip with 6 columns
 // ============================================================================
@@ -1404,8 +1442,9 @@ function KpiStrip({
     { key: "pipeline",  label: "Pipeline",                value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
     { key: "leads",     label: "Åbne leads",              value: String(openLeads),                       icon: <TrendingUp className="h-4 w-4" />,    tint: "bg-amber-100 text-amber-700",    link: { href: "/portal/crm/leads", label: "Se leads →" } },
     { key: "acts",      label: "Aktiviteter denne måned", value: String(monthActs),                       icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
-    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700" },
+    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700",    link: { href: "/portal/dealer-data#users", label: "Se brugere →" } },
   ];
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
