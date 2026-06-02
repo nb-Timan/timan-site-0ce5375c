@@ -525,6 +525,21 @@ export default function CrmDealerDetailPage() {
           (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
         );
         const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
+        // Demo leads: match by normalized company / branch name across scope.
+        const scopeDealerNames = new Set(
+          scopeNumbers
+            .map((n) => dealers.find((d) => d.account_number === n))
+            .flatMap((d) => d ? [normName(d.company_name), normName(d.branch_name)] : [])
+            .filter(Boolean)
+        );
+        const scopeDemos = allDemos.filter((d) => {
+          const nm = normName(d.dealer_company);
+          return nm && scopeDealerNames.has(nm);
+        });
+        const openDemos = scopeDemos.filter((d) => {
+          const s = (d.result_status || "").toLowerCase();
+          return s !== "won" && s !== "lost" && s !== "closed" && s !== "vundet" && s !== "tabt" && s !== "lukket";
+        });
         const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
 
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -557,11 +572,11 @@ export default function CrmDealerDetailPage() {
               quotes={liveQuoteCount}
               pipelineValue={livePipelineValue}
               openLeads={openLeads.length}
+              openDemos={openDemos.length}
               monthActs={monthActsCount}
-              users={linkedUsers.length}
               fmtKr={fmtKr}
-              dealerAccountNumber={dealer.account_number || ""}
             />
+
 
           </>
         );
