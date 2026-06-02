@@ -1342,8 +1342,8 @@ function ContactHero({
                 <>
                   <div className="text-base font-bold text-slate-900 truncate">{primaryName}</div>
                   <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
-                  {dealer.portal_role && (
-                    <div className="mt-0.5 inline-block text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{dealer.portal_role}</div>
+                  {(dealer as unknown as { portal_role?: string }).portal_role && (
+                    <div className="mt-0.5 inline-block text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{(dealer as unknown as { portal_role?: string }).portal_role}</div>
                   )}
                   <div className="mt-2 space-y-0.5 text-xs">
                     {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryPhone}</div>}
