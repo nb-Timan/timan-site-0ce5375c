@@ -228,14 +228,15 @@ export default function DealerDataPage() {
             />
 
 
-            {/* 3) Tilknyttede brugere */}
-            <Card>
+            {/* 3) Aktive brugere — entry point fra CRM-detail (#users) */}
+            <Card id="users" className="scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-slate-500" /> Tilknyttede brugere
+                  <User className="h-5 w-5 text-slate-500" /> Aktive brugere
                   <Badge variant="secondary" className="ml-1">{users.length}</Badge>
                 </CardTitle>
               </CardHeader>
+
               <CardContent>
                 {users.length === 0 ? (
                   <p className="text-sm text-slate-500">Ingen brugere fundet på denne konto.</p>
