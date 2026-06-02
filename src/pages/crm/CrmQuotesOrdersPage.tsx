@@ -113,6 +113,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
+  useEffect(() => { if (dealerParam) setSearch(dealerParam); }, [dealerParam]);
+
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
   // Backend/admin can always edit ownership, even when "viewing as" a seller.
