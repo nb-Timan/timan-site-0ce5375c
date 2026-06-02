@@ -1,151 +1,103 @@
-import { useMemo, useState } from 'react';
-import { Search, MapPin, Users, FileText, ShoppingCart, TrendingUp, ExternalLink, Filter, X, Globe2, Building2, Wrench, Package, Sparkles } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
+import { geoCentroid } from 'd3-geo';
+import { Search, Users, FileText, ShoppingCart, TrendingUp, ExternalLink, Filter, X, Building2, Wrench, Package, Sparkles, Phone, Home, ChevronLeft } from 'lucide-react';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 
 type PartnerType = 'dealer' | 'service' | 'importer' | 'demo';
 type Seller = 'EM' | 'JTN' | 'BP' | 'AKR' | 'NB';
-type ViewLevel = 'europe' | 'country' | 'local';
 
 interface Partner {
   id: string;
   name: string;
   type: PartnerType;
-  country: string; // ISO-like key: DE, DK, FR, GB, ...
-  countryName: string;
+  countryCode: string; // ISO-3 used by world-atlas
+  country: string;
   city: string;
   zip: string;
+  address?: string;
   account?: string;
   seller: Seller;
   users: number;
   quotes: number;
   orders: number;
-  pipeline: number; // EUR k
-  // Position in % within Europe SVG viewBox (0-100)
-  ex: number;
-  ey: number;
-  // Position in % within Germany SVG viewBox
-  dx?: number;
-  dy?: number;
-  // Position in % within local zoom viewBox
-  lx?: number;
-  ly?: number;
-  linked?: string[]; // gennemfakturering
+  pipeline: number;
+  phone: string;
+  // Real geographic coordinates [lng, lat]
+  coords: [number, number];
+  linked?: { id: string; name: string }[];
 }
 
 const PARTNERS: Partner[] = [
-  { id: 'p1', name: 'Wilmers Kommunaltechnik GmbH', type: 'dealer', country: 'DE', countryName: 'Tyskland', city: 'Nordhorn', zip: '48529', account: '11081', seller: 'AKR', users: 5, quotes: 18, orders: 12, pipeline: 240, ex: 52, ey: 38, dx: 18, dy: 22, lx: 30, ly: 40, linked: ['Wilmers Service Süd'] },
-  { id: 'p2', name: 'Valtec Technik', type: 'dealer', country: 'DE', countryName: 'Tyskland', city: 'Berlin', zip: '10267', account: '10267', seller: 'NB', users: 8, quotes: 31, orders: 27, pipeline: 510, ex: 58, ey: 34, dx: 70, dy: 28 },
-  { id: 'p3', name: 'Bremen Servicepartner', type: 'service', country: 'DE', countryName: 'Tyskland', city: 'Bremen', zip: '28195', seller: 'NB', users: 3, quotes: 4, orders: 2, pipeline: 35, ex: 53, ey: 35, dx: 30, dy: 18 },
-  { id: 'p4', name: 'Bayern Import GmbH', type: 'importer', country: 'DE', countryName: 'Tyskland', city: 'München', zip: '80331', seller: 'EM', users: 6, quotes: 12, orders: 9, pipeline: 320, ex: 55, ey: 42, dx: 60, dy: 78 },
-  { id: 'p5', name: 'Nordhorn Demo Park', type: 'demo', country: 'DE', countryName: 'Tyskland', city: 'Nordhorn', zip: '48529', seller: 'AKR', users: 1, quotes: 0, orders: 0, pipeline: 0, ex: 51.5, ey: 37.5, dx: 19, dy: 23, lx: 55, ly: 50 },
-  { id: 'p6', name: 'Timan Danmark', type: 'dealer', country: 'DK', countryName: 'Danmark', city: 'Tim', zip: '6980', account: '1000', seller: 'NB', users: 12, quotes: 44, orders: 38, pipeline: 870, ex: 55, ey: 22 },
-  { id: 'p7', name: 'Valtec France', type: 'dealer', country: 'FR', countryName: 'Frankrig', city: 'Lyon', zip: '69000', account: '4850', seller: 'BP', users: 4, quotes: 9, orders: 6, pipeline: 140, ex: 42, ey: 55 },
-  { id: 'p8', name: 'UK Grounds Import', type: 'importer', country: 'GB', countryName: 'Storbritannien', city: 'Birmingham', zip: 'B1', seller: 'JTN', users: 7, quotes: 15, orders: 11, pipeline: 290, ex: 36, ey: 32 },
-  { id: 'p9', name: 'Hamburg Service Nord', type: 'service', country: 'DE', countryName: 'Tyskland', city: 'Hamburg', zip: '20095', seller: 'NB', users: 2, quotes: 3, orders: 1, pipeline: 20, ex: 54, ey: 33, dx: 45, dy: 14 },
-  { id: 'p10', name: 'Köln Demo Center', type: 'demo', country: 'DE', countryName: 'Tyskland', city: 'Köln', zip: '50667', seller: 'EM', users: 1, quotes: 0, orders: 0, pipeline: 0, ex: 52.5, ey: 38.5, dx: 20, dy: 48 },
-  { id: 'p11', name: 'Polen Maskiner sp.', type: 'dealer', country: 'PL', countryName: 'Polen', city: 'Warszawa', zip: '00-001', account: '7720', seller: 'NB', users: 3, quotes: 7, orders: 4, pipeline: 95, ex: 64, ey: 30 },
-  { id: 'p12', name: 'Italia Verde srl', type: 'dealer', country: 'IT', countryName: 'Italien', city: 'Milano', zip: '20100', account: '6610', seller: 'EM', users: 5, quotes: 12, orders: 8, pipeline: 175, ex: 52, ey: 60 },
+  { id: 'p1', name: 'Wilmers Kommunaltechnik GmbH', type: 'dealer', countryCode: 'DEU', country: 'Tyskland', city: 'Nordhorn', zip: '48529', address: 'Industriestr. 12', account: '11081', seller: 'AKR', users: 5, quotes: 18, orders: 12, pipeline: 240, phone: '+49 5921 12345', coords: [7.0758, 52.4375], linked: [{ id: 'p5', name: 'Nordhorn Demo Park' }] },
+  { id: 'p2', name: 'Valtec Technik', type: 'dealer', countryCode: 'DEU', country: 'Tyskland', city: 'Bremen', zip: '28195', address: 'Hafenstr. 4', account: '10267', seller: 'NB', users: 8, quotes: 31, orders: 27, pipeline: 510, phone: '+49 421 5544221', coords: [8.8017, 53.0793] },
+  { id: 'p3', name: 'Bremen Servicepartner', type: 'service', countryCode: 'DEU', country: 'Tyskland', city: 'Bremen', zip: '28209', address: 'Werkstattweg 7', seller: 'NB', users: 3, quotes: 4, orders: 2, pipeline: 35, phone: '+49 421 9911000', coords: [8.812, 53.099] },
+  { id: 'p4', name: 'Bayern Import GmbH', type: 'importer', countryCode: 'DEU', country: 'Tyskland', city: 'München', zip: '80331', address: 'Maximilianstr. 22', seller: 'EM', users: 6, quotes: 12, orders: 9, pipeline: 320, phone: '+49 89 4477001', coords: [11.5820, 48.1351] },
+  { id: 'p5', name: 'Nordhorn Demo Park', type: 'demo', countryCode: 'DEU', country: 'Tyskland', city: 'Nordhorn', zip: '48529', address: 'Demoallee 1', seller: 'AKR', users: 1, quotes: 0, orders: 0, pipeline: 0, phone: '+49 5921 99000', coords: [7.083, 52.43] },
+  { id: 'p6', name: 'Timan Danmark', type: 'dealer', countryCode: 'DNK', country: 'Danmark', city: 'Tim', zip: '6980', address: 'Osvald Pedersens Vej 2', account: '1000', seller: 'NB', users: 12, quotes: 44, orders: 38, pipeline: 870, phone: '+45 96 74 44 66', coords: [8.2750, 56.1840] },
+  { id: 'p7', name: 'Valtec France', type: 'dealer', countryCode: 'FRA', country: 'Frankrig', city: 'Lyon', zip: '69000', address: 'Rue de la Part-Dieu 10', account: '4850', seller: 'BP', users: 4, quotes: 9, orders: 6, pipeline: 140, phone: '+33 4 7200 1100', coords: [4.8357, 45.7640] },
+  { id: 'p8', name: 'UK Grounds Import', type: 'importer', countryCode: 'GBR', country: 'Storbritannien', city: 'Leeds', zip: 'LS1', address: 'Wellington St 50', seller: 'JTN', users: 7, quotes: 15, orders: 11, pipeline: 290, phone: '+44 113 200 2000', coords: [-1.5491, 53.8008] },
+  { id: 'p9', name: 'Hamburg Service Nord', type: 'service', countryCode: 'DEU', country: 'Tyskland', city: 'Hamburg', zip: '20095', address: 'Hafenstr. 21', seller: 'NB', users: 2, quotes: 3, orders: 1, pipeline: 20, phone: '+49 40 30000', coords: [9.9937, 53.5511] },
+  { id: 'p10', name: 'Köln Demo Center', type: 'demo', countryCode: 'DEU', country: 'Tyskland', city: 'Köln', zip: '50667', address: 'Domkloster 4', seller: 'EM', users: 1, quotes: 0, orders: 0, pipeline: 0, phone: '+49 221 22100', coords: [6.9603, 50.9375] },
+  { id: 'p11', name: 'Polen Maskiner sp.', type: 'dealer', countryCode: 'POL', country: 'Polen', city: 'Warszawa', zip: '00-001', account: '7720', seller: 'NB', users: 3, quotes: 7, orders: 4, pipeline: 95, phone: '+48 22 100 2000', coords: [21.0122, 52.2297] },
+  { id: 'p12', name: 'Italia Verde srl', type: 'dealer', countryCode: 'ITA', country: 'Italien', city: 'Milano', zip: '20100', account: '6610', seller: 'EM', users: 5, quotes: 12, orders: 8, pipeline: 175, phone: '+39 02 7700 1100', coords: [9.1900, 45.4642] },
 ];
+
+const TYPE_COLORS: Record<PartnerType, string> = {
+  dealer: '#dc2626', service: '#16a34a', importer: '#2563eb', demo: '#9333ea',
+};
+const TYPE_ICON = { dealer: Building2, service: Wrench, importer: Package, demo: Sparkles } as const;
 
 const T: Record<string, Record<Language, string>> = {
   title: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
-  intro: {
-    da: 'Globalt overblik over Timans forhandlere, servicepartnere, importører og demo-lokationer.',
-    en: 'Global overview of Timan dealers, service partners, importers and demo locations.',
-    de: 'Globaler Überblick über Timan-Händler, Servicepartner, Importeure und Demo-Standorte.',
-    it: 'Panoramica globale di rivenditori, partner di servizio, importatori e demo Timan.',
-    hu: 'Globális áttekintés a Timan partnerekről.',
-  },
-  search: { da: 'Søg firma, land, kontonr. eller postnr…', en: 'Search company, country, account or zip…', de: 'Firma, Land, Konto oder PLZ suchen…', it: 'Cerca azienda, paese, conto o CAP…', hu: 'Keresés…' },
+  intro: { da: 'Find dine partnere på kortet. Klik et land for at zoome ind, klik en pin for detaljer.', en: 'Find partners on the map. Click a country to zoom, click a pin for details.', de: 'Partner auf der Karte finden.', it: 'Trova i partner sulla mappa.', hu: 'Partnerek a térképen.' },
+  search: { da: 'Søg firma, land, konto eller postnr…', en: 'Search company, country, account or zip…', de: 'Firma, Land, Konto oder PLZ…', it: 'Cerca…', hu: 'Keresés…' },
   filters: { da: 'Filtre', en: 'Filters', de: 'Filter', it: 'Filtri', hu: 'Szűrők' },
   type: { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus' },
-  country: { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   seller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Eladó' },
   dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Forgalmazó' },
-  service: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Partner servizio', hu: 'Szervizpartner' },
+  service: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Servizio', hu: 'Szervizpartner' },
   importer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
-  demo: { da: 'Demo-lokation', en: 'Demo location', de: 'Demo-Standort', it: 'Demo', hu: 'Demo' },
+  demo: { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
   reset: { da: 'Nulstil', en: 'Reset', de: 'Zurücksetzen', it: 'Reimposta', hu: 'Visszaállítás' },
-  europe: { da: 'Europa', en: 'Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
-  germany: { da: 'Tyskland', en: 'Germany', de: 'Deutschland', it: 'Germania', hu: 'Németország' },
-  local: { da: 'Lokalområde', en: 'Local area', de: 'Lokalbereich', it: 'Area locale', hu: 'Helyi terület' },
-  details: { da: 'Partnerdetaljer', en: 'Partner details', de: 'Partnerdetails', it: 'Dettagli partner', hu: 'Partner adatok' },
-  selectPin: { da: 'Klik en pin på kortet for at se detaljer.', en: 'Click a pin on the map to see details.', de: 'Pin anklicken für Details.', it: 'Clicca un pin per i dettagli.', hu: 'Kattints egy tűre.' },
+  resetView: { da: 'Vis hele Europa', en: 'Show all Europe', de: 'Ganz Europa', it: 'Tutta Europa', hu: 'Egész Európa' },
+  details: { da: 'Partnerdetaljer', en: 'Partner details', de: 'Partnerdetails', it: 'Dettagli partner', hu: 'Adatok' },
   users: { da: 'Brugere', en: 'Users', de: 'Benutzer', it: 'Utenti', hu: 'Felhasználók' },
   quotes: { da: 'Tilbud', en: 'Quotes', de: 'Angebote', it: 'Preventivi', hu: 'Ajánlatok' },
   orders: { da: 'Ordrer', en: 'Orders', de: 'Bestellungen', it: 'Ordini', hu: 'Rendelések' },
   pipeline: { da: 'Pipeline', en: 'Pipeline', de: 'Pipeline', it: 'Pipeline', hu: 'Pipeline' },
-  openCrm: { da: 'Åbn CRM', en: 'Open CRM', de: 'CRM öffnen', it: 'Apri CRM', hu: 'CRM megnyitása' },
-  linked: { da: 'Tilknyttede partnere', en: 'Linked partners', de: 'Verknüpfte Partner', it: 'Partner collegati', hu: 'Kapcsolt partnerek' },
-  stats: { da: 'Statistik', en: 'Statistics', de: 'Statistik', it: 'Statistiche', hu: 'Statisztika' },
-  total: { da: 'I alt', en: 'Total', de: 'Gesamt', it: 'Totale', hu: 'Összesen' },
-  assignedSeller: { da: 'Tildelt sælger', en: 'Assigned seller', de: 'Zugewiesener Verkäufer', it: 'Venditore assegnato', hu: 'Eladó' },
-  legend: { da: 'Forklaring', en: 'Legend', de: 'Legende', it: 'Legenda', hu: 'Jelmagyarázat' },
+  openCrm: { da: 'Åbn CRM', en: 'Open CRM', de: 'CRM öffnen', it: 'Apri CRM', hu: 'CRM' },
+  call: { da: 'Ring', en: 'Call', de: 'Anrufen', it: 'Chiama', hu: 'Hívás' },
+  linked: { da: 'Tilknyttede partnere', en: 'Linked partners', de: 'Verknüpfte Partner', it: 'Partner collegati', hu: 'Kapcsolt' },
+  assignedSeller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Eladó' },
+  countryLegend: { da: 'Land — antal partnere', en: 'Country — partner count', de: 'Land — Anzahl', it: 'Paese — numero', hu: 'Ország' },
+  pinLegend: { da: 'Pin-typer', en: 'Pin types', de: 'Pin-Typen', it: 'Tipi pin', hu: 'Tűk' },
 };
 
-const TYPE_COLORS: Record<PartnerType, string> = {
-  dealer: '#dc2626',     // red
-  service: '#16a34a',    // green
-  importer: '#2563eb',   // blue
-  demo: '#9333ea',       // purple
-};
-
-const TYPE_ICON: Record<PartnerType, typeof Building2> = {
-  dealer: Building2,
-  service: Wrench,
-  importer: Package,
-  demo: Sparkles,
-};
+const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json';
 
 function countryShade(n: number): string {
-  if (n === 0) return '#e5e7eb';
-  if (n <= 3) return '#bbf7d0';
-  if (n <= 10) return '#4ade80';
-  return '#15803d';
+  if (n === 0) return '#eef2f1';
+  if (n <= 3) return '#d1fae5';
+  if (n <= 10) return '#86efac';
+  return '#22c55e';
 }
 
-// Simplified Europe country shapes (very stylized blocks for visual prototype)
-const EUROPE_COUNTRIES: { code: string; name: string; path: string }[] = [
-  { code: 'GB', name: 'Storbritannien', path: 'M30,22 L40,20 L42,32 L34,40 L28,36 Z' },
-  { code: 'FR', name: 'Frankrig', path: 'M36,46 L50,44 L52,60 L40,64 L34,58 Z' },
-  { code: 'DE', name: 'Tyskland', path: 'M48,28 L62,28 L62,44 L48,44 Z' },
-  { code: 'DK', name: 'Danmark', path: 'M52,18 L60,18 L60,26 L52,26 Z' },
-  { code: 'PL', name: 'Polen', path: 'M62,26 L74,26 L74,40 L62,40 Z' },
-  { code: 'IT', name: 'Italien', path: 'M48,52 L58,52 L60,72 L52,74 L48,66 Z' },
-  { code: 'ES', name: 'Spanien', path: 'M22,58 L38,58 L38,72 L22,72 Z' },
-  { code: 'NL', name: 'Holland', path: 'M48,28 L52,28 L52,32 L48,32 Z' },
-  { code: 'SE', name: 'Sverige', path: 'M58,8 L66,8 L68,22 L60,22 Z' },
-  { code: 'NO', name: 'Norge', path: 'M48,6 L58,8 L60,22 L50,22 Z' },
-];
-
-interface PinProps { partner: Partner; x: number; y: number; selected: boolean; onClick: () => void }
-function Pin({ partner, x, y, selected, onClick }: PinProps) {
-  const color = TYPE_COLORS[partner.type];
-  // Activity ring scaling
-  const baseR = 1.6;
-  const ringR = partner.orders >= 25 ? 4.5 : partner.orders >= 10 ? 3.2 : 0;
-  return (
-    <g onClick={onClick} className="cursor-pointer" style={{ transition: 'transform .2s' }}>
-      {ringR > 0 && (
-        <circle cx={x} cy={y} r={ringR} fill={color} opacity={0.18} />
-      )}
-      <circle cx={x} cy={y} r={baseR + (selected ? 0.6 : 0)} fill={color} stroke="white" strokeWidth={selected ? 0.6 : 0.4} />
-      {selected && <circle cx={x} cy={y} r={baseR + 1.5} fill="none" stroke={color} strokeWidth={0.35} opacity={0.7} />}
-    </g>
-  );
-}
+interface Position { coordinates: [number, number]; zoom: number }
+const EUROPE_VIEW: Position = { coordinates: [12, 53], zoom: 1 };
 
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
-  const [view, setView] = useState<ViewLevel>('europe');
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service','importer','demo']));
   const [activeSellers, setActiveSellers] = useState<Set<Seller>>(new Set(['EM','JTN','BP','AKR','NB']));
-  const [countryFilter, setCountryFilter] = useState<string>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoverCountry, setHoverCountry] = useState<string | null>(null);
+  const [position, setPosition] = useState<Position>(EUROPE_VIEW);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const toggleType = (t: PartnerType) => {
     const n = new Set(activeTypes); n.has(t) ? n.delete(t) : n.add(t); setActiveTypes(n);
@@ -159,314 +111,352 @@ export default function PartnerMapPage() {
     return PARTNERS.filter(p => {
       if (!activeTypes.has(p.type)) return false;
       if (!activeSellers.has(p.seller)) return false;
-      if (countryFilter !== 'all' && p.country !== countryFilter) return false;
       if (q) {
-        const hay = `${p.name} ${p.countryName} ${p.country} ${p.account ?? ''} ${p.zip} ${p.city}`.toLowerCase();
+        const hay = `${p.name} ${p.country} ${p.countryCode} ${p.account ?? ''} ${p.zip} ${p.city}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [search, activeTypes, activeSellers, countryFilter]);
+  }, [search, activeTypes, activeSellers]);
 
-  // Auto-zoom on search
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    const q = val.trim().toLowerCase();
-    if (!q) return;
-    if (q.includes('tysk') || q === 'de' || q.includes('german')) { setView('country'); setSelectedCountry('DE'); return; }
-    const hit = PARTNERS.find(p =>
-      p.name.toLowerCase().includes(q) || p.account === q || p.zip.toLowerCase() === q
-    );
-    if (hit) {
-      if (hit.country === 'DE') {
-        setView(hit.zip.startsWith('48') ? 'local' : 'country');
-        setSelectedCountry('DE');
-      } else {
-        setView('europe');
-      }
-      setSelectedId(hit.id);
+  // Auto-zoom on search match
+  useEffect(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || q.length < 2) return;
+    // Country-name shortcut
+    const byCountry = PARTNERS.filter(p => p.country.toLowerCase().includes(q));
+    if (byCountry.length > 0 && filtered.length > 1) {
+      const c = byCountry[0].coords;
+      setPosition({ coordinates: [c[0], c[1]], zoom: 4 });
+      return;
     }
-  };
+    if (filtered.length === 1) {
+      const p = filtered[0];
+      setPosition({ coordinates: p.coords, zoom: 7 });
+      setSelectedId(p.id);
+    } else if (filtered.length > 1 && filtered.length <= 5) {
+      const avgX = filtered.reduce((s, p) => s + p.coords[0], 0) / filtered.length;
+      const avgY = filtered.reduce((s, p) => s + p.coords[1], 0) / filtered.length;
+      setPosition({ coordinates: [avgX, avgY], zoom: 3 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
-  const selected = selectedId ? PARTNERS.find(p => p.id === selectedId) ?? null : null;
-
-  // Country counts for shading
   const countryCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const p of filtered) m[p.country] = (m[p.country] ?? 0) + 1;
+    for (const p of filtered) m[p.countryCode] = (m[p.countryCode] ?? 0) + 1;
     return m;
   }, [filtered]);
 
-  const countries = Array.from(new Set(PARTNERS.map(p => p.country)));
+  const selected = selectedId ? PARTNERS.find(p => p.id === selectedId) ?? null : null;
+
+  const handleCountryClick = (geo: { id: string }, centroid: [number, number]) => {
+    setPosition({ coordinates: centroid, zoom: 4 });
+    // light filter feedback: count
+    void geo;
+  };
+
+  const resetView = () => { setPosition(EUROPE_VIEW); setSelectedId(null); };
 
   return (
     <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
-      {/* Search + view buttons */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder={T.search[lang]}
-              className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-200 focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/20 outline-none text-sm"
-            />
-          </div>
-          <div className="flex gap-2">
-            {(['europe','country','local'] as ViewLevel[]).map(v => (
-              <button
-                key={v}
-                onClick={() => { setView(v); if (v !== 'europe' && !selectedCountry) setSelectedCountry('DE'); }}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  view === v ? 'bg-[#2d5a27] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {v === 'europe' ? T.europe[lang] : v === 'country' ? T.germany[lang] : T.local[lang]}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 3-col layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Filters */}
-        <aside className="lg:col-span-3">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-5 sticky top-4">
-            <div className="flex items-center gap-2 text-gray-900 font-bold">
-              <Filter className="h-4 w-4" /> {T.filters[lang]}
+      <div className="grid grid-cols-12 gap-4 lg:gap-5">
+        {/* Left rail */}
+        <aside className={`${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-black/40 lg:bg-transparent lg:static' : 'hidden lg:block'} lg:col-span-3 xl:col-span-2`}>
+          <div className={`${mobileFiltersOpen ? 'absolute left-0 top-0 bottom-0 w-[85%] max-w-xs bg-white p-4 overflow-y-auto' : ''} lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-4 lg:sticky lg:top-4 space-y-5`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                <Filter className="h-4 w-4" /> {T.filters[lang]}
+              </div>
+              <button onClick={() => setMobileFiltersOpen(false)} className="lg:hidden text-gray-400"><X className="h-5 w-5" /></button>
             </div>
 
             <div>
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-2">{T.type[lang]}</div>
-              <div className="space-y-1.5">
-                {(['dealer','service','importer','demo'] as PartnerType[]).map(t => (
-                  <label key={t} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={activeTypes.has(t)} onChange={() => toggleType(t)} className="accent-[#2d5a27]" />
-                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: TYPE_COLORS[t] }} />
-                    {T[t][lang]}
-                  </label>
-                ))}
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.type[lang]}</div>
+              <div className="space-y-1">
+                {(['dealer','service','importer','demo'] as PartnerType[]).map(t => {
+                  const on = activeTypes.has(t);
+                  return (
+                    <button key={t} onClick={() => toggleType(t)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors ${on ? 'bg-gray-50 text-gray-900' : 'text-gray-400 hover:bg-gray-50'}`}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: on ? TYPE_COLORS[t] : '#d1d5db' }} />
+                      <span className="flex-1 text-left">{T[t][lang]}</span>
+                      <span className="text-[10px] text-gray-400">{PARTNERS.filter(p => p.type === t).length}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div>
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-2">{T.country[lang]}</div>
-              <select
-                value={countryFilter}
-                onChange={e => setCountryFilter(e.target.value)}
-                className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:border-[#2d5a27] outline-none"
-              >
-                <option value="all">{T.total[lang]}</option>
-                {countries.map(c => {
-                  const ex = PARTNERS.find(p => p.country === c);
-                  return <option key={c} value={c}>{ex?.countryName ?? c}</option>;
-                })}
-              </select>
-            </div>
-
-            <div>
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-2">{T.seller[lang]}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.seller[lang]}</div>
               <div className="flex flex-wrap gap-1.5">
                 {(['EM','JTN','BP','AKR','NB'] as Seller[]).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => toggleSeller(s)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
-                      activeSellers.has(s)
-                        ? 'bg-[#2d5a27] text-white border-[#2d5a27]'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                    }`}
-                  >{s}</button>
+                  <button key={s} onClick={() => toggleSeller(s)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${activeSellers.has(s) ? 'bg-[#2d5a27] text-white border-[#2d5a27]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>{s}</button>
                 ))}
               </div>
             </div>
 
-            <button
-              onClick={() => { setSearch(''); setActiveTypes(new Set(['dealer','service','importer','demo'])); setActiveSellers(new Set(['EM','JTN','BP','AKR','NB'])); setCountryFilter('all'); }}
-              className="w-full text-xs font-semibold text-gray-600 hover:text-gray-900 py-2 border-t border-gray-100"
-            >{T.reset[lang]}</button>
-
-            <div className="border-t border-gray-100 pt-4">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-2">{T.legend[lang]}</div>
-              <div className="space-y-1.5 text-xs text-gray-600">
-                {(['dealer','service','importer','demo'] as PartnerType[]).map(t => (
-                  <div key={t} className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: TYPE_COLORS[t] }} /> {T[t][lang]}
-                  </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{T.countryLegend[lang]}</div>
+              <div className="flex items-center gap-1">
+                {[0, 1, 4, 11].map(n => (
+                  <div key={n} className="flex-1 h-2 rounded-sm" style={{ background: countryShade(n) }} title={`${n}+`} />
                 ))}
               </div>
+              <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
+                <span>0</span><span>1-3</span><span>4-10</span><span>10+</span>
+              </div>
             </div>
+
+            <button onClick={() => { setSearch(''); setActiveTypes(new Set(['dealer','service','importer','demo'])); setActiveSellers(new Set(['EM','JTN','BP','AKR','NB'])); resetView(); }}
+              className="w-full text-xs font-semibold text-gray-500 hover:text-gray-900 py-2 border-t border-gray-100">{T.reset[lang]}</button>
           </div>
         </aside>
 
-        {/* Map */}
-        <section className="lg:col-span-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                <Globe2 className="h-4 w-4 text-[#2d5a27]" />
-                {view === 'europe' ? T.europe[lang] : view === 'country' ? T.germany[lang] : T.local[lang]}
+        {/* Map area */}
+        <section className="col-span-12 lg:col-span-9 xl:col-span-10">
+          <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* Floating search */}
+            <div className="absolute top-4 left-4 right-4 z-20 flex gap-2 pointer-events-none">
+              <div className="relative flex-1 max-w-md pointer-events-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T.search[lang]}
+                  className="w-full pl-10 pr-9 py-2.5 bg-white rounded-full border border-gray-200 shadow-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
-              <div className="text-xs text-gray-500">{filtered.length} {T.total[lang].toLowerCase()}</div>
+              <button onClick={() => setMobileFiltersOpen(true)}
+                className="lg:hidden pointer-events-auto bg-white rounded-full shadow-md border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                <Filter className="h-4 w-4" />
+              </button>
+              <button onClick={resetView}
+                className="pointer-events-auto hidden md:flex bg-white rounded-full shadow-md border border-gray-200 px-3.5 py-2.5 text-xs font-semibold text-gray-700 items-center gap-1.5 hover:bg-gray-50">
+                <Home className="h-3.5 w-3.5" /> {T.resetView[lang]}
+              </button>
             </div>
 
-            <div className="aspect-[4/3] bg-gradient-to-br from-[#eef5ec] to-[#f7faf6] relative">
-              <svg viewBox="0 0 100 80" className="w-full h-full">
-                {view === 'europe' && (
-                  <>
-                    {EUROPE_COUNTRIES.map(c => (
-                      <path
-                        key={c.code}
-                        d={c.path}
-                        fill={countryShade(countryCounts[c.code] ?? 0)}
-                        stroke="#ffffff"
-                        strokeWidth={0.4}
-                        className="cursor-pointer transition-opacity hover:opacity-80"
-                        onClick={() => { if (c.code === 'DE') { setView('country'); setSelectedCountry('DE'); } }}
+            {/* Zoom controls */}
+            <div className="absolute bottom-4 left-4 z-20 flex flex-col bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+              <button onClick={() => setPosition(p => ({ ...p, zoom: Math.min(p.zoom * 1.5, 12) }))} className="w-9 h-9 flex items-center justify-center text-lg font-semibold text-gray-700 hover:bg-gray-50 border-b border-gray-100">+</button>
+              <button onClick={() => setPosition(p => ({ ...p, zoom: Math.max(p.zoom / 1.5, 1) }))} className="w-9 h-9 flex items-center justify-center text-lg font-semibold text-gray-700 hover:bg-gray-50">−</button>
+            </div>
+
+            {/* Pin legend */}
+            <div className="absolute bottom-4 right-4 z-20 bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-200 px-3 py-2 flex items-center gap-3 text-[11px]">
+              {(['dealer','service','importer','demo'] as PartnerType[]).map(t => (
+                <div key={t} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLORS[t] }} />
+                  <span className="text-gray-600">{T[t][lang]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Hover country tooltip */}
+            {hoverCountry && (
+              <div className="absolute top-20 right-4 z-20 bg-white/95 backdrop-blur rounded-md shadow-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700">
+                {hoverCountry}
+              </div>
+            )}
+
+            <div className="aspect-[16/10] sm:aspect-[16/9] lg:aspect-[16/8] bg-[#f3f6f8]">
+              <ComposableMap
+                projection="geoMercator"
+                projectionConfig={{ scale: 700, center: [12, 53] }}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <ZoomableGroup
+                  center={position.coordinates}
+                  zoom={position.zoom}
+                  minZoom={1}
+                  maxZoom={12}
+                  onMoveEnd={(pos) => setPosition({ coordinates: pos.coordinates as [number, number], zoom: pos.zoom })}
+                >
+                  <Geographies geography={GEO_URL}>
+                    {({ geographies }) => geographies.map((geo) => {
+                      const name: string = geo.properties.name;
+                      const NAME_TO_ISO: Record<string,string> = { Germany:'DEU', Denmark:'DNK', France:'FRA', 'United Kingdom':'GBR', Poland:'POL', Italy:'ITA' };
+                      const code = NAME_TO_ISO[name] ?? '';
+                      const count = countryCounts[code] ?? 0;
+                      const isHover = hoverCountry === name;
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          onMouseEnter={() => setHoverCountry(name)}
+                          onMouseLeave={() => setHoverCountry(null)}
+                          onClick={() => handleCountryClick(geo, geoCentroid(geo) as [number, number])}
+                          style={{
+                            default: { fill: countryShade(count), stroke: '#ffffff', strokeWidth: 0.5, outline: 'none', transition: 'fill .2s' },
+                            hover: { fill: isHover ? '#bbf7d0' : countryShade(count), stroke: '#94a3b8', strokeWidth: 0.7, outline: 'none', cursor: 'pointer' },
+                            pressed: { fill: '#86efac', outline: 'none' },
+                          }}
+                        />
+                      );
+                    })}
+                  </Geographies>
+
+                  {/* Relationship lines */}
+                  {filtered.map(p => p.linked?.map(l => {
+                    const other = PARTNERS.find(q => q.id === l.id);
+                    if (!other) return null;
+                    return (
+                      <line
+                        key={`${p.id}-${l.id}`}
+                        x1={0} y1={0} x2={0} y2={0}
+                        style={{ display: 'none' }}
                       />
-                    ))}
-                    {filtered.map(p => (
-                      <Pin key={p.id} partner={p} x={p.ex} y={p.ey} selected={selectedId === p.id} onClick={() => setSelectedId(p.id)} />
-                    ))}
-                  </>
-                )}
+                    );
+                  }))}
 
-                {view === 'country' && (
-                  <>
-                    {/* stylized Germany shape */}
-                    <path d="M20,10 L80,10 L82,28 L78,50 L72,68 L40,72 L24,60 L18,38 Z" fill="#bbf7d0" stroke="#ffffff" strokeWidth={0.5} />
-                    {/* fake regions */}
-                    <path d="M20,10 L50,10 L52,30 L20,32 Z" fill="#86efac" opacity={0.6}
-                      className="cursor-pointer hover:opacity-90" onClick={() => setView('local')} />
-                    {filtered.filter(p => p.country === 'DE').map(p => (
-                      <Pin key={p.id} partner={p} x={p.dx ?? p.ex} y={p.dy ?? p.ey} selected={selectedId === p.id} onClick={() => setSelectedId(p.id)} />
-                    ))}
-                    <text x={50} y={6} textAnchor="middle" fontSize={3} fill="#15803d" fontWeight="bold">Deutschland</text>
-                  </>
-                )}
-
-                {view === 'local' && (
-                  <>
-                    <rect x={10} y={10} width={80} height={60} fill="#dcfce7" stroke="#ffffff" strokeWidth={0.5} rx={2} />
-                    {/* roads */}
-                    <line x1={20} y1={20} x2={85} y2={50} stroke="#ffffff" strokeWidth={1.2} />
-                    <line x1={15} y1={55} x2={70} y2={25} stroke="#ffffff" strokeWidth={1.2} />
-                    <line x1={40} y1={12} x2={45} y2={65} stroke="#ffffff" strokeWidth={0.8} />
-                    {filtered.filter(p => p.lx !== undefined).map(p => (
-                      <Pin key={p.id} partner={p} x={p.lx!} y={p.ly!} selected={selectedId === p.id} onClick={() => setSelectedId(p.id)} />
-                    ))}
-                    <text x={50} y={75} textAnchor="middle" fontSize={2.5} fill="#15803d" fontWeight="bold">Nordhorn (48529)</text>
-                  </>
-                )}
-              </svg>
+                  {filtered.map(p => {
+                    const ringR = p.orders >= 25 ? 16 : p.orders >= 10 ? 11 : 0;
+                    const isSel = selectedId === p.id;
+                    const isHov = hoveredId === p.id;
+                    const color = TYPE_COLORS[p.type];
+                    // scale inverse to zoom so pins stay readable
+                    const k = 1 / Math.max(1, position.zoom * 0.6);
+                    return (
+                      <Marker key={p.id} coordinates={p.coords} onClick={() => setSelectedId(p.id)}
+                        onMouseEnter={() => setHoveredId(p.id)} onMouseLeave={() => setHoveredId(null)}
+                        style={{ default: { cursor: 'pointer' }, hover: { cursor: 'pointer' }, pressed: { cursor: 'pointer' } }}>
+                        <g transform={`scale(${k})`}>
+                          {ringR > 0 && <circle r={ringR} fill={color} opacity={0.18} />}
+                          {(isSel || isHov) && <circle r={10} fill={color} opacity={0.25} />}
+                          {/* Map marker shape */}
+                          <g transform="translate(0,-2)">
+                            <path
+                              d="M0,-14 C-5,-14 -8,-10 -8,-6 C-8,-1 0,8 0,8 C0,8 8,-1 8,-6 C8,-10 5,-14 0,-14 Z"
+                              fill={color}
+                              stroke="white"
+                              strokeWidth={1.2}
+                              style={{ filter: `drop-shadow(0 ${isHov || isSel ? 3 : 1.5}px ${isHov || isSel ? 3 : 1.5}px rgba(0,0,0,${isHov || isSel ? 0.35 : 0.25}))`, transition: 'all .15s' }}
+                            />
+                            <circle cx={0} cy={-7} r={2.4} fill="white" />
+                          </g>
+                          {isHov && (
+                            <g transform="translate(0,-22)">
+                              <rect x={-50} y={-12} width={100} height={16} rx={3} fill="#111827" />
+                              <text textAnchor="middle" y={-1} fontSize={8} fill="white" fontWeight={600}>{p.name.length > 22 ? p.name.slice(0,21)+'…' : p.name}</text>
+                            </g>
+                          )}
+                        </g>
+                      </Marker>
+                    );
+                  })}
+                </ZoomableGroup>
+              </ComposableMap>
             </div>
           </div>
         </section>
+      </div>
 
-        {/* Details */}
-        <aside className="lg:col-span-3">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sticky top-4">
-            <div className="flex items-center gap-2 text-gray-900 font-bold mb-4">
-              <MapPin className="h-4 w-4 text-[#2d5a27]" /> {T.details[lang]}
-            </div>
+      {/* Slide-in right detail panel (desktop) / bottom sheet (mobile) */}
+      {selected && (() => {
+        const Icon = TYPE_ICON[selected.type];
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setSelectedId(null)} />
+            <aside className="fixed z-50 bg-white shadow-2xl border-gray-200
+                              inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl border-t
+                              lg:inset-y-0 lg:right-0 lg:bottom-auto lg:max-h-none lg:w-[400px] lg:rounded-none lg:rounded-l-2xl lg:border-l lg:border-t-0
+                              animate-in slide-in-from-bottom lg:slide-in-from-right duration-300 overflow-y-auto">
+              <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+                <button onClick={() => setSelectedId(null)} className="text-gray-500 hover:text-gray-900">
+                  <ChevronLeft className="h-5 w-5 lg:hidden" />
+                  <X className="h-5 w-5 hidden lg:block" />
+                </button>
+                <div className="text-sm font-semibold text-gray-700">{T.details[lang]}</div>
+              </div>
 
-            {!selected && (
-              <p className="text-sm text-gray-500">{T.selectPin[lang]}</p>
-            )}
-
-            {selected && (() => {
-              const Icon = TYPE_ICON[selected.type];
-              return (
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: TYPE_COLORS[selected.type] }}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-gray-900 leading-tight">{selected.name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{T[selected.type][lang]} · {selected.countryName}</div>
-                    </div>
-                    <button onClick={() => setSelectedId(null)} className="ml-auto text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
+              <div className="p-5 space-y-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm" style={{ background: TYPE_COLORS[selected.type] }}>
+                    <Icon className="h-5 w-5" />
                   </div>
-
-                  <div className="text-xs text-gray-500 grid grid-cols-2 gap-2">
-                    <div>
-                      <div className="uppercase font-semibold text-[10px] text-gray-400">{T.assignedSeller[lang]}</div>
-                      <div className="text-gray-800 font-semibold mt-0.5">{selected.seller}</div>
-                    </div>
-                    {selected.account && (
-                      <div>
-                        <div className="uppercase font-semibold text-[10px] text-gray-400">Konto</div>
-                        <div className="text-gray-800 font-semibold mt-0.5">{selected.account}</div>
-                      </div>
-                    )}
-                    <div>
-                      <div className="uppercase font-semibold text-[10px] text-gray-400">Postnr</div>
-                      <div className="text-gray-800 font-semibold mt-0.5">{selected.zip}</div>
-                    </div>
-                    <div>
-                      <div className="uppercase font-semibold text-[10px] text-gray-400">By</div>
-                      <div className="text-gray-800 font-semibold mt-0.5">{selected.city}</div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-gray-900 leading-tight text-base">{selected.name}</div>
+                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[selected.type] }} />
+                      {T[selected.type][lang]} · {selected.country}
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { icon: Users, label: T.users[lang], value: selected.users },
-                      { icon: FileText, label: T.quotes[lang], value: selected.quotes },
-                      { icon: ShoppingCart, label: T.orders[lang], value: selected.orders },
-                      { icon: TrendingUp, label: T.pipeline[lang], value: `${selected.pipeline}k €` },
-                    ].map((s, i) => (
-                      <div key={i} className="bg-gray-50 rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[10px] uppercase font-semibold text-gray-500">
-                          <s.icon className="h-3 w-3" /> {s.label}
-                        </div>
-                        <div className="text-sm font-bold text-gray-900 mt-0.5">{s.value}</div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-sm text-gray-700 leading-relaxed">
+                  {selected.address && <div>{selected.address}</div>}
+                  <div>{selected.zip} {selected.city}</div>
+                </div>
 
-                  {selected.linked && selected.linked.length > 0 && (
-                    <div className="border-t border-gray-100 pt-3">
-                      <div className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5">{T.linked[lang]}</div>
-                      <ul className="space-y-1 text-sm text-gray-700">
-                        {selected.linked.map(l => <li key={l} className="flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-[#2d5a27]" />{l}</li>)}
-                      </ul>
-                    </div>
-                  )}
-
-                  <button className="w-full mt-2 px-4 py-2.5 bg-[#2d5a27] hover:bg-[#244c1f] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                <div className="flex gap-2">
+                  <a href={`tel:${selected.phone.replace(/\s/g,'')}`}
+                    className="flex-1 px-3 py-2.5 bg-[#2d5a27] hover:bg-[#244c1f] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+                    <Phone className="h-4 w-4" /> {T.call[lang]}
+                  </a>
+                  <button className="flex-1 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
                     <ExternalLink className="h-4 w-4" /> {T.openCrm[lang]}
                   </button>
                 </div>
-              );
-            })()}
 
-            {/* Stats summary */}
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <div className="text-[10px] uppercase font-semibold text-gray-500 mb-2">{T.stats[lang]}</div>
-              <div className="space-y-1.5 text-sm">
-                {(['dealer','service','importer','demo'] as PartnerType[]).map(t => (
-                  <div key={t} className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLORS[t] }} />
-                      {T[t][lang]}
-                    </span>
-                    <span className="font-semibold text-gray-900">{filtered.filter(p => p.type === t).length}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
-                  <span className="text-gray-700 font-semibold">{T.total[lang]}</span>
-                  <span className="font-bold text-[#2d5a27]">{filtered.length}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { icon: Users, label: T.users[lang], value: selected.users },
+                    { icon: FileText, label: T.quotes[lang], value: selected.quotes },
+                    { icon: ShoppingCart, label: T.orders[lang], value: selected.orders },
+                    { icon: TrendingUp, label: T.pipeline[lang], value: `${selected.pipeline}k €` },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-semibold text-gray-500">
+                        <s.icon className="h-3 w-3" /> {s.label}
+                      </div>
+                      <div className="text-base font-bold text-gray-900 mt-1">{s.value}</div>
+                    </div>
+                  ))}
                 </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-[10px] uppercase font-semibold text-gray-400">{T.assignedSeller[lang]}</div>
+                    <div className="font-semibold text-gray-900 mt-0.5">{selected.seller}</div>
+                  </div>
+                  {selected.account && (
+                    <div>
+                      <div className="text-[10px] uppercase font-semibold text-gray-400">Konto</div>
+                      <div className="font-semibold text-gray-900 mt-0.5">{selected.account}</div>
+                    </div>
+                  )}
+                </div>
+
+                {selected.linked && selected.linked.length > 0 && (
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="text-[10px] uppercase font-semibold text-gray-400 mb-2">{T.linked[lang]}</div>
+                    <ul className="space-y-1.5">
+                      {selected.linked.map(l => {
+                        const other = PARTNERS.find(p => p.id === l.id);
+                        return (
+                          <li key={l.id}>
+                            <button onClick={() => other && setSelectedId(other.id)}
+                              className="w-full text-left flex items-center gap-2 text-sm text-gray-700 hover:text-[#2d5a27] py-1.5 px-2 rounded-md hover:bg-gray-50">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#2d5a27]" />
+                              {l.name}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+            </aside>
+          </>
+        );
+      })()}
     </MiscPageShell>
   );
 }
