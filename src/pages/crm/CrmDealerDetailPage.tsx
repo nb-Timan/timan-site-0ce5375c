@@ -18,7 +18,11 @@ import {
   ArrowLeft, Building2, Mail, MapPin, Phone, GitBranch, Star,
   Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
+  Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
+import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
