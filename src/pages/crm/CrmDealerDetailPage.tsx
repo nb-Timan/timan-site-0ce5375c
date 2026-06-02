@@ -1432,20 +1432,25 @@ function ContactHero({
 // KpiStrip — single horizontal strip with 6 columns
 // ============================================================================
 function KpiStrip({
-  orders, quotes, pipelineValue, openLeads, monthActs, users, fmtKr,
+  orders, quotes, pipelineValue, openLeads, monthActs, users, fmtKr, dealerAccountNumber,
 }: {
   orders: number; quotes: number; pipelineValue: number;
   openLeads: number; monthActs: number; users: number;
   fmtKr: (n: number) => string;
+  dealerAccountNumber: string;
 }) {
+  const usersHref = dealerAccountNumber
+    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealerAccountNumber)}#users`
+    : "/portal/dealer-data#users";
   const cols: Array<{ key: string; label: string; value: string; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
     { key: "orders",    label: "Ordrer",                  value: String(orders),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-emerald-100 text-emerald-700", link: { href: "/portal/crm/orders", label: "Se ordrer →" } },
     { key: "quotes",    label: "Tilbud",                  value: String(quotes),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-sky-100 text-sky-700",        link: { href: "/portal/crm/quotes", label: "Se tilbud →" } },
     { key: "pipeline",  label: "Pipeline",                value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
     { key: "leads",     label: "Åbne leads",              value: String(openLeads),                       icon: <TrendingUp className="h-4 w-4" />,    tint: "bg-amber-100 text-amber-700",    link: { href: "/portal/crm/leads", label: "Se leads →" } },
     { key: "acts",      label: "Aktiviteter denne måned", value: String(monthActs),                       icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
-    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700",    link: { href: "/portal/dealer-data#users", label: "Se brugere →" } },
+    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700",    link: { href: usersHref, label: "Se brugere →" } },
   ];
+
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
