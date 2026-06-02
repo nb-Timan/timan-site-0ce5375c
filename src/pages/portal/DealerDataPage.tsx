@@ -331,24 +331,24 @@ export default function DealerDataPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-slate-500" /> Forhandler accept / Fakturering
+                  <FileText className="h-5 w-5 text-slate-500" /> {T.accept[lang]}
                   <Badge variant="secondary" className="ml-1">{submissions.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {submissions.length === 0 ? (
-                  <p className="text-sm text-slate-500">Ingen indsendelser fundet.</p>
+                  <p className="text-sm text-slate-500">{T.noSubs[lang]}</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="text-left text-xs uppercase text-slate-500 border-b">
                         <tr>
-                          <th className="py-2 pr-4">Dato</th>
-                          <th className="py-2 pr-4">Firma/kunde</th>
-                          <th className="py-2 pr-4">CVR</th>
-                          <th className="py-2 pr-4">Beslutning</th>
-                          <th className="py-2 pr-4">Kommentar</th>
-                          <th className="py-2 pr-4">Indsendt af</th>
+                          <th className="py-2 pr-4">{T.date[lang]}</th>
+                          <th className="py-2 pr-4">{T.companyCust[lang]}</th>
+                          <th className="py-2 pr-4">{T.vat[lang]}</th>
+                          <th className="py-2 pr-4">{T.decision[lang]}</th>
+                          <th className="py-2 pr-4">{T.comment[lang]}</th>
+                          <th className="py-2 pr-4">{T.submittedBy[lang]}</th>
                         </tr>
                       </thead>
                       <tbody>
