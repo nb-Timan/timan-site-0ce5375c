@@ -1501,3 +1501,129 @@ function ContactsList({
 
 // Suppress unused-import warning for Smartphone — kept for future mobile-specific UI.
 void Smartphone;
+
+// ============================================================================
+// UsersAndContactsPanel — combines portal users + dealer_contacts, dedup by email
+// ============================================================================
+function UsersAndContactsPanel({
+  dealer, portalUsers, contacts, lang,
+}: {
+  dealer: DealerAccount;
+  portalUsers: BackendUser[];
+  contacts: DealerContact[];
+  lang: Language;
+}) {
+  const dealerDataHref = dealer.account_number
+    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users`
+    : "/portal/dealer-data#users";
+
+  const userEmails = new Set(
+    portalUsers.map((u) => (u.email || "").toLowerCase().trim()).filter(Boolean)
+  );
+  const filteredContacts = contacts.filter(
+    (c) => !c.email || !userEmails.has(c.email.toLowerCase().trim())
+  );
+
+  const areaLabel = (a: string): string => {
+    const key = ("area_" + a) as keyof typeof L;
+    return L[key]?.[lang] ?? a;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Link
+          to={dealerDataHref}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold"
+        >
+          {tl("open_in_dealer_data", lang)} →
+        </Link>
+      </div>
+
+      {/* A. Active portal users */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+          {tl("active_portal_users", lang)} ({portalUsers.length})
+        </h3>
+        {portalUsers.length === 0 ? (
+          <p className="text-sm text-slate-500">{t("no_users")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                <tr>
+                  <th className="py-2 pr-4">{tl("primary_contact", lang).replace("Primær ", "")}</th>
+                  <th className="py-2 pr-4">{tl("email", lang)}</th>
+                  <th className="py-2 pr-4">{tl("role", lang)}</th>
+                  <th className="py-2 pr-4">{tl("status", lang)}</th>
+                  <th className="py-2 pr-4">{tl("last_login", lang)}</th>
+                  <th className="py-2 pr-4">{tl("language", lang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portalUsers.map((u) => (
+                  <tr key={u.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{u.name || "—"}</td>
+                    <td className="py-2 pr-4">{u.email || "—"}</td>
+                    <td className="py-2 pr-4">{u.role || "—"}</td>
+                    <td className="py-2 pr-4">
+                      <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold uppercase">
+                        {u.approved === false ? "pending" : "active"}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(u.last_login_at)}</td>
+                    <td className="py-2 pr-4 uppercase text-xs text-slate-500">{u.language || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* B. Registered contact persons */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+          {tl("registered_contacts", lang)} ({filteredContacts.length})
+        </h3>
+        {filteredContacts.length === 0 ? (
+          <p className="text-sm text-slate-500">{tl("no_contacts", lang)}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                <tr>
+                  <th className="py-2 pr-4">Navn</th>
+                  <th className="py-2 pr-4">{tl("role", lang)} / {tl("area", lang)}</th>
+                  <th className="py-2 pr-4">{tl("phone", lang)}</th>
+                  <th className="py-2 pr-4">{tl("email", lang)}</th>
+                  <th className="py-2 pr-4">{tl("status", lang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContacts.map((c) => (
+                  <tr key={c.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{c.name || "—"}</td>
+                    <td className="py-2 pr-4">
+                      <span className="text-slate-700">{c.role_title || "—"}</span>
+                      <span className="ml-1 text-xs text-slate-400">({areaLabel(c.contact_area)})</span>
+                    </td>
+                    <td className="py-2 pr-4">{c.phone ? <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a> : "—"}</td>
+                    <td className="py-2 pr-4">{c.email ? <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a> : "—"}</td>
+                    <td className="py-2 pr-4">
+                      {c.is_primary && (
+                        <span className="inline-block rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase">
+                          {tl("area_primary", lang)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
