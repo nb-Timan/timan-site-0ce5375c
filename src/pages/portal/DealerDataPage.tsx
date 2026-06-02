@@ -249,6 +249,7 @@ export default function DealerDataPage() {
                           <th className="py-2 pr-4">E-mail</th>
                           <th className="py-2 pr-4">Rolle</th>
                           <th className="py-2 pr-4">Status</th>
+                          <th className="py-2 pr-4">Sidste login</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -266,9 +267,11 @@ export default function DealerDataPage() {
                                   {status}
                                 </Badge>
                               </td>
+                              <td className="py-2 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(u.last_login)}</td>
                             </tr>
                           );
                         })}
+
                       </tbody>
                     </table>
                   </div>
