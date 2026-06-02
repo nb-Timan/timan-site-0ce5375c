@@ -261,7 +261,7 @@ export default function CrmLeadsPage() {
     setOpenLeads(openResolved);
   };
 
-  useEffect(() => { setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin]);
+  useEffect(() => { if (!dealerParam) setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin, dealerParam]);
 
   useEffect(() => {
     let cancelled = false;
