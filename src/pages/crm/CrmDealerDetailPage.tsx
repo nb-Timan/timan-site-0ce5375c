@@ -503,186 +503,72 @@ export default function CrmDealerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
 
-      {/* Hero contact card — quick contact + actions for sellers on the go */}
-      <ContactHero
-        dealer={dealer}
-        contacts={dealerContacts}
-        lang={lang}
-        onAddActivity={() => setShowNoteModal(true)}
-      />
-
-
-      {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
-        {(() => {
-          // derive scope-aware data
-          const dealerIdSet = new Set(scopeNumbers
-            .map((n) => dealers.find((d) => d.account_number === n)?.id)
-            .filter((x): x is string => !!x));
-          const dealerNameSet = new Set(scopeNumbers
-            .map((n) => (dealers.find((d) => d.account_number === n)?.company_name || "").toLowerCase().trim())
-            .filter(Boolean));
-          const scopeLeads = allLeads.filter((l) =>
-            (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
-          );
-          const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
-          const scopeDemos = allDemos.filter((d) => dealerNameSet.has((d.dealer_company || "").toLowerCase().trim()));
-          const openDemos = scopeDemos.filter((d) => !d.result_status);
-          const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
-
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          const monthActs = activitiesForScope.filter((a) => {
-            const d = new Date(a.start_datetime); return d >= monthStart && d < monthEnd;
-          });
-          const monthTypeCounts: Record<string, number> = {};
-          for (const a of monthActs) monthTypeCounts[a.activity_type] = (monthTypeCounts[a.activity_type] || 0) + 1;
-          const monthTypeStr = Object.entries(monthTypeCounts)
-            .map(([k, n]) => `${n}x ${activityTypeMeta(k as CalendarActivityType).label.da.toLowerCase()}`)
-            .join(", ");
-
-          return (
-            <>
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                  <div className="w-14 h-14 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center shrink-0">
-                    <Building2 className="h-6 w-6 text-[#2d5a27]" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-bold text-slate-900">{dealer.branch_name || dealer.company_name}</h2>
-                    <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                      <span className="font-mono">#{dealer.account_number}</span>
-                      <span>·</span>
-                      <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-                      {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
-                      {isBranch && mainDealer && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                          <GitBranch className="h-3 w-3" /> Filial under{" "}
-                          <Link to={`/portal/crm/my-dealers/${mainDealer.account_number}`} className="underline">
-                            {mainDealer.company_name}
-                          </Link>
-                        </span>
-                      )}
-                      {dealer.is_main_account && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
-                          <Star className="h-3 w-3" /> Hovedkonto
-                        </span>
-                      )}
-                    </div>
-                    {/* Compact KPI line */}
-                    <div className="mt-3 flex items-center gap-x-3 gap-y-2 flex-wrap text-sm">
-                      <CompactKpiPopover icon={<FileText className="h-3.5 w-3.5" />} label="Ordrer" value={liveOrderCount}
-                        items={dealerOrdersInScope.map((o) => ({ id: o.id, title: o.title || o.order_number || o.id, subtitle: fmtDate(o.closed_at), href: `/portal/crm/orders` }))}
-                        emptyLabel="Ingen ordrer" />
-                      <Divider />
-                      <CompactKpiPopover icon={<FileText className="h-3.5 w-3.5" />} label="Tilbud" value={liveQuoteCount}
-                        items={dealerQuotesInScope.map((q) => ({ id: q.id, title: q.title || q.quote_number || q.id, subtitle: fmtDate(quoteMonthIso(q)), href: `/portal/crm/quotes` }))}
-                        emptyLabel="Ingen tilbud" />
-                      <Divider />
-                      <CompactKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Pipeline" value={livePipelineValue > 0 ? fmtKr(livePipelineValue) : "—"} />
-                      <Divider />
-                      <CompactKpiPopover icon={<TrendingUp className="h-3.5 w-3.5" />} label="Åbne leads" value={openLeads.length}
-                        items={openLeads.map((l) => ({ id: l.id, title: `${l.lead_no ? formatLeadNo(l.lead_no) + " · " : ""}${l.title}`, subtitle: l.pipeline_stage || "—", href: `/portal/crm/leads/${l.id}` }))}
-                        emptyLabel="Ingen åbne leads" />
-                      <Divider />
-                      <CompactKpiPopover icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Åbne demoer" value={openDemos.length}
-                        items={openDemos.map((d) => ({ id: d.id, title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`, subtitle: fmtDate(d.demo_date), href: `/portal/crm/demo-leads/${d.id}` }))}
-                        emptyLabel="Ingen åbne demoer" />
-                      <Divider />
-                      <CompactKpiPopover icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Total demoer" value={scopeDemos.length}
-                        items={scopeDemos.map((d) => ({ id: d.id, title: `${d.demo_no ? formatDemoNo(d.demo_no) + " · " : ""}${d.title || d.customer_name || "Demo"}`, subtitle: fmtDate(d.demo_date), href: `/portal/crm/demo-leads/${d.id}` }))}
-                        emptyLabel="Ingen demoer" />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {admin && (
-                      <button onClick={() => setShowEditDealer(true)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold"
-                        title="Rediger forhandleroplysninger">
-                        <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
-                      </button>
-                    )}
-                    {hasGroup && (
-                      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
-                        <button onClick={() => setScope("branch")}
-                          className={`px-3 py-1.5 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                          {t("branch_only")}
-                        </button>
-                        <button onClick={() => setScope("group")}
-                          className={`px-3 py-1.5 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                          {t("group_total")} ({branchNumbers.length})
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {budgetTotals && <HeaderBudgetMini totals={budgetTotals} year={budgetYear} />}
-                </div>
-              </div>
-
-              {/* Compact activity strip */}
-              <div className="mt-4 flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-slate-600 border-t border-slate-100 pt-3">
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarIcon className="h-3.5 w-3.5 text-emerald-700" />
-                  <span className="text-slate-500">Næste opfølgning:</span>
-                  <span className="font-semibold text-slate-800">
-                    {nextFollowup ? `${fmtDate(nextFollowup.date)} · ${nextFollowup.title}` : t("none_followup")}
-                  </span>
-                </span>
-                <Divider />
-                <span>
-                  <span className="text-slate-500">Aktiviteter denne måned:</span>{" "}
-                  <span className="font-semibold text-slate-800">{monthActs.length}</span>
-                  {monthTypeStr && <span className="text-slate-500"> ({monthTypeStr})</span>}
-                </span>
-                <Divider />
-                <span>
-                  <span className="text-slate-500">Seneste aktivitet:</span>{" "}
-                  <span className="font-semibold text-slate-800">{fmtDate(latestActivityIso ?? ownStats?.last_activity_at ?? null)}</span>
-                </span>
-                <Divider />
-                <CompactKpiPopover icon={<ClipboardList className="h-3.5 w-3.5" />} label="Åbne aktiviteter" value={openActs.length}
-                  items={openActs.slice(0, 50).map((a) => ({
-                    id: a.id,
-                    title: a.title || activityTypeMeta(a.activity_type).label.da,
-                    subtitle: fmtDateTime(a.start_datetime),
-                    href: "/portal/crm/calendar",
-                  }))}
-                  emptyLabel="Ingen åbne aktiviteter" />
-              </div>
-            </>
-          );
-        })()}
-      </div>
-
-      {/* Budget + history */}
       {(() => {
+        const dealerIdSet = new Set(scopeNumbers
+          .map((n) => dealers.find((d) => d.account_number === n)?.id)
+          .filter((x): x is string => !!x));
+        const scopeLeads = allLeads.filter((l) =>
+          (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
+        );
+        const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
         const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
-        if (!budgetTotals) return null;
+
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const monthActsCount = activitiesForScope.filter((a) => {
+          const d = new Date(a.start_datetime); return d >= monthStart && d < monthEnd;
+        }).length;
+
         return (
           <>
-            <DealerBudgetCard totals={budgetTotals} year={budgetYear} />
-            {!budgetTotals.noBudget && (
-              <DealerBudgetHistory
-                year={budgetYear}
-                scopeNumbers={scopeNumbers}
-                dealersInScope={dealers.filter((d) => scopeNumberSet.has(String(d.account_number)))}
-                wonOrdersInScope={wonOrdersInScope}
-              />
-            )}
+            <ContactHero
+              dealer={dealer}
+              contacts={dealerContacts}
+              lang={lang}
+              admin={admin}
+              isBranch={isBranch}
+              mainDealer={mainDealer ?? null}
+              hasGroup={hasGroup}
+              scope={scope}
+              setScope={setScope}
+              branchCount={branchNumbers.length}
+              budgetTotals={budgetTotals}
+              budgetYear={budgetYear}
+              onAddActivity={() => setShowNoteModal(true)}
+              onEdit={() => setShowEditDealer(true)}
+            />
+
+            <KpiStrip
+              orders={liveOrderCount}
+              quotes={liveQuoteCount}
+              pipelineValue={livePipelineValue}
+              openLeads={openLeads.length}
+              monthActs={monthActsCount}
+              users={linkedUsers.length}
+              fmtKr={fmtKr}
+            />
           </>
         );
       })()}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex flex-wrap h-auto bg-slate-100 p-1 mb-4">
-          <TabsTrigger value="overview">{tl("tab_overview", lang)}</TabsTrigger>
-          <TabsTrigger value="contacts">{tl("tab_contacts", lang)}</TabsTrigger>
-          <TabsTrigger value="activities">{tl("tab_activities", lang)}</TabsTrigger>
-          <TabsTrigger value="notes">{tl("tab_notes", lang)}</TabsTrigger>
-          <TabsTrigger value="documents">{tl("tab_documents", lang)}</TabsTrigger>
-          <TabsTrigger value="company">{tl("tab_company", lang)}</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
+          {([
+            ["overview", tl("tab_overview", lang)],
+            ["contacts", `${tl("tab_contacts", lang)} (${dealerContacts.length || (dealer.primary_contact_name ? 1 : 0)})`],
+            ["activities", tl("tab_activities", lang)],
+            ["notes", tl("tab_notes", lang)],
+            ["documents", tl("tab_documents", lang)],
+            ["company", tl("tab_company", lang)],
+          ] as const).map(([val, label]) => (
+            <TabsTrigger
+              key={val}
+              value={val}
+              className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-sm font-semibold text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-emerald-700 data-[state=active]:shadow-none hover:text-slate-800"
+            >
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* OVERVIEW */}
