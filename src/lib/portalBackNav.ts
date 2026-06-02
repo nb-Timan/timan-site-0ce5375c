@@ -17,7 +17,6 @@ const SERVICE_PREFIXES = [
   '/portal/service/tsb',
   '/portal/service/claims',
   '/portal/service/warranty',
-  '/portal/service/information',
 ];
 
 const SALES_PREFIXES = [
