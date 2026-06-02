@@ -18,7 +18,11 @@ import {
   ArrowLeft, Building2, Mail, MapPin, Phone, GitBranch, Star,
   Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
+  Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
+import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -104,6 +108,43 @@ const T = {
 };
 const t = (k: keyof typeof T) => T[k].da;
 
+/** New multilang strings for redesigned dealer detail. */
+const L: Record<string, Record<Language, string>> = {
+  primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
+  no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
+  call:             { da: "Ring", en: "Call", de: "Anrufen", it: "Chiama", hu: "Hívás" },
+  send_mail:        { da: "Send mail", en: "Email", de: "E-Mail", it: "Email", hu: "Email" },
+  directions:       { da: "Rutevejledning", en: "Directions", de: "Route", it: "Indicazioni", hu: "Útvonal" },
+  website:          { da: "Hjemmeside", en: "Website", de: "Webseite", it: "Sito web", hu: "Weboldal" },
+  new_activity:     { da: "Opret aktivitet", en: "New activity", de: "Aktivität anlegen", it: "Nuova attività", hu: "Új tevékenység" },
+  schedule_meeting: { da: "Planlæg møde", en: "Schedule meeting", de: "Termin planen", it: "Pianifica riunione", hu: "Találkozó ütemezése" },
+  tab_overview:     { da: "Overblik", en: "Overview", de: "Übersicht", it: "Panoramica", hu: "Áttekintés" },
+  tab_contacts:     { da: "Kontakter", en: "Contacts", de: "Kontakte", it: "Contatti", hu: "Kapcsolatok" },
+  tab_activities:   { da: "Aktiviteter", en: "Activities", de: "Aktivitäten", it: "Attività", hu: "Tevékenységek" },
+  tab_notes:        { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek" },
+  tab_documents:    { da: "Dokumenter", en: "Documents", de: "Dokumente", it: "Documenti", hu: "Dokumentumok" },
+  tab_company:      { da: "Firmaoplysninger", en: "Company info", de: "Firmendaten", it: "Dati azienda", hu: "Cégadatok" },
+  no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
+  role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
+  phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
+  mobile:           { da: "Mobil", en: "Mobile", de: "Mobil", it: "Cellulare", hu: "Mobil" },
+  email:            { da: "E-mail", en: "Email", de: "E-Mail", it: "Email", hu: "Email" },
+  language:         { da: "Sprog", en: "Language", de: "Sprache", it: "Lingua", hu: "Nyelv" },
+  status_active:    { da: "Aktiv", en: "Active", de: "Aktiv", it: "Attivo", hu: "Aktív" },
+  area_sales:       { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés" },
+  area_workshop:    { da: "Værksted", en: "Workshop", de: "Werkstatt", it: "Officina", hu: "Műhely" },
+  area_parts:       { da: "Reservedele", en: "Parts", de: "Ersatzteile", it: "Ricambi", hu: "Alkatrész" },
+  area_marketing:   { da: "Marketing", en: "Marketing", de: "Marketing", it: "Marketing", hu: "Marketing" },
+  area_finance:     { da: "Økonomi", en: "Finance", de: "Finanzen", it: "Finanza", hu: "Pénzügy" },
+  area_primary:     { da: "Primær", en: "Primary", de: "Hauptkontakt", it: "Principale", hu: "Elsődleges" },
+  company_details:  { da: "Virksomhedsoplysninger", en: "Company details", de: "Firmendaten", it: "Dettagli azienda", hu: "Cégadatok" },
+  recent_activities:{ da: "Seneste aktiviteter", en: "Recent activities", de: "Letzte Aktivitäten", it: "Attività recenti", hu: "Legutóbbi tevékenységek" },
+  recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
+  none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
+};
+const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
+
+
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",
   follow_up: "Opfølgning", demo: "Demo", offer: "Tilbud", service: "Service",
@@ -129,13 +170,14 @@ export default function CrmDealerDetailPage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
-  void lang;
+  
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [notes, setNotes] = useState<DealerNote[]>([]);
+  const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showEditDealer, setShowEditDealer] = useState(false);
@@ -263,6 +305,14 @@ export default function CrmDealerDetailPage() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealer?.id, scope, branchNumbers.join(",")]);
+
+  // Load extra dealer_contacts (sales/workshop/parts/marketing/finance).
+  useEffect(() => {
+    if (!dealer?.id) { setDealerContacts([]); return; }
+    let cancelled = false;
+    listDealerContacts(dealer.id).then((rows) => { if (!cancelled) setDealerContacts(rows); });
+    return () => { cancelled = true; };
+  }, [dealer?.id]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -453,6 +503,15 @@ export default function CrmDealerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
 
+      {/* Hero contact card — quick contact + actions for sellers on the go */}
+      <ContactHero
+        dealer={dealer}
+        contacts={dealerContacts}
+        lang={lang}
+        onAddActivity={() => setShowNoteModal(true)}
+      />
+
+
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
         {(() => {
@@ -616,110 +675,216 @@ export default function CrmDealerDetailPage() {
         );
       })()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Master + contact */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-5">
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
-          <ul className="text-sm space-y-2">
-            <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
-            <Row icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={dealer.email || "—"} />
-            <Row icon={<Phone className="h-3.5 w-3.5" />} label="Telefon" value={dealer.phone || "—"} />
-          </ul>
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mt-5 mb-3">{t("master")}</h3>
-          <ul className="text-sm space-y-1.5">
-            <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
-            <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-            <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
-            <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
-          </ul>
-        </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="flex flex-wrap h-auto bg-slate-100 p-1 mb-4">
+          <TabsTrigger value="overview">{tl("tab_overview", lang)}</TabsTrigger>
+          <TabsTrigger value="contacts">{tl("tab_contacts", lang)}</TabsTrigger>
+          <TabsTrigger value="activities">{tl("tab_activities", lang)}</TabsTrigger>
+          <TabsTrigger value="notes">{tl("tab_notes", lang)}</TabsTrigger>
+          <TabsTrigger value="documents">{tl("tab_documents", lang)}</TabsTrigger>
+          <TabsTrigger value="company">{tl("tab_company", lang)}</TabsTrigger>
+        </TabsList>
 
-        {/* Linked users */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
-            {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
-          </div>
-          {linkedUsers.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("no_users")}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="text-left py-2">Navn</th>
-                    <th className="text-left py-2">Email</th>
-                    <th className="text-left py-2">Rolle</th>
-                    <th className="text-left py-2">Status</th>
-                    <th className="text-left py-2">Sidste login</th>
-                    <th className="text-left py-2">Sprog</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linkedUsers.map(u => (
-                    <tr key={u.id} className="border-t border-slate-100">
-                      <td className="py-2 font-semibold">{u.name}</td>
-                      <td className="py-2 text-slate-600">{u.email}</td>
-                      <td className="py-2 text-slate-600">{u.role}</td>
-                      <td className="py-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                          {u.approved ? "Godkendt" : "Afventer"}
-                        </span>
-                      </td>
-                      <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
-                      <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* OVERVIEW */}
+        <TabsContent value="overview" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("company_details", lang)}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone || "—"}</li>
+                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email || "—"}</li>
+                <li><span className="text-slate-500">{tl("language", lang) /* address */}:</span> {[dealer.address, dealer.postal_code, dealer.city, dealer.country].filter(Boolean).join(", ") || "—"}</li>
+              </ul>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("next_followup")}</h3>
+              {nextFollowup ? (
+                <p className="text-sm text-slate-800"><span className="font-semibold">{fmtDateTime(nextFollowup.date)}</span> · {nextFollowup.title}</p>
+              ) : (
+                <p className="text-sm text-slate-500">{t("none_followup")}</p>
+              )}
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
+              {dealerQuotesInScope.slice(0, 4).length === 0 ? (
+                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+              ) : (
+                <ul className="text-sm space-y-1.5">
+                  {dealerQuotesInScope.slice(0, 4).map(q => (
+                    <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
-      {/* Notehistorik */}
-      <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-            {t("notes")} ({notes.length})
-          </h3>
-          <button onClick={() => setShowNoteModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
-            <Plus className="h-3.5 w-3.5" /> {t("add_note")}
-          </button>
-        </div>
-        {notes.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("no_notes")}</p>
-        ) : (
-          <ul className="space-y-2">
-            {notes.map(n => (
-              <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                    <span>·</span>
-                    <span>{fmtDateTime(n.created_at)}</span>
-                    <span>·</span>
-                    <span>sælger {n.seller_initials || "—"}</span>
-                    {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
-                  </div>
-                  {n.follow_up_date && (
-                    <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                      Opfølgning: {fmtDateTime(n.follow_up_date)}
-                    </span>
-                  )}
+        {/* CONTACTS */}
+        <TabsContent value="contacts" className="mt-0">
+          <div className="space-y-4">
+            <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
+
+            {/* Linked portal users */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("users")} ({linkedUsers.length})</h3>
+                {!admin && <span className="text-[10px] text-slate-400">Skrivebeskyttet for sælger</span>}
+              </div>
+              {linkedUsers.length === 0 ? (
+                <p className="text-sm text-slate-500">{t("no_users")}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="text-left py-2">Navn</th>
+                        <th className="text-left py-2">{tl("email", lang)}</th>
+                        <th className="text-left py-2">{tl("role", lang)}</th>
+                        <th className="text-left py-2">Status</th>
+                        <th className="text-left py-2">Sidste login</th>
+                        <th className="text-left py-2">{tl("language", lang)}</th>
+                        <th className="text-right py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linkedUsers.map(u => (
+                        <tr key={u.id} className="border-t border-slate-100">
+                          <td className="py-2 font-semibold">{u.name}</td>
+                          <td className="py-2 text-slate-600">{u.email}</td>
+                          <td className="py-2 text-slate-600">{u.role}</td>
+                          <td className="py-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                              {u.approved ? "Godkendt" : "Afventer"}
+                            </span>
+                          </td>
+                          <td className="py-2 text-slate-500 text-xs">{fmtDate(u.last_login_at)}</td>
+                          <td className="py-2 text-slate-500 uppercase text-xs">{u.language}</td>
+                          <td className="py-2 text-right">
+                            <div className="inline-flex gap-1">
+                              {u.email && <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}><Mail className="h-3.5 w-3.5 text-emerald-700" /></a>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
-                {n.linked_activity_id && (
-                  <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
-                    Se tilknyttet kalenderaktivitet →
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ACTIVITIES */}
+        <TabsContent value="activities" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("tab_activities", lang)} ({activitiesForScope.length})</h3>
+            {activitiesForScope.length === 0 ? (
+              <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+            ) : (
+              <ul className="space-y-2">
+                {[...activitiesForScope]
+                  .sort((a, b) => b.start_datetime.localeCompare(a.start_datetime))
+                  .slice(0, 100)
+                  .map(a => (
+                    <li key={a.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700">{activityTypeMeta(a.activity_type).label.da}</span>
+                          <span>·</span>
+                          <span>{fmtDateTime(a.start_datetime)}</span>
+                          {a.seller_initials && <><span>·</span><span>sælger {a.seller_initials}</span></>}
+                        </div>
+                        {a.status && <span className="text-[10px] uppercase text-slate-500">{a.status}</span>}
+                      </div>
+                      <p className="text-sm text-slate-800">{a.title || "—"}</p>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* NOTES — internal only, already gated by canAccess at page level */}
+        <TabsContent value="notes" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                {t("notes")} ({notes.length})
+              </h3>
+              <button onClick={() => setShowNoteModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
+                <Plus className="h-3.5 w-3.5" /> {t("add_note")}
+              </button>
+            </div>
+            {notes.length === 0 ? (
+              <p className="text-sm text-slate-500">{t("no_notes")}</p>
+            ) : (
+              <ul className="space-y-2">
+                {notes.map(n => (
+                  <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+                        <span>·</span>
+                        <span>{fmtDateTime(n.created_at)}</span>
+                        <span>·</span>
+                        <span>sælger {n.seller_initials || "—"}</span>
+                        {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
+                      </div>
+                      {n.follow_up_date && (
+                        <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                          Opfølgning: {fmtDateTime(n.follow_up_date)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
+                    {n.linked_activity_id && (
+                      <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
+                        Se tilknyttet kalenderaktivitet →
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* DOCUMENTS — placeholder until document module exists */}
+        <TabsContent value="documents" className="mt-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+            <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">{tl("no_documents", lang)}</p>
+          </div>
+        </TabsContent>
+
+        {/* COMPANY INFO */}
+        <TabsContent value="company" className="mt-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("contact")}</h3>
+              <ul className="text-sm space-y-2">
+                <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Adresse" value={[dealer.address, [dealer.postal_code, dealer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
+                <Row icon={<Mail className="h-3.5 w-3.5" />} label={tl("email", lang)} value={dealer.email || "—"} />
+                <Row icon={<Phone className="h-3.5 w-3.5" />} label={tl("phone", lang)} value={dealer.phone || "—"} />
+                {dealer.website && <Row icon={<Globe className="h-3.5 w-3.5" />} label={tl("website", lang)} value={dealer.website} />}
+              </ul>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("master")}</h3>
+              <ul className="text-sm space-y-1.5">
+                <li><span className="text-slate-500">Kontonr:</span> <span className="font-mono">{dealer.account_number}</span></li>
+                <li><span className="text-slate-500">Type:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
+                <li><span className="text-slate-500">Land:</span> {dealer.country || "—"}</li>
+                {dealer.vat_number && <li><span className="text-slate-500">CVR/VAT:</span> {dealer.vat_number}</li>}
+                <li><span className="text-slate-500">Tildelt sælger:</span> {dealer.assigned_seller_initials || "—"}{dealer.assigned_seller_name ? ` (${dealer.assigned_seller_name})` : ""}</li>
+                {dealer.created_at && <li><span className="text-slate-500">Oprettet:</span> {fmtDate(dealer.created_at)}</li>}
+              </ul>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
 
       {showNoteModal && (
         <NoteModal
@@ -1127,3 +1292,213 @@ function EditDealerModal({
     </div>
   );
 }
+
+// ============================================================================
+// ContactHero — top-of-page card for sellers on the go
+// ============================================================================
+
+interface HeroAction {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+function ContactHero({
+  dealer,
+  contacts,
+  lang,
+  onAddActivity,
+}: {
+  dealer: DealerAccount;
+  contacts: DealerContact[];
+  lang: Language;
+  onAddActivity: () => void;
+}) {
+  // Resolve primary contact: dealer_contacts.is_primary first, then
+  // dealer.primary_contact_*, then sales_contact_* fallback.
+  const primaryRow = contacts.find((c) => c.is_primary) || null;
+  const primaryName =
+    primaryRow?.name ||
+    dealer.primary_contact_name ||
+    dealer.sales_contact_name ||
+    null;
+  const primaryEmail =
+    primaryRow?.email ||
+    dealer.primary_contact_email ||
+    dealer.sales_contact_email ||
+    dealer.email ||
+    null;
+  const primaryPhone =
+    primaryRow?.phone ||
+    dealer.primary_contact_phone ||
+    dealer.sales_contact_phone ||
+    dealer.phone ||
+    null;
+  const primaryRole =
+    primaryRow?.role_title ||
+    (primaryRow ? tl(("area_" + primaryRow.contact_area) as keyof typeof L, lang) : tl("area_primary", lang));
+
+  const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
+    .filter(Boolean).join(", ");
+  const mapsHref = addressLine
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`
+    : undefined;
+  const websiteHref = dealer.website
+    ? (dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`)
+    : undefined;
+
+  const actions: HeroAction[] = [
+    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-4 w-4" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
+    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-4 w-4" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
+    { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-4 w-4" />,       href: mapsHref, disabled: !mapsHref },
+    { key: "web",      label: tl("website", lang),          icon: <Globe className="h-4 w-4" />,        href: websiteHref, disabled: !websiteHref },
+    { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-4 w-4" />,   onClick: onAddActivity },
+    { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-4 w-4" />, onClick: onAddActivity },
+  ];
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+        {/* Identity */}
+        <div className="flex items-start gap-4 min-w-0 flex-1">
+          <div className="w-12 h-12 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center shrink-0">
+            <Building2 className="h-6 w-6 text-[#2d5a27]" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 truncate">
+              {dealer.branch_name || dealer.company_name}
+            </h2>
+            <div className="text-xs md:text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+              <span className="font-mono">#{dealer.account_number}</span>
+              <span>·</span>
+              <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
+              {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+              <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                {tl("status_active", lang)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Primary contact box */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 md:min-w-[280px]">
+          <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">
+            {tl("primary_contact", lang)}
+          </div>
+          {primaryName ? (
+            <>
+              <div className="flex items-center gap-2">
+                <UserCircle2 className="h-5 w-5 text-slate-400" />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{primaryName}</div>
+                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
+                </div>
+              </div>
+              <div className="mt-2 space-y-0.5 text-xs">
+                {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-slate-400" />{primaryPhone}</div>}
+                {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-slate-400" />{primaryEmail}</div>}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-amber-700">
+              <AlertCircle className="h-4 w-4" />
+              {tl("no_primary", lang)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+        {actions.map((a) => {
+          const base = "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold border transition";
+          const active = "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700";
+          const disabled = "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed";
+          const cls = `${base} ${a.disabled ? disabled : active}`;
+          if (a.disabled) return <button key={a.key} disabled className={cls}>{a.icon}<span>{a.label}</span></button>;
+          if (a.href) return <a key={a.key} href={a.href} target={a.key === "route" || a.key === "web" ? "_blank" : undefined} rel="noreferrer" className={cls}>{a.icon}<span>{a.label}</span></a>;
+          return <button key={a.key} onClick={a.onClick} className={cls}>{a.icon}<span>{a.label}</span></button>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// ContactsList — primary + dealer_accounts roles + extra dealer_contacts
+// ============================================================================
+
+interface ContactCardRow {
+  area: string;
+  name: string | null;
+  role?: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+function ContactsList({
+  dealer,
+  extraContacts,
+  lang,
+}: {
+  dealer: DealerAccount;
+  extraContacts: DealerContact[];
+  lang: Language;
+}) {
+  const rows: ContactCardRow[] = [
+    { area: tl("area_primary", lang),   name: dealer.primary_contact_name,   email: dealer.primary_contact_email,   phone: dealer.primary_contact_phone },
+    { area: tl("area_sales", lang),     name: dealer.sales_contact_name,     email: dealer.sales_contact_email,     phone: dealer.sales_contact_phone },
+    { area: tl("area_workshop", lang),  name: dealer.workshop_contact_name,  email: dealer.workshop_contact_email,  phone: dealer.workshop_contact_phone },
+    { area: tl("area_marketing", lang), name: dealer.marketing_contact_name, email: dealer.marketing_contact_email, phone: dealer.marketing_contact_phone },
+    { area: tl("area_finance", lang),   name: dealer.finance_contact_name,   email: dealer.finance_contact_email,   phone: dealer.finance_contact_phone },
+  ].filter((r) => r.name || r.email || r.phone);
+
+  for (const c of extraContacts) {
+    rows.push({
+      area: tl(("area_" + c.contact_area) as keyof typeof L, lang),
+      name: c.name,
+      role: c.role_title,
+      email: c.email,
+      phone: c.phone,
+    });
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 text-sm text-slate-500">
+        {tl("no_primary", lang)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {rows.map((r, i) => (
+        <div key={i} className="bg-white border border-slate-200 rounded-2xl p-4">
+          <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{r.area}</div>
+          <div className="flex items-center gap-2 mb-1">
+            <UserCircle2 className="h-5 w-5 text-slate-400" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-900 truncate">{r.name || "—"}</div>
+              {r.role && <div className="text-xs text-slate-500 truncate">{r.role}</div>}
+            </div>
+          </div>
+          <div className="text-xs space-y-0.5">
+            {r.phone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-slate-400" />{r.phone}</div>}
+            {r.email && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-slate-400" />{r.email}</div>}
+          </div>
+          <div className="mt-2 flex gap-2">
+            {r.phone && <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-2 py-1 text-[11px] font-bold hover:bg-emerald-100"><Phone className="h-3 w-3" />{tl("call", lang)}</a>}
+            {r.email && <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-2 py-1 text-[11px] font-bold hover:bg-emerald-100"><Mail className="h-3 w-3" />{tl("send_mail", lang)}</a>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Suppress unused-import warning for Smartphone — kept for future mobile-specific UI.
+void Smartphone;
