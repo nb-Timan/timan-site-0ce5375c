@@ -124,8 +124,8 @@ export default function DealerDataPage() {
         if (dealerRes.error) setError(dealerRes.error);
         setDealer(dealerRes.row);
 
-        setQuotes(configsQuoteRes.rows);
-        setOrders(configsOrderRes.rows);
+        setQuotes(configsQuoteRes.rows.filter((r) => r.dealer_number === dealerNumber));
+        setOrders(configsOrderRes.rows.filter((r) => r.dealer_number === dealerNumber));
 
         // listPortalFormSubmissions returns globally readable rows by RLS;
         // narrow to this dealer in the client.
