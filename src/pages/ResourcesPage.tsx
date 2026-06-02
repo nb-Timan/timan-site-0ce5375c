@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { getPortalBackTarget, goBackOrFallback } from '@/lib/portalBackNav';
+import { goBackOrFallback } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {

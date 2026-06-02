@@ -18,7 +18,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { useDealerScope } from "@/lib/dealerScope";
-import { getPortalBackTarget, goBackOrFallback } from "@/lib/portalBackNav";
+import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 
 import {
