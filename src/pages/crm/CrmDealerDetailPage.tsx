@@ -170,7 +170,7 @@ export default function CrmDealerDetailPage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
-  void lang;
+  
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
