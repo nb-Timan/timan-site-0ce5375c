@@ -500,11 +500,11 @@ const T = {
   recCountTwo: { da: 'et par ting', en: 'a couple of things', de: 'ein paar Dinge', it: 'un paio di cose', hu: 'néhány dolog' },
   recCountFew: { da: 'nogle få ting', en: 'a few things', de: 'einige Dinge', it: 'alcune cose', hu: 'néhány dolog' },
   recPara: {
-    da: (subj: string, countWord: string) => `I har allerede sat en stærk løsning sammen med ${subj}, og der er tydeligvis tænkt over, hvad der skal til. Når vi kigger på den samlede konfiguration, er der dog ${countWord}, vi typisk vil anbefale ud fra vores erfaring med lignende opsætninger – ikke fordi der mangler noget afgørende, men fordi det kan gøre en mærkbar forskel i den daglige drift.`,
-    en: (subj: string, countWord: string) => `You have already put together a strong solution with ${subj}, and it's clear that thought has gone into what is needed. Looking at the overall configuration, there are ${countWord} we would typically recommend based on our experience with similar setups – not because anything essential is missing, but because it can make a noticeable difference in daily operations.`,
-    de: (subj: string, countWord: string) => `Sie haben bereits eine starke Lösung mit ${subj} zusammengestellt, und es ist klar, dass überlegt wurde, was nötig ist. Bei Betrachtung der Gesamtkonfiguration gibt es ${countWord}, die wir typischerweise aufgrund unserer Erfahrung mit ähnlichen Konfigurationen empfehlen würden – nicht weil etwas Wesentliches fehlt, sondern weil es im täglichen Betrieb einen spürbaren Unterschied machen kann.`,
-    it: (subj: string, countWord: string) => `Avete già messo insieme una soluzione solida con ${subj}, ed è chiaro che si è pensato a ciò che serve. Guardando la configurazione complessiva, ci sono ${countWord} che raccomanderemmo tipicamente in base alla nostra esperienza con configurazioni simili – non perché manchi qualcosa di essenziale, ma perché può fare una differenza notevole nelle operazioni quotidiane.`,
-    hu: (subj: string, countWord: string) => `Már összeállított egy erős megoldást a(z) ${subj} segítségével, és nyilvánvaló, hogy átgondolták, mire van szükség. Az összesített konfigurációt tekintve van ${countWord}, amelyet hasonló összeállításokkal szerzett tapasztalataink alapján jellemzően ajánlanánk – nem azért, mert valami lényeges hiányzik, hanem mert észrevehető különbséget tehet a napi működésben.`,
+    da: (subj: string, countWord: string) => `Ud fra ${subj} vil vi typisk anbefale ${countWord} mere – det gør en mærkbar forskel i den daglige drift.`,
+    en: (subj: string, countWord: string) => `Based on ${subj}, we would typically add ${countWord} more — it makes a noticeable difference in daily operations.`,
+    de: (subj: string, countWord: string) => `Basierend auf ${subj} würden wir typischerweise ${countWord} ergänzen – das macht im Alltag einen spürbaren Unterschied.`,
+    it: (subj: string, countWord: string) => `Sulla base di ${subj} consiglieremmo tipicamente ${countWord} in più – fa una differenza concreta nell'uso quotidiano.`,
+    hu: (subj: string, countWord: string) => `A(z) ${subj} alapján jellemzően ${countWord} dolgot ajánlanánk még – érezhető különbséget jelent a napi munkában.`,
   },
   // Recommendation rule labels & reasons (keyed by original Danish label)
   recLabels: {} as Record<string, Record<L, string>>,
