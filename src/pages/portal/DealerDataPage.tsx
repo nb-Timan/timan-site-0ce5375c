@@ -47,17 +47,62 @@ interface DealerUserRow {
 }
 
 
-function fmtDate(s: string | null | undefined): string {
+import type { Language } from '@/types/configurator';
+
+const LOCALE_MAP: Record<Language, string> = {
+  da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU',
+};
+
+const T = {
+  backPortal:   { da: 'Tilbage til portal',     en: 'Back to portal',         de: 'Zurück zum Portal',          it: 'Torna al portale',           hu: 'Vissza a portálra' },
+  backDealer:   { da: 'Tilbage til forhandler', en: 'Back to dealer',         de: 'Zurück zum Händler',         it: 'Torna al rivenditore',       hu: 'Vissza a kereskedőhöz' },
+  pageTitle:    { da: 'Forhandlerdata',         en: 'Dealer data',            de: 'Händlerdaten',               it: 'Dati rivenditore',           hu: 'Kereskedői adatok' },
+  pageSubtitle: { da: 'Din virksomheds stamdata, kontakter, brugere og handelshistorik hos Timan.', en: 'Your company master data, contacts, users and trading history with Timan.', de: 'Stammdaten, Kontakte, Benutzer und Handelshistorie Ihres Unternehmens bei Timan.', it: 'Dati anagrafici, contatti, utenti e storico commerciale della tua azienda con Timan.', hu: 'Cégének törzsadatai, kapcsolattartói, felhasználói és kereskedelmi előzményei a Timannál.' },
+  noDealer:     { da: 'Din bruger er ikke knyttet til en forhandlerkonto endnu. Kontakt Timan for at få adgang til Forhandlerdata.', en: 'Your user is not linked to a dealer account yet. Contact Timan to get access to Dealer data.', de: 'Ihr Benutzer ist noch keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan für den Zugriff auf die Händlerdaten.', it: 'Il tuo utente non è ancora collegato a un account rivenditore. Contatta Timan per accedere ai Dati rivenditore.', hu: 'A felhasználó még nincs kereskedői fiókhoz rendelve. Vegye fel a kapcsolatot a Timannal a hozzáférésért.' },
+  loading:      { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
+  stamdata:     { da: 'Stamdata', en: 'Master data', de: 'Stammdaten', it: 'Dati anagrafici', hu: 'Törzsadatok' },
+  companyName:  { da: 'Firmanavn', en: 'Company name', de: 'Firmenname', it: 'Ragione sociale', hu: 'Cégnév' },
+  accountNo:    { da: 'Kontonummer', en: 'Account number', de: 'Kontonummer', it: 'Numero conto', hu: 'Számlaszám' },
+  dealerType:   { da: 'Forhandlertype', en: 'Dealer type', de: 'Händlertyp', it: 'Tipo rivenditore', hu: 'Kereskedő típusa' },
+  country:      { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  seller:       { da: 'Tilknyttet Timan-sælger', en: 'Assigned Timan seller', de: 'Zugeordneter Timan-Verkäufer', it: 'Venditore Timan assegnato', hu: 'Hozzárendelt Timan értékesítő' },
+  status:       { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Állapot' },
+  blocked:      { da: 'Spærret', en: 'Blocked', de: 'Gesperrt', it: 'Bloccato', hu: 'Zárolva' },
+  deleted:      { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
+  active:       { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+  users:        { da: 'Registrerede brugere', en: 'Registered users', de: 'Registrierte Benutzer', it: 'Utenti registrati', hu: 'Regisztrált felhasználók' },
+  accept:       { da: 'Forhandler accept / Fakturering', en: 'Dealer acceptance / Invoicing', de: 'Händlerannahme / Rechnungsstellung', it: 'Accettazione rivenditore / Fatturazione', hu: 'Kereskedői elfogadás / Számlázás' },
+  noSubs:       { da: 'Ingen indsendelser fundet.', en: 'No submissions found.', de: 'Keine Einreichungen gefunden.', it: 'Nessun invio trovato.', hu: 'Nem található beküldés.' },
+  date:         { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
+  companyCust:  { da: 'Firma/kunde', en: 'Company/customer', de: 'Firma/Kunde', it: 'Azienda/cliente', hu: 'Cég/ügyfél' },
+  vat:          { da: 'CVR', en: 'VAT', de: 'USt-IdNr.', it: 'P.IVA', hu: 'Adószám' },
+  decision:     { da: 'Beslutning', en: 'Decision', de: 'Entscheidung', it: 'Decisione', hu: 'Döntés' },
+  comment:      { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
+  submittedBy:  { da: 'Indsendt af', en: 'Submitted by', de: 'Eingereicht von', it: 'Inviato da', hu: 'Beküldte' },
+  accepted:     { da: 'Accepteret', en: 'Accepted', de: 'Akzeptiert', it: 'Accettato', hu: 'Elfogadva' },
+  rejected:     { da: 'Afvist', en: 'Rejected', de: 'Abgelehnt', it: 'Rifiutato', hu: 'Elutasítva' },
+  noCoop:       { da: 'Ønsker ikke samarbejde', en: 'Does not want cooperation', de: 'Wünscht keine Zusammenarbeit', it: 'Non desidera collaborazione', hu: 'Nem kíván együttműködni' },
+  unknown:      { da: 'Ukendt', en: 'Unknown', de: 'Unbekannt', it: 'Sconosciuto', hu: 'Ismeretlen' },
+  openQuotes:   { da: 'Åbne tilbud', en: 'Open quotes', de: 'Offene Angebote', it: 'Preventivi aperti', hu: 'Nyitott árajánlatok' },
+  orders:       { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Rendelések' },
+  noEntries:    { da: 'Ingen poster.', en: 'No entries.', de: 'Keine Einträge.', it: 'Nessuna voce.', hu: 'Nincs bejegyzés.' },
+  number:       { da: 'Nr.', en: 'No.', de: 'Nr.', it: 'N.', hu: 'Sz.' },
+  title:        { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
+  created:      { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
+  amount:       { da: 'Beløb', en: 'Amount', de: 'Betrag', it: 'Importo', hu: 'Összeg' },
+} as const;
+
+function fmtDate(s: string | null | undefined, lang: Language = 'da'): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleDateString('da-DK'); } catch { return '—'; }
+  try { return new Date(s).toLocaleDateString(LOCALE_MAP[lang]); } catch { return '—'; }
 }
-function fmtDateTime(s: string | null | undefined): string {
+function fmtDateTime(s: string | null | undefined, lang: Language = 'da'): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString('da-DK'); } catch { return '—'; }
+  try { return new Date(s).toLocaleString(LOCALE_MAP[lang]); } catch { return '—'; }
 }
-function fmtMoney(n: number | null | undefined): string {
+function fmtMoney(n: number | null | undefined, lang: Language = 'da'): string {
   if (n == null) return '—';
-  try { return new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n); }
+  try { return new Intl.NumberFormat(LOCALE_MAP[lang], { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n); }
   catch { return String(n); }
 }
 
@@ -174,10 +219,10 @@ export default function DealerDataPage() {
   // Status label for dealer_invoice_accept submissions
   const acceptLabel = (payload: Record<string, unknown>): { label: string; tone: 'ok' | 'warn' | 'no' } => {
     const decision = String(payload?.decision ?? payload?.beslutning ?? '').toLowerCase();
-    if (decision.includes('accept') || decision === 'accepteret' || decision === 'ja') return { label: 'Accepteret', tone: 'ok' };
-    if (decision.includes('afvis') || decision === 'nej')                                 return { label: 'Afvist', tone: 'no' };
-    if (decision.includes('ikke') || decision.includes('samarbejd'))                      return { label: 'Ønsker ikke samarbejde', tone: 'warn' };
-    return { label: decision || 'Ukendt', tone: 'warn' };
+    if (decision.includes('accept') || decision === 'accepteret' || decision === 'ja') return { label: T.accepted[lang], tone: 'ok' };
+    if (decision.includes('afvis') || decision === 'nej')                                 return { label: T.rejected[lang], tone: 'no' };
+    if (decision.includes('ikke') || decision.includes('samarbejd'))                      return { label: T.noCoop[lang],    tone: 'warn' };
+    return { label: decision || T.unknown[lang], tone: 'warn' };
   };
 
   return (
@@ -200,11 +245,11 @@ export default function DealerDataPage() {
               }}
               className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til forhandler
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backDealer[lang]}
             </button>
           ) : (
             <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backPortal[lang]}
             </Link>
           )}
         </div>
@@ -215,21 +260,21 @@ export default function DealerDataPage() {
             <Building2 className="h-7 w-7 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Forhandlerdata</h1>
-            <p className="text-sm text-slate-600">Din virksomheds stamdata, kontakter, brugere og handelshistorik hos Timan.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{T.pageTitle[lang]}</h1>
+            <p className="text-sm text-slate-600">{T.pageSubtitle[lang]}</p>
           </div>
         </div>
 
         {!dealerNumber && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-slate-600">
-              Din bruger er ikke knyttet til en forhandlerkonto endnu. Kontakt Timan for at få adgang til Forhandlerdata.
+              {T.noDealer[lang]}
             </CardContent>
           </Card>
         )}
 
         {dealerNumber && loadingData && (
-          <Card><CardContent className="py-8 text-center text-sm text-slate-500">Indlæser…</CardContent></Card>
+          <Card><CardContent className="py-8 text-center text-sm text-slate-500">{T.loading[lang]}</CardContent></Card>
         )}
 
         {dealerNumber && !loadingData && error && !dealer && (
@@ -246,16 +291,16 @@ export default function DealerDataPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-slate-500" /> Stamdata
+                  <Hash className="h-5 w-5 text-slate-500" /> {T.stamdata[lang]}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <Field label="Firmanavn" value={dealerName} />
-                <Field label="Kontonummer" value={dealer.account_number || '—'} />
-                <Field label="Forhandlertype" value={dealer.customer_type_label || dealer.customer_type || '—'} />
-                <Field label="Land" value={dealer.country || '—'} />
-                <Field label="Tilknyttet Timan-sælger" value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
-                <Field label="Status" value={dealer.is_blocked ? 'Spærret' : dealer.is_deleted ? 'Slettet' : 'Aktiv'} />
+                <Field label={T.companyName[lang]} value={dealerName} />
+                <Field label={T.accountNo[lang]} value={dealer.account_number || '—'} />
+                <Field label={T.dealerType[lang]} value={dealer.customer_type_label || dealer.customer_type || '—'} />
+                <Field label={T.country[lang]} value={dealer.country || '—'} />
+                <Field label={T.seller[lang]} value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
+                <Field label={T.status[lang]} value={dealer.is_blocked ? T.blocked[lang] : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
               </CardContent>
             </Card>
 
@@ -263,12 +308,12 @@ export default function DealerDataPage() {
             <Card id="users" className="scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-slate-500" /> Registrerede brugere
+                  <User className="h-5 w-5 text-slate-500" /> {T.users[lang]}
                   <Badge variant="secondary" className="ml-1">{users.length + contacts.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RegisteredUsersTable portalUsers={users} contacts={contacts} />
+                <RegisteredUsersTable portalUsers={users} contacts={contacts} language={lang} />
               </CardContent>
             </Card>
 
@@ -286,24 +331,24 @@ export default function DealerDataPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-slate-500" /> Forhandler accept / Fakturering
+                  <FileText className="h-5 w-5 text-slate-500" /> {T.accept[lang]}
                   <Badge variant="secondary" className="ml-1">{submissions.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {submissions.length === 0 ? (
-                  <p className="text-sm text-slate-500">Ingen indsendelser fundet.</p>
+                  <p className="text-sm text-slate-500">{T.noSubs[lang]}</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="text-left text-xs uppercase text-slate-500 border-b">
                         <tr>
-                          <th className="py-2 pr-4">Dato</th>
-                          <th className="py-2 pr-4">Firma/kunde</th>
-                          <th className="py-2 pr-4">CVR</th>
-                          <th className="py-2 pr-4">Beslutning</th>
-                          <th className="py-2 pr-4">Kommentar</th>
-                          <th className="py-2 pr-4">Indsendt af</th>
+                          <th className="py-2 pr-4">{T.date[lang]}</th>
+                          <th className="py-2 pr-4">{T.companyCust[lang]}</th>
+                          <th className="py-2 pr-4">{T.vat[lang]}</th>
+                          <th className="py-2 pr-4">{T.decision[lang]}</th>
+                          <th className="py-2 pr-4">{T.comment[lang]}</th>
+                          <th className="py-2 pr-4">{T.submittedBy[lang]}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -315,7 +360,7 @@ export default function DealerDataPage() {
                           const a = acceptLabel(p);
                           return (
                             <tr key={s.id} className="border-b last:border-0 align-top">
-                              <td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(s.created_at)}</td>
+                              <td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(s.created_at, lang)}</td>
                               <td className="py-2 pr-4">{String(company)}</td>
                               <td className="py-2 pr-4">{String(cvr)}</td>
                               <td className="py-2 pr-4">
@@ -337,20 +382,24 @@ export default function DealerDataPage() {
 
             {/* 5) Åbne tilbud */}
             <DocsTable
-              title="Åbne tilbud"
+              title={T.openQuotes[lang]}
               icon={<FileText className="h-5 w-5 text-slate-500" />}
               rows={quotes}
               numberKey="quote_number"
               showStatus
+              lang={lang}
+              t={T}
             />
 
             {/* 6) Lukkede / vundne ordrer */}
             <DocsTable
-              title="Ordrer"
+              title={T.orders[lang]}
               icon={<Package className="h-5 w-5 text-slate-500" />}
               rows={orders}
               numberKey="order_number"
               showStatus
+              lang={lang}
+              t={T}
             />
           </>
         )}
@@ -374,13 +423,15 @@ function Field({ label, value }: { label: string; value: string }) {
 
 
 function DocsTable({
-  title, icon, rows, numberKey, showStatus,
+  title, icon, rows, numberKey, showStatus, lang, t,
 }: {
   title: string;
   icon: React.ReactNode;
   rows: CrmConfigurationRow[];
   numberKey: 'quote_number' | 'order_number';
   showStatus?: boolean;
+  lang: Language;
+  t: typeof T;
 }) {
   return (
     <Card>
@@ -392,17 +443,17 @@ function DocsTable({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-slate-500">Ingen poster.</p>
+          <p className="text-sm text-slate-500">{t.noEntries[lang]}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-slate-500 border-b">
                 <tr>
-                  <th className="py-2 pr-4">Nr.</th>
-                  <th className="py-2 pr-4">Titel</th>
-                  <th className="py-2 pr-4">Oprettet</th>
-                  {showStatus && <th className="py-2 pr-4">Status</th>}
-                  <th className="py-2 pr-4 text-right">Beløb</th>
+                  <th className="py-2 pr-4">{t.number[lang]}</th>
+                  <th className="py-2 pr-4">{t.title[lang]}</th>
+                  <th className="py-2 pr-4">{t.created[lang]}</th>
+                  {showStatus && <th className="py-2 pr-4">{t.status[lang]}</th>}
+                  <th className="py-2 pr-4 text-right">{t.amount[lang]}</th>
                 </tr>
               </thead>
               <tbody>
@@ -410,9 +461,9 @@ function DocsTable({
                   <tr key={r.id} className="border-b last:border-0">
                     <td className="py-2 pr-4 whitespace-nowrap">{r[numberKey] || '—'}</td>
                     <td className="py-2 pr-4">{r.title || '—'}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(r.created_at, lang)}</td>
                     {showStatus && <td className="py-2 pr-4">{r.case_status || r.status || '—'}</td>}
-                    <td className="py-2 pr-4 text-right">{fmtMoney(r.total_price)}</td>
+                    <td className="py-2 pr-4 text-right">{fmtMoney(r.total_price, lang)}</td>
                   </tr>
                 ))}
               </tbody>
