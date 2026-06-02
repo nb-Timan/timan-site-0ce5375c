@@ -36,6 +36,37 @@ const T: Record<string, Record<Language, string>> = {
     it: 'Trova una macchina tramite numero di serie e visualizza il profilo completo della macchina.',
     hu: 'Keressen gépet gyári szám alapján és tekintse meg a teljes gépprofilt.',
   },
+  desc_warranty_reg: {
+    da: 'Registrér maskinen inden salg for nemmere og hurtigere service efterfølgende.',
+    en: 'Register the machine before sale for easier and faster service afterwards.',
+    de: 'Registrieren Sie die Maschine vor dem Verkauf, damit der spätere Service einfacher und schneller wird.',
+    it: 'Registra la macchina prima della vendita per rendere l\u2019assistenza successiva più semplice e veloce.',
+    hu: 'Regisztrálja a gépet értékesítés előtt, hogy a későbbi szerviz gyorsabb és egyszerűbb legyen.',
+  },
+  desc_tsb: {
+    da: 'Technical Service Bulletin.',
+    en: 'Technical Service Bulletin.',
+    de: 'Technical Service Bulletin.',
+    it: 'Technical Service Bulletin.',
+    hu: 'Technical Service Bulletin.',
+  },
+  support_section_title: {
+    da: 'Timan Teknik support og firmainformation',
+    en: 'Timan Technical support and company information',
+    de: 'Timan Technik Support und Firmeninformationen',
+    it: 'Supporto tecnico Timan e informazioni aziendali',
+    hu: 'Timan műszaki támogatás és cégadatok',
+  },
+  support_heading: {
+    da: 'Support', en: 'Support', de: 'Support', it: 'Supporto', hu: 'Támogatás',
+  },
+  company_heading: {
+    da: 'Firmainformation', en: 'Company information', de: 'Firmeninformationen', it: 'Informazioni aziendali', hu: 'Cégadatok',
+  },
+  label_phone: { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon' },
+  label_email: { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
+  label_company: { da: 'Virksomhed', en: 'Company', de: 'Unternehmen', it: 'Azienda', hu: 'Vállalat' },
+  label_address: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
 };
 
 interface Props { areaId: PortalAreaId }
