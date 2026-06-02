@@ -135,6 +135,11 @@ export default function PortalAreaPage({ areaId }: Props) {
               href = '/portal/service/machines';
               icon = Search;
               description = T.desc_machine_search[lang];
+            } else if (p.key === 'claims') {
+              if (!hasModuleAccess(portalRole, 'claims', moduleOverride)) return null;
+              href = '/portal/service/claims';
+              icon = LifeBuoy;
+              description = lang === 'da' ? 'Opret og følg service- og garantisager direkte i portalen.' : 'Create and track service and warranty claims directly in the portal.';
 
             } else if (p.key === 'users') {
               href = '/portal/backend/users';
