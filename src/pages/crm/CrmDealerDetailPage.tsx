@@ -1421,8 +1421,9 @@ function KpiStrip({
     { key: "pipeline",  label: "Pipeline",                value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
     { key: "leads",     label: "Åbne leads",              value: String(openLeads),                       icon: <TrendingUp className="h-4 w-4" />,    tint: "bg-amber-100 text-amber-700",    link: { href: "/portal/crm/leads", label: "Se leads →" } },
     { key: "acts",      label: "Aktiviteter denne måned", value: String(monthActs),                       icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
-    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700" },
+    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700",    link: { href: "/portal/dealer-data#users", label: "Se brugere →" } },
   ];
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
