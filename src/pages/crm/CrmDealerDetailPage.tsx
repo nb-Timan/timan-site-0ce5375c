@@ -1241,12 +1241,13 @@ function ContactHero({
   const primaryName =
     primaryRow?.name || dealer.primary_contact_name || dealer.sales_contact_name || null;
   const primaryEmail =
-    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || dealer.email || null;
+    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || null;
   const primaryPhone =
-    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || dealer.phone || null;
-  const primaryRole =
-    primaryRow?.role_title ||
-    (primaryRow ? tl(("area_" + primaryRow.contact_area) as keyof typeof L, lang) : tl("area_primary", lang));
+    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || null;
+
+  // Fallbacks: action cards use company-level data if no primary contact.
+  const callPhone = primaryPhone || dealer.phone || null;
+  const mailAddr  = primaryEmail || dealer.email || null;
 
   const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
@@ -1258,15 +1259,15 @@ function ContactHero({
     : undefined;
 
   const actions: HeroAction[] = [
-    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
-    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
+    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: callPhone ? `tel:${callPhone}` : undefined, disabled: !callPhone },
+    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: mailAddr ? `mailto:${mailAddr}` : undefined, disabled: !mailAddr },
     { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-5 w-5" />,       href: mapsHref, disabled: !mapsHref },
     { key: "web",      label: tl("website", lang),          icon: <Globe className="h-5 w-5" />,        href: websiteHref, disabled: !websiteHref },
     { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
     { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-5 w-5" />, onClick: onAddActivity },
   ];
 
-  const initials = (primaryName || dealer.company_name || "?")
+  const initials = (dealer.company_name || "?")
     .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
 
   const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
@@ -1320,12 +1321,6 @@ function ContactHero({
               <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
             </button>
           )}
-          <button
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 w-8 h-8"
-            aria-label="Mere" title="Mere"
-          >
-            <span className="text-lg leading-none">⋯</span>
-          </button>
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
               <div className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {budgetYear}</div>
@@ -1342,36 +1337,43 @@ function ContactHero({
         </div>
       </div>
 
-      {/* Hero card */}
+      {/* Hero card — focus on company contact information */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-5 items-start">
-          {/* Primary contact */}
+          {/* Company contact information */}
           <div className="flex items-start gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base font-bold shrink-0">
               {initials}
             </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">{tl("primary_contact", lang)}</div>
-              {primaryName ? (
-                <>
-                  <div className="text-base font-bold text-slate-900 truncate">{primaryName}</div>
-                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
-                  {(dealer as unknown as { portal_role?: string }).portal_role && (
-                    <div className="mt-0.5 inline-block text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{(dealer as unknown as { portal_role?: string }).portal_role}</div>
-                  )}
-                  <div className="mt-2 space-y-0.5 text-xs">
-                    {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryPhone}</div>}
-                    {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryEmail}</div>}
-                  </div>
-                  <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
-                    {tl("language", lang)}: {langBadge}
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{tl("contact_info", lang)}</div>
+              <div className="space-y-1 text-xs text-slate-700">
+                {addressLine && (
+                  <div className="flex items-start gap-1.5"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" /><span className="truncate">{addressLine}</span></div>
+                )}
+                {dealer.phone && (
+                  <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a></div>
+                )}
+                {dealer.email && (
+                  <div className="flex items-center gap-1.5 min-w-0"><Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`mailto:${dealer.email}`} className="truncate hover:underline">{dealer.email}</a></div>
+                )}
+                {websiteHref && (
+                  <div className="flex items-center gap-1.5 min-w-0"><Globe className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={websiteHref} target="_blank" rel="noreferrer" className="truncate hover:underline">{dealer.website}</a></div>
+                )}
+                {!dealer.phone && !dealer.email && !addressLine && (
+                  <div className="text-slate-400 italic">—</div>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
+                  {tl("language", lang)}: {langBadge}
+                </span>
+                {primaryName && (
+                  <span className="text-[11px] text-slate-500">
+                    {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
                   </span>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-amber-700 mt-1">
-                  <AlertCircle className="h-4 w-4" /> {tl("no_primary", lang)}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -1401,6 +1403,7 @@ function ContactHero({
     </div>
   );
 }
+
 
 // ============================================================================
 // KpiStrip — single horizontal strip with 6 columns
