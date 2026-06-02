@@ -62,6 +62,7 @@ import MiscFormsPage from "./pages/misc/MiscFormsPage";
 import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
 import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
 import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
+import PartnerMapPage from "./pages/misc/PartnerMapPage";
 import DealerDataPage from "./pages/portal/DealerDataPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
