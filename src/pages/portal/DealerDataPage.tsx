@@ -382,20 +382,24 @@ export default function DealerDataPage() {
 
             {/* 5) Åbne tilbud */}
             <DocsTable
-              title="Åbne tilbud"
+              title={T.openQuotes[lang]}
               icon={<FileText className="h-5 w-5 text-slate-500" />}
               rows={quotes}
               numberKey="quote_number"
               showStatus
+              lang={lang}
+              t={T}
             />
 
             {/* 6) Lukkede / vundne ordrer */}
             <DocsTable
-              title="Ordrer"
+              title={T.orders[lang]}
               icon={<Package className="h-5 w-5 text-slate-500" />}
               rows={orders}
               numberKey="order_number"
               showStatus
+              lang={lang}
+              t={T}
             />
           </>
         )}
