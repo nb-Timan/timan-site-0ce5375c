@@ -804,6 +804,44 @@ export function listCoveredProductIds(): string[] {
   return Object.keys(PRODUCT_RECOMMENDATION_META);
 }
 
+// ─── Function-group derivation (Step: dedup) ────────────────────────────────
+//
+// Maps a product to its coarse functional group so the recommendation engine
+// can skip products whose function is already covered by the user's basket.
+
+const CATEGORY_TO_GROUP: Record<ProductCategory, FunctionGroup> = {
+  machine_remote: "carrier",
+  machine_carrier: "carrier",
+  machine_loader_line: "carrier",
+  tool_mower: "klipning",
+  tool_sweeper: "kost",
+  tool_weedbrush: "ukrudt",
+  tool_winter_plow: "snerydning",
+  tool_winter_blower: "snerydning",
+  tool_winter_spreader: "saltspredning",
+  tool_stump: "stub",
+  tool_loose: "loose",
+  accessory_light: "lys",
+  accessory_safety: "sikkerhed",
+  accessory_comfort: "komfort",
+  accessory_protection: "rustbeskyttelse",
+  accessory_mounting: "montering",
+  accessory_consumable: "forbrug",
+  service_warranty: "garanti",
+};
+
+/**
+ * Resolve the functional group for a product. Uses `meta.functionGroup` when
+ * set, otherwise derives a sensible default from the category. Special-cases
+ * the few products whose names indicate they cover an extra group on top of
+ * their category (e.g. CS-200 Combi covers both saltspredning and snerydning).
+ */
+export function getFunctionGroup(meta: ProductRecommendationMeta): FunctionGroup {
+  if (meta.functionGroup) return meta.functionGroup;
+  return CATEGORY_TO_GROUP[meta.category] ?? "other";
+}
+
+
 // ─── Step 6: Source/content helpers ─────────────────────────────────────────
 //
 // These helpers expose the new optional fields without touching the
