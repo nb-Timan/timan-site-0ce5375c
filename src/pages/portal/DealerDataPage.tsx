@@ -360,7 +360,7 @@ export default function DealerDataPage() {
                           const a = acceptLabel(p);
                           return (
                             <tr key={s.id} className="border-b last:border-0 align-top">
-                              <td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(s.created_at)}</td>
+                              <td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(s.created_at, lang)}</td>
                               <td className="py-2 pr-4">{String(company)}</td>
                               <td className="py-2 pr-4">{String(cvr)}</td>
                               <td className="py-2 pr-4">
