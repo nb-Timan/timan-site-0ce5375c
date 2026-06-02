@@ -260,8 +260,8 @@ export default function DealerDataPage() {
             <Building2 className="h-7 w-7 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Forhandlerdata</h1>
-            <p className="text-sm text-slate-600">Din virksomheds stamdata, kontakter, brugere og handelshistorik hos Timan.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{T.pageTitle[lang]}</h1>
+            <p className="text-sm text-slate-600">{T.pageSubtitle[lang]}</p>
           </div>
         </div>
 
