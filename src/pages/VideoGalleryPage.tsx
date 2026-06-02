@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { getPortalBackTarget } from '@/lib/portalBackNav';
+import { goBackOrFallback } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
@@ -56,7 +56,7 @@ export default function VideoGalleryPage() {
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
-            onClick={() => navigate(getPortalBackTarget(location.pathname))}
+            onClick={() => goBackOrFallback(navigate, location)}
             className="flex items-center text-[#2d5a27] font-semibold hover:underline"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />

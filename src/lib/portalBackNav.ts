@@ -6,6 +6,8 @@
  * instead of bouncing all the way to the portal frontpage.
  */
 
+import type { NavigateFunction } from 'react-router-dom';
+
 export type PortalBackTarget =
   | '/portal'
   | '/portal/teknik-service'
@@ -69,4 +71,24 @@ export function getPortalBackTarget(pathname: string): PortalBackTarget {
   if (pathname.startsWith('/portal/crm/')) return '/portal/crm';
 
   return '/portal';
+}
+
+/**
+ * Go one step back in the browser history when there is history to pop,
+ * otherwise navigate to a sensible fallback inside the portal.
+ *
+ * This is the standard behaviour for "Tilbage" buttons across the portal:
+ * users only move one step back, but deep-links still work because the
+ * fallback maps the current page to its parent area.
+ */
+export function goBackOrFallback(
+  navigate: NavigateFunction,
+  location: { key?: string; pathname: string },
+  fallback?: string,
+): void {
+  if (location.key && location.key !== 'default') {
+    navigate(-1);
+    return;
+  }
+  navigate(fallback ?? getPortalBackTarget(location.pathname));
 }

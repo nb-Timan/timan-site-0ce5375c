@@ -18,7 +18,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { useDealerScope } from "@/lib/dealerScope";
-import { getPortalBackTarget } from "@/lib/portalBackNav";
+import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 
 import {
@@ -204,7 +204,7 @@ export default function ServiceTicketsPage() {
       <div className="bg-white border-b border-slate-200 py-3">
         <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
-            onClick={() => navigate(getPortalBackTarget(location.pathname))}
+            onClick={() => goBackOrFallback(navigate, location)}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />

@@ -7,7 +7,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
-import { getPortalBackTarget } from '@/lib/portalBackNav';
+import { getPortalBackTarget, goBackOrFallback } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
 
@@ -78,10 +78,10 @@ export default function CrmLayout({ children, pageTitle }: Props) {
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8 flex-grow w-full">
         <div className="flex items-center justify-between mb-4">
-          <Link to={getPortalBackTarget(location.pathname)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+          <button type="button" onClick={() => goBackOrFallback(navigate, location)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4 mr-2" />
             {getPortalBackTarget(location.pathname) === '/portal/crm' ? T.back_crm[lang] : T.back[lang]}
-          </Link>
+          </button>
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
             isCrmAdmin(portalRole) ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-sky-50 text-sky-800 border border-sky-200"
