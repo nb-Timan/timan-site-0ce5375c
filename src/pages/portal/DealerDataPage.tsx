@@ -245,11 +245,11 @@ export default function DealerDataPage() {
               }}
               className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til forhandler
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backDealer[lang]}
             </button>
           ) : (
             <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til portal
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backPortal[lang]}
             </Link>
           )}
         </div>
