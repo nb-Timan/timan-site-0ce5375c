@@ -72,6 +72,7 @@ import {
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
 import DealerBudgetHistory from "@/components/crm/DealerBudgetHistory";
+import RegisteredUsersTable from "@/components/portal/RegisteredUsersTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
