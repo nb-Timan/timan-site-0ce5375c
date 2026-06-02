@@ -86,7 +86,7 @@ function countryShade(n: number): string {
 }
 
 interface Position { coordinates: [number, number]; zoom: number }
-const EUROPE_VIEW: Position = { coordinates: [12, 53], zoom: 1 };
+const EUROPE_VIEW: Position = { coordinates: [12, 52], zoom: 1 };
 
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
@@ -98,6 +98,7 @@ export default function PartnerMapPage() {
   const [hoverCountry, setHoverCountry] = useState<string | null>(null);
   const [position, setPosition] = useState<Position>(EUROPE_VIEW);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const toggleType = (t: PartnerType) => {
     const n = new Set(activeTypes); n.has(t) ? n.delete(t) : n.add(t); setActiveTypes(n);
