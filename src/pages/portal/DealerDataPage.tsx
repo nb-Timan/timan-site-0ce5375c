@@ -31,6 +31,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
+import RegisteredUsersTable from '@/components/portal/RegisteredUsersTable';
 
 interface DealerUserRow {
   id: string;
