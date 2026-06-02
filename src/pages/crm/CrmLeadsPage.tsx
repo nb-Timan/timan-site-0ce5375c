@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -230,6 +230,8 @@ export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
 
@@ -246,10 +248,12 @@ export default function CrmLeadsPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [tab, setTab] = useState<TabKey>(isAdmin ? 'all' : 'mine');
-  const [q, setQ] = useState('');
+  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : (isAdmin ? 'all' : 'mine'));
+  const [q, setQ] = useState(dealerParam);
   const [stage, setStage] = useState<string>('');
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
+
+  useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
   const refreshLeads = async () => {
     const openAll = await listLeads({});
@@ -257,7 +261,7 @@ export default function CrmLeadsPage() {
     setOpenLeads(openResolved);
   };
 
-  useEffect(() => { setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin]);
+  useEffect(() => { if (!dealerParam) setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin, dealerParam]);
 
   useEffect(() => {
     let cancelled = false;

@@ -8,7 +8,7 @@
  * No pricing, configurator, PDF or webhook logic is touched here.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -101,15 +101,19 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
 
   const [rows, setRows] = useState<CrmConfigurationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(dealerParam);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  useEffect(() => { if (dealerParam) setSearch(dealerParam); }, [dealerParam]);
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';

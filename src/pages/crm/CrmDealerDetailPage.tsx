@@ -586,6 +586,7 @@ export default function CrmDealerDetailPage() {
               openDemos={openDemos.length}
               monthActs={monthActsCount}
               fmtKr={fmtKr}
+              dealerName={dealer.branch_name || dealer.company_name || ""}
             />
 
 
@@ -1378,15 +1379,17 @@ function ContactHero({
 // Order: Orders, Quotes, Leads + Demos (combined), Activities this month, Pipeline
 // ============================================================================
 function KpiStrip({
-  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr,
+  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr, dealerName,
 }: {
   orders: number; quotes: number; pipelineValue: number;
   openLeads: number; openDemos: number; monthActs: number;
   fmtKr: (n: number) => string;
+  dealerName?: string;
 }) {
+  const dq = dealerName ? `?dealer=${encodeURIComponent(dealerName)}` : "";
   const cols: Array<{ key: string; label: string; value: React.ReactNode; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
-    { key: "orders",   label: "Ordrer", value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: "/portal/crm/orders", label: "Se ordrer →" } },
-    { key: "quotes",   label: "Tilbud", value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: "/portal/crm/quotes", label: "Se tilbud →" } },
+    { key: "orders",   label: "Ordrer", value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: `/portal/crm/orders${dq}`, label: "Se ordrer →" } },
+    { key: "quotes",   label: "Tilbud", value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: `/portal/crm/quotes${dq}`, label: "Se tilbud →" } },
     {
       key: "leads", label: "Åbne leads + Demo leads", tint: "bg-amber-100 text-amber-700",
       icon: <TrendingUp className="h-4 w-4" />,
@@ -1396,9 +1399,9 @@ function KpiStrip({
           <div><span className="text-2xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">demo leads</span></div>
         </div>
       ),
-      link: { href: "/portal/crm/leads", label: "Se leads →" },
+      link: { href: `/portal/crm/leads${dq}`, label: "Se leads →" },
     },
-    { key: "acts",     label: "Aktiviteter denne måned", value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
+    { key: "acts",     label: "Aktiviteter denne måned", value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: `/portal/crm/activities${dq}`, label: "Se aktiviteter →" } },
     { key: "pipeline", label: "Pipeline", value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
   ];
 

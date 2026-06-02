@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -25,8 +27,23 @@ export default function CrmActivitiesPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
   const [rows, setRows] = useState<CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState(dealerParam);
+
+  useEffect(() => { if (dealerParam) setSearch(dealerParam); }, [dealerParam]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(a => {
+      const hay = [a.title, a.account_name, a.created_by_name, a.assigned_owner_name, a.description, a.activity_type]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,13 +75,25 @@ export default function CrmActivitiesPage() {
   return (
     <CrmLayout pageTitle="Activities">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="p-4 border-b border-gray-100">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søg…"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+          </div>
+        </div>
         {loading ? (
           <p className="p-6 text-sm text-gray-500">…</p>
-        ) : rows.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{T.empty[lang]}</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {rows.map(a => (
+            {filtered.map(a => (
               <li key={a.id} className="px-5 py-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
