@@ -657,74 +657,17 @@ export default function CrmDealerDetailPage() {
         </TabsContent>
 
 
-        {/* CONTACTS */}
-        <TabsContent value="contacts" className="mt-0">
-          <div className="space-y-4">
-            <ContactsList dealer={dealer} extraContacts={dealerContacts} lang={lang} />
-
-            {/* Compact users preview — full management lives in Forhandlerdata */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                  Aktive brugere ({linkedUsers.length})
-                </h3>
-                <Link to={dealer.account_number ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users` : "/portal/dealer-data#users"} className="text-xs font-semibold text-emerald-700 hover:underline">
-                  Se alle brugere i Forhandlerdata →
-                </Link>
-              </div>
-              {linkedUsers.length === 0 ? (
-                <p className="text-sm text-slate-500">{t("no_users")}</p>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {linkedUsers.slice(0, 5).map((u) => (
-                    <li key={u.id} className="py-2 flex items-center justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-slate-800 truncate">{u.name}</div>
-                        <div className="text-xs text-slate-500 truncate">{u.email} · {u.role || "—"}</div>
-                      </div>
-                      {u.email && (
-                        <a href={`mailto:${u.email}`} className="p-1.5 rounded-md hover:bg-slate-100" title={tl("send_mail", lang)}>
-                          <Mail className="h-4 w-4 text-emerald-700" />
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-          </div>
+        {/* USERS — portal users + registered contact persons */}
+        <TabsContent value="users" className="mt-0">
+          <UsersAndContactsPanel
+            dealer={dealer}
+            portalUsers={linkedUsers}
+            contacts={dealerContacts}
+            lang={lang}
+          />
         </TabsContent>
 
-        {/* ACTIVITIES */}
-        <TabsContent value="activities" className="mt-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("tab_activities", lang)} ({activitiesForScope.length})</h3>
-            {activitiesForScope.length === 0 ? (
-              <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-            ) : (
-              <ul className="space-y-2">
-                {[...activitiesForScope]
-                  .sort((a, b) => b.start_datetime.localeCompare(a.start_datetime))
-                  .slice(0, 100)
-                  .map(a => (
-                    <li key={a.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-700">{activityTypeMeta(a.activity_type).label.da}</span>
-                          <span>·</span>
-                          <span>{fmtDateTime(a.start_datetime)}</span>
-                          {a.seller_initials && <><span>·</span><span>sælger {a.seller_initials}</span></>}
-                        </div>
-                        {a.status && <span className="text-[10px] uppercase text-slate-500">{a.status}</span>}
-                      </div>
-                      <p className="text-sm text-slate-800">{a.title || "—"}</p>
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </div>
-        </TabsContent>
+
 
         {/* NOTES — internal only, already gated by canAccess at page level */}
         <TabsContent value="notes" className="mt-0">
