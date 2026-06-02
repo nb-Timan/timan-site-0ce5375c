@@ -27,8 +27,23 @@ export default function CrmActivitiesPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
   const [rows, setRows] = useState<CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState(dealerParam);
+
+  useEffect(() => { if (dealerParam) setSearch(dealerParam); }, [dealerParam]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(a => {
+      const hay = [a.title, a.account_name, a.created_by_name, a.assigned_owner_name, a.description, a.activity_type]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
 
   useEffect(() => {
     let cancelled = false;
