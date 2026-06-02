@@ -6,6 +6,8 @@
  * instead of bouncing all the way to the portal frontpage.
  */
 
+import type { NavigateFunction } from 'react-router-dom';
+
 export type PortalBackTarget =
   | '/portal'
   | '/portal/teknik-service'
