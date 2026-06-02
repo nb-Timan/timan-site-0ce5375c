@@ -4,7 +4,7 @@
 // V1: own-account only — importer/service-partner → sub-dealer relations deferred.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
