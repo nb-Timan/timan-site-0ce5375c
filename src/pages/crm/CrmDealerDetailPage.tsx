@@ -1196,33 +1196,40 @@ function ContactHero({
   dealer,
   contacts,
   lang,
+  admin,
+  isBranch,
+  mainDealer,
+  hasGroup,
+  scope,
+  setScope,
+  branchCount,
+  budgetTotals,
+  budgetYear,
   onAddActivity,
+  onEdit,
 }: {
   dealer: DealerAccount;
   contacts: DealerContact[];
   lang: Language;
+  admin: boolean;
+  isBranch: boolean;
+  mainDealer: DealerAccount | null;
+  hasGroup: boolean;
+  scope: "branch" | "group";
+  setScope: (s: "branch" | "group") => void;
+  branchCount: number;
+  budgetTotals: ReturnType<typeof aggregateDealerBudget> | null;
+  budgetYear: number;
   onAddActivity: () => void;
+  onEdit: () => void;
 }) {
-  // Resolve primary contact: dealer_contacts.is_primary first, then
-  // dealer.primary_contact_*, then sales_contact_* fallback.
   const primaryRow = contacts.find((c) => c.is_primary) || null;
   const primaryName =
-    primaryRow?.name ||
-    dealer.primary_contact_name ||
-    dealer.sales_contact_name ||
-    null;
+    primaryRow?.name || dealer.primary_contact_name || dealer.sales_contact_name || null;
   const primaryEmail =
-    primaryRow?.email ||
-    dealer.primary_contact_email ||
-    dealer.sales_contact_email ||
-    dealer.email ||
-    null;
+    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || dealer.email || null;
   const primaryPhone =
-    primaryRow?.phone ||
-    dealer.primary_contact_phone ||
-    dealer.sales_contact_phone ||
-    dealer.phone ||
-    null;
+    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || dealer.phone || null;
   const primaryRole =
     primaryRow?.role_title ||
     (primaryRow ? tl(("area_" + primaryRow.contact_area) as keyof typeof L, lang) : tl("area_primary", lang));
@@ -1237,77 +1244,183 @@ function ContactHero({
     : undefined;
 
   const actions: HeroAction[] = [
-    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-4 w-4" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
-    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-4 w-4" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
-    { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-4 w-4" />,       href: mapsHref, disabled: !mapsHref },
-    { key: "web",      label: tl("website", lang),          icon: <Globe className="h-4 w-4" />,        href: websiteHref, disabled: !websiteHref },
-    { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-4 w-4" />,   onClick: onAddActivity },
-    { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-4 w-4" />, onClick: onAddActivity },
+    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
+    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
+    { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-5 w-5" />,       href: mapsHref, disabled: !mapsHref },
+    { key: "web",      label: tl("website", lang),          icon: <Globe className="h-5 w-5" />,        href: websiteHref, disabled: !websiteHref },
+    { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
+    { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-5 w-5" />, onClick: onAddActivity },
   ];
 
+  const initials = (primaryName || dealer.company_name || "?")
+    .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
+
+  const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
+  const langBadge = (dealer as unknown as { preferred_language?: string }).preferred_language || lang;
+
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
-        {/* Identity */}
-        <div className="flex items-start gap-4 min-w-0 flex-1">
-          <div className="w-12 h-12 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center shrink-0">
-            <Building2 className="h-6 w-6 text-[#2d5a27]" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xl md:text-2xl font-bold text-slate-900 truncate">
-              {dealer.branch_name || dealer.company_name}
-            </h2>
-            <div className="text-xs md:text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-              <span className="font-mono">#{dealer.account_number}</span>
-              <span>·</span>
-              <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-              {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
-              <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                {tl("status_active", lang)}
+    <div className="mb-4">
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+        <div className="min-w-0">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 truncate">
+            {dealer.branch_name || dealer.company_name}
+          </h2>
+          <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+            <span className="font-mono">#{dealer.account_number}</span>
+            <span>·</span>
+            <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
+            {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+            <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+              {tl("status_active", lang)}
+            </span>
+            {isBranch && mainDealer && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                <GitBranch className="h-3 w-3" /> Filial · {mainDealer.company_name}
               </span>
-            </div>
+            )}
+            {dealer.is_main_account && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                <Star className="h-3 w-3" /> Hovedkonto
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Primary contact box */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 md:min-w-[280px]">
-          <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">
-            {tl("primary_contact", lang)}
-          </div>
-          {primaryName ? (
-            <>
-              <div className="flex items-center gap-2">
-                <UserCircle2 className="h-5 w-5 text-slate-400" />
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">{primaryName}</div>
-                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasGroup && (
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
+              <button onClick={() => setScope("branch")}
+                className={`px-2.5 py-1 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                Filial
+              </button>
+              <button onClick={() => setScope("group")}
+                className={`px-2.5 py-1 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
+                Gruppe ({branchCount})
+              </button>
+            </div>
+          )}
+          {admin && (
+            <button onClick={onEdit}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold">
+              <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
+            </button>
+          )}
+          <button
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 w-8 h-8"
+            aria-label="Mere" title="Mere"
+          >
+            <span className="text-lg leading-none">⋯</span>
+          </button>
+          {budgetTotals && (
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
+              <div className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {budgetYear}</div>
+              {budgetTotals.noBudget ? (
+                <div className="text-xs text-slate-500 mt-0.5">Intet budget</div>
+              ) : (
+                <div className="text-sm font-bold text-slate-900 mt-0.5 flex items-baseline gap-1.5">
+                  <span>{Math.round(budgetTotals.ytdRealisedQty)}/{Math.round(budgetTotals.ytdBudgetQty)} stk.</span>
+                  <span className="text-xs text-emerald-700">{budgetPct}%</span>
                 </div>
-              </div>
-              <div className="mt-2 space-y-0.5 text-xs">
-                {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-slate-400" />{primaryPhone}</div>}
-                {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-slate-400" />{primaryEmail}</div>}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-amber-700">
-              <AlertCircle className="h-4 w-4" />
-              {tl("no_primary", lang)}
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-        {actions.map((a) => {
-          const base = "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold border transition";
-          const active = "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700";
-          const disabled = "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed";
-          const cls = `${base} ${a.disabled ? disabled : active}`;
-          if (a.disabled) return <button key={a.key} disabled className={cls}>{a.icon}<span>{a.label}</span></button>;
-          if (a.href) return <a key={a.key} href={a.href} target={a.key === "route" || a.key === "web" ? "_blank" : undefined} rel="noreferrer" className={cls}>{a.icon}<span>{a.label}</span></a>;
-          return <button key={a.key} onClick={a.onClick} className={cls}>{a.icon}<span>{a.label}</span></button>;
-        })}
+      {/* Hero card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-5 items-start">
+          {/* Primary contact */}
+          <div className="flex items-start gap-4 min-w-0">
+            <div className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">{tl("primary_contact", lang)}</div>
+              {primaryName ? (
+                <>
+                  <div className="text-base font-bold text-slate-900 truncate">{primaryName}</div>
+                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
+                  {dealer.portal_role && (
+                    <div className="mt-0.5 inline-block text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{dealer.portal_role}</div>
+                  )}
+                  <div className="mt-2 space-y-0.5 text-xs">
+                    {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryPhone}</div>}
+                    {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-emerald-600" />{primaryEmail}</div>}
+                  </div>
+                  <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
+                    {tl("language", lang)}: {langBadge}
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-amber-700 mt-1">
+                  <AlertCircle className="h-4 w-4" /> {tl("no_primary", lang)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Action cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {actions.map((a) => {
+              const cls = `flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-white px-2 py-3 text-center transition ${
+                a.disabled
+                  ? "border-slate-200 text-slate-300 cursor-not-allowed"
+                  : "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
+              }`;
+              const inner = (
+                <>
+                  <span className={`flex items-center justify-center w-9 h-9 rounded-lg ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
+                    {a.icon}
+                  </span>
+                  <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
+                </>
+              );
+              if (a.disabled) return <button key={a.key} disabled className={cls}>{inner}</button>;
+              if (a.href) return <a key={a.key} href={a.href} target={a.key === "route" || a.key === "web" ? "_blank" : undefined} rel="noreferrer" className={cls}>{inner}</a>;
+              return <button key={a.key} onClick={a.onClick} className={cls}>{inner}</button>;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// KpiStrip — single horizontal strip with 6 columns
+// ============================================================================
+function KpiStrip({
+  orders, quotes, pipelineValue, openLeads, monthActs, users, fmtKr,
+}: {
+  orders: number; quotes: number; pipelineValue: number;
+  openLeads: number; monthActs: number; users: number;
+  fmtKr: (n: number) => string;
+}) {
+  const cols: Array<{ key: string; label: string; value: string; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
+    { key: "orders",    label: "Ordrer",                  value: String(orders),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-emerald-100 text-emerald-700", link: { href: "/portal/crm/orders", label: "Se ordrer →" } },
+    { key: "quotes",    label: "Tilbud",                  value: String(quotes),                          icon: <FileText className="h-4 w-4" />,      tint: "bg-sky-100 text-sky-700",        link: { href: "/portal/crm/quotes", label: "Se tilbud →" } },
+    { key: "pipeline",  label: "Pipeline",                value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
+    { key: "leads",     label: "Åbne leads",              value: String(openLeads),                       icon: <TrendingUp className="h-4 w-4" />,    tint: "bg-amber-100 text-amber-700",    link: { href: "/portal/crm/leads", label: "Se leads →" } },
+    { key: "acts",      label: "Aktiviteter denne måned", value: String(monthActs),                       icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: "/portal/crm/activities", label: "Se aktiviteter →" } },
+    { key: "users",     label: "Brugere",                 value: String(users),                           icon: <CheckCircle2 className="h-4 w-4" />,  tint: "bg-slate-100 text-slate-700" },
+  ];
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
+        {cols.map((c) => (
+          <div key={c.key} className="p-4 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${c.tint}`}>{c.icon}</span>
+              <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 truncate">{c.label}</span>
+            </div>
+            <div className={`text-2xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
+            {c.link && (
+              <Link to={c.link.href} className="mt-2 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
