@@ -43,6 +43,29 @@ export interface DealerAccount {
   parent_account_number: string | null;
   is_main_account: boolean;
   branch_name: string | null;
+  // Phase 52 — self-service dealer profile fields (all optional).
+  director_name: string | null;
+  invoice_email: string | null;
+  finance_contact_name: string | null;
+  finance_contact_phone: string | null;
+  finance_contact_email: string | null;
+  website: string | null;
+  social_facebook: string | null;
+  social_linkedin: string | null;
+  social_tiktok: string | null;
+  social_youtube: string | null;
+  social_instagram: string | null;
+  sales_contact_name: string | null;
+  sales_contact_phone: string | null;
+  sales_contact_email: string | null;
+  sales_has_multiple: boolean;
+  workshop_contact_name: string | null;
+  workshop_contact_phone: string | null;
+  workshop_contact_email: string | null;
+  workshop_has_multiple: boolean;
+  marketing_contact_name: string | null;
+  marketing_contact_phone: string | null;
+  marketing_contact_email: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +110,28 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     parent_account_number: (row.parent_account_number as string | null) ?? null,
     is_main_account: Boolean(row.is_main_account ?? false),
     branch_name: (row.branch_name as string | null) ?? null,
+    director_name: (row.director_name as string | null) ?? null,
+    invoice_email: (row.invoice_email as string | null) ?? null,
+    finance_contact_name: (row.finance_contact_name as string | null) ?? null,
+    finance_contact_phone: (row.finance_contact_phone as string | null) ?? null,
+    finance_contact_email: (row.finance_contact_email as string | null) ?? null,
+    website: (row.website as string | null) ?? null,
+    social_facebook: (row.social_facebook as string | null) ?? null,
+    social_linkedin: (row.social_linkedin as string | null) ?? null,
+    social_tiktok: (row.social_tiktok as string | null) ?? null,
+    social_youtube: (row.social_youtube as string | null) ?? null,
+    social_instagram: (row.social_instagram as string | null) ?? null,
+    sales_contact_name: (row.sales_contact_name as string | null) ?? null,
+    sales_contact_phone: (row.sales_contact_phone as string | null) ?? null,
+    sales_contact_email: (row.sales_contact_email as string | null) ?? null,
+    sales_has_multiple: Boolean(row.sales_has_multiple ?? false),
+    workshop_contact_name: (row.workshop_contact_name as string | null) ?? null,
+    workshop_contact_phone: (row.workshop_contact_phone as string | null) ?? null,
+    workshop_contact_email: (row.workshop_contact_email as string | null) ?? null,
+    workshop_has_multiple: Boolean(row.workshop_has_multiple ?? false),
+    marketing_contact_name: (row.marketing_contact_name as string | null) ?? null,
+    marketing_contact_phone: (row.marketing_contact_phone as string | null) ?? null,
+    marketing_contact_email: (row.marketing_contact_email as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
@@ -243,6 +288,29 @@ export interface UpdateDealerAccountPatch {
   assigned_seller_email?: string | null;
   customer_type?: string | null;
   customer_type_label?: string | null;
+  // Phase 52 — self-service profile.
+  director_name?: string | null;
+  invoice_email?: string | null;
+  finance_contact_name?: string | null;
+  finance_contact_phone?: string | null;
+  finance_contact_email?: string | null;
+  website?: string | null;
+  social_facebook?: string | null;
+  social_linkedin?: string | null;
+  social_tiktok?: string | null;
+  social_youtube?: string | null;
+  social_instagram?: string | null;
+  sales_contact_name?: string | null;
+  sales_contact_phone?: string | null;
+  sales_contact_email?: string | null;
+  sales_has_multiple?: boolean | null;
+  workshop_contact_name?: string | null;
+  workshop_contact_phone?: string | null;
+  workshop_contact_email?: string | null;
+  workshop_has_multiple?: boolean | null;
+  marketing_contact_name?: string | null;
+  marketing_contact_phone?: string | null;
+  marketing_contact_email?: string | null;
 }
 
 /**

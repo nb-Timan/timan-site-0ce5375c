@@ -5,22 +5,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Mail, Phone, MapPin, Hash, User, Save, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/components/ui/use-toast';
 
 import {
   fetchDealerAccountByNumber,
-  updateDealerAccount,
   type DealerAccount,
 } from '@/lib/dealerAccountsService';
 import {
@@ -33,6 +28,7 @@ import {
 } from '@/lib/portalFormsService';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
+import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 
 interface DealerUserRow {
   id: string;
@@ -60,26 +56,7 @@ function fmtMoney(n: number | null | undefined): string {
   catch { return String(n); }
 }
 
-const EDITABLE_FIELDS = [
-  'address', 'postal_code', 'city', 'email', 'phone',
-  'vat_number', 'primary_contact_name', 'primary_contact_email', 'primary_contact_phone',
-] as const;
-type EditableField = (typeof EDITABLE_FIELDS)[number];
-type EditableState = Record<EditableField, string>;
-
-function toEditable(d: DealerAccount | null): EditableState {
-  return {
-    address: d?.address ?? '',
-    postal_code: d?.postal_code ?? '',
-    city: d?.city ?? '',
-    email: d?.email ?? '',
-    phone: d?.phone ?? '',
-    vat_number: d?.vat_number ?? '',
-    primary_contact_name: d?.primary_contact_name ?? '',
-    primary_contact_email: d?.primary_contact_email ?? '',
-    primary_contact_phone: d?.primary_contact_phone ?? '',
-  };
-}
+// Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
@@ -93,8 +70,6 @@ export default function DealerDataPage() {
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [edit, setEdit] = useState<EditableState>(toEditable(null));
-  const [saving, setSaving] = useState(false);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const dealerNumber = appUser?.dealer_number ?? null;
@@ -132,7 +107,6 @@ export default function DealerDataPage() {
 
         if (dealerRes.error) setError(dealerRes.error);
         setDealer(dealerRes.row);
-        setEdit(toEditable(dealerRes.row));
 
         setQuotes(configsQuoteRes.rows);
         setOrders(configsOrderRes.rows);
@@ -163,29 +137,11 @@ export default function DealerDataPage() {
   // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
-  const onSave = async () => {
-    if (!dealer) return;
-    setSaving(true);
-    try {
-      const patch: Record<string, string | null> = {};
-      for (const k of EDITABLE_FIELDS) {
-        const v = edit[k].trim();
-        patch[k] = v === '' ? null : v;
-      }
-      const res = await updateDealerAccount(dealer.id, patch);
-      if (!res.ok) {
-        toast({ title: 'Kunne ikke gemme', description: res.error || 'Ukendt fejl', variant: 'destructive' });
-      } else {
-        toast({ title: 'Gemt', description: 'Kontaktinformation opdateret.' });
-        if (res.row) {
-          setDealer(res.row);
-          setEdit(toEditable(res.row));
-        }
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+  const canEditProfile = portalRole === 'timan_backend'
+    || portalRole === 'timan_dealer'
+    || portalRole === 'timan_importer'
+    || portalRole === 'timan_service_partner'
+    || portalRole === 'dealer_user';
 
   const dealerName = dealer?.company_name || appUser.company_dealer || '—';
 
@@ -263,42 +219,14 @@ export default function DealerDataPage() {
               </CardContent>
             </Card>
 
-            {/* 2) Kontaktinformation (editable) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-slate-500" /> Kontaktinformation
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-xs text-slate-500">Du kan rette adresse, e-mail, telefon, CVR/VAT og primær kontaktperson. Andre felter administreres af Timan.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <EditField id="address"  label="Adresse"      value={edit.address}     onChange={(v) => setEdit({ ...edit, address: v })} icon={<MapPin className="h-4 w-4" />} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <EditField id="postal_code" label="Postnr."   value={edit.postal_code} onChange={(v) => setEdit({ ...edit, postal_code: v })} />
-                    <EditField id="city"        label="By"        value={edit.city}        onChange={(v) => setEdit({ ...edit, city: v })} />
-                  </div>
-                  <EditField id="email"    label="E-mail"       value={edit.email}       onChange={(v) => setEdit({ ...edit, email: v })} type="email" icon={<Mail className="h-4 w-4" />} />
-                  <EditField id="phone"    label="Telefon"      value={edit.phone}       onChange={(v) => setEdit({ ...edit, phone: v })} icon={<Phone className="h-4 w-4" />} />
-                  <EditField id="vat_number" label="CVR / VAT"  value={edit.vat_number}  onChange={(v) => setEdit({ ...edit, vat_number: v })} />
-                </div>
+            {/* 2) Dealer profile (Phase 52 — self-service) */}
+            <DealerProfileEditor
+              dealer={dealer}
+              language={lang}
+              canEdit={canEditProfile}
+              onUpdated={(next) => setDealer(next)}
+            />
 
-                <div className="pt-2">
-                  <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2"><User className="h-4 w-4" /> Primær kontaktperson</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <EditField id="primary_contact_name"  label="Navn"    value={edit.primary_contact_name}  onChange={(v) => setEdit({ ...edit, primary_contact_name: v })} />
-                    <EditField id="primary_contact_email" label="E-mail"  value={edit.primary_contact_email} onChange={(v) => setEdit({ ...edit, primary_contact_email: v })} type="email" />
-                    <EditField id="primary_contact_phone" label="Telefon" value={edit.primary_contact_phone} onChange={(v) => setEdit({ ...edit, primary_contact_phone: v })} />
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button onClick={onSave} disabled={saving}>
-                    <Save className="h-4 w-4 mr-2" /> {saving ? 'Gemmer…' : 'Gem ændringer'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* 3) Tilknyttede brugere */}
             <Card>
@@ -437,25 +365,6 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EditField({
-  id, label, value, onChange, type = 'text', icon,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-        {icon}{label}
-      </Label>
-      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
 
 function DocsTable({
   title, icon, rows, numberKey, showStatus,
