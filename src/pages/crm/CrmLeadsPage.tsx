@@ -248,10 +248,12 @@ export default function CrmLeadsPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [tab, setTab] = useState<TabKey>(isAdmin ? 'all' : 'mine');
-  const [q, setQ] = useState('');
+  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : (isAdmin ? 'all' : 'mine'));
+  const [q, setQ] = useState(dealerParam);
   const [stage, setStage] = useState<string>('');
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
+
+  useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
   const refreshLeads = async () => {
     const openAll = await listLeads({});
