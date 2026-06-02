@@ -365,25 +365,6 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EditField({
-  id, label, value, onChange, type = 'text', icon,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-        {icon}{label}
-      </Label>
-      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
 
 function DocsTable({
   title, icon, rows, numberKey, showStatus,
