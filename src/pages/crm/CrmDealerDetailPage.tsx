@@ -108,6 +108,43 @@ const T = {
 };
 const t = (k: keyof typeof T) => T[k].da;
 
+/** New multilang strings for redesigned dealer detail. */
+const L: Record<string, Record<Language, string>> = {
+  primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
+  no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
+  call:             { da: "Ring", en: "Call", de: "Anrufen", it: "Chiama", hu: "Hívás" },
+  send_mail:        { da: "Send mail", en: "Email", de: "E-Mail", it: "Email", hu: "Email" },
+  directions:       { da: "Rutevejledning", en: "Directions", de: "Route", it: "Indicazioni", hu: "Útvonal" },
+  website:          { da: "Hjemmeside", en: "Website", de: "Webseite", it: "Sito web", hu: "Weboldal" },
+  new_activity:     { da: "Opret aktivitet", en: "New activity", de: "Aktivität anlegen", it: "Nuova attività", hu: "Új tevékenység" },
+  schedule_meeting: { da: "Planlæg møde", en: "Schedule meeting", de: "Termin planen", it: "Pianifica riunione", hu: "Találkozó ütemezése" },
+  tab_overview:     { da: "Overblik", en: "Overview", de: "Übersicht", it: "Panoramica", hu: "Áttekintés" },
+  tab_contacts:     { da: "Kontakter", en: "Contacts", de: "Kontakte", it: "Contatti", hu: "Kapcsolatok" },
+  tab_activities:   { da: "Aktiviteter", en: "Activities", de: "Aktivitäten", it: "Attività", hu: "Tevékenységek" },
+  tab_notes:        { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek" },
+  tab_documents:    { da: "Dokumenter", en: "Documents", de: "Dokumente", it: "Documenti", hu: "Dokumentumok" },
+  tab_company:      { da: "Firmaoplysninger", en: "Company info", de: "Firmendaten", it: "Dati azienda", hu: "Cégadatok" },
+  no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
+  role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
+  phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
+  mobile:           { da: "Mobil", en: "Mobile", de: "Mobil", it: "Cellulare", hu: "Mobil" },
+  email:            { da: "E-mail", en: "Email", de: "E-Mail", it: "Email", hu: "Email" },
+  language:         { da: "Sprog", en: "Language", de: "Sprache", it: "Lingua", hu: "Nyelv" },
+  status_active:    { da: "Aktiv", en: "Active", de: "Aktiv", it: "Attivo", hu: "Aktív" },
+  area_sales:       { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés" },
+  area_workshop:    { da: "Værksted", en: "Workshop", de: "Werkstatt", it: "Officina", hu: "Műhely" },
+  area_parts:       { da: "Reservedele", en: "Parts", de: "Ersatzteile", it: "Ricambi", hu: "Alkatrész" },
+  area_marketing:   { da: "Marketing", en: "Marketing", de: "Marketing", it: "Marketing", hu: "Marketing" },
+  area_finance:     { da: "Økonomi", en: "Finance", de: "Finanzen", it: "Finanza", hu: "Pénzügy" },
+  area_primary:     { da: "Primær", en: "Primary", de: "Hauptkontakt", it: "Principale", hu: "Elsődleges" },
+  company_details:  { da: "Virksomhedsoplysninger", en: "Company details", de: "Firmendaten", it: "Dettagli azienda", hu: "Cégadatok" },
+  recent_activities:{ da: "Seneste aktiviteter", en: "Recent activities", de: "Letzte Aktivitäten", it: "Attività recenti", hu: "Legutóbbi tevékenységek" },
+  recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
+  none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
+};
+const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
+
+
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",
   follow_up: "Opfølgning", demo: "Demo", offer: "Tilbud", service: "Service",
