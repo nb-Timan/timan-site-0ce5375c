@@ -8,6 +8,7 @@
  */
 import { Badge } from "@/components/ui/badge";
 import type { DealerContact } from "@/lib/dealerContactsService";
+import type { Language } from "@/types/configurator";
 
 /** Generic portal user shape — accepts either BackendUser or the lightweight
  *  shape used by DealerDataPage. Pass what you have; missing fields → "—".
@@ -32,6 +33,7 @@ export interface PortalUserLike {
 interface Props {
   portalUsers: PortalUserLike[];
   contacts: DealerContact[];
+  language?: Language;
 }
 
 interface Row {
@@ -48,36 +50,57 @@ interface Row {
   language: string;
 }
 
-const AREA_LABEL: Record<string, string> = {
-  sales: "Salg",
-  workshop: "Værksted",
-  parts: "Reservedele",
-  marketing: "Marketing",
-  finance: "Økonomi",
+const LOCALE_MAP: Record<Language, string> = {
+  da: "da-DK", en: "en-GB", de: "de-DE", it: "it-IT", hu: "hu-HU",
 };
 
-function fmtDate(s: string | null | undefined): string {
+const I18N = {
+  area: {
+    sales:     { da: "Salg",       en: "Sales",      de: "Vertrieb",   it: "Vendite",   hu: "Értékesítés" },
+    workshop:  { da: "Værksted",   en: "Workshop",   de: "Werkstatt",  it: "Officina",  hu: "Szerviz" },
+    parts:     { da: "Reservedele",en: "Spare parts",de: "Ersatzteile",it: "Ricambi",   hu: "Alkatrész" },
+    marketing: { da: "Marketing",  en: "Marketing",  de: "Marketing",  it: "Marketing", hu: "Marketing" },
+    finance:   { da: "Økonomi",    en: "Finance",    de: "Buchhaltung",it: "Amministrazione", hu: "Pénzügy" },
+  },
+  active:   { da: "Aktiv",  en: "Active",  de: "Aktiv",     it: "Attivo",   hu: "Aktív" },
+  pending:  { da: "Afventer", en: "Pending", de: "Ausstehend", it: "In attesa", hu: "Függőben" },
+  blocked:  { da: "Spærret", en: "Blocked", de: "Gesperrt",  it: "Bloccato", hu: "Zárolva" },
+  primary:  { da: "Primær kontakt", en: "Primary contact", de: "Hauptkontakt", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
+  contact:  { da: "Kontaktperson",  en: "Contact",         de: "Kontaktperson", it: "Contatto",          hu: "Kapcsolattartó" },
+  primaryBadge: { da: "Primær", en: "Primary", de: "Haupt", it: "Principale", hu: "Elsődleges" },
+  empty:    { da: "Ingen brugere eller kontaktpersoner registreret.", en: "No users or contacts registered.", de: "Keine Benutzer oder Kontakte registriert.", it: "Nessun utente o contatto registrato.", hu: "Nincs regisztrált felhasználó vagy kapcsolattartó." },
+  hContact: { da: "Kontaktperson", en: "Contact",        de: "Kontaktperson", it: "Contatto",        hu: "Kapcsolattartó" },
+  hEmail:   { da: "E-mail",        en: "E-mail",         de: "E-Mail",        it: "E-mail",          hu: "E-mail" },
+  hRole:    { da: "Rolle / område", en: "Role / area",   de: "Rolle / Bereich", it: "Ruolo / area",  hu: "Szerep / terület" },
+  hPhone:   { da: "Telefon",       en: "Phone",          de: "Telefon",       it: "Telefono",        hu: "Telefon" },
+  hStatus:  { da: "Status",        en: "Status",         de: "Status",        it: "Stato",           hu: "Állapot" },
+  hLogin:   { da: "Sidste login",  en: "Last login",     de: "Letzter Login", it: "Ultimo accesso",  hu: "Utolsó belépés" },
+  hLang:    { da: "Sprog",         en: "Language",       de: "Sprache",       it: "Lingua",          hu: "Nyelv" },
+} as const;
+
+function fmtDate(s: string | null | undefined, lang: Language): string {
   if (!s) return "—";
-  try { return new Date(s).toLocaleDateString("da-DK"); } catch { return "—"; }
+  try { return new Date(s).toLocaleDateString(LOCALE_MAP[lang]); } catch { return "—"; }
 }
 
-function userStatus(u: PortalUserLike): { label: string; tone: Row["statusTone"] } {
+function userStatus(u: PortalUserLike, lang: Language): { label: string; tone: Row["statusTone"] } {
   const s = (u.status || "").toLowerCase();
   if (s === "active" || (u.approved !== false && u.is_active !== false && !s))
-    return { label: "Aktiv", tone: "ok" };
-  if (s === "pending" || u.approved === false) return { label: "Afventer", tone: "warn" };
-  if (s === "blocked" || u.is_active === false) return { label: "Spærret", tone: "no" };
+    return { label: I18N.active[lang], tone: "ok" };
+  if (s === "pending" || u.approved === false) return { label: I18N.pending[lang], tone: "warn" };
+  if (s === "blocked" || u.is_active === false) return { label: I18N.blocked[lang], tone: "no" };
   return { label: s || "—", tone: "muted" };
 }
 
-export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
+export default function RegisteredUsersTable({ portalUsers, contacts, language = "da" }: Props) {
+  const lang: Language = language;
   const rows: Row[] = [];
   const emailIndex = new Map<string, number>();
 
   for (const u of portalUsers) {
     const email = (u.email || "").trim();
     const lower = email.toLowerCase();
-    const st = userStatus(u);
+    const st = userStatus(u, lang);
     const r: Row = {
       key: `u:${u.id}`,
       name: u.full_name || u.name || "—",
@@ -88,7 +111,7 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
       statusLabel: st.label,
       statusTone: st.tone,
       isPrimary: false,
-      lastLogin: fmtDate(u.last_login ?? u.last_login_at ?? null),
+      lastLogin: fmtDate(u.last_login ?? u.last_login_at ?? null, lang),
       language: (u.preferred_language || u.language || "").toUpperCase() || "—",
     };
     rows.push(r);
@@ -98,12 +121,14 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
   for (const c of contacts) {
     const email = (c.email || "").trim();
     const lower = email.toLowerCase();
+    const areaLabel = c.contact_area
+      ? (I18N.area as Record<string, Record<Language, string>>)[c.contact_area]?.[lang] ?? c.contact_area
+      : null;
     if (lower && emailIndex.has(lower)) {
-      // Merge into existing portal-user row
       const idx = emailIndex.get(lower)!;
       const r = rows[idx];
       if (r.phone === "—" && c.phone) r.phone = c.phone;
-      if (!r.area && c.contact_area) r.area = AREA_LABEL[c.contact_area] ?? c.contact_area;
+      if (!r.area && areaLabel) r.area = areaLabel;
       if (c.is_primary) r.isPrimary = true;
       if (r.name === "—" && c.name) r.name = c.name;
       continue;
@@ -113,9 +138,9 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
       name: c.name || "—",
       email: email || "—",
       role: c.role_title || "—",
-      area: AREA_LABEL[c.contact_area] ?? c.contact_area,
+      area: areaLabel,
       phone: c.phone || "—",
-      statusLabel: c.is_primary ? "Primær kontakt" : "Kontaktperson",
+      statusLabel: c.is_primary ? I18N.primary[lang] : I18N.contact[lang],
       statusTone: c.is_primary ? "warn" : "muted",
       isPrimary: c.is_primary,
       lastLogin: "—",
@@ -126,7 +151,7 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
   }
 
   if (rows.length === 0) {
-    return <p className="text-sm text-slate-500">Ingen brugere eller kontaktpersoner registreret.</p>;
+    return <p className="text-sm text-slate-500">{I18N.empty[lang]}</p>;
   }
 
   return (
@@ -134,13 +159,13 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
       <table className="w-full text-sm">
         <thead className="text-left text-xs uppercase text-slate-500 border-b">
           <tr>
-            <th className="py-2 pr-4">Kontaktperson</th>
-            <th className="py-2 pr-4">E-mail</th>
-            <th className="py-2 pr-4">Rolle / område</th>
-            <th className="py-2 pr-4">Telefon</th>
-            <th className="py-2 pr-4">Status</th>
-            <th className="py-2 pr-4 whitespace-nowrap">Sidste login</th>
-            <th className="py-2 pr-4">Sprog</th>
+            <th className="py-2 pr-4">{I18N.hContact[lang]}</th>
+            <th className="py-2 pr-4">{I18N.hEmail[lang]}</th>
+            <th className="py-2 pr-4">{I18N.hRole[lang]}</th>
+            <th className="py-2 pr-4">{I18N.hPhone[lang]}</th>
+            <th className="py-2 pr-4">{I18N.hStatus[lang]}</th>
+            <th className="py-2 pr-4 whitespace-nowrap">{I18N.hLogin[lang]}</th>
+            <th className="py-2 pr-4">{I18N.hLang[lang]}</th>
           </tr>
         </thead>
         <tbody>
@@ -149,7 +174,7 @@ export default function RegisteredUsersTable({ portalUsers, contacts }: Props) {
               <td className="py-2 pr-4 font-medium text-slate-900">
                 {r.name}
                 {r.isPrimary && (
-                  <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Primær</Badge>
+                  <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">{I18N.primaryBadge[lang]}</Badge>
                 )}
               </td>
               <td className="py-2 pr-4">
