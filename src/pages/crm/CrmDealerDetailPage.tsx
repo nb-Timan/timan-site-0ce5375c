@@ -560,7 +560,9 @@ export default function CrmDealerDetailPage() {
               monthActs={monthActsCount}
               users={linkedUsers.length}
               fmtKr={fmtKr}
+              dealerAccountNumber={dealer.account_number || ""}
             />
+
           </>
         );
       })()}
