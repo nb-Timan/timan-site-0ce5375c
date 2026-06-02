@@ -586,6 +586,7 @@ export default function CrmDealerDetailPage() {
               openDemos={openDemos.length}
               monthActs={monthActsCount}
               fmtKr={fmtKr}
+              dealerName={dealer.branch_name || dealer.company_name || ""}
             />
 
 
