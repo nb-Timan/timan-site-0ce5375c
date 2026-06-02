@@ -20,15 +20,16 @@ import {
   PortalRole,
 } from "@/lib/portalAccess";
 import type { ModuleAccessKey } from "@/lib/portalAccess";
+import type { AppUser } from "@/data/appUsers";
 
-type UserLike = {
-  module_access?: string[] | null;
-  permissions?: Record<string, boolean> | null;
-  portal_role?: string | null;
-  role?: string | null;
-  partner_type?: string | null;
-  email?: string | null;
-} | null;
+type UserLike =
+  | (Pick<AppUser, "role" | "partner_type"> & {
+      module_access?: string[] | null;
+      permissions?: Record<string, boolean> | null;
+      portal_role?: string | null;
+      email?: string | null;
+    })
+  | null;
 
 const TSB_INTERNAL_ROLES: PortalRole[] = ["timan_backend", "timan_service", "timan_seller"];
 
