@@ -70,8 +70,6 @@ export default function DealerDataPage() {
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [edit, setEdit] = useState<EditableState>(toEditable(null));
-  const [saving, setSaving] = useState(false);
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const dealerNumber = appUser?.dealer_number ?? null;
@@ -109,7 +107,6 @@ export default function DealerDataPage() {
 
         if (dealerRes.error) setError(dealerRes.error);
         setDealer(dealerRes.row);
-        setEdit(toEditable(dealerRes.row));
 
         setQuotes(configsQuoteRes.rows);
         setOrders(configsOrderRes.rows);
@@ -140,29 +137,11 @@ export default function DealerDataPage() {
   // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
-  const onSave = async () => {
-    if (!dealer) return;
-    setSaving(true);
-    try {
-      const patch: Record<string, string | null> = {};
-      for (const k of EDITABLE_FIELDS) {
-        const v = edit[k].trim();
-        patch[k] = v === '' ? null : v;
-      }
-      const res = await updateDealerAccount(dealer.id, patch);
-      if (!res.ok) {
-        toast({ title: 'Kunne ikke gemme', description: res.error || 'Ukendt fejl', variant: 'destructive' });
-      } else {
-        toast({ title: 'Gemt', description: 'Kontaktinformation opdateret.' });
-        if (res.row) {
-          setDealer(res.row);
-          setEdit(toEditable(res.row));
-        }
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+  const canEditProfile = portalRole === 'timan_backend'
+    || portalRole === 'timan_dealer'
+    || portalRole === 'timan_importer'
+    || portalRole === 'timan_service_partner'
+    || portalRole === 'dealer_user';
 
   const dealerName = dealer?.company_name || appUser.company_dealer || '—';
 
