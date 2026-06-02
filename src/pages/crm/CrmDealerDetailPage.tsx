@@ -306,6 +306,14 @@ export default function CrmDealerDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealer?.id, scope, branchNumbers.join(",")]);
 
+  // Load extra dealer_contacts (sales/workshop/parts/marketing/finance).
+  useEffect(() => {
+    if (!dealer?.id) { setDealerContacts([]); return; }
+    let cancelled = false;
+    listDealerContacts(dealer.id).then((rows) => { if (!cancelled) setDealerContacts(rows); });
+    return () => { cancelled = true; };
+  }, [dealer?.id]);
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canAccess) return <Navigate to="/portal" replace />;
