@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Map } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
@@ -22,6 +22,15 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Belső űrlapok küldése a Timannak — pl. budget visszajelzés, számla elfogadás és kapcsolati adatok.',
   },
   formsCta: { da: 'Åbn formularer →', en: 'Open forms →', de: 'Formulare öffnen →', it: 'Apri moduli →', hu: 'Űrlapok megnyitása →' },
+  mapTitle: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
+  mapDesc: {
+    da: 'Globalt overblik over Timans partnere — forhandlere, servicepartnere, importører og demo-lokationer.',
+    en: 'Global overview of Timan partners — dealers, service partners, importers and demo locations.',
+    de: 'Globaler Überblick über Timan-Partner — Händler, Servicepartner, Importeure und Demo-Standorte.',
+    it: 'Panoramica globale dei partner Timan — rivenditori, partner di servizio, importatori e demo.',
+    hu: 'Globális áttekintés a Timan partnerekről.',
+  },
+  mapCta: { da: 'Åbn kort →', en: 'Open map →', de: 'Karte öffnen →', it: 'Apri mappa →', hu: 'Térkép megnyitása →' },
 };
 
 export default function MiscPage() {
@@ -42,6 +51,19 @@ export default function MiscPage() {
           <h3 className="text-xl font-bold mb-2 text-gray-900">{T.formsTitle[lang]}</h3>
           <p className="text-gray-500 text-sm mb-4">{T.formsDesc[lang]}</p>
           <span className="text-[#2d5a27] font-bold text-sm uppercase">{T.formsCta[lang]}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate('/portal/misc/partner-map')}
+          className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
+        >
+          <div className="w-12 h-12 bg-[#2d5a27] rounded-lg flex items-center justify-center text-white mb-6">
+            <Map className="h-6 w-6" />
+          </div>
+          <h3 className="text-xl font-bold mb-2 text-gray-900">{T.mapTitle[lang]}</h3>
+          <p className="text-gray-500 text-sm mb-4">{T.mapDesc[lang]}</p>
+          <span className="text-[#2d5a27] font-bold text-sm uppercase">{T.mapCta[lang]}</span>
         </button>
       </div>
     </MiscPageShell>

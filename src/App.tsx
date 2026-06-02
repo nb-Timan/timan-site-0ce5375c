@@ -62,6 +62,7 @@ import MiscFormsPage from "./pages/misc/MiscFormsPage";
 import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
 import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
 import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
+import PartnerMapPage from "./pages/misc/PartnerMapPage";
 import DealerDataPage from "./pages/portal/DealerDataPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
               <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
               <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
+              <Route path="/portal/misc/partner-map" element={<PartnerMapPage />} />
               <Route path="/portal/service/claims" element={<ClaimsPage />} />
               <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
               <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
