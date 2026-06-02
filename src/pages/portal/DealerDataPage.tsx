@@ -219,42 +219,14 @@ export default function DealerDataPage() {
               </CardContent>
             </Card>
 
-            {/* 2) Kontaktinformation (editable) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-slate-500" /> Kontaktinformation
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-xs text-slate-500">Du kan rette adresse, e-mail, telefon, CVR/VAT og primær kontaktperson. Andre felter administreres af Timan.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <EditField id="address"  label="Adresse"      value={edit.address}     onChange={(v) => setEdit({ ...edit, address: v })} icon={<MapPin className="h-4 w-4" />} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <EditField id="postal_code" label="Postnr."   value={edit.postal_code} onChange={(v) => setEdit({ ...edit, postal_code: v })} />
-                    <EditField id="city"        label="By"        value={edit.city}        onChange={(v) => setEdit({ ...edit, city: v })} />
-                  </div>
-                  <EditField id="email"    label="E-mail"       value={edit.email}       onChange={(v) => setEdit({ ...edit, email: v })} type="email" icon={<Mail className="h-4 w-4" />} />
-                  <EditField id="phone"    label="Telefon"      value={edit.phone}       onChange={(v) => setEdit({ ...edit, phone: v })} icon={<Phone className="h-4 w-4" />} />
-                  <EditField id="vat_number" label="CVR / VAT"  value={edit.vat_number}  onChange={(v) => setEdit({ ...edit, vat_number: v })} />
-                </div>
+            {/* 2) Dealer profile (Phase 52 — self-service) */}
+            <DealerProfileEditor
+              dealer={dealer}
+              language={lang}
+              canEdit={canEditProfile}
+              onUpdated={(next) => setDealer(next)}
+            />
 
-                <div className="pt-2">
-                  <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2"><User className="h-4 w-4" /> Primær kontaktperson</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <EditField id="primary_contact_name"  label="Navn"    value={edit.primary_contact_name}  onChange={(v) => setEdit({ ...edit, primary_contact_name: v })} />
-                    <EditField id="primary_contact_email" label="E-mail"  value={edit.primary_contact_email} onChange={(v) => setEdit({ ...edit, primary_contact_email: v })} type="email" />
-                    <EditField id="primary_contact_phone" label="Telefon" value={edit.primary_contact_phone} onChange={(v) => setEdit({ ...edit, primary_contact_phone: v })} />
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button onClick={onSave} disabled={saving}>
-                    <Save className="h-4 w-4 mr-2" /> {saving ? 'Gemmer…' : 'Gem ændringer'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* 3) Tilknyttede brugere */}
             <Card>
