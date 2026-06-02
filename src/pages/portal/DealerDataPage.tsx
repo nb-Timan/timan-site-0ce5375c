@@ -308,12 +308,12 @@ export default function DealerDataPage() {
             <Card id="users" className="scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-slate-500" /> Registrerede brugere
+                  <User className="h-5 w-5 text-slate-500" /> {T.users[lang]}
                   <Badge variant="secondary" className="ml-1">{users.length + contacts.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RegisteredUsersTable portalUsers={users} contacts={contacts} />
+                <RegisteredUsersTable portalUsers={users} contacts={contacts} language={lang} />
               </CardContent>
             </Card>
 
