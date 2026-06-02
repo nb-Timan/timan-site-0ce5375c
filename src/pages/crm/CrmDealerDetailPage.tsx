@@ -1292,3 +1292,213 @@ function EditDealerModal({
     </div>
   );
 }
+
+// ============================================================================
+// ContactHero — top-of-page card for sellers on the go
+// ============================================================================
+
+interface HeroAction {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+function ContactHero({
+  dealer,
+  contacts,
+  lang,
+  onAddActivity,
+}: {
+  dealer: DealerAccount;
+  contacts: DealerContact[];
+  lang: Language;
+  onAddActivity: () => void;
+}) {
+  // Resolve primary contact: dealer_contacts.is_primary first, then
+  // dealer.primary_contact_*, then sales_contact_* fallback.
+  const primaryRow = contacts.find((c) => c.is_primary) || null;
+  const primaryName =
+    primaryRow?.name ||
+    dealer.primary_contact_name ||
+    dealer.sales_contact_name ||
+    null;
+  const primaryEmail =
+    primaryRow?.email ||
+    dealer.primary_contact_email ||
+    dealer.sales_contact_email ||
+    dealer.email ||
+    null;
+  const primaryPhone =
+    primaryRow?.phone ||
+    dealer.primary_contact_phone ||
+    dealer.sales_contact_phone ||
+    dealer.phone ||
+    null;
+  const primaryRole =
+    primaryRow?.role_title ||
+    (primaryRow ? tl(("area_" + primaryRow.contact_area) as keyof typeof L, lang) : tl("area_primary", lang));
+
+  const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
+    .filter(Boolean).join(", ");
+  const mapsHref = addressLine
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`
+    : undefined;
+  const websiteHref = dealer.website
+    ? (dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`)
+    : undefined;
+
+  const actions: HeroAction[] = [
+    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-4 w-4" />,        href: primaryPhone ? `tel:${primaryPhone}` : undefined, disabled: !primaryPhone },
+    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-4 w-4" />,         href: primaryEmail ? `mailto:${primaryEmail}` : undefined, disabled: !primaryEmail },
+    { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-4 w-4" />,       href: mapsHref, disabled: !mapsHref },
+    { key: "web",      label: tl("website", lang),          icon: <Globe className="h-4 w-4" />,        href: websiteHref, disabled: !websiteHref },
+    { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-4 w-4" />,   onClick: onAddActivity },
+    { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-4 w-4" />, onClick: onAddActivity },
+  ];
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+        {/* Identity */}
+        <div className="flex items-start gap-4 min-w-0 flex-1">
+          <div className="w-12 h-12 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center shrink-0">
+            <Building2 className="h-6 w-6 text-[#2d5a27]" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 truncate">
+              {dealer.branch_name || dealer.company_name}
+            </h2>
+            <div className="text-xs md:text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+              <span className="font-mono">#{dealer.account_number}</span>
+              <span>·</span>
+              <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
+              {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+              <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                {tl("status_active", lang)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Primary contact box */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 md:min-w-[280px]">
+          <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">
+            {tl("primary_contact", lang)}
+          </div>
+          {primaryName ? (
+            <>
+              <div className="flex items-center gap-2">
+                <UserCircle2 className="h-5 w-5 text-slate-400" />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{primaryName}</div>
+                  <div className="text-xs text-slate-500 truncate">{primaryRole}</div>
+                </div>
+              </div>
+              <div className="mt-2 space-y-0.5 text-xs">
+                {primaryPhone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-slate-400" />{primaryPhone}</div>}
+                {primaryEmail && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-slate-400" />{primaryEmail}</div>}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-amber-700">
+              <AlertCircle className="h-4 w-4" />
+              {tl("no_primary", lang)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+        {actions.map((a) => {
+          const base = "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold border transition";
+          const active = "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700";
+          const disabled = "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed";
+          const cls = `${base} ${a.disabled ? disabled : active}`;
+          if (a.disabled) return <button key={a.key} disabled className={cls}>{a.icon}<span>{a.label}</span></button>;
+          if (a.href) return <a key={a.key} href={a.href} target={a.key === "route" || a.key === "web" ? "_blank" : undefined} rel="noreferrer" className={cls}>{a.icon}<span>{a.label}</span></a>;
+          return <button key={a.key} onClick={a.onClick} className={cls}>{a.icon}<span>{a.label}</span></button>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// ContactsList — primary + dealer_accounts roles + extra dealer_contacts
+// ============================================================================
+
+interface ContactCardRow {
+  area: string;
+  name: string | null;
+  role?: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+function ContactsList({
+  dealer,
+  extraContacts,
+  lang,
+}: {
+  dealer: DealerAccount;
+  extraContacts: DealerContact[];
+  lang: Language;
+}) {
+  const rows: ContactCardRow[] = [
+    { area: tl("area_primary", lang),   name: dealer.primary_contact_name,   email: dealer.primary_contact_email,   phone: dealer.primary_contact_phone },
+    { area: tl("area_sales", lang),     name: dealer.sales_contact_name,     email: dealer.sales_contact_email,     phone: dealer.sales_contact_phone },
+    { area: tl("area_workshop", lang),  name: dealer.workshop_contact_name,  email: dealer.workshop_contact_email,  phone: dealer.workshop_contact_phone },
+    { area: tl("area_marketing", lang), name: dealer.marketing_contact_name, email: dealer.marketing_contact_email, phone: dealer.marketing_contact_phone },
+    { area: tl("area_finance", lang),   name: dealer.finance_contact_name,   email: dealer.finance_contact_email,   phone: dealer.finance_contact_phone },
+  ].filter((r) => r.name || r.email || r.phone);
+
+  for (const c of extraContacts) {
+    rows.push({
+      area: tl(("area_" + c.contact_area) as keyof typeof L, lang),
+      name: c.name,
+      role: c.role_title,
+      email: c.email,
+      phone: c.phone,
+    });
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 text-sm text-slate-500">
+        {tl("no_primary", lang)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {rows.map((r, i) => (
+        <div key={i} className="bg-white border border-slate-200 rounded-2xl p-4">
+          <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{r.area}</div>
+          <div className="flex items-center gap-2 mb-1">
+            <UserCircle2 className="h-5 w-5 text-slate-400" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-900 truncate">{r.name || "—"}</div>
+              {r.role && <div className="text-xs text-slate-500 truncate">{r.role}</div>}
+            </div>
+          </div>
+          <div className="text-xs space-y-0.5">
+            {r.phone && <div className="text-slate-700"><Phone className="inline h-3 w-3 mr-1 text-slate-400" />{r.phone}</div>}
+            {r.email && <div className="text-slate-700 truncate"><Mail className="inline h-3 w-3 mr-1 text-slate-400" />{r.email}</div>}
+          </div>
+          <div className="mt-2 flex gap-2">
+            {r.phone && <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-2 py-1 text-[11px] font-bold hover:bg-emerald-100"><Phone className="h-3 w-3" />{tl("call", lang)}</a>}
+            {r.email && <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-2 py-1 text-[11px] font-bold hover:bg-emerald-100"><Mail className="h-3 w-3" />{tl("send_mail", lang)}</a>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Suppress unused-import warning for Smartphone — kept for future mobile-specific UI.
+void Smartphone;
