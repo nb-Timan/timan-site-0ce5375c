@@ -141,8 +141,22 @@ const L: Record<string, Record<Language, string>> = {
   recent_activities:{ da: "Seneste aktiviteter", en: "Recent activities", de: "Letzte Aktivitäten", it: "Attività recenti", hu: "Legutóbbi tevékenységek" },
   recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
   none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
+  contact_info:     { da: "Kontaktinformation", en: "Contact information", de: "Kontaktinformation", it: "Informazioni di contatto", hu: "Kapcsolat" },
+  master_data:      { da: "Stamdata", en: "Master data", de: "Stammdaten", it: "Dati anagrafici", hu: "Törzsadatok" },
+  contact_person:   { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó" },
+  view_users:       { da: "Se brugere", en: "View users", de: "Benutzer anzeigen", it: "Vedi utenti", hu: "Felhasználók megtekintése" },
+  address:          { da: "Adresse", en: "Address", de: "Adresse", it: "Indirizzo", hu: "Cím" },
+  country:          { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
+  customer_type:    { da: "Forhandlertype", en: "Dealer type", de: "Händlertyp", it: "Tipo dealer", hu: "Kereskedő típus" },
+  account_number:   { da: "Kontonummer", en: "Account number", de: "Kundennr.", it: "Numero conto", hu: "Számlaszám" },
+  company_name_lbl: { da: "Firmanavn", en: "Company name", de: "Firmenname", it: "Ragione sociale", hu: "Cégnév" },
+  assigned_seller:  { da: "Tildelt Timan-sælger", en: "Assigned Timan seller", de: "Zugewiesener Timan-Verkäufer", it: "Venditore Timan assegnato", hu: "Kijelölt Timan értékesítő" },
+  created_at_lbl:   { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato il", hu: "Létrehozva" },
+  vat:              { da: "CVR/VAT", en: "VAT", de: "USt-IdNr.", it: "P.IVA", hu: "Adószám" },
+  status_lbl:       { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
 };
 const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
+
 
 
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
