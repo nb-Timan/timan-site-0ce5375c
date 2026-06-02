@@ -230,6 +230,8 @@ export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dealerParam = searchParams.get('dealer') || '';
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
 
