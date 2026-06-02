@@ -5,22 +5,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Mail, Phone, MapPin, Hash, User, Save, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/components/ui/use-toast';
 
 import {
   fetchDealerAccountByNumber,
-  updateDealerAccount,
   type DealerAccount,
 } from '@/lib/dealerAccountsService';
 import {
@@ -33,6 +28,7 @@ import {
 } from '@/lib/portalFormsService';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
+import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 
 interface DealerUserRow {
   id: string;
@@ -60,26 +56,7 @@ function fmtMoney(n: number | null | undefined): string {
   catch { return String(n); }
 }
 
-const EDITABLE_FIELDS = [
-  'address', 'postal_code', 'city', 'email', 'phone',
-  'vat_number', 'primary_contact_name', 'primary_contact_email', 'primary_contact_phone',
-] as const;
-type EditableField = (typeof EDITABLE_FIELDS)[number];
-type EditableState = Record<EditableField, string>;
-
-function toEditable(d: DealerAccount | null): EditableState {
-  return {
-    address: d?.address ?? '',
-    postal_code: d?.postal_code ?? '',
-    city: d?.city ?? '',
-    email: d?.email ?? '',
-    phone: d?.phone ?? '',
-    vat_number: d?.vat_number ?? '',
-    primary_contact_name: d?.primary_contact_name ?? '',
-    primary_contact_email: d?.primary_contact_email ?? '',
-    primary_contact_phone: d?.primary_contact_phone ?? '',
-  };
-}
+// Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
