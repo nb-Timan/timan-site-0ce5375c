@@ -64,88 +64,88 @@ const t = (
 const TEXT = {
   operationToolsTasks: (toolList: string, taskList: string): LS =>
     t(
-      `${toolList} dækker arbejdsopgaver som ${taskList} effektivt på den valgte platform.`,
-      `${toolList} efficiently covers tasks such as ${taskList} on the chosen platform.`,
+      `${toolList} dækker ${taskList} effektivt på samme platform.`,
+      `${toolList} efficiently covers ${taskList} on the same platform.`,
     ),
   operationCarrier: (carrier: string): LS =>
     t(
-      `Med ${carrier} som fælles bærer udnyttes maskinen optimalt på tværs af sæsoner.`,
-      `With ${carrier} as the shared carrier, the machine is utilized across seasons.`,
+      `${carrier} udnyttes på tværs af sæsoner.`,
+      `${carrier} is utilized across seasons.`,
     ),
   economySharedPlatform: t(
-    "Samme platform året rundt reducerer kapitalbinding og driftsomkostninger.",
-    "One platform all year reduces capital tie-up and operating costs.",
+    "Samme platform året rundt sænker kapitalbinding og driftsomkostninger.",
+    "One platform all year lowers capital tie-up and operating costs.",
   ),
   economyMultiTool: t(
-    "Flere redskaber til samme bærer giver lavere total-pris pr. opgave.",
-    "Multiple tools on the same carrier lower the total cost per task.",
+    "Flere redskaber til samme bærer giver lavere pris pr. opgave.",
+    "Multiple tools on one carrier lower the cost per task.",
   ),
   safetyTrafficLights: t(
-    "Blitzlys og synlighedsudstyr sikrer arbejde nær trafik og opfylder kravene til veje.",
-    "Flashing lights and visibility equipment enable safe work near traffic and meet road requirements.",
+    "Blitzlys sikrer arbejde nær trafik og opfylder vejkravene.",
+    "Flashing lights enable safe work near traffic and meet road requirements.",
   ),
   safetyWorkLights: t(
     "Arbejdslamper forlænger den effektive arbejdsdag i den mørke sæson.",
-    "Work lights extend the productive working day during the dark season.",
+    "Work lights extend the productive day in the dark season.",
   ),
   safetySlope: t(
-    "Spikes giver sikkert greb på stejle og våde skråninger, hvor almindelige dæk mister fodfæste.",
-    "Spikes provide secure grip on steep and wet slopes where standard tyres lose traction.",
+    "Spikes giver sikkert greb på stejle og våde skråninger.",
+    "Spikes give secure grip on steep, wet slopes.",
   ),
   safetyRemote: t(
-    "Fjernbetjent drift holder operatøren ude af risikoområdet på krævende terræn.",
-    "Remote-controlled operation keeps the operator out of the danger zone on demanding terrain.",
+    "Fjernbetjent drift holder operatøren ude af risikoområdet.",
+    "Remote-controlled operation keeps the operator out of the danger zone.",
   ),
   allYearWinter: (winterList: string): LS =>
     t(
-      `Med ${winterList} er løsningen klar til snerydning og vinterdrift uden ekstra investering.`,
-      `With ${winterList}, the solution is ready for snow clearing and winter operation without extra investment.`,
+      `${winterList} gør løsningen vinterklar uden ekstra investering.`,
+      `${winterList} makes the solution winter-ready without extra investment.`,
     ),
   allYearGreenWinter: t(
-    "Samme maskine håndterer både grøn drift og vinterdrift – ét sæt nøgler hele året.",
-    "The same machine handles both green and winter operation — one key set all year.",
+    "Samme maskine til både grøn drift og vinterdrift – ét sæt nøgler hele året.",
+    "Same machine for green and winter operation — one key set all year.",
   ),
   serviceWarranty: t(
-    "Udvidet komponentgaranti reducerer risikoen for driftsstop og styrker totaløkonomien.",
-    "Extended component warranty reduces downtime risk and strengthens total cost of ownership.",
+    "Udvidet komponentgaranti reducerer driftsstop og styrker totaløkonomien.",
+    "Extended component warranty reduces downtime and improves total economy.",
   ),
   serviceProtection: t(
-    "Rustbeskyttelse og konservering forlænger levetiden på redskaber, der arbejder i salt og vand.",
-    "Rust protection and preservation extend the lifetime of tools exposed to salt and water.",
+    "Rustbeskyttelse forlænger levetiden på redskaber, der arbejder i salt.",
+    "Rust protection extends the lifetime of tools exposed to salt.",
   ),
   flexibilityMulti: (n: number): LS =>
     t(
-      `${n} maskiner i samme løsning giver fleksibel kapacitet, når opgaverne kommer samtidigt.`,
-      `${n} machines in one solution give flexible capacity when tasks arrive at the same time.`,
+      `${n} maskiner giver fleksibel kapacitet, når opgaverne kommer samtidigt.`,
+      `${n} machines give flexible capacity when tasks arrive at once.`,
     ),
   flexibilityMultiTools: t(
-    "Hurtige redskabsskift gør det let at flytte mellem opgaver i løbet af dagen.",
-    "Quick tool changes make it easy to move between tasks during the day.",
+    "Hurtige redskabsskift gør det let at flytte mellem opgaver.",
+    "Quick tool changes make it easy to switch tasks.",
   ),
   workEnvComfort: (comfortList: string): LS =>
     t(
-      `${comfortList} gør lange arbejdsdage mere komfortable og reducerer operatørbelastningen.`,
-      `${comfortList} make long working days more comfortable and reduce operator strain.`,
+      `${comfortList} reducerer operatørbelastning på lange dage.`,
+      `${comfortList} reduce operator strain on long days.`,
     ),
   workEnvCamera: t(
-    "Bakkamera giver overblik og tryghed ved arbejde tæt på mennesker og forhindringer.",
-    "Reverse camera provides overview and confidence when working near people and obstacles.",
+    "Bakkamera giver overblik og tryghed tæt på mennesker og forhindringer.",
+    "Reverse camera adds safety near people and obstacles.",
   ),
   customerMunicipality: t(
-    "Løsningen matcher kommuners typiske helårsbehov for grøn pleje, fejning og vinterdrift.",
-    "The solution matches the typical year-round needs of municipalities for green care, sweeping and winter service.",
+    "Matcher kommuners helårsbehov: grøn pleje, fejning og vinterdrift.",
+    "Matches municipalities' year-round needs: green care, sweeping and winter service.",
   ),
   customerHighway: t(
-    "Konfigurationen er klargjort til arbejde langs trafikerede veje med synlighed og sikkerhed i fokus.",
-    "The configuration is prepared for work along trafficked roads with visibility and safety in focus.",
+    "Klargjort til arbejde langs trafikerede veje – synlighed og sikkerhed i fokus.",
+    "Prepared for trafficked roads — visibility and safety in focus.",
   ),
   customerLandscape: t(
-    "Velegnet til anlægsgartnere, der har brug for samme bærer til mange forskellige opgaver.",
-    "Well suited for landscapers needing one carrier for many different tasks.",
+    "Velegnet til anlægsgartnere: én bærer til mange opgaver.",
+    "Well suited for landscapers: one carrier for many tasks.",
   ),
   customerFacility: t(
-    "Klar til ejendomsservice med fokus på fejning, snerydning og pladsvedligehold året rundt.",
-    "Ready for facility management focused on sweeping, snow clearing and year-round site upkeep.",
+    "Klar til ejendomsservice: fejning, snerydning og pladsvedligehold året rundt.",
+    "Ready for facility management: sweeping, snow clearing and site upkeep all year.",
   ),
 };
 
