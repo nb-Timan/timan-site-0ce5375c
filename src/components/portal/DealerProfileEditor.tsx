@@ -114,7 +114,7 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
       <CardContent className="space-y-4 flex-1 flex flex-col">
         {children}
         {canEdit && (
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-auto pt-2">
             <Button size="sm" onClick={onSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {saving ? t("saving") : t("save")}
