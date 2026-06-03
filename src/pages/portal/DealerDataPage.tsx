@@ -259,11 +259,24 @@ export default function DealerDataPage() {
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
             <Building2 className="h-7 w-7 text-blue-600" />
           </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{T.pageTitle[lang]}</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{T.pageTitle[lang]}</h1>
+              {dealer?.is_blocked && (
+                <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-bold text-white">
+                  {T.blocked[lang]}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-600">{T.pageSubtitle[lang]}</p>
           </div>
         </div>
+
+        {dealer?.is_blocked && (
+          <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900 font-medium">
+            Denne forhandlerkonto er deaktiveret i portalen.
+          </div>
+        )}
 
         {!dealerNumber && (
           <Card>
@@ -300,7 +313,7 @@ export default function DealerDataPage() {
                 <Field label={T.dealerType[lang]} value={dealer.customer_type_label || dealer.customer_type || '—'} />
                 <Field label={T.country[lang]} value={dealer.country || '—'} />
                 <Field label={T.seller[lang]} value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
-                <Field label={T.status[lang]} value={dealer.is_blocked ? T.blocked[lang] : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
+                <Field label={T.status[lang]} value={dealer.is_blocked ? (<Badge className="bg-rose-600 hover:bg-rose-600 text-white">{T.blocked[lang]}</Badge>) : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
               </CardContent>
             </Card>
 
