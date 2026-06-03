@@ -248,6 +248,8 @@ export default function PartnerMapPage() {
         users: st?.user_count ?? 0,
         quotes: st?.quote_count ?? 0,
         orders: st?.order_count ?? 0,
+        phone: d.primary_contact_phone ?? d.phone ?? null,
+        email: d.primary_contact_email ?? d.email ?? null,
       } as Partner;
     }), [dealers, stats]);
 
