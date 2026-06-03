@@ -42,10 +42,12 @@ export interface SharePointRealSyncHandle {
 interface Props {
   compact?: boolean;
   onSynced?: () => void;
+  /** When true, the component does not render its own trigger button. */
+  hideTrigger?: boolean;
 }
 
 const SharePointRealSyncButton = forwardRef<SharePointRealSyncHandle, Props>(function SharePointRealSyncButton(
-  { compact, onSynced }: Props,
+  { compact, onSynced, hideTrigger }: Props,
   ref,
 ) {
   const { appUser } = useAppUser();
