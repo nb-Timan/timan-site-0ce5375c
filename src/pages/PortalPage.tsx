@@ -154,6 +154,9 @@ export default function PortalPage() {
   }
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
+  const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
+
+
 
 
   return (
