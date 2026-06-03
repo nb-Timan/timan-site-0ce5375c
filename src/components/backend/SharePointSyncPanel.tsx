@@ -3,11 +3,11 @@
  * /portal/backend/dealer-accounts. Visible only to portal_role
  * 'timan_backend'.
  *
- * Layout principle:
+ * Principles:
  *  - Header always shows the latest REAL sync (read from
  *    sharepoint_sync_logs where dry_run = false).
- *  - Toolbar exposes three actions: Verificér, Dry-run, Synkroniser nu.
- *  - Verify result may appear briefly below the toolbar and can be cleared.
+ *  - Toolbar has three actions: Verificér, Dry-run, Synkroniser nu.
+ *  - Verify result may appear briefly under the toolbar and can be cleared.
  *  - Dry-run result is shown in a modal and is NOT persisted — closing the
  *    modal discards it.
  *  - Real sync result is reflected by refreshing the latest sync log.
@@ -16,10 +16,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloudCog, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
-import SharePointVerifyButton from "./SharePointVerifyButton";
+import SharePointVerifyButton, { type SharePointVerifyHandle } from "./SharePointVerifyButton";
 import SharePointDryRunButton from "./SharePointDryRunButton";
 import SharePointRealSyncButton, { type SharePointRealSyncHandle } from "./SharePointRealSyncButton";
 
@@ -46,6 +46,8 @@ export default function SharePointSyncPanel() {
   const { appUser } = useAppUser();
   const [latest, setLatest] = useState<SyncLogRow | null>(null);
   const [loadingLog, setLoadingLog] = useState(true);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const verifyRef = useRef<SharePointVerifyHandle>(null);
   const realSyncRef = useRef<SharePointRealSyncHandle>(null);
 
   const loadLatest = useCallback(async () => {
@@ -68,6 +70,14 @@ export default function SharePointSyncPanel() {
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
   const hasError = !!latest?.error;
+
+  function startVerify() {
+    setVerifyBusy(true);
+    verifyRef.current?.start();
+    // Reset spinner shortly after — actual busy state lives inside the verify
+    // component, but the panel button only needs a brief visual hint.
+    setTimeout(() => setVerifyBusy(false), 600);
+  }
 
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -104,25 +114,39 @@ export default function SharePointSyncPanel() {
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* Toolbar — 3 buttons in a row */}
       <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-slate-100">
-        <SharePointVerifyButton compact />
+        <button
+          type="button"
+          onClick={startVerify}
+          disabled={verifyBusy}
+          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+          title="Sammenligner SharePoint og portal-data. Skriver intet."
+        >
+          {verifyBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+          Verificér
+        </button>
+
         <SharePointDryRunButton
           compact
           onRequestRealSync={() => realSyncRef.current?.start()}
         />
+
         <SharePointRealSyncButton
           ref={realSyncRef}
           compact
           onSynced={() => void loadLatest()}
         />
+
         <span className="ml-auto text-[11px] text-slate-500">
           Kun rigtig sync gemmes som historik. Dry-run vises kun midlertidigt.
         </span>
       </div>
 
-      {/* Temporary verify result mounts here via SharePointVerifyButton above
-          (its result/error UI is rendered inline next to its trigger). */}
+      {/* Verify result (temporary, full-width, can be cleared) */}
+      <div className="px-4 py-3">
+        <SharePointVerifyButton ref={verifyRef} resultOnly />
+      </div>
     </div>
   );
 }
