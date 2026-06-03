@@ -35,6 +35,34 @@ export interface DealerProfileBadge {
   label: string;
 }
 
+export const DEALER_PROFILE_SECTION_LABELS = [
+  "Firma information",
+  "Økonomi",
+  "Medier",
+  "Salg",
+  "Værksted",
+  "Brugere/Kontakter",
+] as const;
+
+export function computeDealerProfileSections(
+  dealer: DealerAccount | null,
+  peopleCount: number,
+): boolean[] {
+  if (!dealer) return [false, false, false, false, false, false];
+  return [
+    [
+      dealer.company_name, dealer.address, dealer.postal_code, dealer.city,
+      dealer.country, dealer.vat_number, dealer.director_name,
+      dealer.phone, dealer.email,
+    ].every(isFilled),
+    [dealer.finance_contact_name, dealer.finance_contact_email, dealer.invoice_email].every(isFilled),
+    [dealer.website].every(isFilled),
+    [dealer.sales_contact_name, dealer.sales_contact_email].every(isFilled),
+    [dealer.workshop_contact_name, dealer.workshop_contact_email].every(isFilled),
+    peopleCount > 0,
+  ];
+}
+
 export function computeDealerProfileBadge(
   dealer: DealerAccount | null,
   peopleCount: number,
@@ -42,29 +70,21 @@ export function computeDealerProfileBadge(
   if (!dealer) {
     return { total: 6, missing: 6, tone: "neutral", label: "Ikke udfyldt" };
   }
-  const sections: boolean[] = [
-    // 1. Firma
-    [
-      dealer.company_name, dealer.address, dealer.postal_code, dealer.city,
-      dealer.country, dealer.vat_number, dealer.director_name,
-      dealer.phone, dealer.email,
-    ].every(isFilled),
-    // 2. Økonomi
-    [dealer.finance_contact_name, dealer.finance_contact_email, dealer.invoice_email].every(isFilled),
-    // 3. Medier
-    [dealer.website].every(isFilled),
-    // 4. Salg
-    [dealer.sales_contact_name, dealer.sales_contact_email].every(isFilled),
-    // 5. Service / Værksted
-    [dealer.workshop_contact_name, dealer.workshop_contact_email].every(isFilled),
-    // 6. Brugere / Kontakter
-    peopleCount > 0,
-  ];
+  const sections = computeDealerProfileSections(dealer, peopleCount);
   const missing = sections.filter((c) => !c).length;
   const tone: BadgeTone = missing === 0 ? "green" : missing <= 2 ? "yellow" : "red";
   const label = missing === 0 ? "Komplet" : `Mangler ${missing} af 6`;
   return { total: 6, missing, tone, label };
 }
+
+export function getDealerProfileMissingLabels(
+  dealer: DealerAccount | null,
+  peopleCount: number,
+): string[] {
+  const sections = computeDealerProfileSections(dealer, peopleCount);
+  return DEALER_PROFILE_SECTION_LABELS.filter((_, i) => !sections[i]);
+}
+
 
 /**
  * Hook: fetches dealer + headcount for the given dealer_number and returns
