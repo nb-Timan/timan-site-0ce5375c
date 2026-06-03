@@ -221,4 +221,6 @@ const SharePointDryRunButton = forwardRef<SharePointDryRunHandle, Props>(functio
       )}
     </>
   );
-}
+});
+
+export default SharePointDryRunButton;
