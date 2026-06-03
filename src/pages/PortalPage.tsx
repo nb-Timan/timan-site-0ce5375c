@@ -52,6 +52,7 @@ export default function PortalPage() {
   }, [appUser, lang, setLanguage]);
 
   const effectiveUser = useEffectivePortalUser(appUser);
+  const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
 
   if (loading) {
     return (
@@ -154,10 +155,6 @@ export default function PortalPage() {
   }
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
-  const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
-
-
-
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
