@@ -204,11 +204,12 @@ export default function CrmMyDealersPage() {
         .toLowerCase().includes(needle)) return false;
     }
     if (profileFilter !== "all") {
-      const badge = computeDealerProfileBadge(r, dealerPeopleCount(r));
-      if (profileFilter === "complete" && badge.missing !== 0) return false;
-      if (profileFilter === "partial" && !(badge.missing >= 1 && badge.missing <= 2)) return false;
-      if (profileFilter === "critical" && badge.missing < 3) return false;
+      const sev = computeDealerProfileSeverity(r, dealerPeopleCount(r));
+      if (profileFilter === "complete" && sev !== "complete") return false;
+      if (profileFilter === "partial" && sev !== "partial") return false;
+      if (profileFilter === "critical" && sev !== "critical") return false;
     }
+
     return true;
   });
 
