@@ -54,6 +54,11 @@ import {
   classifyBudgetStatus,
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
+import {
+  computeDealerProfileBadge,
+  getDealerProfileMissingLabels,
+} from "@/lib/dealerProfileBadge";
+
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
@@ -90,6 +95,8 @@ export default function CrmMyDealersPage() {
   const [loadingRows, setLoadingRows] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [profileFilter, setProfileFilter] = useState<"all" | "complete" | "partial" | "critical">("all");
+
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
@@ -182,19 +189,33 @@ export default function CrmMyDealersPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!admin && !seller) return <Navigate to="/portal" replace />;
 
+  const dealerPeopleCount = (d: DealerAccount): number => {
+    const s = statsMap[d.id];
+    const linked = allUsers.filter((u) => u.dealer_number === d.account_number).length;
+    return Math.max(s?.user_count ?? 0, linked);
+  };
+
   const filteredDealers = dealers.filter((r) => {
-    if (!q) return true;
-    const needle = q.toLowerCase();
-    return `${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
-      .toLowerCase()
-      .includes(needle);
+    if (q) {
+      const needle = q.toLowerCase();
+      if (!`${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
+        .toLowerCase().includes(needle)) return false;
+    }
+    if (profileFilter !== "all") {
+      const badge = computeDealerProfileBadge(r, dealerPeopleCount(r));
+      if (profileFilter === "complete" && badge.missing !== 0) return false;
+      if (profileFilter === "partial" && !(badge.missing >= 1 && badge.missing <= 2)) return false;
+      if (profileFilter === "critical" && badge.missing < 3) return false;
+    }
+    return true;
   });
+
 
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers) dealersByAcct.set(d.account_number, d);
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
-  if (q) {
+  if (q || profileFilter !== "all") {
     for (const d of filteredDealers) {
       if (d.parent_account_number) {
         const parent = dealersByAcct.get(d.parent_account_number);
@@ -232,13 +253,27 @@ export default function CrmMyDealersPage() {
         </div>
       </div>
 
-      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3">
-        <div className="relative max-w-md">
+      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-3">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={T.search[lang]}
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm" />
         </div>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide">Profilstatus</span>
+          <select
+            value={profileFilter}
+            onChange={(e) => setProfileFilter(e.target.value as typeof profileFilter)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">Alle</option>
+            <option value="complete">Komplet</option>
+            <option value="partial">Mangler oplysninger</option>
+            <option value="critical">Kritisk mangelfuld</option>
+          </select>
+        </label>
       </div>
+
 
       {error && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>
@@ -388,6 +423,8 @@ function renderRow(p: RowProps) {
           <div className="flex items-center gap-2" style={{ paddingLeft: p.depth * 18 }}>
             {p.depth === 1 && <GitBranch className="h-3.5 w-3.5 text-slate-400" />}
             <span>{p.r.branch_name || p.r.company_name}</span>
+            <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
+
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
@@ -516,3 +553,33 @@ function BudgetStatusCell({
     </Td>
   );
 }
+
+function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
+  const badge = computeDealerProfileBadge(dealer, peopleCount);
+  const missingLabels = getDealerProfileMissingLabels(dealer, peopleCount);
+  const tone =
+    badge.tone === "green" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : badge.tone === "yellow" ? "bg-amber-100 text-amber-800 border-amber-200"
+    : badge.tone === "red" ? "bg-rose-100 text-rose-800 border-rose-200"
+    : "bg-slate-100 text-slate-700 border-slate-200";
+  const dot =
+    badge.tone === "green" ? "bg-emerald-500"
+    : badge.tone === "yellow" ? "bg-amber-500"
+    : badge.tone === "red" ? "bg-rose-500"
+    : "bg-slate-400";
+  const text = badge.missing === 0 ? "Komplet" : `${6 - badge.missing}/6`;
+  const title = missingLabels.length === 0
+    ? "Profil komplet"
+    : `Profil mangler:\n- ${missingLabels.join("\n- ")}`;
+  return (
+    <span
+      title={title}
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}
+    >
+      <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
+      {text}
+    </span>
+  );
+}
+
