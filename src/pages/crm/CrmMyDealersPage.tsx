@@ -304,10 +304,10 @@ export default function CrmMyDealersPage() {
           </thead>
           <tbody>
             {loadingRows && (
-              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
-              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
               const hasBranches = g.branches.length > 0;
