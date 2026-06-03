@@ -107,7 +107,7 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
     <Badge variant="secondary">{t("statusEmpty")}</Badge>
   );
   return (
-    <Card data-section={skey}>
+    <Card data-section={skey} className="h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg flex items-center gap-2">{title} {badge}</CardTitle>
       </CardHeader>
