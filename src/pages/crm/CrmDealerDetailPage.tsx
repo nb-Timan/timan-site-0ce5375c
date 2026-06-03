@@ -625,11 +625,15 @@ export default function CrmDealerDetailPage() {
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("address", lang)}:</span> {[dealer.address, dealer.postal_code, dealer.city].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
+                <li><span className="text-slate-500">{tl("address_line_1", lang)}:</span> {dealer.address_line_1 || dealer.address || "—"}</li>
+                <li><span className="text-slate-500">{tl("address_line_2", lang)}:</span> {dealer.address_line_2 || "—"}</li>
+                <li><span className="text-slate-500">{tl("postal_code", lang)}:</span> {dealer.postal_code || "—"}</li>
+                <li><span className="text-slate-500">{tl("city", lang)}:</span> {dealer.city || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
                 <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
-                <li><span className="text-slate-500">{tl("language", lang)}:</span> {(dealer as unknown as { preferred_language?: string }).preferred_language || "—"}</li>
               </ul>
             </div>
 
