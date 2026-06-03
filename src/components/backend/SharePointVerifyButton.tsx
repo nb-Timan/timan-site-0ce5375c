@@ -243,13 +243,28 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
     </div>
   );
 
-  const containerCls = resultOnly || compact
+  const hasOutput = !!(result || error);
+  const containerCls = resultOnly
+    ? (hasOutput ? "border-t border-slate-100 px-4 py-3" : "hidden")
+    : compact
     ? ""
     : "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
 
   return (
     <div className={containerCls}>
       {!resultOnly && headerNode}
+      {resultOnly && hasOutput && (
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <p className="text-xs font-bold text-slate-700">Verify-resultat (midlertidigt)</p>
+          <button
+            type="button"
+            onClick={() => { setResult(null); setError(null); }}
+            className="text-xs text-slate-500 hover:text-slate-800 underline"
+          >
+            Ryd
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 flex items-start gap-2">
