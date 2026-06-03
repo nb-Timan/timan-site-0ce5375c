@@ -56,8 +56,10 @@ import {
 } from "@/lib/crmDealerBudget";
 import {
   computeDealerProfileBadge,
+  computeDealerProfileSeverity,
   getDealerProfileMissingLabels,
 } from "@/lib/dealerProfileBadge";
+
 
 
 const T: Record<string, Record<Language, string>> = {
