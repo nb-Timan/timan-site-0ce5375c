@@ -552,6 +552,46 @@ export default function PartnerMapPage() {
                       <button onClick={() => setResultsOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
                     </div>
                     <div className="flex-1 overflow-y-auto">
+                      {/* Coverage panel */}
+                      <div className="px-3 py-2 border-b border-gray-100 bg-white">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">{T.coverage[lang]}</div>
+                        <div className="space-y-0.5">
+                          {(['europe','north_america','south_america','asia','africa','oceania'] as Continent[]).map((c) => (
+                            continentCounts[c] > 0 && (
+                              <div key={c} className="flex items-center justify-between text-[11px] text-gray-700">
+                                <span>{CONTINENT_LABEL[c][lang]}</span>
+                                <span className="font-semibold tabular-nums">{continentCounts[c]}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                        {missingEuropeCountries.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-[10px] uppercase tracking-wider text-gray-400 hover:text-gray-700">{T.noPartnerIn[lang]} ({missingEuropeCountries.length})</summary>
+                            <div className="mt-1 text-[10px] text-gray-500 leading-snug">{missingEuropeCountries.join(', ')}</div>
+                          </details>
+                        )}
+                      </div>
+
+                      {/* Countries panel */}
+                      {countryCounts.length > 0 && (
+                        <div className="px-3 py-2 border-b border-gray-100 bg-white">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">{T.countries[lang]}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {countryCounts.map(([c, n]) => (
+                              <button
+                                key={c}
+                                onClick={() => focusCountry(c)}
+                                className="px-2 py-0.5 rounded-full text-[11px] bg-gray-50 hover:bg-[#2d5a27] hover:text-white border border-gray-200 text-gray-700 transition-colors"
+                                title={c}
+                              >
+                                {c} <span className="font-semibold">{n}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {grouped.length === 0 && (
                         <div className="p-4 text-xs text-gray-500">{T.noMatches[lang]}</div>
                       )}
