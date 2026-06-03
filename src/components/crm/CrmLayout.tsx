@@ -78,9 +78,9 @@ export default function CrmLayout({ children, pageTitle }: Props) {
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8 flex-grow w-full">
         <div className="flex items-center justify-between mb-4">
-          <button type="button" onClick={() => goBackOrFallback(navigate, location)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+          <button type="button" onClick={() => navigate('/portal')} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {getPortalBackTarget(location.pathname) === '/portal/crm' ? T.back_crm[lang] : T.back[lang]}
+            {T.back[lang]}
           </button>
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
