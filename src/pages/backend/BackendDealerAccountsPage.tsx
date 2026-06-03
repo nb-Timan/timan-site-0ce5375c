@@ -592,8 +592,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
                 return next;
               })}
-              className="rounded-md p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
-              disabled={userCount === 0 && linkedUsers.length === 0}
+              className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
             >
               {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </button>
