@@ -177,63 +177,64 @@ export default function SharePointVerifyButton({ compact }: VerifyProps = {}) {
     return { rows: kept.map((x) => x.c), counts };
   }, [result, filter, search]);
 
-  if (compact) {
-    return (
-      <>
+  const headerNode = compact ? (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <button
+        type="button"
+        onClick={() => void runVerify()}
+        disabled={busy}
+        className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+        title="Sammenligner SharePoint og portal-data. Skriver intet."
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+        {busy ? "Analyserer…" : "Verificér"}
+      </button>
+      {(result || error) && (
         <button
           type="button"
-          onClick={() => void runVerify()}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
-          title="Sammenligner SharePoint og portal-data. Skriver intet."
+          onClick={() => { setResult(null); setError(null); }}
+          className="text-xs text-slate-500 hover:text-slate-800 underline"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
-          {busy ? "Analyserer…" : "Verificér"}
+          Ryd verify-resultat
         </button>
-        {(error || result) && (
-          <CompactVerifyResult
-            error={error}
-            result={result}
-            filter={filter}
-            setFilter={setFilter}
-            search={search}
-            setSearch={setSearch}
-            filteredAndCounts={filteredAndCounts}
-            onClear={() => { setResult(null); setError(null); }}
-          />
-        )}
-      </>
-    );
-  }
+      )}
+    </div>
+  ) : (
+    <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+          <ScanSearch className="h-5 w-5 text-indigo-600" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">SharePoint mapping verify (read-only)</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            SharePoint er <strong>masterdata</strong>. Visningen viser, hvad rigtig sync vil ændre i{" "}
+            <code>dealer_accounts</code>. <strong>Skriver intet</strong>.
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Match = ingen ændringer · Afviger = opdateres fra SharePoint · Findes ikke i portal = oprettes.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => void runVerify()}
+        disabled={busy}
+        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+        {busy ? "Analyserer…" : "Verificér mapping"}
+      </button>
+    </div>
+  );
+
+  const containerCls = compact
+    ? ""
+    : "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
 
   return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <ScanSearch className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">SharePoint mapping verify (read-only)</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              SharePoint er <strong>masterdata</strong>. Visningen viser, hvad rigtig sync vil ændre i{" "}
-              <code>dealer_accounts</code>. <strong>Skriver intet</strong>.
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Match = ingen ændringer · Afviger = opdateres fra SharePoint · Findes ikke i portal = oprettes.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void runVerify()}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
-          {busy ? "Analyserer…" : "Verificér mapping"}
-        </button>
-      </div>
+    <div className={containerCls}>
+      {headerNode}
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 flex items-start gap-2">
