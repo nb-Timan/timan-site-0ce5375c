@@ -553,3 +553,33 @@ function BudgetStatusCell({
     </Td>
   );
 }
+
+function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
+  const badge = computeDealerProfileBadge(dealer, peopleCount);
+  const missingLabels = getDealerProfileMissingLabels(dealer, peopleCount);
+  const tone =
+    badge.tone === "green" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : badge.tone === "yellow" ? "bg-amber-100 text-amber-800 border-amber-200"
+    : badge.tone === "red" ? "bg-rose-100 text-rose-800 border-rose-200"
+    : "bg-slate-100 text-slate-700 border-slate-200";
+  const dot =
+    badge.tone === "green" ? "bg-emerald-500"
+    : badge.tone === "yellow" ? "bg-amber-500"
+    : badge.tone === "red" ? "bg-rose-500"
+    : "bg-slate-400";
+  const text = badge.missing === 0 ? "Komplet" : `${6 - badge.missing}/6`;
+  const title = missingLabels.length === 0
+    ? "Profil komplet"
+    : `Profil mangler:\n- ${missingLabels.join("\n- ")}`;
+  return (
+    <span
+      title={title}
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}
+    >
+      <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
+      {text}
+    </span>
+  );
+}
+
