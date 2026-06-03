@@ -249,6 +249,20 @@ Deno.serve(async (req) => {
     // ======================================================================
     // VERIFY MODE — read-only side-by-side mapping check
     // ======================================================================
+    // Fields compared side-by-side and patched by sync. Keep these in sync.
+    const COMPARE_FIELDS = [
+      "account_number",
+      "company_name",
+      "dealer_type",
+      "country",
+      "address_line_1",
+      "address_line_2",
+      "zip_city_raw",
+      "postal_code",
+      "city",
+    ] as const;
+    const norm = (v: unknown) => (v == null ? "" : String(v).trim().toLowerCase());
+
     if (mode === "verify") {
       const mappedAll: MappedRow[] = [];
       for (const item of rawRows) {
@@ -257,36 +271,42 @@ Deno.serve(async (req) => {
       }
       const slice = mappedAll.slice(0, limit);
       const allAccountNumbers = mappedAll.map((r) => r.account_number);
+      const selectCols = COMPARE_FIELDS.join(", ");
 
-      // Fetch dealer_accounts for the slice (for side-by-side details)
+      // Slice details
       const sliceAccounts = slice.map((r) => r.account_number);
       const { data: daSlice, error: daErr } = await admin
         .from("dealer_accounts")
-        .select("account_number, company_name, dealer_type, country")
+        .select(selectCols)
         .in("account_number", sliceAccounts.length ? sliceAccounts : ["__none__"]);
       if (daErr) throw new Error(`Supabase read error: ${daErr.message}`);
       const daMap = new Map<string, any>();
       (daSlice ?? []).forEach((r: any) => daMap.set(r.account_number, r));
 
-      // Fetch ALL existing accounts for totals
+      // All accounts (for totals + missing_in_sharepoint)
       const { data: daAll, error: daAllErr } = await admin
         .from("dealer_accounts")
-        .select("account_number");
+        .select(selectCols);
       if (daAllErr) throw new Error(`Supabase read error: ${daAllErr.message}`);
       const daAllSet = new Set((daAll ?? []).map((r: any) => r.account_number));
+      const daFullMap = new Map<string, any>();
+      (daAll ?? []).forEach((r: any) => daFullMap.set(r.account_number, r));
       const spAllSet = new Set(allAccountNumbers);
 
-      const norm = (v: unknown) => (v == null ? "" : String(v).trim().toLowerCase());
-      const comparisons = slice.map((sp) => {
-        const da = daMap.get(sp.account_number) ?? null;
-        const fields = ["account_number", "company_name", "dealer_type", "country"] as const;
-        const fieldResults = fields.map((f) => {
+      function compareOne(sp: MappedRow, da: any | null) {
+        const fieldResults = COMPARE_FIELDS.map((f) => {
           const spVal = (sp as any)[f] ?? null;
           const daVal = da ? (da[f] ?? null) : null;
           const match = da ? norm(spVal) === norm(daVal) : false;
           return { field: f, sharepoint: spVal, dealer_accounts: daVal, match };
         });
         const allMatch = !!da && fieldResults.every((r) => r.match);
+        return { fieldResults, allMatch };
+      }
+
+      const comparisons = slice.map((sp) => {
+        const da = daMap.get(sp.account_number) ?? null;
+        const { fieldResults, allMatch } = compareOne(sp, da);
         return {
           account_number: sp.account_number,
           exists_in_dealer_accounts: !!da,
@@ -295,23 +315,15 @@ Deno.serve(async (req) => {
         };
       });
 
-      // Totals across ALL sharepoint rows (not just the slice)
+      // Totals — use SAME logic as per-row so counts always agree.
       let matches = 0;
       let mismatches = 0;
       let missing_in_dealer_accounts = 0;
-      const { data: daAllFull, error: daAllFullErr } = await admin
-        .from("dealer_accounts")
-        .select("account_number, company_name, dealer_type, country");
-      if (daAllFullErr) throw new Error(`Supabase read error: ${daAllFullErr.message}`);
-      const daFullMap = new Map<string, any>();
-      (daAllFull ?? []).forEach((r: any) => daFullMap.set(r.account_number, r));
       for (const sp of mappedAll) {
         const da = daFullMap.get(sp.account_number);
         if (!da) { missing_in_dealer_accounts++; continue; }
-        const ok = norm(sp.company_name) === norm(da.company_name)
-          && norm(sp.dealer_type) === norm(da.dealer_type)
-          && norm(sp.country) === norm(da.country);
-        if (ok) matches++; else mismatches++;
+        const { allMatch } = compareOne(sp, da);
+        if (allMatch) matches++; else mismatches++;
       }
       let missing_in_sharepoint = 0;
       for (const acc of daAllSet) if (!spAllSet.has(acc)) missing_in_sharepoint++;
