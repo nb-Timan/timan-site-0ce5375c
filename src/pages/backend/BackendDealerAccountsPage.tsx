@@ -47,6 +47,7 @@ import {
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
 import { supabase } from "@/lib/supabase";
+import SharePointDryRunButton from "@/components/backend/SharePointDryRunButton";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -233,6 +234,12 @@ export default function BackendDealerAccountsPage() {
             </button>
           </div>
         </div>
+
+        <SharePointDryRunButton />
+
+
+
+
 
         {authChecked && !hasSupabaseSession && (
           <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-900 flex items-start gap-3">
