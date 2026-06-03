@@ -333,22 +333,65 @@ Deno.serve(async (req) => {
       .in("account_number", accountNumbers.length ? accountNumbers : ["__none__"]);
     if (exErr) throw new Error(`Supabase read error: ${exErr.message}`);
     const existingSet = new Set((existing ?? []).map((r: any) => r.account_number));
-    for (const r of mapped) {
-      if (existingSet.has(r.account_number)) summary.updated++;
-      else summary.created++;
-    }
 
-    if (!dryRun && mapped.length) {
-      for (let i = 0; i < mapped.length; i += 500) {
-        const chunk = mapped.slice(i, i + 500);
-        const { error: upErr } = await admin
+    const toCreate: MappedRow[] = [];
+    const toUpdate: MappedRow[] = [];
+    for (const r of mapped) {
+      if (existingSet.has(r.account_number)) toUpdate.push(r);
+      else toCreate.push(r);
+    }
+    summary.updated = toUpdate.length;
+    summary.created = toCreate.length;
+
+    if (!dryRun) {
+      // INSERT new accounts (full record incl. defaults).
+      for (let i = 0; i < toCreate.length; i += 500) {
+        const chunk = toCreate.slice(i, i + 500);
+        const { error: insErr } = await admin
           .from("dealer_accounts")
-          .upsert(chunk, { onConflict: "account_number" });
-        if (upErr) throw new Error(`Supabase upsert error: ${upErr.message}`);
+          .insert(chunk);
+        if (insErr) throw new Error(`Supabase insert error: ${insErr.message}`);
+      }
+      // UPDATE existing accounts — ONLY masterdata fields. Never touches
+      // assigned_seller, crm fields, users, offers, orders, notes, etc.
+      for (const r of toUpdate) {
+        const patch = {
+          company_name: r.company_name,
+          dealer_type: r.dealer_type,
+          country: r.country,
+          source_customer_type_code: r.source_customer_type_code,
+          source_modified_at: r.source_modified_at,
+          last_synced_at: r.last_synced_at,
+        };
+        const { error: updErr } = await admin
+          .from("dealer_accounts")
+          .update(patch)
+          .eq("account_number", r.account_number);
+        if (updErr) throw new Error(`Supabase update error for ${r.account_number}: ${updErr.message}`);
       }
     }
 
     summary.durationMs = Date.now() - t0;
+
+    // Persist a log entry (best-effort; do not fail the response).
+    try {
+      await admin.from("sharepoint_sync_logs").insert({
+        ran_at: nowIso,
+        ran_by_email: email,
+        ran_by_user_id: (claimsRes?.claims?.sub as string | undefined) ?? null,
+        dry_run: dryRun,
+        fetched: summary.fetched,
+        valid: summary.valid,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped,
+        warnings: summary.warnings,
+        duration_ms: summary.durationMs,
+        warning_details: summary.warningDetails,
+        error: null,
+      });
+    } catch (_logErr) { /* ignore log errors */ }
+
     return json(summary, 200);
   } catch (e) {
     return json(
