@@ -704,31 +704,64 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
           </div>
         </Td>
       </tr>
-      {isOpen && linkedUsers.length > 0 && (
+      {isOpen && (
         <tr className="bg-slate-50/60">
           <td colSpan={11} className="px-6 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-              {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} tilknyttet {r.company_name} ({r.account_number})
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {linkedUsers.map((u) => (
-                <Link
-                  key={u.id}
-                  to="/portal/backend/users"
-                  className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs hover:border-slate-400"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{u.initials}</span>
-                    <div>
-                      <div className="font-semibold text-slate-900">{u.name}</div>
-                      <div className="text-slate-500">{u.email}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                  Firmaadresse (SharePoint masterdata)
+                </p>
+                <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-xs bg-white border border-slate-200 rounded-lg px-3 py-2">
+                  <dt className="text-slate-500">Adresse 1</dt>
+                  <dd className="text-slate-800">{r.address_line_1 || "—"}</dd>
+                  <dt className="text-slate-500">Adresse 2</dt>
+                  <dd className="text-slate-800">{r.address_line_2 || "—"}</dd>
+                  <dt className="text-slate-500">Postnummer</dt>
+                  <dd className="text-slate-800">{r.postal_code || "—"}</dd>
+                  <dt className="text-slate-500">By</dt>
+                  <dd className="text-slate-800">{r.city || "—"}</dd>
+                  <dt className="text-slate-500">Land</dt>
+                  <dd className="text-slate-800">{r.country || "—"}</dd>
+                  {r.zip_city_raw && (
+                    <>
+                      <dt className="text-slate-500">Postnr./By råtekst</dt>
+                      <dd className="text-slate-500 font-mono">{r.zip_city_raw}</dd>
+                    </>
+                  )}
+                </dl>
+              </div>
+              <div>
+                {linkedUsers.length > 0 ? (
+                  <>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                      {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} tilknyttet
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {linkedUsers.map((u) => (
+                        <Link
+                          key={u.id}
+                          to="/portal/backend/users"
+                          className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs hover:border-slate-400"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[10px] font-bold">{u.initials}</span>
+                            <div>
+                              <div className="font-semibold text-slate-900">{u.name}</div>
+                              <div className="text-slate-500">{u.email}</div>
+                            </div>
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                            {u.approved ? "Approved" : "Pending"}
+                          </span>
+                        </Link>
+                      ))}
                     </div>
-                  </div>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                    {u.approved ? "Approved" : "Pending"}
-                  </span>
-                </Link>
-              ))}
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Ingen brugere tilknyttet.</p>
+                )}
+              </div>
             </div>
           </td>
         </tr>
