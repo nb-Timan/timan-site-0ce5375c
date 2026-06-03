@@ -599,7 +599,7 @@ export default function PartnerMapPage() {
                     />
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
-                    <MapView fitTo={fitTo} resetTo={resetView} resetTick={resetTick} />
+                    <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
                   </MapContainer>
 
