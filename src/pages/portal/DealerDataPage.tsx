@@ -425,7 +425,7 @@ export default function DealerDataPage() {
 
 // ---------- helpers ----------
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
