@@ -68,6 +68,11 @@ const T: Record<string, Record<Language, string>> = {
   results: { da: 'Resultater', en: 'Results', de: 'Ergebnisse', it: 'Risultati', hu: 'Találatok' },
   noMatches: { da: 'Ingen matchende partnere.', en: 'No matches.', de: 'Keine Treffer.', it: 'Nessun risultato.', hu: 'Nincs találat.' },
   noCoords: { da: '(ingen koordinater)', en: '(no coords)', de: '(keine Koord.)', it: '(no coord.)', hu: '(nincs koord.)' },
+  worldView: { da: 'Vis hele verden', en: 'Show world', de: 'Weltweit', it: 'Mondo', hu: 'Világ' },
+  europeView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
+  countries: { da: 'Lande', en: 'Countries', de: 'Länder', it: 'Paesi', hu: 'Országok' },
+  coverage: { da: 'Partnerdækning', en: 'Partner coverage', de: 'Partnerabdeckung', it: 'Copertura', hu: 'Lefedettség' },
+  noPartnerIn: { da: 'Lande uden partner', en: 'Countries without partner', de: 'Länder ohne Partner', it: 'Paesi senza partner', hu: 'Partner nélkül' },
 };
 
 interface Position { center: [number, number]; zoom: number }
