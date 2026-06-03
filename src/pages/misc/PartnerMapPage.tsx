@@ -390,12 +390,59 @@ export default function PartnerMapPage() {
   }, [filteredAll]);
 
   const selected = selectedId ? partners.find((p) => p.id === selectedId) ?? null : null;
-  const resetView = () => { setFitTo(null); setSelectedId(null); setResetTick((n) => n + 1); };
+  const goToView = (target: Position) => {
+    setFitTo(null);
+    setSelectedId(null);
+    setResetTarget(target);
+    setResetTick((n) => n + 1);
+  };
+  const resetView = () => goToView(EUROPE_VIEW);
+  const worldView = () => { setSearch(''); goToView(WORLD_VIEW); };
 
   const focusPartner = (p: Partner) => {
     setSelectedId(p.id);
     if (p.coords) setFitTo([p.coords]);
   };
+
+  const focusCountry = (countryName: string) => {
+    const info = getCountryInfo(countryName);
+    if (!info) {
+      // fallback: fit to partners in that country
+      const pts = partners.filter((p) => p.country.toLowerCase() === countryName.toLowerCase() && p.coords).map((p) => p.coords as [number, number]);
+      if (pts.length > 0) setFitTo(pts);
+      setSearch(countryName);
+      return;
+    }
+    const [s, w, n, e] = info.bounds;
+    setFitTo([[s, w], [n, e]]);
+    setSearch(countryName);
+  };
+
+  // Country counts (from all partners, ignoring filters)
+  const countryCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of partners) {
+      const c = (p.country || '').trim();
+      if (!c) continue;
+      m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [partners]);
+
+  // Continent coverage
+  const continentCounts = useMemo(() => {
+    const m: Record<Continent, number> = { europe: 0, north_america: 0, south_america: 0, asia: 0, africa: 0, oceania: 0, other: 0 };
+    for (const [country, n] of countryCounts) {
+      const info = getCountryInfo(country);
+      m[info?.continent ?? 'other'] += n;
+    }
+    return m;
+  }, [countryCounts]);
+
+  const missingEuropeCountries = useMemo(() => {
+    const have = new Set(countryCounts.map(([c]) => c.toLowerCase()));
+    return EXPECTED_EUROPE.filter((c) => !have.has(c.toLowerCase()));
+  }, [countryCounts]);
 
   return (
     <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
