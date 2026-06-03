@@ -379,18 +379,23 @@ Deno.serve(async (req) => {
     }
 
     const accountNumbers = mapped.map((r) => r.account_number);
+    const syncSelectCols = COMPARE_FIELDS.join(", ");
     const { data: existing, error: exErr } = await admin
       .from("dealer_accounts")
-      .select("account_number")
+      .select(syncSelectCols)
       .in("account_number", accountNumbers.length ? accountNumbers : ["__none__"]);
     if (exErr) throw new Error(`Supabase read error: ${exErr.message}`);
-    const existingSet = new Set((existing ?? []).map((r: any) => r.account_number));
+    const existingMap = new Map<string, any>();
+    (existing ?? []).forEach((r: any) => existingMap.set(r.account_number, r));
 
     const toCreate: MappedRow[] = [];
     const toUpdate: MappedRow[] = [];
     for (const r of mapped) {
-      if (existingSet.has(r.account_number)) toUpdate.push(r);
-      else toCreate.push(r);
+      const da = existingMap.get(r.account_number);
+      if (!da) { toCreate.push(r); continue; }
+      // Only count as update when at least one masterdata field differs.
+      const differs = COMPARE_FIELDS.some((f) => norm((r as any)[f]) !== norm(da[f] ?? null));
+      if (differs) toUpdate.push(r);
     }
     summary.updated = toUpdate.length;
     summary.created = toCreate.length;
