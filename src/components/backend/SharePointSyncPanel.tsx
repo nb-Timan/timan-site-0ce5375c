@@ -1,25 +1,27 @@
 /**
- * Foldable admin panel that bundles the three SharePoint tools:
- *   - Verify (read-only mapping check)
- *   - Dry-run (no writes)
- *   - Real sync (writes masterdata only)
- *
- * Collapsed by default so the dealer list stays the main focus on
- * /portal/backend/dealer-accounts. Only visible to portal_role
+ * Compact admin panel for SharePoint synkronisering on
+ * /portal/backend/dealer-accounts. Visible only to portal_role
  * 'timan_backend'.
  *
- * The compact header shows the latest sync log from
- * `sharepoint_sync_logs` so the admin can tell at a glance when the
- * last sync ran and what it did. No sync logic / no writes here.
+ * Layout principle:
+ *  - Header always shows the latest REAL sync (read from
+ *    sharepoint_sync_logs where dry_run = false).
+ *  - Toolbar exposes three actions: Verificér, Dry-run, Synkroniser nu.
+ *  - Verify result may appear briefly below the toolbar and can be cleared.
+ *  - Dry-run result is shown in a modal and is NOT persisted — closing the
+ *    modal discards it.
+ *  - Real sync result is reflected by refreshing the latest sync log.
+ *
+ * No sync logic, no writes here.
  */
 
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, CloudCog, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CloudCog, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import SharePointVerifyButton from "./SharePointVerifyButton";
 import SharePointDryRunButton from "./SharePointDryRunButton";
-import SharePointRealSyncButton from "./SharePointRealSyncButton";
+import SharePointRealSyncButton, { type SharePointRealSyncHandle } from "./SharePointRealSyncButton";
 
 interface SyncLogRow {
   ran_at: string;
@@ -42,80 +44,85 @@ function fmtDateTime(iso: string | null): string {
 
 export default function SharePointSyncPanel() {
   const { appUser } = useAppUser();
-  const [open, setOpen] = useState(false);
   const [latest, setLatest] = useState<SyncLogRow | null>(null);
   const [loadingLog, setLoadingLog] = useState(true);
+  const realSyncRef = useRef<SharePointRealSyncHandle>(null);
+
+  const loadLatest = useCallback(async () => {
+    setLoadingLog(true);
+    const { data } = await supabase
+      .from("sharepoint_sync_logs")
+      .select("ran_at,dry_run,created,updated,warnings,error")
+      .eq("dry_run", false)
+      .order("ran_at", { ascending: false })
+      .limit(1);
+    setLatest((data?.[0] as SyncLogRow | undefined) ?? null);
+    setLoadingLog(false);
+  }, []);
 
   useEffect(() => {
     if (!appUser || appUser.portal_role !== "timan_backend") return;
-    let cancelled = false;
-    (async () => {
-      setLoadingLog(true);
-      const { data } = await supabase
-        .from("sharepoint_sync_logs")
-        .select("ran_at,dry_run,created,updated,warnings,error")
-        .eq("dry_run", false)
-        .order("ran_at", { ascending: false })
-        .limit(1);
-      if (cancelled) return;
-      setLatest((data?.[0] as SyncLogRow | undefined) ?? null);
-      setLoadingLog(false);
-    })();
-    return () => { cancelled = true; };
-  }, [appUser]);
+    void loadLatest();
+  }, [appUser, loadLatest]);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
   const hasError = !!latest?.error;
-  const statusLabel = !latest
-    ? "Ingen kørsel registreret"
-    : hasError ? "Fejl" : "Synkroniseret";
 
   return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition"
-        aria-expanded={open}
-      >
-        {open ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+    <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Header */}
+      <div className="flex items-start gap-3 px-4 py-3 border-b border-slate-100">
         <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
           <CloudCog className="h-4 w-4 text-slate-700" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-slate-900">SharePoint synkronisering</div>
-          <div className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+          <div className="mt-1 text-[12px] text-slate-600">
             {loadingLog ? (
-              <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Henter status…</span>
+              <span className="inline-flex items-center gap-1 text-slate-500">
+                <Loader2 className="h-3 w-3 animate-spin" /> Henter status…
+              </span>
             ) : latest ? (
-              <>
-                <span>Seneste sync: <strong className="text-slate-700">{fmtDateTime(latest.ran_at)}</strong></span>
-                <span className={`inline-flex items-center gap-1 ${hasError ? "text-rose-700" : "text-emerald-700"}`}>
-                  {hasError ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                  {statusLabel}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span>
+                  Seneste sync: <strong className="text-slate-800">{fmtDateTime(latest.ran_at)}</strong>
                 </span>
-                <span>{latest.updated} opdateret</span>
-                <span>{latest.created} oprettet</span>
-                <span>{latest.warnings} advarsler</span>
-              </>
+                <span className={`inline-flex items-center gap-1 ${hasError ? "text-rose-700" : "text-emerald-700"}`}>
+                  {hasError
+                    ? <><AlertTriangle className="h-3 w-3" /> Fejl</>
+                    : <><CheckCircle2 className="h-3 w-3" /> Synkroniseret</>}
+                </span>
+                <span className="text-slate-500">
+                  {latest.updated} opdateret · {latest.created} oprettet · {latest.warnings} {latest.warnings === 1 ? "fejl/advarsel" : "fejl/advarsler"}
+                </span>
+              </div>
             ) : (
-              <span>Ingen sync kørt endnu</span>
+              <span className="text-slate-500">Ingen sync kørt endnu.</span>
             )}
           </div>
         </div>
-        <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-          {open ? "Skjul værktøjer" : "Vis værktøjer"}
-        </span>
-      </button>
+      </div>
 
-      {open && (
-        <div className="border-t border-slate-200 bg-slate-50/50 px-4 py-4 space-y-0">
-          <SharePointVerifyButton />
-          <SharePointDryRunButton />
-          <SharePointRealSyncButton />
-        </div>
-      )}
+      {/* Toolbar */}
+      <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-slate-100">
+        <SharePointVerifyButton compact />
+        <SharePointDryRunButton
+          compact
+          onRequestRealSync={() => realSyncRef.current?.start()}
+        />
+        <SharePointRealSyncButton
+          ref={realSyncRef}
+          compact
+          onSynced={() => void loadLatest()}
+        />
+        <span className="ml-auto text-[11px] text-slate-500">
+          Kun rigtig sync gemmes som historik. Dry-run vises kun midlertidigt.
+        </span>
+      </div>
+
+      {/* Temporary verify result mounts here via SharePointVerifyButton above
+          (its result/error UI is rendered inline next to its trigger). */}
     </div>
   );
 }
