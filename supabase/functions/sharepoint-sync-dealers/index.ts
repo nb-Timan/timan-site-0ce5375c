@@ -15,20 +15,18 @@
 //   Oprettet    → source_created_at
 //   Ændret      → source_modified_at
 //
+// Modes:
+//   • default / { dryRun: true }  — fetch + validate + diff, NO write
+//   • { dryRun: false }           — actually upsert (NEVER deletes)
+//   • { mode: "verify", limit }   — side-by-side compare first N SP rows
+//                                   vs dealer_accounts. READ-ONLY.
+//
 // Safety:
 //   • Never deletes. Rows missing in SharePoint stay in Supabase.
 //   • Always matches on account_number.
 //   • dryRun=true (default) does NOT write — returns summary only.
 //   • Requires Microsoft Graph app-only credentials + Sites.Read.All.
 //   • Admin-only access enforced via caller's Supabase JWT + app_users.portal_role.
-//
-// Required secrets (set in Supabase project — Edge Function Secrets):
-//   MICROSOFT_TENANT_ID
-//   MICROSOFT_CLIENT_ID
-//   MICROSOFT_CLIENT_SECRET
-//   SUPABASE_URL                (auto-injected)
-//   SUPABASE_SERVICE_ROLE_KEY   (auto-injected)
-//   SUPABASE_ANON_KEY           (auto-injected, for caller-JWT auth check)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -89,19 +87,16 @@ async function graphGet(token: string, url: string): Promise<any> {
 }
 
 async function fetchAllSharePointRows(token: string): Promise<any[]> {
-  // 1) Resolve site
   const site = await graphGet(
     token,
     `https://graph.microsoft.com/v1.0/sites/${SP_HOSTNAME}:/${SP_SITE_PATH}`,
   );
-  // 2) Resolve list by display name
   const lists = await graphGet(
     token,
     `https://graph.microsoft.com/v1.0/sites/${site.id}/lists?$filter=displayName eq '${SP_LIST_NAME}'`,
   );
   const list = lists.value?.[0];
   if (!list) throw new Error(`SharePoint list '${SP_LIST_NAME}' not found on site.`);
-  // 3) Page through items, expanding fields
   const rows: any[] = [];
   let next: string | null =
     `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${list.id}/items?$expand=fields&$top=1000`;
@@ -113,16 +108,56 @@ async function fetchAllSharePointRows(token: string): Promise<any[]> {
   return rows;
 }
 
+type MappedRow = {
+  account_number: string;
+  company_name: string;
+  dealer_type: DealerType;
+  country: string | null;
+  source: "sharepoint";
+  external_id: string | null;
+  source_customer_type_code: string | null;
+  source_created_at: string | null;
+  source_modified_at: string | null;
+  last_synced_at: string;
+  is_active: boolean;
+};
+
+function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: string | null; skipReason: string | null } {
+  const f = item.fields ?? {};
+  const account = (f.Account ?? "").toString().trim();
+  const company = (f.Title ?? "").toString().trim();
+  if (!account || !company) {
+    return { row: null, warn: null, skipReason: `Missing Account/Titel (sp id=${item.id})` };
+  }
+  const code = f.A_B_KUNDE != null ? String(f.A_B_KUNDE) : null;
+  const { type, warn } = mapDealerType(code);
+  return {
+    row: {
+      account_number: account,
+      company_name: company,
+      dealer_type: type,
+      country: (f.COUNTRY ?? null) || null,
+      source: "sharepoint",
+      external_id: String(item.id),
+      source_customer_type_code: code,
+      source_created_at: f.Oprettet ?? null,
+      source_modified_at: f["Ændret"] ?? f.Modified ?? null,
+      last_synced_at: nowIso,
+      is_active: true,
+    },
+    warn: warn ? `Unknown A_B_KUNDE='${code ?? ""}' for account=${account} — defaulted to 'dealer'.` : null,
+    skipReason: null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const t0 = Date.now();
 
   try {
-    // --- Auth: require signed-in Timan Backend / admin ---------------------
+    // --- Auth -----------------------------------------------------------
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
     const supaUrl = Deno.env.get("SUPABASE_URL")!;
     const supaAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supaService = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -132,9 +167,7 @@ Deno.serve(async (req) => {
     const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(
       authHeader.replace("Bearer ", ""),
     );
-    if (claimsErr || !claimsRes?.claims?.email) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    if (claimsErr || !claimsRes?.claims?.email) return json({ error: "Unauthorized" }, 401);
     const email = String(claimsRes.claims.email).toLowerCase();
     const admin = createClient(supaUrl, supaService);
     const { data: appUser } = await admin
@@ -151,22 +184,117 @@ Deno.serve(async (req) => {
       return json({ error: "Forbidden — Timan Backend only" }, 403);
     }
 
-    // --- Parse options ----------------------------------------------------
+    // --- Parse options --------------------------------------------------
     let dryRun = true;
+    let mode: "sync" | "verify" = "sync";
+    let limit = 20;
     if (req.method === "POST") {
       try {
         const body = await req.json();
         if (typeof body?.dryRun === "boolean") dryRun = body.dryRun;
-      } catch { /* default dryRun=true */ }
+        if (body?.mode === "verify") mode = "verify";
+        if (typeof body?.limit === "number" && body.limit > 0 && body.limit <= 500) limit = body.limit;
+      } catch { /* defaults */ }
     } else {
       const u = new URL(req.url);
       if (u.searchParams.get("dryRun") === "false") dryRun = false;
+      if (u.searchParams.get("mode") === "verify") mode = "verify";
     }
 
-    // --- Fetch SharePoint -------------------------------------------------
+    // --- Fetch SharePoint -----------------------------------------------
     const token = await getGraphToken();
     const rawRows = await fetchAllSharePointRows(token);
+    const nowIso = new Date().toISOString();
 
+    // ======================================================================
+    // VERIFY MODE — read-only side-by-side mapping check
+    // ======================================================================
+    if (mode === "verify") {
+      const mappedAll: MappedRow[] = [];
+      for (const item of rawRows) {
+        const { row } = mapSpRow(item, nowIso);
+        if (row) mappedAll.push(row);
+      }
+      const slice = mappedAll.slice(0, limit);
+      const allAccountNumbers = mappedAll.map((r) => r.account_number);
+
+      // Fetch dealer_accounts for the slice (for side-by-side details)
+      const sliceAccounts = slice.map((r) => r.account_number);
+      const { data: daSlice, error: daErr } = await admin
+        .from("dealer_accounts")
+        .select("account_number, company_name, dealer_type, country")
+        .in("account_number", sliceAccounts.length ? sliceAccounts : ["__none__"]);
+      if (daErr) throw new Error(`Supabase read error: ${daErr.message}`);
+      const daMap = new Map<string, any>();
+      (daSlice ?? []).forEach((r: any) => daMap.set(r.account_number, r));
+
+      // Fetch ALL existing accounts for totals
+      const { data: daAll, error: daAllErr } = await admin
+        .from("dealer_accounts")
+        .select("account_number");
+      if (daAllErr) throw new Error(`Supabase read error: ${daAllErr.message}`);
+      const daAllSet = new Set((daAll ?? []).map((r: any) => r.account_number));
+      const spAllSet = new Set(allAccountNumbers);
+
+      const norm = (v: unknown) => (v == null ? "" : String(v).trim().toLowerCase());
+      const comparisons = slice.map((sp) => {
+        const da = daMap.get(sp.account_number) ?? null;
+        const fields = ["account_number", "company_name", "dealer_type", "country"] as const;
+        const fieldResults = fields.map((f) => {
+          const spVal = (sp as any)[f] ?? null;
+          const daVal = da ? (da[f] ?? null) : null;
+          const match = da ? norm(spVal) === norm(daVal) : false;
+          return { field: f, sharepoint: spVal, dealer_accounts: daVal, match };
+        });
+        const allMatch = !!da && fieldResults.every((r) => r.match);
+        return {
+          account_number: sp.account_number,
+          exists_in_dealer_accounts: !!da,
+          all_match: allMatch,
+          fields: fieldResults,
+        };
+      });
+
+      // Totals across ALL sharepoint rows (not just the slice)
+      let matches = 0;
+      let mismatches = 0;
+      let missing_in_dealer_accounts = 0;
+      const { data: daAllFull, error: daAllFullErr } = await admin
+        .from("dealer_accounts")
+        .select("account_number, company_name, dealer_type, country");
+      if (daAllFullErr) throw new Error(`Supabase read error: ${daAllFullErr.message}`);
+      const daFullMap = new Map<string, any>();
+      (daAllFull ?? []).forEach((r: any) => daFullMap.set(r.account_number, r));
+      for (const sp of mappedAll) {
+        const da = daFullMap.get(sp.account_number);
+        if (!da) { missing_in_dealer_accounts++; continue; }
+        const ok = norm(sp.company_name) === norm(da.company_name)
+          && norm(sp.dealer_type) === norm(da.dealer_type)
+          && norm(sp.country) === norm(da.country);
+        if (ok) matches++; else mismatches++;
+      }
+      let missing_in_sharepoint = 0;
+      for (const acc of daAllSet) if (!spAllSet.has(acc)) missing_in_sharepoint++;
+
+      return json({
+        mode: "verify",
+        dryRun: true,
+        total_sharepoint: mappedAll.length,
+        total_dealer_accounts: daAllSet.size,
+        total_checked: mappedAll.length,
+        matches,
+        mismatches,
+        missing_in_dealer_accounts,
+        missing_in_sharepoint,
+        sample_size: comparisons.length,
+        comparisons,
+        durationMs: Date.now() - t0,
+      }, 200);
+    }
+
+    // ======================================================================
+    // SYNC / DRY-RUN MODE (unchanged)
+    // ======================================================================
     const summary: SyncSummary = {
       fetched: rawRows.length,
       valid: 0,
@@ -179,59 +307,25 @@ Deno.serve(async (req) => {
       durationMs: 0,
     };
 
-    // --- Map + validate ---------------------------------------------------
-    type Row = {
-      account_number: string;
-      company_name: string;
-      dealer_type: DealerType;
-      country: string | null;
-      source: "sharepoint";
-      external_id: string | null;
-      source_customer_type_code: string | null;
-      source_created_at: string | null;
-      source_modified_at: string | null;
-      last_synced_at: string;
-      is_active: boolean;
-    };
-    const nowIso = new Date().toISOString();
-    const mapped: Row[] = [];
+    const mapped: MappedRow[] = [];
     for (const item of rawRows) {
-      const f = item.fields ?? {};
-      const account = (f.Account ?? "").toString().trim();
-      const company = (f.Title ?? "").toString().trim();
-      if (!account || !company) {
+      const { row, warn, skipReason } = mapSpRow(item, nowIso);
+      if (skipReason) {
         summary.skipped++;
         summary.warnings++;
-        if (summary.warningDetails.length < 20)
-          summary.warningDetails.push(`Skip row id=${item.id}: missing Account/Titel.`);
+        if (summary.warningDetails.length < 20) summary.warningDetails.push(skipReason);
         continue;
       }
-      const code = f.A_B_KUNDE != null ? String(f.A_B_KUNDE) : null;
-      const { type, warn } = mapDealerType(code);
       if (warn) {
         summary.warnings++;
-        if (summary.warningDetails.length < 20)
-          summary.warningDetails.push(
-            `Unknown A_B_KUNDE='${code ?? ""}' for account=${account} — defaulted to 'dealer'.`,
-          );
+        if (summary.warningDetails.length < 20) summary.warningDetails.push(warn);
       }
-      mapped.push({
-        account_number: account,
-        company_name: company,
-        dealer_type: type,
-        country: (f.COUNTRY ?? null) || null,
-        source: "sharepoint",
-        external_id: String(item.id),
-        source_customer_type_code: code,
-        source_created_at: f.Oprettet ?? null,
-        source_modified_at: f["Ændret"] ?? f.Modified ?? null,
-        last_synced_at: nowIso,
-        is_active: true,
-      });
-      summary.valid++;
+      if (row) {
+        mapped.push(row);
+        summary.valid++;
+      }
     }
 
-    // --- Diff vs existing -------------------------------------------------
     const accountNumbers = mapped.map((r) => r.account_number);
     const { data: existing, error: exErr } = await admin
       .from("dealer_accounts")
@@ -244,9 +338,7 @@ Deno.serve(async (req) => {
       else summary.created++;
     }
 
-    // --- Write (unless dryRun) -------------------------------------------
     if (!dryRun && mapped.length) {
-      // Upsert in chunks of 500
       for (let i = 0; i < mapped.length; i += 500) {
         const chunk = mapped.slice(i, i + 500);
         const { error: upErr } = await admin
