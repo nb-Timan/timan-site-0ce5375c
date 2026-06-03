@@ -293,6 +293,7 @@ export default function CrmMyDealersPage() {
               <Th>{T.c_account[lang]}</Th>
               <Th>{T.c_type[lang]}</Th>
               <Th>{T.c_country[lang]}</Th>
+              <Th>{T.c_profile[lang]}</Th>
               <Th>{T.c_users[lang]}</Th>
               <Th>{T.c_quotes[lang]}</Th>
               <Th>{T.c_orders[lang]}</Th>
