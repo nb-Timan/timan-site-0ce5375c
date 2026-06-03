@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart } from 'lucide-react';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
+import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -23,7 +26,7 @@ interface Partner {
   addressLine2: string;
   seller: string | null;
   sellerName: string | null;
-  coords: [number, number];
+  coords: [number, number] | null;
   users: number;
   quotes: number;
   orders: number;
@@ -41,7 +44,7 @@ const TYPE_COLORS: Record<PartnerType, string> = {
 const T: Record<string, Record<Language, string>> = {
   title: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
   intro: { da: 'Forhandlere fra SharePoint/Supabase. Manglende koordinater vises i panelet til højre.', en: 'Dealers from SharePoint/Supabase.', de: 'Händler aus SharePoint/Supabase.', it: 'Rivenditori da SharePoint/Supabase.', hu: 'Forgalmazók SharePoint/Supabase-ből.' },
-  search: { da: 'Søg på land, firma eller kontonr.', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
+  search: { da: 'Søg på land, by, sælger, firma eller kontonr.', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
   dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Forgalmazó' },
   service_partner: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Servizio', hu: 'Szervizpartner' },
   importer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
@@ -58,6 +61,9 @@ const T: Record<string, Record<Language, string>> = {
   missingHint: { da: 'Kør "Geocode forhandlere" i Backend → Forhandlere for at hente koordinater.', en: 'Run "Geocode dealers" in Backend.', de: 'Backend → Forhandlere.', it: 'Backend → Forhandlere.', hu: 'Backend → Forhandlere.' },
   loading: { da: 'Henter forhandlere…', en: 'Loading…', de: 'Laden…', it: 'Caricamento…', hu: 'Betöltés…' },
   noData: { da: 'Ingen forhandlere fundet.', en: 'No dealers found.', de: 'Keine Händler.', it: 'Nessun rivenditore.', hu: 'Nincs forgalmazó.' },
+  results: { da: 'Resultater', en: 'Results', de: 'Ergebnisse', it: 'Risultati', hu: 'Találatok' },
+  noMatches: { da: 'Ingen matchende partnere.', en: 'No matches.', de: 'Keine Treffer.', it: 'Nessun risultato.', hu: 'Nincs találat.' },
+  noCoords: { da: '(ingen koordinater)', en: '(no coords)', de: '(keine Koord.)', it: '(no coord.)', hu: '(nincs koord.)' },
 };
 
 interface Position { center: [number, number]; zoom: number }
@@ -71,7 +77,7 @@ function normalizeType(t: string | null): PartnerType {
   return 'dealer';
 }
 
-function makePinIcon(type: PartnerType, selected: boolean): L.DivIcon {
+function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
   const color = TYPE_COLORS[type];
   const sel = selected ? 'pm-pin--selected' : '';
   const html = `
@@ -82,12 +88,6 @@ function makePinIcon(type: PartnerType, selected: boolean): L.DivIcon {
       </svg>
     </div>`;
   return L.divIcon({ html, className: 'pm-pin-wrap', iconSize: [36, 44], iconAnchor: [18, 42], popupAnchor: [0, -36] });
-}
-
-function MapController({ position }: { position: Position }) {
-  const map = useMap();
-  useEffect(() => { map.flyTo(position.center, position.zoom, { duration: 0.8 }); }, [position, map]);
-  return null;
 }
 
 function MapResizer({ trigger }: { trigger: unknown }) {
@@ -110,14 +110,94 @@ function CtrlWheelZoom() {
   return null;
 }
 
+// Cluster + marker layer driven by props
+function ClusterLayer({
+  partners,
+  selectedId,
+  onSelect,
+}: {
+  partners: Partner[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const map = useMap();
+  const clusterRef = useRef<any>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+
+  useEffect(() => {
+    const cluster = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      disableClusteringAtZoom: 14,
+      maxClusterRadius: 50,
+      iconCreateFunction: (c: any) => {
+        const count = c.getChildCount();
+        const size = count < 10 ? 36 : count < 50 ? 42 : 50;
+        return L.divIcon({
+          html: `<div class="pm-cluster" style="width:${size}px;height:${size}px;line-height:${size}px;">${count}</div>`,
+          className: 'pm-cluster-wrap',
+          iconSize: [size, size],
+        });
+      },
+    });
+    clusterRef.current = cluster;
+    map.addLayer(cluster);
+    return () => { map.removeLayer(cluster); clusterRef.current = null; markersRef.current.clear(); };
+  }, [map]);
+
+  useEffect(() => {
+    const cluster = clusterRef.current;
+    if (!cluster) return;
+    cluster.clearLayers();
+    markersRef.current.clear();
+    for (const p of partners) {
+      if (!p.coords) continue;
+      const m = L.marker(p.coords, { icon: makePinDivIcon(p.type, selectedId === p.id) });
+      m.on('click', () => onSelect(p.id));
+      cluster.addLayer(m);
+      markersRef.current.set(p.id, m);
+    }
+  }, [partners, selectedId, onSelect]);
+
+  return null;
+}
+
+// Imperative map controller for fit-bounds / fly
+function MapView({
+  fitTo,
+  resetTo,
+  resetTick,
+}: {
+  fitTo: [number, number][] | null;
+  resetTo: Position;
+  resetTick: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (fitTo && fitTo.length > 0) {
+      if (fitTo.length === 1) {
+        map.flyTo(fitTo[0], 13, { duration: 0.8 });
+      } else {
+        const bounds = L.latLngBounds(fitTo);
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 12, duration: 0.8 });
+      }
+    }
+  }, [fitTo, map]);
+  useEffect(() => {
+    map.flyTo(resetTo.center, resetTo.zoom, { duration: 0.6 });
+  }, [resetTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [position, setPosition] = useState<Position>(EUROPE_VIEW);
+  const [resetTick, setResetTick] = useState(0);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(true);
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
@@ -125,6 +205,7 @@ export default function PartnerMapPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const [fitTo, setFitTo] = useState<[number, number][] | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -146,6 +227,7 @@ export default function PartnerMapPage() {
     .filter((d) => !d.is_deleted)
     .map((d) => {
       const st = stats[d.id];
+      const hasCoords = d.latitude != null && d.longitude != null;
       return {
         id: d.id,
         name: d.company_name,
@@ -158,7 +240,7 @@ export default function PartnerMapPage() {
         addressLine2: d.address_line_2 ?? '',
         seller: d.assigned_seller_initials,
         sellerName: d.assigned_seller_name,
-        coords: d.latitude != null && d.longitude != null ? [d.latitude, d.longitude] : null as any,
+        coords: hasCoords ? [d.latitude as number, d.longitude as number] : null,
         users: st?.user_count ?? 0,
         quotes: st?.quote_count ?? 0,
         orders: st?.order_count ?? 0,
@@ -181,18 +263,49 @@ export default function PartnerMapPage() {
       if (!activeTypes.has(p.type)) return false;
       if (sellerFilter !== 'all' && p.seller !== sellerFilter) return false;
       if (q) {
-        const hay = `${p.name} ${p.country} ${p.account} ${p.postal} ${p.city}`.toLowerCase();
+        const hay = `${p.name} ${p.country} ${p.account} ${p.postal} ${p.city} ${p.seller ?? ''} ${p.sellerName ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
   }, [partners, search, activeTypes, sellerFilter]);
 
-  const withCoords = useMemo(() => filteredAll.filter((p) => p.coords && Number.isFinite(p.coords[0]) && Number.isFinite(p.coords[1])), [filteredAll]);
+  const withCoords = useMemo(() => filteredAll.filter((p) => p.coords), [filteredAll]);
   const missingCoords = useMemo(() => filteredAll.filter((p) => !p.coords), [filteredAll]);
 
+  // Auto-fit when search/filters change (debounced)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (search.trim() === '' && activeTypes.size === 4 && sellerFilter === 'all') {
+        setFitTo(null);
+        return;
+      }
+      const coords = withCoords.map((p) => p.coords as [number, number]);
+      if (coords.length > 0) setFitTo(coords);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [search, activeTypes, sellerFilter, withCoords]);
+
+  // Grouped results by country
+  const grouped = useMemo(() => {
+    const map = new Map<string, Partner[]>();
+    for (const p of filteredAll) {
+      const key = p.country || '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    return Array.from(map.entries())
+      .map(([country, list]) => ({ country, list: list.sort((a, b) => a.name.localeCompare(b.name)) }))
+      .sort((a, b) => a.country.localeCompare(b.country));
+  }, [filteredAll]);
+
   const selected = selectedId ? partners.find((p) => p.id === selectedId) ?? null : null;
-  const resetView = () => { setPosition(EUROPE_VIEW); setSelectedId(null); };
+  const resetView = () => { setFitTo(null); setSelectedId(null); setResetTick((n) => n + 1); };
+
+  const focusPartner = (p: Partner) => {
+    setSelectedId(p.id);
+    if (p.coords) setFitTo([p.coords]);
+  };
 
   return (
     <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
@@ -201,6 +314,9 @@ export default function PartnerMapPage() {
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }
         .pm-pin:hover { transform:translateY(-3px) scale(1.08); }
         .pm-pin--selected { transform:translateY(-4px) scale(1.12); }
+        .pm-cluster-wrap { background:transparent !important; border:none !important; }
+        .pm-cluster { background:${TIMAN_GREEN}; color:white; border-radius:50%; text-align:center;
+          font-weight:700; font-size:13px; box-shadow:0 4px 10px rgba(0,0,0,.25); border:3px solid white; }
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
@@ -213,7 +329,7 @@ export default function PartnerMapPage() {
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
         <div className="flex gap-3">
           {/* Legend */}
-          <aside className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 ${legendOpen ? 'w-56' : 'w-0'}`}>
+          <aside className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 ${legendOpen ? 'w-52' : 'w-0'}`}>
             {legendOpen && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-5 sticky top-4">
                 <div className="flex items-center justify-between">
@@ -241,6 +357,13 @@ export default function PartnerMapPage() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               )}
+              <button
+                onClick={() => setResultsOpen((v) => !v)}
+                className={`hidden md:flex h-9 px-2.5 items-center gap-1.5 rounded-md text-xs font-medium border ${resultsOpen ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                title={T.results[lang]}
+              >
+                <List className="h-4 w-4" /> {T.results[lang]} ({filteredAll.length})
+              </button>
               <div className="relative flex-1 min-w-[220px] max-w-xl">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -276,37 +399,82 @@ export default function PartnerMapPage() {
               </div>
             </div>
 
-            {/* Map */}
+            {/* Map + results panel */}
             <div className="relative bg-white rounded-b-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="h-[74vh] min-h-[520px] max-h-[760px]">
-                <MapContainer
-                  center={EUROPE_VIEW.center} zoom={EUROPE_VIEW.zoom} minZoom={3} maxZoom={16}
-                  scrollWheelZoom={false} zoomControl
-                  style={{ height: '100%', width: '100%' }}
-                  worldCopyJump={false}
-                  maxBounds={[[34, -25], [72, 45]]}
-                  maxBoundsViscosity={0.6}
-                >
-                  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <MapController position={position} />
-                  <CtrlWheelZoom />
-                  <MapResizer trigger={selectedId} />
-                  {withCoords.map((p) => (
-                    <Marker key={p.id} position={p.coords} icon={makePinIcon(p.type, selectedId === p.id)}
-                      eventHandlers={{ click: () => setSelectedId(p.id) }} />
-                  ))}
-                </MapContainer>
-
-                <div className="pointer-events-none absolute top-3 right-3 z-[500] bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
-                  <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
-                </div>
-
-                {loading && (
-                  <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/40 text-sm text-gray-700">
-                    {T.loading[lang]}
+              <div className="flex h-[74vh] min-h-[520px] max-h-[760px]">
+                {/* Results sidebar */}
+                {resultsOpen && (
+                  <div className="hidden md:flex flex-col w-72 shrink-0 border-r border-gray-100 bg-gray-50/60">
+                    <div className="px-3 py-2 border-b border-gray-100 bg-white flex items-center justify-between">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-gray-700">
+                        {T.results[lang]} <span className="text-gray-400 font-medium">({filteredAll.length})</span>
+                      </div>
+                      <button onClick={() => setResultsOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {grouped.length === 0 && (
+                        <div className="p-4 text-xs text-gray-500">{T.noMatches[lang]}</div>
+                      )}
+                      {grouped.map(({ country, list }) => (
+                        <div key={country} className="border-b border-gray-100">
+                          <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
+                            <span>{country}</span>
+                            <span className="text-gray-400">({list.length})</span>
+                          </div>
+                          {list.map((p) => {
+                            const isSel = p.id === selectedId;
+                            return (
+                              <button
+                                key={p.id}
+                                onClick={() => focusPartner(p)}
+                                className={`w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-white transition-colors flex items-start gap-2 ${isSel ? 'bg-white' : ''}`}
+                              >
+                                <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: TYPE_COLORS[p.type] }} />
+                                <div className="min-w-0 flex-1">
+                                  <div className={`text-xs font-semibold truncate ${isSel ? 'text-[#2d5a27]' : 'text-gray-900'}`}>{p.name}</div>
+                                  <div className="text-[10px] text-gray-500 truncate">
+                                    {[p.postal, p.city].filter(Boolean).join(' ') || '—'}
+                                    {p.seller ? <span className="ml-1 text-gray-400">· {p.seller}</span> : null}
+                                    {!p.coords ? <span className="ml-1 text-amber-600">{T.noCoords[lang]}</span> : null}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Map */}
+                <div className="relative flex-1 min-w-0">
+                  <MapContainer
+                    center={EUROPE_VIEW.center} zoom={EUROPE_VIEW.zoom} minZoom={3} maxZoom={16}
+                    scrollWheelZoom={false} zoomControl
+                    style={{ height: '100%', width: '100%' }}
+                    worldCopyJump={false}
+                    maxBounds={[[34, -25], [72, 45]]}
+                    maxBoundsViscosity={0.6}
+                  >
+                    <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <CtrlWheelZoom />
+                    <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
+                    <MapView fitTo={fitTo} resetTo={EUROPE_VIEW} resetTick={resetTick} />
+                    <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                  </MapContainer>
+
+                  <div className="pointer-events-none absolute top-3 right-3 z-[500] bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
+                    <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
+                    <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
+                  </div>
+
+                  {loading && (
+                    <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/40 text-sm text-gray-700">
+                      {T.loading[lang]}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
