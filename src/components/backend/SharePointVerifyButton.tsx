@@ -20,7 +20,8 @@ interface FieldResult {
 }
 interface Comparison {
   account_number: string;
-  exists_in_dealer_accounts: boolean;
+  exists_in_dealer_accounts?: boolean;
+  exists_in_db?: boolean;
   all_match: boolean;
   fields: FieldResult[];
 }
@@ -91,16 +92,23 @@ export default function SharePointVerifyButton() {
   const visibleFields = ["account_number", "company_name", "dealer_type", "country"];
 
   // Compute display state per comparison row
+  function rowExistsInPortal(cmp: Comparison): boolean {
+    if (typeof cmp.exists_in_dealer_accounts === "boolean") return cmp.exists_in_dealer_accounts;
+    if (typeof cmp.exists_in_db === "boolean") return cmp.exists_in_db;
+    if (result?.missing_in_dealer_accounts === 0) return true;
+    return cmp.fields.some((f) => visibleFields.includes(f.field) && f.dealer_accounts != null && f.dealer_accounts !== "");
+  }
+
   function rowState(cmp: Comparison): {
     kind: "missing" | "mismatch" | "match";
     label: string;
     tone: string;
     diffFields: FieldResult[];
   } {
-    if (!cmp.exists_in_dealer_accounts) {
+    if (!rowExistsInPortal(cmp)) {
       return {
         kind: "missing",
-        label: "Findes ikke i portal (oprettes ved sync)",
+        label: "Findes ikke i portal",
         tone: "bg-sky-50 text-sky-900 border-sky-200",
         diffFields: [],
       };
@@ -137,6 +145,9 @@ export default function SharePointVerifyButton() {
               SharePoint er <strong>masterdata</strong>. Afvigelser viser, hvilke felter i{" "}
               <code>dealer_accounts</code> der bliver opdateret ved rigtig sync. <strong>Skriver intet</strong>.
             </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Match = ingen ændringer · Afviger = opdateres fra SharePoint ved sync · Findes ikke i portal = oprettes ved sync.
+            </p>
           </div>
         </div>
         <button
@@ -164,8 +175,15 @@ export default function SharePointVerifyButton() {
         // Recompute mismatch totals based on visible-field logic in the sample
         const sampleMismatches = result.comparisons.filter((c) => rowState(c).kind === "mismatch").length;
         const sampleMissing = result.comparisons.filter((c) => rowState(c).kind === "missing").length;
-        const summaryLine = result.mismatches > 0
-          ? `${result.mismatches} rækker afviger fra SharePoint og vil blive opdateret ved rigtig sync.`
+        const summaryParts: string[] = [];
+        if (result.mismatches > 0) {
+          summaryParts.push(`${result.mismatches} rækker afviger fra SharePoint og vil blive opdateret ved rigtig sync.`);
+        }
+        if (result.missing_in_dealer_accounts > 0) {
+          summaryParts.push(`${result.missing_in_dealer_accounts} rækker findes ikke i portal og vil blive oprettet ved rigtig sync.`);
+        }
+        const summaryLine = summaryParts.length > 0
+          ? summaryParts.join(" ")
           : "Alle kontrollerede rækker matcher SharePoint.";
 
         return (
@@ -247,10 +265,12 @@ export default function SharePointVerifyButton() {
                       )}
 
                       {st.kind === "missing" && (
-                        <p className="mt-2 text-xs text-sky-900">
-                          SharePoint-rækken findes ikke i <code>dealer_accounts</code> og vil blive{" "}
-                          <strong>oprettet</strong> ved rigtig sync.
-                        </p>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-sky-900">
+                          <span>Handling ved sync:</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-200/60 px-2 py-0.5 text-[10px] font-bold text-sky-900">
+                            <ArrowRight className="h-3 w-3" /> Oprettes
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
