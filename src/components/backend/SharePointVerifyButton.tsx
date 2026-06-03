@@ -393,6 +393,15 @@ function display(v: unknown): string {
   return String(v);
 }
 
+function displayValue(field: string, v: unknown): string {
+  if (v == null || v === "") return "—";
+  if (field === "dealer_type") {
+    const key = String(v);
+    return DEALER_TYPE_LABELS[key] ?? key;
+  }
+  return String(v);
+}
+
 function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "green" | "blue" | "amber" }) {
   const toneCls =
     tone === "green" ? "bg-emerald-100 text-emerald-900"
