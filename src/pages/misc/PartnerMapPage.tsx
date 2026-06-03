@@ -71,7 +71,81 @@ const T: Record<string, Record<Language, string>> = {
 };
 
 interface Position { center: [number, number]; zoom: number }
-const EUROPE_VIEW: Position = { center: [50.5, 9.5], zoom: 5 };
+const EUROPE_VIEW: Position = { center: [50.5, 9.5], zoom: 4 };
+const WORLD_VIEW: Position = { center: [25, 10], zoom: 2 };
+
+type Continent = 'europe' | 'north_america' | 'south_america' | 'asia' | 'africa' | 'oceania' | 'other';
+
+// Country → continent + approximate bounds [south, west, north, east]
+const COUNTRY_INFO: Record<string, { continent: Continent; bounds: [number, number, number, number] }> = {
+  denmark: { continent: 'europe', bounds: [54.5, 8.0, 57.8, 15.2] },
+  danmark: { continent: 'europe', bounds: [54.5, 8.0, 57.8, 15.2] },
+  sweden: { continent: 'europe', bounds: [55.3, 11.0, 69.1, 24.2] },
+  sverige: { continent: 'europe', bounds: [55.3, 11.0, 69.1, 24.2] },
+  norway: { continent: 'europe', bounds: [57.9, 4.5, 71.2, 31.1] },
+  norge: { continent: 'europe', bounds: [57.9, 4.5, 71.2, 31.1] },
+  finland: { continent: 'europe', bounds: [59.8, 20.5, 70.1, 31.6] },
+  iceland: { continent: 'europe', bounds: [63.3, -24.5, 66.6, -13.5] },
+  germany: { continent: 'europe', bounds: [47.3, 5.9, 55.1, 15.0] },
+  tyskland: { continent: 'europe', bounds: [47.3, 5.9, 55.1, 15.0] },
+  deutschland: { continent: 'europe', bounds: [47.3, 5.9, 55.1, 15.0] },
+  netherlands: { continent: 'europe', bounds: [50.7, 3.3, 53.6, 7.2] },
+  holland: { continent: 'europe', bounds: [50.7, 3.3, 53.6, 7.2] },
+  belgium: { continent: 'europe', bounds: [49.5, 2.5, 51.5, 6.4] },
+  france: { continent: 'europe', bounds: [41.3, -5.1, 51.1, 9.6] },
+  spain: { continent: 'europe', bounds: [35.9, -9.4, 43.8, 3.4] },
+  italy: { continent: 'europe', bounds: [36.6, 6.6, 47.1, 18.5] },
+  poland: { continent: 'europe', bounds: [49.0, 14.1, 54.9, 24.2] },
+  polen: { continent: 'europe', bounds: [49.0, 14.1, 54.9, 24.2] },
+  'czech republic': { continent: 'europe', bounds: [48.5, 12.1, 51.1, 18.9] },
+  czechia: { continent: 'europe', bounds: [48.5, 12.1, 51.1, 18.9] },
+  austria: { continent: 'europe', bounds: [46.4, 9.5, 49.0, 17.2] },
+  switzerland: { continent: 'europe', bounds: [45.8, 5.9, 47.8, 10.5] },
+  'united kingdom': { continent: 'europe', bounds: [49.9, -8.6, 60.9, 1.8] },
+  uk: { continent: 'europe', bounds: [49.9, -8.6, 60.9, 1.8] },
+  ireland: { continent: 'europe', bounds: [51.4, -10.5, 55.4, -5.4] },
+  portugal: { continent: 'europe', bounds: [36.9, -9.5, 42.2, -6.2] },
+  estonia: { continent: 'europe', bounds: [57.5, 21.8, 59.7, 28.2] },
+  latvia: { continent: 'europe', bounds: [55.7, 20.9, 58.1, 28.2] },
+  lithuania: { continent: 'europe', bounds: [53.9, 21.0, 56.5, 26.8] },
+  hungary: { continent: 'europe', bounds: [45.7, 16.1, 48.6, 22.9] },
+  slovakia: { continent: 'europe', bounds: [47.7, 16.8, 49.6, 22.6] },
+  slovenia: { continent: 'europe', bounds: [45.4, 13.4, 46.9, 16.6] },
+  croatia: { continent: 'europe', bounds: [42.4, 13.5, 46.6, 19.4] },
+  romania: { continent: 'europe', bounds: [43.6, 20.3, 48.3, 29.7] },
+  bulgaria: { continent: 'europe', bounds: [41.2, 22.4, 44.2, 28.6] },
+  greece: { continent: 'europe', bounds: [34.8, 19.4, 41.7, 28.2] },
+  luxembourg: { continent: 'europe', bounds: [49.4, 5.7, 50.2, 6.6] },
+  usa: { continent: 'north_america', bounds: [24.5, -125.0, 49.4, -66.9] },
+  'united states': { continent: 'north_america', bounds: [24.5, -125.0, 49.4, -66.9] },
+  canada: { continent: 'north_america', bounds: [41.7, -141.0, 70.0, -52.6] },
+  mexico: { continent: 'north_america', bounds: [14.5, -118.4, 32.7, -86.7] },
+  japan: { continent: 'asia', bounds: [30.0, 129.0, 45.6, 145.8] },
+  china: { continent: 'asia', bounds: [18.2, 73.5, 53.6, 134.8] },
+  india: { continent: 'asia', bounds: [6.7, 68.1, 35.5, 97.4] },
+  australia: { continent: 'oceania', bounds: [-43.6, 113.3, -10.7, 153.6] },
+  australien: { continent: 'oceania', bounds: [-43.6, 113.3, -10.7, 153.6] },
+  'new zealand': { continent: 'oceania', bounds: [-46.6, 166.5, -34.4, 178.5] },
+  brazil: { continent: 'south_america', bounds: [-33.7, -73.9, 5.3, -34.7] },
+  argentina: { continent: 'south_america', bounds: [-55.0, -73.5, -21.8, -53.6] },
+  'south africa': { continent: 'africa', bounds: [-34.8, 16.5, -22.1, 32.9] },
+};
+
+const CONTINENT_LABEL: Record<Continent, Record<Language, string>> = {
+  europe: { da: 'Europa', en: 'Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
+  north_america: { da: 'Nordamerika', en: 'North America', de: 'Nordamerika', it: 'Nord America', hu: 'Észak-Amerika' },
+  south_america: { da: 'Sydamerika', en: 'South America', de: 'Südamerika', it: 'Sud America', hu: 'Dél-Amerika' },
+  asia: { da: 'Asien', en: 'Asia', de: 'Asien', it: 'Asia', hu: 'Ázsia' },
+  africa: { da: 'Afrika', en: 'Africa', de: 'Afrika', it: 'Africa', hu: 'Afrika' },
+  oceania: { da: 'Oceanien', en: 'Oceania', de: 'Ozeanien', it: 'Oceania', hu: 'Óceánia' },
+  other: { da: 'Andre', en: 'Other', de: 'Andere', it: 'Altro', hu: 'Egyéb' },
+};
+
+// Countries Timan tracks as expected presence in Europe (for "missing partner" hint)
+const EXPECTED_EUROPE = ['Denmark','Sweden','Norway','Finland','Germany','Netherlands','Belgium','France','Spain','Italy','Poland','Czech Republic','Austria','Switzerland','United Kingdom','Ireland','Portugal','Estonia','Latvia','Lithuania','Hungary','Slovakia','Slovenia','Croatia','Romania','Bulgaria','Greece','Luxembourg','Iceland'];
+
+function countryKey(name: string): string { return name.trim().toLowerCase(); }
+function getCountryInfo(name: string) { return COUNTRY_INFO[countryKey(name)]; }
 
 function normalizeType(t: string | null): PartnerType {
   const v = (t ?? '').toLowerCase();
