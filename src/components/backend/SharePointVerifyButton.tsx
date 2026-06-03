@@ -65,7 +65,11 @@ const FILTER_OPTIONS: { id: FilterMode; label: string }[] = [
   { id: "all", label: "Vis alle" },
 ];
 
-export default function SharePointVerifyButton() {
+interface VerifyProps {
+  compact?: boolean;
+}
+
+export default function SharePointVerifyButton({ compact }: VerifyProps = {}) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
