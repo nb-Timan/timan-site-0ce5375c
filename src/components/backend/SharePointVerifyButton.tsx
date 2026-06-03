@@ -7,7 +7,7 @@
  * opdateret til SharePoint-værdien ved rigtig sync.
  */
 
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import {
   Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, ArrowRight, Search,
 } from "lucide-react";
