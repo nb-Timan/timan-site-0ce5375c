@@ -23,6 +23,9 @@ export interface DealerAccount {
   postal_code: string | null;
   city: string | null;
   address: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  zip_city_raw: string | null;
   email: string | null;
   phone: string | null;
   vat_number: string | null;
@@ -90,6 +93,9 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     postal_code: (row.postal_code as string | null) ?? null,
     city: (row.city as string | null) ?? null,
     address: (row.address as string | null) ?? null,
+    address_line_1: (row.address_line_1 as string | null) ?? null,
+    address_line_2: (row.address_line_2 as string | null) ?? null,
+    zip_city_raw: (row.zip_city_raw as string | null) ?? null,
     email: (row.email as string | null) ?? null,
     phone: (row.phone as string | null) ?? null,
     vat_number: (row.vat_number as string | null) ?? null,
@@ -275,6 +281,9 @@ export interface UpdateDealerAccountPatch {
   account_number?: string | null;
   country?: string | null;
   address?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  zip_city_raw?: string | null;
   postal_code?: string | null;
   city?: string | null;
   email?: string | null;

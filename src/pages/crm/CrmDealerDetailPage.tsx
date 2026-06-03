@@ -153,7 +153,11 @@ const L: Record<string, Record<Language, string>> = {
   recent_activities:{ da: "Seneste aktiviteter", en: "Recent activities", de: "Letzte Aktivitäten", it: "Attività recenti", hu: "Legutóbbi tevékenységek" },
   recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
   none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
-  contact_info:     { da: "Kontaktinformation", en: "Contact information", de: "Kontaktinformation", it: "Informazioni di contatto", hu: "Kapcsolat" },
+  contact_info:     { da: "Firma information", en: "Company information", de: "Firmeninformationen", it: "Informazioni azienda", hu: "Cégadatok" },
+  address_line_1:   { da: "Adresse 1", en: "Address line 1", de: "Adresse 1", it: "Indirizzo 1", hu: "Cím 1" },
+  address_line_2:   { da: "Adresse 2", en: "Address line 2", de: "Adresse 2", it: "Indirizzo 2", hu: "Cím 2" },
+  postal_code:      { da: "Postnummer", en: "Postal code", de: "PLZ", it: "CAP", hu: "Irányítószám" },
+  city:             { da: "By", en: "City", de: "Stadt", it: "Città", hu: "Város" },
   master_data:      { da: "Stamdata", en: "Master data", de: "Stammdaten", it: "Dati anagrafici", hu: "Törzsadatok" },
   contact_person:   { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó" },
   view_users:       { da: "Se brugere", en: "View users", de: "Benutzer anzeigen", it: "Vedi utenti", hu: "Felhasználók megtekintése" },
@@ -621,11 +625,15 @@ export default function CrmDealerDetailPage() {
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("address", lang)}:</span> {[dealer.address, dealer.postal_code, dealer.city].filter(Boolean).join(", ") || "—"}</li>
+                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
+                <li><span className="text-slate-500">{tl("address_line_1", lang)}:</span> {dealer.address_line_1 || dealer.address || "—"}</li>
+                <li><span className="text-slate-500">{tl("address_line_2", lang)}:</span> {dealer.address_line_2 || "—"}</li>
+                <li><span className="text-slate-500">{tl("postal_code", lang)}:</span> {dealer.postal_code || "—"}</li>
+                <li><span className="text-slate-500">{tl("city", lang)}:</span> {dealer.city || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
                 <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
-                <li><span className="text-slate-500">{tl("language", lang)}:</span> {(dealer as unknown as { preferred_language?: string }).preferred_language || "—"}</li>
               </ul>
             </div>
 
@@ -1219,7 +1227,7 @@ function ContactHero({
   const callPhone = primaryPhone || dealer.phone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
 
-  const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
+  const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
   const mapsHref = addressLine
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`

@@ -30,7 +30,7 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
   return {
     company: [
       d?.company_name ?? "",
-      d?.address ?? "",
+      d?.address_line_1 ?? "",
       d?.postal_code ?? "",
       d?.city ?? "",
       d?.country ?? "",

@@ -12,6 +12,9 @@
 //                 dealer_type: 1=dealer, 2=service_partner, 3=importer
 //                 unknown    → dealer_type='dealer' + warning
 //   COUNTRY     → country
+//   ADDRESS1    → address_line_1
+//   ADDRESS2    → address_line_2
+//   ZIPCITY     → zip_city_raw   (then split into postal_code + city)
 //   Oprettet    → source_created_at
 //   Ændret      → source_modified_at
 //
@@ -47,6 +50,29 @@ interface SyncSummary {
   dryRun: boolean;
   warningDetails: string[];
   durationMs: number;
+}
+
+/**
+ * Split "8920 Randers NV" / "DK-8920 Randers" / "1000 Copenhagen K" into
+ * { postal_code, city }. Returns nulls when ambiguous.
+ */
+function splitZipCity(raw: string | null | undefined): { postal_code: string | null; city: string | null } {
+  const s = (raw ?? "").toString().trim();
+  if (!s) return { postal_code: null, city: null };
+  // Strip optional "XX-" country prefix (e.g. "DK-8920").
+  const cleaned = s.replace(/^[A-Za-z]{1,3}-\s*/, "").trim();
+  // First whitespace-separated token must look like a postal code
+  // (digits and optional spaces, e.g. "8920", "1000", "SW1A 1AA" handled loosely).
+  const m = cleaned.match(/^([0-9][0-9A-Za-z\s-]{1,9})\s+(.+)$/);
+  if (m) {
+    return { postal_code: m[1].trim(), city: m[2].trim() };
+  }
+  // Fallback — first numeric block as postal, rest as city.
+  const m2 = cleaned.match(/^(\d{3,6})\s*(.*)$/);
+  if (m2) {
+    return { postal_code: m2[1], city: m2[2].trim() || null };
+  }
+  return { postal_code: null, city: cleaned || null };
 }
 
 function mapDealerType(code: string | null | undefined): { type: DealerType; warn: boolean } {
@@ -113,6 +139,11 @@ type MappedRow = {
   company_name: string;
   dealer_type: DealerType;
   country: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  zip_city_raw: string | null;
+  postal_code: string | null;
+  city: string | null;
   source: "sharepoint";
   external_id: string | null;
   source_customer_type_code: string | null;
@@ -131,12 +162,21 @@ function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: str
   }
   const code = f.A_B_KUNDE != null ? String(f.A_B_KUNDE) : null;
   const { type, warn } = mapDealerType(code);
+  const addr1 = (f.ADDRESS1 ?? "").toString().trim() || null;
+  const addr2 = (f.ADDRESS2 ?? "").toString().trim() || null;
+  const zipCityRaw = (f.ZIPCITY ?? "").toString().trim() || null;
+  const { postal_code, city } = splitZipCity(zipCityRaw);
   return {
     row: {
       account_number: account,
       company_name: company,
       dealer_type: type,
       country: (f.COUNTRY ?? null) || null,
+      address_line_1: addr1,
+      address_line_2: addr2,
+      zip_city_raw: zipCityRaw,
+      postal_code,
+      city,
       source: "sharepoint",
       external_id: String(item.id),
       source_customer_type_code: code,
@@ -359,6 +399,11 @@ Deno.serve(async (req) => {
           company_name: r.company_name,
           dealer_type: r.dealer_type,
           country: r.country,
+          address_line_1: r.address_line_1,
+          address_line_2: r.address_line_2,
+          zip_city_raw: r.zip_city_raw,
+          postal_code: r.postal_code,
+          city: r.city,
           source_customer_type_code: r.source_customer_type_code,
           source_modified_at: r.source_modified_at,
           last_synced_at: r.last_synced_at,

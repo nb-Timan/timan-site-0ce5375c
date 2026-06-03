@@ -232,7 +232,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         skey="company" title={t("sec1")} status={statusOf("company")}
         saving={savingSection === "company"} canEdit={canEdit} t={t}
         onSave={() => saveSection("company", {
-          address: draft.address, postal_code: draft.postal_code, city: draft.city,
+          address_line_1: draft.address_line_1, address_line_2: draft.address_line_2,
+          postal_code: draft.postal_code, city: draft.city,
           country: draft.country, vat_number: draft.vat_number, director_name: draft.director_name,
           phone: draft.phone, email: draft.email,
         })}
@@ -240,7 +241,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
           <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-          <Field id="address" label={t("address")} value={draft.address} onChange={(v) => set("address", v)} disabled={!canEdit} required />
+          <Field id="address_line_1" label={t("addressLine1")} value={draft.address_line_1} onChange={(v) => set("address_line_1", v)} disabled={!canEdit} required />
+          <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
           <div className="grid grid-cols-2 gap-3">
             <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => set("postal_code", v)} disabled={!canEdit} required />
             <Field id="city" label={t("city")} value={draft.city} onChange={(v) => set("city", v)} disabled={!canEdit} required />
