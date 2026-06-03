@@ -95,6 +95,7 @@ export default function SharePointVerifyButton() {
   function rowExistsInPortal(cmp: Comparison): boolean {
     if (typeof cmp.exists_in_dealer_accounts === "boolean") return cmp.exists_in_dealer_accounts;
     if (typeof cmp.exists_in_db === "boolean") return cmp.exists_in_db;
+    if (result?.missing_in_dealer_accounts === 0) return true;
     return cmp.fields.some((f) => visibleFields.includes(f.field) && f.dealer_accounts != null && f.dealer_accounts !== "");
   }
 
