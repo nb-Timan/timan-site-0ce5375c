@@ -138,6 +138,24 @@ function MapResizer({ trigger }: { trigger: unknown }) {
   return null;
 }
 
+// Enable scroll-wheel zoom only while Ctrl/Cmd is held; otherwise allow page scroll
+function CtrlWheelZoom() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (!map.scrollWheelZoom.enabled()) map.scrollWheelZoom.enable();
+      } else {
+        if (map.scrollWheelZoom.enabled()) map.scrollWheelZoom.disable();
+      }
+    };
+    container.addEventListener('wheel', onWheel, { passive: true });
+    return () => container.removeEventListener('wheel', onWheel);
+  }, [map]);
+  return null;
+}
+
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const [search, setSearch] = useState('');
@@ -145,7 +163,8 @@ export default function PartnerMapPage() {
   const [sellerFilter, setSellerFilter] = useState<Seller | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [position, setPosition] = useState<Position>(EUROPE_VIEW);
-  const [legendOpen, setLegendOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(false);
+
   const [geo, setGeo] = useState<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
