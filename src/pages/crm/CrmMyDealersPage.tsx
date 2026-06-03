@@ -445,6 +445,9 @@ function renderRow(p: RowProps) {
         <Td>{p.r.customer_type_label || p.r.customer_type || "—"}</Td>
         <Td>{p.r.country || "—"}</Td>
         <Td>
+          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
+        </Td>
+        <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${(own.user > 0 || linkedUsers.length > 0) ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
             {Math.max(own.user, linkedUsers.length)}
             {p.agg && p.agg.user_count > own.user && (
