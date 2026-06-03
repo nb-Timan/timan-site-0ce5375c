@@ -423,6 +423,8 @@ function renderRow(p: RowProps) {
           <div className="flex items-center gap-2" style={{ paddingLeft: p.depth * 18 }}>
             {p.depth === 1 && <GitBranch className="h-3.5 w-3.5 text-slate-400" />}
             <span>{p.r.branch_name || p.r.company_name}</span>
+            <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
+
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
