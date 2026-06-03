@@ -174,8 +174,15 @@ export default function SharePointVerifyButton() {
         // Recompute mismatch totals based on visible-field logic in the sample
         const sampleMismatches = result.comparisons.filter((c) => rowState(c).kind === "mismatch").length;
         const sampleMissing = result.comparisons.filter((c) => rowState(c).kind === "missing").length;
-        const summaryLine = result.mismatches > 0
-          ? `${result.mismatches} rækker afviger fra SharePoint og vil blive opdateret ved rigtig sync.`
+        const summaryParts: string[] = [];
+        if (result.mismatches > 0) {
+          summaryParts.push(`${result.mismatches} rækker afviger fra SharePoint og vil blive opdateret ved rigtig sync.`);
+        }
+        if (result.missing_in_dealer_accounts > 0) {
+          summaryParts.push(`${result.missing_in_dealer_accounts} rækker findes ikke i portal og vil blive oprettet ved rigtig sync.`);
+        }
+        const summaryLine = summaryParts.length > 0
+          ? summaryParts.join(" ")
           : "Alle kontrollerede rækker matcher SharePoint.";
 
         return (
