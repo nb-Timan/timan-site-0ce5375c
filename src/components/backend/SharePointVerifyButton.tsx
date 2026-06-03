@@ -67,15 +67,30 @@ const FILTER_OPTIONS: { id: FilterMode; label: string }[] = [
 
 interface VerifyProps {
   compact?: boolean;
+  /** When true, render only the result/error region (no trigger button). */
+  resultOnly?: boolean;
 }
 
-export default function SharePointVerifyButton({ compact }: VerifyProps = {}) {
+export interface SharePointVerifyHandle {
+  start: () => void;
+  clear: () => void;
+}
+
+const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(function SharePointVerifyButton(
+  { compact, resultOnly }: VerifyProps,
+  ref,
+) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("diff_and_missing");
   const [search, setSearch] = useState("");
+
+  useImperativeHandle(ref, () => ({
+    start: () => void runVerify(),
+    clear: () => { setResult(null); setError(null); },
+  }), []);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
