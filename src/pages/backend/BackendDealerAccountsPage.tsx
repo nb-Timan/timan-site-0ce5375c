@@ -239,6 +239,7 @@ export default function BackendDealerAccountsPage() {
 
         <SharePointDryRunButton />
         <SharePointVerifyButton />
+        <SharePointRealSyncButton />
 
 
 
