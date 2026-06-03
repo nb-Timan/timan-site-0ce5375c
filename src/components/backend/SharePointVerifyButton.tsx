@@ -296,7 +296,7 @@ export default function SharePointVerifyButton() {
                   Ingen rækker matcher det aktuelle filter / søgning.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3">
                   {rows.map((cmp) => {
                     const st = rowState(cmp);
                     const h = getHeaderValues(cmp);
@@ -304,62 +304,62 @@ export default function SharePointVerifyButton() {
                       ? (DEALER_TYPE_LABELS[String(h.dealer_type)] ?? String(h.dealer_type))
                       : "—";
                     return (
-                      <div key={cmp.account_number} className={`rounded-lg border ${st.tone} px-4 py-3`}>
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div className="min-w-0">
-                            <div className="text-sm font-bold text-slate-900 truncate">
+                      <div
+                        key={cmp.account_number}
+                        className={`rounded-xl border ${st.tone} px-5 py-4 min-h-[140px] flex flex-col`}
+                      >
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[17px] font-semibold text-slate-900 leading-tight">
                               {h.company_name || "—"}
                             </div>
-                            <div className="mt-0.5 text-[11px] text-slate-700 flex flex-wrap gap-x-3 gap-y-0.5">
-                              <span><span className="text-slate-500">Account:</span> <span className="font-mono">{h.account_number}</span></span>
-                              <span><span className="text-slate-500">Country:</span> {h.country || "—"}</span>
-                              <span><span className="text-slate-500">Type:</span> {dealerTypeLabel}</span>
+                            <div className="mt-1.5 text-sm text-slate-700 flex flex-wrap gap-x-2 gap-y-0.5 items-center">
+                              <span className="font-mono">Account {h.account_number}</span>
+                              <span className="text-slate-400">·</span>
+                              <span>{h.country || "—"}</span>
+                              <span className="text-slate-400">·</span>
+                              <span>{dealerTypeLabel}</span>
                             </div>
                           </div>
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap">
-                            {st.kind === "match" && <Check className="h-3 w-3 text-emerald-600" />}
-                            {st.kind === "mismatch" && <AlertTriangle className="h-3 w-3 text-amber-600" />}
-                            {st.kind === "missing" && <ArrowRight className="h-3 w-3 text-sky-600" />}
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1 text-xs font-bold whitespace-nowrap shadow-sm">
+                            {st.kind === "match" && <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                            {st.kind === "mismatch" && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
+                            {st.kind === "missing" && <ArrowRight className="h-3.5 w-3.5 text-sky-600" />}
                             {st.label}
                           </span>
                         </div>
 
                         {st.kind === "mismatch" && (
-                          <div className="mt-3 overflow-x-auto">
-                            <table className="w-full text-xs">
-                              <thead className="text-slate-700">
-                                <tr>
-                                  <th className="px-2 py-1 text-left font-bold">Felt</th>
-                                  <th className="px-2 py-1 text-left font-bold">Nuværende portalværdi</th>
-                                  <th className="px-2 py-1 text-left font-bold">SharePoint-værdi</th>
-                                  <th className="px-2 py-1 text-left font-bold">Handling ved sync</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {st.diffFields.map((fr) => (
-                                  <tr key={fr.field} className="border-t border-amber-200/60">
-                                    <td className="px-2 py-1.5 font-mono text-slate-700">
-                                      {FIELD_LABELS[fr.field] ?? fr.field}
-                                    </td>
-                                    <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.dealer_accounts)}</td>
-                                    <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.sharepoint)}</td>
-                                    <td className="px-2 py-1.5">
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/60 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-                                        <ArrowRight className="h-3 w-3" /> Opdateres
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {st.diffFields.map((fr) => (
+                              <div
+                                key={fr.field}
+                                className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2.5"
+                              >
+                                <div className="text-xs font-bold uppercase tracking-wide text-amber-900/80">
+                                  {FIELD_LABELS[fr.field] ?? fr.field}
+                                </div>
+                                <div className="mt-2 grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 text-sm">
+                                  <span className="text-slate-500 font-medium">Portal:</span>
+                                  <span className="font-mono text-slate-900 break-words">{display(fr.dealer_accounts)}</span>
+                                  <span className="text-slate-500 font-medium">SharePoint:</span>
+                                  <span className="font-mono text-slate-900 font-semibold break-words">{display(fr.sharepoint)}</span>
+                                </div>
+                                <div className="mt-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                                    <ArrowRight className="h-3 w-3" /> Opdateres ved sync
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
 
                         {st.kind === "missing" && (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-sky-900">
+                          <div className="mt-3 flex items-center gap-2 text-sm text-sky-900">
                             <span>Handling ved sync:</span>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-200/60 px-2 py-0.5 text-[10px] font-bold text-sky-900">
-                              <ArrowRight className="h-3 w-3" /> Oprettes
+                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-200/70 px-2.5 py-0.5 text-[11px] font-bold text-sky-900">
+                              <ArrowRight className="h-3 w-3" /> Oprettes ved sync
                             </span>
                           </div>
                         )}
@@ -367,6 +367,7 @@ export default function SharePointVerifyButton() {
                     );
                   })}
                 </div>
+
               )}
             </div>
           </div>
