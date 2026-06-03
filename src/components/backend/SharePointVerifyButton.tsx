@@ -333,28 +333,36 @@ export default function SharePointVerifyButton() {
                         </div>
 
                         {st.kind === "mismatch" && (
-                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {st.diffFields.map((fr) => (
-                              <div
-                                key={fr.field}
-                                className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2.5"
-                              >
-                                <div className="text-xs font-bold uppercase tracking-wide text-amber-900/80">
-                                  {FIELD_LABELS[fr.field] ?? fr.field}
-                                </div>
-                                <div className="mt-2 grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 text-sm">
-                                  <span className="text-slate-500 font-medium">Portal:</span>
-                                  <span className="font-mono text-slate-900 break-words">{display(fr.dealer_accounts)}</span>
-                                  <span className="text-slate-500 font-medium">SharePoint:</span>
-                                  <span className="font-mono text-slate-900 font-semibold break-words">{display(fr.sharepoint)}</span>
-                                </div>
-                                <div className="mt-2">
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                                    <ArrowRight className="h-3 w-3" /> Opdateres ved sync
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
+                          <div className="mt-4 rounded-lg border border-amber-200 bg-white/70 px-4 py-3">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-xs font-bold uppercase tracking-wide text-amber-900">
+                                Ændringer ved sync
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                                <ArrowRight className="h-3 w-3" /> Opdateres ved sync
+                              </span>
+                            </div>
+                            <ul className="space-y-3">
+                              {st.diffFields.map((fr) => (
+                                <li key={fr.field} className="text-sm text-slate-900">
+                                  <div className="font-semibold text-slate-800">
+                                    • {FIELD_LABELS[fr.field] ?? fr.field}
+                                  </div>
+                                  <div className="mt-1 ml-3 flex flex-wrap items-center gap-2">
+                                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-slate-700 line-through decoration-slate-400">
+                                      {displayValue(fr.field, fr.dealer_accounts)}
+                                    </span>
+                                    <ArrowRight className="h-4 w-4 text-amber-600" />
+                                    <span className="rounded-md bg-emerald-100 px-2 py-0.5 font-mono font-semibold text-emerald-900">
+                                      {displayValue(fr.field, fr.sharepoint)}
+                                    </span>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="mt-3 pt-2 border-t border-amber-200 text-xs text-slate-600">
+                              Kilde: <strong className="text-slate-800">SharePoint (masterdata)</strong>
+                            </div>
                           </div>
                         )}
 
