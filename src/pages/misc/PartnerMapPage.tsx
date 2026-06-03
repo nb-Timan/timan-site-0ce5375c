@@ -374,6 +374,7 @@ export default function PartnerMapPage() {
                     />
                   )}
                   <MapController position={position} />
+                  <CtrlWheelZoom />
                   <MapResizer trigger={selectedId} />
                   {filtered.map(p => {
                     const pulse = p.orders >= 10;
