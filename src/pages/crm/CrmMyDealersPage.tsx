@@ -215,7 +215,7 @@ export default function CrmMyDealersPage() {
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers) dealersByAcct.set(d.account_number, d);
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
-  if (q) {
+  if (q || profileFilter !== "all") {
     for (const d of filteredDealers) {
       if (d.parent_account_number) {
         const parent = dealersByAcct.get(d.parent_account_number);
