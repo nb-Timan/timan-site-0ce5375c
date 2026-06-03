@@ -12,6 +12,9 @@
 //                 dealer_type: 1=dealer, 2=service_partner, 3=importer
 //                 unknown    → dealer_type='dealer' + warning
 //   COUNTRY     → country
+//   ADDRESS1    → address_line_1
+//   ADDRESS2    → address_line_2
+//   ZIPCITY     → zip_city_raw   (then split into postal_code + city)
 //   Oprettet    → source_created_at
 //   Ændret      → source_modified_at
 //
