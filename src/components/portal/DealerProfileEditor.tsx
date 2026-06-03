@@ -111,7 +111,7 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg flex items-center gap-2">{title} {badge}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex-1 flex flex-col">
         {children}
         {canEdit && (
           <div className="flex justify-end">
