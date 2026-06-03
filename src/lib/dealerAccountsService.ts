@@ -23,6 +23,9 @@ export interface DealerAccount {
   postal_code: string | null;
   city: string | null;
   address: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  zip_city_raw: string | null;
   email: string | null;
   phone: string | null;
   vat_number: string | null;
