@@ -132,7 +132,10 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
     } finally { setBusy(false); }
   }
 
-  const visibleFields = ["account_number", "company_name", "dealer_type", "country"];
+  const visibleFields = [
+    "account_number", "company_name", "dealer_type", "country",
+    "address_line_1", "address_line_2", "zip_city_raw", "postal_code", "city",
+  ];
 
   function rowExistsInPortal(cmp: Comparison): boolean {
     if (typeof cmp.exists_in_dealer_accounts === "boolean") return cmp.exists_in_dealer_accounts;
