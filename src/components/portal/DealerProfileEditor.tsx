@@ -271,28 +271,106 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         </div>
       </SectionShell>
 
-      {/* 3) Media */}
-      <SectionShell
-        skey="media" title={t("sec3")} status={statusOf("media")}
-        saving={savingSection === "media"} canEdit={canEdit} t={t}
-        onSave={() => saveSection("media", {
-          website: draft.website,
-          social_facebook: draft.social_facebook,
-          social_linkedin: draft.social_linkedin,
-          social_tiktok: draft.social_tiktok,
-          social_youtube: draft.social_youtube,
-          social_instagram: draft.social_instagram,
-        })}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
-          <Field id="social_facebook"  label={t("facebook")}  value={draft.social_facebook}  onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
-          <Field id="social_linkedin"  label={t("linkedin")}  value={draft.social_linkedin}  onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
-          <Field id="social_tiktok"    label={t("tiktok")}    value={draft.social_tiktok}    onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
-          <Field id="social_youtube"   label={t("youtube")}   value={draft.social_youtube}   onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
-          <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
-        </div>
-      </SectionShell>
+      {/* 3) Sales + Workshop side-by-side on lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        {/* Sales */}
+        <SectionShell
+          skey="sales" title={t("sec4")} status={statusOf("sales")}
+          saving={savingSection === "sales"} canEdit={canEdit} t={t}
+          onSave={() => saveSection("sales", {
+            sales_contact_name: draft.sales_contact_name,
+            sales_contact_phone: draft.sales_contact_phone,
+            sales_contact_email: draft.sales_contact_email,
+            sales_has_multiple: draft.sales_has_multiple,
+          })}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Field id="sales_contact_name"  label={t("salesContactName")} value={draft.sales_contact_name}  onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} />
+            <Field id="sales_contact_phone" label={t("salesPhone")}       value={draft.sales_contact_phone} onChange={(v) => set("sales_contact_phone", v)} disabled={!canEdit} />
+            <Field id="sales_contact_email" label={t("salesEmail")}       value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" />
+          </div>
+          <YesNoToggle label={t("salesMultiple")} value={draft.sales_has_multiple} disabled={!canEdit}
+            onChange={(v) => set("sales_has_multiple", v)} yes={t("yes")} no={t("no")} />
+          {draft.sales_has_multiple && (
+            <ContactList
+              area="sales" t={t} roleKeys={ROLE_KEYS_SALES} canEdit={canEdit}
+              contacts={contactsByArea("sales")} loading={loadingContacts}
+              onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+            />
+          )}
+        </SectionShell>
+
+        {/* Workshop & parts */}
+        <SectionShell
+          skey="workshop" title={t("sec5")} status={statusOf("workshop")}
+          saving={savingSection === "workshop"} canEdit={canEdit} t={t}
+          onSave={() => saveSection("workshop", {
+            workshop_contact_name: draft.workshop_contact_name,
+            workshop_contact_phone: draft.workshop_contact_phone,
+            workshop_contact_email: draft.workshop_contact_email,
+            workshop_has_multiple: draft.workshop_has_multiple,
+          })}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Field id="workshop_contact_name"  label={t("workshopContactName")} value={draft.workshop_contact_name}  onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} />
+            <Field id="workshop_contact_phone" label={t("workshopPhone")}       value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
+            <Field id="workshop_contact_email" label={t("workshopEmail")}       value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" />
+          </div>
+          <YesNoToggle label={t("workshopMultiple")} value={draft.workshop_has_multiple} disabled={!canEdit}
+            onChange={(v) => set("workshop_has_multiple", v)} yes={t("yes")} no={t("no")} />
+          {draft.workshop_has_multiple && (
+            <ContactList
+              area="workshop" t={t} roleKeys={ROLE_KEYS_WORKSHOP} canEdit={canEdit}
+              contacts={contactsByArea("workshop")} loading={loadingContacts}
+              onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+            />
+          )}
+        </SectionShell>
+      </div>
+
+      {/* 4) Marketing + Media side-by-side on lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        {/* Marketing */}
+        <SectionShell
+          skey="marketing" title={t("sec6")} status={statusOf("marketing")}
+          saving={savingSection === "marketing"} canEdit={canEdit} t={t}
+          onSave={() => saveSection("marketing", {
+            marketing_contact_name: draft.marketing_contact_name,
+            marketing_contact_phone: draft.marketing_contact_phone,
+            marketing_contact_email: draft.marketing_contact_email,
+          })}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Field id="marketing_contact_name"  label={t("marketingContactName")} value={draft.marketing_contact_name}  onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} />
+            <Field id="marketing_contact_phone" label={t("marketingPhone")}       value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
+            <Field id="marketing_contact_email" label={t("marketingEmail")}       value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" />
+          </div>
+        </SectionShell>
+
+        {/* Media */}
+        <SectionShell
+          skey="media" title={t("sec3")} status={statusOf("media")}
+          saving={savingSection === "media"} canEdit={canEdit} t={t}
+          onSave={() => saveSection("media", {
+            website: draft.website,
+            social_facebook: draft.social_facebook,
+            social_linkedin: draft.social_linkedin,
+            social_tiktok: draft.social_tiktok,
+            social_youtube: draft.social_youtube,
+            social_instagram: draft.social_instagram,
+          })}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
+            <Field id="social_facebook"  label={t("facebook")}  value={draft.social_facebook}  onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
+            <Field id="social_linkedin"  label={t("linkedin")}  value={draft.social_linkedin}  onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
+            <Field id="social_tiktok"    label={t("tiktok")}    value={draft.social_tiktok}    onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
+            <Field id="social_youtube"   label={t("youtube")}   value={draft.social_youtube}   onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
+            <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
+          </div>
+        </SectionShell>
+      </div>
+
 
       {/* 4) Sales */}
       <SectionShell
