@@ -195,6 +195,10 @@ function MapView({
 
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
+  const { appUser } = useAppUser();
+  const portalRole = derivePortalRole(appUser);
+  const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
+  const canSeeAssignedSeller = canOpenCrm;
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
