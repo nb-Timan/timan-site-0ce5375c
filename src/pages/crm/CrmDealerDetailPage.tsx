@@ -533,6 +533,17 @@ export default function CrmDealerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
 
+      {dealer.is_blocked && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3">
+          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-bold text-white">
+            Spærret
+          </span>
+          <span className="text-sm text-rose-900 font-medium">
+            Denne forhandler er deaktiveret i portalen
+          </span>
+        </div>
+      )}
+
       {(() => {
         const dealerIdSet = new Set(scopeNumbers
           .map((n) => dealers.find((d) => d.account_number === n)?.id)
@@ -645,7 +656,7 @@ export default function CrmDealerDetailPage() {
                 <li><span className="text-slate-500">{tl("account_number", lang)}:</span> <span className="font-mono">{dealer.account_number || "—"}</span></li>
                 <li><span className="text-slate-500">{tl("customer_type", lang)}:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
                 <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
-                <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? "Spærret" : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
+                <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? (<span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>) : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
                 <li><span className="text-slate-500">{tl("vat", lang)}:</span> {(dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || "—"}</li>
                 <li><span className="text-slate-500">{tl("assigned_seller", lang)}:</span> {dealer.assigned_seller_name || dealer.assigned_seller_initials || "—"}</li>
                 <li><span className="text-slate-500">{tl("created_at_lbl", lang)}:</span> {fmtDate((dealer as unknown as { created_at?: string }).created_at)}</li>
