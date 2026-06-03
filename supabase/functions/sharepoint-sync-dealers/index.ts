@@ -139,6 +139,11 @@ type MappedRow = {
   company_name: string;
   dealer_type: DealerType;
   country: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  zip_city_raw: string | null;
+  postal_code: string | null;
+  city: string | null;
   source: "sharepoint";
   external_id: string | null;
   source_customer_type_code: string | null;
@@ -157,12 +162,21 @@ function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: str
   }
   const code = f.A_B_KUNDE != null ? String(f.A_B_KUNDE) : null;
   const { type, warn } = mapDealerType(code);
+  const addr1 = (f.ADDRESS1 ?? "").toString().trim() || null;
+  const addr2 = (f.ADDRESS2 ?? "").toString().trim() || null;
+  const zipCityRaw = (f.ZIPCITY ?? "").toString().trim() || null;
+  const { postal_code, city } = splitZipCity(zipCityRaw);
   return {
     row: {
       account_number: account,
       company_name: company,
       dealer_type: type,
       country: (f.COUNTRY ?? null) || null,
+      address_line_1: addr1,
+      address_line_2: addr2,
+      zip_city_raw: zipCityRaw,
+      postal_code,
+      city,
       source: "sharepoint",
       external_id: String(item.id),
       source_customer_type_code: code,
