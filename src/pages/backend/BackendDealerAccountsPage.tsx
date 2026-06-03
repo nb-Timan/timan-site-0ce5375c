@@ -232,9 +232,12 @@ export default function BackendDealerAccountsPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
               <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
             </button>
+          </div>
         </div>
 
         <SharePointDryRunButton />
+
+
 
 
 
