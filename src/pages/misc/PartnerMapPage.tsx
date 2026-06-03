@@ -283,6 +283,7 @@ export default function PartnerMapPage() {
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
+  const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
   const [legendOpen, setLegendOpen] = useState(false);
   const [resultsOpen, setResultsOpen] = useState(true);
 
