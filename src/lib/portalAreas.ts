@@ -22,27 +22,6 @@ export interface PortalArea {
 
 export const PORTAL_AREAS: PortalArea[] = [
   {
-    id: 'teknik_service',
-    title: { da: 'Teknik & Service', en: 'Technical & Service', de: 'Technik & Service', it: 'Tecnico & Assistenza', hu: 'Műszaki & Szerviz' },
-    description: {
-      da: 'Service, garanti, TSB og teknisk information.',
-      en: 'Service, warranty, TSB and technical information.',
-      de: 'Service, Garantie, TSB und technische Informationen.',
-      it: 'Assistenza, garanzia, TSB e informazioni tecniche.',
-      hu: 'Szerviz, garancia, TSB és műszaki információk.',
-    },
-    moduleIds: [],
-    placeholders: [
-      { key: 'machine_search',  title: { da: 'Søg på maskine', en: 'Search machine', de: 'Maschine suchen', it: 'Cerca macchina', hu: 'Gép keresése' } },
-      { key: 'service_tickets', title: { da: 'Service tickets', en: 'Service tickets', de: 'Service-Tickets', it: 'Ticket di assistenza', hu: 'Szervizjegyek' } },
-      { key: 'service_maintenance', title: { da: 'Service registrering og vedligehold', en: 'Service registration and maintenance', de: 'Serviceerfassung und Wartung', it: 'Registrazione servizio e manutenzione', hu: 'Szervizregisztráció és karbantartás' } },
-      { key: 'claims',        title: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' } },
-      { key: 'warranty_reg',    title: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' } },
-      { key: 'tsb_portal',      title: { da: 'TSB / Technical Service Bulletin', en: 'TSB / Technical Service Bulletin', de: 'TSB / Technical Service Bulletin', it: 'TSB / Technical Service Bulletin', hu: 'TSB / Technical Service Bulletin' } },
-    ],
-
-  },
-  {
     id: 'salg_marketing',
     title: { da: 'Salg & Marketing', en: 'Sales & Marketing', de: 'Vertrieb & Marketing', it: 'Vendite & Marketing', hu: 'Értékesítés & Marketing' },
     description: {
@@ -69,6 +48,40 @@ export const PORTAL_AREAS: PortalArea[] = [
     placeholders: [],
   },
   {
+    id: 'teknik_service',
+    title: { da: 'Teknik & Service', en: 'Technical & Service', de: 'Technik & Service', it: 'Tecnico & Assistenza', hu: 'Műszaki & Szerviz' },
+    description: {
+      da: 'Service, garanti, TSB og teknisk information.',
+      en: 'Service, warranty, TSB and technical information.',
+      de: 'Service, Garantie, TSB und technische Informationen.',
+      it: 'Assistenza, garanzia, TSB e informazioni tecniche.',
+      hu: 'Szerviz, garancia, TSB és műszaki információk.',
+    },
+    moduleIds: [],
+    placeholders: [
+      { key: 'machine_search',  title: { da: 'Søg på maskine', en: 'Search machine', de: 'Maschine suchen', it: 'Cerca macchina', hu: 'Gép keresése' } },
+      { key: 'service_tickets', title: { da: 'Service tickets', en: 'Service tickets', de: 'Service-Tickets', it: 'Ticket di assistenza', hu: 'Szervizjegyek' } },
+      { key: 'service_maintenance', title: { da: 'Service registrering og vedligehold', en: 'Service registration and maintenance', de: 'Serviceerfassung und Wartung', it: 'Registrazione servizio e manutenzione', hu: 'Szervizregisztráció és karbantartás' } },
+      { key: 'claims',        title: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' } },
+      { key: 'warranty_reg',    title: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' } },
+      { key: 'tsb_portal',      title: { da: 'TSB / Technical Service Bulletin', en: 'TSB / Technical Service Bulletin', de: 'TSB / Technical Service Bulletin', it: 'TSB / Technical Service Bulletin', hu: 'TSB / Technical Service Bulletin' } },
+    ],
+
+  },
+  {
+    id: 'dealer_data',
+    title: { da: 'Forhandlerdata', en: 'Dealer Data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+    description: {
+      da: 'Stamdata, kontaktinformation, brugere og dine tilbud/ordrer.',
+      en: 'Master data, contacts, users and your quotes/orders.',
+      de: 'Stammdaten, Kontakte, Benutzer und Ihre Angebote/Bestellungen.',
+      it: 'Anagrafica, contatti, utenti e preventivi/ordini.',
+      hu: 'Törzsadatok, kapcsolatok, felhasználók és árajánlatok/rendelések.',
+    },
+    moduleIds: [],
+    placeholders: [],
+  },
+  {
     id: 'timan_backend',
     title: { da: 'Timan Backend', en: 'Timan Backend', de: 'Timan Backend', it: 'Timan Backend', hu: 'Timan Backend' },
     description: {
@@ -89,19 +102,6 @@ export const PORTAL_AREAS: PortalArea[] = [
       { key: 'price_lists', title: { da: 'Prislister', en: 'Price lists', de: 'Preislisten', it: 'Listini prezzi', hu: 'Árlisták' } },
       { key: 'budget_import', title: { da: 'Budgetimport', en: 'Budget import', de: 'Budget-Import', it: 'Import budget', hu: 'Budget importálás' } },
     ],
-  },
-  {
-    id: 'dealer_data',
-    title: { da: 'Forhandlerdata', en: 'Dealer Data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
-    description: {
-      da: 'Stamdata, kontaktinformation, brugere og dine tilbud/ordrer.',
-      en: 'Master data, contacts, users and your quotes/orders.',
-      de: 'Stammdaten, Kontakte, Benutzer und Ihre Angebote/Bestellungen.',
-      it: 'Anagrafica, contatti, utenti e preventivi/ordini.',
-      hu: 'Törzsadatok, kapcsolatok, felhasználók és árajánlatok/rendelések.',
-    },
-    moduleIds: [],
-    placeholders: [],
   },
 ];
 
