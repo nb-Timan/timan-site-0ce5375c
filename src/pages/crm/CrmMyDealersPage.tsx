@@ -95,6 +95,8 @@ export default function CrmMyDealersPage() {
   const [loadingRows, setLoadingRows] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [profileFilter, setProfileFilter] = useState<"all" | "complete" | "partial" | "critical">("all");
+
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
