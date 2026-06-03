@@ -19,6 +19,7 @@ export interface DealerAccount {
   company_name: string;
   customer_type: string | null;
   customer_type_label: string | null;
+  dealer_type: string | null;
   country: string | null;
   postal_code: string | null;
   city: string | null;
@@ -46,7 +47,6 @@ export interface DealerAccount {
   parent_account_number: string | null;
   is_main_account: boolean;
   branch_name: string | null;
-  // Phase 52 — self-service dealer profile fields (all optional).
   director_name: string | null;
   invoice_email: string | null;
   finance_contact_name: string | null;
@@ -69,6 +69,11 @@ export interface DealerAccount {
   marketing_contact_name: string | null;
   marketing_contact_phone: string | null;
   marketing_contact_email: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocoded_at: string | null;
+  geocoding_status: string | null;
+  geocoding_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +94,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     company_name: (row.company_name as string) || "",
     customer_type: (row.customer_type as string | null) ?? null,
     customer_type_label: (row.customer_type_label as string | null) ?? null,
+    dealer_type: (row.dealer_type as string | null) ?? null,
     country: (row.country as string | null) ?? null,
     postal_code: (row.postal_code as string | null) ?? null,
     city: (row.city as string | null) ?? null,
@@ -138,6 +144,11 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     marketing_contact_name: (row.marketing_contact_name as string | null) ?? null,
     marketing_contact_phone: (row.marketing_contact_phone as string | null) ?? null,
     marketing_contact_email: (row.marketing_contact_email as string | null) ?? null,
+    latitude: row.latitude == null ? null : Number(row.latitude),
+    longitude: row.longitude == null ? null : Number(row.longitude),
+    geocoded_at: (row.geocoded_at as string | null) ?? null,
+    geocoding_status: (row.geocoding_status as string | null) ?? null,
+    geocoding_error: (row.geocoding_error as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
