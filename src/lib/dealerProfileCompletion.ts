@@ -41,21 +41,23 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
     ],
     finance: [
       d?.finance_contact_name ?? "",
+      d?.finance_contact_email ?? "",
       d?.invoice_email ?? "",
     ],
     media: [
       d?.website ?? "",
     ],
     sales: [
-      // Sales contact name is recommended but not enforced as required
-      // to keep the section achievable without forcing data.
       d?.sales_contact_name ?? "",
+      d?.sales_contact_email ?? "",
     ],
     workshop: [
       d?.workshop_contact_name ?? "",
+      d?.workshop_contact_email ?? "",
     ],
     marketing: [
       d?.marketing_contact_name ?? "",
+      d?.marketing_contact_email ?? "",
     ],
   };
 }
