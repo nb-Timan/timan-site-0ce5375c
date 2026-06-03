@@ -2,10 +2,13 @@
  * Admin-only: read-only SharePoint → dealer_accounts mapping verification.
  * Calls Edge Function `sharepoint-sync-dealers` with { mode: "verify", limit: 20 }.
  * NEVER writes to dealer_accounts. Visible only to portal_role === 'timan_backend'.
+ *
+ * SharePoint = masterdata. Afvigelser betyder at dealer_accounts vil blive
+ * opdateret til SharePoint-værdien ved rigtig sync.
  */
 
 import { useState } from "react";
-import { Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, X } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, X, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 
@@ -35,6 +38,13 @@ interface VerifyResult {
   comparisons: Comparison[];
   durationMs: number;
 }
+
+const FIELD_LABELS: Record<string, string> = {
+  account_number: "Kontonummer",
+  company_name: "Firmanavn",
+  dealer_type: "Forhandlertype",
+  country: "Land",
+};
 
 export default function SharePointVerifyButton() {
   const { appUser } = useAppUser();
@@ -77,6 +87,43 @@ export default function SharePointVerifyButton() {
     } finally { setBusy(false); }
   }
 
+  // Visible fields used for "row mismatch" determination
+  const visibleFields = ["account_number", "company_name", "dealer_type", "country"];
+
+  // Compute display state per comparison row
+  function rowState(cmp: Comparison): {
+    kind: "missing" | "mismatch" | "match";
+    label: string;
+    tone: string;
+    diffFields: FieldResult[];
+  } {
+    if (!cmp.exists_in_dealer_accounts) {
+      return {
+        kind: "missing",
+        label: "Findes ikke i portal (oprettes ved sync)",
+        tone: "bg-sky-50 text-sky-900 border-sky-200",
+        diffFields: [],
+      };
+    }
+    const diffFields = cmp.fields.filter(
+      (f) => visibleFields.includes(f.field) && f.match === false,
+    );
+    if (diffFields.length === 0) {
+      return {
+        kind: "match",
+        label: "Matcher SharePoint",
+        tone: "bg-emerald-50 text-emerald-900 border-emerald-200",
+        diffFields: [],
+      };
+    }
+    return {
+      kind: "mismatch",
+      label: "Afviger fra SharePoint",
+      tone: "bg-amber-50 text-amber-900 border-amber-200",
+      diffFields,
+    };
+  }
+
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -87,8 +134,8 @@ export default function SharePointVerifyButton() {
           <div>
             <h3 className="text-sm font-bold text-slate-900">SharePoint mapping verify (read-only)</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Sammenligner SharePoint-rækker side om side med <code>dealer_accounts</code> (match på{" "}
-              <code>account_number</code>). <strong>Skriver intet</strong>.
+              SharePoint er <strong>masterdata</strong>. Afvigelser viser, hvilke felter i{" "}
+              <code>dealer_accounts</code> der bliver opdateret ved rigtig sync. <strong>Skriver intet</strong>.
             </p>
           </div>
         </div>
@@ -113,75 +160,106 @@ export default function SharePointVerifyButton() {
         </div>
       )}
 
-      {result && !error && (
-        <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <div className="flex items-center gap-2 text-emerald-900">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <p className="text-sm font-bold">
-                Analyse færdig (read-only) · {result.durationMs} ms
-              </p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-              <Metric label="total checked" value={result.total_checked} />
-              <Metric label="matches" value={result.matches} tone="green" />
-              <Metric label="mismatches" value={result.mismatches} tone={result.mismatches ? "amber" : undefined} />
-              <Metric label="missing i DB" value={result.missing_in_dealer_accounts} tone={result.missing_in_dealer_accounts ? "amber" : undefined} />
-              <Metric label="missing i SP" value={result.missing_in_sharepoint} tone={result.missing_in_sharepoint ? "amber" : undefined} />
-              <Metric label="DB total" value={result.total_dealer_accounts} />
-            </div>
-          </div>
+      {result && !error && (() => {
+        // Recompute mismatch totals based on visible-field logic in the sample
+        const sampleMismatches = result.comparisons.filter((c) => rowState(c).kind === "mismatch").length;
+        const sampleMissing = result.comparisons.filter((c) => rowState(c).kind === "missing").length;
+        const summaryLine = result.mismatches > 0
+          ? `${result.mismatches} rækker afviger fra SharePoint og vil blive opdateret ved rigtig sync.`
+          : "Alle kontrollerede rækker matcher SharePoint.";
 
-          <div>
-            <p className="text-xs font-bold text-slate-700 mb-2">
-              Side-om-side prøve ({result.sample_size} af {result.total_sharepoint} SharePoint-rækker)
-            </p>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-2 py-2 text-left font-bold">account_number</th>
-                    <th className="px-2 py-2 text-left font-bold">felt</th>
-                    <th className="px-2 py-2 text-left font-bold">SharePoint</th>
-                    <th className="px-2 py-2 text-left font-bold">dealer_accounts</th>
-                    <th className="px-2 py-2 text-center font-bold">match</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.comparisons.map((cmp) => (
-                    cmp.fields.map((fr, idx) => (
-                      <tr
-                        key={`${cmp.account_number}-${fr.field}`}
-                        className={
-                          (idx === 0 ? "border-t-2 border-slate-300 " : "border-t border-slate-100 ") +
-                          (!cmp.exists_in_dealer_accounts ? "bg-amber-50/50" : !fr.match ? "bg-rose-50/40" : "")
-                        }
-                      >
-                        {idx === 0 ? (
-                          <td className="px-2 py-1.5 align-top font-mono font-bold text-slate-900" rowSpan={cmp.fields.length}>
-                            {cmp.account_number}
-                            {!cmp.exists_in_dealer_accounts && (
-                              <div className="text-[10px] font-normal text-amber-700 mt-0.5">mangler i DB</div>
-                            )}
-                          </td>
-                        ) : null}
-                        <td className="px-2 py-1.5 font-mono text-slate-600">{fr.field}</td>
-                        <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.sharepoint)}</td>
-                        <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.dealer_accounts)}</td>
-                        <td className="px-2 py-1.5 text-center">
-                          {fr.match
-                            ? <Check className="inline h-3.5 w-3.5 text-emerald-600" />
-                            : <X className="inline h-3.5 w-3.5 text-rose-600" />}
-                        </td>
-                      </tr>
-                    ))
-                  ))}
-                </tbody>
-              </table>
+        return (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-emerald-900">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <p className="text-sm font-bold">
+                  Analyse færdig (read-only) · {result.durationMs} ms
+                </p>
+              </div>
+              <p className="text-xs text-emerald-900 mt-1">{summaryLine}</p>
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <Metric label="kontrolleret" value={result.total_checked} />
+                <Metric label="matcher" value={result.matches} tone="green" />
+                <Metric label="afviger" value={result.mismatches} tone={result.mismatches ? "amber" : undefined} />
+                <Metric label="mangler i portal" value={result.missing_in_dealer_accounts} tone={result.missing_in_dealer_accounts ? "blue" : undefined} />
+                <Metric label="mangler i SP" value={result.missing_in_sharepoint} tone={result.missing_in_sharepoint ? "amber" : undefined} />
+                <Metric label="portal total" value={result.total_dealer_accounts} />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2">
+                Side-om-side prøve ({result.sample_size} af {result.total_sharepoint} SharePoint-rækker) ·{" "}
+                <span className="text-amber-700">{sampleMismatches} afviger</span>
+                {sampleMissing > 0 && <> · <span className="text-sky-700">{sampleMissing} oprettes</span></>}
+              </p>
+
+              <div className="space-y-3">
+                {result.comparisons.map((cmp) => {
+                  const st = rowState(cmp);
+                  return (
+                    <div
+                      key={cmp.account_number}
+                      className={`rounded-lg border ${st.tone} px-4 py-3`}
+                    >
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="font-mono font-bold text-slate-900">
+                          {cmp.account_number}
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-0.5 text-[11px] font-bold">
+                          {st.kind === "match" && <Check className="h-3 w-3 text-emerald-600" />}
+                          {st.kind === "mismatch" && <AlertTriangle className="h-3 w-3 text-amber-600" />}
+                          {st.kind === "missing" && <ArrowRight className="h-3 w-3 text-sky-600" />}
+                          {st.label}
+                        </span>
+                      </div>
+
+                      {st.kind === "mismatch" && (
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="text-slate-700">
+                              <tr>
+                                <th className="px-2 py-1 text-left font-bold">Felt</th>
+                                <th className="px-2 py-1 text-left font-bold">Nuværende portalværdi</th>
+                                <th className="px-2 py-1 text-left font-bold">SharePoint-værdi</th>
+                                <th className="px-2 py-1 text-left font-bold">Handling ved sync</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {st.diffFields.map((fr) => (
+                                <tr key={fr.field} className="border-t border-amber-200/60">
+                                  <td className="px-2 py-1.5 font-mono text-slate-700">
+                                    {FIELD_LABELS[fr.field] ?? fr.field}
+                                  </td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.dealer_accounts)}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-900">{display(fr.sharepoint)}</td>
+                                  <td className="px-2 py-1.5">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/60 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                                      <ArrowRight className="h-3 w-3" /> Opdateres
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {st.kind === "missing" && (
+                        <p className="mt-2 text-xs text-sky-900">
+                          SharePoint-rækken findes ikke i <code>dealer_accounts</code> og vil blive{" "}
+                          <strong>oprettet</strong> ved rigtig sync.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
