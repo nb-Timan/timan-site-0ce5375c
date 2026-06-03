@@ -243,13 +243,13 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
     </div>
   );
 
-  const containerCls = compact
+  const containerCls = resultOnly || compact
     ? ""
     : "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
 
   return (
     <div className={containerCls}>
-      {headerNode}
+      {!resultOnly && headerNode}
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 flex items-start gap-2">
