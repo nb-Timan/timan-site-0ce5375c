@@ -330,13 +330,13 @@ export default function PartnerMapPage() {
 
             {/* Map */}
             <div className="relative bg-white rounded-b-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="h-[86vh] min-h-[640px]">
+              <div className="h-[74vh] min-h-[520px] max-h-[760px]">
                 <MapContainer
                   center={EUROPE_VIEW.center}
                   zoom={EUROPE_VIEW.zoom}
                   minZoom={3}
                   maxZoom={16}
-                  scrollWheelZoom
+                  scrollWheelZoom={false}
                   zoomControl
                   style={{ height: '100%', width: '100%' }}
                   worldCopyJump={false}
