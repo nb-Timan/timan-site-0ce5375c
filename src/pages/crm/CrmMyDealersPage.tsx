@@ -72,6 +72,7 @@ const T: Record<string, Record<Language, string>> = {
   c_account:    { da: "Kontonr", en: "Account no", de: "Konto-Nr", it: "Conto", hu: "Számlaszám" },
   c_type:       { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
   c_country:    { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
+  c_profile:    { da: "Profilstatus", en: "Profile status", de: "Profilstatus", it: "Stato profilo", hu: "Profil állapot" },
   c_users:      { da: "Brugere", en: "Users", de: "Nutzer", it: "Utenti", hu: "Felh." },
   c_quotes:     { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Ajánlat" },
   c_orders:     { da: "Ordrer", en: "Orders", de: "Orders", it: "Ordini", hu: "Rendelés" },
@@ -292,6 +293,7 @@ export default function CrmMyDealersPage() {
               <Th>{T.c_account[lang]}</Th>
               <Th>{T.c_type[lang]}</Th>
               <Th>{T.c_country[lang]}</Th>
+              <Th>{T.c_profile[lang]}</Th>
               <Th>{T.c_users[lang]}</Th>
               <Th>{T.c_quotes[lang]}</Th>
               <Th>{T.c_orders[lang]}</Th>
@@ -302,10 +304,10 @@ export default function CrmMyDealersPage() {
           </thead>
           <tbody>
             {loadingRows && (
-              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
-              <tr><td colSpan={11} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
               const hasBranches = g.branches.length > 0;
@@ -427,8 +429,6 @@ function renderRow(p: RowProps) {
           <div className="flex items-center gap-2" style={{ paddingLeft: p.depth * 18 }}>
             {p.depth === 1 && <GitBranch className="h-3.5 w-3.5 text-slate-400" />}
             <span>{p.r.branch_name || p.r.company_name}</span>
-            <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
-
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
@@ -444,6 +444,9 @@ function renderRow(p: RowProps) {
         <Td>{p.r.account_number}</Td>
         <Td>{p.r.customer_type_label || p.r.customer_type || "—"}</Td>
         <Td>{p.r.country || "—"}</Td>
+        <Td>
+          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
+        </Td>
         <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${(own.user > 0 || linkedUsers.length > 0) ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
             {Math.max(own.user, linkedUsers.length)}
@@ -475,7 +478,7 @@ function renderRow(p: RowProps) {
       </tr>
       {usersOpen && linkedUsers.length > 0 && (
         <tr className="bg-slate-50/60">
-          <td colSpan={11} className="px-6 py-3">
+          <td colSpan={12} className="px-6 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
               {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} — {p.r.branch_name || p.r.company_name}
             </p>
