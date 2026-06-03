@@ -54,6 +54,11 @@ import {
   classifyBudgetStatus,
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
+import {
+  computeDealerProfileBadge,
+  getDealerProfileMissingLabels,
+} from "@/lib/dealerProfileBadge";
+
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
