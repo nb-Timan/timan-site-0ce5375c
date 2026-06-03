@@ -112,16 +112,18 @@ const SharePointRealSyncButton = forwardRef<SharePointRealSyncHandle, Props>(fun
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => void openConfirm()}
-        disabled={busy}
-        className={btnCls}
-        title="Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares."
-      >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-        {busy ? "Arbejder…" : "Synkroniser nu"}
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          onClick={() => void openConfirm()}
+          disabled={busy}
+          className={btnCls}
+          title="Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares."
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+          {busy ? "Arbejder…" : "Synkroniser nu"}
+        </button>
+      )}
 
       {error && (
         <div className="mt-3 w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 flex items-start gap-2">
