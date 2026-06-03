@@ -1227,7 +1227,7 @@ function ContactHero({
   const callPhone = primaryPhone || dealer.phone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
 
-  const addressLine = [dealer.address, dealer.postal_code, dealer.city, dealer.country]
+  const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
   const mapsHref = addressLine
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`
