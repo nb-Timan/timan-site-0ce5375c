@@ -197,6 +197,7 @@ export default function PortalPage() {
                 to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
+                badge={area.id === 'dealer_data' ? dealerBadge : null}
               />
             );
           })}
