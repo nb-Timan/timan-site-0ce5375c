@@ -99,6 +99,7 @@ export default function CrmMyDealersPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [profileFilter, setProfileFilter] = useState<"all" | "complete" | "partial" | "critical">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "blocked">("all");
 
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
@@ -210,6 +211,8 @@ export default function CrmMyDealersPage() {
       if (profileFilter === "partial" && sev !== "partial") return false;
       if (profileFilter === "critical" && sev !== "critical") return false;
     }
+    if (statusFilter === "active" && r.is_blocked) return false;
+    if (statusFilter === "blocked" && !r.is_blocked) return false;
 
     return true;
   });
@@ -219,7 +222,7 @@ export default function CrmMyDealersPage() {
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers) dealersByAcct.set(d.account_number, d);
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
-  if (q || profileFilter !== "all") {
+  if (q || profileFilter !== "all" || statusFilter !== "all") {
     for (const d of filteredDealers) {
       if (d.parent_account_number) {
         const parent = dealersByAcct.get(d.parent_account_number);
@@ -275,6 +278,18 @@ export default function CrmMyDealersPage() {
             <option value="partial">Mangler info</option>
             <option value="critical">Kritisk</option>
 
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide">Status</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">Alle</option>
+            <option value="active">Aktive</option>
+            <option value="blocked">Spærrede</option>
           </select>
         </label>
       </div>
@@ -398,7 +413,11 @@ function renderRow(p: RowProps) {
   return (
     <>
       <tr
-        className="border-t border-slate-100 hover:bg-emerald-50/40 cursor-pointer"
+        className={`border-t border-slate-100 cursor-pointer ${
+          p.r.is_blocked
+            ? "bg-rose-50/60 hover:bg-rose-50 border-l-4 border-l-rose-500"
+            : "hover:bg-emerald-50/40"
+        }`}
         onClick={() => p.onOpenDetail?.(p.r)}
       >
         <Td>
