@@ -10,6 +10,7 @@ import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import QuickActions from '@/components/portal/QuickActions';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
 
@@ -153,6 +154,9 @@ export default function PortalPage() {
   }
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
+  const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
+
+
 
 
   return (
@@ -193,6 +197,7 @@ export default function PortalPage() {
                 to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
+                badge={area.id === 'dealer_data' ? dealerBadge : null}
               />
             );
           })}

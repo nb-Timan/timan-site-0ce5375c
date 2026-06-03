@@ -60,6 +60,8 @@ interface FieldProps {
 }
 
 function Field({ id, label, value, onChange, disabled, required, type = "text" }: FieldProps) {
+  const isEmpty = !value || (typeof value === "string" && value.trim().length === 0);
+  const missing = !!required && isEmpty;
   return (
     <div>
       <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
@@ -71,7 +73,12 @@ function Field({ id, label, value, onChange, disabled, required, type = "text" }
         value={value ?? ""}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
+        className={missing ? "border-rose-400 bg-rose-50 focus-visible:ring-rose-300" : undefined}
+        aria-invalid={missing || undefined}
       />
+      {missing && (
+        <p className="mt-1 text-xs text-rose-600">Mangler udfyldelse</p>
+      )}
     </div>
   );
 }
