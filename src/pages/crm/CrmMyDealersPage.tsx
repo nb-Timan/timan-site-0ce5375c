@@ -72,6 +72,7 @@ const T: Record<string, Record<Language, string>> = {
   c_account:    { da: "Kontonr", en: "Account no", de: "Konto-Nr", it: "Conto", hu: "Számlaszám" },
   c_type:       { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
   c_country:    { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
+  c_profile:    { da: "Profilstatus", en: "Profile status", de: "Profilstatus", it: "Stato profilo", hu: "Profil állapot" },
   c_users:      { da: "Brugere", en: "Users", de: "Nutzer", it: "Utenti", hu: "Felh." },
   c_quotes:     { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Ajánlat" },
   c_orders:     { da: "Ordrer", en: "Orders", de: "Orders", it: "Ordini", hu: "Rendelés" },
