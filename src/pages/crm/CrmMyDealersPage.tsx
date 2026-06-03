@@ -189,13 +189,27 @@ export default function CrmMyDealersPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!admin && !seller) return <Navigate to="/portal" replace />;
 
+  const dealerPeopleCount = (d: DealerAccount): number => {
+    const s = statsMap[d.id];
+    const linked = allUsers.filter((u) => u.dealer_number === d.account_number).length;
+    return Math.max(s?.user_count ?? 0, linked);
+  };
+
   const filteredDealers = dealers.filter((r) => {
-    if (!q) return true;
-    const needle = q.toLowerCase();
-    return `${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
-      .toLowerCase()
-      .includes(needle);
+    if (q) {
+      const needle = q.toLowerCase();
+      if (!`${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
+        .toLowerCase().includes(needle)) return false;
+    }
+    if (profileFilter !== "all") {
+      const badge = computeDealerProfileBadge(r, dealerPeopleCount(r));
+      if (profileFilter === "complete" && badge.missing !== 0) return false;
+      if (profileFilter === "partial" && !(badge.missing >= 1 && badge.missing <= 2)) return false;
+      if (profileFilter === "critical" && badge.missing < 3) return false;
+    }
+    return true;
   });
+
 
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
