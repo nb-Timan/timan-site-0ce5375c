@@ -2,11 +2,12 @@
  * Timan Backend only: Run REAL SharePoint → dealer_accounts sync.
  *
  * Flow:
- *  1. Click "Kør rigtig SharePoint sync"
+ *  1. Click "Synkroniser nu"
  *  2. Pre-flight: invoke edge function with { dryRun: true } to learn
  *     how many rows will be updated/created.
  *  3. Show confirmation dialog with exact counts.
  *  4. On confirm: invoke edge function with { dryRun: false }.
+ *  5. Notify parent (panel) so latest sync log can be refreshed.
  *
  * SharePoint is masterdata ONLY for:
  *   company_name, dealer_type, country,
@@ -16,8 +17,8 @@
  * activities / budgets / notes / permissions / relationships.
  */
 
-import { useState } from "react";
-import { Loader2, AlertTriangle, CheckCircle2, ShieldCheck, Zap, X } from "lucide-react";
+import { forwardRef, useImperativeHandle, useState } from "react";
+import { Loader2, AlertTriangle, Zap, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 
@@ -33,12 +34,26 @@ interface SyncSummary {
   durationMs: number;
 }
 
-export default function SharePointRealSyncButton() {
+export interface SharePointRealSyncHandle {
+  /** Start the pre-flight → confirm → run flow programmatically. */
+  start: () => void;
+}
+
+interface Props {
+  compact?: boolean;
+  onSynced?: () => void;
+}
+
+const SharePointRealSyncButton = forwardRef<SharePointRealSyncHandle, Props>(function SharePointRealSyncButton(
+  { compact, onSynced }: Props,
+  ref,
+) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<SyncSummary | null>(null);
-  const [result, setResult] = useState<SyncSummary | null>(null);
+
+  useImperativeHandle(ref, () => ({ start: () => void openConfirm() }), []);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
@@ -60,12 +75,12 @@ export default function SharePointRealSyncButton() {
       } catch { /* ignore */ }
       throw new Error(serverMsg ?? fnErr.message ?? "Ukendt fejl");
     }
-    if ((data as any)?.error) throw new Error(String((data as any).error));
+    if ((data as { error?: string })?.error) throw new Error(String((data as { error?: string }).error));
     return data as SyncSummary;
   }
 
   async function openConfirm() {
-    setBusy(true); setError(null); setResult(null); setPreview(null);
+    setBusy(true); setError(null); setPreview(null);
     try {
       const dry = await invokeSync(true);
       setPreview(dry);
@@ -79,9 +94,9 @@ export default function SharePointRealSyncButton() {
   async function runReal() {
     setBusy(true); setError(null);
     try {
-      const real = await invokeSync(false);
-      setResult(real);
+      await invokeSync(false);
       setPreview(null);
+      onSynced?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -89,38 +104,25 @@ export default function SharePointRealSyncButton() {
     }
   }
 
+  const btnCls = compact
+    ? "inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+    : "inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60";
+
   return (
-    <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <Zap className="h-5 w-5 text-emerald-700" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Rigtig SharePoint sync</h3>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Opdaterer kun <strong>stamdata</strong> i <code>dealer_accounts</code> (firmanavn, land, kundetype).
-              CRM-data, brugere, tilbud, ordrer, aktiviteter og budgetter bevares.
-            </p>
-            <p className="text-xs text-slate-500 mt-1 inline-flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3 text-emerald-600" />
-              Ingen sletninger. Ingen nulstillinger. Manuel kørsel.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void openConfirm()}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-          {busy ? "Arbejder…" : "Kør rigtig SharePoint sync"}
-        </button>
-      </div>
+    <>
+      <button
+        type="button"
+        onClick={() => void openConfirm()}
+        disabled={busy}
+        className={btnCls}
+        title="Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares."
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+        {busy ? "Arbejder…" : "Synkroniser nu"}
+      </button>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 flex items-start gap-2">
+        <div className="mt-3 w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 text-rose-600 flex-shrink-0" />
           <div className="flex-1">
             <p className="font-bold">Sync fejlede</p>
@@ -129,33 +131,7 @@ export default function SharePointRealSyncButton() {
         </div>
       )}
 
-      {result && !error && (
-        <div className="mt-4 rounded-lg border border-emerald-300 bg-white px-4 py-3">
-          <div className="flex items-center gap-2 text-emerald-900">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <p className="text-sm font-bold">Sync færdig · {result.durationMs} ms</p>
-          </div>
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-            <Metric label="Updated" value={result.updated} tone="green" />
-            <Metric label="Created" value={result.created} tone="blue" />
-            <Metric label="Skipped" value={result.skipped} />
-            <Metric label="Warnings" value={result.warnings} tone={result.warnings ? "amber" : undefined} />
-            <Metric label="Duration (ms)" value={result.durationMs} />
-          </div>
-          {result.warningDetails.length > 0 && (
-            <details className="mt-3 text-xs">
-              <summary className="cursor-pointer font-bold text-amber-900">
-                Vis advarsler ({result.warningDetails.length})
-              </summary>
-              <ul className="mt-2 list-disc pl-5 space-y-0.5 text-amber-900">
-                {result.warningDetails.map((w, i) => <li key={i} className="font-mono">{w}</li>)}
-              </ul>
-            </details>
-          )}
-        </div>
-      )}
-
-      {preview && !result && (
+      {preview && (
         <ConfirmDialog
           preview={preview}
           busy={busy}
@@ -163,9 +139,11 @@ export default function SharePointRealSyncButton() {
           onConfirm={() => void runReal()}
         />
       )}
-    </div>
+    </>
   );
-}
+});
+
+export default SharePointRealSyncButton;
 
 function ConfirmDialog({
   preview, busy, onCancel, onConfirm,
@@ -193,12 +171,8 @@ function ConfirmDialog({
           </button>
         </div>
         <div className="px-5 py-4 space-y-3 text-sm text-slate-800">
-          <p>
-            <strong>{preview.updated}</strong> partner{preview.updated === 1 ? "" : "e"} vil blive opdateret.
-          </p>
-          <p>
-            <strong>{preview.created}</strong> {preview.created === 1 ? "ny partner" : "nye partnere"} vil blive oprettet.
-          </p>
+          <p><strong>{preview.updated}</strong> partner{preview.updated === 1 ? "" : "e"} vil blive opdateret.</p>
+          <p><strong>{preview.created}</strong> {preview.created === 1 ? "ny partner" : "nye partnere"} vil blive oprettet.</p>
           <p>Ingen partnere bliver slettet.</p>
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
             SharePoint er masterdata for navn, land og kundetype. Portalens CRM-data, brugere, tilbud,
@@ -226,20 +200,6 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "green" | "blue" | "amber" }) {
-  const toneCls =
-    tone === "green" ? "bg-emerald-100 text-emerald-900"
-    : tone === "blue" ? "bg-sky-100 text-sky-900"
-    : tone === "amber" ? "bg-amber-100 text-amber-900"
-    : "bg-white text-slate-900";
-  return (
-    <div className={`rounded-md border border-slate-200 px-3 py-2 ${toneCls}`}>
-      <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
-      <div className="font-mono font-bold text-sm">{value}</div>
     </div>
   );
 }
