@@ -9,7 +9,7 @@
  * Visible only to portal_role === 'timan_backend'.
  */
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { CloudDownload, Loader2, AlertTriangle, CheckCircle2, X, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
@@ -26,6 +26,10 @@ interface DryRunSummary {
   warningDetails?: string[];
 }
 
+export interface SharePointDryRunHandle {
+  start: () => void;
+}
+
 interface Props {
   /** Compact button (used inside SharePointSyncPanel toolbar). */
   compact?: boolean;
@@ -33,14 +37,21 @@ interface Props {
   onRequestRealSync?: () => void;
   /** Called after a real sync finishes (so panel can refresh latest sync log). */
   onSyncedFromModal?: () => void;
+  /** When true, the component does not render its own trigger button. */
+  hideTrigger?: boolean;
 }
 
-export default function SharePointDryRunButton({ compact, onRequestRealSync }: Props) {
+const SharePointDryRunButton = forwardRef<SharePointDryRunHandle, Props>(function SharePointDryRunButton(
+  { compact, onRequestRealSync, hideTrigger }: Props,
+  ref,
+) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<DryRunSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  useImperativeHandle(ref, () => ({ start: () => void runDryRun() }), []);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
@@ -107,16 +118,18 @@ export default function SharePointDryRunButton({ compact, onRequestRealSync }: P
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => void runDryRun()}
-        disabled={busy}
-        className={triggerBtnCls}
-        title="Henter SharePoint-data og viser hvad sync vil ændre. Skriver intet."
-      >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudDownload className="h-3.5 w-3.5" />}
-        {busy ? "Kører dry-run…" : "Dry-run"}
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          onClick={() => void runDryRun()}
+          disabled={busy}
+          className={triggerBtnCls}
+          title="Henter SharePoint-data og viser hvad sync vil ændre. Skriver intet."
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudDownload className="h-3.5 w-3.5" />}
+          {busy ? "Kører dry-run…" : "Dry-run"}
+        </button>
+      )}
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
@@ -208,4 +221,6 @@ export default function SharePointDryRunButton({ compact, onRequestRealSync }: P
       )}
     </>
   );
-}
+});
+
+export default SharePointDryRunButton;

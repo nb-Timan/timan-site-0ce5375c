@@ -16,11 +16,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch } from "lucide-react";
+import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch, CloudDownload, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import SharePointVerifyButton, { type SharePointVerifyHandle } from "./SharePointVerifyButton";
-import SharePointDryRunButton from "./SharePointDryRunButton";
+import SharePointDryRunButton, { type SharePointDryRunHandle } from "./SharePointDryRunButton";
 import SharePointRealSyncButton, { type SharePointRealSyncHandle } from "./SharePointRealSyncButton";
 
 interface SyncLogRow {
@@ -47,7 +47,10 @@ export default function SharePointSyncPanel() {
   const [latest, setLatest] = useState<SyncLogRow | null>(null);
   const [loadingLog, setLoadingLog] = useState(true);
   const [verifyBusy, setVerifyBusy] = useState(false);
+  const [dryRunBusy, setDryRunBusy] = useState(false);
+  const [realSyncBusy, setRealSyncBusy] = useState(false);
   const verifyRef = useRef<SharePointVerifyHandle>(null);
+  const dryRunRef = useRef<SharePointDryRunHandle>(null);
   const realSyncRef = useRef<SharePointRealSyncHandle>(null);
 
   const loadLatest = useCallback(async () => {
@@ -74,78 +77,122 @@ export default function SharePointSyncPanel() {
   function startVerify() {
     setVerifyBusy(true);
     verifyRef.current?.start();
-    // Reset spinner shortly after — actual busy state lives inside the verify
-    // component, but the panel button only needs a brief visual hint.
     setTimeout(() => setVerifyBusy(false), 600);
+  }
+
+  function startDryRun() {
+    setDryRunBusy(true);
+    dryRunRef.current?.start();
+    setTimeout(() => setDryRunBusy(false), 600);
+  }
+
+  function startRealSync() {
+    setRealSyncBusy(true);
+    realSyncRef.current?.start();
+    setTimeout(() => setRealSyncBusy(false), 600);
   }
 
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="flex items-start gap-3 px-4 py-3 border-b border-slate-100">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-          <CloudCog className="h-4 w-4 text-slate-700" />
+      <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+          <CloudCog className="h-5 w-5 text-slate-700" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-slate-900">SharePoint synkronisering</div>
-          <div className="mt-1 text-[12px] text-slate-600">
+          <h2 className="text-lg font-bold text-slate-900">SharePoint synkronisering</h2>
+          <div className="mt-2">
             {loadingLog ? (
-              <span className="inline-flex items-center gap-1 text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> Henter status…
+              <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Henter status…
               </span>
             ) : latest ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span>
-                  Seneste sync: <strong className="text-slate-800">{fmtDateTime(latest.ran_at)}</strong>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700">
+                  Sidste synkronisering: <strong className="text-slate-900">{fmtDateTime(latest.ran_at)}</strong>
                 </span>
-                <span className={`inline-flex items-center gap-1 ${hasError ? "text-rose-700" : "text-emerald-700"}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${hasError ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
                   {hasError
-                    ? <><AlertTriangle className="h-3 w-3" /> Fejl</>
-                    : <><CheckCircle2 className="h-3 w-3" /> Synkroniseret</>}
+                    ? <><AlertTriangle className="h-4 w-4" /> Fejl</>
+                    : <><CheckCircle2 className="h-4 w-4" /> Synkroniseret</>}
                 </span>
-                <span className="text-slate-500">
+                <span className="text-sm text-slate-600">
                   {latest.updated} opdateret · {latest.created} oprettet · {latest.warnings} {latest.warnings === 1 ? "fejl/advarsel" : "fejl/advarsler"}
                 </span>
               </div>
             ) : (
-              <span className="text-slate-500">Ingen sync kørt endnu.</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-600">
+                Ingen synkronisering kørt endnu
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Toolbar — 3 buttons in a row */}
-      <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-slate-100">
-        <button
-          type="button"
-          onClick={startVerify}
-          disabled={verifyBusy}
-          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
-          title="Sammenligner SharePoint og portal-data. Skriver intet."
-        >
-          {verifyBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
-          Verificér
-        </button>
+      {/* Tool rows */}
+      <div className="divide-y divide-slate-100">
+        {/* Verify */}
+        <div className="px-5 py-4 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-slate-900">Verificér mapping</h3>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+              Sammenligner SharePoint og portal-data. Viser afvigelser, nye rækker og mangler. Skriver intet.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={startVerify}
+            disabled={verifyBusy}
+            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-5 py-2.5 h-10 text-sm font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60 flex-shrink-0"
+          >
+            {verifyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+            Verificér
+          </button>
+        </div>
 
-        <SharePointDryRunButton
-          compact
-          onRequestRealSync={() => realSyncRef.current?.start()}
-        />
+        {/* Dry-run */}
+        <div className="px-5 py-4 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-slate-900">Dry-run</h3>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+              Henter SharePoint-data og viser præcis hvad sync vil ændre. Skriver intet — midlertidig test.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={startDryRun}
+            disabled={dryRunBusy}
+            className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-5 py-2.5 h-10 text-sm font-bold text-sky-700 hover:bg-sky-50 disabled:opacity-60 flex-shrink-0"
+          >
+            {dryRunBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudDownload className="h-4 w-4" />}
+            Dry-run
+          </button>
+        </div>
 
-        <SharePointRealSyncButton
-          ref={realSyncRef}
-          compact
-          onSynced={() => void loadLatest()}
-        />
-
-        <span className="ml-auto text-[11px] text-slate-500">
-          Kun rigtig sync gemmes som historik. Dry-run vises kun midlertidigt.
-        </span>
+        {/* Real sync */}
+        <div className="px-5 py-4 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-slate-900">Rigtig SharePoint sync</h3>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+              Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={startRealSync}
+            disabled={realSyncBusy}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 h-10 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60 flex-shrink-0"
+          >
+            {realSyncBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+            Synkroniser nu
+          </button>
+        </div>
       </div>
 
-      {/* Verify result (temporary, full-width, can be cleared) */}
+      {/* Hidden child components for modals/results */}
       <SharePointVerifyButton ref={verifyRef} resultOnly />
-
+      <SharePointDryRunButton ref={dryRunRef} hideTrigger onRequestRealSync={() => realSyncRef.current?.start()} />
+      <SharePointRealSyncButton ref={realSyncRef} hideTrigger onSynced={() => void loadLatest()} />
     </div>
   );
 }
