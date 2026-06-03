@@ -144,9 +144,8 @@ export default function SharePointSyncPanel() {
       </div>
 
       {/* Verify result (temporary, full-width, can be cleared) */}
-      <div className="px-4 py-3">
-        <SharePointVerifyButton ref={verifyRef} resultOnly />
-      </div>
+      <SharePointVerifyButton ref={verifyRef} resultOnly />
+
     </div>
   );
 }
