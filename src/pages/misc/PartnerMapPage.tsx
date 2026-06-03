@@ -377,9 +377,14 @@ export default function PartnerMapPage() {
                 </div>
               </div>
             </div>
+            {/* Scroll safe-zone below map */}
+            <div className="h-12 lg:h-14 flex items-center justify-center text-[11px] text-gray-400">
+              Tip: Hold <kbd className="mx-1 px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-600 font-mono text-[10px]">Ctrl</kbd> nede mens du scroller for at zoome på kortet
+            </div>
           </section>
         </div>
       </div>
+
 
       {/* Slide-in mini CRM profile */}
       {selected && (() => {
