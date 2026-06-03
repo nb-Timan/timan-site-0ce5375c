@@ -271,8 +271,9 @@ export default function CrmMyDealersPage() {
           >
             <option value="all">Alle</option>
             <option value="complete">Komplet</option>
-            <option value="partial">Mangler oplysninger</option>
-            <option value="critical">Kritisk mangelfuld</option>
+            <option value="partial">Mangler info</option>
+            <option value="critical">Kritisk</option>
+
           </select>
         </label>
       </div>
