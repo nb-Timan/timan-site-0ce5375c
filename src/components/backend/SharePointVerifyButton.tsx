@@ -435,7 +435,10 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
       })()}
     </div>
   );
-}
+});
+
+export default SharePointVerifyButton;
+
 
 function display(v: unknown): string {
   if (v == null || v === "") return "—";
