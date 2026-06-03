@@ -253,13 +253,27 @@ export default function CrmMyDealersPage() {
         </div>
       </div>
 
-      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3">
-        <div className="relative max-w-md">
+      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-3">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={T.search[lang]}
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm" />
         </div>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide">Profilstatus</span>
+          <select
+            value={profileFilter}
+            onChange={(e) => setProfileFilter(e.target.value as typeof profileFilter)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">Alle</option>
+            <option value="complete">Komplet</option>
+            <option value="partial">Mangler oplysninger</option>
+            <option value="critical">Kritisk mangelfuld</option>
+          </select>
+        </label>
       </div>
+
 
       {error && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>
