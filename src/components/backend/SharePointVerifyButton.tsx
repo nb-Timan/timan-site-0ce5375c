@@ -7,7 +7,7 @@
  * opdateret til SharePoint-værdien ved rigtig sync.
  */
 
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import {
   Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, ArrowRight, Search,
 } from "lucide-react";
@@ -65,13 +65,32 @@ const FILTER_OPTIONS: { id: FilterMode; label: string }[] = [
   { id: "all", label: "Vis alle" },
 ];
 
-export default function SharePointVerifyButton() {
+interface VerifyProps {
+  compact?: boolean;
+  /** When true, render only the result/error region (no trigger button). */
+  resultOnly?: boolean;
+}
+
+export interface SharePointVerifyHandle {
+  start: () => void;
+  clear: () => void;
+}
+
+const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(function SharePointVerifyButton(
+  { compact, resultOnly }: VerifyProps,
+  ref,
+) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("diff_and_missing");
   const [search, setSearch] = useState("");
+
+  useImperativeHandle(ref, () => ({
+    start: () => void runVerify(),
+    clear: () => { setResult(null); setError(null); },
+  }), []);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
@@ -173,34 +192,79 @@ export default function SharePointVerifyButton() {
     return { rows: kept.map((x) => x.c), counts };
   }, [result, filter, search]);
 
-  return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <ScanSearch className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">SharePoint mapping verify (read-only)</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              SharePoint er <strong>masterdata</strong>. Visningen viser, hvad rigtig sync vil ændre i{" "}
-              <code>dealer_accounts</code>. <strong>Skriver intet</strong>.
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Match = ingen ændringer · Afviger = opdateres fra SharePoint · Findes ikke i portal = oprettes.
-            </p>
-          </div>
-        </div>
+  const headerNode = compact ? (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <button
+        type="button"
+        onClick={() => void runVerify()}
+        disabled={busy}
+        className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+        title="Sammenligner SharePoint og portal-data. Skriver intet."
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+        {busy ? "Analyserer…" : "Verificér"}
+      </button>
+      {(result || error) && (
         <button
           type="button"
-          onClick={() => void runVerify()}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+          onClick={() => { setResult(null); setError(null); }}
+          className="text-xs text-slate-500 hover:text-slate-800 underline"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
-          {busy ? "Analyserer…" : "Verificér mapping"}
+          Ryd verify-resultat
         </button>
+      )}
+    </div>
+  ) : (
+    <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+          <ScanSearch className="h-5 w-5 text-indigo-600" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">SharePoint mapping verify (read-only)</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            SharePoint er <strong>masterdata</strong>. Visningen viser, hvad rigtig sync vil ændre i{" "}
+            <code>dealer_accounts</code>. <strong>Skriver intet</strong>.
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Match = ingen ændringer · Afviger = opdateres fra SharePoint · Findes ikke i portal = oprettes.
+          </p>
+        </div>
       </div>
+      <button
+        type="button"
+        onClick={() => void runVerify()}
+        disabled={busy}
+        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+        {busy ? "Analyserer…" : "Verificér mapping"}
+      </button>
+    </div>
+  );
+
+  const hasOutput = !!(result || error);
+  const containerCls = resultOnly
+    ? (hasOutput ? "border-t border-slate-100 px-4 py-3" : "hidden")
+    : compact
+    ? ""
+    : "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+
+  return (
+    <div className={containerCls}>
+      {!resultOnly && headerNode}
+      {resultOnly && hasOutput && (
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <p className="text-xs font-bold text-slate-700">Verify-resultat (midlertidigt)</p>
+          <button
+            type="button"
+            onClick={() => { setResult(null); setError(null); }}
+            className="text-xs text-slate-500 hover:text-slate-800 underline"
+          >
+            Ryd
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 flex items-start gap-2">
@@ -386,7 +450,10 @@ export default function SharePointVerifyButton() {
       })()}
     </div>
   );
-}
+});
+
+export default SharePointVerifyButton;
+
 
 function display(v: unknown): string {
   if (v == null || v === "") return "—";
