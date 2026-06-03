@@ -281,6 +281,9 @@ export interface UpdateDealerAccountPatch {
   account_number?: string | null;
   country?: string | null;
   address?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  zip_city_raw?: string | null;
   postal_code?: string | null;
   city?: string | null;
   email?: string | null;
