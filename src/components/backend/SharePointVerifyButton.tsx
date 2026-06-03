@@ -47,6 +47,11 @@ const FIELD_LABELS: Record<string, string> = {
   company_name: "Firmanavn",
   dealer_type: "Forhandlertype",
   country: "Land",
+  address_line_1: "Adresse 1",
+  address_line_2: "Adresse 2",
+  zip_city_raw: "Postnr./By råtekst",
+  postal_code: "Postnummer",
+  city: "By",
 };
 
 const DEALER_TYPE_LABELS: Record<string, string> = {
