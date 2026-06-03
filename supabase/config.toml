@@ -12,3 +12,8 @@ verify_jwt = false
 # caller's Supabase Auth user AND the service-role key for upserts).
 [functions.sharepoint-sync-dealers]
 verify_jwt = false
+
+# geocode-dealers verifies the JWT itself in code; backend-only, server-side
+# Nominatim geocoding of dealer_accounts addresses.
+[functions.geocode-dealers]
+verify_jwt = false
