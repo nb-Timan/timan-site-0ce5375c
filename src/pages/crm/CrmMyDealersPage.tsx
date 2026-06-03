@@ -559,22 +559,32 @@ function BudgetStatusCell({
 }
 
 function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
-  const badge = computeDealerProfileBadge(dealer, peopleCount);
+  const severity = computeDealerProfileSeverity(dealer, peopleCount);
   const missingLabels = getDealerProfileMissingLabels(dealer, peopleCount);
   const tone =
-    badge.tone === "green" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : badge.tone === "yellow" ? "bg-amber-100 text-amber-800 border-amber-200"
-    : badge.tone === "red" ? "bg-rose-100 text-rose-800 border-rose-200"
+    severity === "complete" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : severity === "partial" ? "bg-amber-100 text-amber-800 border-amber-200"
+    : severity === "critical" ? "bg-rose-100 text-rose-800 border-rose-200"
     : "bg-slate-100 text-slate-700 border-slate-200";
   const dot =
-    badge.tone === "green" ? "bg-emerald-500"
-    : badge.tone === "yellow" ? "bg-amber-500"
-    : badge.tone === "red" ? "bg-rose-500"
+    severity === "complete" ? "bg-emerald-500"
+    : severity === "partial" ? "bg-amber-500"
+    : severity === "critical" ? "bg-rose-500"
     : "bg-slate-400";
-  const text = badge.missing === 0 ? "Komplet" : `${6 - badge.missing}/6`;
+  const text =
+    severity === "complete" ? "Komplet"
+    : severity === "partial" ? "Mangler info"
+    : severity === "critical" ? "Kritisk"
+    : "—";
+  const baseTitle =
+    severity === "complete"
+      ? "Profilen er komplet."
+      : severity === "critical"
+        ? "Der mangler kritiske stamdata: Firma information eller e-mail til faktura."
+        : "Der mangler øvrige profiloplysninger.";
   const title = missingLabels.length === 0
-    ? "Profil komplet"
-    : `Profil mangler:\n- ${missingLabels.join("\n- ")}`;
+    ? baseTitle
+    : `${baseTitle}\n\nProfil mangler:\n- ${missingLabels.join("\n- ")}`;
   return (
     <span
       title={title}
@@ -586,4 +596,5 @@ function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; pe
     </span>
   );
 }
+
 
