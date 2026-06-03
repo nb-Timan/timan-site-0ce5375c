@@ -85,6 +85,27 @@ export function getDealerProfileMissingLabels(
   return DEALER_PROFILE_SECTION_LABELS.filter((_, i) => !sections[i]);
 }
 
+export type DealerProfileSeverity = "complete" | "partial" | "critical" | "neutral";
+
+/**
+ * CRM severity: RED if Firma information section incomplete OR invoice email
+ * missing. GREEN if all 6 sections complete. YELLOW otherwise.
+ */
+export function computeDealerProfileSeverity(
+  dealer: DealerAccount | null,
+  peopleCount: number,
+): DealerProfileSeverity {
+  if (!dealer) return "neutral";
+  const sections = computeDealerProfileSections(dealer, peopleCount);
+  const companyOk = sections[0];
+  const invoiceOk = isFilled(dealer.invoice_email);
+  if (!companyOk || !invoiceOk) return "critical";
+  if (sections.every(Boolean)) return "complete";
+  return "partial";
+}
+
+
+
 
 /**
  * Hook: fetches dealer + headcount for the given dealer_number and returns
