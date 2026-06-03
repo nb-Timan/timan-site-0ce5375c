@@ -47,6 +47,11 @@ const FIELD_LABELS: Record<string, string> = {
   company_name: "Firmanavn",
   dealer_type: "Forhandlertype",
   country: "Land",
+  address_line_1: "Adresse 1",
+  address_line_2: "Adresse 2",
+  zip_city_raw: "Postnr./By råtekst",
+  postal_code: "Postnummer",
+  city: "By",
 };
 
 const DEALER_TYPE_LABELS: Record<string, string> = {
@@ -127,7 +132,10 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
     } finally { setBusy(false); }
   }
 
-  const visibleFields = ["account_number", "company_name", "dealer_type", "country"];
+  const visibleFields = [
+    "account_number", "company_name", "dealer_type", "country",
+    "address_line_1", "address_line_2", "zip_city_raw", "postal_code", "city",
+  ];
 
   function rowExistsInPortal(cmp: Comparison): boolean {
     if (typeof cmp.exists_in_dealer_accounts === "boolean") return cmp.exists_in_dealer_accounts;
