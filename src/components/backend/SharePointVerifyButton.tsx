@@ -177,6 +177,35 @@ export default function SharePointVerifyButton({ compact }: VerifyProps = {}) {
     return { rows: kept.map((x) => x.c), counts };
   }, [result, filter, search]);
 
+  if (compact) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => void runVerify()}
+          disabled={busy}
+          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+          title="Sammenligner SharePoint og portal-data. Skriver intet."
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+          {busy ? "Analyserer…" : "Verificér"}
+        </button>
+        {(error || result) && (
+          <CompactVerifyResult
+            error={error}
+            result={result}
+            filter={filter}
+            setFilter={setFilter}
+            search={search}
+            setSearch={setSearch}
+            filteredAndCounts={filteredAndCounts}
+            onClear={() => { setResult(null); setError(null); }}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4 flex-wrap">
