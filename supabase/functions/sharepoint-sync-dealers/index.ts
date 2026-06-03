@@ -52,6 +52,29 @@ interface SyncSummary {
   durationMs: number;
 }
 
+/**
+ * Split "8920 Randers NV" / "DK-8920 Randers" / "1000 Copenhagen K" into
+ * { postal_code, city }. Returns nulls when ambiguous.
+ */
+function splitZipCity(raw: string | null | undefined): { postal_code: string | null; city: string | null } {
+  const s = (raw ?? "").toString().trim();
+  if (!s) return { postal_code: null, city: null };
+  // Strip optional "XX-" country prefix (e.g. "DK-8920").
+  const cleaned = s.replace(/^[A-Za-z]{1,3}-\s*/, "").trim();
+  // First whitespace-separated token must look like a postal code
+  // (digits and optional spaces, e.g. "8920", "1000", "SW1A 1AA" handled loosely).
+  const m = cleaned.match(/^([0-9][0-9A-Za-z\s-]{1,9})\s+(.+)$/);
+  if (m) {
+    return { postal_code: m[1].trim(), city: m[2].trim() };
+  }
+  // Fallback — first numeric block as postal, rest as city.
+  const m2 = cleaned.match(/^(\d{3,6})\s*(.*)$/);
+  if (m2) {
+    return { postal_code: m2[1], city: m2[2].trim() || null };
+  }
+  return { postal_code: null, city: cleaned || null };
+}
+
 function mapDealerType(code: string | null | undefined): { type: DealerType; warn: boolean } {
   const c = (code ?? "").toString().trim();
   if (c === "1") return { type: "dealer", warn: false };
