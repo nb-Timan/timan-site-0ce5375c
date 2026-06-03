@@ -228,6 +228,9 @@ export default function SharePointVerifyButton() {
 
         return (
           <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900">
+              <strong>SharePoint er masterdata.</strong> Ved rigtig sync bliver portalens værdier opdateret til SharePoint-værdier.
+            </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
               <div className="flex items-center gap-2 text-emerald-900">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
