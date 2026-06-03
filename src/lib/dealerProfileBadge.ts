@@ -50,13 +50,13 @@ export function computeDealerProfileBadge(
       dealer.phone, dealer.email,
     ].every(isFilled),
     // 2. Økonomi
-    [dealer.finance_contact_name, dealer.invoice_email].every(isFilled),
+    [dealer.finance_contact_name, dealer.finance_contact_email, dealer.invoice_email].every(isFilled),
     // 3. Medier
     [dealer.website].every(isFilled),
     // 4. Salg
-    [dealer.sales_contact_name].every(isFilled),
+    [dealer.sales_contact_name, dealer.sales_contact_email].every(isFilled),
     // 5. Service / Værksted
-    [dealer.workshop_contact_name].every(isFilled),
+    [dealer.workshop_contact_name, dealer.workshop_contact_email].every(isFilled),
     // 6. Brugere / Kontakter
     peopleCount > 0,
   ];

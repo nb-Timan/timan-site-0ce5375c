@@ -265,9 +265,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="finance_contact_name" label={t("financeContactName")} value={draft.finance_contact_name} onChange={(v) => set("finance_contact_name", v)} disabled={!canEdit} required />
+          <Field id="finance_contact_email" label={t("financeEmail")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" required />
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
           <Field id="finance_contact_phone" label={t("financePhone")} value={draft.finance_contact_phone} onChange={(v) => set("finance_contact_phone", v)} disabled={!canEdit} />
-          <Field id="finance_contact_email" label={t("financeEmail")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" />
         </div>
       </SectionShell>
 
@@ -285,9 +285,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           })}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="sales_contact_name"  label={t("salesContactName")} value={draft.sales_contact_name}  onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} />
+            <Field id="sales_contact_name"  label={t("salesContactName")} value={draft.sales_contact_name}  onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} required />
             <Field id="sales_contact_phone" label={t("salesPhone")}       value={draft.sales_contact_phone} onChange={(v) => set("sales_contact_phone", v)} disabled={!canEdit} />
-            <Field id="sales_contact_email" label={t("salesEmail")}       value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" />
+            <Field id="sales_contact_email" label={t("salesEmail")}       value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" required />
           </div>
           <YesNoToggle label={t("salesMultiple")} value={draft.sales_has_multiple} disabled={!canEdit}
             onChange={(v) => set("sales_has_multiple", v)} yes={t("yes")} no={t("no")} />
@@ -312,9 +312,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           })}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="workshop_contact_name"  label={t("workshopContactName")} value={draft.workshop_contact_name}  onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} />
+            <Field id="workshop_contact_name"  label={t("workshopContactName")} value={draft.workshop_contact_name}  onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
             <Field id="workshop_contact_phone" label={t("workshopPhone")}       value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
-            <Field id="workshop_contact_email" label={t("workshopEmail")}       value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" />
+            <Field id="workshop_contact_email" label={t("workshopEmail")}       value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
           </div>
           <YesNoToggle label={t("workshopMultiple")} value={draft.workshop_has_multiple} disabled={!canEdit}
             onChange={(v) => set("workshop_has_multiple", v)} yes={t("yes")} no={t("no")} />
@@ -341,9 +341,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           })}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="marketing_contact_name"  label={t("marketingContactName")} value={draft.marketing_contact_name}  onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} />
+            <Field id="marketing_contact_name"  label={t("marketingContactName")} value={draft.marketing_contact_name}  onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} required />
             <Field id="marketing_contact_phone" label={t("marketingPhone")}       value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
-            <Field id="marketing_contact_email" label={t("marketingEmail")}       value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" />
+            <Field id="marketing_contact_email" label={t("marketingEmail")}       value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" required />
           </div>
         </SectionShell>
 
