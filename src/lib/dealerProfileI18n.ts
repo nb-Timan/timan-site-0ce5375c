@@ -10,7 +10,7 @@ export type ProfileI18nKey =
   | "statusComplete" | "statusPartial" | "statusEmpty"
   | "save" | "saving" | "saved" | "saveError" | "required"
   | "sec1" | "sec2" | "sec3" | "sec4" | "sec5" | "sec6"
-  | "companyName" | "address" | "postalCode" | "city" | "country"
+  | "companyName" | "address" | "addressLine1" | "addressLine2" | "postalCode" | "city" | "country"
   | "vatNumber" | "directorName" | "phone" | "email"
   | "financeContactName" | "financePhone" | "financeEmail" | "invoiceEmail"
   | "website" | "facebook" | "linkedin" | "tiktok" | "youtube" | "instagram"
