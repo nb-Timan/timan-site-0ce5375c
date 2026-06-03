@@ -138,6 +138,24 @@ function MapResizer({ trigger }: { trigger: unknown }) {
   return null;
 }
 
+// Enable scroll-wheel zoom only while Ctrl/Cmd is held; otherwise allow page scroll
+function CtrlWheelZoom() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (!map.scrollWheelZoom.enabled()) map.scrollWheelZoom.enable();
+      } else {
+        if (map.scrollWheelZoom.enabled()) map.scrollWheelZoom.disable();
+      }
+    };
+    container.addEventListener('wheel', onWheel, { passive: true });
+    return () => container.removeEventListener('wheel', onWheel);
+  }, [map]);
+  return null;
+}
+
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const [search, setSearch] = useState('');
@@ -145,7 +163,8 @@ export default function PartnerMapPage() {
   const [sellerFilter, setSellerFilter] = useState<Seller | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [position, setPosition] = useState<Position>(EUROPE_VIEW);
-  const [legendOpen, setLegendOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(false);
+
   const [geo, setGeo] = useState<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -330,13 +349,13 @@ export default function PartnerMapPage() {
 
             {/* Map */}
             <div className="relative bg-white rounded-b-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="h-[86vh] min-h-[640px]">
+              <div className="h-[74vh] min-h-[520px] max-h-[760px]">
                 <MapContainer
                   center={EUROPE_VIEW.center}
                   zoom={EUROPE_VIEW.zoom}
                   minZoom={3}
                   maxZoom={16}
-                  scrollWheelZoom
+                  scrollWheelZoom={false}
                   zoomControl
                   style={{ height: '100%', width: '100%' }}
                   worldCopyJump={false}
@@ -355,6 +374,7 @@ export default function PartnerMapPage() {
                     />
                   )}
                   <MapController position={position} />
+                  <CtrlWheelZoom />
                   <MapResizer trigger={selectedId} />
                   {filtered.map(p => {
                     const pulse = p.orders >= 10;
@@ -377,9 +397,14 @@ export default function PartnerMapPage() {
                 </div>
               </div>
             </div>
+            {/* Scroll safe-zone below map */}
+            <div className="h-12 lg:h-14 flex items-center justify-center text-[11px] text-gray-400">
+              Tip: Hold <kbd className="mx-1 px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-600 font-mono text-[10px]">Ctrl</kbd> nede mens du scroller for at zoome på kortet
+            </div>
           </section>
         </div>
       </div>
+
 
       {/* Slide-in mini CRM profile */}
       {selected && (() => {
