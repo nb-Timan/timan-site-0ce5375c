@@ -7,3 +7,8 @@ verify_jwt = false
 # caller's Supabase Auth user AND the service-role key for admin operations).
 [functions.admin-user-actions]
 verify_jwt = false
+
+# sharepoint-sync-dealers verifies the JWT itself in code (it needs both the
+# caller's Supabase Auth user AND the service-role key for upserts).
+[functions.sharepoint-sync-dealers]
+verify_jwt = false
