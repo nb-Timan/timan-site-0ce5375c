@@ -539,17 +539,19 @@ export default function PartnerMapPage() {
                 {/* Map */}
                 <div className="relative flex-1 min-w-0">
                   <MapContainer
-                    center={EUROPE_VIEW.center} zoom={EUROPE_VIEW.zoom} minZoom={3} maxZoom={16}
+                    center={EUROPE_VIEW.center} zoom={EUROPE_VIEW.zoom} minZoom={2} maxZoom={16}
                     scrollWheelZoom={false} zoomControl
                     style={{ height: '100%', width: '100%' }}
-                    worldCopyJump={false}
-                    maxBounds={[[34, -25], [72, 45]]}
-                    maxBoundsViscosity={0.6}
+                    worldCopyJump={true}
                   >
-                    <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      subdomains={['a','b','c','d']}
+                    />
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
-                    <MapView fitTo={fitTo} resetTo={EUROPE_VIEW} resetTick={resetTick} />
+                    <MapView fitTo={fitTo} resetTo={resetView} resetTick={resetTick} />
                     <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
                   </MapContainer>
 
