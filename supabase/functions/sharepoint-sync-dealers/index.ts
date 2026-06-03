@@ -400,8 +400,39 @@ Deno.serve(async (req) => {
     summary.updated = toUpdate.length;
     summary.created = toCreate.length;
 
+    // ------------------------------------------------------------------
+    // SAFETY: SharePoint is master for COMPANY MASTERDATA only.
+    // The portal is master for ACCESS / STATUS / RELATIONS.
+    //
+    // The following columns are PORTAL-CONTROLLED and MUST NEVER be
+    // overwritten by SharePoint sync:
+    //   is_active, is_blocked, blocked_at, blocked_by,
+    //   is_deleted, deleted_at, deleted_by,
+    //   assigned_seller_initials, assigned_seller_name, assigned_seller_email,
+    //   latitude, longitude, geocoded_at, geocoding_status, geocoding_error,
+    //   notes / CRM / users / quotes / orders / budgets (separate tables).
+    //
+    // The whitelist below is the ONLY set of columns the UPDATE path may
+    // touch. Do not add portal-controlled columns here.
+    // ------------------------------------------------------------------
+    const MASTERDATA_PATCH_FIELDS = [
+      "company_name",
+      "dealer_type",
+      "country",
+      "address_line_1",
+      "address_line_2",
+      "zip_city_raw",
+      "postal_code",
+      "city",
+      "source_customer_type_code",
+      "source_modified_at",
+      "last_synced_at",
+    ] as const;
+
     if (!dryRun) {
-      // INSERT new accounts (full record incl. defaults).
+      // INSERT new accounts only. Existing rows are NEVER re-inserted, so
+      // portal-controlled flags on existing rows can never be reset here.
+      // New rows default to is_active=true / is_blocked=false (table defaults).
       for (let i = 0; i < toCreate.length; i += 500) {
         const chunk = toCreate.slice(i, i + 500);
         const { error: insErr } = await admin
@@ -409,22 +440,14 @@ Deno.serve(async (req) => {
           .insert(chunk);
         if (insErr) throw new Error(`Supabase insert error: ${insErr.message}`);
       }
-      // UPDATE existing accounts — ONLY masterdata fields. Never touches
-      // assigned_seller, crm fields, users, offers, orders, notes, etc.
+      // UPDATE existing accounts — masterdata whitelist ONLY. Never touches
+      // is_active / is_blocked / assigned_seller / users / CRM / quotes /
+      // orders / notes / budgets / coordinates.
       for (const r of toUpdate) {
-        const patch = {
-          company_name: r.company_name,
-          dealer_type: r.dealer_type,
-          country: r.country,
-          address_line_1: r.address_line_1,
-          address_line_2: r.address_line_2,
-          zip_city_raw: r.zip_city_raw,
-          postal_code: r.postal_code,
-          city: r.city,
-          source_customer_type_code: r.source_customer_type_code,
-          source_modified_at: r.source_modified_at,
-          last_synced_at: r.last_synced_at,
-        };
+        const patch: Record<string, unknown> = {};
+        for (const f of MASTERDATA_PATCH_FIELDS) {
+          patch[f] = (r as Record<string, unknown>)[f];
+        }
         const { error: updErr } = await admin
           .from("dealer_accounts")
           .update(patch)
@@ -432,6 +455,7 @@ Deno.serve(async (req) => {
         if (updErr) throw new Error(`Supabase update error for ${r.account_number}: ${updErr.message}`);
       }
     }
+
 
     summary.durationMs = Date.now() - t0;
 
