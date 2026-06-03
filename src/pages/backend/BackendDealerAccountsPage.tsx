@@ -49,6 +49,7 @@ import { BackendUser } from "@/lib/backend-users-store";
 import { supabase } from "@/lib/supabase";
 import SharePointDryRunButton from "@/components/backend/SharePointDryRunButton";
 import SharePointVerifyButton from "@/components/backend/SharePointVerifyButton";
+import SharePointRealSyncButton from "@/components/backend/SharePointRealSyncButton";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
