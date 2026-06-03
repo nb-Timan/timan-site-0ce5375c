@@ -528,8 +528,11 @@ export default function PartnerMapPage() {
                 {sellerOptions.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <div className="ml-auto flex items-center gap-1">
-                <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.resetView[lang]}>
+                <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
                   <Home className="h-4 w-4" />
+                </button>
+                <button onClick={worldView} className="h-9 px-2.5 flex items-center gap-1.5 text-gray-600 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200" title={T.worldView[lang]}>
+                  <Globe className="h-4 w-4" /> <span className="hidden sm:inline">{T.worldView[lang]}</span>
                 </button>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Fuldskærm"><Maximize2 className="h-4 w-4" /></button>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Hjælp"><HelpCircle className="h-4 w-4" /></button>
