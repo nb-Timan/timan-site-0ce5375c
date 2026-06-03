@@ -10,6 +10,7 @@ import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import QuickActions from '@/components/portal/QuickActions';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
 
