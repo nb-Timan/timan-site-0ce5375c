@@ -551,16 +551,25 @@ export default function PartnerMapPage() {
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="flex items-start gap-2.5 text-sm text-gray-700">
-                <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                <div className="leading-snug">
-                  {selected.addressLine1 && <div>{selected.addressLine1}</div>}
-                  {selected.addressLine2 && <div>{selected.addressLine2}</div>}
-                  <div className="text-gray-500">{[selected.postal, selected.city].filter(Boolean).join(' ')}{selected.country ? `, ${selected.country}` : ''}</div>
-                </div>
-              </div>
+              {(() => {
+                const hasAddress = !!(selected.addressLine1 || selected.postal || selected.city);
+                const hasAnyLocation = hasAddress || !!selected.country;
+                if (!hasAnyLocation) return null;
+                const cityLine = [selected.postal, selected.city].filter(Boolean).join(' ');
+                return (
+                  <div className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div className="leading-snug">
+                      {selected.addressLine1 && <div>{selected.addressLine1}</div>}
+                      {selected.addressLine2 && <div>{selected.addressLine2}</div>}
+                      {cityLine && <div className="text-gray-500">{cityLine}</div>}
+                      {selected.country && <div className="text-gray-500">{selected.country}</div>}
+                    </div>
+                  </div>
+                );
+              })()}
 
-              {(selected.seller || selected.sellerName) && (
+              {canSeeAssignedSeller && (selected.seller || selected.sellerName) && (
                 <div className="flex items-center justify-between bg-gradient-to-r from-[#2d5a27]/5 to-transparent border-l-2 border-[#2d5a27] rounded-r-md px-3 py-2">
                   <div className="flex items-center gap-2">
                     <UserIcon className="h-4 w-4 text-[#2d5a27]" />
@@ -572,27 +581,63 @@ export default function PartnerMapPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { icon: Users, label: T.users[lang], value: selected.users },
-                  { icon: FileText, label: T.quotes[lang], value: selected.quotes },
-                  { icon: ShoppingCart, label: T.orders[lang], value: selected.orders },
-                ].map((s, i) => (
-                  <div key={i} className="bg-white border border-gray-100 rounded-xl p-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-semibold text-gray-500">
-                      <s.icon className="h-3 w-3" /> {s.label}
+              {canOpenCrm && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { icon: Users, label: T.users[lang], value: selected.users },
+                    { icon: FileText, label: T.quotes[lang], value: selected.quotes },
+                    { icon: ShoppingCart, label: T.orders[lang], value: selected.orders },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white border border-gray-100 rounded-xl p-2.5">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-semibold text-gray-500">
+                        <s.icon className="h-3 w-3" /> {s.label}
+                      </div>
+                      <div className="text-lg font-bold mt-0.5 text-gray-700">{s.value}</div>
                     </div>
-                    <div className="text-lg font-bold mt-0.5 text-gray-700">{s.value}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
-              <Link
-                to={`/portal/crm/my-dealers/${encodeURIComponent(selected.account)}`}
-                className="w-full mt-2 px-3 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-              >
-                <ExternalLink className="h-4 w-4" /> {T.openCrm[lang]}
-              </Link>
+              {(() => {
+                const addressForRoute = [selected.addressLine1, selected.postal, selected.city, selected.country].filter(Boolean).join(', ');
+                const canRoute = !!selected.coords || addressForRoute.length > 0;
+                const routeHref = selected.coords
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${selected.coords[0]},${selected.coords[1]}`
+                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressForRoute)}`;
+                const buttons: React.ReactNode[] = [];
+                if (selected.phone) {
+                  buttons.push(
+                    <a key="phone" href={`tel:${selected.phone}`} className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Phone className="h-4 w-4" /> Ring
+                    </a>
+                  );
+                }
+                if (selected.email) {
+                  buttons.push(
+                    <a key="mail" href={`mailto:${selected.email}`} className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Mail className="h-4 w-4" /> Mail
+                    </a>
+                  );
+                }
+                if (canRoute) {
+                  buttons.push(
+                    <a key="route" href={routeHref} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Navigation className="h-4 w-4" /> Rutevejledning
+                    </a>
+                  );
+                }
+                if (buttons.length === 0) return null;
+                return <div className={`grid gap-2 ${buttons.length === 1 ? 'grid-cols-1' : buttons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{buttons}</div>;
+              })()}
+
+              {canOpenCrm && (
+                <Link
+                  to={`/portal/crm/my-dealers/${encodeURIComponent(selected.account)}`}
+                  className="w-full mt-2 px-3 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" /> {T.openCrm[lang]}
+                </Link>
+              )}
             </div>
           </aside>
         </>
