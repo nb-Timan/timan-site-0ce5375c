@@ -16,12 +16,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch, CloudDownload, Zap } from "lucide-react";
+import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch, CloudDownload, Zap, FlaskConical } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import SharePointVerifyButton, { type SharePointVerifyHandle } from "./SharePointVerifyButton";
 import SharePointDryRunButton, { type SharePointDryRunHandle } from "./SharePointDryRunButton";
 import SharePointRealSyncButton, { type SharePointRealSyncHandle } from "./SharePointRealSyncButton";
+import SharePointWarrantyProbeButton, { type SharePointWarrantyProbeHandle } from "./SharePointWarrantyProbeButton";
 
 interface SyncLogRow {
   ran_at: string;
@@ -52,6 +53,8 @@ export default function SharePointSyncPanel() {
   const verifyRef = useRef<SharePointVerifyHandle>(null);
   const dryRunRef = useRef<SharePointDryRunHandle>(null);
   const realSyncRef = useRef<SharePointRealSyncHandle>(null);
+  const warrantyProbeRef = useRef<SharePointWarrantyProbeHandle>(null);
+  const [warrantyProbeBusy, setWarrantyProbeBusy] = useState(false);
 
   const loadLatest = useCallback(async () => {
     setLoadingLog(true);
@@ -187,12 +190,36 @@ export default function SharePointSyncPanel() {
             Synkroniser nu
           </button>
         </div>
+
+        {/* Warranty probe (read-only) */}
+        <div className="px-5 py-4 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-slate-900">Test SharePoint Warranty</h3>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+              Read-only test af listen <em>Warranty registration</em>. Viser kolonner, første 10 rækker og foreslået mapping. Skriver intet.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setWarrantyProbeBusy(true);
+              warrantyProbeRef.current?.start();
+              setTimeout(() => setWarrantyProbeBusy(false), 600);
+            }}
+            disabled={warrantyProbeBusy}
+            className="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-5 py-2.5 h-10 text-sm font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-60 flex-shrink-0"
+          >
+            {warrantyProbeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+            Test SharePoint Warranty
+          </button>
+        </div>
       </div>
 
       {/* Hidden child components for modals/results */}
       <SharePointVerifyButton ref={verifyRef} resultOnly />
       <SharePointDryRunButton ref={dryRunRef} hideTrigger onRequestRealSync={() => realSyncRef.current?.start()} />
       <SharePointRealSyncButton ref={realSyncRef} hideTrigger onSynced={() => void loadLatest()} />
+      <SharePointWarrantyProbeButton ref={warrantyProbeRef} hideTrigger />
     </div>
   );
 }
