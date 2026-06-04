@@ -65,7 +65,8 @@ export type ModuleAccessKey =
   | 'tilbud'
   | 'ordre'
   | 'sales_tools'
-  | 'resources';
+  | 'resources'
+  | 'videos';
 
 
 // ---------- Default per-role module access ----------
