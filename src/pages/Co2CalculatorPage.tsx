@@ -98,7 +98,13 @@ export default function Co2CalculatorPage() {
   }
 
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  {
+    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
+    if (appUser.role === 'slutkunde' && !(portalRole && dealerSideRoles.has(portalRole))) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   const t = TR[lang] ?? TR.da;
   const rate = exchangeRates[lang] ?? 0.134;
