@@ -65,7 +65,7 @@ export function WarrantyDashboardIntro({
 }
 
 export function WarrantyDashboardBody({ scope, dealerName }: Props) {
-  const all = useWarrantyRecords();
+  const all = useWarrantyRecords() ?? [];
 
   const records = useMemo(() => {
     if (scope === "admin") return all;
@@ -245,10 +245,11 @@ function EmptyState({ text }: { text: string }) {
 function YearlyOverviewCard({
   data,
 }: {
-  data: { year: number; count: number }[];
+  data?: { year: number; count: number }[];
 }) {
-  const max = data.reduce((m, d) => Math.max(m, d.count), 0);
-  const total = data.reduce((s, d) => s + d.count, 0);
+  const rows = data ?? [];
+  const max = rows.reduce((m, d) => Math.max(m, d.count), 0);
+  const total = rows.reduce((s, d) => s + d.count, 0);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
@@ -260,11 +261,11 @@ function YearlyOverviewCard({
           {total} i alt
         </span>
       </div>
-      {data.length === 0 ? (
-        <EmptyState text="Du har endnu ingen registreringer." />
-      ) : (
-        <ul className="divide-y divide-slate-100">
-          {data.map((d) => {
+        {rows.length === 0 ? (
+          <EmptyState text="Du har endnu ingen registreringer." />
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {rows.map((d) => {
             const pct = max > 0 ? Math.round((d.count / max) * 100) : 0;
             return (
               <li key={d.year} className="px-6 py-3">
