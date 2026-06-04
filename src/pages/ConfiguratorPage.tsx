@@ -1966,21 +1966,21 @@ export default function ConfiguratorPage() {
               if (hasUnsaved) {
                 setShowLeavePortalConfirm(true);
               } else {
-                navigate('/portal');
+                navigate('/portal/salg-marketing');
               }
             }}
             className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {lang === 'da' ? 'Tilbage til portal'
-                : lang === 'de' ? 'Zurück zum Portal'
-                : lang === 'it' ? 'Torna al portale'
-                : lang === 'hu' ? 'Vissza a portálra'
-                : 'Back to portal'}
+              {lang === 'da' ? 'Tilbage til Salg & Marketing'
+                : lang === 'de' ? 'Zurück zu Vertrieb & Marketing'
+                : lang === 'it' ? 'Torna a Vendite & Marketing'
+                : lang === 'hu' ? 'Vissza: Értékesítés & Marketing'
+                : 'Back to Sales & Marketing'}
             </span>
             <span className="sm:hidden">
-              {lang === 'it' ? 'Portale' : lang === 'hu' ? 'Portál' : 'Portal'}
+              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : 'Sales'}
             </span>
           </button>
           ) : (
