@@ -407,7 +407,14 @@ function VerifyView({ data }: { data: VerifyResult }) {
 }
 
 function DryRunView({ data }: { data: DryRunResult }) {
-  const dm = data.dealer_matching ?? {};
+  const dm: DryRunResult["dealer_matching"] = data.dealer_matching ?? {
+    safe_matches_count: 0,
+    needs_review_count: 0,
+    unmatched_count: 0,
+    safe_matches: [],
+    needs_review: [],
+    unmatched: [],
+  };
   const safeMatches = dm.safe_matches ?? [];
   const needsReview = dm.needs_review ?? [];
   const unmatched = dm.unmatched ?? [];
