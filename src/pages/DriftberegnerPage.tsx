@@ -212,7 +212,13 @@ export default function DriftberegnerPage() {
     );
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  {
+    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
+    if (appUser.role === 'slutkunde' && !(portalRole && dealerSideRoles.has(portalRole))) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   const loc = locales[currentLang];
   const t = loc.texts;
