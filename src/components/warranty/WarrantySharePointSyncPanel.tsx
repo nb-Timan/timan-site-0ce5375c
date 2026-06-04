@@ -12,13 +12,14 @@
  * NO real-sync button in this phase. NO writes anywhere.
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
-  ScanSearch, CloudDownload, CheckCircle2,
+  ScanSearch, CloudDownload, CheckCircle2, Check,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 // ---- Result shapes (must match edge function responses) ----
 
