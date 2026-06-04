@@ -244,7 +244,18 @@ create table if not exists public.warranty_registrations (
   created_at                  timestamptz not null default now(),
   updated_at                  timestamptz not null default now(),
 
-  constraint warranty_registrations_sp_item_unique unique (sharepoint_item_id)
+  constraint warranty_registrations_sp_item_unique unique (sharepoint_item_id),
+
+  -- A registration cannot be 'matched' without a real dealer link.
+  -- Both the internal FK and the durable external account_number must be set.
+  constraint warranty_registrations_matched_requires_dealer check (
+    dealer_match_status <> 'matched'
+    or (
+      dealer_account_id is not null
+      and dealer_account_number is not null
+      and length(trim(dealer_account_number)) > 0
+    )
+  )
 );
 
 comment on table public.warranty_registrations is
