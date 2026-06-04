@@ -88,6 +88,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   sales_tools: "Diverse",
   tilbud: "Tilbud",
   ordre: "Ordrer",
+  videos: "Video Galleri",
 };
 
 
@@ -98,7 +99,13 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
   audit_log: "Audit Log",
 };
 
-const VIDEOS_LABEL = "Video Galleri";
+// Visual grouping for Allowed Modules editor. Keys not present here will be
+// rendered in an "Øvrige" bucket so nothing silently disappears if new keys
+// are added later.
+const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
+  { label: "Salg & Marketing", modules: ["byg_din_timan", "resources", "videos", "sales_tools", "tilbud", "ordre"] },
+  { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
+];
 
 const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
   create_lead:  { da: "Opret nyt lead",        en: "Create new lead" },
