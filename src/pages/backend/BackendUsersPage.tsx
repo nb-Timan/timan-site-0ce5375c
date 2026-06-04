@@ -761,17 +761,17 @@ function EditUserModal({
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
               const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend", "timan_crm"];
-              return (
-                <>
+              const groupedKeys = new Set<ModuleAccessKey>(MODULE_GROUPS.flatMap((g) => g.modules));
+              const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m));
+              const renderGroup = (label: string, modules: ModuleAccessKey[]) => (
+                <div key={label} className="mb-3">
+                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
                   <CheckboxGroup
-                    items={[
-                      ...ALL_MODULES.map((m) => ({
-                        value: m,
-                        label: MODULE_LABEL[m] || m,
-                        disabled: dealerSide && FORBIDDEN_MODULES.includes(m),
-                      })),
-                      { value: "videos", label: VIDEOS_LABEL, disabled: true },
-                    ]}
+                    items={modules.map((m) => ({
+                      value: m,
+                      label: MODULE_LABEL[m] || m,
+                      disabled: dealerSide && FORBIDDEN_MODULES.includes(m),
+                    }))}
                     checked={draft.allowed_modules}
                     onChange={(v) => {
                       const mod = v as ModuleAccessKey;
@@ -779,23 +779,37 @@ function EditUserModal({
                       setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod) });
                     }}
                   />
-                  <p className="mt-2 text-[11px] text-slate-500">Backend-meta moduler:</p>
-                  <CheckboxGroup
-                    items={BACKEND_META_MODULES.map((m) => ({
-                      value: m,
-                      label: BACKEND_MODULE_LABEL[m],
-                      disabled: dealerSide,
-                    }))}
-                    checked={dealerSide ? [] : draft.backend_modules}
-                    onChange={(v) => {
-                      if (dealerSide) return;
-                      setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) });
-                    }}
-                  />
+                </div>
+              );
+              return (
+                <>
+                  {MODULE_GROUPS.map((g) => renderGroup(g.label, g.modules))}
+                  {otherModules.length > 0 && renderGroup("Øvrige", otherModules)}
+                  <div className="mb-1">
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Timan Backend</p>
+                    <CheckboxGroup
+                      items={BACKEND_META_MODULES.map((m) => ({
+                        value: m,
+                        label: BACKEND_MODULE_LABEL[m],
+                        disabled: dealerSide,
+                      }))}
+                      checked={dealerSide ? [] : draft.backend_modules}
+                      onChange={(v) => {
+                        if (dealerSide) return;
+                        setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) });
+                      }}
+                    />
+                  </div>
+                  {dealerSide && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Eksterne dealer-side roller har ikke adgang til Timan Backend eller Timan CRM.
+                    </p>
+                  )}
                 </>
               );
             })()}
           </Section>
+
 
           {/* Permissions */}
           <Section title="Permissions">
