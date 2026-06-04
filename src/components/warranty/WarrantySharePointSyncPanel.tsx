@@ -17,6 +17,7 @@ import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
   ScanSearch, CloudDownload, CheckCircle2, Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
