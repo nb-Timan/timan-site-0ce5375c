@@ -309,15 +309,28 @@ create table if not exists public.dealer_account_aliases (
   id                    uuid primary key default gen_random_uuid(),
   alias_name            text not null,                     -- as seen in source
   normalized_alias      text not null,                     -- lower/trim/stripped
-  dealer_account_id     uuid references public.dealer_accounts(id) on delete set null,
-  dealer_account_number text,
+  dealer_account_id     uuid not null references public.dealer_accounts(id),
+  dealer_account_number text not null,
   confidence            numeric,
   source                text not null default 'warranty_sharepoint',
   created_by            uuid,                              -- auth_user_id
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now(),
 
-  constraint dealer_account_aliases_unique unique (normalized_alias, source)
+  constraint dealer_account_aliases_unique
+    unique (normalized_alias, source),
+
+  -- An alias must always resolve to a real dealer.
+  constraint dealer_account_aliases_requires_dealer check (
+    dealer_account_id is not null
+    and dealer_account_number is not null
+    and length(trim(dealer_account_number)) > 0
+  ),
+
+  -- Normalised alias must be non-empty after trim.
+  constraint dealer_account_aliases_alias_not_empty check (
+    length(trim(normalized_alias)) > 0
+  )
 );
 
 comment on table public.dealer_account_aliases is
