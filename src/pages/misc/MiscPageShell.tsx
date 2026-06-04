@@ -1,17 +1,12 @@
 import { ReactNode } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { goBackOrFallback, getPortalBackTarget } from '@/lib/portalBackNav';
+import BackButton from '@/components/portal/BackButton';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
-import { Language } from '@/types/configurator';
 
-const BACK: Record<Language, string> = {
-  da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza',
-};
 
 interface Props {
   title: string;
