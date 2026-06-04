@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import BackButton from '@/components/portal/BackButton';
 import { Language } from '@/types/configurator';
 
 const backT: Record<Language, string> = {
@@ -136,13 +136,7 @@ export default function Co2CalculatorPage() {
       {/* Back button - directly below header */}
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-4xl mx-auto px-4">
-          <button
-            onClick={() => navigate('/portal/resources')}
-            className="flex items-center text-emerald-600 font-semibold hover:underline"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            {backT[lang]}
-          </button>
+          <BackButton />
         </div>
       </div>
 

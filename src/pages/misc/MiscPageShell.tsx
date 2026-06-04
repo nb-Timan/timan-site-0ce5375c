@@ -1,17 +1,12 @@
 import { ReactNode } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { goBackOrFallback, getPortalBackTarget } from '@/lib/portalBackNav';
+import BackButton from '@/components/portal/BackButton';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
-import { Language } from '@/types/configurator';
 
-const BACK: Record<Language, string> = {
-  da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza',
-};
 
 interface Props {
   title: string;
@@ -25,7 +20,6 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -51,8 +45,6 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
     : appUser.role === 'timan_saelger' || appUser.role === 'partner';
   if (!allowed) return <Navigate to="/portal/salg-marketing" replace />;
 
-  const back = backTo ?? getPortalBackTarget(location.pathname);
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
@@ -64,13 +56,7 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
 
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => goBackOrFallback(navigate, location, back)}
-            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            {BACK[lang]}
-          </button>
+          <BackButton to={backTo} />
         </div>
       </div>
 

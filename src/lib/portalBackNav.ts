@@ -1,94 +1,184 @@
 /**
- * Contextual back navigation for portal pages.
+ * Centralised back-navigation for the portal.
  *
- * Returns the route a "Tilbage" / "Back" control should navigate to,
- * based on the current pathname. Keeps users inside the same portal area
- * instead of bouncing all the way to the portal frontpage.
+ * Every "Tilbage" button across the portal should resolve to its known
+ * parent route — not to the browser history — so navigation behaves like
+ * breadcrumbs no matter how the user landed on the page.
+ *
+ * Hierarchy (most specific first):
+ *
+ *   /portal/resources/driftberegner   → /portal/resources       ("ressourcer")
+ *   /portal/resources/co2             → /portal/resources       ("ressourcer")
+ *   /portal/resources                 → /portal/salg-marketing  ("Salg & Marketing")
+ *   /portal/misc/forms/*              → /portal/misc/forms      ("Formularer")
+ *   /portal/misc/forms                → /portal/misc            ("Diverse")
+ *   /portal/misc/partner-map          → /portal/misc            ("Diverse")
+ *   /portal/misc                      → /portal/salg-marketing  ("Salg & Marketing")
+ *   /portal/videos/*                  → /portal/videos          ("Videoer")
+ *   /portal/videos                    → /portal/salg-marketing  ("Salg & Marketing")
+ *   /portal/salg-marketing            → /portal                 ("portal")
+ *   /portal/teknik-service            → /portal                 ("portal")
+ *   /portal/backend/*                 → /portal/backend         ("Backend")
+ *   /portal/backend                   → /portal                 ("portal")
+ *   /portal/crm/my-dealers/:id        → /portal/crm/my-dealers  ("Mine forhandlere")
+ *   /portal/crm/leads/(new|:id)       → /portal/crm/leads       ("Leads")
+ *   /portal/crm/demo-leads/(new|:id)  → /portal/crm/demo-leads  ("Demo leads")
+ *   /portal/crm/* (other tabs)        → /portal/crm             ("CRM")
+ *   /portal/crm                       → /portal                 ("portal")
+ *   /portal/service/claims/*          → /portal/service/claims  ("Claims")
+ *   /portal/service/tsb/*             → /portal/service/tsb     ("TSB")
+ *   /portal/service/warranty/*        → /portal/service/warranty("Warranty")
+ *   /portal/service/tickets/*         → /portal/service/tickets ("Service tickets")
+ *   /portal/service/*                 → /portal/teknik-service  ("Teknik & Service")
+ *   /portal/dealer-data               → /portal                 ("portal")
+ *   /configurator                     → /portal/salg-marketing  ("Salg & Marketing")
+ *   default                           → /portal                 ("portal")
  */
 
 import type { NavigateFunction } from 'react-router-dom';
+import type { Language } from '@/types/configurator';
 
-export type PortalBackTarget =
-  | '/portal'
-  | '/portal/teknik-service'
-  | '/portal/salg-marketing'
-  | '/portal/backend'
-  | '/portal/crm';
+export type PortalBackTarget = string;
 
-const SERVICE_PREFIXES = [
-  '/portal/service/tsb',
-  '/portal/service/claims',
-  '/portal/service/warranty',
-];
-
-const SALES_PREFIXES = [
-  '/portal/configurator',
-  '/portal/offers',
-  '/portal/orders',
-  '/portal/resources',
-  '/portal/videos',
-  '/portal/misc',
-];
-
-const BACKEND_CHILD_PREFIXES = [
-  '/portal/backend/users',
-  '/portal/backend/roles',
-  '/portal/backend/module-access',
-  '/portal/backend/audit-log',
-];
-
-const AREA_PAGES = [
-  '/portal/teknik-service',
-  '/portal/salg-marketing',
-  '/portal/backend',
-  '/portal/crm',
-];
-
-function startsWithAny(path: string, prefixes: string[]): boolean {
-  return prefixes.some(p => path === p || path.startsWith(p + '/') || path.startsWith(p + '?'));
+interface ParentRule {
+  /** Test the pathname (no query/hash). */
+  match: (path: string) => boolean;
+  to: string;
+  labelKey: BackLabelKey;
 }
 
-/**
- * Map a pathname to its contextual back target.
- *
- * - Service child pages → /portal/teknik-service
- * - Sales child pages   → /portal/salg-marketing
- * - CRM child pages     → /portal/crm
- * - Backend child pages → /portal/backend
- * - Area pages          → /portal
- * - Anything else       → /portal
- */
+type BackLabelKey =
+  | 'portal'
+  | 'sales_marketing'
+  | 'service_area'
+  | 'backend_area'
+  | 'crm_area'
+  | 'resources'
+  | 'misc'
+  | 'forms'
+  | 'videos'
+  | 'my_dealers'
+  | 'leads'
+  | 'demo_leads'
+  | 'claims'
+  | 'tsb'
+  | 'warranty'
+  | 'service_tickets';
+
+const LABELS: Record<BackLabelKey, Record<Language, string>> = {
+  portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
+  sales_marketing: { da: 'Tilbage til Salg & Marketing', en: 'Back to Sales & Marketing', de: 'Zurück zu Vertrieb & Marketing', it: 'Torna a Vendite & Marketing', hu: 'Vissza: Értékesítés & Marketing' },
+  service_area:    { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza: Műszaki & Szerviz' },
+  backend_area:    { da: 'Tilbage til Backend',       en: 'Back to Backend',        de: 'Zurück zum Backend',        it: 'Torna al Backend',         hu: 'Vissza a Backendhez' },
+  crm_area:        { da: 'Tilbage til CRM',           en: 'Back to CRM',            de: 'Zurück zum CRM',            it: 'Torna al CRM',             hu: 'Vissza a CRM-hez' },
+  resources:       { da: 'Tilbage til Ressourcer',    en: 'Back to Resources',      de: 'Zurück zu Ressourcen',      it: 'Torna alle Risorse',       hu: 'Vissza a Forrásokhoz' },
+  misc:            { da: 'Tilbage til Diverse',       en: 'Back to More',           de: 'Zurück zu Sonstiges',       it: 'Torna a Altro',            hu: 'Vissza: Egyéb' },
+  forms:           { da: 'Tilbage til Formularer',    en: 'Back to Forms',          de: 'Zurück zu Formularen',      it: 'Torna ai Moduli',          hu: 'Vissza az Űrlapokhoz' },
+  videos:          { da: 'Tilbage til Videoer',       en: 'Back to Videos',         de: 'Zurück zu Videos',          it: 'Torna ai Video',           hu: 'Vissza a Videókhoz' },
+  my_dealers:      { da: 'Tilbage til Mine forhandlere', en: 'Back to My dealers',  de: 'Zurück zu Meine Händler',   it: 'Torna a I miei rivenditori', hu: 'Vissza: Kereskedőim' },
+  leads:           { da: 'Tilbage til Leads',         en: 'Back to Leads',          de: 'Zurück zu Leads',           it: 'Torna ai Lead',            hu: 'Vissza a Leadekhez' },
+  demo_leads:      { da: 'Tilbage til Demo leads',    en: 'Back to Demo leads',     de: 'Zurück zu Demo-Leads',      it: 'Torna ai Demo lead',       hu: 'Vissza: Demo leadek' },
+  claims:          { da: 'Tilbage til Reklamationer', en: 'Back to Claims',         de: 'Zurück zu Reklamationen',   it: 'Torna ai Reclami',         hu: 'Vissza a Reklamációkhoz' },
+  tsb:             { da: 'Tilbage til TSB',           en: 'Back to TSB',            de: 'Zurück zu TSB',             it: 'Torna a TSB',              hu: 'Vissza a TSB-hez' },
+  warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
+  service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
+};
+
+const eq = (path: string, p: string) => path === p;
+const startsWith = (path: string, p: string) =>
+  path === p || path.startsWith(p + '/') || path.startsWith(p + '?');
+
+// Order matters — first match wins. List the deepest routes first.
+const RULES: ParentRule[] = [
+  // Resources
+  { match: p => eq(p, '/portal/resources/driftberegner'), to: '/portal/resources', labelKey: 'resources' },
+  { match: p => eq(p, '/portal/resources/co2'),           to: '/portal/resources', labelKey: 'resources' },
+  { match: p => eq(p, '/portal/resources'),               to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+
+  // Misc / Diverse
+  { match: p => startsWith(p, '/portal/misc/forms') && !eq(p, '/portal/misc/forms'), to: '/portal/misc/forms', labelKey: 'forms' },
+  { match: p => eq(p, '/portal/misc/forms'),              to: '/portal/misc', labelKey: 'misc' },
+  { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal/misc', labelKey: 'misc' },
+  { match: p => startsWith(p, '/portal/misc') && !eq(p, '/portal/misc'), to: '/portal/misc', labelKey: 'misc' },
+  { match: p => eq(p, '/portal/misc'),                    to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+
+  // Videos
+  { match: p => startsWith(p, '/portal/videos') && !eq(p, '/portal/videos'), to: '/portal/videos', labelKey: 'videos' },
+  { match: p => eq(p, '/portal/videos'),                  to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+
+  // Area landing pages
+  { match: p => eq(p, '/portal/salg-marketing'),          to: '/portal', labelKey: 'portal' },
+  { match: p => eq(p, '/portal/teknik-service'),          to: '/portal', labelKey: 'portal' },
+  { match: p => eq(p, '/portal/backend'),                 to: '/portal', labelKey: 'portal' },
+  { match: p => eq(p, '/portal/dealer-data'),             to: '/portal', labelKey: 'portal' },
+
+  // Backend child pages
+  { match: p => startsWith(p, '/portal/backend/'),        to: '/portal/backend', labelKey: 'backend_area' },
+
+  // CRM detail pages → list tabs
+  { match: p => /^\/portal\/crm\/my-dealers\/[^/]+/.test(p), to: '/portal/crm/my-dealers', labelKey: 'my_dealers' },
+  { match: p => /^\/portal\/crm\/leads\/(new|[^/]+)/.test(p), to: '/portal/crm/leads', labelKey: 'leads' },
+  { match: p => /^\/portal\/crm\/demo-leads\/(new|[^/]+)/.test(p), to: '/portal/crm/demo-leads', labelKey: 'demo_leads' },
+  { match: p => /^\/portal\/crm\/accounts\/[^/]+/.test(p), to: '/portal/crm/my-dealers', labelKey: 'my_dealers' },
+
+  // CRM dashboard = CRM landing → back to portal
+  { match: p => eq(p, '/portal/crm/dashboard'),           to: '/portal', labelKey: 'portal' },
+  { match: p => eq(p, '/portal/crm'),                     to: '/portal', labelKey: 'portal' },
+  // Other CRM tabs → CRM landing
+  { match: p => startsWith(p, '/portal/crm/'),            to: '/portal/crm/dashboard', labelKey: 'crm_area' },
+
+  // Service sub-areas
+  { match: p => startsWith(p, '/portal/service/claims/'), to: '/portal/service/claims', labelKey: 'claims' },
+  { match: p => eq(p, '/portal/service/claims'),          to: '/portal/teknik-service', labelKey: 'service_area' },
+  { match: p => startsWith(p, '/portal/service/tsb/'),    to: '/portal/service/tsb', labelKey: 'tsb' },
+  { match: p => eq(p, '/portal/service/tsb'),             to: '/portal/teknik-service', labelKey: 'service_area' },
+  { match: p => startsWith(p, '/portal/service/warranty/'), to: '/portal/service/warranty', labelKey: 'warranty' },
+  { match: p => eq(p, '/portal/service/warranty'),        to: '/portal/teknik-service', labelKey: 'service_area' },
+  { match: p => startsWith(p, '/portal/service/tickets/'),to: '/portal/service/tickets', labelKey: 'service_tickets' },
+  { match: p => startsWith(p, '/portal/service/'),        to: '/portal/teknik-service', labelKey: 'service_area' },
+
+  // Configurator
+  { match: p => startsWith(p, '/configurator'),           to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+
+  // Portal frontpage and anything unknown → portal
+  { match: () => true,                                    to: '/portal', labelKey: 'portal' },
+];
+
+function resolve(pathname: string): { to: string; labelKey: BackLabelKey } {
+  const clean = pathname.split('?')[0].split('#')[0];
+  for (const rule of RULES) {
+    if (rule.match(clean)) return { to: rule.to, labelKey: rule.labelKey };
+  }
+  return { to: '/portal', labelKey: 'portal' };
+}
+
+/** Parent route for the given pathname. */
 export function getPortalBackTarget(pathname: string): PortalBackTarget {
-  // Area pages first → portal frontpage
-  if (AREA_PAGES.includes(pathname)) return '/portal';
+  return resolve(pathname).to;
+}
 
-  // CRM dashboard route is treated as the CRM area landing → back to portal
-  if (pathname === '/portal/crm/dashboard') return '/portal';
-
-  if (startsWithAny(pathname, SERVICE_PREFIXES)) return '/portal/teknik-service';
-  if (startsWithAny(pathname, SALES_PREFIXES)) return '/portal/salg-marketing';
-  if (startsWithAny(pathname, BACKEND_CHILD_PREFIXES)) return '/portal/backend';
-  if (pathname.startsWith('/portal/crm/')) return '/portal/crm';
-
-  return '/portal';
+/** Parent route + localized label for the given pathname. */
+export function getPortalBackInfo(
+  pathname: string,
+  language: Language = 'da',
+): { to: string; label: string } {
+  const { to, labelKey } = resolve(pathname);
+  return { to, label: LABELS[labelKey][language] ?? LABELS[labelKey].da };
 }
 
 /**
- * Go one step back in the browser history when there is history to pop,
- * otherwise navigate to a sensible fallback inside the portal.
+ * Navigate "back" using the parent-route map (breadcrumb style).
  *
- * This is the standard behaviour for "Tilbage" buttons across the portal:
- * users only move one step back, but deep-links still work because the
- * fallback maps the current page to its parent area.
+ * Browser history is no longer used as the primary mechanism because
+ * deep-linking, redirects and external entry points make it unreliable.
+ * The parent map always returns a route the user has access to (or the
+ * portal frontpage as the final fallback). Configurator is never used
+ * as a fallback unless the user explicitly opens it.
  */
 export function goBackOrFallback(
   navigate: NavigateFunction,
   location: { key?: string; pathname: string },
   fallback?: string,
 ): void {
-  if (location.key && location.key !== 'default') {
-    navigate(-1);
-    return;
-  }
   navigate(fallback ?? getPortalBackTarget(location.pathname));
 }

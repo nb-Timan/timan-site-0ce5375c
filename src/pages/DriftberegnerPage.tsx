@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, RotateCw, Info, Printer } from 'lucide-react';
+import { Calculator, RotateCw, Info, Printer } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import BackButton from '@/components/portal/BackButton';
 import {
   servicePartsData,
   calculateYearlyServiceCost,
@@ -291,13 +292,7 @@ export default function DriftberegnerPage() {
       {/* Back button - directly below header */}
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-4xl mx-auto px-4">
-          <button
-            onClick={() => navigate('/portal/resources')}
-            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            {t.back}
-          </button>
+          <BackButton />
         </div>
       </div>
 
