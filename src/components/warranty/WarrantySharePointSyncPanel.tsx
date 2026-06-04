@@ -17,6 +17,7 @@ import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
   ScanSearch, CloudDownload, CheckCircle2, Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
@@ -657,8 +658,16 @@ function ApprovalRow({
 
   async function approve() {
     setErr(null);
-    if (!group.sp_dealer_name) { setErr("Tomt SharePoint-navn kan ikke godkendes."); return; }
-    if (!selected) { setErr("Vælg en forhandler først."); return; }
+    if (!group.sp_dealer_name) {
+      setErr("Tomt SharePoint-navn kan ikke godkendes.");
+      toast.error("Godkendelse fejlede", { description: "Tomt SharePoint-navn kan ikke godkendes." });
+      return;
+    }
+    if (!selected) {
+      setErr("Vælg en forhandler først.");
+      toast.error("Godkendelse fejlede", { description: "Vælg en forhandler først." });
+      return;
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -674,16 +683,27 @@ function ApprovalRow({
             msg = body?.error ?? null;
           }
         } catch { /* ignore */ }
-        setErr(msg ?? error.message ?? "Ukendt fejl");
+        const displayMsg = msg ?? error.message ?? "Ukendt fejl";
+        setErr(displayMsg);
+        toast.error("Godkendelse fejlede", { description: displayMsg });
         return;
       }
       if ((data as { error?: string })?.error) {
-        setErr(String((data as { error?: string }).error));
+        const displayMsg = String((data as { error?: string }).error);
+        setErr(displayMsg);
+        toast.error("Godkendelse fejlede", { description: displayMsg });
         return;
       }
       const company = (data as { dealer_company_name?: string })?.dealer_company_name ?? "(ukendt)";
       setDone(company);
+      toast.success("Match godkendt", {
+        description: `${group.sp_dealer_name} → ${company}`,
+      });
       void onApproved();
+    } catch (e) {
+      const displayMsg = e instanceof Error ? e.message : String(e);
+      setErr(displayMsg);
+      toast.error("Godkendelse fejlede", { description: displayMsg });
     } finally {
       setBusy(false);
     }
