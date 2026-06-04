@@ -16,12 +16,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch, CloudDownload, Zap } from "lucide-react";
+import { CloudCog, CheckCircle2, AlertTriangle, Loader2, ScanSearch, CloudDownload, Zap, FlaskConical } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import SharePointVerifyButton, { type SharePointVerifyHandle } from "./SharePointVerifyButton";
 import SharePointDryRunButton, { type SharePointDryRunHandle } from "./SharePointDryRunButton";
 import SharePointRealSyncButton, { type SharePointRealSyncHandle } from "./SharePointRealSyncButton";
+import SharePointWarrantyProbeButton, { type SharePointWarrantyProbeHandle } from "./SharePointWarrantyProbeButton";
 
 interface SyncLogRow {
   ran_at: string;
