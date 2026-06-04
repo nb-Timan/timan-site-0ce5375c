@@ -650,6 +650,12 @@ function EditUserModal({
                 const intermediate: BackendUser = {
                   ...draft,
                   role: newRole,
+                  // When switching TO a dealer-side role, seed Forhandlerdata
+                  // as a default area (admin can still uncheck it afterwards
+                  // and the de-selection will persist on save).
+                  allowed_areas: dealerSide
+                    ? Array.from(new Set([...draft.allowed_areas, "dealer_data" as AreaKey]))
+                    : draft.allowed_areas,
                   quick_actions: [...(DEFAULT_QUICK_ACTIONS[newRole] ?? [])],
                   perms: {
                     ...draft.perms,
