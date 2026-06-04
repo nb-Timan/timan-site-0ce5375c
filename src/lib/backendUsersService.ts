@@ -251,15 +251,20 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
 }
 
 /**
- * Strip backend/CRM access from dealer-side users and ensure Forhandlerdata
- * is present. Applied both in the editor UI on role-change and at save-time.
+ * Strip backend/CRM access from dealer-side users. Applied both in the
+ * editor UI on role-change and at save-time.
+ *
+ * NOTE: We deliberately do NOT force-add "dealer_data" here. Doing so at
+ * save-time would silently revert the admin's manual de-selection of
+ * "Forhandlerdata" — the user's saved choice must win over role defaults.
+ * Role defaults are applied separately when the admin changes the role
+ * via the Role dropdown in the editor.
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
   if (!isDealerSideRole(draft.role)) return draft;
-  const allowed_areas = Array.from(new Set([
-    ...draft.allowed_areas.filter((a) => a !== "timan_backend" && a !== "timan_crm"),
-    "dealer_data" as AreaKey,
-  ]));
+  const allowed_areas = draft.allowed_areas.filter(
+    (a) => a !== "timan_backend" && a !== "timan_crm",
+  );
   const allowed_modules = draft.allowed_modules.filter(
     (m) => m !== "timan_backend" && m !== "timan_crm",
   );
