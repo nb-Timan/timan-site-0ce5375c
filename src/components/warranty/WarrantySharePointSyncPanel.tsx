@@ -12,13 +12,14 @@
  * NO real-sync button in this phase. NO writes anywhere.
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
-  ScanSearch, CloudDownload, CheckCircle2,
+  ScanSearch, CloudDownload, CheckCircle2, Check,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 // ---- Result shapes (must match edge function responses) ----
 
@@ -226,7 +227,7 @@ export default function WarrantySharePointSyncPanel() {
             <VerifyView data={modal.data} />
           )}
           {!modal.busy && !modal.error && modal.kind === "dryrun" && modal.data && (
-            <DryRunView data={modal.data} />
+            <DryRunView data={modal.data} onRerun={runDryRun} />
           )}
         </Modal>
       )}
@@ -406,7 +407,7 @@ function VerifyView({ data }: { data: VerifyResult }) {
   );
 }
 
-function DryRunView({ data }: { data: DryRunResult }) {
+function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void | Promise<void> }) {
   const dm: DryRunResult["dealer_matching"] = data.dealer_matching ?? {
     safe_matches_count: 0,
     needs_review_count: 0,
@@ -448,7 +449,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
         </div>
 
         {safeMatches.length > 0 && (
-          <details className="rounded-lg border border-emerald-200 mb-2" open>
+          <details className="rounded-lg border border-emerald-200 mb-2">
             <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50">
               Sikre matches ({safeMatches.length})
             </summary>
@@ -479,74 +480,11 @@ function DryRunView({ data }: { data: DryRunResult }) {
           </details>
         )}
 
-        {needsReview.length > 0 && (
-          <details className="rounded-lg border border-amber-200 mb-2" open>
-            <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-amber-900 bg-amber-50">
-              Kræver gennemgang ({needsReview.length})
-            </summary>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-2 py-1.5 text-left font-bold">SP item</th>
-                    <th className="px-2 py-1.5 text-left font-bold">SharePoint forhandlernavn</th>
-                    <th className="px-2 py-1.5 text-left font-bold">forslag (kontonr. · score)</th>
-                    <th className="px-2 py-1.5 text-left font-bold">årsag</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {needsReview.map((m) => (
-                    <tr key={m.sharepoint_item_id}>
-                      <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
-                      <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
-                      <td className="px-2 py-1.5">
-                        <ul className="space-y-0.5">
-                          {(m.candidates ?? []).map((c) => (
-                            <li key={c.dealer_account_id}>
-                              <span className="font-bold text-amber-800">{c.company_name}</span>
-                              <span className="ml-2 font-mono text-slate-600">{c.account_number ?? "—"}</span>
-                              <span className="ml-2 text-slate-500">({c.score.toFixed(3)})</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                      <td className="px-2 py-1.5 text-slate-600">fuzzy</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="px-3 py-2 text-[11px] text-amber-800 bg-amber-50/40 border-t border-amber-200">
-              Ingen forhandler kobles automatisk. Disse skal godkendes manuelt i næste fase.
-            </p>
-          </details>
-        )}
-
-        {unmatched.length > 0 && (
-          <details className="rounded-lg border border-rose-200">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-rose-900 bg-rose-50">
-              Unmatched dealers ({unmatched.length})
-            </summary>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-2 py-1.5 text-left font-bold">SP item</th>
-                    <th className="px-2 py-1.5 text-left font-bold">SharePoint forhandlernavn</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {unmatched.map((m) => (
-                    <tr key={m.sharepoint_item_id}>
-                      <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
-                      <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        )}
+        <ManualApprovalSection
+          needsReview={needsReview}
+          unmatched={unmatched}
+          onApproved={onRerun}
+        />
 
       </Section>
 
@@ -558,3 +496,287 @@ function DryRunView({ data }: { data: DryRunResult }) {
     </>
   );
 }
+
+// ----------------------------------------------------------------------------
+// Manuel godkendelse — group needs_review + unmatched by SP dealer name,
+// pick a dealer_account, approve. Writes one alias per SP name.
+// After approval, the parent re-runs dry-run so the group disappears.
+// ----------------------------------------------------------------------------
+
+interface PendingGroup {
+  sp_dealer_name: string;
+  row_count: number;
+  item_ids: string[];
+  bucket: "needs_review" | "unmatched";
+  candidates: Array<{
+    dealer_account_id: string;
+    company_name: string;
+    account_number: string | null;
+    score: number;
+  }>;
+}
+
+function buildPendingGroups(needsReview: NeedsReview[], unmatched: Unmatched[]): PendingGroup[] {
+  const byName = new Map<string, PendingGroup>();
+
+  for (const r of needsReview ?? []) {
+    const name = (r.dealer_name_snapshot || "").trim();
+    const key = `nr::${name.toLowerCase()}`;
+    const existing = byName.get(key);
+    if (existing) {
+      existing.row_count += 1;
+      existing.item_ids.push(r.sharepoint_item_id);
+    } else {
+      byName.set(key, {
+        sp_dealer_name: name,
+        row_count: 1,
+        item_ids: [r.sharepoint_item_id],
+        bucket: "needs_review",
+        candidates: (r.candidates ?? []).map((c) => ({ ...c })),
+      });
+    }
+  }
+  for (const u of unmatched ?? []) {
+    const name = (u.dealer_name_snapshot || "").trim();
+    const key = `um::${name.toLowerCase()}`;
+    const existing = byName.get(key);
+    if (existing) {
+      existing.row_count += 1;
+      existing.item_ids.push(u.sharepoint_item_id);
+    } else {
+      byName.set(key, {
+        sp_dealer_name: name,
+        row_count: 1,
+        item_ids: [u.sharepoint_item_id],
+        bucket: "unmatched",
+        candidates: [],
+      });
+    }
+  }
+
+  return Array.from(byName.values()).sort((a, b) => {
+    if (a.bucket !== b.bucket) return a.bucket === "needs_review" ? -1 : 1;
+    return b.row_count - a.row_count;
+  });
+}
+
+function ManualApprovalSection({
+  needsReview,
+  unmatched,
+  onApproved,
+}: {
+  needsReview: NeedsReview[];
+  unmatched: Unmatched[];
+  onApproved: () => void | Promise<void>;
+}) {
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealersLoading, setDealersLoading] = useState(true);
+  const [dealersError, setDealersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setDealersLoading(true);
+      const res = await fetchDealerAccounts();
+      if (cancelled) return;
+      if (res.source === "fallback") {
+        setDealersError(res.error ?? "Kunne ikke hente dealer_accounts.");
+        setDealers([]);
+      } else {
+        setDealersError(null);
+        setDealers(res.rows);
+      }
+      setDealersLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const groups = useMemo(
+    () => buildPendingGroups(needsReview, unmatched),
+    [needsReview, unmatched],
+  );
+
+  if (groups.length === 0) {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900 flex items-center gap-2 mt-2">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+        Alle SharePoint-forhandlere har et sikkert match. Ingen manuel godkendelse nødvendig.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 mt-2">
+      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
+        <h4 className="text-xs font-bold text-slate-900">
+          Manuel godkendelse ({groups.length} unikke SharePoint-forhandlere)
+        </h4>
+        <p className="mt-1 text-[11px] text-slate-600">
+          Godkend ét match per SharePoint-forhandlernavn. Aliaset gemmes i <code className="font-mono">dealer_account_aliases</code> og bruges automatisk ved fremtidige dry-runs. Ingen forhandler kobles automatisk og ingen dealer_account oprettes.
+        </p>
+      </div>
+
+      {dealersError && (
+        <div className="px-3 py-2 text-xs text-rose-800 bg-rose-50 border-b border-rose-200">
+          {dealersError}
+        </div>
+      )}
+
+      <ul className="divide-y divide-slate-100">
+        {groups.map((g) => (
+          <ApprovalRow
+            key={`${g.bucket}::${g.sp_dealer_name.toLowerCase()}`}
+            group={g}
+            dealers={dealers}
+            dealersLoading={dealersLoading}
+            onApproved={onApproved}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ApprovalRow({
+  group,
+  dealers,
+  dealersLoading,
+  onApproved,
+}: {
+  group: PendingGroup;
+  dealers: DealerAccount[];
+  dealersLoading: boolean;
+  onApproved: () => void | Promise<void>;
+}) {
+  const [selected, setSelected] = useState<string>(
+    group.candidates[0]?.dealer_account_id ?? "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  async function approve() {
+    setErr(null);
+    if (!group.sp_dealer_name) { setErr("Tomt SharePoint-navn kan ikke godkendes."); return; }
+    if (!selected) { setErr("Vælg en forhandler først."); return; }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "sharepoint-warranty-approve-alias",
+        { body: { sp_dealer_name: group.sp_dealer_name, dealer_account_id: selected } },
+      );
+      if (error) {
+        let msg: string | null = null;
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            msg = body?.error ?? null;
+          }
+        } catch { /* ignore */ }
+        setErr(msg ?? error.message ?? "Ukendt fejl");
+        return;
+      }
+      if ((data as { error?: string })?.error) {
+        setErr(String((data as { error?: string }).error));
+        return;
+      }
+      const company = (data as { dealer_company_name?: string })?.dealer_company_name ?? "(ukendt)";
+      setDone(company);
+      void onApproved();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <li className="px-3 py-3 bg-emerald-50/60 flex items-start gap-2">
+        <Check className="h-4 w-4 text-emerald-700 mt-0.5" />
+        <div className="text-xs text-emerald-900">
+          <p className="font-bold">
+            Godkendt: <span className="font-mono">{group.sp_dealer_name || "(tomt)"}</span> → {done}
+          </p>
+          <p className="mt-0.5 text-emerald-800">
+            Dry-run opdateres — rækkerne flyttes til sikre matches.
+          </p>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="px-3 py-3">
+      <div className="flex flex-wrap items-start gap-2 justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={
+              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide " +
+              (group.bucket === "needs_review"
+                ? "bg-amber-100 text-amber-900 border border-amber-200"
+                : "bg-rose-100 text-rose-900 border border-rose-200")
+            }>
+              {group.bucket === "needs_review" ? "Kræver gennemgang" : "Unmatched"}
+            </span>
+            <span className="text-sm font-bold text-slate-900">
+              {group.sp_dealer_name || <em className="text-slate-400">(tomt SharePoint-navn)</em>}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {group.row_count} warranty-{group.row_count === 1 ? "række" : "rækker"}
+            </span>
+          </div>
+
+          {group.candidates.length > 0 && (
+            <ul className="mt-1.5 space-y-0.5">
+              {group.candidates.map((c) => (
+                <li key={c.dealer_account_id} className="text-[11px] text-slate-700">
+                  <span className="font-bold text-amber-800">{c.company_name}</span>
+                  <span className="ml-2 font-mono text-slate-600">{c.account_number ?? "—"}</span>
+                  <span className="ml-2 text-slate-500">score {c.score.toFixed(3)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            disabled={dealersLoading || busy || !group.sp_dealer_name}
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 min-w-[260px] max-w-[360px]"
+          >
+            <option value="">
+              {dealersLoading ? "Henter forhandlere…" : "Vælg forhandler…"}
+            </option>
+            {dealers.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.company_name}{d.account_number ? ` · ${d.account_number}` : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={approve}
+            disabled={busy || !selected || !group.sp_dealer_name}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Godkend match
+          </button>
+        </div>
+      </div>
+
+      {err && (
+        <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] text-rose-900">
+          {err}
+        </div>
+      )}
+
+      <p className="mt-1 text-[10px] text-slate-500">
+        Godkendelse opretter <strong>ingen</strong> dealer_account. Kun et alias mellem SharePoint-navnet og den valgte eksisterende forhandler.
+      </p>
+    </li>
+  );
+}
+
