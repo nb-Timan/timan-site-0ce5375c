@@ -21,17 +21,18 @@ export type AreaKey = "teknik_service" | "salg_marketing" | "timan_crm" | "timan
 export const ALL_AREAS: AreaKey[] = ["salg_marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
-  "claims",
-  "tsb",
-  "warranty",
-  "service_information",
+  // Salg & Marketing
   "byg_din_timan",
   "resources",
+  "videos",
   "sales_tools",
-  // Backend-only meta modules — kept here for the editor UI even though they
-  // are not yet enforced in portalAccess.ts.
   "tilbud",
   "ordre",
+  // Teknik & Service
+  "claims",
+  "warranty",
+  "tsb",
+  "service_information",
 ];
 
 /** Backend-only module keys shown in the editor. Not yet in portalAccess.ts. */
