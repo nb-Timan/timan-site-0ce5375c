@@ -50,6 +50,7 @@ import {
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { toast } from "@/hooks/use-toast";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
@@ -410,6 +411,7 @@ export default function BackendUsersPage() {
 
       {editing && (
         <EditUserModal
+          key={editing.id}
           user={editing}
           onClose={() => setEditingId(null)}
           onSave={async (patch) => {
@@ -435,13 +437,23 @@ export default function BackendUsersPage() {
               // Keep modal open so user can fix the issue and retry. The
               // saveError banner above the table shows the readback details.
               setSaveError(res.error ?? "Kunne ikke gemme — readback fejlede.");
+              toast({
+                title: "Kunne ikke gemme bruger",
+                description: res.error ?? "Readback fejlede.",
+                variant: "destructive",
+              });
               return { ok: false, error: res.error };
             }
             setSaveError(null);
             setEditingId(null);
+            toast({
+              title: "Bruger gemt",
+              description: `Ændringer for ${patch.name || patch.email} er gemt.`,
+            });
             return { ok: true };
           }}
         />
+
       )}
     </div>
   );
