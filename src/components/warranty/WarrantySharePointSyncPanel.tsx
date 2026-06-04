@@ -407,7 +407,11 @@ function VerifyView({ data }: { data: VerifyResult }) {
 }
 
 function DryRunView({ data }: { data: DryRunResult }) {
-  const dm = data.dealer_matching;
+  const dm = data.dealer_matching ?? {};
+  const safeMatches = dm.safe_matches ?? [];
+  const needsReview = dm.needs_review ?? [];
+  const unmatched = dm.unmatched ?? [];
+  const warnings = data.warnings ?? [];
   return (
     <>
       <Section title="Hentet fra SharePoint">
@@ -431,15 +435,15 @@ function DryRunView({ data }: { data: DryRunResult }) {
 
       <Section title="Dealer matching">
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <Stat label="Sikre matches" value={dm.safe_matches_count} tone="emerald" />
-          <Stat label="Kræver gennemgang" value={dm.needs_review_count} tone="amber" />
-          <Stat label="Unmatched" value={dm.unmatched_count} tone="rose" />
+          <Stat label="Sikre matches" value={dm.safe_matches_count ?? 0} tone="emerald" />
+          <Stat label="Kræver gennemgang" value={dm.needs_review_count ?? 0} tone="amber" />
+          <Stat label="Unmatched" value={dm.unmatched_count ?? 0} tone="rose" />
         </div>
 
-        {dm.safe_matches.length > 0 && (
+        {safeMatches.length > 0 && (
           <details className="rounded-lg border border-emerald-200 mb-2" open>
             <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50">
-              Sikre matches ({dm.safe_matches.length})
+              Sikre matches ({safeMatches.length})
             </summary>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
@@ -453,7 +457,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {dm.safe_matches.map((m) => (
+                  {safeMatches.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
                       <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
@@ -468,11 +472,10 @@ function DryRunView({ data }: { data: DryRunResult }) {
           </details>
         )}
 
-
-        {dm.needs_review.length > 0 && (
+        {needsReview.length > 0 && (
           <details className="rounded-lg border border-amber-200 mb-2" open>
             <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-amber-900 bg-amber-50">
-              Kræver gennemgang ({dm.needs_review.length})
+              Kræver gennemgang ({needsReview.length})
             </summary>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
@@ -485,13 +488,13 @@ function DryRunView({ data }: { data: DryRunResult }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {dm.needs_review.map((m) => (
+                  {needsReview.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
                       <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
                       <td className="px-2 py-1.5">
                         <ul className="space-y-0.5">
-                          {m.candidates.map((c) => (
+                          {(m.candidates ?? []).map((c) => (
                             <li key={c.dealer_account_id}>
                               <span className="font-bold text-amber-800">{c.company_name}</span>
                               <span className="ml-2 font-mono text-slate-600">{c.account_number ?? "—"}</span>
@@ -512,10 +515,10 @@ function DryRunView({ data }: { data: DryRunResult }) {
           </details>
         )}
 
-        {dm.unmatched.length > 0 && (
+        {unmatched.length > 0 && (
           <details className="rounded-lg border border-rose-200">
             <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-rose-900 bg-rose-50">
-              Unmatched dealers ({dm.unmatched.length})
+              Unmatched dealers ({unmatched.length})
             </summary>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
@@ -526,7 +529,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {dm.unmatched.map((m) => (
+                  {unmatched.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
                       <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
@@ -540,7 +543,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
 
       </Section>
 
-      <Section title="Warnings"><WarningList warnings={data.warnings} /></Section>
+      <Section title="Warnings"><WarningList warnings={warnings} /></Section>
 
       <p className="text-xs text-slate-500 pt-2 border-t border-slate-100">
         Read-only dry-run. Resultat gemmes ikke. Varighed: {data.durationMs} ms.
