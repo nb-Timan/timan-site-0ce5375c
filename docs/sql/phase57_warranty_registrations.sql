@@ -36,9 +36,13 @@
 -- ---------------------------------------------------------------------
 -- 0) Forgiving role helpers used by RLS / RPC
 --    (mirror pattern from phase13 is_timan_backend)
+--
+--    IMPORTANT: only timan_backend and timan_service get GLOBAL warranty
+--    visibility. timan_seller is NOT global — sellers are scoped to their
+--    assigned dealer_accounts via warranty_visible_dealer_ids().
 -- ---------------------------------------------------------------------
 
-create or replace function public.is_timan_internal()
+create or replace function public.is_timan_global_warranty()
 returns boolean
 language sql
 stable
@@ -50,8 +54,7 @@ as $$
     from public.app_users au
     where au.portal_role in (
             'timan_backend'::public.portal_role,
-            'timan_service'::public.portal_role,
-            'timan_seller'::public.portal_role
+            'timan_service'::public.portal_role
           )
       and coalesce(au.is_active, false) = true
       and coalesce(au.approved,  false) = true
@@ -61,8 +64,9 @@ as $$
       )
   );
 $$;
-revoke all on function public.is_timan_internal() from public;
-grant execute on function public.is_timan_internal() to authenticated;
+revoke all on function public.is_timan_global_warranty() from public;
+grant execute on function public.is_timan_global_warranty() to authenticated;
+
 
 
 -- Resolve set of dealer_account ids visible to the current user.
