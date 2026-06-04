@@ -35,7 +35,13 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
     );
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  {
+    const portalRoleRaw = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
+    if (appUser.role === 'slutkunde' && !(portalRoleRaw && dealerSideRoles.has(portalRoleRaw))) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   // Gate behind sales_tools (same key used for the "Diverse" module card).
   const portalRole = derivePortalRole(appUser);
