@@ -244,7 +244,18 @@ create table if not exists public.warranty_registrations (
   created_at                  timestamptz not null default now(),
   updated_at                  timestamptz not null default now(),
 
-  constraint warranty_registrations_sp_item_unique unique (sharepoint_item_id)
+  constraint warranty_registrations_sp_item_unique unique (sharepoint_item_id),
+
+  -- A registration cannot be 'matched' without a real dealer link.
+  -- Both the internal FK and the durable external account_number must be set.
+  constraint warranty_registrations_matched_requires_dealer check (
+    dealer_match_status <> 'matched'
+    or (
+      dealer_account_id is not null
+      and dealer_account_number is not null
+      and length(trim(dealer_account_number)) > 0
+    )
+  )
 );
 
 comment on table public.warranty_registrations is
@@ -366,6 +377,42 @@ create trigger trg_wr_set_updated_at
   before update on public.warranty_registrations
   for each row execute function public.set_updated_at_warranty_registrations();
 
+-- Enforce serial-number normalisation at the DB level so no writer
+-- (sync, RPC, manual SQL) can ever bypass it. machine_serial_raw
+-- preserves the original. machine_serial_number stays NON-unique.
+create or replace function public.normalize_warranty_serial()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_raw text := new.machine_serial_number;
+begin
+  if v_raw is null or length(trim(v_raw)) = 0 then
+    raise exception 'machine_serial_number is required'
+      using errcode = '23502';
+  end if;
+
+  -- Preserve original only on insert, or on update when it's still empty.
+  if (tg_op = 'INSERT' and new.machine_serial_raw is null)
+     or (tg_op = 'UPDATE' and (new.machine_serial_raw is null
+                               or length(trim(new.machine_serial_raw)) = 0)) then
+    new.machine_serial_raw := v_raw;
+  end if;
+
+  -- trim → collapse internal whitespace → uppercase
+  new.machine_serial_number :=
+    upper(regexp_replace(trim(v_raw), '\s+', '', 'g'));
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_wr_normalize_serial on public.warranty_registrations;
+create trigger trg_wr_normalize_serial
+  before insert or update of machine_serial_number, machine_serial_raw
+  on public.warranty_registrations
+  for each row execute function public.normalize_warranty_serial();
+
 create or replace function public.set_updated_at_dealer_account_aliases()
 returns trigger
 language plpgsql
@@ -474,16 +521,26 @@ grant select on public.v_machine_latest_warranty to authenticated;
 --    Returns AGGREGATES only. NEVER exposes:
 --      customer_name, customer_address, customer_phone, customer_email
 --    Caller scope is enforced inside the function.
---    Only counts MATCHED registrations.
+--    Only counts MATCHED + ACTIVE registrations.
+--
+--    Counters:
+--      total_machines      = COUNT(DISTINCT machine_serial_number)
+--                            → this is what Partnerkort shows as
+--                            "Antal registrerede maskiner".
+--      total_registrations = COUNT(*) raw rows (re-registrations,
+--                            ownership transfers etc. inflate this).
+--      serial_count        = alias for total_machines, kept for clarity
+--                            and backwards compatibility with consumers.
 -- ---------------------------------------------------------------------
 
 create or replace function public.partner_map_machine_stats(p_dealer_id uuid)
 returns table (
   dealer_account_id   uuid,
-  total_machines      integer,
+  total_machines      integer,   -- distinct serial numbers (Partnerkort metric)
+  total_registrations integer,   -- raw row count
+  serial_count        integer,   -- == total_machines (kept for clarity)
   latest_delivery     date,
-  models              jsonb,        -- {"X40 Pro": 3, "Z20": 2}
-  serial_count        integer       -- distinct serial numbers
+  models              jsonb      -- {"X40 Pro": 3, "Z20": 2}
 )
 language plpgsql
 stable
@@ -509,25 +566,26 @@ begin
          and is_active_in_source = true
     ),
     model_counts as (
-      select machine_model, count(*)::int as n
+      select machine_model, count(distinct machine_serial_number)::int as n
         from rows
        where machine_model is not null
        group by machine_model
     )
     select
       p_dealer_id,
+      (select count(distinct machine_serial_number)::int from rows),
       (select count(*)::int from rows),
+      (select count(distinct machine_serial_number)::int from rows),
       (select max(delivery_date) from rows),
       coalesce(
         (select jsonb_object_agg(machine_model, n) from model_counts),
         '{}'::jsonb
-      ),
-      (select count(distinct machine_serial_number)::int from rows);
+      );
 end;
 $$;
 
 comment on function public.partner_map_machine_stats(uuid) is
-  'Aggregated machine stats for Partnerkort. NEVER returns customer PII (name, address, phone, email). Scope-checked against caller. Only counts matched, active registrations.';
+  'Aggregated machine stats for Partnerkort. NEVER returns customer PII (name, address, phone, email). Scope-checked against caller. Only counts matched + active registrations. total_machines = distinct serial numbers (the Partnerkort headline metric); total_registrations = raw row count.';
 
 revoke all on function public.partner_map_machine_stats(uuid) from public;
 grant execute on function public.partner_map_machine_stats(uuid) to authenticated;
