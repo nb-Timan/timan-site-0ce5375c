@@ -50,6 +50,7 @@ import {
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { toast } from "@/hooks/use-toast";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
