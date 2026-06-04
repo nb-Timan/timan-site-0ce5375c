@@ -53,6 +53,8 @@ export default function SharePointSyncPanel() {
   const verifyRef = useRef<SharePointVerifyHandle>(null);
   const dryRunRef = useRef<SharePointDryRunHandle>(null);
   const realSyncRef = useRef<SharePointRealSyncHandle>(null);
+  const warrantyProbeRef = useRef<SharePointWarrantyProbeHandle>(null);
+  const [warrantyProbeBusy, setWarrantyProbeBusy] = useState(false);
 
   const loadLatest = useCallback(async () => {
     setLoadingLog(true);
