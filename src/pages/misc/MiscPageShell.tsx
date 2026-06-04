@@ -64,13 +64,7 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
 
       <div className="bg-white border-b border-gray-200 py-3 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => goBackOrFallback(navigate, location, back)}
-            className="flex items-center text-[#2d5a27] font-semibold hover:underline"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            {BACK[lang]}
-          </button>
+          <BackButton to={backTo} />
         </div>
       </div>
 
