@@ -36,9 +36,13 @@
 -- ---------------------------------------------------------------------
 -- 0) Forgiving role helpers used by RLS / RPC
 --    (mirror pattern from phase13 is_timan_backend)
+--
+--    IMPORTANT: only timan_backend and timan_service get GLOBAL warranty
+--    visibility. timan_seller is NOT global — sellers are scoped to their
+--    assigned dealer_accounts via warranty_visible_dealer_ids().
 -- ---------------------------------------------------------------------
 
-create or replace function public.is_timan_internal()
+create or replace function public.is_timan_global_warranty()
 returns boolean
 language sql
 stable
@@ -50,8 +54,7 @@ as $$
     from public.app_users au
     where au.portal_role in (
             'timan_backend'::public.portal_role,
-            'timan_service'::public.portal_role,
-            'timan_seller'::public.portal_role
+            'timan_service'::public.portal_role
           )
       and coalesce(au.is_active, false) = true
       and coalesce(au.approved,  false) = true
@@ -61,8 +64,9 @@ as $$
       )
   );
 $$;
-revoke all on function public.is_timan_internal() from public;
-grant execute on function public.is_timan_internal() to authenticated;
+revoke all on function public.is_timan_global_warranty() from public;
+grant execute on function public.is_timan_global_warranty() to authenticated;
+
 
 
 -- Resolve set of dealer_account ids visible to the current user.
@@ -70,7 +74,7 @@ grant execute on function public.is_timan_internal() to authenticated;
 -- - timan_importer / timan_service_partner: linked dealer + its children
 --   (uses dealer_accounts.parent_account_number if present, else just own)
 -- - timan_seller: all dealers assigned to seller (by email or initials)
--- - timan_backend / timan_service: handled via is_timan_internal(), not here
+-- - timan_backend / timan_service: handled via is_timan_global_warranty(), not here
 create or replace function public.warranty_visible_dealer_ids()
 returns setof uuid
 language sql
@@ -256,7 +260,7 @@ create policy wr_internal_select
   on public.warranty_registrations
   for select
   to authenticated
-  using ( public.is_timan_internal() );
+  using ( public.is_timan_global_warranty() );
 
 -- Dealer / importer / service partner / seller: scoped via helper
 drop policy if exists wr_scoped_select on public.warranty_registrations;
@@ -284,7 +288,7 @@ create policy wrh_internal_select
   on public.warranty_registration_history
   for select
   to authenticated
-  using ( public.is_timan_internal() );
+  using ( public.is_timan_global_warranty() );
 
 grant select on public.warranty_registration_history to authenticated;
 grant all    on public.warranty_registration_history to service_role;
@@ -331,7 +335,7 @@ as $$
 begin
   -- Scope check: caller must either be internal or have this dealer in scope.
   if not (
-       public.is_timan_internal()
+       public.is_timan_global_warranty()
        or p_dealer_id in (select public.warranty_visible_dealer_ids())
      ) then
     raise exception 'not authorised for dealer %', p_dealer_id
