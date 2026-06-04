@@ -44,22 +44,30 @@ interface VerifyResult {
 
 interface SafeMatch {
   sharepoint_item_id: string;
-  dealer_name_raw: string;
+  dealer_name_snapshot: string;
   dealer_account_id: string;
   dealer_company_name: string;
+  dealer_account_number: string | null;
   reason: "exact" | "alias";
 }
 interface NeedsReview {
   sharepoint_item_id: string;
-  dealer_name_raw: string;
-  candidates: Array<{ dealer_account_id: string; company_name: string; score: number }>;
+  dealer_name_snapshot: string;
+  candidates: Array<{
+    dealer_account_id: string;
+    company_name: string;
+    account_number: string | null;
+    score: number;
+  }>;
 }
 interface Unmatched {
   sharepoint_item_id: string;
-  dealer_name_raw: string;
+  dealer_name_snapshot: string;
 }
 interface DryRunResult {
   warranty_table_exists: boolean;
+  warranty_table_empty?: boolean;
+  resolved_field_names?: Record<string, string | null>;
   fetched: number;
   new: number;
   updates: number;
@@ -75,6 +83,7 @@ interface DryRunResult {
   warnings: string[];
   durationMs: number;
 }
+
 
 type ModalState =
   | { kind: "none" }
@@ -409,6 +418,11 @@ function DryRunView({ data }: { data: DryRunResult }) {
             Tabellen <code className="font-mono">warranty_registrations</code> findes ikke endnu — nye/opdateres/uændrede kan ikke beregnes før migrationen er kørt.
           </p>
         )}
+        {data.warranty_table_exists && data.warranty_table_empty && (
+          <p className="mt-2 text-xs text-emerald-800">
+            Warranty-tabellen er tom. Alle gyldige SharePoint-rækker vil være nye ved første sync.
+          </p>
+        )}
       </Section>
 
       <Section title="Dealer matching">
@@ -421,15 +435,16 @@ function DryRunView({ data }: { data: DryRunResult }) {
         {dm.safe_matches.length > 0 && (
           <details className="rounded-lg border border-emerald-200 mb-2" open>
             <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50">
-              Sikre matches ({dm.safe_matches.length} viser op til 50)
+              Sikre matches ({dm.safe_matches.length})
             </summary>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
                     <th className="px-2 py-1.5 text-left font-bold">SP item</th>
-                    <th className="px-2 py-1.5 text-left font-bold">SharePoint navn</th>
-                    <th className="px-2 py-1.5 text-left font-bold">→ dealer_accounts</th>
+                    <th className="px-2 py-1.5 text-left font-bold">SharePoint forhandlernavn</th>
+                    <th className="px-2 py-1.5 text-left font-bold">→ dealer_account</th>
+                    <th className="px-2 py-1.5 text-left font-bold">kontonr.</th>
                     <th className="px-2 py-1.5 text-left font-bold">årsag</th>
                   </tr>
                 </thead>
@@ -437,8 +452,9 @@ function DryRunView({ data }: { data: DryRunResult }) {
                   {dm.safe_matches.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
-                      <td className="px-2 py-1.5">{m.dealer_name_raw}</td>
+                      <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
                       <td className="px-2 py-1.5 font-bold text-emerald-700">{m.dealer_company_name}</td>
+                      <td className="px-2 py-1.5 font-mono text-slate-700">{m.dealer_account_number ?? "—"}</td>
                       <td className="px-2 py-1.5 text-slate-600">{m.reason}</td>
                     </tr>
                   ))}
@@ -447,6 +463,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
             </div>
           </details>
         )}
+
 
         {dm.needs_review.length > 0 && (
           <details className="rounded-lg border border-amber-200 mb-2" open>
@@ -458,25 +475,28 @@ function DryRunView({ data }: { data: DryRunResult }) {
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
                     <th className="px-2 py-1.5 text-left font-bold">SP item</th>
-                    <th className="px-2 py-1.5 text-left font-bold">SharePoint navn</th>
-                    <th className="px-2 py-1.5 text-left font-bold">forslag (score)</th>
+                    <th className="px-2 py-1.5 text-left font-bold">SharePoint forhandlernavn</th>
+                    <th className="px-2 py-1.5 text-left font-bold">forslag (kontonr. · score)</th>
+                    <th className="px-2 py-1.5 text-left font-bold">årsag</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {dm.needs_review.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
-                      <td className="px-2 py-1.5">{m.dealer_name_raw}</td>
+                      <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
                       <td className="px-2 py-1.5">
                         <ul className="space-y-0.5">
                           {m.candidates.map((c) => (
                             <li key={c.dealer_account_id}>
                               <span className="font-bold text-amber-800">{c.company_name}</span>
+                              <span className="ml-2 font-mono text-slate-600">{c.account_number ?? "—"}</span>
                               <span className="ml-2 text-slate-500">({c.score.toFixed(3)})</span>
                             </li>
                           ))}
                         </ul>
                       </td>
+                      <td className="px-2 py-1.5 text-slate-600">fuzzy</td>
                     </tr>
                   ))}
                 </tbody>
@@ -498,14 +518,14 @@ function DryRunView({ data }: { data: DryRunResult }) {
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
                     <th className="px-2 py-1.5 text-left font-bold">SP item</th>
-                    <th className="px-2 py-1.5 text-left font-bold">SharePoint navn</th>
+                    <th className="px-2 py-1.5 text-left font-bold">SharePoint forhandlernavn</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {dm.unmatched.map((m) => (
                     <tr key={m.sharepoint_item_id}>
                       <td className="px-2 py-1.5 font-mono">{m.sharepoint_item_id}</td>
-                      <td className="px-2 py-1.5">{m.dealer_name_raw || <em className="text-slate-400">(tomt)</em>}</td>
+                      <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -513,6 +533,7 @@ function DryRunView({ data }: { data: DryRunResult }) {
             </div>
           </details>
         )}
+
       </Section>
 
       <Section title="Warnings"><WarningList warnings={data.warnings} /></Section>
