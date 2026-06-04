@@ -20,7 +20,6 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -45,8 +44,6 @@ export default function MiscPageShell({ title, intro, backTo, children }: Props)
     ? hasModuleAccess(portalRole, 'sales_tools', override as never)
     : appUser.role === 'timan_saelger' || appUser.role === 'partner';
   if (!allowed) return <Navigate to="/portal/salg-marketing" replace />;
-
-  const back = backTo ?? getPortalBackTarget(location.pathname);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
