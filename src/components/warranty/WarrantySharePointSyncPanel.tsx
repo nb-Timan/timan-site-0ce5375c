@@ -301,6 +301,10 @@ function WarningList({ warnings }: { warnings: string[] }) {
 }
 
 function VerifyView({ data }: { data: VerifyResult }) {
+  const columns = data.columns ?? [];
+  const missingRequired = data.missing_required ?? [];
+  const unknownFields = data.unknown_fields ?? [];
+  const warnings = data.warnings ?? [];
   return (
     <>
       <Section title="SharePoint-liste">
@@ -315,8 +319,8 @@ function VerifyView({ data }: { data: VerifyResult }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Stat label="Rækker" value={data.row_count} tone="sky" />
           <Stat label="Kolonner" value={data.column_count} />
-          <Stat label="Manglende obligatoriske" value={data.missing_required.length} tone={data.missing_required.length ? "rose" : "emerald"} />
-          <Stat label="Ukendte felter" value={data.unknown_fields.length} tone={data.unknown_fields.length ? "amber" : "emerald"} />
+          <Stat label="Manglende obligatoriske" value={missingRequired.length} tone={missingRequired.length ? "rose" : "emerald"} />
+          <Stat label="Ukendte felter" value={unknownFields.length} tone={unknownFields.length ? "amber" : "emerald"} />
         </div>
       </Section>
 
@@ -333,7 +337,7 @@ function VerifyView({ data }: { data: VerifyResult }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.columns.map((c, i) => (
+              {columns.map((c, i) => (
                 <tr key={i}>
                   <td className="px-2 py-1.5">{c.displayName ?? "—"}</td>
                   <td className="px-2 py-1.5 font-mono text-violet-700">{c.name ?? "—"}</td>
@@ -347,8 +351,8 @@ function VerifyView({ data }: { data: VerifyResult }) {
         </div>
       </Section>
 
-      {data.missing_required.length > 0 && (
-        <Section title={`Manglende obligatoriske felter (${data.missing_required.length})`}>
+      {missingRequired.length > 0 && (
+        <Section title={`Manglende obligatoriske felter (${missingRequired.length})`}>
           <div className="overflow-x-auto rounded-lg border border-rose-200">
             <table className="min-w-full text-xs">
               <thead className="bg-rose-50 text-rose-900">
@@ -358,7 +362,7 @@ function VerifyView({ data }: { data: VerifyResult }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-rose-100">
-                {data.missing_required.slice(0, 50).map((m) => (
+                {missingRequired.slice(0, 50).map((m) => (
                   <tr key={m.item_id}>
                     <td className="px-2 py-1.5 font-mono">{m.item_id}</td>
                     <td className="px-2 py-1.5">{m.missing.join(", ")}</td>
@@ -370,8 +374,8 @@ function VerifyView({ data }: { data: VerifyResult }) {
         </Section>
       )}
 
-      {data.unknown_fields.length > 0 && (
-        <Section title={`Ukendte SharePoint-felter (${data.unknown_fields.length})`}>
+      {unknownFields.length > 0 && (
+        <Section title={`Ukendte SharePoint-felter (${unknownFields.length})`}>
           <div className="overflow-x-auto rounded-lg border border-amber-200">
             <table className="min-w-full text-xs">
               <thead className="bg-amber-50 text-amber-900">
@@ -381,7 +385,7 @@ function VerifyView({ data }: { data: VerifyResult }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-100">
-                {data.unknown_fields.map((u) => (
+                {unknownFields.map((u) => (
                   <tr key={u.name}>
                     <td className="px-2 py-1.5 font-mono">{u.name}</td>
                     <td className="px-2 py-1.5">{u.count}</td>
@@ -393,7 +397,7 @@ function VerifyView({ data }: { data: VerifyResult }) {
         </Section>
       )}
 
-      <Section title="Warnings"><WarningList warnings={data.warnings} /></Section>
+      <Section title="Warnings"><WarningList warnings={warnings} /></Section>
 
       <p className="text-xs text-slate-500 pt-2 border-t border-slate-100">
         Varighed: {data.durationMs} ms.
