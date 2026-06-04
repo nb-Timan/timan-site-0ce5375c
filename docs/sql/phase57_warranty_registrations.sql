@@ -377,6 +377,42 @@ create trigger trg_wr_set_updated_at
   before update on public.warranty_registrations
   for each row execute function public.set_updated_at_warranty_registrations();
 
+-- Enforce serial-number normalisation at the DB level so no writer
+-- (sync, RPC, manual SQL) can ever bypass it. machine_serial_raw
+-- preserves the original. machine_serial_number stays NON-unique.
+create or replace function public.normalize_warranty_serial()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_raw text := new.machine_serial_number;
+begin
+  if v_raw is null or length(trim(v_raw)) = 0 then
+    raise exception 'machine_serial_number is required'
+      using errcode = '23502';
+  end if;
+
+  -- Preserve original only on insert, or on update when it's still empty.
+  if (tg_op = 'INSERT' and new.machine_serial_raw is null)
+     or (tg_op = 'UPDATE' and (new.machine_serial_raw is null
+                               or length(trim(new.machine_serial_raw)) = 0)) then
+    new.machine_serial_raw := v_raw;
+  end if;
+
+  -- trim → collapse internal whitespace → uppercase
+  new.machine_serial_number :=
+    upper(regexp_replace(trim(v_raw), '\s+', '', 'g'));
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_wr_normalize_serial on public.warranty_registrations;
+create trigger trg_wr_normalize_serial
+  before insert or update of machine_serial_number, machine_serial_raw
+  on public.warranty_registrations
+  for each row execute function public.normalize_warranty_serial();
+
 create or replace function public.set_updated_at_dealer_account_aliases()
 returns trigger
 language plpgsql
