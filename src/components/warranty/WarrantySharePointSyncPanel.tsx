@@ -227,7 +227,7 @@ export default function WarrantySharePointSyncPanel() {
             <VerifyView data={modal.data} />
           )}
           {!modal.busy && !modal.error && modal.kind === "dryrun" && modal.data && (
-            <DryRunView data={modal.data} />
+            <DryRunView data={modal.data} onRerun={runDryRun} />
           )}
         </Modal>
       )}
