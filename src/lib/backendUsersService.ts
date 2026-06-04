@@ -89,24 +89,30 @@ function asArray<T extends string>(v: unknown): T[] {
 
 function rowToBackendUser(row: Record<string, unknown>): BackendUser {
   const role = deriveRole(row);
+  const hasAreasCol = Object.prototype.hasOwnProperty.call(row, "allowed_areas") && row.allowed_areas != null;
+  const hasModulesCol = Object.prototype.hasOwnProperty.call(row, "allowed_modules") && row.allowed_modules != null;
+  const hasBackendModulesCol = Object.prototype.hasOwnProperty.call(row, "backend_modules") && row.backend_modules != null;
   const allowedAreasRaw = asArray<string>(row.allowed_areas);
   const allowedModulesRaw = asArray<string>(row.allowed_modules);
   const backendModulesRaw = asArray<string>(row.backend_modules);
 
-  // Derive defaults from role when arrays are empty.
+  // Derive defaults from role ONLY when the DB column is NULL (never set).
+  // An explicitly-saved empty array [] is a valid, intentional choice and
+  // must NOT be replaced with role defaults.
   const defaults = DEFAULT_MODULE_ACCESS[role] || [];
   const defaultAreas = defaults.filter((m): m is AreaKey => (ALL_AREAS as string[]).includes(m));
   const defaultModules = defaults.filter((m) => !(ALL_AREAS as string[]).includes(m));
 
-  const allowed_areas: AreaKey[] = allowedAreasRaw.length
+  const allowed_areas: AreaKey[] = hasAreasCol
     ? (allowedAreasRaw.filter((a) => (ALL_AREAS as string[]).includes(a)) as AreaKey[])
     : defaultAreas;
-  const allowed_modules: ModuleAccessKey[] = allowedModulesRaw.length
+  const allowed_modules: ModuleAccessKey[] = hasModulesCol
     ? (allowedModulesRaw as ModuleAccessKey[])
     : defaultModules;
-  const backend_modules: BackendMetaModule[] = backendModulesRaw.length
+  const backend_modules: BackendMetaModule[] = hasBackendModulesCol
     ? (backendModulesRaw.filter((m) => (BACKEND_META_MODULES as readonly string[]).includes(m)) as BackendMetaModule[])
     : (role === "timan_backend" ? [...BACKEND_META_MODULES] : []);
+
 
   const perms = (row.permissions as Record<string, boolean> | null) || {};
   const isBackend = role === "timan_backend";
