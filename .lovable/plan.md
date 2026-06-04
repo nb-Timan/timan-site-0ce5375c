@@ -1,59 +1,117 @@
-## Plan — Budget pr. forhandler i CRM
+## Mål
 
-Trinvist, ingen ændring af budgetmodulets gemmeflow. Genbruger eksisterende services. Beder om bekræftelse før implementation, fordi DEL 4 afhænger af en datamodel-beslutning (se "Beslutningspunkt" nedenfor).
+Timan Backend og Timan Service skal kunne se præcis hvad en fremtidig SharePoint Warranty sync vil gøre, **før** rigtig sync aktiveres. Alt er read-only. Ingen `warranty_registrations`-writes, ingen automatisk dealer-oprettelse, ingen hard delete, ingen RLS- eller datamodel-ændringer i denne fase.
 
-### Datamodel — fundet ved undersøgelse
+## Hvad bygges
 
-| Område | Tabel/service | Status |
-|---|---|---|
-| Arbejdsbudget pr. forhandler/måned | `crm_budget_dealer_lines` (via `crmBudgetService.fetchDealerLines`) | OK — bruges af Budget Dashboard |
-| Realiserede ordrer (vundne) | `configurations` + `listScopedOrdersWithValue` (dealer_account_number/dealer_number, sorteret på `order_sent_at`/`submitted_at`) | OK |
-| Åbne tilbud | `listScopedOpenQuotes` + `dealerKeyOf` | OK |
-| Leads pr. forhandler | `crmLeadsService` (`linked_dealer_id`) | OK |
-| Demoer pr. forhandler | `crmLeadsService` demos (`dealer_company`) | OK |
-| Budget-referencer | `budget_references` med `delta_qty` + `reference_group_id` (Phase 46/47) | OK |
-| Adgang/scope | `crmScope` (`isCrmAdmin`, `isScopedSeller`) + `fetchDealerAccountsForSeller` | OK |
+### 1. Edge Function: `sharepoint-warranty-verify` (ny, read-only)
 
-**Konklusion:** Ingen ny SQL er nødvendig for DEL 1, 2, 3, 5. DEL 4 afhænger af beslutningspunkt nedenfor.
+Henter SharePoint-listen `Warranty registration` på `sites/SalgMarketingTiman` via Graph (samme secrets som dealer-sync). Returnerer:
 
-### Beslutningspunkt for DEL 4 (månedlig historik med referencer pr. forhandler)
+- Liste fundet: `displayName`, `name`, `id`, række-antal
+- Præcise interne feltnavne (column metadata fra `/columns`)
+- Forventede mapping-felter til `warranty_registrations` (fra Phase 57)
+- Manglende obligatoriske felter (pr. række: tomt serienummer, manglende dato, manglende forhandlernavn osv.)
+- Ukendte SharePoint-felter (felter som ikke findes i mapping-udkastet)
+- Warnings-array
 
-`budget_references` har `dealer_name` (fritekst-felt valgt i modal), men IKKE `dealer_account_id`/`dealer_account_number`. For at vise referencer pålideligt pr. forhandler kan jeg enten:
+Ingen writes. Ingen kald til `warranty_registrations`. Adgang: `timan_backend` eller `timan_service`.
 
-- **A. Matche på `dealer_name`** (normaliseret) mod forhandlerens `company_name`. Hurtigt, ingen SQL. Risiko: stavefejl/ændrede navne giver mismatch.
-- **B. Tilføj `dealer_account_number` til `budget_references`** (additiv migration) og udfyld fremover fra modal. Korrekt, men kræver SQL + lille ændring i `BudgetReferenceModal` til at sætte feltet.
+### 2. Edge Function: `sharepoint-warranty-dryrun` (ny, read-only)
 
-Anbefaling: **B** — det er den eneste robuste løsning, og det matcher kravet "Hvis eksisterende datamodel ikke understøtter…, stop og forklar SQL". Stoppe og spørge inden DEL 4 implementeres.
+Henter alle rækker fra SharePoint, mapper dem in-memory mod den planlagte `warranty_registrations`-struktur og kører dealer matching mod eksisterende `dealer_accounts` + `dealer_account_aliases` (kun `select`). Returnerer:
 
-### Implementation (rækkefølge)
+- `fetched`: antal SharePoint-rækker
+- `new`: rækker uden eksisterende `sharepoint_item_id` i `warranty_registrations`
+- `updates`: rækker hvor mapped data adskiller sig fra eksisterende række (mapped-only sammenligning — INGEN write)
+- `unchanged`: rækker som matcher 1:1
+- Dealer matching-bucket:
+  - `safe_matches`: exact match på normaliseret `dealer_name_raw` mod `dealer_accounts.company_name` ELLER eksisterende række i `dealer_account_aliases.normalized_alias`
+  - `needs_review`: fuzzy/normaliserede forslag (trim, lowercase, strip A/S, ApS, &, mellemrum → 1+ kandidater med score)
+  - `unmatched`: ingen kandidat fundet → vises som unmatched (ingen dealer oprettes)
+- Warnings-array
 
-**DEL 1 — Budget YTD + status på Mine forhandlere**
-- Ny helper `computeDealerBudgetYtd(dealerAccountNumber, year)` i `src/lib/crmDealerBudget.ts` der:
-  - henter `fetchDealerLines` for året (allerede cached pr. sælger i Dashboard) og summer kvantitet jan→nuværende måned for arbejdsbudget hvor `dealer_account_number` matcher;
-  - henter `listScopedOrdersWithValue` og tæller vundne ordrer i samme periode (`order_sent_at` ≤ slut-af-nuværende-måned) hvor dealer matcher.
-- 2 nye kolonner i `CrmMyDealersPage`: "Budget YTD" (`X / Y stk.`) og "Budget status" (progress bar + %). Tom-state: "Intet budget".
-- Batch-fetch én gang pr. side-load (én dealer-lines-kald + én orders-kald), beregn lokalt — ingen N+1.
+Read-only. Skriver intet — hverken `warranty_registrations`, `dealer_account_aliases` eller `dealer_accounts`. Adgang: `timan_backend` eller `timan_service`.
 
-**DEL 2 — Budgetkort på forhandlerens detaljeside**
-- Ny komponent `DealerBudgetCard` i `src/components/crm/DealerBudgetCard.tsx`. Viser: Årsbudget, Budget YTD, Realiseret YTD, Pipeline (åbne tilbud sum-qty), Forventet (Realiseret + Pipeline), Mangler YTD, Mangler forventet, progress bar. Pipeline aldrig medregnet som realiseret.
+### 3. UI-panel i Teknik & Service → Garantiregistrering
 
-**DEL 3 — Klikbare KPI-tal på detaljesiden**
-- Wrap KPI-værdier "Åbne leads", "Tilbud", "Demoer", "Ordrer" i Radix `Popover` (eksisterer i `ui/popover.tsx`). Popover-indhold: liste af poster for **kun denne forhandler** (allerede filtreret via dealer-scope-funktioner). Klik på post → naviger til detaljerute hvis findes (`/portal/crm/leads/:id`, `/portal/crm/demo-leads/:id`, `/portal/crm/quotes-orders` med highlight); ellers vises kun i popover. Tom-state håndteres.
+Nyt panel `WarrantySharePointSyncPanel` placeret øverst på `/portal/teknik-service/garantiregistrering` (eller warranty admin-sektionen — bekræftes ved implementering ud fra eksisterende route).
 
-**DEL 4 — Månedlig budgethistorik (STOP for bekræftelse)**
-- Kræver beslutning A vs B ovenfor. Hvis B: ny migration `docs/sql/phase48_budget_references_dealer_account.sql` (additiv) + lille ændring i `BudgetReferenceModal` til at sætte `dealer_account_number` på nye rækker. Visning: kompakt 12-måneders tabel med Budget/Realiseret/Difference/Referencer (samlet `delta_qty` pr. måned). Read-only.
+Synlighed: kun `portal_role === "timan_backend" || portal_role === "timan_service"`. Skjult for alle andre roller (sælger, dealer, importør, service partner).
 
-**DEL 5 — Testcases**
-- Forhandler med/uden budget, med/uden leads/demo/tilbud.
-- Sælger-scope vs admin: sælger ser kun egne; admin/backend ser alt (genbruger eksisterende `crmScope`).
-- Reference-tal i historik = `delta_qty`-sum (ikke `new_value`), så 2 stk. på en reference vises som 2 stk. — uden at overskrive eksisterende.
+Layout følger samme mønster som `SharePointSyncPanel` (dealer-sync):
 
-### Filer der vil blive ændret (estimat)
-- Nye: `src/lib/crmDealerBudget.ts`, `src/components/crm/DealerBudgetCard.tsx`, `src/components/crm/DealerKpiPopover.tsx`, evt. `src/components/crm/DealerBudgetHistory.tsx`.
-- Ændret: `src/pages/crm/CrmMyDealersPage.tsx`, `src/pages/crm/CrmDealerDetailPage.tsx`.
-- Ikke rørt: budgetmodulets gemmeflow, `CrmBudgetPage`, `BudgetReferenceModal`s allokeringslogik (kun ny optional kolonne hvis B vælges).
+- Header med titel "SharePoint synkronisering — garantiregistreringer" + read-only banner
+- To rækker:
+  1. **Verificér SharePoint** → kalder verify-edge-function → modal med liste-info, feltnavne, tæller, manglende felter, ukendte felter, warnings
+  2. **Dry-run** → kalder dryrun-edge-function → modal med fetched/new/updates/unchanged + matching-buckets (safe / needs_review / unmatched) + warnings
+- **Ikke** en "Synkroniser med SharePoint"-knap. Pladsholder-tekst nederst: *"Rigtig sync aktiveres i en senere fase."*
 
-### Spørgsmål jeg har brug for svar på, før jeg implementerer
+### 4. Genbrug af eksisterende warranty probe
 
-1. Skal jeg gå direkte i gang med DEL 1–3 + 5 (ingen SQL), og derefter stoppe og spørge før DEL 4?
-2. For DEL 4: vælger du **A** (matche på dealer_name, ingen SQL) eller **B** (tilføj `dealer_account_number` til `budget_references`, en lille additiv SQL)?
+Den eksisterende `sharepoint-warranty-probe` (raw probe-knap på dealer-accounts siden) bevares uændret som backend-only debug-værktøj.
+
+## Hvad bygges IKKE i denne fase
+
+- Ingen `Synkroniser med SharePoint`-knap.
+- Ingen edge function der skriver til `warranty_registrations`.
+- Ingen oprettelse af `dealer_accounts` fra SharePoint.
+- Ingen skrivning til `dealer_account_aliases` (forslag vises kun).
+- Ingen ændringer i `warranty_registrations`-tabellen, RLS, triggers eller policies.
+- Ingen `sharepoint_sync_logs`-rækker (ingen log nødvendig nu).
+- Ingen hard delete af noget.
+
+## Tekniske detaljer
+
+### Dealer matching-algoritme (server-side, in-memory)
+
+```text
+normalize(name):
+  lower → trim → fjern "a/s","aps","ivs","&"
+  collapse whitespace
+  strip diakritiske tegn
+
+for hver SharePoint-række r:
+  raw = r["Forhandlernavn"]
+  n   = normalize(raw)
+
+  // 1. exact match
+  da = dealer_accounts where normalize(company_name) = n
+  if da: safe_matches.push({raw, dealer_id: da.id, reason: "exact"})
+
+  // 2. alias match
+  alias = dealer_account_aliases where normalized_alias = n
+  if alias: safe_matches.push({raw, dealer_id: alias.dealer_account_id, reason: "alias"})
+
+  // 3. fuzzy (Levenshtein eller token-overlap >= 0.8)
+  candidates = top 3 dealer_accounts sorteret efter score
+  if candidates[0].score >= 0.8: needs_review.push({raw, candidates})
+  else: unmatched.push({raw})
+```
+
+Algoritmen er ren server-side, kører på et snapshot. Skriver intet.
+
+### Edge function auth-mønster
+
+Identisk med `sharepoint-warranty-probe`: `Bearer` JWT → `getClaims` → opslag i `app_users` på email → kræv `portal_role in ('timan_backend','timan_service')` og `is_active && approved`.
+
+### Filer der ændres / oprettes
+
+```text
+supabase/functions/sharepoint-warranty-verify/index.ts        (ny)
+supabase/functions/sharepoint-warranty-dryrun/index.ts        (ny)
+src/components/warranty/WarrantySharePointSyncPanel.tsx       (ny)
+src/components/warranty/WarrantyVerifyModal.tsx               (ny)
+src/components/warranty/WarrantyDryRunModal.tsx               (ny)
+src/components/warranty/WarrantyAdminSidebarLayout.tsx        (eller WarrantyDashboardBody) — mount panelet for backend/service
+```
+
+Eksakt mount-punkt verificeres ved første læsning af eksisterende warranty-admin-route.
+
+## Næste fase (ikke i scope nu)
+
+Når Backend + Service har bekræftet at dry-run viser det rigtige, bygges fase 2:
+- "Godkend alias"-UI så `needs_review`-matches kan oprettes som `dealer_account_aliases`
+- Rigtig sync-knap som upserter til `warranty_registrations` (kun `safe_matches` + matched aliases)
+- `sharepoint_sync_logs`-skrivning
+- Soft-delete-håndtering via `is_active_in_source`

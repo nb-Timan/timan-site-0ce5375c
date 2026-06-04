@@ -11,6 +11,7 @@ import {
   WarrantyDashboardBody,
   WarrantyDashboardIntro,
 } from "@/components/warranty/WarrantyDashboardBody";
+import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
 import {
   WarrantyRegistrationsHeader,
   WarrantyRegistrationsTable,
@@ -64,6 +65,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
         readOnly={readOnly}
         intro={<WarrantyDashboardIntro scope={variant} showCreate={canCreate} />}
       >
+        {variant === "admin" && <WarrantySharePointSyncPanel />}
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
       </WarrantyAdminSidebarLayout>
     );
