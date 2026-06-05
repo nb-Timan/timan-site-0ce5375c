@@ -527,8 +527,18 @@ export default function PartnerMapPage() {
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   const canSeeAssignedSeller = canOpenCrm;
+  // Internal roles get aggregate machine stats on partner cards. Dealer-side
+  // roles do not (those cards are about other partners), but they can still
+  // see the Garantiregistreringer-laget — scoped to their own dealer.
   const canSeeMachineStats =
     portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
+  const canSeeMachineLayer =
+    canSeeMachineStats ||
+    portalRole === 'timan_dealer' ||
+    portalRole === 'dealer_user' ||
+    portalRole === 'timan_service_partner' ||
+    portalRole === 'timan_importer';
+  const ownDealerNumber = (appUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
     if (!appUser?.email) return null;
@@ -573,10 +583,12 @@ export default function PartnerMapPage() {
       setStats(map);
       setLoading(false);
 
-      if (canSeeMachineStats) {
+      if (canSeeMachineLayer) {
         const ids = dRes.rows.map((d) => d.id);
         const [ms, mp, mm] = await Promise.all([
-          fetchPartnerMachineStats(ids).catch(() => ({})),
+          canSeeMachineStats
+            ? fetchPartnerMachineStats(ids).catch(() => ({}))
+            : Promise.resolve({} as Record<string, PartnerMachineStats>),
           fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
           fetchWarrantyMachineMissingCoords().catch(() => ({ rows: [] as WarrantyMachineMissing[], error: null as string | null })),
         ]);
@@ -587,7 +599,7 @@ export default function PartnerMapPage() {
       }
     })();
     return () => { alive = false; };
-  }, [canSeeMachineStats]);
+  }, [canSeeMachineLayer, canSeeMachineStats]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
@@ -629,7 +641,7 @@ export default function PartnerMapPage() {
   //   matches the current user's initials (own/assigned dealers).
   // - Other roles: nothing (canSeeMachineStats is false so layer toggle is hidden).
   const visibleMachinePins = useMemo(() => {
-    if (!canSeeMachineStats) return [];
+    if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
       const me = (currentSellerInitials ?? '').toUpperCase();
       if (!me) return [];
@@ -640,11 +652,16 @@ export default function PartnerMapPage() {
       );
       return machinePinsAll.filter((p) => p.dealerAccountId && ownDealerIds.has(p.dealerAccountId));
     }
+    if (!canSeeMachineStats) {
+      // Dealer-side roles: only own dealer's registrations (match by account_number).
+      if (!ownDealerNumber) return [];
+      return machinePinsAll.filter((p) => (p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
 
   const visibleMachineMissing = useMemo(() => {
-    if (!canSeeMachineStats) return [];
+    if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
       const me = (currentSellerInitials ?? '').toUpperCase();
       if (!me) return [];
@@ -653,8 +670,12 @@ export default function PartnerMapPage() {
       );
       return machineMissingAll.filter((r) => r.dealerAccountId && ownDealerIds.has(r.dealerAccountId));
     }
+    if (!canSeeMachineStats) {
+      if (!ownDealerNumber) return [];
+      return machineMissingAll.filter((r) => (r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
@@ -880,7 +901,7 @@ export default function PartnerMapPage() {
                 <option value="inactive">Spærrede/Lukkede</option>
                 <option value="all">Alle</option>
               </select>
-              {canSeeMachineStats && (
+              {canSeeMachineLayer && (
                 <div className="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
                   <button
                     onClick={() => setShowPartnerLayer((v) => !v)}
@@ -967,7 +988,7 @@ export default function PartnerMapPage() {
                       )}
 
                       {/* Garantiregistreringer panel (vises kun når laget er aktivt) */}
-                      {canSeeMachineStats && showMachineLayer && (
+                      {canSeeMachineLayer && showMachineLayer && (
                         <div className="px-3 py-2 border-b border-gray-100 bg-white">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
@@ -1066,7 +1087,7 @@ export default function PartnerMapPage() {
                     {showPartnerLayer && (
                       <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
                     )}
-                    {canSeeMachineStats && showMachineLayer && (
+                    {canSeeMachineLayer && showMachineLayer && (
                       <MachineLayer pins={visibleMachinePins} />
                     )}
                   </MapContainer>
@@ -1086,7 +1107,7 @@ export default function PartnerMapPage() {
             </div>
 
             {/* Machine layer summary + missing coordinates (warranty) */}
-            {!loading && canSeeMachineStats && showMachineLayer && (
+            {!loading && canSeeMachineLayer && showMachineLayer && (
               <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Wrench className="h-4 w-4 text-amber-600" />
