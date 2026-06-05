@@ -329,6 +329,10 @@ Deno.serve(async (req) => {
     }
     if (skippedNoId > 0) warnings.push(`${skippedNoId} SharePoint-rækker uden item id sprunget over.`);
     if (skippedNoSerial > 0) warnings.push(`${skippedNoSerial} rækker uden serienummer sprunget over (DB-krav).`);
+    const missingFormId = validRows.filter((r) => r.sharepoint_form_id === null).length;
+    if (missingFormId > 0) {
+      warnings.push(`${missingFormId} rækker mangler ID_Forms — falder tilbage til SharePoint item id som certifikatnummer.`);
+    }
 
     // ---- Load dealer matching inputs ----
     const { data: dealers, error: dealerErr } = await admin
