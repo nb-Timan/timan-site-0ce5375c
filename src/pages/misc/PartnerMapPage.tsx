@@ -966,6 +966,52 @@ export default function PartnerMapPage() {
                         </div>
                       )}
 
+                      {/* Garantiregistreringer panel (vises kun når laget er aktivt) */}
+                      {canSeeMachineStats && showMachineLayer && (
+                        <div className="px-3 py-2 border-b border-gray-100 bg-white">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                              <Wrench className="h-3 w-3" /> Garantiregistreringer
+                            </div>
+                            <span className="text-[10px] text-gray-400 font-medium tabular-nums">
+                              {visibleMachinePins.length + visibleMachineMissing.length}
+                            </span>
+                          </div>
+                          {visibleMachinePins.length === 0 ? (
+                            <div className="text-[11px] text-gray-400 italic">Ingen registreringer med koordinater.</div>
+                          ) : (
+                            <div className="max-h-72 overflow-y-auto -mx-1 divide-y divide-gray-100">
+                              {visibleMachinePins.slice(0, 200).map((r) => {
+                                const cityLine = [r.customerCity, r.customerCountry ? formatCountry(r.customerCountry) : ''].filter(Boolean).join(', ');
+                                return (
+                                  <button
+                                    key={r.id}
+                                    onClick={() => { setFitTo([r.coords]); }}
+                                    className="w-full text-left px-2 py-1.5 hover:bg-amber-50 transition-colors flex items-start gap-2 rounded"
+                                  >
+                                    <span className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ background: MACHINE_PIN_COLOR }} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-[11px] font-semibold text-gray-900 truncate">
+                                        {r.machineModel || '—'}
+                                        {r.machineSerial && <span className="ml-1.5 text-gray-400 font-mono text-[10px]">{r.machineSerial}</span>}
+                                      </div>
+                                      <div className="text-[10px] text-gray-500 truncate">
+                                        {r.dealerNameSnapshot || '—'}{cityLine && <span> · {cityLine}</span>}
+                                      </div>
+                                    </div>
+                                    {r.spId && <span className="shrink-0 text-[9px] font-mono text-gray-400 mt-0.5">{r.spId}</span>}
+                                  </button>
+                                );
+                              })}
+                              {visibleMachinePins.length > 200 && (
+                                <div className="px-2 py-1 text-[10px] text-gray-400 italic">+ {visibleMachinePins.length - 200} flere — brug kortet</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+
                       {grouped.length === 0 && (
                         <div className="p-4 text-xs text-gray-500">{T.noMatches[lang]}</div>
                       )}
