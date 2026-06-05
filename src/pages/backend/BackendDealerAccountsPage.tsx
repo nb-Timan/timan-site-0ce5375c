@@ -13,6 +13,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, FileText, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
