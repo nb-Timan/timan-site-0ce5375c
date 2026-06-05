@@ -194,8 +194,11 @@ export function WarrantyRegistrationsTable({
     const dir = sortDir === "asc" ? 1 : -1;
     arr.sort((a, b) => {
       switch (sortKey) {
-        case "certificate":
-          return (spIdNumeric(a.sharepointItemId) - spIdNumeric(b.sharepointItemId)) * dir;
+        case "certificate": {
+          const av = a.sharepointFormId ?? spIdNumeric(a.sharepointItemId);
+          const bv = b.sharepointFormId ?? spIdNumeric(b.sharepointItemId);
+          return (av - bv) * dir;
+        }
         case "dealer":
           return cmp(a.dealerName, b.dealerName) * dir;
         case "customer":

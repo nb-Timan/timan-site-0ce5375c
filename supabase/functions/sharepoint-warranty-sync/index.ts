@@ -50,6 +50,7 @@ const FIELD_DISPLAY: Record<string, string> = {
 
 interface MappedRow {
   sharepoint_item_id: string;
+  sharepoint_form_id: number | null;
   dealer_name_snapshot: string;
   machine_serial_raw: string;
   machine_serial_number: string;
@@ -62,6 +63,15 @@ interface MappedRow {
   customer_email: string;
   tool_serials: string[];
   source_modified_at: string | null;
+}
+
+function parseFormId(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.trunc(raw);
+  const s = String(raw).trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function s(v: unknown): string {
@@ -283,8 +293,16 @@ Deno.serve(async (req) => {
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_4),
       ].map((x) => x.trim()).filter((x) => x.length > 0);
 
+      // SharePoint exposes ID_Forms either via the column's display name or
+      // its internal name. Try the internal lookup first, then the literal
+      // "ID_Forms" key which is what Graph returns in the fields blob.
+      const formIdRaw =
+        (displayToInternal.get("ID_Forms") ? f[displayToInternal.get("ID_Forms")!] : undefined) ??
+        f["ID_Forms"] ??
+        f["ID_x005f_Forms"];
       return {
         sharepoint_item_id: String(it.id ?? ""),
+        sharepoint_form_id: parseFormId(formIdRaw),
         dealer_name_snapshot: readField(f, displayToInternal, FIELD_DISPLAY.dealer_name).trim(),
         machine_serial_raw: serialRaw,
         machine_serial_number: normalizeSerial(serialRaw),
@@ -311,6 +329,10 @@ Deno.serve(async (req) => {
     }
     if (skippedNoId > 0) warnings.push(`${skippedNoId} SharePoint-rækker uden item id sprunget over.`);
     if (skippedNoSerial > 0) warnings.push(`${skippedNoSerial} rækker uden serienummer sprunget over (DB-krav).`);
+    const missingFormId = validRows.filter((r) => r.sharepoint_form_id === null).length;
+    if (missingFormId > 0) {
+      warnings.push(`${missingFormId} rækker mangler ID_Forms — falder tilbage til SharePoint item id som certifikatnummer.`);
+    }
 
     // ---- Load dealer matching inputs ----
     const { data: dealers, error: dealerErr } = await admin
@@ -419,6 +441,7 @@ Deno.serve(async (req) => {
       const payload = {
         // Source / identity
         sharepoint_item_id: r.m.sharepoint_item_id,
+        sharepoint_form_id: r.m.sharepoint_form_id,
         source: "sharepoint",
         sharepoint_modified_at: r.m.source_modified_at,
 
