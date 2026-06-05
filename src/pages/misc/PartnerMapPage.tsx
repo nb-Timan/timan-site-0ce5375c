@@ -408,9 +408,13 @@ export default function PartnerMapPage() {
 
       if (canSeeMachineStats) {
         const ids = dRes.rows.map((d) => d.id);
-        const ms = await fetchPartnerMachineStats(ids).catch(() => ({}));
+        const [ms, mp] = await Promise.all([
+          fetchPartnerMachineStats(ids).catch(() => ({})),
+          fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
+        ]);
         if (!alive) return;
         setMachineStats(ms);
+        setMachinePinsAll(mp.rows);
       }
     })();
     return () => { alive = false; };
