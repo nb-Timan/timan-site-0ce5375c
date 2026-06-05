@@ -51,7 +51,38 @@ export default function DealerProfileImportPanel({ dealers, onReload }: Props) {
   function reset() {
     setFileName(null); setSheets([]); setSheetIdx(0);
     setMapping({}); setOverrides({}); setParseError(null);
+    setSummary(null); setShowConfirm(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const profileMappedCount = useMemo(() => {
+    if (!dryRun) return 0;
+    return dryRun.usedTargetKeys.filter((k) => {
+      const f = TARGET_FIELDS.find((x) => x.key === k);
+      return f && f.role === "profile" && k !== "__comment";
+    }).length;
+  }, [dryRun]);
+
+  const canConfirm =
+    !!dryRun &&
+    dryRun.totalRows > 0 &&
+    dryRun.matched === dryRun.totalRows &&
+    dryRun.uncertain === 0 &&
+    dryRun.unmatched === 0 &&
+    profileMappedCount > 0 &&
+    !importing;
+
+  async function doImport() {
+    if (!dryRun) return;
+    setImporting(true);
+    try {
+      const res = await executeImport(dryRun);
+      setSummary(res);
+      setShowConfirm(false);
+      if (onReload) await onReload();
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
