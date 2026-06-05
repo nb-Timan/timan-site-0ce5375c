@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, FileText, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -138,6 +138,8 @@ export default function BackendDealerAccountsPage() {
 
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
+
+  const showDealerDataButton = portalRole === "timan_backend" || portalRole === "timan_service" || portalRole === "timan_seller";
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
@@ -386,6 +388,7 @@ export default function BackendDealerAccountsPage() {
                     busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                     appUserEmail: appUser?.email ?? null, reload,
                     dealersByAcct,
+                    showDealerData: showDealerDataButton,
                   }));
                 }
                 return groups.map((g) => {
@@ -413,6 +416,7 @@ export default function BackendDealerAccountsPage() {
                           return next;
                         }) : undefined,
                         groupAgg: hasBranches ? agg : undefined,
+                        showDealerData: showDealerDataButton,
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
@@ -420,6 +424,7 @@ export default function BackendDealerAccountsPage() {
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
+                        showDealerData: showDealerDataButton,
                       }))}
                       {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
                         r: p, depth: 1, variant: "successor",
@@ -427,6 +432,7 @@ export default function BackendDealerAccountsPage() {
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
+                        showDealerData: showDealerDataButton,
                       }))}
                     </React.Fragment>
                   );
@@ -585,6 +591,7 @@ type RenderRowOpts = {
   groupOpen?: boolean;
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
+  showDealerData?: boolean;
 };
 
 function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
@@ -592,7 +599,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
     dealersByAcct, isMainGroup, branchCount, successorCount, variant,
-    groupOpen, onToggleGroup, groupAgg,
+    groupOpen, onToggleGroup, groupAgg, showDealerData,
   } = opts;
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
@@ -730,6 +737,14 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
               className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
               <Pencil className="h-3 w-3" /> Rediger
             </button>
+            {showDealerData && (
+              <Link
+                to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                <FileText className="h-3 w-3" /> Forhandlerdata
+              </Link>
+            )}
             {r.is_deleted ? (
               <button type="button" disabled={busyId === r.id}
                 onClick={async () => {
@@ -790,6 +805,16 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                     </>
                   )}
                 </dl>
+                {showDealerData && (
+                  <div className="mt-2">
+                    <Link
+                      to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-emerald-100"
+                    >
+                      <FileText className="h-3 w-3" /> Åbn Forhandlerdata
+                    </Link>
+                  </div>
+                )}
               </div>
               <div>
                 {linkedUsers.length > 0 ? (
