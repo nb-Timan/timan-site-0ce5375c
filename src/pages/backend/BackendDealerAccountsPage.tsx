@@ -438,6 +438,7 @@ export default function BackendDealerAccountsPage() {
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       }))}
                     </React.Fragment>
                   );
