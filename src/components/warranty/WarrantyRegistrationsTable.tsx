@@ -934,7 +934,59 @@ function HistorySection({ registrationId }: { registrationId: string }) {
 
 
 
+function DealerLinkBlock({ record }: { record: DbWarrantyRegistration }) {
+  const missing = !record.dealerAccountId || !record.dealerAccountNumber;
+  const matchLabel: Record<string, string> = {
+    matched: "Matched",
+    needs_review: "Kræver gennemgang",
+    unmatched: "Ikke matched",
+  };
+  return (
+    <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Forhandler
+          </div>
+          <div className="font-bold text-slate-900">{record.dealerName || "—"}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Kontonummer
+          </div>
+          <div className="font-mono text-slate-800">
+            {record.dealerAccountNumber || "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Matchstatus
+          </div>
+          <div className="text-slate-800">
+            <MatchBadge status={record.dealerMatchStatus} />
+            <span className="ml-2 text-xs text-slate-500">
+              {matchLabel[record.dealerMatchStatus] ?? record.dealerMatchStatus}
+            </span>
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            SharePoint forhandlernavn
+          </div>
+          <div className="text-slate-700">{record.dealerNameSnapshot || "—"}</div>
+        </div>
+      </div>
+      {missing && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+          Registreringen er ikke koblet til en forhandlerkonto endnu.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DRow({
+
   label,
   value,
   mono,
