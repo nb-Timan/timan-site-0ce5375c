@@ -17,3 +17,9 @@ verify_jwt = false
 # Nominatim geocoding of dealer_accounts addresses.
 [functions.geocode-dealers]
 verify_jwt = false
+
+# geocode-warranty-customers verifies the JWT itself in code; backend/service
+# only, server-side Nominatim geocoding of warranty_registrations customer
+# addresses (writes only customer_latitude/longitude + status).
+[functions.geocode-warranty-customers]
+verify_jwt = false
