@@ -901,7 +901,7 @@ export default function PartnerMapPage() {
                 <option value="inactive">Spærrede/Lukkede</option>
                 <option value="all">Alle</option>
               </select>
-              {canSeeMachineStats && (
+              {canSeeMachineLayer && (
                 <div className="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
                   <button
                     onClick={() => setShowPartnerLayer((v) => !v)}
@@ -988,7 +988,7 @@ export default function PartnerMapPage() {
                       )}
 
                       {/* Garantiregistreringer panel (vises kun når laget er aktivt) */}
-                      {canSeeMachineStats && showMachineLayer && (
+                      {canSeeMachineLayer && showMachineLayer && (
                         <div className="px-3 py-2 border-b border-gray-100 bg-white">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
@@ -1087,7 +1087,7 @@ export default function PartnerMapPage() {
                     {showPartnerLayer && (
                       <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
                     )}
-                    {canSeeMachineStats && showMachineLayer && (
+                    {canSeeMachineLayer && showMachineLayer && (
                       <MachineLayer pins={visibleMachinePins} />
                     )}
                   </MapContainer>
@@ -1107,7 +1107,7 @@ export default function PartnerMapPage() {
             </div>
 
             {/* Machine layer summary + missing coordinates (warranty) */}
-            {!loading && canSeeMachineStats && showMachineLayer && (
+            {!loading && canSeeMachineLayer && showMachineLayer && (
               <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Wrench className="h-4 w-4 text-amber-600" />
