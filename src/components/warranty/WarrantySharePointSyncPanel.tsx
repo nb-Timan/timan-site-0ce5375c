@@ -87,6 +87,15 @@ interface DryRunResult {
 }
 
 
+interface SyncConflict {
+  registration_id: string;
+  sharepoint_item_id: string;
+  dealer_name_snapshot: string;
+  field: string;
+  portal_value: unknown;
+  sharepoint_value: unknown;
+}
+
 interface SyncResult {
   mode: string;
   writes_performed: boolean;
@@ -99,6 +108,8 @@ interface SyncResult {
   needs_review: number;
   unmatched: number;
   deactivated: number;
+  conflicts_count?: number;
+  conflicts?: SyncConflict[];
   warnings: string[];
   durationMs: number;
 }
