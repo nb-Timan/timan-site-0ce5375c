@@ -593,6 +593,7 @@ type RenderRowOpts = {
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
   showDealerData?: boolean;
+  formatCountry?: (v: string | null | undefined) => string;
 };
 
 function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
