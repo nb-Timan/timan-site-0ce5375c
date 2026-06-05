@@ -15,7 +15,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Building2, Mail, MapPin, Phone, GitBranch, Star,
+  ArrowLeft, ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
   Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
@@ -33,6 +33,7 @@ import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccounts, fetchDealerAccountStats,
   updateDealerAccount, type UpdateDealerAccountPatch,
+  isDealerInactive, dealerLifecycleStatus, resolveActiveDealer,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
@@ -533,14 +534,55 @@ export default function CrmDealerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
 
-      {dealer.is_blocked && (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3">
-          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-bold text-white">
-            Spærret
-          </span>
-          <span className="text-sm text-rose-900 font-medium">
-            Denne forhandler er deaktiveret i portalen
-          </span>
+      {isDealerInactive(dealer) && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <span className={
+              "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white " +
+              (dealer.is_deleted ? "bg-slate-600" : "bg-rose-600")
+            }>
+              {dealer.is_deleted ? "Lukket" : "Spærret"}
+            </span>
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-semibold text-amber-900">
+                Denne forhandler er {dealerLifecycleStatus(dealer) === "closed" ? "lukket" : "spærret"}.
+              </p>
+              {(() => {
+                const byId = new Map(dealers.map((d) => [d.id, d]));
+                const successor = dealer.successor_dealer_id
+                  ? resolveActiveDealer(dealer.successor_dealer_id, byId)
+                  : null;
+                return (
+                  <>
+                    {successor && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <span className="text-slate-700">
+                          <span className="font-medium">Efterfølger:</span>{" "}
+                          <span className="font-semibold text-slate-900">{successor.company_name}</span>
+                        </span>
+                        <span className="text-slate-700">
+                          <span className="font-medium">Kontonr.:</span>{" "}
+                          <span className="font-mono text-slate-900">{successor.account_number}</span>
+                        </span>
+                        <Link
+                          to={`/portal/crm/my-dealers/${successor.account_number}`}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          Åbn efterfølger <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    )}
+                    {dealer.closed_reason && (
+                      <p className="text-sm text-slate-700">
+                        <span className="font-medium">Årsag:</span>{" "}
+                        <span className="italic">{dealer.closed_reason}</span>
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       )}
 
