@@ -641,7 +641,7 @@ export default function PartnerMapPage() {
   //   matches the current user's initials (own/assigned dealers).
   // - Other roles: nothing (canSeeMachineStats is false so layer toggle is hidden).
   const visibleMachinePins = useMemo(() => {
-    if (!canSeeMachineStats) return [];
+    if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
       const me = (currentSellerInitials ?? '').toUpperCase();
       if (!me) return [];
@@ -652,11 +652,16 @@ export default function PartnerMapPage() {
       );
       return machinePinsAll.filter((p) => p.dealerAccountId && ownDealerIds.has(p.dealerAccountId));
     }
+    if (!canSeeMachineStats) {
+      // Dealer-side roles: only own dealer's registrations (match by account_number).
+      if (!ownDealerNumber) return [];
+      return machinePinsAll.filter((p) => (p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
 
   const visibleMachineMissing = useMemo(() => {
-    if (!canSeeMachineStats) return [];
+    if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
       const me = (currentSellerInitials ?? '').toUpperCase();
       if (!me) return [];
@@ -665,8 +670,12 @@ export default function PartnerMapPage() {
       );
       return machineMissingAll.filter((r) => r.dealerAccountId && ownDealerIds.has(r.dealerAccountId));
     }
+    if (!canSeeMachineStats) {
+      if (!ownDealerNumber) return [];
+      return machineMissingAll.filter((r) => (r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
