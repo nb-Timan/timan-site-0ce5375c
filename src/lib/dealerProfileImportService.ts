@@ -14,7 +14,7 @@
  *    kommentarer) er portalstyret profil-data og må opdateres.
  */
 
-import type { DealerAccount } from "@/lib/dealerAccountsService";
+import { updateDealerAccount, type DealerAccount, type UpdateDealerAccountPatch } from "@/lib/dealerAccountsService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Target field catalog
