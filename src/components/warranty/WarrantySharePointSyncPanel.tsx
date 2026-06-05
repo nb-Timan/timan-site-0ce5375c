@@ -110,6 +110,8 @@ interface SyncResult {
   deactivated: number;
   conflicts_count?: number;
   conflicts?: SyncConflict[];
+  manual_matches_preserved_count?: number;
+  fields_preserved_from_portal_count?: number;
   warnings: string[];
   durationMs: number;
 }
@@ -418,6 +420,25 @@ function SyncResultView({ data }: { data: SyncResult }) {
           <Stat label="Unmatched" value={data.unmatched} tone="rose" />
           <Stat label="Deaktiveret (forsvundet i SP)" value={data.deactivated} />
         </div>
+      </Section>
+
+      <Section title="Beskyttelse mod overskrivning">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <Stat
+            label="Manuelle dealer-matches bevaret"
+            value={data.manual_matches_preserved_count ?? 0}
+            tone={(data.manual_matches_preserved_count ?? 0) > 0 ? "emerald" : "slate"}
+          />
+          <Stat
+            label="Portalrettelser på felter bevaret"
+            value={data.fields_preserved_from_portal_count ?? 0}
+            tone={(data.fields_preserved_from_portal_count ?? 0) > 0 ? "emerald" : "slate"}
+          />
+        </div>
+        <p className="mt-2 text-xs text-slate-600">
+          Manuelle forhandlerkoblinger (<code className="font-mono">dealer_match_method = manual</code>) og felter rettet i portalen
+          (<code className="font-mono">change_source = portal_edit</code>) overskrives aldrig af SharePoint-sync.
+        </p>
       </Section>
 
       {(data.conflicts && data.conflicts.length > 0) && (
