@@ -7,12 +7,16 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Eye, PlusCircle, Search } from "lucide-react";
+import { Download, Eye, Loader2, PlusCircle, Search } from "lucide-react";
 import {
   MACHINE_TYPES,
-  useWarrantyRecords,
   type WarrantyRegistration,
 } from "@/lib/warranty-store";
+import {
+  useWarrantyRegistrationsDb,
+  type DbWarrantyRegistration,
+} from "@/lib/warrantyRegistrationsService";
+import { useAppUser } from "@/context/AppUserContext";
 import { formatDate } from "@/lib/format-date";
 
 export type WarrantyScope = "admin" | "dealer";
