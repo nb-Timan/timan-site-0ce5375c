@@ -37,6 +37,8 @@ import {
   groupDealersByParent,
   aggregateGroupStats,
   resolveEffectiveSeller,
+  buildSuccessorIndex,
+  dealerLifecycleStatus,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
@@ -137,7 +139,7 @@ export default function CrmMyDealersPage() {
         if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
-            fetchDealerAccounts({ includeDeleted: false }),
+            fetchDealerAccounts({ includeDeleted: true }),
             fetchDealerAccountStats(),
             fetchBackendUsers(),
           ]);
@@ -218,6 +220,14 @@ export default function CrmMyDealersPage() {
   });
 
 
+  // Build successor index from the full dealer set so inactive predecessors
+  // appear as sub-rows under their active main, and absorbed predecessors are
+  // hidden from the top-level list.
+  const { predecessorsByActiveId, absorbedIds } = useMemo(
+    () => buildSuccessorIndex(dealers),
+    [dealers],
+  );
+
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers) dealersByAcct.set(d.account_number, d);
@@ -230,9 +240,10 @@ export default function CrmMyDealersPage() {
       }
     }
   }
-  const visibleDealers = dealers.filter((d) => visibleIds.has(d.id));
+  // Hide absorbed predecessors from top-level grouping — they render as sub-rows.
+  const visibleDealers = dealers.filter((d) => visibleIds.has(d.id) && !absorbedIds.has(d.id));
   const groups = groupDealersByParent(visibleDealers);
-  const totalDealersCount = dealers.length;
+  const totalDealersCount = dealers.filter((d) => !absorbedIds.has(d.id)).length;
 
   return (
     <CrmLayout pageTitle={T.title[lang]}>
@@ -325,7 +336,10 @@ export default function CrmMyDealersPage() {
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
+              const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
               const hasBranches = g.branches.length > 0;
+              const hasPredecessors = predecessors.length > 0;
+              const expandable = hasBranches || hasPredecessors;
               const isOpen = groupExpanded.has(g.main.id);
               const agg = hasBranches ? aggregateGroupStats(g, statsMap) : null;
               return (
@@ -333,10 +347,12 @@ export default function CrmMyDealersPage() {
                   {renderRow({
                     r: g.main,
                     depth: 0,
+                    variant: "main",
                     isMain: hasBranches || g.main.is_main_account,
                     branchCount: g.branches.length,
+                    successorCount: predecessors.length,
                     open: isOpen,
-                    onToggle: hasBranches ? () => setGroupExpanded((p) => {
+                    onToggle: expandable ? () => setGroupExpanded((p) => {
                       const n = new Set(p);
                       if (n.has(g.main.id)) n.delete(g.main.id); else n.add(g.main.id);
                       return n;
@@ -356,11 +372,23 @@ export default function CrmMyDealersPage() {
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
                       {renderRow({
-                        r: b, depth: 1, isMain: false, branchCount: 0,
+                        r: b, depth: 1, variant: "branch", isMain: false, branchCount: 0, successorCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
                         budgetAccountNumbers: [b.account_number],
+                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                      })}
+                    </React.Fragment>
+                  ))}
+                  {isOpen && hasPredecessors && predecessors.map((p) => (
+                    <React.Fragment key={p.id}>
+                      {renderRow({
+                        r: p, depth: 1, variant: "successor", isMain: false, branchCount: 0, successorCount: 0,
+                        statsMap, allUsers, dealersByAcct,
+                        usersExpanded, setUsersExpanded,
+                        budgetIndex,
+                        budgetAccountNumbers: [p.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
@@ -382,8 +410,10 @@ export default function CrmMyDealersPage() {
 interface RowProps {
   r: DealerAccount;
   depth: 0 | 1;
+  variant: "main" | "branch" | "successor";
   isMain: boolean;
   branchCount: number;
+  successorCount: number;
   open?: boolean;
   onToggle?: () => void;
   agg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null } | null;
@@ -453,14 +483,35 @@ function renderRow(p: RowProps) {
                 Spærret
               </span>
             )}
+            {p.r.is_deleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-bold text-white">
+                Lukket
+              </span>
+            )}
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
               </span>
             )}
-            {p.depth === 1 && (
+            {p.variant === "main" && p.successorCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200"
+                title="Tidligere forhandlere overtaget af denne"
+              >
+                Overtaget ({p.successorCount})
+              </span>
+            )}
+            {p.variant === "branch" && (
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                 Filial
+              </span>
+            )}
+            {p.variant === "successor" && (
+              <span
+                className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800"
+                title={`Overtaget af aktiv efterfølger — historikken bliver på denne konto (${dealerLifecycleStatus(p.r)})`}
+              >
+                Overtaget
               </span>
             )}
           </div>

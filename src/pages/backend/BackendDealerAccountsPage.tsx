@@ -44,6 +44,7 @@ import {
   resolveEffectiveSeller,
   setDealerSuccessor,
   isDealerInactive,
+  buildSuccessorIndex,
   type DealerGroup,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
@@ -152,7 +153,17 @@ export default function BackendDealerAccountsPage() {
     return true;
   }), [rows, country, customerType, seller, unassignedOnly, structureFilter, q]);
 
-  const groups = useMemo(() => groupDealersByParent(filtered), [filtered]);
+  // Successor index across the full row set (independent of filters), so we
+  // can hide absorbed predecessors from top-level groups and render them as
+  // sub-rows under their active successor.
+  const { predecessorsByActiveId, absorbedIds } = useMemo(
+    () => buildSuccessorIndex(rows),
+    [rows],
+  );
+  const groups = useMemo(
+    () => groupDealersByParent(filtered.filter((r) => !absorbedIds.has(r.id))),
+    [filtered, absorbedIds],
+  );
   const dealersByAcct = useMemo(() => {
     const m = new Map<string, DealerAccount>();
     for (const r of rows) m.set(r.account_number, r);
@@ -376,9 +387,12 @@ export default function BackendDealerAccountsPage() {
                   }));
                 }
                 return groups.map((g) => {
+                  const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
+                  const hasBranches = g.branches.length > 0;
+                  const hasPredecessors = predecessors.length > 0;
+                  const expandable = hasBranches || hasPredecessors;
                   const isGroupOpen = groupExpanded.has(g.main.id);
                   const agg = aggregateGroupStats(g, stats);
-                  const hasBranches = g.branches.length > 0;
                   return (
                     <React.Fragment key={g.main.id}>
                       {renderDealerRow({
@@ -389,8 +403,9 @@ export default function BackendDealerAccountsPage() {
                         dealersByAcct,
                         isMainGroup: hasBranches || g.main.is_main_account,
                         branchCount: g.branches.length,
+                        successorCount: predecessors.length,
                         groupOpen: isGroupOpen,
-                        onToggleGroup: hasBranches ? () => setGroupExpanded((prev) => {
+                        onToggleGroup: expandable ? () => setGroupExpanded((prev) => {
                           const next = new Set(prev);
                           if (next.has(g.main.id)) next.delete(g.main.id); else next.add(g.main.id);
                           return next;
@@ -399,6 +414,13 @@ export default function BackendDealerAccountsPage() {
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
+                        stats, allUsers, expanded, setExpanded,
+                        busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
+                        appUserEmail: appUser?.email ?? null, reload,
+                        dealersByAcct,
+                      }))}
+                      {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
+                        r: p, depth: 1, variant: "successor",
                         stats, allUsers, expanded, setExpanded,
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
@@ -556,6 +578,8 @@ type RenderRowOpts = {
   dealersByAcct: Map<string, DealerAccount>;
   isMainGroup?: boolean;
   branchCount?: number;
+  successorCount?: number;
+  variant?: "branch" | "successor";
   groupOpen?: boolean;
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
@@ -565,7 +589,8 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
   const {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
-    dealersByAcct, isMainGroup, branchCount, groupOpen, onToggleGroup, groupAgg,
+    dealersByAcct, isMainGroup, branchCount, successorCount, variant,
+    groupOpen, onToggleGroup, groupAgg,
   } = opts;
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
@@ -615,9 +640,25 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 Hoved {branchCount ? `(${branchCount})` : ""}
               </span>
             )}
-            {isBranch && (
+            {!isBranch && successorCount ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                title="Tidligere forhandlere overtaget af denne"
+              >
+                Overtaget ({successorCount})
+              </span>
+            ) : null}
+            {isBranch && variant !== "successor" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                 Filial
+              </span>
+            )}
+            {variant === "successor" && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                title="Overtaget af aktiv efterfølger — historik bevares på denne konto"
+              >
+                Overtaget
               </span>
             )}
             {r.is_blocked && (

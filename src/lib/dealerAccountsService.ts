@@ -728,7 +728,7 @@ export async function fetchDealerAccountsForSeller(opts: {
   if (!initials && !email) return { dealers: [], stats: {} };
 
   const [dRes, sRes] = await Promise.all([
-    fetchDealerAccounts({ includeDeleted: false }),
+    fetchDealerAccounts({ includeDeleted: true }),
     fetchDealerAccountStats(),
   ]);
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
@@ -740,7 +740,8 @@ export async function fetchDealerAccountsForSeller(opts: {
   };
 
   const byAcct = new Map<string, DealerAccount>();
-  for (const d of dRes.rows) byAcct.set(d.account_number, d);
+  const byId = new Map<string, DealerAccount>();
+  for (const d of dRes.rows) { byAcct.set(d.account_number, d); byId.set(d.id, d); }
 
   // Direct matches + inherited matches (branches whose parent matches).
   const keep = new Set<string>();
@@ -757,6 +758,19 @@ export async function fetchDealerAccountsForSeller(opts: {
     if (!d.parent_account_number) continue;
     const parent = byAcct.get(d.parent_account_number);
     if (parent) keep.add(parent.id);
+  }
+  // Keep inactive predecessors whose active successor is already kept,
+  // so they can be rendered as sub-rows under the active main.
+  for (const d of dRes.rows) {
+    if (keep.has(d.id)) continue;
+    if (!isDealerInactive(d)) continue;
+    let succId: string | null = d.successor_dealer_id;
+    if (!succId && d.successor_dealer_account_number) {
+      succId = byAcct.get(d.successor_dealer_account_number)?.id ?? null;
+    }
+    if (!succId) continue;
+    const active = resolveActiveDealer(succId, byId);
+    if (active && keep.has(active.id)) keep.add(d.id);
   }
 
   const dealers = dRes.rows.filter((d) => keep.has(d.id));
@@ -1001,6 +1015,51 @@ export function resolveActiveDealer(
   }
   return current;
 }
+
+/**
+ * Build a successor index for UI grouping.
+ *
+ *   • predecessorsByActiveId — for every dealer that is the *active* successor
+ *     of one or more inactive (blocked/closed) dealers, list those predecessors.
+ *     Used to render predecessors as sub-rows under the active main, similar
+ *     to how branches are rendered.
+ *   • absorbedIds — ids of inactive dealers that already appear under an active
+ *     successor. Those should NOT be rendered as their own top-level groups.
+ *
+ * NOTE: never moves any data. Pure UI grouping.
+ */
+export function buildSuccessorIndex(rows: DealerAccount[]): {
+  predecessorsByActiveId: Map<string, DealerAccount[]>;
+  absorbedIds: Set<string>;
+} {
+  const byId = new Map<string, DealerAccount>();
+  const byAcct = new Map<string, DealerAccount>();
+  for (const r of rows) { byId.set(r.id, r); byAcct.set(r.account_number, r); }
+
+  const predecessorsByActiveId = new Map<string, DealerAccount[]>();
+  const absorbedIds = new Set<string>();
+
+  for (const r of rows) {
+    if (!isDealerInactive(r)) continue;
+    let succId: string | null = r.successor_dealer_id;
+    if (!succId && r.successor_dealer_account_number) {
+      succId = byAcct.get(r.successor_dealer_account_number)?.id ?? null;
+    }
+    if (!succId) continue;
+    const active = resolveActiveDealer(succId, byId);
+    if (!active || isDealerInactive(active)) continue;
+    const arr = predecessorsByActiveId.get(active.id) ?? [];
+    arr.push(r);
+    predecessorsByActiveId.set(active.id, arr);
+    absorbedIds.add(r.id);
+  }
+  for (const arr of predecessorsByActiveId.values()) {
+    arr.sort((a, b) => a.company_name.localeCompare(b.company_name, "da"));
+  }
+  return { predecessorsByActiveId, absorbedIds };
+}
+
+
 
 
 
