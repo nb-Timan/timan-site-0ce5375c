@@ -422,6 +422,25 @@ function SyncResultView({ data }: { data: SyncResult }) {
         </div>
       </Section>
 
+      <Section title="Beskyttelse mod overskrivning">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <Stat
+            label="Manuelle dealer-matches bevaret"
+            value={data.manual_matches_preserved_count ?? 0}
+            tone={(data.manual_matches_preserved_count ?? 0) > 0 ? "emerald" : "slate"}
+          />
+          <Stat
+            label="Portalrettelser på felter bevaret"
+            value={data.fields_preserved_from_portal_count ?? 0}
+            tone={(data.fields_preserved_from_portal_count ?? 0) > 0 ? "emerald" : "slate"}
+          />
+        </div>
+        <p className="mt-2 text-xs text-slate-600">
+          Manuelle forhandlerkoblinger (<code className="font-mono">dealer_match_method = manual</code>) og felter rettet i portalen
+          (<code className="font-mono">change_source = portal_edit</code>) overskrives aldrig af SharePoint-sync.
+        </p>
+      </Section>
+
       {(data.conflicts && data.conflicts.length > 0) && (
         <Section title="Konflikter — portalrettelser beskyttet">
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-sm mb-2 flex items-start gap-2">
