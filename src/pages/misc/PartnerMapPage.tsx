@@ -616,7 +616,7 @@ export default function PartnerMapPage() {
                       {grouped.map(({ country, list }) => (
                         <div key={country} className="border-b border-gray-100">
                           <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
-                            <span>{country}</span>
+                            <span>{formatCountry(country)}</span>
                             <span className="text-gray-400">({list.length})</span>
                           </div>
                           {list.map((p) => {
