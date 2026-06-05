@@ -808,6 +808,63 @@ export default function PartnerMapPage() {
               )}
 
               {(() => {
+                if (!canSeeMachineStats) return null;
+                // Timan Sælger: kun aggregater for egne forhandlere
+                if (portalRole === 'timan_seller') {
+                  const own = currentSellerInitials && selected.seller && selected.seller.toUpperCase() === currentSellerInitials;
+                  if (!own) return null;
+                }
+                const ms = machineStats[selected.id];
+                const total = ms?.totalMachines ?? 0;
+                const dealerHref = `/portal/service/warranty/registrations?dealer=${encodeURIComponent(selected.account)}`;
+                return (
+                  <div className="bg-white border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-2">
+                      <Wrench className="h-3 w-3" /> Maskiner
+                    </div>
+                    {total === 0 ? (
+                      <div className="text-xs text-gray-400 italic">Ingen registrerede maskiner</div>
+                    ) : (
+                      <div className="space-y-1.5 text-xs text-gray-700">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Registrerede maskiner</span>
+                          <span className="font-bold tabular-nums">{total}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Unikke serienumre</span>
+                          <span className="font-semibold tabular-nums">{ms?.serialCount ?? 0}</span>
+                        </div>
+                        {ms?.latestDelivery && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Seneste levering</span>
+                            <span className="font-semibold tabular-nums">{formatDate(ms.latestDelivery)}</span>
+                          </div>
+                        )}
+                        {ms?.models && ms.models.length > 0 && (
+                          <div className="pt-1.5 border-t border-gray-100">
+                            <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Modeller</div>
+                            <div className="flex flex-wrap gap-1">
+                              {ms.models.slice(0, 8).map((m) => (
+                                <span key={m.model} className="px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200 text-[11px]">
+                                  {m.model} <span className="font-semibold">({m.count})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <Link
+                      to={dealerHref}
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Se garantiregistreringer
+                    </Link>
+                  </div>
+                );
+              })()}
+
+              {(() => {
                 const addressForRoute = [selected.addressLine1, selected.postal, selected.city, selected.country].filter(Boolean).join(', ');
                 const canRoute = !!selected.coords || addressForRoute.length > 0;
                 const routeHref = selected.coords
