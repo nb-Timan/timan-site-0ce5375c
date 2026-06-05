@@ -4,7 +4,7 @@
  *  - Dealer (scope="dealer"):  /portal/service/warranty/registrations
  *  - Timan Admin (scope="admin"): /portal/service/warranty/registrations
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
