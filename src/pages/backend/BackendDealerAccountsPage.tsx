@@ -252,7 +252,7 @@ export default function BackendDealerAccountsPage() {
 
         <SharePointSyncPanel />
         <GeocodeDealersPanel />
-        <DealerProfileImportPanel dealers={rows} />
+        <DealerProfileImportPanel dealers={rows} onReload={() => reload()} />
 
 
 
