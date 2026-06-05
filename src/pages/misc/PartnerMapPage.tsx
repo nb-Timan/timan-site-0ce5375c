@@ -893,11 +893,12 @@ export default function PartnerMapPage() {
                   <button
                     onClick={() => setShowMachineLayer((v) => !v)}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showMachineLayer ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
-                    title="Vis registrerede maskiner"
+                    title="Vis garantiregistreringer"
                   >
                     <Wrench className="h-3 w-3" />
-                    Maskiner {showMachineLayer ? <span className="font-bold tabular-nums">({visibleMachinePins.length})</span> : null}
+                    Garantiregistreringer {showMachineLayer ? <span className="font-bold tabular-nums">({visibleMachinePins.length})</span> : null}
                   </button>
+
                 </div>
               )}
               <div className="ml-auto flex items-center gap-1">
