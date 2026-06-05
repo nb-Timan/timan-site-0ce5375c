@@ -426,6 +426,7 @@ interface RowProps {
   budgetIndex: DealerBudgetIndex | null;
   budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
+  formatCountry: (v: string | null | undefined) => string;
 }
 
 function renderRow(p: RowProps) {
