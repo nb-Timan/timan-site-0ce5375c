@@ -67,6 +67,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
         intro={<WarrantyDashboardIntro scope={variant} showCreate={canCreate} />}
       >
         {variant === "admin" && <WarrantySharePointSyncPanel />}
+        {variant === "admin" && <WarrantyDealerLinkBackfillPanel />}
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
       </WarrantyAdminSidebarLayout>
     );
