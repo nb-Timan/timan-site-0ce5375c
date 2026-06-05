@@ -73,11 +73,13 @@ function buildCertificateNumber(row: Row): string {
   return row.id.slice(0, 8).toUpperCase();
 }
 
-function mapRow(row: Row): DbWarrantyRegistration {
+function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistration {
   const submitted =
     row.registration_date ??
     row.sharepoint_modified_at ??
     row.created_at;
+  const officialName = row.dealer_account_id ? (dealersById.get(row.dealer_account_id) ?? null) : null;
+  const displayDealerName = officialName ?? row.dealer_name_snapshot ?? "Ukendt";
   return {
     id: row.id,
     certificateNumber: buildCertificateNumber(row),
@@ -85,7 +87,7 @@ function mapRow(row: Row): DbWarrantyRegistration {
     createdAt: row.created_at,
     submittedAt: submitted,
     language: row.language,
-    dealerName: row.dealer_name_snapshot ?? "Ukendt",
+    dealerName: displayDealerName,
     isDemo: row.is_demo ? "Ja" : "Nej",
     machineSerial: row.machine_serial_number ?? "",
     machineType: row.machine_model ?? "",
@@ -103,6 +105,7 @@ function mapRow(row: Row): DbWarrantyRegistration {
     dealerAccountId: row.dealer_account_id,
     dealerAccountNumber: row.dealer_account_number,
     dealerNameSnapshot: row.dealer_name_snapshot,
+    dealerOfficialName: officialName,
     postalCode: row.customer_postal_code,
     city: row.customer_city,
     country: row.customer_country,
@@ -115,16 +118,27 @@ function mapRow(row: Row): DbWarrantyRegistration {
 }
 
 export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistration[]> {
-  const { data, error } = await supabase
-    .from("warranty_registrations")
-    .select(
-      "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
-    )
-    .eq("is_active_in_source", true)
-    .order("registration_date", { ascending: false, nullsFirst: false })
-    .limit(2000);
-  if (error) throw error;
-  return (data ?? []).map((r) => mapRow(r as Row));
+  const [warrantyRes, dealersRes] = await Promise.all([
+    supabase
+      .from("warranty_registrations")
+      .select(
+        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
+      )
+      .eq("is_active_in_source", true)
+      .order("registration_date", { ascending: false, nullsFirst: false })
+      .limit(2000),
+    supabase
+      .from("dealer_accounts")
+      .select("id, company_name"),
+  ]);
+  if (warrantyRes.error) throw warrantyRes.error;
+  const dealersById = new Map<string, string>();
+  if (!dealersRes.error) {
+    for (const d of (dealersRes.data ?? []) as Array<{ id: string; company_name: string | null }>) {
+      if (d.id && d.company_name) dealersById.set(d.id, d.company_name);
+    }
+  }
+  return (warrantyRes.data ?? []).map((r) => mapRow(r as Row, dealersById));
 }
 
 export function useWarrantyRegistrationsDb() {
