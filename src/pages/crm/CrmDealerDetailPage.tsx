@@ -1331,7 +1331,7 @@ function ContactHero({
             <span className="font-mono">#{dealer.account_number}</span>
             <span>·</span>
             <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-            {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+            {dealer.country && <><span>·</span><span>{formatCountryFn(dealer.country, lang)}</span></>}
             <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
               {tl("status_active", lang)}
             </span>
