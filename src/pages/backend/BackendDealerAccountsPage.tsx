@@ -578,6 +578,8 @@ type RenderRowOpts = {
   dealersByAcct: Map<string, DealerAccount>;
   isMainGroup?: boolean;
   branchCount?: number;
+  successorCount?: number;
+  variant?: "branch" | "successor";
   groupOpen?: boolean;
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
@@ -587,7 +589,8 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
   const {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
-    dealersByAcct, isMainGroup, branchCount, groupOpen, onToggleGroup, groupAgg,
+    dealersByAcct, isMainGroup, branchCount, successorCount, variant,
+    groupOpen, onToggleGroup, groupAgg,
   } = opts;
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
