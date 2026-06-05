@@ -63,7 +63,7 @@ export function WarrantyRegistrationsTable({
   dealerName,
   showCertificateActions = false,
 }: Props) {
-  const all = useWarrantyRecords();
+  
   const { appUser } = useAppUser();
   const role = appUser?.portal_role ?? null;
   const showMatchStatus = role === "timan_backend" || role === "timan_service";
