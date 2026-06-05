@@ -601,8 +601,9 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
     dealersByAcct, isMainGroup, branchCount, successorCount, variant,
-    groupOpen, onToggleGroup, groupAgg, showDealerData,
+    groupOpen, onToggleGroup, groupAgg, showDealerData, formatCountry,
   } = opts;
+  const fmtCountry = formatCountry ?? ((v: string | null | undefined) => v ?? "");
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
   const isOpen = expanded.has(r.id);
