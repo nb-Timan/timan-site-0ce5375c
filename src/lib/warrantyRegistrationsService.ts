@@ -16,7 +16,9 @@ import type { WarrantyRegistration } from "@/lib/warranty-store";
 
 export interface DbWarrantyRegistration extends WarrantyRegistration {
   dealerMatchStatus: "matched" | "needs_review" | "unmatched";
+  dealerAccountId: string | null;
   dealerAccountNumber: string | null;
+  dealerNameSnapshot: string | null;
   postalCode: string | null;
   city: string | null;
   country: string | null;
