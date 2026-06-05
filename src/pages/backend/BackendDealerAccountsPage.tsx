@@ -153,7 +153,17 @@ export default function BackendDealerAccountsPage() {
     return true;
   }), [rows, country, customerType, seller, unassignedOnly, structureFilter, q]);
 
-  const groups = useMemo(() => groupDealersByParent(filtered), [filtered]);
+  // Successor index across the full row set (independent of filters), so we
+  // can hide absorbed predecessors from top-level groups and render them as
+  // sub-rows under their active successor.
+  const { predecessorsByActiveId, absorbedIds } = useMemo(
+    () => buildSuccessorIndex(rows),
+    [rows],
+  );
+  const groups = useMemo(
+    () => groupDealersByParent(filtered.filter((r) => !absorbedIds.has(r.id))),
+    [filtered, absorbedIds],
+  );
   const dealersByAcct = useMemo(() => {
     const m = new Map<string, DealerAccount>();
     for (const r of rows) m.set(r.account_number, r);
