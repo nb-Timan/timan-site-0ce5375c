@@ -627,7 +627,6 @@ export default function CrmDealerDetailPage() {
               contacts={dealerContacts}
               lang={lang}
               admin={admin}
-              showDealerData={canAccess}
               isBranch={isBranch}
               mainDealer={mainDealer ?? null}
               hasGroup={hasGroup}
@@ -1246,7 +1245,6 @@ function ContactHero({
   contacts,
   lang,
   admin,
-  showDealerData,
   isBranch,
   mainDealer,
   hasGroup,
@@ -1262,7 +1260,6 @@ function ContactHero({
   contacts: DealerContact[];
   lang: Language;
   admin: boolean;
-  showDealerData: boolean;
   isBranch: boolean;
   mainDealer: DealerAccount | null;
   hasGroup: boolean;
@@ -1358,14 +1355,6 @@ function ContactHero({
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold">
               <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
             </button>
-          )}
-          {showDealerData && (
-            <Link
-              to={`/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold"
-            >
-              <FileText className="h-3.5 w-3.5" /> {tl("open_dealer_data", lang)}
-            </Link>
           )}
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
