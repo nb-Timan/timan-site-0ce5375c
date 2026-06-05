@@ -286,6 +286,24 @@ function StatusBadge({ status }: { status: WarrantyRegistration["status"] }) {
   );
 }
 
+function MatchBadge({
+  status,
+}: {
+  status: "matched" | "needs_review" | "unmatched";
+}) {
+  const map = {
+    matched: { label: "Matched", cls: "bg-emerald-50 text-emerald-700" },
+    needs_review: { label: "Kræver gennemgang", cls: "bg-amber-50 text-amber-700" },
+    unmatched: { label: "Ikke matched", cls: "bg-rose-50 text-rose-700" },
+  } as const;
+  const v = map[status];
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${v.cls}`}>
+      {v.label}
+    </span>
+  );
+}
+
 function CertificateDialog({
   record,
   onClose,
