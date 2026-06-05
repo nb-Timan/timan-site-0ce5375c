@@ -15,7 +15,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Building2, Mail, MapPin, Phone, GitBranch, Star,
+  ArrowLeft, ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
   Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
