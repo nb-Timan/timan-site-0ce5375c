@@ -124,6 +124,13 @@ function DealerTab() {
         <GeocodeDealersPanel />
       </SyncSection>
 
+      <SyncSection
+        title="Geocode garantiregistreringer"
+        description="Slår kundeadresser fra garantiregistreringer op server-side og gemmer customer_latitude/customer_longitude. Bruges til gule pins på Partnerkort."
+      >
+        <GeocodeWarrantyCustomersPanel />
+      </SyncSection>
+
       <ComingSoonCard
         title="Import firma- og kontaktinformation"
         description="Importér firma- og kontaktinformation fra Excel. Tilgængelig på siden Forhandlere — åbn for at uploade."
