@@ -19,6 +19,8 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
   dealerAccountId: string | null;
   dealerAccountNumber: string | null;
   dealerNameSnapshot: string | null;
+  /** Official company_name from dealer_accounts when dealer_account_id is linked. */
+  dealerOfficialName: string | null;
   postalCode: string | null;
   city: string | null;
   country: string | null;
