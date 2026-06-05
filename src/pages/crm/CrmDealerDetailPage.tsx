@@ -202,6 +202,7 @@ export default function CrmDealerDetailPage() {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   
 
