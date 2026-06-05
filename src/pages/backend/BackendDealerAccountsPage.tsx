@@ -585,6 +585,7 @@ type RenderRowOpts = {
   groupOpen?: boolean;
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
+  showDealerData?: boolean;
 };
 
 function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
