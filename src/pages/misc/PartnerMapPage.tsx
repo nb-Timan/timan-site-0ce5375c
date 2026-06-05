@@ -806,7 +806,12 @@ export default function PartnerMapPage() {
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
-                    <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                    {showPartnerLayer && (
+                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                    )}
+                    {canSeeMachineStats && showMachineLayer && (
+                      <MachineLayer pins={visibleMachinePins} />
+                    )}
                   </MapContainer>
 
                   <div className="pointer-events-none absolute top-3 right-3 z-[500] bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
