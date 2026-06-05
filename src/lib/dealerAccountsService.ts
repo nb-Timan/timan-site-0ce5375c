@@ -915,6 +915,95 @@ export async function restoreDealer(id: string): Promise<{ ok: boolean; error?: 
   }
 }
 
+// ============================================================
+// Phase 60 — Successor / efterfølger-forhandler
+// ------------------------------------------------------------
+// Portalstyret pegepind fra en lukket/spærret forhandler til
+// den aktive forhandler der har overtaget service/warranty/CRM-ansvar.
+//
+// Ingen automatisk historikflytning. Ingen sletning. SharePoint-sync
+// rører IKKE disse felter.
+// ============================================================
+
+export interface SetSuccessorPatch {
+  successorDealerId: string | null;
+  successorDealerAccountNumber: string | null;
+  closedReason: string | null;
+}
+
+export async function setDealerSuccessor(
+  id: string,
+  patch: SetSuccessorPatch,
+): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
+  try {
+    if (patch.successorDealerId && patch.successorDealerId === id) {
+      return { ok: false, error: "En forhandler kan ikke være sin egen efterfølger." };
+    }
+    // Hent eksisterende række for at vide om closed_at allerede er sat.
+    const existing = await supabase
+      .from("dealer_accounts")
+      .select("closed_at")
+      .eq("id", id)
+      .maybeSingle();
+    const update: Record<string, unknown> = {
+      successor_dealer_id: patch.successorDealerId,
+      successor_dealer_account_number: patch.successorDealerAccountNumber,
+      closed_reason: patch.closedReason,
+      updated_at: new Date().toISOString(),
+    };
+    // Sæt closed_at første gang en successor sættes (og der ikke allerede er en).
+    if (patch.successorDealerId && !(existing.data as { closed_at?: string | null } | null)?.closed_at) {
+      update.closed_at = new Date().toISOString();
+    }
+    // Hvis successor fjernes helt — bevar closed_at (forhandleren er stadig lukket/spærret hvis is_blocked/is_deleted).
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .update(update)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    return { ok: true, row: data ? rowToDealer(data) : undefined };
+  } catch (e) {
+    return { ok: false, error: describeSupabaseError("setDealerSuccessor fejlede", e) };
+  }
+}
+
+export async function clearDealerSuccessor(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return setDealerSuccessor(id, {
+    successorDealerId: null,
+    successorDealerAccountNumber: null,
+    closedReason: null,
+  }).then((r) => ({ ok: r.ok, error: r.error }));
+}
+
+/**
+ * Følg successor-kæden (max 5 hop) og returner den aktive ansvarlige
+ * forhandler. Hvis input-dealeren selv er aktiv, returneres den uændret.
+ * Hvis kæden ender i en lukket forhandler uden successor, returneres
+ * den sidste i kæden alligevel (caller kan afgøre hvad der skal ske).
+ */
+export function resolveActiveDealer(
+  startId: string | null | undefined,
+  byId: Map<string, DealerAccount>,
+): DealerAccount | null {
+  if (!startId) return null;
+  let current = byId.get(startId) ?? null;
+  const seen = new Set<string>();
+  for (let i = 0; i < 5 && current; i++) {
+    if (seen.has(current.id)) break;
+    seen.add(current.id);
+    if (!isDealerInactive(current)) return current;
+    if (!current.successor_dealer_id) return current;
+    current = byId.get(current.successor_dealer_id) ?? null;
+  }
+  return current;
+}
+
+
+
 /**
  * Look up the block/delete status of the dealer linked to a given user
  * (by app_users.dealer_number → dealer_accounts.account_number).
