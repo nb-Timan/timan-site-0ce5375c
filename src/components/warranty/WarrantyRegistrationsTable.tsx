@@ -3,8 +3,6 @@
  * Used by:
  *  - Dealer (scope="dealer"):  /portal/service/warranty/registrations
  *  - Timan Admin (scope="admin"): /portal/service/warranty/registrations
- *
- * Behaviour controlled by the `scope` prop.
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -15,8 +13,11 @@ import {
   Download,
   Eye,
   Loader2,
+  Pencil,
   PlusCircle,
+  Save,
   Search,
+  X,
 } from "lucide-react";
 import {
   MACHINE_TYPES,
@@ -24,11 +25,13 @@ import {
 } from "@/lib/warranty-store";
 import {
   useWarrantyRegistrationsDb,
+  fetchWarrantyRegistrations,
   type DbWarrantyRegistration,
 } from "@/lib/warrantyRegistrationsService";
 import { useAppUser } from "@/context/AppUserContext";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
+import { supabase } from "@/lib/supabase";
 
 
 export type WarrantyScope = "admin" | "dealer";
@@ -36,6 +39,7 @@ export type WarrantyScope = "admin" | "dealer";
 interface Props {
   scope: WarrantyScope;
   dealerName?: string;
+  /** Kept for backward compatibility — the Vis-button is now always available. */
   showCertificateActions?: boolean;
 }
 
@@ -100,12 +104,14 @@ function cmp(a: string | number, b: string | number): number {
 export function WarrantyRegistrationsTable({
   scope,
   dealerName,
-  showCertificateActions = false,
 }: Props) {
   const { appUser } = useAppUser();
   const role = appUser?.portal_role ?? null;
   const showMatchStatus = role === "timan_backend" || role === "timan_service";
+  const canEdit = role === "timan_backend" || role === "timan_service";
   const { records: all, loading, error } = useWarrantyRegistrationsDb();
+  const [localRecords, setLocalRecords] = useState<DbWarrantyRegistration[] | null>(null);
+  const records = localRecords ?? all;
 
   const [q, setQ] = useState("");
   const [machine, setMachine] = useState("");
@@ -124,11 +130,11 @@ export function WarrantyRegistrationsTable({
   const [selected, setSelected] = useState<DbWarrantyRegistration | null>(null);
 
   const scoped = useMemo(() => {
-    if (scope === "admin") return all;
+    if (scope === "admin") return records;
     if (!dealerName) return [];
     const needle = dealerName.toLowerCase();
-    return all.filter((r) => r.dealerName.toLowerCase() === needle);
-  }, [all, scope, dealerName]);
+    return records.filter((r) => r.dealerName.toLowerCase() === needle);
+  }, [records, scope, dealerName]);
 
   const dealers = useMemo(() => {
     const set = new Set<string>();
@@ -235,6 +241,15 @@ export function WarrantyRegistrationsTable({
     }
   }
 
+  async function reloadAfterEdit() {
+    try {
+      const fresh = await fetchWarrantyRegistrations();
+      setLocalRecords(fresh);
+    } catch {
+      /* ignore — keep current data */
+    }
+  }
+
   const SortHeader = ({ k, children }: { k: SortKey; children: React.ReactNode }) => {
     const active = sortKey === k;
     const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
@@ -255,63 +270,84 @@ export function WarrantyRegistrationsTable({
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {/* Line 1 — Søg, Forhandler (admin), Maskintype, Sprog (admin) */}
         <div
-          className={`grid grid-cols-1 gap-2.5 md:grid-cols-2 ${
+          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${
             scope === "admin" ? "lg:grid-cols-4" : "lg:grid-cols-3"
           }`}
         >
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              placeholder="Søg SP-ID, kunde, serienr…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-400"
-            />
-          </div>
+          <Field label="Søg">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                placeholder="SP-ID, kunde, serienr…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-400"
+              />
+            </div>
+          </Field>
           {scope === "admin" && (
-            <Select value={dealer} onChange={setDealer} placeholder="Alle forhandlere" options={dealers} />
+            <Field label="Forhandler">
+              <Select value={dealer} onChange={setDealer} placeholder="Alle forhandlere" options={dealers} />
+            </Field>
           )}
-          <Select
-            value={machine}
-            onChange={setMachine}
-            placeholder="Alle maskintyper"
-            options={MACHINE_TYPES.map((m) => m as string)}
-          />
+          <Field label="Maskintype">
+            <Select
+              value={machine}
+              onChange={setMachine}
+              placeholder="Alle maskintyper"
+              options={MACHINE_TYPES.map((m) => m as string)}
+            />
+          </Field>
           {scope === "admin" && (
-            <Select value={language} onChange={setLanguage} placeholder="Alle sprog" options={languages} />
+            <Field label="Sprog">
+              <Select value={language} onChange={setLanguage} placeholder="Alle sprog" options={languages} />
+            </Field>
           )}
         </div>
 
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
-          {scope === "admin" && (
+        {/* Line 2 — Status, Matchstatus, Levering fra/til, Oprettet fra/til */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Field label="Status">
             <Select
               value={statusFilter}
               onChange={setStatusFilter}
-              placeholder="Alle statusser"
+              placeholder="Alle"
               options={["active", "draft", "archived"]}
               labels={{ active: "Aktiv", draft: "Kladde", archived: "Arkiveret" }}
             />
-          )}
-          {showMatchStatus && (
-            <Select
-              value={matchFilter}
-              onChange={setMatchFilter}
-              placeholder="Alle matchstatusser"
-              options={["matched", "needs_review", "unmatched"]}
-              labels={{
-                matched: "Matched",
-                needs_review: "Kræver gennemgang",
-                unmatched: "Ikke matched",
-              }}
-            />
-          )}
-          <DateInput label="Levering fra" value={deliveryFrom} onChange={setDeliveryFrom} />
-          <DateInput label="Levering til" value={deliveryTo} onChange={setDeliveryTo} />
-          <DateInput label="Oprettet fra" value={createdFrom} onChange={setCreatedFrom} />
-          <DateInput label="Oprettet til" value={createdTo} onChange={setCreatedTo} />
+          </Field>
+          <Field label="Matchstatus">
+            {showMatchStatus ? (
+              <Select
+                value={matchFilter}
+                onChange={setMatchFilter}
+                placeholder="Alle"
+                options={["matched", "needs_review", "unmatched"]}
+                labels={{
+                  matched: "Matched",
+                  needs_review: "Kræver gennemgang",
+                  unmatched: "Ikke matched",
+                }}
+              />
+            ) : (
+              <DisabledInput value="—" />
+            )}
+          </Field>
+          <Field label="Levering fra">
+            <DateInput value={deliveryFrom} onChange={setDeliveryFrom} />
+          </Field>
+          <Field label="Levering til">
+            <DateInput value={deliveryTo} onChange={setDeliveryTo} />
+          </Field>
+          <Field label="Oprettet fra">
+            <DateInput value={createdFrom} onChange={setCreatedFrom} />
+          </Field>
+          <Field label="Oprettet til">
+            <DateInput value={createdTo} onChange={setCreatedTo} />
+          </Field>
         </div>
       </div>
 
@@ -347,7 +383,7 @@ export function WarrantyRegistrationsTable({
                     <th className="px-6 py-3">Sprog</th>
                   )}
                   {showMatchStatus && <SortHeader k="matchStatus">Match</SortHeader>}
-                  {showCertificateActions && <th className="px-6 py-3 text-right">Handlinger</th>}
+                  <th className="px-6 py-3 text-right">Handlinger</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -394,17 +430,15 @@ export function WarrantyRegistrationsTable({
                         <MatchBadge status={r.dealerMatchStatus} />
                       </td>
                     )}
-                    {showCertificateActions && (
-                      <td className="whitespace-nowrap px-6 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelected(r)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                        >
-                          <Eye className="h-3.5 w-3.5" /> Vis
-                        </button>
-                      </td>
-                    )}
+                    <td className="whitespace-nowrap px-6 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(r)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Vis
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -418,8 +452,16 @@ export function WarrantyRegistrationsTable({
         )}
       </div>
 
-      {showCertificateActions && selected && (
-        <CertificateDialog record={selected} onClose={() => setSelected(null)} />
+      {selected && (
+        <CertificateDialog
+          record={selected}
+          canEdit={canEdit}
+          onClose={() => setSelected(null)}
+          onSaved={async (next) => {
+            setSelected(next);
+            await reloadAfterEdit();
+          }}
+        />
       )}
     </div>
   );
@@ -457,13 +499,113 @@ function MatchBadge({
   );
 }
 
+interface EditableFields {
+  customer_name: string;
+  customer_address: string;
+  customer_postal_code: string;
+  customer_city: string;
+  customer_country: string;
+  customer_phone: string;
+  customer_email: string;
+  delivery_date: string;
+  machine_model: string;
+  comment: string;
+  machine_serial_number: string;
+}
+
+function recordToEditable(r: DbWarrantyRegistration): EditableFields {
+  const [pc, ...cityParts] = (r.postalCity ?? "").split(" ");
+  return {
+    customer_name: r.customer ?? "",
+    customer_address: r.customerAddress ?? "",
+    customer_postal_code: r.postalCode ?? pc ?? "",
+    customer_city: r.city ?? cityParts.join(" ") ?? "",
+    customer_country: r.country ?? "",
+    customer_phone: r.phone ?? "",
+    customer_email: r.confirmationEmail ?? "",
+    delivery_date: r.deliveryDate ?? "",
+    machine_model: r.machineType ?? "",
+    comment: r.comment ?? "",
+    machine_serial_number: r.machineSerial ?? "",
+  };
+}
+
 function CertificateDialog({
   record,
+  canEdit,
   onClose,
+  onSaved,
 }: {
   record: DbWarrantyRegistration;
+  canEdit: boolean;
   onClose: () => void;
+  onSaved: (next: DbWarrantyRegistration) => void | Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<EditableFields>(() => recordToEditable(record));
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [auditMissing, setAuditMissing] = useState(false);
+
+  function update<K extends keyof EditableFields>(key: K, value: EditableFields[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    setAuditMissing(false);
+    const original = recordToEditable(record);
+    const changes: Record<string, string | null> = {};
+    (Object.keys(form) as (keyof EditableFields)[]).forEach((k) => {
+      const next = form[k]?.trim?.() ?? form[k];
+      const prev = original[k]?.trim?.() ?? original[k];
+      if (next !== prev) changes[k] = (next as string) || null;
+    });
+    if (Object.keys(changes).length === 0) {
+      setEditing(false);
+      setSaving(false);
+      return;
+    }
+    const { error } = await supabase.rpc("warranty_update_registration", {
+      p_id: record.id,
+      p_changes: changes,
+    });
+    setSaving(false);
+    if (error) {
+      const msg = error.message || String(error);
+      // Function missing → audit SQL not yet applied.
+      if (
+        /function .*warranty_update_registration/i.test(msg) ||
+        /could not find the function/i.test(msg) ||
+        /PGRST202/i.test(msg)
+      ) {
+        setAuditMissing(true);
+      } else {
+        setSaveError(msg);
+      }
+      return;
+    }
+    // Optimistic local merge — full list refresh happens in parent.
+    const merged: DbWarrantyRegistration = {
+      ...record,
+      customer: form.customer_name,
+      customerAddress: form.customer_address,
+      postalCode: form.customer_postal_code,
+      city: form.customer_city,
+      country: form.customer_country,
+      postalCity: [form.customer_postal_code, form.customer_city].filter(Boolean).join(" "),
+      phone: form.customer_phone,
+      confirmationEmail: form.customer_email,
+      deliveryDate: form.delivery_date,
+      machineType: form.machine_model,
+      machineSerial: form.machine_serial_number,
+      comment: form.comment,
+    };
+    setEditing(false);
+    await onSaved(merged);
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4"
@@ -483,6 +625,20 @@ function CertificateDialog({
             </h3>
           </div>
           <div className="flex items-center gap-2">
+            {canEdit && !editing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setForm(recordToEditable(record));
+                  setEditing(true);
+                  setSaveError(null);
+                  setAuditMissing(false);
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Rediger registrering
+              </button>
+            )}
             <button
               type="button"
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -495,39 +651,83 @@ function CertificateDialog({
               onClick={onClose}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
             >
-              Luk
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-6 py-5 text-sm md:grid-cols-2">
-          <DRow label="Forhandler" value={record.dealerName} />
-          <DRow label="Kunde" value={record.customer} />
-          <DRow label="Maskintype" value={record.machineType} />
-          <DRow label="Serienr" value={record.machineSerial} mono />
-          <DRow label="Demo" value={record.isDemo} />
-          <DRow label="Erstatter" value={record.replacementBrand ?? "—"} />
-          <DRow label="Leveringsdato" value={formatDate(record.deliveryDate)} />
-          <DRow label="Adresse" value={record.customerAddress} />
-          <DRow label="Postnr/by" value={record.postalCity} />
-          <DRow label="Telefon" value={record.phone} />
-          <DRow label="E-mail" value={record.confirmationEmail} />
-          <DRow label="Sprog" value={record.language ?? "—"} />
-          {record.toolSerials.length > 0 && (
-            <DRow label="Redskaber" value={record.toolSerials.join(", ")} mono span2 />
-          )}
-          {record.comment && <DRow label="Kommentar" value={record.comment} span2 />}
-        </dl>
 
-        <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4 text-xs text-slate-500">
-          <p className="font-bold text-slate-600">SharePoint-styrede felter</p>
-          <p className="mt-1">
-            Serienr, certifikat-ID, leveringsdato og kundeoplysninger kommer fra
-            SharePoint. Portalrettelser med audit-log aktiveres når{" "}
-            <code className="rounded bg-slate-100 px-1">warranty_update_registration</code>{" "}
-            RPC'en er kørt (se{" "}
-            <code className="rounded bg-slate-100 px-1">db/sql/proposed_warranty_portal_edit.sql</code>).
-          </p>
-        </div>
+        {auditMissing && (
+          <div className="border-b border-amber-100 bg-amber-50 px-6 py-3 text-xs text-amber-800">
+            Redigering kræver audit-SQL. Kør{" "}
+            <code className="rounded bg-amber-100 px-1">db/sql/proposed_warranty_portal_edit.sql</code>{" "}
+            i Supabase for at aktivere portalrettelser med historik.
+          </div>
+        )}
+        {saveError && (
+          <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-xs text-rose-700">
+            Kunne ikke gemme: {saveError}
+          </div>
+        )}
+
+        {editing ? (
+          <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm md:grid-cols-2">
+            <EditField label="Kunde" value={form.customer_name} onChange={(v) => update("customer_name", v)} />
+            <EditField label="E-mail" value={form.customer_email} onChange={(v) => update("customer_email", v)} />
+            <EditField label="Adresse" value={form.customer_address} onChange={(v) => update("customer_address", v)} span2 />
+            <EditField label="Postnr" value={form.customer_postal_code} onChange={(v) => update("customer_postal_code", v)} />
+            <EditField label="By" value={form.customer_city} onChange={(v) => update("customer_city", v)} />
+            <EditField label="Land" value={form.customer_country} onChange={(v) => update("customer_country", v)} />
+            <EditField label="Telefon" value={form.customer_phone} onChange={(v) => update("customer_phone", v)} />
+            <EditField label="Leveringsdato" type="date" value={form.delivery_date} onChange={(v) => update("delivery_date", v)} />
+            <EditField label="Maskintype" value={form.machine_model} onChange={(v) => update("machine_model", v)} />
+            <EditField label="Serienr (kun intern)" value={form.machine_serial_number} onChange={(v) => update("machine_serial_number", v)} span2 />
+            <EditField label="Kommentar" value={form.comment} onChange={(v) => update("comment", v)} span2 textarea />
+            <div className="md:col-span-2 flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                disabled={saving}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Annuller
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Gem ændringer
+              </button>
+            </div>
+          </div>
+        ) : (
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-6 py-5 text-sm md:grid-cols-2">
+            <DRow label="Forhandler" value={record.dealerName} />
+            <DRow label="Kunde" value={record.customer} />
+            <DRow label="Maskintype" value={record.machineType} />
+            <DRow label="Serienr" value={record.machineSerial} mono />
+            <DRow label="Demo" value={record.isDemo} />
+            <DRow label="Erstatter" value={record.replacementBrand ?? "—"} />
+            <DRow label="Leveringsdato" value={formatDate(record.deliveryDate)} />
+            <DRow label="Adresse" value={record.customerAddress} />
+            <DRow label="Postnr/by" value={record.postalCity} />
+            <DRow label="Telefon" value={record.phone} />
+            <DRow label="E-mail" value={record.confirmationEmail} />
+            <DRow label="Sprog" value={record.language ?? "—"} />
+            {record.toolSerials.length > 0 && (
+              <DRow label="Redskaber" value={record.toolSerials.join(", ")} mono span2 />
+            )}
+            {record.comment && <DRow label="Kommentar" value={record.comment} span2 />}
+          </dl>
+        )}
+
+        {!canEdit && (
+          <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-3 text-xs text-slate-500">
+            Read-only — du har ikke rettigheder til at redigere denne registrering.
+          </div>
+        )}
 
         <HistorySection registrationId={record.id} />
       </div>
@@ -613,6 +813,52 @@ function DRow({
   );
 }
 
+function EditField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  span2,
+  textarea,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  span2?: boolean;
+  textarea?: boolean;
+}) {
+  return (
+    <label className={`flex flex-col gap-1 ${span2 ? "md:col-span-2" : ""}`}>
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+      {textarea ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+        />
+      )}
+    </label>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+      {children}
+    </div>
+  );
+}
+
 function Select({
   value,
   onChange,
@@ -643,23 +889,29 @@ function Select({
 }
 
 function DateInput({
-  label,
   value,
   onChange,
 }: {
-  label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-bold text-slate-500">
-      <span className="uppercase tracking-widest">{label}</span>
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none focus:border-slate-400"
-      />
-    </label>
+    <input
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none focus:border-slate-400"
+    />
+  );
+}
+
+function DisabledInput({ value }: { value: string }) {
+  return (
+    <input
+      type="text"
+      disabled
+      value={value}
+      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-400 outline-none"
+    />
   );
 }
