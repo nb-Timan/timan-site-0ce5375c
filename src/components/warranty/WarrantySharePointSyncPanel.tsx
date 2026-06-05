@@ -87,10 +87,28 @@ interface DryRunResult {
 }
 
 
+interface SyncResult {
+  mode: string;
+  writes_performed: boolean;
+  fetched: number;
+  processed: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  matched: number;
+  needs_review: number;
+  unmatched: number;
+  deactivated: number;
+  warnings: string[];
+  durationMs: number;
+}
+
 type ModalState =
   | { kind: "none" }
   | { kind: "verify"; busy: boolean; error: string | null; data: VerifyResult | null }
-  | { kind: "dryrun"; busy: boolean; error: string | null; data: DryRunResult | null };
+  | { kind: "dryrun"; busy: boolean; error: string | null; data: DryRunResult | null }
+  | { kind: "sync-confirm"; busy: boolean; error: string | null; dryRun: DryRunResult | null }
+  | { kind: "sync-result"; busy: boolean; error: string | null; data: SyncResult | null };
 
 async function invokeFn<T>(name: string): Promise<{ data: T | null; error: string | null }> {
   const { data: sess } = await supabase.auth.getSession();
