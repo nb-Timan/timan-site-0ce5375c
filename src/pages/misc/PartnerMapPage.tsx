@@ -357,7 +357,10 @@ function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
       const dd = p.deliveryDate ? new Date(p.deliveryDate).toLocaleDateString('da-DK') : '';
       const html = `
         <div style="font-family:inherit; min-width:200px;">
-          <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Registreret maskine</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px;">
+            <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e;">Registreret maskine</div>
+            ${p.spId ? `<div style="font-size:10px; font-family:ui-monospace,monospace; color:#9ca3af;">${escapeHtml(p.spId)}</div>` : ''}
+          </div>
           <div style="font-size:13px; font-weight:700; color:#111; margin-bottom:6px;">${escapeHtml(p.machineModel) || '—'}</div>
           <div style="font-size:11px; color:#374151; line-height:1.6;">
             ${p.machineSerial ? `<div><span style="color:#6b7280">Serienr.:</span> <span style="font-family:ui-monospace,monospace">${escapeHtml(p.machineSerial)}</span></div>` : ''}
