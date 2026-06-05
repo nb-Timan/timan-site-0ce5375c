@@ -402,11 +402,12 @@ function SyncResultView({ data }: { data: SyncResult }) {
       </div>
 
       <Section title="Importeret">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <Stat label="Hentet" value={data.fetched} tone="sky" />
           <Stat label="Oprettet" value={data.created} tone="emerald" />
           <Stat label="Opdateret" value={data.updated} tone="amber" />
           <Stat label="Uændret" value={data.unchanged} />
+          <Stat label="Konflikter" value={data.conflicts_count ?? 0} tone={(data.conflicts_count ?? 0) > 0 ? "rose" : "emerald"} />
         </div>
       </Section>
 
@@ -418,6 +419,42 @@ function SyncResultView({ data }: { data: SyncResult }) {
           <Stat label="Deaktiveret (forsvundet i SP)" value={data.deactivated} />
         </div>
       </Section>
+
+      {(data.conflicts && data.conflicts.length > 0) && (
+        <Section title="Konflikter — portalrettelser beskyttet">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-sm mb-2 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+            <span>
+              SharePoint foreslog at ændre disse felter, men de er rettet manuelt i portalen og blev <strong>ikke</strong> overskrevet.
+              Portalværdien er bevaret.
+            </span>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-full text-xs">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-bold">Forhandler</th>
+                  <th className="px-2 py-1.5 text-left font-bold">SP-item</th>
+                  <th className="px-2 py-1.5 text-left font-bold">Felt</th>
+                  <th className="px-2 py-1.5 text-left font-bold">Portalværdi</th>
+                  <th className="px-2 py-1.5 text-left font-bold">SharePoint-værdi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.conflicts.map((c, i) => (
+                  <tr key={i}>
+                    <td className="px-2 py-1.5 text-slate-800">{c.dealer_name_snapshot || "—"}</td>
+                    <td className="px-2 py-1.5 font-mono text-slate-600">{c.sharepoint_item_id}</td>
+                    <td className="px-2 py-1.5 font-mono text-slate-800">{c.field}</td>
+                    <td className="px-2 py-1.5 text-emerald-800">{c.portal_value == null || c.portal_value === "" ? "—" : String(c.portal_value)}</td>
+                    <td className="px-2 py-1.5 text-rose-800">{c.sharepoint_value == null || c.sharepoint_value === "" ? "—" : String(c.sharepoint_value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
 
       <Section title="Warnings"><WarningList warnings={data.warnings ?? []} /></Section>
 
