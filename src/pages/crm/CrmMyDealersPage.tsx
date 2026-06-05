@@ -380,6 +380,7 @@ export default function CrmMyDealersPage() {
                         budgetIndex,
                         budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        formatCountry,
                       })}
                     </React.Fragment>
                   ))}
