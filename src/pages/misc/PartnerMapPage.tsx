@@ -753,7 +753,7 @@ export default function PartnerMapPage() {
                       {selected.addressLine1 && <div>{selected.addressLine1}</div>}
                       {selected.addressLine2 && <div>{selected.addressLine2}</div>}
                       {cityLine && <div className="text-gray-500">{cityLine}</div>}
-                      {selected.country && <div className="text-gray-500">{selected.country}</div>}
+                      {selected.country && <div className="text-gray-500">{formatCountry(selected.country)}</div>}
                     </div>
                   </div>
                 );
