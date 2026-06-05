@@ -74,9 +74,29 @@ export interface DealerAccount {
   geocoded_at: string | null;
   geocoding_status: string | null;
   geocoding_error: string | null;
+  // Phase 60 — successor / efterfølger-forhandler (portalstyret, ikke SharePoint).
+  successor_dealer_id: string | null;
+  successor_dealer_account_number: string | null;
+  closed_reason: string | null;
+  closed_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type DealerLifecycleStatus = "active" | "blocked" | "closed";
+
+/** Status afledt af is_deleted / is_blocked. */
+export function dealerLifecycleStatus(d: Pick<DealerAccount, "is_deleted" | "is_blocked">): DealerLifecycleStatus {
+  if (d.is_deleted) return "closed";
+  if (d.is_blocked) return "blocked";
+  return "active";
+}
+
+export function isDealerInactive(d: Pick<DealerAccount, "is_deleted" | "is_blocked">): boolean {
+  return d.is_deleted || d.is_blocked;
+}
+
+
 
 
 export type DealerAccountsSource = "supabase" | "fallback";
@@ -149,6 +169,10 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     geocoded_at: (row.geocoded_at as string | null) ?? null,
     geocoding_status: (row.geocoding_status as string | null) ?? null,
     geocoding_error: (row.geocoding_error as string | null) ?? null,
+    successor_dealer_id: (row.successor_dealer_id as string | null) ?? null,
+    successor_dealer_account_number: (row.successor_dealer_account_number as string | null) ?? null,
+    closed_reason: (row.closed_reason as string | null) ?? null,
+    closed_at: (row.closed_at as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
