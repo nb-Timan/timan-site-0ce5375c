@@ -859,7 +859,7 @@ export default function PartnerMapPage() {
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     {showPartnerLayer && (
-                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
                     )}
                     {canSeeMachineStats && showMachineLayer && (
                       <MachineLayer pins={visibleMachinePins} />
