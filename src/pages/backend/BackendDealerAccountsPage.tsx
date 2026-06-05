@@ -416,6 +416,7 @@ export default function BackendDealerAccountsPage() {
                           return next;
                         }) : undefined,
                         groupAgg: hasBranches ? agg : undefined,
+                        showDealerData: showDealerDataButton,
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
