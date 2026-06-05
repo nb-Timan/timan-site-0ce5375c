@@ -583,10 +583,12 @@ export default function PartnerMapPage() {
       setStats(map);
       setLoading(false);
 
-      if (canSeeMachineStats) {
+      if (canSeeMachineLayer) {
         const ids = dRes.rows.map((d) => d.id);
         const [ms, mp, mm] = await Promise.all([
-          fetchPartnerMachineStats(ids).catch(() => ({})),
+          canSeeMachineStats
+            ? fetchPartnerMachineStats(ids).catch(() => ({}))
+            : Promise.resolve({} as Record<string, PartnerMachineStats>),
           fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
           fetchWarrantyMachineMissingCoords().catch(() => ({ rows: [] as WarrantyMachineMissing[], error: null as string | null })),
         ]);
@@ -597,7 +599,7 @@ export default function PartnerMapPage() {
       }
     })();
     return () => { alive = false; };
-  }, [canSeeMachineStats]);
+  }, [canSeeMachineLayer, canSeeMachineStats]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
