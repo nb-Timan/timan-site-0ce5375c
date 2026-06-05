@@ -737,6 +737,14 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
               className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
               <Pencil className="h-3 w-3" /> Rediger
             </button>
+            {showDealerData && (
+              <Link
+                to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                <FileText className="h-3 w-3" /> Forhandlerdata
+              </Link>
+            )}
             {r.is_deleted ? (
               <button type="button" disabled={busyId === r.id}
                 onClick={async () => {
