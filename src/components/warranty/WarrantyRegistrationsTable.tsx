@@ -563,14 +563,34 @@ function CertificateDialog({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [auditMissing, setAuditMissing] = useState(false);
-  const [dealers, setDealers] = useState<Array<{ id: string; account_number: string; company_name: string }>>([]);
+  const [dealers, setDealers] = useState<Array<{
+    id: string;
+    account_number: string;
+    company_name: string;
+    isBlocked: boolean;
+    isDeleted: boolean;
+    successorDealerId: string | null;
+    successorDealerAccountNumber: string | null;
+  }>>([]);
+
+  const selectedDealer = dealers.find((d) => d.id === form.dealer_account_id);
+  const selectedStatus = selectedDealer
+    ? selectedDealer.isDeleted
+      ? "closed"
+      : selectedDealer.isBlocked
+        ? "blocked"
+        : "active"
+    : null;
+  const selectedSuccessor = selectedDealer?.successorDealerId
+    ? dealers.find((d) => d.id === selectedDealer.successorDealerId) ?? null
+    : null;
 
   // Lazy-load dealer accounts the first time the internal user starts editing.
   useEffect(() => {
     if (!editing || !canEdit || dealers.length > 0) return;
     let cancelled = false;
     import("@/lib/dealerAccountsService").then(({ fetchDealerAccounts }) => {
-      fetchDealerAccounts({ includeDeleted: false }).then(({ rows }) => {
+      fetchDealerAccounts({ includeDeleted: true }).then(({ rows }) => {
         if (cancelled) return;
         setDealers(
           rows
@@ -579,6 +599,10 @@ function CertificateDialog({
               id: d.id,
               account_number: d.account_number,
               company_name: d.company_name,
+              isBlocked: d.is_blocked,
+              isDeleted: d.is_deleted,
+              successorDealerId: d.successor_dealer_id,
+              successorDealerAccountNumber: d.successor_dealer_account_number,
             }))
             .sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
         );
@@ -601,6 +625,11 @@ function CertificateDialog({
       dealer_account_id: d.id,
       dealer_account_number: d.account_number,
     }));
+  }
+
+  function selectSuccessor() {
+    if (!selectedSuccessor) return;
+    selectDealer(selectedSuccessor.id);
   }
 
   async function handleSave() {
@@ -750,16 +779,50 @@ function CertificateDialog({
                 {!form.dealer_account_id && (
                   <option value="">— vælg forhandler —</option>
                 )}
-                {dealers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.company_name} (#{d.account_number})
-                  </option>
-                ))}
+                {dealers.map((d) => {
+                  const statusLabel = d.isDeleted
+                    ? "Lukket"
+                    : d.isBlocked
+                      ? "Spærret"
+                      : "Aktiv";
+                  const successor = d.successorDealerId
+                    ? dealers.find((s) => s.id === d.successorDealerId)
+                    : null;
+                  const suffix = successor
+                    ? ` · Lukket → ${successor.company_name}`
+                    : ` · ${statusLabel}`;
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {d.company_name} (#{d.account_number}){suffix}
+                    </option>
+                  );
+                })}
               </select>
               <p className="mt-1 text-[11px] text-slate-500">
                 Kan ikke ryddes herfra. Vælg en anden forhandler for at re-matche.
-                Kun forhandlere med kontonummer vises.
+                Aktive, spærrede og lukkede forhandlere vises.
               </p>
+
+              {selectedStatus && selectedStatus !== "active" && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-bold text-amber-800">
+                      {selectedStatus === "closed"
+                        ? "Denne forhandler er lukket. Overvej at vælge efterfølgeren."
+                        : "Denne forhandler er spærret. Overvej at vælge efterfølgeren."}
+                    </span>
+                    {selectedSuccessor && (
+                      <button
+                        type="button"
+                        onClick={selectSuccessor}
+                        className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+                      >
+                        Vælg {selectedSuccessor.company_name} i stedet
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <EditField label="Kunde" value={form.customer_name} onChange={(v) => update("customer_name", v)} />
             <EditField label="E-mail" value={form.customer_email} onChange={(v) => update("customer_email", v)} />
