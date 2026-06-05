@@ -422,6 +422,54 @@ Deno.serve(async (req) => {
       return { m, dealer_account_id: null, dealer_account_number: null, dealer_match_status: "unmatched", dealer_match_method: null, dealer_match_confidence: null };
     });
 
+    // ---- Load portal-edited field protection ----
+    // SAFE RULE: SharePoint sync must NEVER overwrite a field that has been
+    // edited in the portal (warranty_registration_history rows where
+    // change_source = 'portal_edit'). We collect the set of protected field
+    // names per registration_id from the diff keys and skip those fields
+    // when building the upsert payload — they remain at their current DB
+    // value and are surfaced as conflicts.
+    const PROTECTED_FIELDS = new Set<string>([
+      "customer_name",
+      "customer_address",
+      "customer_postal_code",
+      "customer_city",
+      "customer_country",
+      "customer_phone",
+      "customer_email",
+      "delivery_date",
+      "machine_model",
+    ]);
+    const portalEditedByRegId = new Map<string, Set<string>>();
+    {
+      const regIds = Array.from(existingById.values()).map((r) => r.id).filter(Boolean);
+      const chunkH = 200;
+      for (let i = 0; i < regIds.length; i += chunkH) {
+        const slice = regIds.slice(i, i + chunkH);
+        const { data, error } = await admin
+          .from("warranty_registration_history")
+          .select("registration_id, diff")
+          .eq("change_source", "portal_edit")
+          .in("registration_id", slice);
+        if (error) {
+          warnings.push(`Kunne ikke læse warranty_registration_history (portal_edit beskyttelse): ${error.message}`);
+        } else {
+          for (const h of (data ?? []) as any[]) {
+            const rid = String(h.registration_id);
+            const set = portalEditedByRegId.get(rid) ?? new Set<string>();
+            const diff = h.diff ?? {};
+            if (diff && typeof diff === "object") {
+              for (const k of Object.keys(diff)) {
+                if (k.startsWith("_")) continue;
+                if (PROTECTED_FIELDS.has(k)) set.add(k);
+              }
+            }
+            portalEditedByRegId.set(rid, set);
+          }
+        }
+      }
+    }
+
     // ---- Build upsert payloads + count buckets ----
     let created = 0;
     let updated = 0;
@@ -429,6 +477,16 @@ Deno.serve(async (req) => {
     let matchedCount = 0;
     let needsReviewCount = 0;
     let unmatchedCount = 0;
+
+    interface ConflictEntry {
+      registration_id: string;
+      sharepoint_item_id: string;
+      dealer_name_snapshot: string;
+      field: string;
+      portal_value: unknown;
+      sharepoint_value: unknown;
+    }
+    const conflicts: ConflictEntry[] = [];
 
     const upserts: any[] = [];
     for (const r of resolved) {
@@ -438,7 +496,7 @@ Deno.serve(async (req) => {
 
       const ex = existingById.get(r.m.sharepoint_item_id);
       const zipCity = splitZipCity(r.m.customer_zip_city);
-      const payload = {
+      const payload: Record<string, unknown> = {
         // Source / identity
         sharepoint_item_id: r.m.sharepoint_item_id,
         sharepoint_form_id: r.m.sharepoint_form_id,
@@ -475,6 +533,31 @@ Deno.serve(async (req) => {
         is_active_in_source: true,
         last_synced_at: new Date().toISOString(),
       };
+
+      // ---- Protect portal-edited fields from being overwritten ----
+      if (ex) {
+        const protectedSet = portalEditedByRegId.get(String(ex.id));
+        if (protectedSet && protectedSet.size > 0) {
+          for (const field of protectedSet) {
+            const portalVal = (ex as Record<string, unknown>)[field] ?? null;
+            const spVal = payload[field] ?? null;
+            const same = String(portalVal ?? "") === String(spVal ?? "");
+            // Always restore portal value so sync never overwrites it.
+            payload[field] = portalVal;
+            if (!same) {
+              conflicts.push({
+                registration_id: String(ex.id),
+                sharepoint_item_id: r.m.sharepoint_item_id,
+                dealer_name_snapshot: r.m.dealer_name_snapshot || "(ukendt)",
+                field,
+                portal_value: portalVal,
+                sharepoint_value: spVal,
+              });
+            }
+          }
+        }
+      }
+
       upserts.push(payload);
 
       if (!ex) {
