@@ -1294,6 +1294,7 @@ function ContactHero({
     { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: mailAddr ? `mailto:${mailAddr}` : undefined, disabled: !mailAddr },
     { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-5 w-5" />,       href: mapsHref, disabled: !mapsHref },
     { key: "web",      label: tl("website", lang),          icon: <Globe className="h-5 w-5" />,        href: websiteHref, disabled: !websiteHref },
+    { key: "dealerdata", label: tl("open_dealer_data", lang), icon: <FileText className="h-5 w-5" />,   href: `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}` },
     { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
     { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-5 w-5" />, onClick: onAddActivity },
   ];
