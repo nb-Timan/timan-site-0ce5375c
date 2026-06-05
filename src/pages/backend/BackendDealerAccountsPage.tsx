@@ -44,6 +44,7 @@ import {
   resolveEffectiveSeller,
   setDealerSuccessor,
   isDealerInactive,
+  buildSuccessorIndex,
   type DealerGroup,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
