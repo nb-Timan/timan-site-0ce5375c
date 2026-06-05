@@ -231,6 +231,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             );
           })}
         </div>
+        )}
 
         {areaId === 'teknik_service' && (
           <section className="mt-12">
