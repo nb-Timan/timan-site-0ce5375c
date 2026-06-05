@@ -452,6 +452,26 @@ export default function PartnerMapPage() {
       } as Partner;
     }), [dealers, stats, statusFilter]);
 
+  // Machine pins visible to the current user.
+  // - Backend / Service: all pins
+  // - Sælger: only pins where the linked dealer's assigned_seller_initials
+  //   matches the current user's initials (own/assigned dealers).
+  // - Other roles: nothing (canSeeMachineStats is false so layer toggle is hidden).
+  const visibleMachinePins = useMemo(() => {
+    if (!canSeeMachineStats) return [];
+    if (portalRole === 'timan_seller') {
+      const me = (currentSellerInitials ?? '').toUpperCase();
+      if (!me) return [];
+      const ownDealerIds = new Set(
+        dealers
+          .filter((d) => (d.assigned_seller_initials ?? '').toUpperCase() === me)
+          .map((d) => d.id),
+      );
+      return machinePinsAll.filter((p) => p.dealerAccountId && ownDealerIds.has(p.dealerAccountId));
+    }
+    return machinePinsAll;
+  }, [machinePinsAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
     for (const p of partners) if (p.seller) s.add(p.seller);
