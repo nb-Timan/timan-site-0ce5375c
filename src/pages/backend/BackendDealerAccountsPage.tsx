@@ -429,6 +429,7 @@ export default function BackendDealerAccountsPage() {
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       }))}
                       {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
                         r: p, depth: 1, variant: "successor",
