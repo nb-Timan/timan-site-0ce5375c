@@ -520,7 +520,7 @@ function renderRow(p: RowProps) {
         </Td>
         <Td>{p.r.account_number}</Td>
         <Td>{p.r.customer_type_label || p.r.customer_type || "—"}</Td>
-        <Td>{p.r.country || "—"}</Td>
+        <Td>{p.formatCountry(p.r.country) || "—"}</Td>
         <Td>
           <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
         </Td>
