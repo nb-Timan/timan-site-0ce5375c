@@ -527,8 +527,18 @@ export default function PartnerMapPage() {
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   const canSeeAssignedSeller = canOpenCrm;
+  // Internal roles get aggregate machine stats on partner cards. Dealer-side
+  // roles do not (those cards are about other partners), but they can still
+  // see the Garantiregistreringer-laget — scoped to their own dealer.
   const canSeeMachineStats =
     portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
+  const canSeeMachineLayer =
+    canSeeMachineStats ||
+    portalRole === 'timan_dealer' ||
+    portalRole === 'dealer_user' ||
+    portalRole === 'timan_service_partner' ||
+    portalRole === 'timan_importer';
+  const ownDealerNumber = (appUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
     if (!appUser?.email) return null;
