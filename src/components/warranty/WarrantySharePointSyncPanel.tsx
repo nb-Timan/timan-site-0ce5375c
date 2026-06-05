@@ -148,6 +148,23 @@ export default function WarrantySharePointSyncPanel() {
     const { data, error } = await invokeFn<DryRunResult>("sharepoint-warranty-dryrun");
     setModal({ kind: "dryrun", busy: false, error, data });
   }
+  async function startSync() {
+    setModal({ kind: "sync-confirm", busy: true, error: null, dryRun: null });
+    const { data, error } = await invokeFn<DryRunResult>("sharepoint-warranty-dryrun");
+    setModal({ kind: "sync-confirm", busy: false, error, dryRun: data });
+  }
+  async function confirmSync() {
+    setModal({ kind: "sync-result", busy: true, error: null, data: null });
+    const { data, error } = await invokeFn<SyncResult>("sharepoint-warranty-sync");
+    if (!error && data) {
+      toast.success("Warranty sync gennemført", {
+        description: `${data.created} oprettet · ${data.updated} opdateret · ${data.unchanged} uændret`,
+      });
+    } else if (error) {
+      toast.error("Warranty sync fejlede", { description: error });
+    }
+    setModal({ kind: "sync-result", busy: false, error, data });
+  }
 
   return (
     <>
@@ -163,10 +180,6 @@ export default function WarrantySharePointSyncPanel() {
               Garantiregistreringer fra SharePoint-listen <em>Warranty registration</em>.
               Kun synlig for Timan Backend og Timan Service.
             </p>
-            <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Read-only fase. Der skrives intet til databasen.
-            </div>
           </div>
         </div>
 
@@ -212,13 +225,29 @@ export default function WarrantySharePointSyncPanel() {
             </button>
           </div>
 
-          <div className="px-5 py-3 bg-slate-50 text-xs text-slate-500">
-            Rigtig sync (<em>Synkroniser med SharePoint</em>) aktiveres først i næste fase, når Backend og Service har bekræftet dry-run-resultatet.
+          <div className="px-5 py-4 flex items-start justify-between gap-4 bg-emerald-50/40">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-slate-900">Synkronisér Warranty fra SharePoint</h3>
+              <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+                Importerer alle rækker. Sikre matches kobles til forhandler. Rækker uden sikkert match importeres uden forhandlerkobling og er kun synlige for Timan Backend / Service indtil de matches. Ingen hard delete — rækker der mangler i SharePoint markeres som inaktive.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={startSync}
+              disabled={modal.kind === "sync-confirm" && modal.busy}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 h-10 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60 flex-shrink-0"
+            >
+              {(modal.kind === "sync-confirm" || modal.kind === "sync-result") && modal.busy
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Zap className="h-4 w-4" />}
+              Synkronisér Warranty fra SharePoint
+            </button>
           </div>
         </div>
       </div>
 
-      {modal.kind !== "none" && (
+      {(modal.kind === "verify" || modal.kind === "dryrun") && (
         <Modal title={modal.kind === "verify" ? "Verificér SharePoint" : "Dry-run"} onClose={() => setModal({ kind: "none" })}>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 flex items-center gap-2 mb-4">
             <ShieldCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
@@ -250,6 +279,44 @@ export default function WarrantySharePointSyncPanel() {
           )}
         </Modal>
       )}
+
+      {modal.kind === "sync-confirm" && (
+        <Modal title="Bekræft Warranty sync" onClose={() => modal.busy ? null : setModal({ kind: "none" })}>
+          {modal.busy && (
+            <div className="flex items-center gap-2 text-slate-600 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Kører dry-run før bekræftelse…
+            </div>
+          )}
+          {modal.error && !modal.busy && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900 text-sm">
+              <p className="font-bold">Dry-run fejlede</p>
+              <p className="mt-1 whitespace-pre-line">{modal.error}</p>
+            </div>
+          )}
+          {!modal.busy && !modal.error && modal.dryRun && (
+            <SyncConfirmView dryRun={modal.dryRun} onConfirm={confirmSync} onCancel={() => setModal({ kind: "none" })} />
+          )}
+        </Modal>
+      )}
+
+      {modal.kind === "sync-result" && (
+        <Modal title="Warranty sync — resultat" onClose={() => modal.busy ? null : setModal({ kind: "none" })}>
+          {modal.busy && (
+            <div className="flex items-center gap-2 text-slate-600 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Synkroniserer warranty registrations…
+            </div>
+          )}
+          {modal.error && !modal.busy && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900 text-sm">
+              <p className="font-bold">Sync fejlede</p>
+              <p className="mt-1 whitespace-pre-line">{modal.error}</p>
+            </div>
+          )}
+          {!modal.busy && !modal.error && modal.data && (
+            <SyncResultView data={modal.data} />
+          )}
+        </Modal>
+      )}
     </>
   );
 }
@@ -271,6 +338,80 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SyncConfirmView({ dryRun, onConfirm, onCancel }: { dryRun: DryRunResult; onConfirm: () => void; onCancel: () => void }) {
+  const dm = dryRun.dealer_matching ?? { safe_matches_count: 0, needs_review_count: 0, unmatched_count: 0, safe_matches: [], needs_review: [], unmatched: [] };
+  const willImportUnmatched = (dm.needs_review_count ?? 0) + (dm.unmatched_count ?? 0);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm flex items-start gap-2">
+        <ShieldCheck className="h-4 w-4 text-emerald-600 mt-0.5" />
+        <div>
+          <p className="font-bold">Klar til import</p>
+          <p className="mt-0.5 text-emerald-800">Ingen hard delete. Ingen ændring af dealer_accounts. Ingen automatisk forkert forhandlerkobling.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Stat label="Hentes" value={dryRun.fetched} tone="sky" />
+        <Stat label="Nye" value={dryRun.new} tone="emerald" />
+        <Stat label="Opdateres" value={dryRun.updates} tone="amber" />
+        <Stat label="Uændrede" value={dryRun.unchanged} />
+      </div>
+
+      <ul className="space-y-1 text-sm text-slate-800 list-disc pl-5">
+        <li><strong>{dm.safe_matches_count ?? 0}</strong> rækker importeres som <strong>matched</strong> og kobles til forhandler.</li>
+        <li><strong>{willImportUnmatched}</strong> rækker importeres <em>uden</em> forhandlerkobling (<code className="font-mono">dealer_account_id = null</code>, <code className="font-mono">dealer_account_number = null</code>). De er kun synlige for Timan Backend og Timan Service indtil de matches.</li>
+        <li><strong>0</strong> rækker slettes. Manglende SharePoint-rækker markeres som <code className="font-mono">is_active_in_source = false</code>.</li>
+        <li><code className="font-mono">dealer_name_snapshot</code> gemmes altid.</li>
+      </ul>
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+          Annullér
+        </button>
+        <button type="button" onClick={onConfirm} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700">
+          <Zap className="h-3.5 w-3.5" /> Ja, kør sync nu
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SyncResultView({ data }: { data: SyncResult }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+        <strong>Sync gennemført.</strong>
+      </div>
+
+      <Section title="Importeret">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Stat label="Hentet" value={data.fetched} tone="sky" />
+          <Stat label="Oprettet" value={data.created} tone="emerald" />
+          <Stat label="Opdateret" value={data.updated} tone="amber" />
+          <Stat label="Uændret" value={data.unchanged} />
+        </div>
+      </Section>
+
+      <Section title="Dealer matching">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Stat label="Matched" value={data.matched} tone="emerald" />
+          <Stat label="Kræver gennemgang" value={data.needs_review} tone="amber" />
+          <Stat label="Unmatched" value={data.unmatched} tone="rose" />
+          <Stat label="Deaktiveret (forsvundet i SP)" value={data.deactivated} />
+        </div>
+      </Section>
+
+      <Section title="Warnings"><WarningList warnings={data.warnings ?? []} /></Section>
+
+      <p className="text-xs text-slate-500 pt-2 border-t border-slate-100">
+        Varighed: {data.durationMs} ms.
+      </p>
     </div>
   );
 }
