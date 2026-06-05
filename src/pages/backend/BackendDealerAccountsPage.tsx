@@ -63,6 +63,7 @@ function fmtDate(iso: string | null): string {
 export default function BackendDealerAccountsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<DealerAccount[]>([]);
