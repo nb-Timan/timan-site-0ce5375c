@@ -225,10 +225,12 @@ function ClusterLayer({
   partners,
   selectedId,
   onSelect,
+  lang,
 }: {
   partners: Partner[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  lang: Language;
 }) {
   const map = useMap();
   const clusterRef = useRef<any>(null);
@@ -260,14 +262,58 @@ function ClusterLayer({
     if (!cluster) return;
     cluster.clearLayers();
     markersRef.current.clear();
+
+    // Hover tooltips: only enable on devices with a real hover-capable pointer (i.e. not touch/mobile).
+    const hoverCapable = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    const tAccount = lang === 'da' ? 'Kontonr.' : lang === 'de' ? 'Konto-Nr.' : lang === 'it' ? 'N. conto' : lang === 'hu' ? 'Számlasz.' : 'Account';
+    const tSeller = T.assignedSeller[lang];
+
     for (const p of partners) {
       if (!p.coords) continue;
       const m = L.marker(p.coords, { icon: makePinDivIcon(p.type, selectedId === p.id) });
       m.on('click', () => onSelect(p.id));
+
+      if (hoverCapable) {
+        const color = TYPE_COLORS[p.type];
+        const typeLabel = T[p.type][lang];
+        const sellerText = [p.sellerName, p.seller ? `(${p.seller})` : ''].filter(Boolean).join(' ');
+        const sellerLine = sellerText
+          ? `<div class="pm-tt-row"><span class="pm-tt-k">${escapeHtml(tSeller)}:</span> ${escapeHtml(sellerText)}</div>`
+          : '';
+        const html = `
+          <div class="pm-tt" style="border-left:3px solid ${color}">
+            <div class="pm-tt-name">${escapeHtml(p.name)}</div>
+            <div class="pm-tt-type" style="color:${color}">${escapeHtml(typeLabel)}</div>
+            ${p.country ? `<div class="pm-tt-row">${escapeHtml(p.country)}</div>` : ''}
+            ${p.account ? `<div class="pm-tt-row"><span class="pm-tt-k">${escapeHtml(tAccount)}:</span> <span class="pm-tt-mono">${escapeHtml(p.account)}</span></div>` : ''}
+            ${sellerLine}
+          </div>`;
+        m.bindTooltip(html, {
+          direction: 'top',
+          offset: [0, -36],
+          opacity: 1,
+          className: 'pm-tooltip',
+          sticky: false,
+          interactive: false,
+        });
+        let timer: any = null;
+        m.on('mouseover', () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { try { m.openTooltip(); } catch { /* noop */ } }, 200);
+        });
+        m.on('mouseout', () => {
+          if (timer) { clearTimeout(timer); timer = null; }
+          try { m.closeTooltip(); } catch { /* noop */ }
+        });
+      }
+
       cluster.addLayer(m);
       markersRef.current.set(p.id, m);
     }
-  }, [partners, selectedId, onSelect]);
+  }, [partners, selectedId, onSelect, lang]);
 
   return null;
 }
