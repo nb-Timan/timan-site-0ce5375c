@@ -589,6 +589,12 @@ export default function PartnerMapPage() {
         .pm-cluster-wrap { background:transparent !important; border:none !important; }
         .pm-cluster { background:${TIMAN_GREEN}; color:white; border-radius:50%; text-align:center;
           font-weight:700; font-size:13px; box-shadow:0 4px 10px rgba(0,0,0,.25); border:3px solid white; }
+        .pm-machine-wrap { background:transparent !important; border:none !important; }
+        .pm-machine-pin { width:22px; height:22px; transition:transform .15s ease; cursor:pointer; }
+        .pm-machine-pin:hover { transform:scale(1.2); }
+        .pm-machine-cluster-wrap { background:transparent !important; border:none !important; }
+        .pm-machine-cluster { background:${MACHINE_PIN_COLOR}; color:white; border-radius:50%; text-align:center;
+          font-weight:700; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,.2); border:2px solid white; }
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
