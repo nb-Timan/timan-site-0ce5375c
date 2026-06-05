@@ -410,8 +410,10 @@ export default function CrmMyDealersPage() {
 interface RowProps {
   r: DealerAccount;
   depth: 0 | 1;
+  variant: "main" | "branch" | "successor";
   isMain: boolean;
   branchCount: number;
+  successorCount: number;
   open?: boolean;
   onToggle?: () => void;
   agg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null } | null;
