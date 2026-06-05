@@ -512,6 +512,8 @@ interface EditableFields {
   machine_model: string;
   comment: string;
   machine_serial_number: string;
+  dealer_account_id: string;
+  dealer_account_number: string;
 }
 
 function recordToEditable(r: DbWarrantyRegistration): EditableFields {
@@ -528,8 +530,11 @@ function recordToEditable(r: DbWarrantyRegistration): EditableFields {
     machine_model: r.machineType ?? "",
     comment: r.comment ?? "",
     machine_serial_number: r.machineSerial ?? "",
+    dealer_account_id: r.dealerAccountId ?? "",
+    dealer_account_number: r.dealerAccountNumber ?? "",
   };
 }
+
 
 function CertificateDialog({
   record,
