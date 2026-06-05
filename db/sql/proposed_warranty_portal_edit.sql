@@ -35,7 +35,9 @@
 --      included in the diff written to warranty_registration_history.
 --   5. `comment` column existence verified in phase57 schema — kept in
 --      the common whitelist.
--- =====================================================================
+--   6. Portal edit may RE-MATCH the dealer link to another valid dealer,
+--      but it can NEVER clear it. Clearing must go through the proper
+--      matching workflow.
 
 -- ---------------------------------------------------------------------
 -- 1) RPC: warranty_update_registration
