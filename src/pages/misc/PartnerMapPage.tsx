@@ -15,6 +15,7 @@ import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type 
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
+import { fetchWarrantyMachinePins, type WarrantyMachinePin } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { formatDate } from '@/lib/format-date';
 
@@ -177,6 +178,28 @@ function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
   return L.divIcon({ html, className: 'pm-pin-wrap', iconSize: [36, 44], iconAnchor: [18, 42], popupAnchor: [0, -36] });
 }
 
+const MACHINE_PIN_COLOR = '#f59e0b'; // amber-500 — clearly distinct from dealer red/green/blue/purple
+
+function makeMachinePinIcon(): L.DivIcon {
+  const html = `
+    <div class="pm-machine-pin" title="Registreret maskine">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+           style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))">
+        <circle cx="12" cy="12" r="10" fill="${MACHINE_PIN_COLOR}" stroke="white" stroke-width="2.5"/>
+        <path d="M14.7 10.5l-1.4-1.4a1 1 0 0 0-1.4 0L7 13.9V17h3.1l4.6-4.6a1 1 0 0 0 0-1.4l0-.5z" fill="white"/>
+      </svg>
+    </div>`;
+  return L.divIcon({ html, className: 'pm-machine-wrap', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10] });
+}
+
+function escapeHtml(s: string | null | undefined): string {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+
 function MapResizer({ trigger }: { trigger: unknown }) {
   const map = useMap();
   useEffect(() => { const id = setTimeout(() => map.invalidateSize(), 320); return () => clearTimeout(id); }, [trigger, map]);
@@ -249,6 +272,61 @@ function ClusterLayer({
   return null;
 }
 
+// Machine/warranty cluster layer — separate from dealer pins, smaller amber icons.
+function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
+  const map = useMap();
+  const clusterRef = useRef<any>(null);
+
+  useEffect(() => {
+    const cluster = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      disableClusteringAtZoom: 15,
+      maxClusterRadius: 40,
+      iconCreateFunction: (c: any) => {
+        const count = c.getChildCount();
+        const size = count < 10 ? 28 : count < 50 ? 34 : 40;
+        return L.divIcon({
+          html: `<div class="pm-machine-cluster" style="width:${size}px;height:${size}px;line-height:${size}px;">${count}</div>`,
+          className: 'pm-machine-cluster-wrap',
+          iconSize: [size, size],
+        });
+      },
+    });
+    clusterRef.current = cluster;
+    map.addLayer(cluster);
+    return () => { map.removeLayer(cluster); clusterRef.current = null; };
+  }, [map]);
+
+  useEffect(() => {
+    const cluster = clusterRef.current;
+    if (!cluster) return;
+    cluster.clearLayers();
+    const icon = makeMachinePinIcon();
+    for (const p of pins) {
+      const m = L.marker(p.coords, { icon });
+      const cityLine = [p.customerCity, p.customerCountry].filter(Boolean).map(escapeHtml).join(', ');
+      const dd = p.deliveryDate ? new Date(p.deliveryDate).toLocaleDateString('da-DK') : '';
+      const html = `
+        <div style="font-family:inherit; min-width:200px;">
+          <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Registreret maskine</div>
+          <div style="font-size:13px; font-weight:700; color:#111; margin-bottom:6px;">${escapeHtml(p.machineModel) || '—'}</div>
+          <div style="font-size:11px; color:#374151; line-height:1.6;">
+            ${p.machineSerial ? `<div><span style="color:#6b7280">Serienr.:</span> <span style="font-family:ui-monospace,monospace">${escapeHtml(p.machineSerial)}</span></div>` : ''}
+            ${dd ? `<div><span style="color:#6b7280">Leveret:</span> ${escapeHtml(dd)}</div>` : ''}
+            ${p.dealerNameSnapshot ? `<div><span style="color:#6b7280">Forhandler:</span> ${escapeHtml(p.dealerNameSnapshot)}${p.dealerAccountNumber ? ` <span style="color:#9ca3af; font-family:ui-monospace,monospace">#${escapeHtml(p.dealerAccountNumber)}</span>` : ''}</div>` : ''}
+            ${cityLine ? `<div><span style="color:#6b7280">Kunde:</span> ${cityLine}</div>` : ''}
+          </div>
+        </div>`;
+      m.bindPopup(html, { closeButton: true, maxWidth: 280 });
+      cluster.addLayer(m);
+    }
+  }, [pins]);
+
+  return null;
+}
+
+
 // Imperative map controller for fit-bounds / fly
 function MapView({
   fitTo,
@@ -305,6 +383,10 @@ export default function PartnerMapPage() {
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [machineStats, setMachineStats] = useState<Record<string, PartnerMachineStats>>({});
+  const [machinePinsAll, setMachinePinsAll] = useState<WarrantyMachinePin[]>([]);
+  // Layer visibility — partners always on; machine layer opt-in (and role-gated).
+  const [showPartnerLayer, setShowPartnerLayer] = useState(true);
+  const [showMachineLayer, setShowMachineLayer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -326,9 +408,13 @@ export default function PartnerMapPage() {
 
       if (canSeeMachineStats) {
         const ids = dRes.rows.map((d) => d.id);
-        const ms = await fetchPartnerMachineStats(ids).catch(() => ({}));
+        const [ms, mp] = await Promise.all([
+          fetchPartnerMachineStats(ids).catch(() => ({})),
+          fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
+        ]);
         if (!alive) return;
         setMachineStats(ms);
+        setMachinePinsAll(mp.rows);
       }
     })();
     return () => { alive = false; };
@@ -365,6 +451,26 @@ export default function PartnerMapPage() {
         email: d.primary_contact_email ?? d.email ?? null,
       } as Partner;
     }), [dealers, stats, statusFilter]);
+
+  // Machine pins visible to the current user.
+  // - Backend / Service: all pins
+  // - Sælger: only pins where the linked dealer's assigned_seller_initials
+  //   matches the current user's initials (own/assigned dealers).
+  // - Other roles: nothing (canSeeMachineStats is false so layer toggle is hidden).
+  const visibleMachinePins = useMemo(() => {
+    if (!canSeeMachineStats) return [];
+    if (portalRole === 'timan_seller') {
+      const me = (currentSellerInitials ?? '').toUpperCase();
+      if (!me) return [];
+      const ownDealerIds = new Set(
+        dealers
+          .filter((d) => (d.assigned_seller_initials ?? '').toUpperCase() === me)
+          .map((d) => d.id),
+      );
+      return machinePinsAll.filter((p) => p.dealerAccountId && ownDealerIds.has(p.dealerAccountId));
+    }
+    return machinePinsAll;
+  }, [machinePinsAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
@@ -483,6 +589,12 @@ export default function PartnerMapPage() {
         .pm-cluster-wrap { background:transparent !important; border:none !important; }
         .pm-cluster { background:${TIMAN_GREEN}; color:white; border-radius:50%; text-align:center;
           font-weight:700; font-size:13px; box-shadow:0 4px 10px rgba(0,0,0,.25); border:3px solid white; }
+        .pm-machine-wrap { background:transparent !important; border:none !important; }
+        .pm-machine-pin { width:22px; height:22px; transition:transform .15s ease; cursor:pointer; }
+        .pm-machine-pin:hover { transform:scale(1.2); }
+        .pm-machine-cluster-wrap { background:transparent !important; border:none !important; }
+        .pm-machine-cluster { background:${MACHINE_PIN_COLOR}; color:white; border-radius:50%; text-align:center;
+          font-weight:700; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,.2); border:2px solid white; }
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
@@ -564,6 +676,26 @@ export default function PartnerMapPage() {
                 <option value="inactive">Spærrede/Lukkede</option>
                 <option value="all">Alle</option>
               </select>
+              {canSeeMachineStats && (
+                <div className="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
+                  <button
+                    onClick={() => setShowPartnerLayer((v) => !v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showPartnerLayer ? 'bg-gray-50 text-gray-800 border-gray-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
+                    title="Vis partnere"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: showPartnerLayer ? TYPE_COLORS.dealer : '#d1d5db' }} />
+                    Partnere
+                  </button>
+                  <button
+                    onClick={() => setShowMachineLayer((v) => !v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showMachineLayer ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
+                    title="Vis registrerede maskiner"
+                  >
+                    <Wrench className="h-3 w-3" />
+                    Maskiner {showMachineLayer ? <span className="font-bold tabular-nums">({visibleMachinePins.length})</span> : null}
+                  </button>
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
                   <Home className="h-4 w-4" />
@@ -680,7 +812,12 @@ export default function PartnerMapPage() {
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
-                    <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                    {showPartnerLayer && (
+                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                    )}
+                    {canSeeMachineStats && showMachineLayer && (
+                      <MachineLayer pins={visibleMachinePins} />
+                    )}
                   </MapContainer>
 
                   <div className="pointer-events-none absolute top-3 right-3 z-[500] bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
