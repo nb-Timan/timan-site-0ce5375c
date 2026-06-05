@@ -695,7 +695,7 @@ export default function CrmDealerDetailPage() {
                 <li><span className="text-slate-500">{tl("address_line_2", lang)}:</span> {dealer.address_line_2 || "—"}</li>
                 <li><span className="text-slate-500">{tl("postal_code", lang)}:</span> {dealer.postal_code || "—"}</li>
                 <li><span className="text-slate-500">{tl("city", lang)}:</span> {dealer.city || "—"}</li>
-                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {formatCountry(dealer.country) || "—"}</li>
                 <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
