@@ -1243,6 +1243,7 @@ function ContactHero({
   contacts,
   lang,
   admin,
+  showDealerData,
   isBranch,
   mainDealer,
   hasGroup,
@@ -1258,6 +1259,7 @@ function ContactHero({
   contacts: DealerContact[];
   lang: Language;
   admin: boolean;
+  showDealerData: boolean;
   isBranch: boolean;
   mainDealer: DealerAccount | null;
   hasGroup: boolean;
