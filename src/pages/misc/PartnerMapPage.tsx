@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -14,6 +14,9 @@ import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
+import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
+import { formatDate } from '@/lib/format-date';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
 
