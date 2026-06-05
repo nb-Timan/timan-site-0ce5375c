@@ -64,11 +64,15 @@ export function WarrantyRegistrationsTable({
   showCertificateActions = false,
 }: Props) {
   const all = useWarrantyRecords();
+  const { appUser } = useAppUser();
+  const role = appUser?.portal_role ?? null;
+  const showMatchStatus = role === "timan_backend" || role === "timan_service";
+  const { records: all, loading, error } = useWarrantyRegistrationsDb();
   const [q, setQ] = useState("");
   const [machine, setMachine] = useState("");
   const [dealer, setDealer] = useState("");
   const [language, setLanguage] = useState("");
-  const [selected, setSelected] = useState<WarrantyRegistration | null>(null);
+  const [selected, setSelected] = useState<DbWarrantyRegistration | null>(null);
 
   const scoped = useMemo(() => {
     if (scope === "admin") return all;
