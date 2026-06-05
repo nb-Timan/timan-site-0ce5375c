@@ -178,6 +178,28 @@ function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
   return L.divIcon({ html, className: 'pm-pin-wrap', iconSize: [36, 44], iconAnchor: [18, 42], popupAnchor: [0, -36] });
 }
 
+const MACHINE_PIN_COLOR = '#f59e0b'; // amber-500 — clearly distinct from dealer red/green/blue/purple
+
+function makeMachinePinIcon(): L.DivIcon {
+  const html = `
+    <div class="pm-machine-pin" title="Registreret maskine">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+           style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))">
+        <circle cx="12" cy="12" r="10" fill="${MACHINE_PIN_COLOR}" stroke="white" stroke-width="2.5"/>
+        <path d="M14.7 10.5l-1.4-1.4a1 1 0 0 0-1.4 0L7 13.9V17h3.1l4.6-4.6a1 1 0 0 0 0-1.4l0-.5z" fill="white"/>
+      </svg>
+    </div>`;
+  return L.divIcon({ html, className: 'pm-machine-wrap', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10] });
+}
+
+function escapeHtml(s: string | null | undefined): string {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+
 function MapResizer({ trigger }: { trigger: unknown }) {
   const map = useMap();
   useEffect(() => { const id = setTimeout(() => map.invalidateSize(), 320); return () => clearTimeout(id); }, [trigger, map]);
