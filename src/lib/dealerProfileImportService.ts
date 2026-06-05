@@ -418,3 +418,80 @@ export function runDryRun(
     mappedSharepointMasterKeys,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 — execute import (profile fields only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Whitelist of dealer_accounts columns import er TILLADT at opdatere.
+ * Alt der ikke står her — fx company_name, account_number, customer_type,
+ * country, address_line_1/2, postal_code, city, dealer_type, SharePoint
+ * source-felter — overskrives ALDRIG.
+ */
+export const ALLOWED_UPDATE_KEYS: ReadonlyArray<keyof UpdateDealerAccountPatch> = [
+  "director_name", "vat_number", "phone", "email", "website",
+  "finance_contact_name", "finance_contact_email", "finance_contact_phone",
+  "invoice_email",
+  "sales_contact_name", "sales_contact_email", "sales_contact_phone",
+  "workshop_contact_name", "workshop_contact_email", "workshop_contact_phone",
+  "marketing_contact_name", "marketing_contact_email", "marketing_contact_phone",
+  "social_facebook", "social_linkedin", "social_instagram", "social_youtube", "social_tiktok",
+];
+
+export interface ImportRowResult {
+  rowIndex: number;
+  dealerId: string | null;
+  company: string;
+  status: "updated" | "skipped" | "error";
+  changedKeys: string[];
+  error?: string;
+}
+
+export interface ImportSummary {
+  updated: number;
+  skipped: number;
+  errors: number;
+  rows: ImportRowResult[];
+}
+
+export async function executeImport(dryRun: DryRunResult): Promise<ImportSummary> {
+  const rows: ImportRowResult[] = [];
+  let updated = 0, skipped = 0, errors = 0;
+
+  for (const r of dryRun.rows) {
+    if (!r.selectedDealerId || r.status !== "matched") {
+      rows.push({ rowIndex: r.rowIndex, dealerId: r.selectedDealerId, company: r.excelCompany, status: "skipped", changedKeys: [] });
+      skipped++;
+      continue;
+    }
+    // Build patch — kun whitelisted profile felter med faktisk ændring.
+    const patch: UpdateDealerAccountPatch = {};
+    const changedKeys: string[] = [];
+    for (const c of r.changes) {
+      if (!(ALLOWED_UPDATE_KEYS as ReadonlyArray<string>).includes(c.key)) continue;
+      (patch as Record<string, string>)[c.key] = c.next;
+      changedKeys.push(c.key);
+    }
+    if (changedKeys.length === 0) {
+      rows.push({ rowIndex: r.rowIndex, dealerId: r.selectedDealerId, company: r.excelCompany, status: "skipped", changedKeys: [] });
+      skipped++;
+      continue;
+    }
+    try {
+      const res = await updateDealerAccount(r.selectedDealerId, patch);
+      if (res.ok) {
+        rows.push({ rowIndex: r.rowIndex, dealerId: r.selectedDealerId, company: r.excelCompany, status: "updated", changedKeys });
+        updated++;
+      } else {
+        rows.push({ rowIndex: r.rowIndex, dealerId: r.selectedDealerId, company: r.excelCompany, status: "error", changedKeys, error: res.error || "Ukendt fejl" });
+        errors++;
+      }
+    } catch (e) {
+      rows.push({ rowIndex: r.rowIndex, dealerId: r.selectedDealerId, company: r.excelCompany, status: "error", changedKeys, error: e instanceof Error ? e.message : String(e) });
+      errors++;
+    }
+  }
+
+  return { updated, skipped, errors, rows };
+}
