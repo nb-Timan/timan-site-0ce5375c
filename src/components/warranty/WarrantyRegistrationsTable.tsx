@@ -251,15 +251,15 @@ export function WarrantyRegistrationsTable({
     <div className="space-y-5">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div
-          className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
-            scope === "admin" ? "lg:grid-cols-5" : "lg:grid-cols-3"
+          className={`grid grid-cols-1 gap-2.5 md:grid-cols-2 ${
+            scope === "admin" ? "lg:grid-cols-4" : "lg:grid-cols-3"
           }`}
         >
-          <div className="relative lg:col-span-2">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
-              placeholder="Søg SP-ID, kunde, serienr, forhandler …"
+              placeholder="Søg SP-ID, kunde, serienr…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-400"
@@ -278,6 +278,7 @@ export function WarrantyRegistrationsTable({
             <Select value={language} onChange={setLanguage} placeholder="Alle sprog" options={languages} />
           )}
         </div>
+
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
           {scope === "admin" && (
