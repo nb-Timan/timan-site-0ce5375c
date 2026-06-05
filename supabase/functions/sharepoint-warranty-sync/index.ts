@@ -293,8 +293,16 @@ Deno.serve(async (req) => {
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_4),
       ].map((x) => x.trim()).filter((x) => x.length > 0);
 
+      // SharePoint exposes ID_Forms either via the column's display name or
+      // its internal name. Try the internal lookup first, then the literal
+      // "ID_Forms" key which is what Graph returns in the fields blob.
+      const formIdRaw =
+        (displayToInternal.get("ID_Forms") ? f[displayToInternal.get("ID_Forms")!] : undefined) ??
+        f["ID_Forms"] ??
+        f["ID_x005f_Forms"];
       return {
         sharepoint_item_id: String(it.id ?? ""),
+        sharepoint_form_id: parseFormId(formIdRaw),
         dealer_name_snapshot: readField(f, displayToInternal, FIELD_DISPLAY.dealer_name).trim(),
         machine_serial_raw: serialRaw,
         machine_serial_number: normalizeSerial(serialRaw),
