@@ -186,6 +186,25 @@ function toDateOrNull(raw: string | null): string | null {
   return m ? m[1] : null;
 }
 
+// Split SharePoint "Postnr/by" free-text into (postal_code, city).
+// Handles "2630 Taastrup", "2630  Taastrup", "DK-2630 Taastrup",
+// "Taastrup 2630", or city-only / postal-only inputs. Returns nulls when
+// the input is empty.
+function splitZipCity(raw: string): { postal_code: string | null; city: string | null } {
+  const t = (raw ?? "").trim();
+  if (!t) return { postal_code: null, city: null };
+  // "<prefix-?><digits> <city...>"
+  let m = /^(?:[A-Za-z]{1,3}-)?(\d{3,5})\s+(.+)$/.exec(t);
+  if (m) return { postal_code: m[1], city: m[2].trim() };
+  // "<city...> <digits>"
+  m = /^(.+?)\s+(\d{3,5})$/.exec(t);
+  if (m) return { postal_code: m[2], city: m[1].trim() };
+  // Pure digits → postal only
+  if (/^\d{3,5}$/.test(t)) return { postal_code: t, city: null };
+  // Otherwise treat as city only
+  return { postal_code: null, city: t };
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
