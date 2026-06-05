@@ -21,6 +21,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
   city: string | null;
   country: string | null;
   sharepointItemId: string | null;
+  sharepointFormId: number | null;
   sharepointModifiedAt: string | null;
   registrationDate: string | null;
   isActiveInSource: boolean;
