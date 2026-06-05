@@ -640,9 +640,25 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 Hoved {branchCount ? `(${branchCount})` : ""}
               </span>
             )}
-            {isBranch && (
+            {!isBranch && successorCount ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                title="Tidligere forhandlere overtaget af denne"
+              >
+                Overtaget ({successorCount})
+              </span>
+            ) : null}
+            {isBranch && variant !== "successor" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                 Filial
+              </span>
+            )}
+            {variant === "successor" && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                title="Overtaget af aktiv efterfølger — historik bevares på denne konto"
+              >
+                Overtaget
               </span>
             )}
             {r.is_blocked && (
