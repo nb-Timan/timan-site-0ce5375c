@@ -114,7 +114,9 @@ export function WarrantyRegistrationsTable({
   const [localRecords, setLocalRecords] = useState<DbWarrantyRegistration[] | null>(null);
   const records = localRecords ?? all;
 
-  const [q, setQ] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialDealer = searchParams.get("dealer") ?? "";
+  const [q, setQ] = useState(initialDealer);
   const [machine, setMachine] = useState("");
   const [dealer, setDealer] = useState("");
   const [language, setLanguage] = useState("");
