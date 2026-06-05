@@ -808,6 +808,9 @@ function EditDealerModal({
   const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
   const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
   const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
+  // Successor / efterfølger-forhandler (Phase 60). Kun aktiv hvis dealer er spærret/lukket.
+  const [successorId, setSuccessorId] = useState<string>(dealer.successor_dealer_id ?? "");
+  const [closedReason, setClosedReason] = useState<string>(dealer.closed_reason ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [clearedDirect, setClearedDirect] = useState(false);
