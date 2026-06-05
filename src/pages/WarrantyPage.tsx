@@ -12,6 +12,7 @@ import {
   WarrantyDashboardIntro,
 } from "@/components/warranty/WarrantyDashboardBody";
 import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
+import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
 import {
   WarrantyRegistrationsHeader,
   WarrantyRegistrationsTable,
