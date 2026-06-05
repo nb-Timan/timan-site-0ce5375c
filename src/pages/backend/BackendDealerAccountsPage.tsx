@@ -628,6 +628,18 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 <Trash2 className="h-3 w-3" /> Slettet
               </span>
             )}
+            {r.successor_dealer_id && (() => {
+              const succ = allDealersById.get(r.successor_dealer_id);
+              const label = succ?.company_name ?? r.successor_dealer_account_number ?? "Efterfølger";
+              return (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                  title={`Efterfølger: ${label}${succ?.account_number ? ` (${succ.account_number})` : ""}`}
+                >
+                  → {label}
+                </span>
+              );
+            })()}
           </span>
         </Td>
         <Td>{r.account_number}</Td>
