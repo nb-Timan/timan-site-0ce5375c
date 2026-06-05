@@ -627,7 +627,6 @@ export default function CrmDealerDetailPage() {
               contacts={dealerContacts}
               lang={lang}
               admin={admin}
-              showDealerData={canAccess}
               isBranch={isBranch}
               mainDealer={mainDealer ?? null}
               hasGroup={hasGroup}
@@ -680,15 +679,7 @@ export default function CrmDealerDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* A. Kontaktinformation */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{tl("contact_info", lang)}</h3>
-                <Link
-                  to={`/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold"
-                >
-                  <FileText className="h-3.5 w-3.5" /> {tl("open_dealer_data", lang)}
-                </Link>
-              </div>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
                 <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
                 <li><span className="text-slate-500">{tl("address_line_1", lang)}:</span> {dealer.address_line_1 || dealer.address || "—"}</li>
@@ -1254,7 +1245,6 @@ function ContactHero({
   contacts,
   lang,
   admin,
-  showDealerData,
   isBranch,
   mainDealer,
   hasGroup,
@@ -1270,7 +1260,6 @@ function ContactHero({
   contacts: DealerContact[];
   lang: Language;
   admin: boolean;
-  showDealerData: boolean;
   isBranch: boolean;
   mainDealer: DealerAccount | null;
   hasGroup: boolean;
@@ -1366,14 +1355,6 @@ function ContactHero({
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold">
               <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
             </button>
-          )}
-          {showDealerData && (
-            <Link
-              to={`/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold"
-            >
-              <FileText className="h-3.5 w-3.5" /> {tl("open_dealer_data", lang)}
-            </Link>
           )}
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
