@@ -800,7 +800,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                   <dt className="text-slate-500">By</dt>
                   <dd className="text-slate-800">{r.city || "—"}</dd>
                   <dt className="text-slate-500">Land</dt>
-                  <dd className="text-slate-800">{r.country || "—"}</dd>
+                  <dd className="text-slate-800">{fmtCountry(r.country) || "—"}</dd>
                   {r.zip_city_raw && (
                     <>
                       <dt className="text-slate-500">Postnr./By råtekst</dt>
