@@ -30,6 +30,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
 interface Row {
   id: string;
   sharepoint_item_id: string | null;
+  sharepoint_form_id: number | null;
   sharepoint_modified_at: string | null;
   machine_serial_number: string | null;
   machine_model: string | null;
