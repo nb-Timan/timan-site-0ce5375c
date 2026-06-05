@@ -1479,7 +1479,7 @@ function ImportCsvModal({
                         <td className="px-2 py-1 font-mono">{r.account_number}</td>
                         <td className="px-2 py-1">{r.company_name}</td>
                         <td className="px-2 py-1">{r.customer_type ?? "—"}</td>
-                        <td className="px-2 py-1">{r.country ?? "—"}</td>
+                        <td className="px-2 py-1">{formatCountry(r.country) || "—"}</td>
                         <td className="px-2 py-1">{r.assigned_seller_initials}</td>
                       </tr>
                     ))}
