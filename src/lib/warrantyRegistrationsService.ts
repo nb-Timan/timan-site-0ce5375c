@@ -101,6 +101,7 @@ function mapRow(row: Row): DbWarrantyRegistration {
     city: row.customer_city,
     country: row.customer_country,
     sharepointItemId: row.sharepoint_item_id,
+    sharepointFormId: row.sharepoint_form_id ?? null,
     sharepointModifiedAt: row.sharepoint_modified_at,
     registrationDate: row.registration_date,
     isActiveInSource: row.is_active_in_source,
