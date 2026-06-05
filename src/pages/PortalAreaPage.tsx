@@ -6,6 +6,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import ModuleCard from '@/components/portal/ModuleCard';
 import PlaceholderCard from '@/components/portal/PlaceholderCard';
+import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
@@ -140,6 +141,9 @@ export default function PortalAreaPage({ areaId }: Props) {
           <p className="text-gray-600 text-base mt-2 max-w-3xl">{area.description[lang] || area.description.en}</p>
         </div>
 
+        {areaId === 'timan_backend' ? (
+          <BackendHome language={lang} />
+        ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
           {areaModules.map(m => <ModuleCard key={m.id} module={m} language={lang} />)}
           {area.placeholders.map(p => {
@@ -227,6 +231,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             );
           })}
         </div>
+        )}
 
         {areaId === 'teknik_service' && (
           <section className="mt-12">
