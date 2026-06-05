@@ -15,6 +15,7 @@ import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type 
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
+import { fetchWarrantyMachinePins, type WarrantyMachinePin } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { formatDate } from '@/lib/format-date';
 
