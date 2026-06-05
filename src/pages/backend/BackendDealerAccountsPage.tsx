@@ -323,7 +323,7 @@ export default function BackendDealerAccountsPage() {
           <select value={country} onChange={(e) => setCountry(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
             <option value="">Alle lande</option>
-            {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+            {countries.map((c) => <option key={c} value={c}>{formatCountryFn(c, lang)}</option>)}
           </select>
           <select value={customerType} onChange={(e) => setCustomerType(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
