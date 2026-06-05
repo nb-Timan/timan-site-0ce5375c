@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -14,6 +14,9 @@ import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
+import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
+import { formatDate } from '@/lib/format-date';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
 
@@ -280,6 +283,14 @@ export default function PartnerMapPage() {
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   const canSeeAssignedSeller = canOpenCrm;
+  const canSeeMachineStats =
+    portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
+  const sellerDir = useSellerDirectory();
+  const currentSellerInitials = useMemo(() => {
+    if (!appUser?.email) return null;
+    const d = resolveSellerDisplay({ email: appUser.email }, sellerDir);
+    return (d.initials || '').toUpperCase() || null;
+  }, [sellerDir, appUser?.email]);
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
@@ -293,6 +304,7 @@ export default function PartnerMapPage() {
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
+  const [machineStats, setMachineStats] = useState<Record<string, PartnerMachineStats>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -311,9 +323,16 @@ export default function PartnerMapPage() {
       for (const s of sRes.rows ?? []) map[s.id] = s;
       setStats(map);
       setLoading(false);
+
+      if (canSeeMachineStats) {
+        const ids = dRes.rows.map((d) => d.id);
+        const ms = await fetchPartnerMachineStats(ids).catch(() => ({}));
+        if (!alive) return;
+        setMachineStats(ms);
+      }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [canSeeMachineStats]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
@@ -787,6 +806,63 @@ export default function PartnerMapPage() {
                   ))}
                 </div>
               )}
+
+              {(() => {
+                if (!canSeeMachineStats) return null;
+                // Timan Sælger: kun aggregater for egne forhandlere
+                if (portalRole === 'timan_seller') {
+                  const own = currentSellerInitials && selected.seller && selected.seller.toUpperCase() === currentSellerInitials;
+                  if (!own) return null;
+                }
+                const ms = machineStats[selected.id];
+                const total = ms?.totalMachines ?? 0;
+                const dealerHref = `/portal/service/warranty/registrations?dealer=${encodeURIComponent(selected.account)}`;
+                return (
+                  <div className="bg-white border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-2">
+                      <Wrench className="h-3 w-3" /> Maskiner
+                    </div>
+                    {total === 0 ? (
+                      <div className="text-xs text-gray-400 italic">Ingen registrerede maskiner</div>
+                    ) : (
+                      <div className="space-y-1.5 text-xs text-gray-700">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Registrerede maskiner</span>
+                          <span className="font-bold tabular-nums">{total}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Unikke serienumre</span>
+                          <span className="font-semibold tabular-nums">{ms?.serialCount ?? 0}</span>
+                        </div>
+                        {ms?.latestDelivery && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Seneste levering</span>
+                            <span className="font-semibold tabular-nums">{formatDate(ms.latestDelivery)}</span>
+                          </div>
+                        )}
+                        {ms?.models && ms.models.length > 0 && (
+                          <div className="pt-1.5 border-t border-gray-100">
+                            <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Modeller</div>
+                            <div className="flex flex-wrap gap-1">
+                              {ms.models.slice(0, 8).map((m) => (
+                                <span key={m.model} className="px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200 text-[11px]">
+                                  {m.model} <span className="font-semibold">({m.count})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <Link
+                      to={dealerHref}
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Se garantiregistreringer
+                    </Link>
+                  </div>
+                );
+              })()}
 
               {(() => {
                 const addressForRoute = [selected.addressLine1, selected.postal, selected.city, selected.country].filter(Boolean).join(', ');
