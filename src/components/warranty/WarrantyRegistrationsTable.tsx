@@ -708,7 +708,7 @@ function CertificateDialog({
             <DRow label="Kunde" value={record.customer} />
             <DRow label="Maskintype" value={record.machineType} />
             <DRow label="Serienr" value={record.machineSerial} mono />
-            <DRow label="Demo" value={record.isDemo} />
+            <DRow label="Købt som demo-maskine" value={record.isDemo} />
             <DRow label="Erstatter" value={record.replacementBrand ?? "—"} />
             <DRow label="Leveringsdato" value={formatDate(record.deliveryDate)} />
             <DRow label="Adresse" value={record.customerAddress} />
