@@ -1,117 +1,98 @@
-## Mål
+# Dealer succession (efterfølger-forhandler)
 
-Timan Backend og Timan Service skal kunne se præcis hvad en fremtidig SharePoint Warranty sync vil gøre, **før** rigtig sync aktiveres. Alt er read-only. Ingen `warranty_registrations`-writes, ingen automatisk dealer-oprettelse, ingen hard delete, ingen RLS- eller datamodel-ændringer i denne fase.
+Mål: bevar historik på lukkede/spærrede forhandlere (fx AP Motorcenter), men kobl fremtidig service/warranty/CRM-ansvar til en aktiv efterfølger (fx Reesink). Ingen sletning, ingen automatisk historikflytning, ingen ændring af SharePoint-sync for dealer-stamdata.
 
-## Hvad bygges
+## 1. Database (additiv migration)
 
-### 1. Edge Function: `sharepoint-warranty-verify` (ny, read-only)
+Ny migration `db/sql/20260605_dealer_successor.sql` — udelukkende `ALTER TABLE ADD COLUMN IF NOT EXISTS`:
 
-Henter SharePoint-listen `Warranty registration` på `sites/SalgMarketingTiman` via Graph (samme secrets som dealer-sync). Returnerer:
+- `successor_dealer_id uuid references public.dealer_accounts(id) on delete set null`
+- `successor_dealer_account_number text`
+- `closed_reason text`
+- `closed_at timestamptz`
+- Index på `successor_dealer_id`
+- Selv-reference guard: trigger / check der forhindrer at en forhandler er sin egen successor, og simpel kæde-guard (A→B men ikke B→A).
 
-- Liste fundet: `displayName`, `name`, `id`, række-antal
-- Præcise interne feltnavne (column metadata fra `/columns`)
-- Forventede mapping-felter til `warranty_registrations` (fra Phase 57)
-- Manglende obligatoriske felter (pr. række: tomt serienummer, manglende dato, manglende forhandlernavn osv.)
-- Ukendte SharePoint-felter (felter som ikke findes i mapping-udkastet)
-- Warnings-array
+Ingen drop, ingen RLS-ændring, ingen data-flytning. Eksisterende `is_blocked` / `is_deleted` bevares som status-kilde.
 
-Ingen writes. Ingen kald til `warranty_registrations`. Adgang: `timan_backend` eller `timan_service`.
+Statusafledning (i UI/service-laget, ikke ny kolonne):
+- `is_deleted = true` → "Lukket"
+- `is_blocked = true` → "Spærret"
+- ellers → "Aktiv"
 
-### 2. Edge Function: `sharepoint-warranty-dryrun` (ny, read-only)
+## 2. Service-lag
 
-Henter alle rækker fra SharePoint, mapper dem in-memory mod den planlagte `warranty_registrations`-struktur og kører dealer matching mod eksisterende `dealer_accounts` + `dealer_account_aliases` (kun `select`). Returnerer:
+`src/lib/dealerAccountsService.ts`:
+- Udvid `DealerAccount` typen med de 4 nye felter + afledt `status: 'active' | 'blocked' | 'closed'`.
+- Ny funktion `setDealerSuccessor(dealerId, successorId, reason, adminEmail)` der opdaterer succession-felterne + sætter `closed_at` hvis ikke sat.
+- Ny funktion `clearDealerSuccessor(dealerId)`.
+- Ny hjælper `resolveActiveDealer(dealerId)` der følger successor-kæden (max 5 hop) og returnerer den aktive ansvarlige.
+- Filter-helper til partnere: `listDealers({ status: 'active' | 'inactive' | 'all' })`.
 
-- `fetched`: antal SharePoint-rækker
-- `new`: rækker uden eksisterende `sharepoint_item_id` i `warranty_registrations`
-- `updates`: rækker hvor mapped data adskiller sig fra eksisterende række (mapped-only sammenligning — INGEN write)
-- `unchanged`: rækker som matcher 1:1
-- Dealer matching-bucket:
-  - `safe_matches`: exact match på normaliseret `dealer_name_raw` mod `dealer_accounts.company_name` ELLER eksisterende række i `dealer_account_aliases.normalized_alias`
-  - `needs_review`: fuzzy/normaliserede forslag (trim, lowercase, strip A/S, ApS, &, mellemrum → 1+ kandidater med score)
-  - `unmatched`: ingen kandidat fundet → vises som unmatched (ingen dealer oprettes)
-- Warnings-array
+## 3. Backend → Forhandlere (detail/rediger)
 
-Read-only. Skriver intet — hverken `warranty_registrations`, `dealer_account_aliases` eller `dealer_accounts`. Adgang: `timan_backend` eller `timan_service`.
+`src/pages/backend/BackendDealerAccountsPage.tsx` (detail-panelet, omkring linje 877–1019):
+- Vis status-badge: Aktiv / Spærret / Lukket.
+- Hvis spærret eller lukket: nyt panel "Efterfølger-forhandler":
+  - Søg/vælg blandt aktive `dealer_accounts` (combobox med firmanavn + kontonummer).
+  - Felt: lukkeårsag (textarea).
+  - Knap: Gem efterfølger / Fjern efterfølger.
+  - Vis nuværende efterfølger med link til dens detail-side.
+- På listen: lille pil-badge "→ Reesink" ved rækker der har successor.
 
-### 3. UI-panel i Teknik & Service → Garantiregistrering
+## 4. Warranty dealer matching
 
-Nyt panel `WarrantySharePointSyncPanel` placeret øverst på `/portal/teknik-service/garantiregistrering` (eller warranty admin-sektionen — bekræftes ved implementering ud fra eksisterende route).
+`src/components/warranty/WarrantySharePointSyncPanel.tsx` + `sharepoint-warranty-dryrun`:
+- Når foreslået dealer match peger på en forhandler med `is_blocked` eller `is_deleted`:
+  - Vis tydelig rød/amber markering: "Lukket forhandler — historik bevares".
+  - Hvis dealeren har successor: vis "Foreslået aktiv ansvarlig: {successor.company_name}".
+  - "Godkend match" knap kobler aliaset til successor (ikke til den lukkede), men `dealer_name_snapshot` bevares uændret fra SharePoint.
+  - Hvis ingen successor: kun manuel godkendelse mod den lukkede forhandler er mulig — med advarsel.
+- Ingen automatisk historikflytning af eksisterende `warranty_registrations`.
 
-Synlighed: kun `portal_role === "timan_backend" || portal_role === "timan_service"`. Skjult for alle andre roller (sælger, dealer, importør, service partner).
+## 5. Partnerkort
 
-Layout følger samme mønster som `SharePointSyncPanel` (dealer-sync):
+`src/pages/misc/PartnerMapPage.tsx`:
+- Default: vis kun forhandlere hvor `is_blocked = false AND is_deleted = false`.
+- Tilføj filter-control (segment): "Aktive" | "Spærrede/Lukkede" | "Alle".
+- Pins for spærrede/lukkede vises kun når filteret tillader det, med afdæmpet farve.
 
-- Header med titel "SharePoint synkronisering — garantiregistreringer" + read-only banner
-- To rækker:
-  1. **Verificér SharePoint** → kalder verify-edge-function → modal med liste-info, feltnavne, tæller, manglende felter, ukendte felter, warnings
-  2. **Dry-run** → kalder dryrun-edge-function → modal med fetched/new/updates/unchanged + matching-buckets (safe / needs_review / unmatched) + warnings
-- **Ikke** en "Synkroniser med SharePoint"-knap. Pladsholder-tekst nederst: *"Rigtig sync aktiveres i en senere fase."*
+## 6. CRM og Service visning
 
-### 4. Genbrug af eksisterende warranty probe
+`src/pages/crm/CrmDealerDetailPage.tsx` (og service-ticket-detail):
+- Historiske data forbliver knyttet til oprindelig dealer.
+- Hvis dealer har successor: header-banner "Efterfølger: {company_name}" med link.
+- Service-flow der opretter nye sager: når oprindelig dealer er lukket og har successor, foreslå at oprette på successor (manuel bekræftelse, ikke automatisk omdirigering).
 
-Den eksisterende `sharepoint-warranty-probe` (raw probe-knap på dealer-accounts siden) bevares uændret som backend-only debug-værktøj.
+## 7. SharePoint dealer-sync
 
-## Hvad bygges IKKE i denne fase
+`supabase/functions/sharepoint-sync-dealers/index.ts`:
+- Ingen funktionsændring nu — kun en eksplicit allow-list over kolonner der må overskrives (firma-stamdata).
+- Tilføj kommentar + kode-guard: `successor_dealer_id`, `successor_dealer_account_number`, `closed_reason`, `closed_at`, `is_blocked`, `is_deleted` må aldrig indgå i upsert-payload fra SharePoint.
 
-- Ingen `Synkroniser med SharePoint`-knap.
-- Ingen edge function der skriver til `warranty_registrations`.
-- Ingen oprettelse af `dealer_accounts` fra SharePoint.
-- Ingen skrivning til `dealer_account_aliases` (forslag vises kun).
-- Ingen ændringer i `warranty_registrations`-tabellen, RLS, triggers eller policies.
-- Ingen `sharepoint_sync_logs`-rækker (ingen log nødvendig nu).
-- Ingen hard delete af noget.
+## 8. Tests / verifikation
+
+- Manuel: sæt AP Motorcenter til spærret + successor = Reesink, kør warranty dry-run, bekræft at forslag peger på Reesink men `dealer_name_snapshot` stadig er "AP Motorcenter".
+- Partnerkort: bekræft AP Motorcenter forsvinder fra default-visning.
+- CRM: åbn AP Motorcenter detail, bekræft banner med link til Reesink, historik intakt.
 
 ## Tekniske detaljer
 
-### Dealer matching-algoritme (server-side, in-memory)
+ASCII af relation:
 
 ```text
-normalize(name):
-  lower → trim → fjern "a/s","aps","ivs","&"
-  collapse whitespace
-  strip diakritiske tegn
-
-for hver SharePoint-række r:
-  raw = r["Forhandlernavn"]
-  n   = normalize(raw)
-
-  // 1. exact match
-  da = dealer_accounts where normalize(company_name) = n
-  if da: safe_matches.push({raw, dealer_id: da.id, reason: "exact"})
-
-  // 2. alias match
-  alias = dealer_account_aliases where normalized_alias = n
-  if alias: safe_matches.push({raw, dealer_id: alias.dealer_account_id, reason: "alias"})
-
-  // 3. fuzzy (Levenshtein eller token-overlap >= 0.8)
-  candidates = top 3 dealer_accounts sorteret efter score
-  if candidates[0].score >= 0.8: needs_review.push({raw, candidates})
-  else: unmatched.push({raw})
+dealer_accounts (AP Motorcenter)
+  is_blocked = true
+  closed_at  = 2026-06-05
+  closed_reason = "Overtaget af Reesink"
+  successor_dealer_id ────────────┐
+                                  ▼
+                       dealer_accounts (Reesink)
+                         is_blocked = false
 ```
 
-Algoritmen er ren server-side, kører på et snapshot. Skriver intet.
-
-### Edge function auth-mønster
-
-Identisk med `sharepoint-warranty-probe`: `Bearer` JWT → `getClaims` → opslag i `app_users` på email → kræv `portal_role in ('timan_backend','timan_service')` og `is_active && approved`.
-
-### Filer der ændres / oprettes
-
-```text
-supabase/functions/sharepoint-warranty-verify/index.ts        (ny)
-supabase/functions/sharepoint-warranty-dryrun/index.ts        (ny)
-src/components/warranty/WarrantySharePointSyncPanel.tsx       (ny)
-src/components/warranty/WarrantyVerifyModal.tsx               (ny)
-src/components/warranty/WarrantyDryRunModal.tsx               (ny)
-src/components/warranty/WarrantyAdminSidebarLayout.tsx        (eller WarrantyDashboardBody) — mount panelet for backend/service
-```
-
-Eksakt mount-punkt verificeres ved første læsning af eksisterende warranty-admin-route.
-
-## Næste fase (ikke i scope nu)
-
-Når Backend + Service har bekræftet at dry-run viser det rigtige, bygges fase 2:
-- "Godkend alias"-UI så `needs_review`-matches kan oprettes som `dealer_account_aliases`
-- Rigtig sync-knap som upserter til `warranty_registrations` (kun `safe_matches` + matched aliases)
-- `sharepoint_sync_logs`-skrivning
-- Soft-delete-håndtering via `is_active_in_source`
+Ingen ændringer i denne PR:
+- Ingen migration af eksisterende rækker (warranty/service/ordre/CRM).
+- Ingen hard delete nogen steder.
+- Ingen ændring af `dealer_account_aliases` schema (kun ny opslagslogik der respekterer successor).
+- Ingen warranty real-sync trigges.

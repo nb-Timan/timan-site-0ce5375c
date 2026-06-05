@@ -42,6 +42,8 @@ import {
   groupDealersByParent,
   aggregateGroupStats,
   resolveEffectiveSeller,
+  setDealerSuccessor,
+  isDealerInactive,
   type DealerGroup,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
@@ -628,6 +630,20 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 <Trash2 className="h-3 w-3" /> Slettet
               </span>
             )}
+            {r.successor_dealer_id && (() => {
+              const succ = r.successor_dealer_account_number
+                ? dealersByAcct.get(r.successor_dealer_account_number)
+                : undefined;
+              const label = succ?.company_name ?? r.successor_dealer_account_number ?? "Efterfølger";
+              return (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+                  title={`Efterfølger: ${label}${succ?.account_number ? ` (${succ.account_number})` : ""}`}
+                >
+                  → {label}
+                </span>
+              );
+            })()}
           </span>
         </Td>
         <Td>{r.account_number}</Td>
@@ -792,6 +808,9 @@ function EditDealerModal({
   const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
   const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
   const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
+  // Successor / efterfølger-forhandler (Phase 60). Kun aktiv hvis dealer er spærret/lukket.
+  const [successorId, setSuccessorId] = useState<string>(dealer.successor_dealer_id ?? "");
+  const [closedReason, setClosedReason] = useState<string>(dealer.closed_reason ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [clearedDirect, setClearedDirect] = useState(false);
@@ -848,6 +867,20 @@ function EditDealerModal({
         const r = await setDealerParent(dealer.account_number, newParent, true);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedforhandler");
       }
+
+      // 6. Successor / efterfølger (kun relevant når dealer er spærret/lukket).
+      const currentSuccId = dealer.successor_dealer_id ?? "";
+      const currentReason = dealer.closed_reason ?? "";
+      const trimmedReason = closedReason.trim();
+      if (currentSuccId !== successorId || currentReason !== trimmedReason) {
+        const succ = successorId ? allDealers.find((d) => d.id === successorId) : null;
+        const r = await setDealerSuccessor(dealer.id, {
+          successorDealerId: successorId || null,
+          successorDealerAccountNumber: succ?.account_number ?? null,
+          closedReason: trimmedReason || null,
+        });
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme efterfølger");
+      }
       await onSaved();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -879,6 +912,91 @@ function EditDealerModal({
               <strong>Spærret</strong> — linkede brugere kan ikke logge på portalen.
             </div>
           )}
+
+          {/* Status-badge + efterfølger-panel (Phase 60) */}
+          <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold uppercase tracking-wide text-slate-600">Status</span>
+              {dealer.is_deleted ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">
+                  <Trash2 className="h-3 w-3" /> Lukket
+                </span>
+              ) : dealer.is_blocked ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                  <Ban className="h-3 w-3" /> Spærret
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                  <CheckCircle2 className="h-3 w-3" /> Aktiv
+                </span>
+              )}
+              {dealer.closed_at && (
+                <span className="text-[11px] text-slate-500">siden {fmtDate(dealer.closed_at)}</span>
+              )}
+            </div>
+
+            {isDealerInactive(dealer) ? (
+              <>
+                <label className="block">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">
+                    Efterfølger-forhandler (overtager ansvar fremadrettet)
+                  </span>
+                  <select
+                    value={successorId}
+                    onChange={(e) => setSuccessorId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">— ingen efterfølger —</option>
+                    {allDealers
+                      .filter((d) => d.id !== dealer.id && !d.is_deleted && !d.is_blocked)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.account_number} · {d.company_name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Historiske data på denne forhandler flyttes ikke. Warranty/service/CRM-forslag peger fremadrettet på efterfølgeren — kun efter manuel godkendelse.
+                  </p>
+                </label>
+                {successorId && (() => {
+                  const succ = allDealers.find((d) => d.id === successorId);
+                  if (!succ) return null;
+                  return (
+                    <div className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[11px] text-indigo-900 flex items-center gap-2">
+                      <GitBranch className="h-3.5 w-3.5" />
+                      <span>
+                        Forpligtelser overtages af{" "}
+                        <Link
+                          to={`/portal/crm/my-dealers/${encodeURIComponent(succ.account_number)}`}
+                          className="font-bold underline"
+                          onClick={onClose}
+                        >
+                          {succ.company_name} ({succ.account_number})
+                        </Link>
+                      </span>
+                    </div>
+                  );
+                })()}
+                <label className="block">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">
+                    Lukkeårsag
+                  </span>
+                  <textarea
+                    value={closedReason}
+                    onChange={(e) => setClosedReason(e.target.value)}
+                    rows={2}
+                    placeholder="fx Overtaget af Reesink pr. juni 2026"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="text-[11px] text-slate-500">
+                Efterfølger kan først vælges når forhandleren er spærret eller lukket.
+              </p>
+            )}
+          </div>
 
           {/* Dealer / branch display name */}
           <label className="block">
