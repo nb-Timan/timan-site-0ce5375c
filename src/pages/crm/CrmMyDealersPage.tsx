@@ -336,7 +336,10 @@ export default function CrmMyDealersPage() {
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
             )}
             {groups.map((g) => {
+              const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
               const hasBranches = g.branches.length > 0;
+              const hasPredecessors = predecessors.length > 0;
+              const expandable = hasBranches || hasPredecessors;
               const isOpen = groupExpanded.has(g.main.id);
               const agg = hasBranches ? aggregateGroupStats(g, statsMap) : null;
               return (
@@ -344,10 +347,12 @@ export default function CrmMyDealersPage() {
                   {renderRow({
                     r: g.main,
                     depth: 0,
+                    variant: "main",
                     isMain: hasBranches || g.main.is_main_account,
                     branchCount: g.branches.length,
+                    successorCount: predecessors.length,
                     open: isOpen,
-                    onToggle: hasBranches ? () => setGroupExpanded((p) => {
+                    onToggle: expandable ? () => setGroupExpanded((p) => {
                       const n = new Set(p);
                       if (n.has(g.main.id)) n.delete(g.main.id); else n.add(g.main.id);
                       return n;
@@ -367,11 +372,23 @@ export default function CrmMyDealersPage() {
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
                       {renderRow({
-                        r: b, depth: 1, isMain: false, branchCount: 0,
+                        r: b, depth: 1, variant: "branch", isMain: false, branchCount: 0, successorCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
                         budgetAccountNumbers: [b.account_number],
+                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                      })}
+                    </React.Fragment>
+                  ))}
+                  {isOpen && hasPredecessors && predecessors.map((p) => (
+                    <React.Fragment key={p.id}>
+                      {renderRow({
+                        r: p, depth: 1, variant: "successor", isMain: false, branchCount: 0, successorCount: 0,
+                        statsMap, allUsers, dealersByAcct,
+                        usersExpanded, setUsersExpanded,
+                        budgetIndex,
+                        budgetAccountNumbers: [p.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                       })}
                     </React.Fragment>
