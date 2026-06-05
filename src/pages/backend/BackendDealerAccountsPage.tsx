@@ -387,9 +387,12 @@ export default function BackendDealerAccountsPage() {
                   }));
                 }
                 return groups.map((g) => {
+                  const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
+                  const hasBranches = g.branches.length > 0;
+                  const hasPredecessors = predecessors.length > 0;
+                  const expandable = hasBranches || hasPredecessors;
                   const isGroupOpen = groupExpanded.has(g.main.id);
                   const agg = aggregateGroupStats(g, stats);
-                  const hasBranches = g.branches.length > 0;
                   return (
                     <React.Fragment key={g.main.id}>
                       {renderDealerRow({
@@ -400,8 +403,9 @@ export default function BackendDealerAccountsPage() {
                         dealersByAcct,
                         isMainGroup: hasBranches || g.main.is_main_account,
                         branchCount: g.branches.length,
+                        successorCount: predecessors.length,
                         groupOpen: isGroupOpen,
-                        onToggleGroup: hasBranches ? () => setGroupExpanded((prev) => {
+                        onToggleGroup: expandable ? () => setGroupExpanded((prev) => {
                           const next = new Set(prev);
                           if (next.has(g.main.id)) next.delete(g.main.id); else next.add(g.main.id);
                           return next;
@@ -410,6 +414,13 @@ export default function BackendDealerAccountsPage() {
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
+                        stats, allUsers, expanded, setExpanded,
+                        busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
+                        appUserEmail: appUser?.email ?? null, reload,
+                        dealersByAcct,
+                      }))}
+                      {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
+                        r: p, depth: 1, variant: "successor",
                         stats, allUsers, expanded, setExpanded,
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
