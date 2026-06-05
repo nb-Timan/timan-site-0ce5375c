@@ -275,6 +275,7 @@ function MapView({
 
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
