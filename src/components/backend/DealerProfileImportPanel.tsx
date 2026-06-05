@@ -15,16 +15,17 @@ import React, { useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, HelpCircle, Lock, Upload, X } from "lucide-react";
 import {
   TARGET_FIELDS, SKIP_KEY,
-  autoMapHeaders, parseWorkbookFile, runDryRun,
-  type ColumnMapping, type DryRunResult, type ParsedSheet,
+  autoMapHeaders, parseWorkbookFile, runDryRun, executeImport,
+  type ColumnMapping, type DryRunResult, type ParsedSheet, type ImportSummary,
 } from "@/lib/dealerProfileImportService";
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 
 interface Props {
   dealers: DealerAccount[];
+  onReload?: () => void | Promise<void>;
 }
 
-export default function DealerProfileImportPanel({ dealers }: Props) {
+export default function DealerProfileImportPanel({ dealers, onReload }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [open, setOpen] = useState(false);
@@ -36,6 +37,9 @@ export default function DealerProfileImportPanel({ dealers }: Props) {
   const [parseError, setParseError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAllRows, setShowAllRows] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [summary, setSummary] = useState<ImportSummary | null>(null);
 
   const sheet = sheets[sheetIdx];
 
