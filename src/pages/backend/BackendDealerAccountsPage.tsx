@@ -13,6 +13,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, FileText, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
@@ -62,6 +63,7 @@ function fmtDate(iso: string | null): string {
 export default function BackendDealerAccountsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<DealerAccount[]>([]);
@@ -322,7 +324,7 @@ export default function BackendDealerAccountsPage() {
           <select value={country} onChange={(e) => setCountry(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
             <option value="">Alle lande</option>
-            {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+            {countries.map((c) => <option key={c} value={c}>{formatCountryFn(c, lang)}</option>)}
           </select>
           <select value={customerType} onChange={(e) => setCustomerType(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
@@ -389,6 +391,7 @@ export default function BackendDealerAccountsPage() {
                     appUserEmail: appUser?.email ?? null, reload,
                     dealersByAcct,
                     showDealerData: showDealerDataButton,
+                    formatCountry,
                   }));
                 }
                 return groups.map((g) => {
@@ -417,6 +420,7 @@ export default function BackendDealerAccountsPage() {
                         }) : undefined,
                         groupAgg: hasBranches ? agg : undefined,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
@@ -425,6 +429,7 @@ export default function BackendDealerAccountsPage() {
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       }))}
                       {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
                         r: p, depth: 1, variant: "successor",
@@ -433,6 +438,7 @@ export default function BackendDealerAccountsPage() {
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       }))}
                     </React.Fragment>
                   );
@@ -592,6 +598,7 @@ type RenderRowOpts = {
   onToggleGroup?: () => void;
   groupAgg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null };
   showDealerData?: boolean;
+  formatCountry?: (v: string | null | undefined) => string;
 };
 
 function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
@@ -599,8 +606,9 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
     dealersByAcct, isMainGroup, branchCount, successorCount, variant,
-    groupOpen, onToggleGroup, groupAgg, showDealerData,
+    groupOpen, onToggleGroup, groupAgg, showDealerData, formatCountry,
   } = opts;
+  const fmtCountry = formatCountry ?? ((v: string | null | undefined) => v ?? "");
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
   const isOpen = expanded.has(r.id);
@@ -698,7 +706,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
         </Td>
         <Td>{r.account_number}</Td>
         <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
-        <Td>{r.country || "—"}</Td>
+        <Td>{fmtCountry(r.country) || "—"}</Td>
         <Td>
           {eff.initials
             ? (
@@ -797,7 +805,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                   <dt className="text-slate-500">By</dt>
                   <dd className="text-slate-800">{r.city || "—"}</dd>
                   <dt className="text-slate-500">Land</dt>
-                  <dd className="text-slate-800">{r.country || "—"}</dd>
+                  <dd className="text-slate-800">{fmtCountry(r.country) || "—"}</dd>
                   {r.zip_city_raw && (
                     <>
                       <dt className="text-slate-500">Postnr./By råtekst</dt>
@@ -1373,6 +1381,7 @@ function ImportCsvModal({
   onDone: () => void | Promise<void>;
   onError: (msg: string) => void;
 }) {
+  const { formatCountry } = useCountryFormatter();
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<CsvParsedRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -1471,7 +1480,7 @@ function ImportCsvModal({
                         <td className="px-2 py-1 font-mono">{r.account_number}</td>
                         <td className="px-2 py-1">{r.company_name}</td>
                         <td className="px-2 py-1">{r.customer_type ?? "—"}</td>
-                        <td className="px-2 py-1">{r.country ?? "—"}</td>
+                        <td className="px-2 py-1">{formatCountry(r.country) || "—"}</td>
                         <td className="px-2 py-1">{r.assigned_seller_initials}</td>
                       </tr>
                     ))}

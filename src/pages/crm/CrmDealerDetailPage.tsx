@@ -26,6 +26,7 @@ import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
@@ -201,6 +202,7 @@ export default function CrmDealerDetailPage() {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   
 
@@ -693,7 +695,7 @@ export default function CrmDealerDetailPage() {
                 <li><span className="text-slate-500">{tl("address_line_2", lang)}:</span> {dealer.address_line_2 || "—"}</li>
                 <li><span className="text-slate-500">{tl("postal_code", lang)}:</span> {dealer.postal_code || "—"}</li>
                 <li><span className="text-slate-500">{tl("city", lang)}:</span> {dealer.city || "—"}</li>
-                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {formatCountry(dealer.country) || "—"}</li>
                 <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
                 <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
@@ -707,7 +709,7 @@ export default function CrmDealerDetailPage() {
                 <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
                 <li><span className="text-slate-500">{tl("account_number", lang)}:</span> <span className="font-mono">{dealer.account_number || "—"}</span></li>
                 <li><span className="text-slate-500">{tl("customer_type", lang)}:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-                <li><span className="text-slate-500">{tl("country", lang)}:</span> {dealer.country || "—"}</li>
+                <li><span className="text-slate-500">{tl("country", lang)}:</span> {formatCountry(dealer.country) || "—"}</li>
                 <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? (<span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>) : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
                 <li><span className="text-slate-500">{tl("vat", lang)}:</span> {(dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || "—"}</li>
                 <li><span className="text-slate-500">{tl("assigned_seller", lang)}:</span> {dealer.assigned_seller_name || dealer.assigned_seller_initials || "—"}</li>
@@ -1329,7 +1331,7 @@ function ContactHero({
             <span className="font-mono">#{dealer.account_number}</span>
             <span>·</span>
             <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-            {dealer.country && <><span>·</span><span>{dealer.country}</span></>}
+            {dealer.country && <><span>·</span><span>{formatCountryFn(dealer.country, lang)}</span></>}
             <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
               {tl("status_active", lang)}
             </span>

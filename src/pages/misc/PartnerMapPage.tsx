@@ -9,6 +9,7 @@ import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maxim
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
+import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
@@ -274,6 +275,7 @@ function MapView({
 
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
@@ -601,7 +603,7 @@ export default function PartnerMapPage() {
                                 className="px-2 py-0.5 rounded-full text-[11px] bg-gray-50 hover:bg-[#2d5a27] hover:text-white border border-gray-200 text-gray-700 transition-colors"
                                 title={c}
                               >
-                                {c} <span className="font-semibold">{n}</span>
+                                {formatCountry(c)} <span className="font-semibold">{n}</span>
                               </button>
                             ))}
                           </div>
@@ -614,7 +616,7 @@ export default function PartnerMapPage() {
                       {grouped.map(({ country, list }) => (
                         <div key={country} className="border-b border-gray-100">
                           <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
-                            <span>{country}</span>
+                            <span>{formatCountry(country)}</span>
                             <span className="text-gray-400">({list.length})</span>
                           </div>
                           {list.map((p) => {
@@ -690,7 +692,7 @@ export default function PartnerMapPage() {
                     <div key={p.id} className="py-1.5 flex items-center justify-between gap-3 text-xs">
                       <div className="min-w-0">
                         <div className="font-semibold text-gray-900 truncate">{p.name} <span className="text-gray-400 font-mono ml-1">#{p.account}</span></div>
-                        <div className="text-gray-500 truncate">{[p.addressLine1, p.postal, p.city, p.country].filter(Boolean).join(', ') || '—'}</div>
+                        <div className="text-gray-500 truncate">{[p.addressLine1, p.postal, p.city, formatCountry(p.country)].filter(Boolean).join(', ') || '—'}</div>
                       </div>
                       <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: TYPE_COLORS[p.type] }} />
                     </div>
@@ -751,7 +753,7 @@ export default function PartnerMapPage() {
                       {selected.addressLine1 && <div>{selected.addressLine1}</div>}
                       {selected.addressLine2 && <div>{selected.addressLine2}</div>}
                       {cityLine && <div className="text-gray-500">{cityLine}</div>}
-                      {selected.country && <div className="text-gray-500">{selected.country}</div>}
+                      {selected.country && <div className="text-gray-500">{formatCountry(selected.country)}</div>}
                     </div>
                   </div>
                 );

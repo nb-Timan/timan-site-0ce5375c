@@ -25,6 +25,7 @@ import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCountryFormatter } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
@@ -94,6 +95,7 @@ function fmtDate(iso: string | null): string {
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
@@ -367,6 +369,7 @@ export default function CrmMyDealersPage() {
                       ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
                       : [g.main.account_number],
                     onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                    formatCountry,
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
@@ -377,6 +380,7 @@ export default function CrmMyDealersPage() {
                         budgetIndex,
                         budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        formatCountry,
                       })}
                     </React.Fragment>
                   ))}
@@ -389,6 +393,7 @@ export default function CrmMyDealersPage() {
                         budgetIndex,
                         budgetAccountNumbers: [p.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        formatCountry,
                       })}
                     </React.Fragment>
                   ))}
@@ -424,6 +429,7 @@ interface RowProps {
   budgetIndex: DealerBudgetIndex | null;
   budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
+  formatCountry: (v: string | null | undefined) => string;
 }
 
 function renderRow(p: RowProps) {
@@ -517,7 +523,7 @@ function renderRow(p: RowProps) {
         </Td>
         <Td>{p.r.account_number}</Td>
         <Td>{p.r.customer_type_label || p.r.customer_type || "—"}</Td>
-        <Td>{p.r.country || "—"}</Td>
+        <Td>{p.formatCountry(p.r.country) || "—"}</Td>
         <Td>
           <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
         </Td>

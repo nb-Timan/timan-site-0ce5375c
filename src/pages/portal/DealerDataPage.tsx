@@ -9,6 +9,7 @@ import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCir
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { formatCountry } from '@/lib/formatCountry';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -311,7 +312,7 @@ export default function DealerDataPage() {
                 <Field label={T.companyName[lang]} value={dealerName} />
                 <Field label={T.accountNo[lang]} value={dealer.account_number || '—'} />
                 <Field label={T.dealerType[lang]} value={dealer.customer_type_label || dealer.customer_type || '—'} />
-                <Field label={T.country[lang]} value={dealer.country || '—'} />
+                <Field label={T.country[lang]} value={formatCountry(dealer.country, lang) || '—'} />
                 <Field label={T.seller[lang]} value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
                 <Field label={T.status[lang]} value={dealer.is_blocked ? (<Badge className="bg-rose-600 hover:bg-rose-600 text-white">{T.blocked[lang]}</Badge>) : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
               </CardContent>
