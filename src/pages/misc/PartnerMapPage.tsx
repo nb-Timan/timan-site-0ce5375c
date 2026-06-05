@@ -288,7 +288,7 @@ export default function PartnerMapPage() {
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
     if (!appUser?.email) return null;
-    const d = resolveSellerDisplay(sellerDir, { email: appUser.email });
+    const d = resolveSellerDisplay({ email: appUser.email }, sellerDir);
     return (d.initials || '').toUpperCase() || null;
   }, [sellerDir, appUser?.email]);
   const [search, setSearch] = useState('');
