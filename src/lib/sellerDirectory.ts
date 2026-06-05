@@ -35,6 +35,7 @@ export interface SellerDirectoryEntry {
   initials: string;
   full_name: string;
   portal_role: string | null;
+  company: string | null;
 }
 
 export interface SellerDirectory {
@@ -94,7 +95,7 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
     try {
       const { data, error } = await supabase
         .from("app_users")
-        .select("id,email,initials,full_name,portal_role")
+        .select("id,email,initials,full_name,portal_role,company")
         .not("initials", "is", null);
       if (error) throw error;
       const list: SellerDirectoryEntry[] = (data || [])
@@ -104,6 +105,7 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
           initials: String(r.initials || "").toUpperCase(),
           full_name: String(r.full_name || ""),
           portal_role: (r.portal_role as string | null) || null,
+          company: (r.company as string | null) || null,
         }))
         .filter((r) => r.email && r.initials);
       memCache = { at: Date.now(), list };

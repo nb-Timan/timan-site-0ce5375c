@@ -32,6 +32,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
+import { useSellerDirectory } from "@/lib/sellerDirectory";
 
 
 export type WarrantyScope = "admin" | "dealer";
@@ -708,7 +709,7 @@ function CertificateDialog({
             <DRow label="Kunde" value={record.customer} />
             <DRow label="Maskintype" value={record.machineType} />
             <DRow label="Serienr" value={record.machineSerial} mono />
-            <DRow label="Demo" value={record.isDemo} />
+            <DRow label="Købt som demo-maskine" value={record.isDemo} />
             <DRow label="Erstatter" value={record.replacementBrand ?? "—"} />
             <DRow label="Leveringsdato" value={formatDate(record.deliveryDate)} />
             <DRow label="Adresse" value={record.customerAddress} />
@@ -735,8 +736,42 @@ function CertificateDialog({
   );
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  customer_name: "Kunde",
+  customer_address: "Adresse",
+  customer_postal_code: "Postnummer",
+  customer_city: "By",
+  customer_country: "Land",
+  customer_email: "E-mail",
+  customer_phone: "Telefon",
+  delivery_date: "Leveringsdato",
+  machine_model: "Maskintype",
+  machine_serial_number: "Serienr.",
+  comment: "Kommentar",
+  dealer_account_id: "Forhandler-ID",
+  dealer_account_number: "Forhandlernr.",
+  dealer_match_status: "Matchstatus",
+  dealer_match_method: "Matchmetode",
+};
+
+function fieldLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key;
+}
+
+function formatHistoryValue(field: string, v: string | null): string {
+  if (v === null || v === "") return "—";
+  if (field === "delivery_date") return formatDate(v);
+  return v;
+}
+
+function shortChangeId(id: string): string {
+  const clean = id.replace(/-/g, "");
+  return `#${clean.slice(-5)}`;
+}
+
 function HistorySection({ registrationId }: { registrationId: string }) {
   const { entries, loading, error } = useRegistrationHistory(registrationId);
+  const dir = useSellerDirectory();
   return (
     <div className="border-t border-slate-100 px-6 py-5">
       <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -753,43 +788,71 @@ function HistorySection({ registrationId }: { registrationId: string }) {
       )}
       {entries.length > 0 && (
         <ul className="mt-3 space-y-3">
-          {entries.map((e) => (
-            <li
-              key={e.id}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>{formatDateTime(e.changed_at)}</span>
-                <span className="font-bold text-slate-600">
-                  {e.actor ?? e.change_source}
-                </span>
-              </div>
-              <ul className="mt-1 space-y-0.5">
-                {e.fields.length === 0 ? (
-                  <li className="text-xs text-slate-500">
-                    {e.change_source === "sharepoint_sync"
-                      ? "Synk fra SharePoint"
-                      : "Snapshot"}
-                  </li>
-                ) : (
-                  e.fields.map((f) => (
-                    <li key={f.field} className="text-sm">
-                      <span className="font-bold text-slate-700">{f.field}:</span>{" "}
-                      <span className="text-slate-500 line-through">
-                        {f.old ?? "—"}
-                      </span>{" "}
-                      → <span className="text-slate-900">{f.new ?? "—"}</span>
+          {entries.map((e) => {
+            const user = e.actor ? dir.byId.get(String(e.actor)) : undefined;
+            const isSync = e.change_source === "sharepoint_sync";
+            const initials = user?.initials
+              ?? (isSync ? "SP" : (e.actor ? "?" : "—"));
+            const name = user?.full_name
+              ?? (isSync ? "SharePoint sync" : (e.actor ? "Ukendt bruger" : "—"));
+            const company = user?.company ?? (isSync ? "Timan" : "—");
+            const email = user?.email ?? "—";
+            const phone = "—";
+            const shortId = shortChangeId(e.id);
+            return (
+              <li
+                key={e.id}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                  <span>
+                    {formatDateTime(e.changed_at)}
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    <span
+                      className="font-bold text-slate-700"
+                      title={`Navn: ${name}\nFirma: ${company}\nE-mail: ${email}\nTelefon: ${phone}`}
+                    >
+                      {initials}
+                    </span>
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    <span
+                      className="font-mono text-[11px] text-slate-400"
+                      title={`Teknisk ID: ${e.id}`}
+                    >
+                      Ændring {shortId}
+                    </span>
+                  </span>
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {e.fields.length === 0 ? (
+                    <li className="text-xs text-slate-500">
+                      {isSync ? "Synk fra SharePoint" : "Snapshot"}
                     </li>
-                  ))
-                )}
-              </ul>
-            </li>
-          ))}
+                  ) : (
+                    e.fields
+                      .filter((f) => !f.field.startsWith("_"))
+                      .map((f) => (
+                        <li key={f.field} className="text-sm">
+                          <span className="font-bold text-slate-700">{fieldLabel(f.field)}:</span>{" "}
+                          <span className="text-slate-500 line-through">
+                            {formatHistoryValue(f.field, f.old)}
+                          </span>{" "}
+                          → <span className="text-slate-900">
+                            {formatHistoryValue(f.field, f.new)}
+                          </span>
+                        </li>
+                      ))
+                  )}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
   );
 }
+
 
 
 function DRow({
