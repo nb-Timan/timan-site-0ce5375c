@@ -325,19 +325,31 @@ function ClusterLayer({
 
     if (hoverCapable) {
       const MAX_LIST = 8;
-      let clusterTimer: any = null;
+      let openTimer: any = null;
+      let closeTimer: any = null;
       let clusterTooltip: L.Tooltip | null = null;
+      let tooltipPartners: Map<string, Partner> = new Map();
 
-      const closeClusterTooltip = () => {
-        if (clusterTimer) { clearTimeout(clusterTimer); clusterTimer = null; }
+      const hardClose = () => {
+        if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
         if (clusterTooltip) {
           try { map.closeTooltip(clusterTooltip); } catch { /* noop */ }
           clusterTooltip = null;
         }
+        tooltipPartners = new Map();
+      };
+
+      const scheduleClose = () => {
+        if (closeTimer) clearTimeout(closeTimer);
+        closeTimer = setTimeout(hardClose, 120);
       };
 
       cluster.on('clustermouseover', (e: any) => {
-        closeClusterTooltip();
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        if (clusterTooltip) return; // already open
+        if (openTimer) clearTimeout(openTimer);
+
         const children: any[] = e.layer.getAllChildMarkers();
         const partnersInCluster: Partner[] = children
           .map((c) => c.__pmPartner as Partner | undefined)
@@ -346,16 +358,19 @@ function ClusterLayer({
 
         const total = partnersInCluster.length;
         const shown = partnersInCluster.slice(0, MAX_LIST);
+        const lookup = new Map<string, Partner>();
+        for (const p of shown) lookup.set(p.id, p);
+
         const headerCount = lang === 'da' ? 'partnere' : lang === 'de' ? 'Partner' : lang === 'it' ? 'partner' : lang === 'hu' ? 'partner' : 'partners';
         const moreLabel = lang === 'da' ? 'flere' : lang === 'de' ? 'weitere' : lang === 'it' ? 'altri' : lang === 'hu' ? 'további' : 'more';
         const rows = shown.map((p) => {
           const color = TYPE_COLORS[p.type];
           const typeLabel = T[p.type][lang];
-          return `<div class="pm-tt-cluster-row">
+          return `<button type="button" class="pm-tt-cluster-row" data-partner-id="${escapeHtml(p.id)}">
             <span class="pm-tt-cluster-dot" style="background:${color}"></span>
             <span class="pm-tt-cluster-name">${escapeHtml(p.name)}</span>
             <span class="pm-tt-cluster-type" style="color:${color}">${escapeHtml(typeLabel)}</span>
-          </div>`;
+          </button>`;
         }).join('');
         const more = total > MAX_LIST
           ? `<div class="pm-tt-cluster-more">+ ${total - MAX_LIST} ${escapeHtml(moreLabel)}</div>`
@@ -367,27 +382,53 @@ function ClusterLayer({
             ${more}
           </div>`;
 
-        clusterTimer = setTimeout(() => {
+        openTimer = setTimeout(() => {
           try {
             const tt = L.tooltip({
               direction: 'top',
               offset: [0, -10],
               opacity: 1,
-              className: 'pm-tooltip',
-              interactive: false,
+              className: 'pm-tooltip pm-tooltip-cluster',
+              interactive: true,
               permanent: false,
             })
               .setLatLng(e.layer.getLatLng())
               .setContent(html);
             tt.addTo(map);
             clusterTooltip = tt;
+            tooltipPartners = lookup;
+
+            // Bind interactions on the tooltip DOM (hover lock + name click).
+            const el = tt.getElement();
+            if (el) {
+              el.addEventListener('mouseenter', () => {
+                if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+              });
+              el.addEventListener('mouseleave', () => { scheduleClose(); });
+              el.addEventListener('click', (ev) => {
+                const target = ev.target as HTMLElement | null;
+                const row = target?.closest('[data-partner-id]') as HTMLElement | null;
+                if (!row) return;
+                ev.stopPropagation();
+                ev.preventDefault();
+                const id = row.getAttribute('data-partner-id') || '';
+                const p = tooltipPartners.get(id);
+                hardClose();
+                if (p) {
+                  onSelect(p.id);
+                  if (p.coords) {
+                    try { map.flyTo(p.coords, Math.max(map.getZoom(), 14), { duration: 0.6 }); } catch { /* noop */ }
+                  }
+                }
+              });
+            }
           } catch { /* noop */ }
         }, 200);
       });
 
-      cluster.on('clustermouseout', () => { closeClusterTooltip(); });
-      // Click still zooms in (default behaviour) — also dismiss any pending tooltip.
-      cluster.on('clusterclick', () => { closeClusterTooltip(); });
+      cluster.on('clustermouseout', () => { scheduleClose(); });
+      // Click on cluster keeps default zoom-to-bounds; just dismiss tooltip.
+      cluster.on('clusterclick', () => { hardClose(); });
     }
   }, [partners, selectedId, onSelect, lang, map]);
 
@@ -756,7 +797,11 @@ export default function PartnerMapPage() {
         .pm-tt-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
         .pm-tt-cluster { padding:8px 10px; min-width:220px; max-width:300px; }
         .pm-tt-cluster-header { font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b7280; margin-bottom:6px; }
-        .pm-tt-cluster-row { display:flex; align-items:center; gap:6px; padding:2px 0; font-size:11px; color:#111; line-height:1.35; }
+        .pm-tt-cluster-row { display:flex; align-items:center; gap:6px; padding:4px 6px; margin:0 -6px; font-size:11px; color:#111; line-height:1.35;
+          width:calc(100% + 12px); background:transparent; border:none; border-radius:6px; cursor:pointer; text-align:left; font-family:inherit; }
+        .pm-tt-cluster-row:hover { background:#f3f4f6; }
+        .pm-tt-cluster-row:focus-visible { outline:2px solid #2d5a27; outline-offset:1px; }
+        .leaflet-tooltip.pm-tooltip-cluster { pointer-events:auto; }
         .pm-tt-cluster-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
         .pm-tt-cluster-name { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
         .pm-tt-cluster-type { flex:0 0 auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
