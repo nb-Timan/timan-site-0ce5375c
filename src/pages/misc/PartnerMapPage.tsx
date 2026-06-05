@@ -603,7 +603,7 @@ export default function PartnerMapPage() {
                                 className="px-2 py-0.5 rounded-full text-[11px] bg-gray-50 hover:bg-[#2d5a27] hover:text-white border border-gray-200 text-gray-700 transition-colors"
                                 title={c}
                               >
-                                {c} <span className="font-semibold">{n}</span>
+                                {formatCountry(c)} <span className="font-semibold">{n}</span>
                               </button>
                             ))}
                           </div>
