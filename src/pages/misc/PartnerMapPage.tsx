@@ -754,6 +754,13 @@ export default function PartnerMapPage() {
         .pm-tt-row { font-size:11px; color:#374151; line-height:1.5; }
         .pm-tt-k { color:#6b7280; }
         .pm-tt-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .pm-tt-cluster { padding:8px 10px; min-width:220px; max-width:300px; }
+        .pm-tt-cluster-header { font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b7280; margin-bottom:6px; }
+        .pm-tt-cluster-row { display:flex; align-items:center; gap:6px; padding:2px 0; font-size:11px; color:#111; line-height:1.35; }
+        .pm-tt-cluster-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+        .pm-tt-cluster-name { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+        .pm-tt-cluster-type { flex:0 0 auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+        .pm-tt-cluster-more { margin-top:4px; padding-top:4px; border-top:1px dashed #e5e7eb; font-size:10px; color:#6b7280; font-style:italic; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
