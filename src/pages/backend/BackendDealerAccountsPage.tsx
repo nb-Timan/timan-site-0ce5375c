@@ -42,6 +42,8 @@ import {
   groupDealersByParent,
   aggregateGroupStats,
   resolveEffectiveSeller,
+  setDealerSuccessor,
+  isDealerInactive,
   type DealerGroup,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
