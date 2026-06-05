@@ -388,6 +388,7 @@ export default function BackendDealerAccountsPage() {
                     busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                     appUserEmail: appUser?.email ?? null, reload,
                     dealersByAcct,
+                    showDealerData: showDealerDataButton,
                   }));
                 }
                 return groups.map((g) => {
