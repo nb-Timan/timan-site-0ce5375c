@@ -483,14 +483,35 @@ function renderRow(p: RowProps) {
                 Spærret
               </span>
             )}
+            {p.r.is_deleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-bold text-white">
+                Lukket
+              </span>
+            )}
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
               </span>
             )}
-            {p.depth === 1 && (
+            {p.variant === "main" && p.successorCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200"
+                title="Tidligere forhandlere overtaget af denne"
+              >
+                Overtaget ({p.successorCount})
+              </span>
+            )}
+            {p.variant === "branch" && (
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                 Filial
+              </span>
+            )}
+            {p.variant === "successor" && (
+              <span
+                className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800"
+                title={`Overtaget af aktiv efterfølger — historikken bliver på denne konto (${dealerLifecycleStatus(p.r)})`}
+              >
+                Overtaget
               </span>
             )}
           </div>
