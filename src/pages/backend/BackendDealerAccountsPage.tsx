@@ -52,6 +52,7 @@ import { BackendUser } from "@/lib/backend-users-store";
 import { supabase } from "@/lib/supabase";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
+import DealerProfileImportPanel from "@/components/backend/DealerProfileImportPanel";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -251,6 +252,7 @@ export default function BackendDealerAccountsPage() {
 
         <SharePointSyncPanel />
         <GeocodeDealersPanel />
+        <DealerProfileImportPanel dealers={rows} />
 
 
 
