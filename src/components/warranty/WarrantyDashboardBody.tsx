@@ -21,9 +21,9 @@ import {
   mostUsedMachineType,
   thisMonthCount,
   totalCount,
-  useWarrantyRecords,
   yearlyOverview,
 } from "@/lib/warranty-store";
+import { useWarrantyRegistrationsDb } from "@/lib/warrantyRegistrationsService";
 import { formatDate } from "@/lib/format-date";
 
 export type WarrantyScope = "admin" | "dealer";
