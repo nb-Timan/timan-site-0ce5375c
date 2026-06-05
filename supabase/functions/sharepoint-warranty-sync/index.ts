@@ -441,6 +441,7 @@ Deno.serve(async (req) => {
       const payload = {
         // Source / identity
         sharepoint_item_id: r.m.sharepoint_item_id,
+        sharepoint_form_id: r.m.sharepoint_form_id,
         source: "sharepoint",
         sharepoint_modified_at: r.m.source_modified_at,
 
