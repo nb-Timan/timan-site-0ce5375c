@@ -701,7 +701,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
         </Td>
         <Td>{r.account_number}</Td>
         <Td>{r.customer_type_label || r.customer_type || "—"}</Td>
-        <Td>{r.country || "—"}</Td>
+        <Td>{fmtCountry(r.country) || "—"}</Td>
         <Td>
           {eff.initials
             ? (
