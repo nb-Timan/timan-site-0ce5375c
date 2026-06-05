@@ -283,6 +283,14 @@ export default function PartnerMapPage() {
   const portalRole = derivePortalRole(appUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   const canSeeAssignedSeller = canOpenCrm;
+  const canSeeMachineStats =
+    portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
+  const sellerDir = useSellerDirectory();
+  const currentSellerInitials = useMemo(() => {
+    if (!appUser?.email) return null;
+    const d = resolveSellerDisplay(sellerDir, { email: appUser.email });
+    return (d.initials || '').toUpperCase() || null;
+  }, [sellerDir, appUser?.email]);
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
@@ -296,6 +304,7 @@ export default function PartnerMapPage() {
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
+  const [machineStats, setMachineStats] = useState<Record<string, PartnerMachineStats>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
