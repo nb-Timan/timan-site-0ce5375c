@@ -9,6 +9,7 @@ import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCir
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { formatCountry } from '@/lib/formatCountry';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
