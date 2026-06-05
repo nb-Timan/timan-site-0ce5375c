@@ -563,14 +563,34 @@ function CertificateDialog({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [auditMissing, setAuditMissing] = useState(false);
-  const [dealers, setDealers] = useState<Array<{ id: string; account_number: string; company_name: string }>>([]);
+  const [dealers, setDealers] = useState<Array<{
+    id: string;
+    account_number: string;
+    company_name: string;
+    isBlocked: boolean;
+    isDeleted: boolean;
+    successorDealerId: string | null;
+    successorDealerAccountNumber: string | null;
+  }>>([]);
+
+  const selectedDealer = dealers.find((d) => d.id === form.dealer_account_id);
+  const selectedStatus = selectedDealer
+    ? selectedDealer.isDeleted
+      ? "closed"
+      : selectedDealer.isBlocked
+        ? "blocked"
+        : "active"
+    : null;
+  const selectedSuccessor = selectedDealer?.successorDealerId
+    ? dealers.find((d) => d.id === selectedDealer.successorDealerId) ?? null
+    : null;
 
   // Lazy-load dealer accounts the first time the internal user starts editing.
   useEffect(() => {
     if (!editing || !canEdit || dealers.length > 0) return;
     let cancelled = false;
     import("@/lib/dealerAccountsService").then(({ fetchDealerAccounts }) => {
-      fetchDealerAccounts({ includeDeleted: false }).then(({ rows }) => {
+      fetchDealerAccounts({ includeDeleted: true }).then(({ rows }) => {
         if (cancelled) return;
         setDealers(
           rows
@@ -579,6 +599,10 @@ function CertificateDialog({
               id: d.id,
               account_number: d.account_number,
               company_name: d.company_name,
+              isBlocked: d.is_blocked,
+              isDeleted: d.is_deleted,
+              successorDealerId: d.successor_dealer_id,
+              successorDealerAccountNumber: d.successor_dealer_account_number,
             }))
             .sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
         );
@@ -601,6 +625,11 @@ function CertificateDialog({
       dealer_account_id: d.id,
       dealer_account_number: d.account_number,
     }));
+  }
+
+  function selectSuccessor() {
+    if (!selectedSuccessor) return;
+    selectDealer(selectedSuccessor.id);
   }
 
   async function handleSave() {
