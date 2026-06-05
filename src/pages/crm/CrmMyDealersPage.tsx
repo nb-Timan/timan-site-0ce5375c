@@ -191,6 +191,13 @@ export default function CrmMyDealersPage() {
     return () => { cancelled = true; };
   }, [appUser, admin, activeMode, activeSellerView, budgetYear, portalRole]);
 
+  // Successor index — must be computed unconditionally before any early return
+  // so the number of hooks remains stable across renders.
+  const { predecessorsByActiveId, absorbedIds } = useMemo(
+    () => buildSuccessorIndex(dealers ?? []),
+    [dealers],
+  );
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!admin && !seller) return <Navigate to="/portal" replace />;
@@ -201,7 +208,7 @@ export default function CrmMyDealersPage() {
     return Math.max(s?.user_count ?? 0, linked);
   };
 
-  const filteredDealers = dealers.filter((r) => {
+  const filteredDealers = (dealers ?? []).filter((r) => {
     if (q) {
       const needle = q.toLowerCase();
       if (!`${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
@@ -219,18 +226,9 @@ export default function CrmMyDealersPage() {
     return true;
   });
 
-
-  // Build successor index from the full dealer set so inactive predecessors
-  // appear as sub-rows under their active main, and absorbed predecessors are
-  // hidden from the top-level list.
-  const { predecessorsByActiveId, absorbedIds } = useMemo(
-    () => buildSuccessorIndex(dealers),
-    [dealers],
-  );
-
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
-  for (const d of dealers) dealersByAcct.set(d.account_number, d);
+  for (const d of dealers ?? []) dealersByAcct.set(d.account_number, d);
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
   if (q || profileFilter !== "all" || statusFilter !== "all") {
     for (const d of filteredDealers) {
@@ -241,9 +239,9 @@ export default function CrmMyDealersPage() {
     }
   }
   // Hide absorbed predecessors from top-level grouping — they render as sub-rows.
-  const visibleDealers = dealers.filter((d) => visibleIds.has(d.id) && !absorbedIds.has(d.id));
+  const visibleDealers = (dealers ?? []).filter((d) => visibleIds.has(d.id) && !absorbedIds.has(d.id));
   const groups = groupDealersByParent(visibleDealers);
-  const totalDealersCount = dealers.filter((d) => !absorbedIds.has(d.id)).length;
+  const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id)).length;
 
   return (
     <CrmLayout pageTitle={T.title[lang]}>
