@@ -39,6 +39,8 @@ interface Partner {
   orders: number;
   phone: string | null;
   email: string | null;
+  website: string | null;
+  facebook: string | null;
 }
 
 const TIMAN_GREEN = '#2d5a27';
