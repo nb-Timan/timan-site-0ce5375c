@@ -633,6 +633,8 @@ Deno.serve(async (req) => {
       needs_review: needsReviewCount,
       unmatched: unmatchedCount,
       deactivated,
+      conflicts_count: conflicts.length,
+      conflicts,
       warnings,
       durationMs: Date.now() - t0,
     });
