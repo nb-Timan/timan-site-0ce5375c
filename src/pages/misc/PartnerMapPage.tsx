@@ -1137,6 +1137,7 @@ export default function PartnerMapPage() {
                 const routeHref = selected.coords
                   ? `https://www.google.com/maps/dir/?api=1&destination=${selected.coords[0]},${selected.coords[1]}`
                   : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressForRoute)}`;
+                const normalizeUrl = (u: string) => /^https?:\/\//i.test(u) ? u : `https://${u}`;
                 const buttons: React.ReactNode[] = [];
                 if (selected.phone) {
                   buttons.push(
@@ -1152,6 +1153,20 @@ export default function PartnerMapPage() {
                     </a>
                   );
                 }
+                if (selected.website && selected.website.trim()) {
+                  buttons.push(
+                    <a key="web" href={normalizeUrl(selected.website.trim())} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Globe className="h-4 w-4" /> Hjemmeside
+                    </a>
+                  );
+                }
+                if (selected.facebook && selected.facebook.trim()) {
+                  buttons.push(
+                    <a key="fb" href={normalizeUrl(selected.facebook.trim())} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#1877f2] hover:text-[#1877f2] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Facebook className="h-4 w-4" /> Facebook
+                    </a>
+                  );
+                }
                 if (canRoute) {
                   buttons.push(
                     <a key="route" href={routeHref} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
@@ -1160,7 +1175,8 @@ export default function PartnerMapPage() {
                   );
                 }
                 if (buttons.length === 0) return null;
-                return <div className={`grid gap-2 ${buttons.length === 1 ? 'grid-cols-1' : buttons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{buttons}</div>;
+                const cols = buttons.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+                return <div className={`grid gap-2 ${cols}`}>{buttons}</div>;
               })()}
 
               {canOpenCrm && (
