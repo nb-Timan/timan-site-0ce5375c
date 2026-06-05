@@ -805,6 +805,16 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                     </>
                   )}
                 </dl>
+                {showDealerData && (
+                  <div className="mt-2">
+                    <Link
+                      to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-emerald-100"
+                    >
+                      <FileText className="h-3 w-3" /> Åbn Forhandlerdata
+                    </Link>
+                  </div>
+                )}
               </div>
               <div>
                 {linkedUsers.length > 0 ? (
