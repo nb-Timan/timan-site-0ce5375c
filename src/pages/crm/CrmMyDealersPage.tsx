@@ -59,6 +59,7 @@ import {
 import {
   computeDealerProfileSeverity,
   getDealerProfileMissingLabels,
+  getDealerProfileCriticalMissing,
 } from "@/lib/dealerProfileBadge";
 
 
@@ -636,7 +637,8 @@ function BudgetStatusCell({
 
 function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
   const severity = computeDealerProfileSeverity(dealer, peopleCount);
-  const missingLabels = getDealerProfileMissingLabels(dealer, peopleCount);
+  const missingSections = getDealerProfileMissingLabels(dealer, peopleCount);
+  const missingCritical = getDealerProfileCriticalMissing(dealer);
   const tone =
     severity === "complete" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
     : severity === "partial" ? "bg-amber-100 text-amber-800 border-amber-200"
@@ -656,11 +658,16 @@ function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; pe
     severity === "complete"
       ? "Profilen er komplet."
       : severity === "critical"
-        ? "Der mangler kritiske stamdata: Firma information eller e-mail til faktura."
-        : "Der mangler øvrige profiloplysninger.";
-  const title = missingLabels.length === 0
-    ? baseTitle
-    : `${baseTitle}\n\nProfil mangler:\n- ${missingLabels.join("\n- ")}`;
+        ? "Kritiske stamdata mangler."
+        : "Mangler øvrige profiloplysninger.";
+  const parts: string[] = [baseTitle];
+  if (severity === "critical" && missingCritical.length > 0) {
+    parts.push(`Kritiske felter mangler:\n- ${missingCritical.join("\n- ")}`);
+  }
+  if (severity !== "complete" && missingSections.length > 0) {
+    parts.push(`Sektioner som mangler:\n- ${missingSections.join("\n- ")}`);
+  }
+  const title = parts.join("\n\n");
   return (
     <span
       title={title}
