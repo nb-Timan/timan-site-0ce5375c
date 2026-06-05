@@ -220,6 +220,14 @@ export default function CrmMyDealersPage() {
   });
 
 
+  // Build successor index from the full dealer set so inactive predecessors
+  // appear as sub-rows under their active main, and absorbed predecessors are
+  // hidden from the top-level list.
+  const { predecessorsByActiveId, absorbedIds } = useMemo(
+    () => buildSuccessorIndex(dealers),
+    [dealers],
+  );
+
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers) dealersByAcct.set(d.account_number, d);
@@ -232,9 +240,10 @@ export default function CrmMyDealersPage() {
       }
     }
   }
-  const visibleDealers = dealers.filter((d) => visibleIds.has(d.id));
+  // Hide absorbed predecessors from top-level grouping — they render as sub-rows.
+  const visibleDealers = dealers.filter((d) => visibleIds.has(d.id) && !absorbedIds.has(d.id));
   const groups = groupDealersByParent(visibleDealers);
-  const totalDealersCount = dealers.length;
+  const totalDealersCount = dealers.filter((d) => !absorbedIds.has(d.id)).length;
 
   return (
     <CrmLayout pageTitle={T.title[lang]}>
