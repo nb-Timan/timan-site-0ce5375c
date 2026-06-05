@@ -402,12 +402,14 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------------
     // SAFETY: SharePoint is master for COMPANY MASTERDATA only.
-    // The portal is master for ACCESS / STATUS / RELATIONS.
+    // The portal is master for ACCESS / STATUS / RELATIONS / SUCCESSION.
     //
     // The following columns are PORTAL-CONTROLLED and MUST NEVER be
     // overwritten by SharePoint sync:
     //   is_active, is_blocked, blocked_at, blocked_by,
     //   is_deleted, deleted_at, deleted_by,
+    //   successor_dealer_id, successor_dealer_account_number,
+    //   closed_reason, closed_at,                       -- Phase 60 succession
     //   assigned_seller_initials, assigned_seller_name, assigned_seller_email,
     //   latitude, longitude, geocoded_at, geocoding_status, geocoding_error,
     //   notes / CRM / users / quotes / orders / budgets (separate tables).
