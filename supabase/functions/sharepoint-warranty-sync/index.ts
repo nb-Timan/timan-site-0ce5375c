@@ -656,6 +656,8 @@ Deno.serve(async (req) => {
       deactivated,
       conflicts_count: conflicts.length,
       conflicts,
+      manual_matches_preserved_count: manualMatchesPreservedCount,
+      fields_preserved_from_portal_count: fieldsPreservedFromPortalCount,
       warnings,
       durationMs: Date.now() - t0,
     });
