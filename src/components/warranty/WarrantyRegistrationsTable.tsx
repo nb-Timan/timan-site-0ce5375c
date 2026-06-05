@@ -27,7 +27,9 @@ import {
   type DbWarrantyRegistration,
 } from "@/lib/warrantyRegistrationsService";
 import { useAppUser } from "@/context/AppUserContext";
-import { formatDate } from "@/lib/format-date";
+import { formatDate, formatDateTime } from "@/lib/format-date";
+import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
+
 
 export type WarrantyScope = "admin" | "dealer";
 
