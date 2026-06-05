@@ -276,6 +276,8 @@ function ClusterLayer({
     for (const p of partners) {
       if (!p.coords) continue;
       const m = L.marker(p.coords, { icon: makePinDivIcon(p.type, selectedId === p.id) });
+      // Attach partner ref so cluster hover handler can list child partners.
+      (m as any).__pmPartner = p;
       m.on('click', () => onSelect(p.id));
 
       if (hoverCapable) {
@@ -315,7 +317,79 @@ function ClusterLayer({
       cluster.addLayer(m);
       markersRef.current.set(p.id, m);
     }
-  }, [partners, selectedId, onSelect, lang]);
+
+    // --- Cluster hover tooltip (lists partners within the cluster) ---
+    cluster.off('clustermouseover');
+    cluster.off('clustermouseout');
+    cluster.off('clusterclick');
+
+    if (hoverCapable) {
+      const MAX_LIST = 8;
+      let clusterTimer: any = null;
+      let clusterTooltip: L.Tooltip | null = null;
+
+      const closeClusterTooltip = () => {
+        if (clusterTimer) { clearTimeout(clusterTimer); clusterTimer = null; }
+        if (clusterTooltip) {
+          try { map.closeTooltip(clusterTooltip); } catch { /* noop */ }
+          clusterTooltip = null;
+        }
+      };
+
+      cluster.on('clustermouseover', (e: any) => {
+        closeClusterTooltip();
+        const children: any[] = e.layer.getAllChildMarkers();
+        const partnersInCluster: Partner[] = children
+          .map((c) => c.__pmPartner as Partner | undefined)
+          .filter((p): p is Partner => !!p);
+        if (partnersInCluster.length === 0) return;
+
+        const total = partnersInCluster.length;
+        const shown = partnersInCluster.slice(0, MAX_LIST);
+        const headerCount = lang === 'da' ? 'partnere' : lang === 'de' ? 'Partner' : lang === 'it' ? 'partner' : lang === 'hu' ? 'partner' : 'partners';
+        const moreLabel = lang === 'da' ? 'flere' : lang === 'de' ? 'weitere' : lang === 'it' ? 'altri' : lang === 'hu' ? 'további' : 'more';
+        const rows = shown.map((p) => {
+          const color = TYPE_COLORS[p.type];
+          const typeLabel = T[p.type][lang];
+          return `<div class="pm-tt-cluster-row">
+            <span class="pm-tt-cluster-dot" style="background:${color}"></span>
+            <span class="pm-tt-cluster-name">${escapeHtml(p.name)}</span>
+            <span class="pm-tt-cluster-type" style="color:${color}">${escapeHtml(typeLabel)}</span>
+          </div>`;
+        }).join('');
+        const more = total > MAX_LIST
+          ? `<div class="pm-tt-cluster-more">+ ${total - MAX_LIST} ${escapeHtml(moreLabel)}</div>`
+          : '';
+        const html = `
+          <div class="pm-tt pm-tt-cluster">
+            <div class="pm-tt-cluster-header">${total} ${escapeHtml(headerCount)}</div>
+            ${rows}
+            ${more}
+          </div>`;
+
+        clusterTimer = setTimeout(() => {
+          try {
+            const tt = L.tooltip({
+              direction: 'top',
+              offset: [0, -10],
+              opacity: 1,
+              className: 'pm-tooltip',
+              interactive: false,
+              permanent: false,
+            })
+              .setLatLng(e.layer.getLatLng())
+              .setContent(html);
+            tt.addTo(map);
+            clusterTooltip = tt;
+          } catch { /* noop */ }
+        }, 200);
+      });
+
+      cluster.on('clustermouseout', () => { closeClusterTooltip(); });
+      // Click still zooms in (default behaviour) — also dismiss any pending tooltip.
+      cluster.on('clusterclick', () => { closeClusterTooltip(); });
+    }
+  }, [partners, selectedId, onSelect, lang, map]);
 
   return null;
 }
@@ -680,6 +754,13 @@ export default function PartnerMapPage() {
         .pm-tt-row { font-size:11px; color:#374151; line-height:1.5; }
         .pm-tt-k { color:#6b7280; }
         .pm-tt-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .pm-tt-cluster { padding:8px 10px; min-width:220px; max-width:300px; }
+        .pm-tt-cluster-header { font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b7280; margin-bottom:6px; }
+        .pm-tt-cluster-row { display:flex; align-items:center; gap:6px; padding:2px 0; font-size:11px; color:#111; line-height:1.35; }
+        .pm-tt-cluster-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+        .pm-tt-cluster-name { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+        .pm-tt-cluster-type { flex:0 0 auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+        .pm-tt-cluster-more { margin-top:4px; padding-top:4px; border-top:1px dashed #e5e7eb; font-size:10px; color:#6b7280; font-style:italic; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
