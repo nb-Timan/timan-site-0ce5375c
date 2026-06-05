@@ -59,6 +59,7 @@ import {
 import {
   computeDealerProfileSeverity,
   getDealerProfileMissingLabels,
+  getDealerProfileCriticalMissing,
 } from "@/lib/dealerProfileBadge";
 
 
