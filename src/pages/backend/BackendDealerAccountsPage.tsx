@@ -599,7 +599,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
     dealersByAcct, isMainGroup, branchCount, successorCount, variant,
-    groupOpen, onToggleGroup, groupAgg,
+    groupOpen, onToggleGroup, groupAgg, showDealerData,
   } = opts;
   const s = stats[r.id];
   const userCount = s?.user_count ?? 0;
