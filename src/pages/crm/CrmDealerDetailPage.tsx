@@ -680,8 +680,7 @@ export default function CrmDealerDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* A. Kontaktinformation */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{tl("contact_info", lang)}</h3>
-              </div>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
               <ul className="text-sm space-y-1.5">
                 <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
                 <li><span className="text-slate-500">{tl("address_line_1", lang)}:</span> {dealer.address_line_1 || dealer.address || "—"}</li>
