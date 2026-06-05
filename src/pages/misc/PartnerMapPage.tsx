@@ -457,13 +457,15 @@ export default function PartnerMapPage() {
 
       if (canSeeMachineStats) {
         const ids = dRes.rows.map((d) => d.id);
-        const [ms, mp] = await Promise.all([
+        const [ms, mp, mm] = await Promise.all([
           fetchPartnerMachineStats(ids).catch(() => ({})),
           fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
+          fetchWarrantyMachineMissingCoords().catch(() => ({ rows: [] as WarrantyMachineMissing[], error: null as string | null })),
         ]);
         if (!alive) return;
         setMachineStats(ms);
         setMachinePinsAll(mp.rows);
+        setMachineMissingAll(mm.rows);
       }
     })();
     return () => { alive = false; };
