@@ -50,6 +50,7 @@ const FIELD_DISPLAY: Record<string, string> = {
 
 interface MappedRow {
   sharepoint_item_id: string;
+  sharepoint_form_id: number | null;
   dealer_name_snapshot: string;
   machine_serial_raw: string;
   machine_serial_number: string;
@@ -62,6 +63,15 @@ interface MappedRow {
   customer_email: string;
   tool_serials: string[];
   source_modified_at: string | null;
+}
+
+function parseFormId(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.trunc(raw);
+  const s = String(raw).trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function s(v: unknown): string {
