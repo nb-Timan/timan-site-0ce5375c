@@ -424,6 +424,7 @@ export default function BackendDealerAccountsPage() {
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
+                        showDealerData: showDealerDataButton,
                       }))}
                       {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
                         r: p, depth: 1, variant: "successor",
@@ -431,6 +432,7 @@ export default function BackendDealerAccountsPage() {
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
+                        showDealerData: showDealerDataButton,
                       }))}
                     </React.Fragment>
                   );
