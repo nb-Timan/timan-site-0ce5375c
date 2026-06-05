@@ -4,7 +4,7 @@
  *  - Dealer (scope="dealer"):  /portal/service/warranty/registrations
  *  - Timan Admin (scope="admin"): /portal/service/warranty/registrations
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -512,6 +512,8 @@ interface EditableFields {
   machine_model: string;
   comment: string;
   machine_serial_number: string;
+  dealer_account_id: string;
+  dealer_account_number: string;
 }
 
 function recordToEditable(r: DbWarrantyRegistration): EditableFields {
@@ -528,8 +530,11 @@ function recordToEditable(r: DbWarrantyRegistration): EditableFields {
     machine_model: r.machineType ?? "",
     comment: r.comment ?? "",
     machine_serial_number: r.machineSerial ?? "",
+    dealer_account_id: r.dealerAccountId ?? "",
+    dealer_account_number: r.dealerAccountNumber ?? "",
   };
 }
+
 
 function CertificateDialog({
   record,
@@ -547,9 +552,44 @@ function CertificateDialog({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [auditMissing, setAuditMissing] = useState(false);
+  const [dealers, setDealers] = useState<Array<{ id: string; account_number: string; company_name: string }>>([]);
+
+  // Lazy-load dealer accounts the first time the internal user starts editing.
+  useEffect(() => {
+    if (!editing || !canEdit || dealers.length > 0) return;
+    let cancelled = false;
+    import("@/lib/dealerAccountsService").then(({ fetchDealerAccounts }) => {
+      fetchDealerAccounts({ includeDeleted: false }).then(({ rows }) => {
+        if (cancelled) return;
+        setDealers(
+          rows
+            .filter((d) => d.account_number && d.account_number.trim() !== "")
+            .map((d) => ({
+              id: d.id,
+              account_number: d.account_number,
+              company_name: d.company_name,
+            }))
+            .sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
+        );
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, canEdit, dealers.length]);
 
   function update<K extends keyof EditableFields>(key: K, value: EditableFields[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function selectDealer(dealerId: string) {
+    const d = dealers.find((x) => x.id === dealerId);
+    if (!d) return;
+    setForm((f) => ({
+      ...f,
+      dealer_account_id: d.id,
+      dealer_account_number: d.account_number,
+    }));
   }
 
   async function handleSave() {
@@ -563,6 +603,15 @@ function CertificateDialog({
       const prev = original[k]?.trim?.() ?? original[k];
       if (next !== prev) changes[k] = (next as string) || null;
     });
+    // Guard: never clear the dealer link from this editor.
+    if (
+      ("dealer_account_id" in changes && !changes.dealer_account_id) ||
+      ("dealer_account_number" in changes && !changes.dealer_account_number)
+    ) {
+      setSaving(false);
+      setSaveError("Forhandlerkoblingen kan ikke ryddes herfra. Brug matching-flowet.");
+      return;
+    }
     if (Object.keys(changes).length === 0) {
       setEditing(false);
       setSaving(false);
@@ -575,7 +624,6 @@ function CertificateDialog({
     setSaving(false);
     if (error) {
       const msg = error.message || String(error);
-      // Function missing → audit SQL not yet applied.
       if (
         /function .*warranty_update_registration/i.test(msg) ||
         /could not find the function/i.test(msg) ||
@@ -587,7 +635,8 @@ function CertificateDialog({
       }
       return;
     }
-    // Optimistic local merge — full list refresh happens in parent.
+    const dealerChanged = !!(changes.dealer_account_id || changes.dealer_account_number);
+    const newDealer = dealerChanged ? dealers.find((d) => d.id === form.dealer_account_id) : null;
     const merged: DbWarrantyRegistration = {
       ...record,
       customer: form.customer_name,
@@ -602,6 +651,10 @@ function CertificateDialog({
       machineType: form.machine_model,
       machineSerial: form.machine_serial_number,
       comment: form.comment,
+      dealerAccountId: form.dealer_account_id || record.dealerAccountId,
+      dealerAccountNumber: form.dealer_account_number || record.dealerAccountNumber,
+      dealerName: newDealer ? newDealer.company_name : record.dealerName,
+      dealerMatchStatus: dealerChanged ? "matched" : record.dealerMatchStatus,
     };
     setEditing(false);
     await onSaved(merged);
@@ -657,6 +710,8 @@ function CertificateDialog({
           </div>
         </div>
 
+        <DealerLinkBlock record={record} />
+
         {auditMissing && (
           <div className="border-b border-amber-100 bg-amber-50 px-6 py-3 text-xs text-amber-800">
             Redigering kræver audit-SQL. Kør{" "}
@@ -672,6 +727,29 @@ function CertificateDialog({
 
         {editing ? (
           <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm md:grid-cols-2">
+            <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                Forhandlerkonto
+              </span>
+              <select
+                value={form.dealer_account_id}
+                onChange={(e) => selectDealer(e.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+              >
+                {!form.dealer_account_id && (
+                  <option value="">— vælg forhandler —</option>
+                )}
+                {dealers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.company_name} (#{d.account_number})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Kan ikke ryddes herfra. Vælg en anden forhandler for at re-matche.
+                Kun forhandlere med kontonummer vises.
+              </p>
+            </div>
             <EditField label="Kunde" value={form.customer_name} onChange={(v) => update("customer_name", v)} />
             <EditField label="E-mail" value={form.customer_email} onChange={(v) => update("customer_email", v)} />
             <EditField label="Adresse" value={form.customer_address} onChange={(v) => update("customer_address", v)} span2 />
@@ -705,7 +783,6 @@ function CertificateDialog({
           </div>
         ) : (
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-6 py-5 text-sm md:grid-cols-2">
-            <DRow label="Forhandler" value={record.dealerName} />
             <DRow label="Kunde" value={record.customer} />
             <DRow label="Maskintype" value={record.machineType} />
             <DRow label="Serienr" value={record.machineSerial} mono />
@@ -717,6 +794,7 @@ function CertificateDialog({
             <DRow label="Telefon" value={record.phone} />
             <DRow label="E-mail" value={record.confirmationEmail} />
             <DRow label="Sprog" value={record.language ?? "—"} />
+            <DRow label="Oprettet af" value="SharePoint" />
             {record.toolSerials.length > 0 && (
               <DRow label="Redskaber" value={record.toolSerials.join(", ")} mono span2 />
             )}
@@ -733,6 +811,7 @@ function CertificateDialog({
         <HistorySection registrationId={record.id} />
       </div>
     </div>
+
   );
 }
 
@@ -855,7 +934,59 @@ function HistorySection({ registrationId }: { registrationId: string }) {
 
 
 
+function DealerLinkBlock({ record }: { record: DbWarrantyRegistration }) {
+  const missing = !record.dealerAccountId || !record.dealerAccountNumber;
+  const matchLabel: Record<string, string> = {
+    matched: "Matched",
+    needs_review: "Kræver gennemgang",
+    unmatched: "Ikke matched",
+  };
+  return (
+    <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Forhandler
+          </div>
+          <div className="font-bold text-slate-900">{record.dealerName || "—"}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Kontonummer
+          </div>
+          <div className="font-mono text-slate-800">
+            {record.dealerAccountNumber || "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Matchstatus
+          </div>
+          <div className="text-slate-800">
+            <MatchBadge status={record.dealerMatchStatus} />
+            <span className="ml-2 text-xs text-slate-500">
+              {matchLabel[record.dealerMatchStatus] ?? record.dealerMatchStatus}
+            </span>
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            SharePoint forhandlernavn
+          </div>
+          <div className="text-slate-700">{record.dealerNameSnapshot || "—"}</div>
+        </div>
+      </div>
+      {missing && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+          Registreringen er ikke koblet til en forhandlerkonto endnu.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DRow({
+
   label,
   value,
   mono,

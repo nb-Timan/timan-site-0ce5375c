@@ -16,7 +16,9 @@ import type { WarrantyRegistration } from "@/lib/warranty-store";
 
 export interface DbWarrantyRegistration extends WarrantyRegistration {
   dealerMatchStatus: "matched" | "needs_review" | "unmatched";
+  dealerAccountId: string | null;
   dealerAccountNumber: string | null;
+  dealerNameSnapshot: string | null;
   postalCode: string | null;
   city: string | null;
   country: string | null;
@@ -96,7 +98,9 @@ function mapRow(row: Row): DbWarrantyRegistration {
     comment: row.comment,
     status: row.is_active_in_source ? "active" : "archived",
     dealerMatchStatus: row.dealer_match_status,
+    dealerAccountId: row.dealer_account_id,
     dealerAccountNumber: row.dealer_account_number,
+    dealerNameSnapshot: row.dealer_name_snapshot,
     postalCode: row.customer_postal_code,
     city: row.customer_city,
     country: row.customer_country,
