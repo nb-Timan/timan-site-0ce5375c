@@ -373,7 +373,7 @@ Deno.serve(async (req) => {
         const slice = ids.slice(i, i + chunk);
         const { data, error } = await admin
           .from("warranty_registrations")
-          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_postal_code, customer_city, customer_country, dealer_account_id, dealer_account_number, dealer_match_status, is_active_in_source")
+          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_postal_code, customer_city, customer_country, dealer_account_id, dealer_account_number, dealer_match_status, dealer_match_method, dealer_match_confidence, dealer_match_reviewed_by, dealer_match_reviewed_at, is_active_in_source")
           .in("sharepoint_item_id", slice);
         if (error) {
           warnings.push(`Kunne ikke læse warranty_registrations: ${error.message}`);
