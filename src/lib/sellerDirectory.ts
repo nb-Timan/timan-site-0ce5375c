@@ -35,6 +35,7 @@ export interface SellerDirectoryEntry {
   initials: string;
   full_name: string;
   portal_role: string | null;
+  company: string | null;
 }
 
 export interface SellerDirectory {
