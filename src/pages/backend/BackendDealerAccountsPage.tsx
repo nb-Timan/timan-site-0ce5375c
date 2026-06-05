@@ -629,7 +629,9 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
               </span>
             )}
             {r.successor_dealer_id && (() => {
-              const succ = allDealersById.get(r.successor_dealer_id);
+              const succ = r.successor_dealer_account_number
+                ? dealersByAcct.get(r.successor_dealer_account_number)
+                : undefined;
               const label = succ?.company_name ?? r.successor_dealer_account_number ?? "Efterfølger";
               return (
                 <span
