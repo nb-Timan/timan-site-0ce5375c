@@ -952,14 +952,22 @@ function DealerLinkBlock({ record }: { record: DbWarrantyRegistration }) {
     needs_review: "Kræver gennemgang",
     unmatched: "Ikke matched",
   };
+  const officialName = record.dealerOfficialName;
   return (
     <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
       <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
         <div>
           <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Forhandler
+            Officiel forhandler
           </div>
-          <div className="font-bold text-slate-900">{record.dealerName || "—"}</div>
+          <div className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+            <span>{officialName ?? record.dealerNameSnapshot ?? "—"}</span>
+            {!officialName && (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                Ikke koblet
+              </span>
+            )}
+          </div>
         </div>
         <div>
           <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
