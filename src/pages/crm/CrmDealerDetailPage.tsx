@@ -33,6 +33,7 @@ import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccounts, fetchDealerAccountStats,
   updateDealerAccount, type UpdateDealerAccountPatch,
+  isDealerInactive, dealerLifecycleStatus, resolveActiveDealer,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
