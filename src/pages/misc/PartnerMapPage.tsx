@@ -497,6 +497,8 @@ export default function PartnerMapPage() {
         orders: st?.order_count ?? 0,
         phone: d.primary_contact_phone ?? d.phone ?? null,
         email: d.primary_contact_email ?? d.email ?? null,
+        website: d.website ?? null,
+        facebook: d.social_facebook ?? null,
       } as Partner;
     }), [dealers, stats, statusFilter]);
 
