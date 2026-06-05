@@ -7,12 +7,16 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Eye, PlusCircle, Search } from "lucide-react";
+import { Download, Eye, Loader2, PlusCircle, Search } from "lucide-react";
 import {
   MACHINE_TYPES,
-  useWarrantyRecords,
   type WarrantyRegistration,
 } from "@/lib/warranty-store";
+import {
+  useWarrantyRegistrationsDb,
+  type DbWarrantyRegistration,
+} from "@/lib/warrantyRegistrationsService";
+import { useAppUser } from "@/context/AppUserContext";
 import { formatDate } from "@/lib/format-date";
 
 export type WarrantyScope = "admin" | "dealer";
@@ -59,12 +63,16 @@ export function WarrantyRegistrationsTable({
   dealerName,
   showCertificateActions = false,
 }: Props) {
-  const all = useWarrantyRecords();
+  
+  const { appUser } = useAppUser();
+  const role = appUser?.portal_role ?? null;
+  const showMatchStatus = role === "timan_backend" || role === "timan_service";
+  const { records: all, loading, error } = useWarrantyRegistrationsDb();
   const [q, setQ] = useState("");
   const [machine, setMachine] = useState("");
   const [dealer, setDealer] = useState("");
   const [language, setLanguage] = useState("");
-  const [selected, setSelected] = useState<WarrantyRegistration | null>(null);
+  const [selected, setSelected] = useState<DbWarrantyRegistration | null>(null);
 
   const scoped = useMemo(() => {
     if (scope === "admin") return all;
@@ -147,12 +155,18 @@ export function WarrantyRegistrationsTable({
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-500">
-          {filtered.length} af {scoped.length} registreringer
+        <div className="border-b border-slate-100 px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-3">
+          <span>{filtered.length} af {scoped.length} registreringer</span>
+          {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
         </div>
+        {error && (
+          <div className="px-6 py-4 text-sm text-rose-700 bg-rose-50 border-b border-rose-100">
+            Kunne ikke hente registreringer: {error}
+          </div>
+        )}
         {filtered.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-slate-500">
-            Ingen registreringer matcher din søgning.
+            {loading ? "Henter registreringer…" : "Ingen registreringer matcher din søgning."}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -169,6 +183,7 @@ export function WarrantyRegistrationsTable({
                   <th className="px-6 py-3">
                     {scope === "admin" ? "Status" : "Sprog"}
                   </th>
+                  {showMatchStatus && <th className="px-6 py-3">Match</th>}
                   {showCertificateActions && (
                     <th className="px-6 py-3 text-right">Handlinger</th>
                   )}
@@ -183,6 +198,11 @@ export function WarrantyRegistrationsTable({
                     {scope === "admin" && (
                       <td className="px-6 py-3 font-bold text-slate-700">
                         {r.dealerName}
+                        {r.dealerAccountNumber && (
+                          <span className="ml-1 text-xs font-normal text-slate-400">
+                            #{r.dealerAccountNumber}
+                          </span>
+                        )}
                       </td>
                     )}
                     <td className="px-6 py-3">
@@ -200,7 +220,7 @@ export function WarrantyRegistrationsTable({
                     </td>
                     {scope === "admin" && (
                       <td className="whitespace-nowrap px-6 py-3 text-slate-600">
-                        {formatDate(r.createdAt)}
+                        {formatDate(r.registrationDate ?? r.sharepointModifiedAt ?? r.createdAt)}
                       </td>
                     )}
                     <td className="px-6 py-3">
@@ -210,6 +230,11 @@ export function WarrantyRegistrationsTable({
                         <span className="text-slate-500">{r.language ?? "—"}</span>
                       )}
                     </td>
+                    {showMatchStatus && (
+                      <td className="px-6 py-3">
+                        <MatchBadge status={r.dealerMatchStatus} />
+                      </td>
+                    )}
                     {showCertificateActions && (
                       <td className="whitespace-nowrap px-6 py-3 text-right">
                         <button
@@ -234,6 +259,7 @@ export function WarrantyRegistrationsTable({
         )}
       </div>
 
+
       {showCertificateActions && selected && (
         <CertificateDialog record={selected} onClose={() => setSelected(null)} />
       )}
@@ -255,6 +281,24 @@ function StatusBadge({ status }: { status: WarrantyRegistration["status"] }) {
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${v.cls}`}
     >
+      {v.label}
+    </span>
+  );
+}
+
+function MatchBadge({
+  status,
+}: {
+  status: "matched" | "needs_review" | "unmatched";
+}) {
+  const map = {
+    matched: { label: "Matched", cls: "bg-emerald-50 text-emerald-700" },
+    needs_review: { label: "Kræver gennemgang", cls: "bg-amber-50 text-amber-700" },
+    unmatched: { label: "Ikke matched", cls: "bg-rose-50 text-rose-700" },
+  } as const;
+  const v = map[status];
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${v.cls}`}>
       {v.label}
     </span>
   );

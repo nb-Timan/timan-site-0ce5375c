@@ -21,9 +21,9 @@ import {
   mostUsedMachineType,
   thisMonthCount,
   totalCount,
-  useWarrantyRecords,
   yearlyOverview,
 } from "@/lib/warranty-store";
+import { useWarrantyRegistrationsDb } from "@/lib/warrantyRegistrationsService";
 import { formatDate } from "@/lib/format-date";
 
 export type WarrantyScope = "admin" | "dealer";
@@ -65,7 +65,7 @@ export function WarrantyDashboardIntro({
 }
 
 export function WarrantyDashboardBody({ scope, dealerName }: Props) {
-  const all = useWarrantyRecords() ?? [];
+  const { records: all } = useWarrantyRegistrationsDb();
 
   const records = useMemo(() => {
     if (scope === "admin") return all;
