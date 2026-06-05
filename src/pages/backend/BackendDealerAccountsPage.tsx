@@ -420,6 +420,7 @@ export default function BackendDealerAccountsPage() {
                         }) : undefined,
                         groupAgg: hasBranches ? agg : undefined,
                         showDealerData: showDealerDataButton,
+                        formatCountry,
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
