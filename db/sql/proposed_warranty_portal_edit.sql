@@ -127,36 +127,31 @@ begin
       v_target_dealer_no := v_before.dealer_account_number;
     end if;
 
-    -- If either side was supplied we require both to resolve to the
-    -- same real dealer_account row. Allow explicit "clear" only when
-    -- BOTH are cleared.
+    -- Portal edit may re-match to a different VALID dealer, but it must
+    -- NEVER clear the dealer link (that would break the
+    -- warranty_registrations_matched_requires_dealer invariant and
+    -- bypass the proper unlink / matching workflow).
     if v_dealer_id_provided or v_dealer_no_provided then
-      if v_target_dealer_id is null and v_target_dealer_no is null then
-        -- explicit clear of dealer link — allowed, but row can no longer
-        -- be 'matched' (constraint enforces this; we mirror it below).
-        null;
-      else
-        if v_target_dealer_id is null or v_target_dealer_no is null then
-          raise exception
-            'dealer re-match requires both dealer_account_id and dealer_account_number'
-            using errcode = '22023';
-        end if;
+      if v_target_dealer_id is null or v_target_dealer_no is null then
+        raise exception
+          'Dealer link cannot be cleared from portal edit. Use matching workflow.'
+          using errcode = '22023';
+      end if;
 
-        select * into v_dealer_row
-          from public.dealer_accounts
-         where id = v_target_dealer_id;
-        if not found then
-          raise exception 'dealer_account % not found', v_target_dealer_id
-            using errcode = 'P0002';
-        end if;
+      select * into v_dealer_row
+        from public.dealer_accounts
+       where id = v_target_dealer_id;
+      if not found then
+        raise exception 'dealer_account % not found', v_target_dealer_id
+          using errcode = 'P0002';
+      end if;
 
-        if lower(btrim(coalesce(v_dealer_row.account_number, '')))
-           <> lower(btrim(v_target_dealer_no)) then
-          raise exception
-            'dealer_account_number % does not match dealer_account %',
-            v_target_dealer_no, v_target_dealer_id
-            using errcode = '22023';
-        end if;
+      if lower(btrim(coalesce(v_dealer_row.account_number, '')))
+         <> lower(btrim(v_target_dealer_no)) then
+        raise exception
+          'dealer_account_number % does not match dealer_account %',
+          v_target_dealer_no, v_target_dealer_id
+          using errcode = '22023';
       end if;
     end if;
   end if;
