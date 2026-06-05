@@ -37,6 +37,8 @@ import {
   groupDealersByParent,
   aggregateGroupStats,
   resolveEffectiveSeller,
+  buildSuccessorIndex,
+  dealerLifecycleStatus,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
