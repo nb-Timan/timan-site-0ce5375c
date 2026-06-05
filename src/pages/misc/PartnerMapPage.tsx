@@ -225,10 +225,12 @@ function ClusterLayer({
   partners,
   selectedId,
   onSelect,
+  lang,
 }: {
   partners: Partner[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  lang: Language;
 }) {
   const map = useMap();
   const clusterRef = useRef<any>(null);
@@ -260,14 +262,58 @@ function ClusterLayer({
     if (!cluster) return;
     cluster.clearLayers();
     markersRef.current.clear();
+
+    // Hover tooltips: only enable on devices with a real hover-capable pointer (i.e. not touch/mobile).
+    const hoverCapable = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    const tAccount = lang === 'da' ? 'Kontonr.' : lang === 'de' ? 'Konto-Nr.' : lang === 'it' ? 'N. conto' : lang === 'hu' ? 'Számlasz.' : 'Account';
+    const tSeller = T.assignedSeller[lang];
+
     for (const p of partners) {
       if (!p.coords) continue;
       const m = L.marker(p.coords, { icon: makePinDivIcon(p.type, selectedId === p.id) });
       m.on('click', () => onSelect(p.id));
+
+      if (hoverCapable) {
+        const color = TYPE_COLORS[p.type];
+        const typeLabel = T[p.type][lang];
+        const sellerText = [p.sellerName, p.seller ? `(${p.seller})` : ''].filter(Boolean).join(' ');
+        const sellerLine = sellerText
+          ? `<div class="pm-tt-row"><span class="pm-tt-k">${escapeHtml(tSeller)}:</span> ${escapeHtml(sellerText)}</div>`
+          : '';
+        const html = `
+          <div class="pm-tt" style="border-left:3px solid ${color}">
+            <div class="pm-tt-name">${escapeHtml(p.name)}</div>
+            <div class="pm-tt-type" style="color:${color}">${escapeHtml(typeLabel)}</div>
+            ${p.country ? `<div class="pm-tt-row">${escapeHtml(p.country)}</div>` : ''}
+            ${p.account ? `<div class="pm-tt-row"><span class="pm-tt-k">${escapeHtml(tAccount)}:</span> <span class="pm-tt-mono">${escapeHtml(p.account)}</span></div>` : ''}
+            ${sellerLine}
+          </div>`;
+        m.bindTooltip(html, {
+          direction: 'top',
+          offset: [0, -36],
+          opacity: 1,
+          className: 'pm-tooltip',
+          sticky: false,
+          interactive: false,
+        });
+        let timer: any = null;
+        m.on('mouseover', () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { try { m.openTooltip(); } catch { /* noop */ } }, 200);
+        });
+        m.on('mouseout', () => {
+          if (timer) { clearTimeout(timer); timer = null; }
+          try { m.closeTooltip(); } catch { /* noop */ }
+        });
+      }
+
       cluster.addLayer(m);
       markersRef.current.set(p.id, m);
     }
-  }, [partners, selectedId, onSelect]);
+  }, [partners, selectedId, onSelect, lang]);
 
   return null;
 }
@@ -602,6 +648,15 @@ export default function PartnerMapPage() {
         .leaflet-control-zoom a:hover { color:${TIMAN_GREEN} !important; }
         .leaflet-control-zoom { border:none !important; margin-bottom:24px !important; margin-left:16px !important; }
         .leaflet-control-attribution { font-size:9px !important; background:rgba(255,255,255,.75) !important; }
+        .leaflet-tooltip.pm-tooltip { background:white; border:1px solid rgba(0,0,0,.08); border-radius:8px;
+          box-shadow:0 6px 20px rgba(0,0,0,.18); padding:0; pointer-events:none; white-space:normal; max-width:240px; }
+        .leaflet-tooltip.pm-tooltip:before { display:none; }
+        .pm-tt { padding:8px 10px; font-family:inherit; min-width:170px; }
+        .pm-tt-name { font-size:13px; font-weight:700; color:#111; line-height:1.25; margin-bottom:2px; }
+        .pm-tt-type { font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; margin-bottom:4px; }
+        .pm-tt-row { font-size:11px; color:#374151; line-height:1.5; }
+        .pm-tt-k { color:#6b7280; }
+        .pm-tt-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
@@ -813,7 +868,7 @@ export default function PartnerMapPage() {
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     {showPartnerLayer && (
-                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} />
+                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
                     )}
                     {canSeeMachineStats && showMachineLayer && (
                       <MachineLayer pins={visibleMachinePins} />
