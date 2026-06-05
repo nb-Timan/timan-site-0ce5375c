@@ -65,7 +65,7 @@ export function WarrantyDashboardIntro({
 }
 
 export function WarrantyDashboardBody({ scope, dealerName }: Props) {
-  const all = useWarrantyRecords() ?? [];
+  const { records: all } = useWarrantyRegistrationsDb();
 
   const records = useMemo(() => {
     if (scope === "admin") return all;
