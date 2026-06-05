@@ -62,6 +62,9 @@ function fmtPostalCity(pc?: string | null, city?: string | null): string {
 }
 
 function buildCertificateNumber(row: Row): string {
+  if (row.sharepoint_form_id !== null && row.sharepoint_form_id !== undefined) {
+    return `SP-${row.sharepoint_form_id}`;
+  }
   if (row.sharepoint_item_id) return `SP-${row.sharepoint_item_id}`;
   return row.id.slice(0, 8).toUpperCase();
 }
