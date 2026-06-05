@@ -110,6 +110,8 @@ interface SyncResult {
   deactivated: number;
   conflicts_count?: number;
   conflicts?: SyncConflict[];
+  manual_matches_preserved_count?: number;
+  fields_preserved_from_portal_count?: number;
   warnings: string[];
   durationMs: number;
 }
