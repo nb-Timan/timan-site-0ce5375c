@@ -1381,6 +1381,7 @@ function ImportCsvModal({
   onDone: () => void | Promise<void>;
   onError: (msg: string) => void;
 }) {
+  const { formatCountry } = useCountryFormatter();
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<CsvParsedRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
