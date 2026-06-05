@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
-import WarrantyDealerLinkBackfillPanel from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
+import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
 import SyncSection from "@/components/backend/SyncSection";
 import { useLatestDealerSyncLog, badgeFromLatest } from "@/lib/syncStatusBadge";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
