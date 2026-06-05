@@ -112,7 +112,7 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
   const { data, error } = await supabase
     .from("warranty_registrations")
     .select(
-      "id, sharepoint_item_id, sharepoint_modified_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
+      "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
     )
     .eq("is_active_in_source", true)
     .order("registration_date", { ascending: false, nullsFirst: false })
