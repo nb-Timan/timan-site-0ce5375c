@@ -18,6 +18,7 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
+import GeocodeWarrantyCustomersPanel from "@/components/backend/GeocodeWarrantyCustomersPanel";
 import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
 import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
 import SyncSection from "@/components/backend/SyncSection";
@@ -155,6 +156,14 @@ function WarrantyTab() {
       >
         <WarrantyDealerLinkBackfillPanel />
       </SyncSection>
+
+      <SyncSection
+        title="Geocoding (kundeadresser)"
+        description="Find geokoordinater for kundeadresser på garantiregistreringer — bruges af machine-laget på partnerkortet."
+      >
+        <GeocodeWarrantyCustomersPanel />
+      </SyncSection>
+
 
       <ComingSoonCard
         title="Eksport garantiregistreringer"
