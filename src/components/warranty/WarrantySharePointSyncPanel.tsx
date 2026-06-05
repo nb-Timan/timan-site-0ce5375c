@@ -168,8 +168,9 @@ export default function WarrantySharePointSyncPanel() {
     setModal({ kind: "sync-result", busy: true, error: null, data: null });
     const { data, error } = await invokeFn<SyncResult>("sharepoint-warranty-sync");
     if (!error && data) {
+      const conf = data.conflicts_count ?? 0;
       toast.success("Warranty sync gennemført", {
-        description: `${data.created} oprettet · ${data.updated} opdateret · ${data.unchanged} uændret`,
+        description: `${data.created} oprettet · ${data.updated} opdateret · ${data.unchanged} uændret${conf > 0 ? ` · ${conf} konflikt${conf === 1 ? "" : "er"}` : ""}`,
       });
     } else if (error) {
       toast.error("Warranty sync fejlede", { description: error });
