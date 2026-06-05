@@ -32,6 +32,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
+import { useSellerDirectory } from "@/lib/sellerDirectory";
 
 
 export type WarrantyScope = "admin" | "dealer";
