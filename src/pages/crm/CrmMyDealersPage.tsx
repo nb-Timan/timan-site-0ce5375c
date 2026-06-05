@@ -369,6 +369,7 @@ export default function CrmMyDealersPage() {
                       ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
                       : [g.main.account_number],
                     onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                    formatCountry,
                   })}
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
