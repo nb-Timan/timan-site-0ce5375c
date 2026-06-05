@@ -625,6 +625,7 @@ export default function CrmDealerDetailPage() {
               contacts={dealerContacts}
               lang={lang}
               admin={admin}
+              showDealerData={canAccess}
               isBranch={isBranch}
               mainDealer={mainDealer ?? null}
               hasGroup={hasGroup}
