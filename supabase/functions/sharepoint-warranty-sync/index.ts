@@ -186,6 +186,25 @@ function toDateOrNull(raw: string | null): string | null {
   return m ? m[1] : null;
 }
 
+// Split SharePoint "Postnr/by" free-text into (postal_code, city).
+// Handles "2630 Taastrup", "2630  Taastrup", "DK-2630 Taastrup",
+// "Taastrup 2630", or city-only / postal-only inputs. Returns nulls when
+// the input is empty.
+function splitZipCity(raw: string): { postal_code: string | null; city: string | null } {
+  const t = (raw ?? "").trim();
+  if (!t) return { postal_code: null, city: null };
+  // "<prefix-?><digits> <city...>"
+  let m = /^(?:[A-Za-z]{1,3}-)?(\d{3,5})\s+(.+)$/.exec(t);
+  if (m) return { postal_code: m[1], city: m[2].trim() };
+  // "<city...> <digits>"
+  m = /^(.+?)\s+(\d{3,5})$/.exec(t);
+  if (m) return { postal_code: m[2], city: m[1].trim() };
+  // Pure digits → postal only
+  if (/^\d{3,5}$/.test(t)) return { postal_code: t, city: null };
+  // Otherwise treat as city only
+  return { postal_code: null, city: t };
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -332,7 +351,7 @@ Deno.serve(async (req) => {
         const slice = ids.slice(i, i + chunk);
         const { data, error } = await admin
           .from("warranty_registrations")
-          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_zip_city, dealer_account_id, dealer_account_number, dealer_match_status, is_active_in_source")
+          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_postal_code, customer_city, customer_country, dealer_account_id, dealer_account_number, dealer_match_status, is_active_in_source")
           .in("sharepoint_item_id", slice);
         if (error) {
           warnings.push(`Kunne ikke læse warranty_registrations: ${error.message}`);
@@ -396,25 +415,40 @@ Deno.serve(async (req) => {
       else unmatchedCount++;
 
       const ex = existingById.get(r.m.sharepoint_item_id);
+      const zipCity = splitZipCity(r.m.customer_zip_city);
       const payload = {
+        // Source / identity
         sharepoint_item_id: r.m.sharepoint_item_id,
         source: "sharepoint",
+        sharepoint_modified_at: r.m.source_modified_at,
+
+        // Machine
         machine_serial_number: r.m.machine_serial_number,
         machine_serial_raw: r.m.machine_serial_raw || r.m.machine_serial_number,
         machine_model: r.m.machine_model || null,
         tool_serials: r.m.tool_serials,
+
+        // Dealer relation (name-first; unmatched keeps id+number = null)
         dealer_name_snapshot: r.m.dealer_name_snapshot || "(ukendt)",
         dealer_account_id: r.dealer_account_id,
         dealer_account_number: r.dealer_account_number,
         dealer_match_status: r.dealer_match_status,
         dealer_match_method: r.dealer_match_method,
         dealer_match_confidence: r.dealer_match_confidence,
+
+        // Customer (PII)
         customer_name: r.m.customer_name || null,
         customer_address: r.m.customer_address || null,
+        customer_postal_code: zipCity.postal_code,
+        customer_city: zipCity.city,
+        customer_country: null, // SharePoint does not provide country
         customer_phone: r.m.customer_phone || null,
         customer_email: r.m.customer_email || null,
+
+        // Form
         delivery_date: toDateOrNull(r.m.delivery_date),
-        sharepoint_modified_at: r.m.source_modified_at,
+
+        // Lifecycle
         is_active_in_source: true,
         last_synced_at: new Date().toISOString(),
       };
@@ -432,6 +466,8 @@ Deno.serve(async (req) => {
           (ex.customer_email ?? "") !== (payload.customer_email ?? "") ||
           (ex.customer_address ?? "") !== (payload.customer_address ?? "") ||
           (ex.customer_phone ?? "") !== (payload.customer_phone ?? "") ||
+          (ex.customer_postal_code ?? "") !== (payload.customer_postal_code ?? "") ||
+          (ex.customer_city ?? "") !== (payload.customer_city ?? "") ||
           (ex.dealer_account_id ?? null) !== (payload.dealer_account_id ?? null) ||
           (ex.dealer_match_status ?? "") !== payload.dealer_match_status ||
           ex.is_active_in_source !== true;
