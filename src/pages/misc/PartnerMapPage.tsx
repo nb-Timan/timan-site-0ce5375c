@@ -323,9 +323,16 @@ export default function PartnerMapPage() {
       for (const s of sRes.rows ?? []) map[s.id] = s;
       setStats(map);
       setLoading(false);
+
+      if (canSeeMachineStats) {
+        const ids = dRes.rows.map((d) => d.id);
+        const ms = await fetchPartnerMachineStats(ids).catch(() => ({}));
+        if (!alive) return;
+        setMachineStats(ms);
+      }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [canSeeMachineStats]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
