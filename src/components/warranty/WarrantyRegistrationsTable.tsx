@@ -779,16 +779,50 @@ function CertificateDialog({
                 {!form.dealer_account_id && (
                   <option value="">— vælg forhandler —</option>
                 )}
-                {dealers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.company_name} (#{d.account_number})
-                  </option>
-                ))}
+                {dealers.map((d) => {
+                  const statusLabel = d.isDeleted
+                    ? "Lukket"
+                    : d.isBlocked
+                      ? "Spærret"
+                      : "Aktiv";
+                  const successor = d.successorDealerId
+                    ? dealers.find((s) => s.id === d.successorDealerId)
+                    : null;
+                  const suffix = successor
+                    ? ` · Lukket → ${successor.company_name}`
+                    : ` · ${statusLabel}`;
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {d.company_name} (#{d.account_number}){suffix}
+                    </option>
+                  );
+                })}
               </select>
               <p className="mt-1 text-[11px] text-slate-500">
                 Kan ikke ryddes herfra. Vælg en anden forhandler for at re-matche.
-                Kun forhandlere med kontonummer vises.
+                Aktive, spærrede og lukkede forhandlere vises.
               </p>
+
+              {selectedStatus && selectedStatus !== "active" && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-bold text-amber-800">
+                      {selectedStatus === "closed"
+                        ? "Denne forhandler er lukket. Overvej at vælge efterfølgeren."
+                        : "Denne forhandler er spærret. Overvej at vælge efterfølgeren."}
+                    </span>
+                    {selectedSuccessor && (
+                      <button
+                        type="button"
+                        onClick={selectSuccessor}
+                        className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+                      >
+                        Vælg {selectedSuccessor.company_name} i stedet
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <EditField label="Kunde" value={form.customer_name} onChange={(v) => update("customer_name", v)} />
             <EditField label="E-mail" value={form.customer_email} onChange={(v) => update("customer_email", v)} />
