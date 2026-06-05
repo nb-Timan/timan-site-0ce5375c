@@ -867,6 +867,20 @@ function EditDealerModal({
         const r = await setDealerParent(dealer.account_number, newParent, true);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke opdatere hovedforhandler");
       }
+
+      // 6. Successor / efterfølger (kun relevant når dealer er spærret/lukket).
+      const currentSuccId = dealer.successor_dealer_id ?? "";
+      const currentReason = dealer.closed_reason ?? "";
+      const trimmedReason = closedReason.trim();
+      if (currentSuccId !== successorId || currentReason !== trimmedReason) {
+        const succ = successorId ? allDealers.find((d) => d.id === successorId) : null;
+        const r = await setDealerSuccessor(dealer.id, {
+          successorDealerId: successorId || null,
+          successorDealerAccountNumber: succ?.account_number ?? null,
+          closedReason: trimmedReason || null,
+        });
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme efterfølger");
+      }
       await onSaved();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
