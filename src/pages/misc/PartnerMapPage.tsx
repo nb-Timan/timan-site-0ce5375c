@@ -692,7 +692,7 @@ export default function PartnerMapPage() {
                     <div key={p.id} className="py-1.5 flex items-center justify-between gap-3 text-xs">
                       <div className="min-w-0">
                         <div className="font-semibold text-gray-900 truncate">{p.name} <span className="text-gray-400 font-mono ml-1">#{p.account}</span></div>
-                        <div className="text-gray-500 truncate">{[p.addressLine1, p.postal, p.city, p.country].filter(Boolean).join(', ') || '—'}</div>
+                        <div className="text-gray-500 truncate">{[p.addressLine1, p.postal, p.city, formatCountry(p.country)].filter(Boolean).join(', ') || '—'}</div>
                       </div>
                       <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: TYPE_COLORS[p.type] }} />
                     </div>
