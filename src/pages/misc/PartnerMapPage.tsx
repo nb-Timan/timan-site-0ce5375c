@@ -281,6 +281,8 @@ export default function PartnerMapPage() {
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
+  // Phase 60 — successor filter. Default: kun aktive forhandlere på kortet.
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
@@ -312,7 +314,13 @@ export default function PartnerMapPage() {
   }, []);
 
   const partners: Partner[] = useMemo(() => dealers
-    .filter((d) => !d.is_deleted)
+    .filter((d) => {
+      if (d.is_deleted && statusFilter === 'active') return false;
+      if (d.is_blocked && statusFilter === 'active') return false;
+      if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
+      // 'all' inkluderer alt undtagen hard-deleted (men is_deleted=true er soft-delete = lukket — vises ved inactive/all)
+      return true;
+    })
     .map((d) => {
       const st = stats[d.id];
       const hasCoords = d.latitude != null && d.longitude != null;
@@ -335,7 +343,7 @@ export default function PartnerMapPage() {
         phone: d.primary_contact_phone ?? d.phone ?? null,
         email: d.primary_contact_email ?? d.email ?? null,
       } as Partner;
-    }), [dealers, stats]);
+    }), [dealers, stats, statusFilter]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
