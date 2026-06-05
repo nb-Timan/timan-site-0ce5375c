@@ -477,6 +477,8 @@ Deno.serve(async (req) => {
     let matchedCount = 0;
     let needsReviewCount = 0;
     let unmatchedCount = 0;
+    let manualMatchesPreservedCount = 0;
+    let fieldsPreservedFromPortalCount = 0;
 
     interface ConflictEntry {
       registration_id: string;
@@ -490,10 +492,6 @@ Deno.serve(async (req) => {
 
     const upserts: any[] = [];
     for (const r of resolved) {
-      if (r.dealer_match_status === "matched") matchedCount++;
-      else if (r.dealer_match_status === "needs_review") needsReviewCount++;
-      else unmatchedCount++;
-
       const ex = existingById.get(r.m.sharepoint_item_id);
       const zipCity = splitZipCity(r.m.customer_zip_city);
       const payload: Record<string, unknown> = {
@@ -534,6 +532,28 @@ Deno.serve(async (req) => {
         last_synced_at: new Date().toISOString(),
       };
 
+      // ---- Preserve manual dealer matches ----
+      // If timan_backend/timan_service has manually linked this row to a
+      // dealer (dealer_match_method = 'manual'), SharePoint sync must NEVER
+      // downgrade or rewrite the dealer link — even if the SP name now
+      // matches another dealer or matches nothing.
+      const exMethod = ex?.dealer_match_method as string | null | undefined;
+      const exDealerId = ex?.dealer_account_id as string | null | undefined;
+      if (ex && exMethod === "manual" && exDealerId) {
+        payload.dealer_account_id = ex.dealer_account_id;
+        payload.dealer_account_number = ex.dealer_account_number ?? null;
+        payload.dealer_match_status = "matched";
+        payload.dealer_match_method = "manual";
+        payload.dealer_match_confidence = ex.dealer_match_confidence ?? null;
+        manualMatchesPreservedCount++;
+      }
+
+      // Count buckets reflect the FINAL state after manual-match protection.
+      const finalStatus = payload.dealer_match_status as string;
+      if (finalStatus === "matched") matchedCount++;
+      else if (finalStatus === "needs_review") needsReviewCount++;
+      else unmatchedCount++;
+
       // ---- Protect portal-edited fields from being overwritten ----
       if (ex) {
         const protectedSet = portalEditedByRegId.get(String(ex.id));
@@ -544,6 +564,7 @@ Deno.serve(async (req) => {
             const same = String(portalVal ?? "") === String(spVal ?? "");
             // Always restore portal value so sync never overwrites it.
             payload[field] = portalVal;
+            fieldsPreservedFromPortalCount++;
             if (!same) {
               conflicts.push({
                 registration_id: String(ex.id),
