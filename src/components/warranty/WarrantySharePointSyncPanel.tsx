@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
-  ScanSearch, CloudDownload, CheckCircle2, Check,
+  ScanSearch, CloudDownload, CheckCircle2, Check, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
