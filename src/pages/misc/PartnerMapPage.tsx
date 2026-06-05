@@ -670,6 +670,26 @@ export default function PartnerMapPage() {
                 <option value="inactive">Spærrede/Lukkede</option>
                 <option value="all">Alle</option>
               </select>
+              {canSeeMachineStats && (
+                <div className="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
+                  <button
+                    onClick={() => setShowPartnerLayer((v) => !v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showPartnerLayer ? 'bg-gray-50 text-gray-800 border-gray-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
+                    title="Vis partnere"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: showPartnerLayer ? TYPE_COLORS.dealer : '#d1d5db' }} />
+                    Partnere
+                  </button>
+                  <button
+                    onClick={() => setShowMachineLayer((v) => !v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showMachineLayer ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
+                    title="Vis registrerede maskiner"
+                  >
+                    <Wrench className="h-3 w-3" />
+                    Maskiner {showMachineLayer ? <span className="font-bold tabular-nums">({visibleMachinePins.length})</span> : null}
+                  </button>
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
                   <Home className="h-4 w-4" />
