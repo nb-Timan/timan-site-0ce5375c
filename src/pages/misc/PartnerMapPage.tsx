@@ -648,6 +648,15 @@ export default function PartnerMapPage() {
         .leaflet-control-zoom a:hover { color:${TIMAN_GREEN} !important; }
         .leaflet-control-zoom { border:none !important; margin-bottom:24px !important; margin-left:16px !important; }
         .leaflet-control-attribution { font-size:9px !important; background:rgba(255,255,255,.75) !important; }
+        .leaflet-tooltip.pm-tooltip { background:white; border:1px solid rgba(0,0,0,.08); border-radius:8px;
+          box-shadow:0 6px 20px rgba(0,0,0,.18); padding:0; pointer-events:none; white-space:normal; max-width:240px; }
+        .leaflet-tooltip.pm-tooltip:before { display:none; }
+        .pm-tt { padding:8px 10px; font-family:inherit; min-width:170px; }
+        .pm-tt-name { font-size:13px; font-weight:700; color:#111; line-height:1.25; margin-bottom:2px; }
+        .pm-tt-type { font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; margin-bottom:4px; }
+        .pm-tt-row { font-size:11px; color:#374151; line-height:1.5; }
+        .pm-tt-k { color:#6b7280; }
+        .pm-tt-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
