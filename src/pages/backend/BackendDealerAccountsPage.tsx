@@ -139,6 +139,8 @@ export default function BackendDealerAccountsPage() {
   const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
 
+  const showDealerDataButton = portalRole === "timan_backend" || portalRole === "timan_service" || portalRole === "timan_seller";
+
   const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
