@@ -139,7 +139,7 @@ export default function CrmMyDealersPage() {
         if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
-            fetchDealerAccounts({ includeDeleted: false }),
+            fetchDealerAccounts({ includeDeleted: true }),
             fetchDealerAccountStats(),
             fetchBackendUsers(),
           ]);
