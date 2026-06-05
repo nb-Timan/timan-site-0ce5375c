@@ -26,6 +26,7 @@ import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCountryFormatter } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
