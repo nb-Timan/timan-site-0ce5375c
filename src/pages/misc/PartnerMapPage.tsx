@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -15,7 +15,7 @@ import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type 
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
-import { fetchWarrantyMachinePins, type WarrantyMachinePin } from '@/lib/warrantyMachinePinsService';
+import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { formatDate } from '@/lib/format-date';
 
@@ -39,6 +39,8 @@ interface Partner {
   orders: number;
   phone: string | null;
   email: string | null;
+  website: string | null;
+  facebook: string | null;
 }
 
 const TIMAN_GREEN = '#2d5a27';
@@ -355,7 +357,10 @@ function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
       const dd = p.deliveryDate ? new Date(p.deliveryDate).toLocaleDateString('da-DK') : '';
       const html = `
         <div style="font-family:inherit; min-width:200px;">
-          <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Registreret maskine</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px;">
+            <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e;">Registreret maskine</div>
+            ${p.spId ? `<div style="font-size:10px; font-family:ui-monospace,monospace; color:#9ca3af;">${escapeHtml(p.spId)}</div>` : ''}
+          </div>
           <div style="font-size:13px; font-weight:700; color:#111; margin-bottom:6px;">${escapeHtml(p.machineModel) || '—'}</div>
           <div style="font-size:11px; color:#374151; line-height:1.6;">
             ${p.machineSerial ? `<div><span style="color:#6b7280">Serienr.:</span> <span style="font-family:ui-monospace,monospace">${escapeHtml(p.machineSerial)}</span></div>` : ''}
@@ -430,6 +435,7 @@ export default function PartnerMapPage() {
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [machineStats, setMachineStats] = useState<Record<string, PartnerMachineStats>>({});
   const [machinePinsAll, setMachinePinsAll] = useState<WarrantyMachinePin[]>([]);
+  const [machineMissingAll, setMachineMissingAll] = useState<WarrantyMachineMissing[]>([]);
   // Layer visibility — partners always on; machine layer opt-in (and role-gated).
   const [showPartnerLayer, setShowPartnerLayer] = useState(true);
   const [showMachineLayer, setShowMachineLayer] = useState(false);
@@ -454,13 +460,15 @@ export default function PartnerMapPage() {
 
       if (canSeeMachineStats) {
         const ids = dRes.rows.map((d) => d.id);
-        const [ms, mp] = await Promise.all([
+        const [ms, mp, mm] = await Promise.all([
           fetchPartnerMachineStats(ids).catch(() => ({})),
           fetchWarrantyMachinePins().catch(() => ({ rows: [] as WarrantyMachinePin[], error: null as string | null })),
+          fetchWarrantyMachineMissingCoords().catch(() => ({ rows: [] as WarrantyMachineMissing[], error: null as string | null })),
         ]);
         if (!alive) return;
         setMachineStats(ms);
         setMachinePinsAll(mp.rows);
+        setMachineMissingAll(mm.rows);
       }
     })();
     return () => { alive = false; };
@@ -495,6 +503,8 @@ export default function PartnerMapPage() {
         orders: st?.order_count ?? 0,
         phone: d.primary_contact_phone ?? d.phone ?? null,
         email: d.primary_contact_email ?? d.email ?? null,
+        website: d.website ?? null,
+        facebook: d.social_facebook ?? null,
       } as Partner;
     }), [dealers, stats, statusFilter]);
 
@@ -517,6 +527,19 @@ export default function PartnerMapPage() {
     }
     return machinePinsAll;
   }, [machinePinsAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
+
+  const visibleMachineMissing = useMemo(() => {
+    if (!canSeeMachineStats) return [];
+    if (portalRole === 'timan_seller') {
+      const me = (currentSellerInitials ?? '').toUpperCase();
+      if (!me) return [];
+      const ownDealerIds = new Set(
+        dealers.filter((d) => (d.assigned_seller_initials ?? '').toUpperCase() === me).map((d) => d.id),
+      );
+      return machineMissingAll.filter((r) => r.dealerAccountId && ownDealerIds.has(r.dealerAccountId));
+    }
+    return machineMissingAll;
+  }, [machineMissingAll, canSeeMachineStats, portalRole, currentSellerInitials, dealers]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
@@ -889,6 +912,58 @@ export default function PartnerMapPage() {
               </div>
             </div>
 
+            {/* Machine layer summary + missing coordinates (warranty) */}
+            {!loading && canSeeMachineStats && showMachineLayer && (
+              <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wrench className="h-4 w-4 text-amber-600" />
+                  <div className="text-sm font-bold text-gray-900">Garantiregistreringer på kortet</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">I alt</div>
+                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachinePins.length + visibleMachineMissing.length}</div>
+                  </div>
+                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Vist på kortet</div>
+                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachinePins.length}</div>
+                  </div>
+                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Mangler koordinater</div>
+                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachineMissing.length}</div>
+                  </div>
+                </div>
+                {visibleMachineMissing.length > 0 && (
+                  <details>
+                    <summary className="cursor-pointer text-xs font-semibold text-gray-700 hover:text-amber-700">
+                      Vis registreringer uden koordinater ({visibleMachineMissing.length})
+                    </summary>
+                    <div className="mt-2 max-h-64 overflow-auto divide-y divide-gray-100 border border-gray-100 rounded-lg">
+                      {visibleMachineMissing.map((r) => {
+                        const city = [r.customerCity, r.customerCountry ? formatCountry(r.customerCountry) : ''].filter(Boolean).join(', ');
+                        return (
+                          <div key={r.id} className="px-3 py-1.5 text-xs flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-gray-900 truncate">
+                                {r.machineModel || '—'}
+                                {r.machineSerial && <span className="ml-2 text-gray-400 font-mono">{r.machineSerial}</span>}
+                              </div>
+                              <div className="text-gray-500 truncate">
+                                {r.dealerNameSnapshot || '—'}
+                                {r.dealerAccountNumber && <span className="ml-1 text-gray-400 font-mono">#{r.dealerAccountNumber}</span>}
+                                {city && <span className="ml-2">· {city}</span>}
+                              </div>
+                            </div>
+                            {r.spId && <span className="shrink-0 text-[10px] font-mono text-gray-400">{r.spId}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+
             {/* Missing coordinates */}
             {!loading && (missingCoords.length > 0 || loadError) && (
               <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
@@ -1062,6 +1137,7 @@ export default function PartnerMapPage() {
                 const routeHref = selected.coords
                   ? `https://www.google.com/maps/dir/?api=1&destination=${selected.coords[0]},${selected.coords[1]}`
                   : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressForRoute)}`;
+                const normalizeUrl = (u: string) => /^https?:\/\//i.test(u) ? u : `https://${u}`;
                 const buttons: React.ReactNode[] = [];
                 if (selected.phone) {
                   buttons.push(
@@ -1077,6 +1153,20 @@ export default function PartnerMapPage() {
                     </a>
                   );
                 }
+                if (selected.website && selected.website.trim()) {
+                  buttons.push(
+                    <a key="web" href={normalizeUrl(selected.website.trim())} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Globe className="h-4 w-4" /> Hjemmeside
+                    </a>
+                  );
+                }
+                if (selected.facebook && selected.facebook.trim()) {
+                  buttons.push(
+                    <a key="fb" href={normalizeUrl(selected.facebook.trim())} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#1877f2] hover:text-[#1877f2] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                      <Facebook className="h-4 w-4" /> Facebook
+                    </a>
+                  );
+                }
                 if (canRoute) {
                   buttons.push(
                     <a key="route" href={routeHref} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:border-[#2d5a27] hover:text-[#2d5a27] text-gray-700 rounded-lg text-sm font-semibold transition-colors">
@@ -1085,7 +1175,8 @@ export default function PartnerMapPage() {
                   );
                 }
                 if (buttons.length === 0) return null;
-                return <div className={`grid gap-2 ${buttons.length === 1 ? 'grid-cols-1' : buttons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{buttons}</div>;
+                const cols = buttons.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+                return <div className={`grid gap-2 ${cols}`}>{buttons}</div>;
               })()}
 
               {canOpenCrm && (
