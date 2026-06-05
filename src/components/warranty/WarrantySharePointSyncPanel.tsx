@@ -808,12 +808,41 @@ function ApprovalRow({
   dealersLoading: boolean;
   onApproved: () => void | Promise<void>;
 }) {
-  const [selected, setSelected] = useState<string>(
-    group.candidates[0]?.dealer_account_id ?? "",
-  );
+  // Indeks for hurtige opslag.
+  const byId = useMemo(() => {
+    const m = new Map<string, DealerAccount>();
+    for (const d of dealers) m.set(d.id, d);
+    return m;
+  }, [dealers]);
+  const byAcct = useMemo(() => {
+    const m = new Map<string, DealerAccount>();
+    for (const d of dealers) m.set(d.account_number, d);
+    return m;
+  }, [dealers]);
+
+  // Hvis første kandidat er lukket/spærret og har en aktiv successor, så
+  // foreslå successoren i stedet (kræver stadig manuel godkendelse).
+  const initialSelection = useMemo(() => {
+    const firstId = group.candidates[0]?.dealer_account_id ?? "";
+    if (!firstId) return "";
+    const cand = byId.get(firstId);
+    if (cand && (cand.is_blocked || cand.is_deleted) && cand.successor_dealer_account_number) {
+      const succ = byAcct.get(cand.successor_dealer_account_number);
+      if (succ && !succ.is_blocked && !succ.is_deleted) return succ.id;
+    }
+    return firstId;
+  }, [group.candidates, byId, byAcct]);
+
+  const [selected, setSelected] = useState<string>(initialSelection);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+
+  // Hold selected i sync når dealers indlæses.
+  useEffect(() => { if (!selected && initialSelection) setSelected(initialSelection); }, [initialSelection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedDealer = selected ? byId.get(selected) : undefined;
+  const selectedIsInactive = !!(selectedDealer && (selectedDealer.is_blocked || selectedDealer.is_deleted));
 
   async function approve() {
     setErr(null);
@@ -906,14 +935,56 @@ function ApprovalRow({
           </div>
 
           {group.candidates.length > 0 && (
-            <ul className="mt-1.5 space-y-0.5">
-              {group.candidates.map((c) => (
-                <li key={c.dealer_account_id} className="text-[11px] text-slate-700">
-                  <span className="font-bold text-amber-800">{c.company_name}</span>
-                  <span className="ml-2 font-mono text-slate-600">{c.account_number ?? "—"}</span>
-                  <span className="ml-2 text-slate-500">score {c.score.toFixed(3)}</span>
-                </li>
-              ))}
+            <ul className="mt-1.5 space-y-1">
+              {group.candidates.map((c) => {
+                const dealer = byId.get(c.dealer_account_id);
+                const inactive = !!(dealer && (dealer.is_blocked || dealer.is_deleted));
+                const succ = dealer?.successor_dealer_account_number
+                  ? byAcct.get(dealer.successor_dealer_account_number)
+                  : undefined;
+                return (
+                  <li key={c.dealer_account_id} className="text-[11px] text-slate-700">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`font-bold ${inactive ? "text-rose-700 line-through" : "text-amber-800"}`}>
+                        {c.company_name}
+                      </span>
+                      <span className="font-mono text-slate-600">{c.account_number ?? "—"}</span>
+                      <span className="text-slate-500">score {c.score.toFixed(3)}</span>
+                      {dealer?.is_deleted && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">
+                          Lukket
+                        </span>
+                      )}
+                      {dealer?.is_blocked && !dealer?.is_deleted && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                          Spærret
+                        </span>
+                      )}
+                    </div>
+                    {inactive && (
+                      <div className="ml-1 mt-0.5 text-[11px] text-slate-700">
+                        Historik bevares på {c.company_name}.{" "}
+                        {succ && !succ.is_blocked && !succ.is_deleted ? (
+                          <>
+                            Foreslået aktiv ansvarlig:{" "}
+                            <button
+                              type="button"
+                              onClick={() => setSelected(succ.id)}
+                              className="font-bold text-indigo-700 underline"
+                            >
+                              {succ.company_name} ({succ.account_number})
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-rose-700">
+                            Ingen aktiv efterfølger registreret — vælg manuelt eller registrér efterfølger i Backend → Forhandlere.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -928,11 +999,14 @@ function ApprovalRow({
             <option value="">
               {dealersLoading ? "Henter forhandlere…" : "Vælg forhandler…"}
             </option>
-            {dealers.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.company_name}{d.account_number ? ` · ${d.account_number}` : ""}
-              </option>
-            ))}
+            {dealers.map((d) => {
+              const tag = d.is_deleted ? " [Lukket]" : d.is_blocked ? " [Spærret]" : "";
+              return (
+                <option key={d.id} value={d.id}>
+                  {d.company_name}{d.account_number ? ` · ${d.account_number}` : ""}{tag}
+                </option>
+              );
+            })}
           </select>
           <button
             type="button"
@@ -946,6 +1020,16 @@ function ApprovalRow({
         </div>
       </div>
 
+      {selectedIsInactive && (
+        <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 flex items-start gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <span>
+            Den valgte forhandler er <strong>{selectedDealer?.is_deleted ? "lukket" : "spærret"}</strong>.
+            Aliaset kobles til denne forhandler — historik bevares, men fremtidigt ansvar vil ikke automatisk flyttes til en efterfølger.
+          </span>
+        </div>
+      )}
+
       {err && (
         <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] text-rose-900">
           {err}
@@ -953,9 +1037,10 @@ function ApprovalRow({
       )}
 
       <p className="mt-1 text-[10px] text-slate-500">
-        Godkendelse opretter <strong>ingen</strong> dealer_account. Kun et alias mellem SharePoint-navnet og den valgte eksisterende forhandler.
+        Godkendelse opretter <strong>ingen</strong> dealer_account. Kun et alias mellem SharePoint-navnet og den valgte eksisterende forhandler. <strong>Dealer_name_snapshot</strong> fra SharePoint bevares uændret.
       </p>
     </li>
   );
 }
+
 
