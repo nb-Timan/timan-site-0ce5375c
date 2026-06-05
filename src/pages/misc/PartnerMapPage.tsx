@@ -383,6 +383,10 @@ export default function PartnerMapPage() {
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [machineStats, setMachineStats] = useState<Record<string, PartnerMachineStats>>({});
+  const [machinePinsAll, setMachinePinsAll] = useState<WarrantyMachinePin[]>([]);
+  // Layer visibility — partners always on; machine layer opt-in (and role-gated).
+  const [showPartnerLayer, setShowPartnerLayer] = useState(true);
+  const [showMachineLayer, setShowMachineLayer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
