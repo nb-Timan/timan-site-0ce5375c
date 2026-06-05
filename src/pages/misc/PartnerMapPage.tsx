@@ -272,6 +272,61 @@ function ClusterLayer({
   return null;
 }
 
+// Machine/warranty cluster layer — separate from dealer pins, smaller amber icons.
+function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
+  const map = useMap();
+  const clusterRef = useRef<any>(null);
+
+  useEffect(() => {
+    const cluster = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      disableClusteringAtZoom: 15,
+      maxClusterRadius: 40,
+      iconCreateFunction: (c: any) => {
+        const count = c.getChildCount();
+        const size = count < 10 ? 28 : count < 50 ? 34 : 40;
+        return L.divIcon({
+          html: `<div class="pm-machine-cluster" style="width:${size}px;height:${size}px;line-height:${size}px;">${count}</div>`,
+          className: 'pm-machine-cluster-wrap',
+          iconSize: [size, size],
+        });
+      },
+    });
+    clusterRef.current = cluster;
+    map.addLayer(cluster);
+    return () => { map.removeLayer(cluster); clusterRef.current = null; };
+  }, [map]);
+
+  useEffect(() => {
+    const cluster = clusterRef.current;
+    if (!cluster) return;
+    cluster.clearLayers();
+    const icon = makeMachinePinIcon();
+    for (const p of pins) {
+      const m = L.marker(p.coords, { icon });
+      const cityLine = [p.customerCity, p.customerCountry].filter(Boolean).map(escapeHtml).join(', ');
+      const dd = p.deliveryDate ? new Date(p.deliveryDate).toLocaleDateString('da-DK') : '';
+      const html = `
+        <div style="font-family:inherit; min-width:200px;">
+          <div style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Registreret maskine</div>
+          <div style="font-size:13px; font-weight:700; color:#111; margin-bottom:6px;">${escapeHtml(p.machineModel) || '—'}</div>
+          <div style="font-size:11px; color:#374151; line-height:1.6;">
+            ${p.machineSerial ? `<div><span style="color:#6b7280">Serienr.:</span> <span style="font-family:ui-monospace,monospace">${escapeHtml(p.machineSerial)}</span></div>` : ''}
+            ${dd ? `<div><span style="color:#6b7280">Leveret:</span> ${escapeHtml(dd)}</div>` : ''}
+            ${p.dealerNameSnapshot ? `<div><span style="color:#6b7280">Forhandler:</span> ${escapeHtml(p.dealerNameSnapshot)}${p.dealerAccountNumber ? ` <span style="color:#9ca3af; font-family:ui-monospace,monospace">#${escapeHtml(p.dealerAccountNumber)}</span>` : ''}</div>` : ''}
+            ${cityLine ? `<div><span style="color:#6b7280">Kunde:</span> ${cityLine}</div>` : ''}
+          </div>
+        </div>`;
+      m.bindPopup(html, { closeButton: true, maxWidth: 280 });
+      cluster.addLayer(m);
+    }
+  }, [pins]);
+
+  return null;
+}
+
+
 // Imperative map controller for fit-bounds / fly
 function MapView({
   fitTo,
