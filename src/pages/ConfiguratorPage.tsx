@@ -2633,7 +2633,7 @@ export default function ConfiguratorPage() {
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
                 <div className="max-w-lg mx-auto mb-5">
-                  <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
+                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" />
                 </div>
                 {state.flowType === 'quote' && (
                   <div className="max-w-lg mx-auto mb-5">
@@ -2793,7 +2793,7 @@ export default function ConfiguratorPage() {
               );
             })()}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
-              <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" />
             </fieldset>
             <AccountPanel
               appUser={appUser}
