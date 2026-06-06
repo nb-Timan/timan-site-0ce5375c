@@ -227,7 +227,7 @@ export default function ServiceTicketsPage() {
       setTickets(list);
     } catch (e) {
       console.error("[ServiceTickets] load error", e);
-      setLoadErr(T.loadErr[lang]);
+      setLoadErr(pickT(T.loadErr, uiLang));
     } finally {
       setLoading(false);
     }
@@ -274,7 +274,7 @@ export default function ServiceTicketsPage() {
             </div>
             <div>
               <h1 className="text-3xl font-black tracking-tight">{tt('mod_service_tickets', uiLanguage)}</h1>
-              <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
+              <p className="mt-1 text-sm text-slate-500">{pickT(T.lead, uiLang)}</p>
             </div>
           </div>
           <Button
@@ -282,30 +282,30 @@ export default function ServiceTicketsPage() {
             className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
           >
             <Plus className="h-4 w-4" />
-            {T.createBtn[lang]}
+            {pickT(T.createBtn, uiLang)}
           </Button>
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> {T.loading[lang]}
+              <Loader2 className="h-4 w-4 animate-spin" /> {pickT(T.loading, uiLang)}
             </div>
           ) : loadErr ? (
             <div className="p-10 text-center text-sm text-red-600">{loadErr}</div>
           ) : tickets.length === 0 ? (
-            <div className="p-10 text-center text-sm text-slate-500">{T.empty[lang]}</div>
+            <div className="p-10 text-center text-sm text-slate-500">{pickT(T.empty, uiLang)}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{T.colNumber[lang]}</TableHead>
-                  <TableHead>{T.colTitle[lang]}</TableHead>
-                  <TableHead>{T.colSerial[lang]}</TableHead>
-                  <TableHead>{T.colStatus[lang]}</TableHead>
-                  <TableHead>{T.colPrio[lang]}</TableHead>
-                  <TableHead>{T.colDealer[lang]}</TableHead>
-                  <TableHead>{T.colCreated[lang]}</TableHead>
+                  <TableHead>{pickT(T.colNumber, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colTitle, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colSerial, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colStatus, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colPrio, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colDealer, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colCreated, uiLang)}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -320,12 +320,12 @@ export default function ServiceTicketsPage() {
                     <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
-                        {statusLabel(t.status, lang)}
+                        {statusLabel(t.status, uiLang)}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + prioClass(t.priority)}>
-                        {priorityLabel(t.priority, lang)}
+                        {priorityLabel(t.priority, uiLang)}
                       </span>
                     </TableCell>
                     <TableCell>{t.dealer_name || "—"}</TableCell>
@@ -463,7 +463,7 @@ function CreateTicketDialog(props: {
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !serial.trim() || !priority || !status) {
-      toast.error(T.required[lang]);
+      toast.error(pickT(T.required, uiLang));
       return;
     }
     // Resolve dealer info
@@ -472,7 +472,7 @@ function CreateTicketDialog(props: {
     let dealer_name: string | null = null;
     if (isInternal) {
       if (!selectedDealer) {
-        toast.error(T.required[lang]);
+        toast.error(pickT(T.required, uiLang));
         return;
       }
       dealer_account_id = selectedDealer.id;
@@ -482,7 +482,7 @@ function CreateTicketDialog(props: {
       dealer_number = lockedDealerNumber;
       dealer_name = lockedDealerName;
       if (!dealer_number) {
-        toast.error(T.noDealerLink[lang]);
+        toast.error(pickT(T.noDealerLink, uiLang));
         return;
       }
     }
@@ -491,7 +491,7 @@ function CreateTicketDialog(props: {
     // (no dedicated column yet — temporary).
     const equipList = resolvedEquipment();
     const finalDescription = equipList.length > 0
-      ? `${description.trim()}\n\n${T.fEquip[lang]}: ${equipList.join(", ")}`
+      ? `${description.trim()}\n\n${pickT(T.fEquip, uiLang)}: ${equipList.join(", ")}`
       : description.trim();
 
     const input: NewServiceTicketInput = {
@@ -513,11 +513,11 @@ function CreateTicketDialog(props: {
     setSaving(true);
     try {
       await createServiceTicket(input);
-      toast.success(T.saved[lang]);
+      toast.success(pickT(T.saved, uiLang));
       onCreated();
     } catch (e) {
       console.error("[ServiceTickets] create error", e);
-      toast.error(T.saveErr[lang]);
+      toast.error(pickT(T.saveErr, uiLang));
     } finally {
       setSaving(false);
     }
@@ -527,42 +527,42 @@ function CreateTicketDialog(props: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{T.createBtn[lang]}</DialogTitle>
+          <DialogTitle>{pickT(T.createBtn, uiLang)}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
           <div className="md:col-span-2">
-            <Label>{T.fTitle[lang]}</Label>
+            <Label>{pickT(T.fTitle, uiLang)}</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           <div className="md:col-span-2">
-            <Label>{T.fDesc[lang]}</Label>
+            <Label>{pickT(T.fDesc, uiLang)}</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
           </div>
 
           <div>
-            <Label>{T.fSerial[lang]}</Label>
+            <Label>{pickT(T.fSerial, uiLang)}</Label>
             <Input value={serial} onChange={(e) => handleSerialChange(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fMtype[lang]}</Label>
+            <Label>{pickT(T.fMtype, uiLang)}</Label>
             <select
               value={mtypeChoice}
               onChange={(e) => handleMtypeChange(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">{T.mtypeSelect[lang]}</option>
+              <option value="">{pickT(T.mtypeSelect, uiLang)}</option>
               {MACHINE_TYPE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-              <option value="__other__">{T.mtypeOther[lang]}</option>
+              <option value="__other__">{pickT(T.mtypeOther, uiLang)}</option>
             </select>
             {mtypeAutoFilled && mtypeChoice && mtypeChoice !== "__other__" ? (
-              <p className="mt-1 text-xs text-slate-500">{T.mtypeAutoFilled[lang]}</p>
+              <p className="mt-1 text-xs text-slate-500">{pickT(T.mtypeAutoFilled, uiLang)}</p>
             ) : null}
             {mtypeChoice === "__other__" ? (
               <Input
                 className="mt-2"
-                placeholder={T.mtypeOtherLabel[lang]}
+                placeholder={pickT(T.mtypeOtherLabel, uiLang)}
                 value={mtypeOther}
                 onChange={(e) => setMtypeOther(e.target.value)}
               />
@@ -571,7 +571,7 @@ function CreateTicketDialog(props: {
 
           {/* Equipment / attachment (multi-select). Stored temporarily in description. */}
           <div className="md:col-span-2">
-            <Label>{T.fEquip[lang]}</Label>
+            <Label>{pickT(T.fEquip, uiLang)}</Label>
             <div className="mt-1 grid grid-cols-2 md:grid-cols-3 gap-2 rounded-md border border-input bg-background p-3 text-sm">
               {EQUIPMENT_OPTIONS.map((item) => (
                 <label key={item} className="flex items-center gap-2 cursor-pointer">
@@ -589,13 +589,13 @@ function CreateTicketDialog(props: {
                   checked={equipOtherChecked}
                   onChange={(e) => setEquipOtherChecked(e.target.checked)}
                 />
-                <span>{T.mtypeOther[lang]}</span>
+                <span>{pickT(T.mtypeOther, uiLang)}</span>
               </label>
             </div>
             {equipOtherChecked ? (
               <Input
                 className="mt-2"
-                placeholder={T.equipOtherLabel[lang]}
+                placeholder={pickT(T.equipOtherLabel, uiLang)}
                 value={equipmentOther}
                 onChange={(e) => setEquipmentOther(e.target.value)}
               />
@@ -604,14 +604,14 @@ function CreateTicketDialog(props: {
 
           {/* Dealer */}
           <div className="md:col-span-2">
-            <Label>{T.fDealer[lang]}</Label>
+            <Label>{pickT(T.fDealer, uiLang)}</Label>
             {isInternal ? (
               <select
                 value={dealerId}
                 onChange={(e) => setDealerId(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">{T.selectDealer[lang]}</option>
+                <option value="">{pickT(T.selectDealer, uiLang)}</option>
                 {dealers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.company_name} {d.account_number ? `(${d.account_number})` : ""}
@@ -630,34 +630,34 @@ function CreateTicketDialog(props: {
                   className="bg-slate-50 cursor-default"
                 />
                 {lockedDealerNumber ? (
-                  <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                  <p className="mt-1 text-xs text-slate-500">{pickT(T.dealerLocked, uiLang)}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-red-600">{T.noDealerLink[lang]}</p>
+                  <p className="mt-1 text-xs text-red-600">{pickT(T.noDealerLink, uiLang)}</p>
                 )}
               </>
             )}
           </div>
 
           <div>
-            <Label>{T.fCust[lang]}</Label>
+            <Label>{pickT(T.fCust, uiLang)}</Label>
             <Input value={customer} onChange={(e) => setCustomer(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fContact[lang]}</Label>
+            <Label>{pickT(T.fContact, uiLang)}</Label>
             <Input value={contact} onChange={(e) => setContact(e.target.value)} />
           </div>
 
           <div>
-            <Label>{T.fEmail[lang]}</Label>
+            <Label>{pickT(T.fEmail, uiLang)}</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fPhone[lang]}</Label>
+            <Label>{pickT(T.fPhone, uiLang)}</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
           <div>
-            <Label>{T.fHours[lang]}</Label>
+            <Label>{pickT(T.fHours, uiLang)}</Label>
             <Input
               type="number"
               inputMode="numeric"
@@ -667,48 +667,48 @@ function CreateTicketDialog(props: {
           </div>
 
           <div>
-            <Label>{T.fPrio[lang]}</Label>
+            <Label>{pickT(T.fPrio, uiLang)}</Label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{priorityLabel(p, lang)}</option>)}
+              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{priorityLabel(p, uiLang)}</option>)}
             </select>
           </div>
 
           <div>
-            <Label>{T.fStatus[lang]}</Label>
+            <Label>{pickT(T.fStatus, uiLang)}</Label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s, lang)}</option>)}
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s, uiLang)}</option>)}
             </select>
           </div>
 
           <div>
-            <Label>{T.fCat[lang]}</Label>
+            <Label>{pickT(T.fCat, uiLang)}</Label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="">—</option>
-              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{categoryLabel(c, lang)}</option>)}
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{categoryLabel(c, uiLang)}</option>)}
             </select>
           </div>
 
           <div className="md:col-span-2">
-            <Label>{T.fAssign[lang]}</Label>
+            <Label>{pickT(T.fAssign, uiLang)}</Label>
             <Input value={assigned} onChange={(e) => setAssigned(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            {T.cancel[lang]}
+            {pickT(T.cancel, uiLang)}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -716,7 +716,7 @@ function CreateTicketDialog(props: {
             className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {saving ? T.saving[lang] : T.save[lang]}
+            {saving ? pickT(T.saving, uiLang) : pickT(T.save, uiLang)}
           </Button>
         </DialogFooter>
       </DialogContent>
