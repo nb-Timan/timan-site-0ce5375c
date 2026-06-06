@@ -1496,6 +1496,35 @@ function ContactHero({
             })}
           </div>
         </div>
+
+        {/* Next follow-up — color coded */}
+        {(() => {
+          if (!nextFollowup) {
+            return (
+              <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
+                {t("next_followup")}: <span className="italic">Ingen opfølgning planlagt</span>
+              </div>
+            );
+          }
+          const d = new Date(nextFollowup.date);
+          const today = new Date(); today.setHours(0,0,0,0);
+          const tgt = new Date(d); tgt.setHours(0,0,0,0);
+          const diff = (tgt.getTime() - today.getTime()) / (1000*60*60*24);
+          const tone = diff < 0
+            ? { bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-200", label: "Overskredet" }
+            : diff === 0
+              ? { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200", label: "I dag" }
+              : { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200", label: "Kommende" };
+          return (
+            <div className={`mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 ${tone.bg} ${tone.text} ${tone.border}`}>
+              <CalendarIcon className="h-4 w-4 shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wide">{t("next_followup")}:</span>
+              <span className="text-sm font-bold">{fmtDate(nextFollowup.date)}</span>
+              <span className="text-xs">· {nextFollowup.title}</span>
+              <span className={`ml-auto inline-flex items-center rounded-full border ${tone.border} bg-white/60 px-2 py-0.5 text-[10px] font-bold`}>{tone.label}</span>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
