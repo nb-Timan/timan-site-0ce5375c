@@ -486,7 +486,7 @@ export default function CrmNewDemoLeadPage() {
               <input className={inputCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />
             </Field>
             <Field label={tt('lbl_customer_addr', lang)} full>
-              <AddressAutocomplete className={inputCls} value={customerAddress} onChange={setCustomerAddress} placeholder={tt('ph_addr', lang)} />
+              <AddressAutocomplete className={inputCls} value={customerAddress} onChange={setCustomerAddress} placeholder={tt('ph_addr', lang)} showValidationState addressParts={{ address_line_1: customerAddress }} />
             </Field>
             <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
