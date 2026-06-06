@@ -14,6 +14,8 @@ import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { getEffectiveSellerInitials } from '@/lib/activeMode';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
 import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
