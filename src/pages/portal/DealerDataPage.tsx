@@ -270,6 +270,7 @@ export default function DealerDataPage() {
               )}
             </div>
             <p className="text-sm text-slate-600">{T.pageSubtitle[lang]}</p>
+            <LastChangedLine moduleKey="dealer_data" className="mt-2" />
           </div>
         </div>
 

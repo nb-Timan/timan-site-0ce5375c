@@ -69,6 +69,7 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
           {intro && <p className="text-gray-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
+          {changelogModule && <LastChangedLine moduleKey={changelogModule} className="mt-3" />}
         </div>
       </header>
 
