@@ -123,6 +123,7 @@ export default function ServiceMaintenancePage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
   const t = (k: keyof typeof T) => T[k][lang] || T[k].en;
+  const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
