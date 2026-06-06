@@ -115,12 +115,16 @@ export default function CrmLayout({ children, pageTitle }: Props) {
               </Link>
             );
           })}
-          <div className="ml-auto hidden md:flex items-center pr-2">
-            <LastChangedLine moduleKey="crm" />
-          </div>
-          <div className="basis-full md:hidden mt-1 pl-2 pb-2">
-            <LastChangedLine moduleKey="crm" className="text-[11px]" />
-          </div>
+          {location.pathname !== '/portal/crm/my-dealers' && (
+            <>
+              <div className="ml-auto hidden md:flex items-center pr-2">
+                <LastChangedLine moduleKey="crm" />
+              </div>
+              <div className="basis-full md:hidden mt-1 pl-2 pb-2">
+                <LastChangedLine moduleKey="crm" className="text-[11px]" />
+              </div>
+            </>
+          )}
         </nav>
 
 
