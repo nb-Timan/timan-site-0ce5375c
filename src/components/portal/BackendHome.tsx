@@ -77,14 +77,16 @@ function buildGroups(): Group[] {
     },
     {
       title: "System",
-      description: "Systemstatus, mail-log, job queue og persistence audit.",
+      description: "Systemstatus, mail-log, job queue, change log og persistence audit.",
       items: [
+        { title: "Seneste ændringer", icon: Sparkles, to: "/portal/backend/changelog", description: "Administrér portalens change log — opret, redigér og slet ændringer som vises på forsiden og modulkort." },
         { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
         { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
         { title: "Systemstatus", icon: Activity, description: "Edge functions, database og integrationer." },
       ],
     },
+
   ];
 }
 
