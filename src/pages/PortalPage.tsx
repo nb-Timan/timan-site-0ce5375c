@@ -15,20 +15,21 @@ import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
+import { t } from '@/lib/i18n/translations';
 
-const T: Record<string, Record<Language, string>> = {
-  loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
-  heroTitle:    { da: 'Velkommen til Timan Portalen', en: 'Welcome to the Timan Portal', de: 'Willkommen im Timan-Portal', it: 'Benvenuto nel Portale Timan', hu: 'Üdvözöljük a Timan Portálon' },
-  heroBody: {
-    da: 'Vælg et område for at komme i gang.',
-    en: 'Select an area to get started.',
-    de: 'Wählen Sie einen Bereich, um zu beginnen.',
-    it: 'Seleziona un’area per iniziare.',
-    hu: 'Válasszon egy területet a kezdéshez.',
-  },
-  heroAlt: { da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar' },
-  open: { da: 'Åbn område', en: 'Open area', de: 'Bereich öffnen', it: 'Apri area', hu: 'Terület megnyitása' },
-  updated: { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve' },
+const AREA_TITLE_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_title',
+  salg_marketing: 'area_salg_marketing_title',
+  timan_crm:      'area_timan_crm_title',
+  timan_backend:  'area_timan_backend_title',
+  dealer_data:    'area_dealer_data_title',
+};
+const AREA_DESC_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_desc',
+  salg_marketing: 'area_salg_marketing_desc',
+  timan_crm:      'area_timan_crm_desc',
+  timan_backend:  'area_timan_backend_desc',
+  dealer_data:    'area_dealer_data_desc',
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
