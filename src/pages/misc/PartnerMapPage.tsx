@@ -859,7 +859,7 @@ export default function PartnerMapPage() {
   }, [countryCounts]);
 
   return (
-    <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
+    <MiscPageShell title={T.title[lang]} intro={T.intro[lang]} changelogModule="partner_map">
       <style>{`
         .pm-pin-wrap { background:transparent !important; border:none !important; }
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }

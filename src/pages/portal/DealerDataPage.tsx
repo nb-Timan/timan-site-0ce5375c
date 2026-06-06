@@ -33,6 +33,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import RegisteredUsersTable from '@/components/portal/RegisteredUsersTable';
+import LastChangedLine from '@/components/portal/LastChangedLine';
 
 interface DealerUserRow {
   id: string;
@@ -270,6 +271,7 @@ export default function DealerDataPage() {
               )}
             </div>
             <p className="text-sm text-slate-600">{T.pageSubtitle[lang]}</p>
+            <LastChangedLine moduleKey="dealer_data" className="mt-2" />
           </div>
         </div>
 

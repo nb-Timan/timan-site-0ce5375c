@@ -1,10 +1,11 @@
-// Portal change log — Phase 1 (hardcoded entries + localStorage read tracking).
+// Portal change log — Phase 2 (hardcoded entries + per-user read tracking + role filter + translations).
 //
 // To add or edit changes: append to / modify CHANGELOG_ENTRIES below.
 // Newest entries first. `changed_at` is an ISO timestamp.
 //
 // Future Supabase phase only needs to swap the entry source and the
-// `localReadStore` adapter — the UI reads everything via `useChangelog()`.
+// `localReadStore` adapter — the UI reads everything via the helpers /
+// `useChangelog()` hook here.
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { Language } from '@/types/configurator';
@@ -19,8 +20,18 @@ export type ModuleKey =
   | 'crm'
   | 'warranty'
   | 'claims'
+  | 'service'
   | 'configurator'
   | 'backend';
+
+/** Audience buckets used by `role_visibility`. */
+export type ChangelogRole =
+  | 'all'
+  | 'sales'
+  | 'service'
+  | 'backend'
+  | 'admin'
+  | 'dealer';
 
 export interface ChangeLogEntry {
   id: string;
@@ -30,8 +41,10 @@ export interface ChangeLogEntry {
   changed_at: string;
   title: Record<Language, string>;
   description?: Record<Language, string>;
-  /** If set, only these portal_role values may see it. Undefined = everyone. */
-  role_visibility?: string[];
+  /** Short change note shown after the timestamp on module pages. */
+  note?: Record<Language, string>;
+  /** Roles allowed to see the entry. Empty / undefined / contains 'all' = everyone. */
+  role_visibility?: ChangelogRole[];
   /** If set, only these UI languages render it. Undefined = all languages. */
   languages?: Language[];
   /** Highlighted "Vigtig" indicator in the panel. */
@@ -48,6 +61,7 @@ const MODULE_AREA: Record<ModuleKey, PortalAreaId | null> = {
   crm: 'timan_crm',
   warranty: 'teknik_service',
   claims: 'teknik_service',
+  service: 'teknik_service',
   configurator: 'salg_marketing',
   backend: 'timan_backend',
 };
@@ -58,6 +72,7 @@ const MODULE_HREF: Partial<Record<ModuleKey, string>> = {
   crm: '/portal/crm',
   warranty: '/portal/service/warranty',
   claims: '/portal/service/claims',
+  service: '/portal/service/maintenance',
   configurator: '/configurator',
   backend: '/portal/backend',
 };
@@ -69,23 +84,38 @@ export function hrefForEntry(entry: ChangeLogEntry): string | null {
   return MODULE_HREF[entry.module_key] || null;
 }
 
+// ---------- Translations ----------
+
+export const CHANGELOG_LABELS: Record<
+  'whatsNew' | 'latestChanges' | 'lastChanged' | 'changed' | 'updated'
+  | 'important' | 'newTag' | 'viewAll' | 'empty',
+  Record<Language, string>
+> = {
+  whatsNew:     { da: 'Hvad er nyt?', en: 'What\u2019s new?', de: 'Was ist neu?', it: 'Cosa c\u2019è di nuovo?', hu: 'Mi az új?' },
+  latestChanges:{ da: 'Seneste ændringer', en: 'Latest changes', de: 'Letzte Änderungen', it: 'Ultime modifiche', hu: 'Legutóbbi változások' },
+  lastChanged:  { da: 'Senest ændret', en: 'Last changed', de: 'Zuletzt geändert', it: 'Ultima modifica', hu: 'Utoljára módosítva' },
+  changed:      { da: 'Ændret', en: 'Changed', de: 'Geändert', it: 'Modificato', hu: 'Módosítva' },
+  updated:      { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve' },
+  important:    { da: 'Vigtig', en: 'Important', de: 'Wichtig', it: 'Importante', hu: 'Fontos' },
+  newTag:       { da: 'Ny', en: 'New', de: 'Neu', it: 'Nuovo', hu: 'Új' },
+  viewAll:      { da: 'Se alle ændringer', en: 'View all changes', de: 'Alle Änderungen anzeigen', it: 'Vedi tutte le modifiche', hu: 'Összes változás' },
+  empty:        { da: 'Ingen ændringer endnu.', en: 'No changes yet.', de: 'Noch keine Änderungen.', it: 'Ancora nessuna modifica.', hu: 'Még nincsenek változások.' },
+};
+
+export function t(key: keyof typeof CHANGELOG_LABELS, language: Language): string {
+  return CHANGELOG_LABELS[key][language] || CHANGELOG_LABELS[key].da;
+}
+
 // ---------- Hardcoded demo entries (newest first) ----------
 
 const M = {
-  partner_map: {
-    da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép',
-  },
-  dealer_data: {
-    da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok',
-  },
-  crm: { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM' },
-  warranty: {
-    da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung',
-    it: 'Registrazione garanzia', hu: 'Garanciaregisztráció',
-  },
-  claims: {
-    da: 'Reklamationer', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk',
-  },
+  partner_map: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
+  dealer_data: { da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+  crm:         { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM' },
+  warranty:    { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' },
+  claims:      { da: 'Reklamationer', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' },
+  service:     { da: 'Service', en: 'Service', de: 'Service', it: 'Assistenza', hu: 'Szerviz' },
+  backend:     { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
 } as const;
 
 export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
@@ -94,6 +124,7 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
     module_key: 'partner_map',
     module_name: M.partner_map,
     changed_at: '2026-06-06T09:32:00Z',
+    role_visibility: ['all'],
     is_major: true,
     is_new_until: '2026-06-20T00:00:00Z',
     title: {
@@ -102,6 +133,13 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       de: 'Adressvorschläge und Kartenverbesserungen',
       it: 'Suggerimenti di indirizzo e miglioramenti mappa',
       hu: 'Címjavaslatok és térképfejlesztések',
+    },
+    note: {
+      da: 'Partnerkort forbedret',
+      en: 'Partner map improved',
+      de: 'Partnerkarte verbessert',
+      it: 'Mappa partner migliorata',
+      hu: 'Partnertérkép továbbfejlesztve',
     },
     description: {
       da: 'Google adresseforslag i alle adressefelter samt Standard/Satellit/Terræn/Mørk i Partnerkort.',
@@ -116,6 +154,7 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
     module_key: 'dealer_data',
     module_name: M.dealer_data,
     changed_at: '2026-06-06T09:15:00Z',
+    role_visibility: ['all'],
     is_new_until: '2026-06-20T00:00:00Z',
     title: {
       da: 'Nye adressefelter',
@@ -124,12 +163,12 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       it: 'Nuovi campi indirizzo',
       hu: 'Új címmezők',
     },
-    description: {
-      da: 'Adresse gemmer nu også koordinater og Google place id.',
-      en: 'Address now also stores coordinates and Google place id.',
-      de: 'Die Adresse speichert jetzt auch Koordinaten und Google-Place-ID.',
-      it: 'L\u2019indirizzo memorizza ora anche le coordinate e il Google place id.',
-      hu: 'A cím most már a koordinátákat és a Google place id-t is tárolja.',
+    note: {
+      da: 'Adresseforslag tilføjet',
+      en: 'Address suggestions added',
+      de: 'Adressvorschläge hinzugefügt',
+      it: 'Suggerimenti di indirizzo aggiunti',
+      hu: 'Címjavaslatok hozzáadva',
     },
   },
   {
@@ -137,7 +176,15 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
     module_key: 'crm',
     module_name: M.crm,
     changed_at: '2026-06-05T14:10:00Z',
+    role_visibility: ['sales', 'backend', 'admin'],
     title: {
+      da: 'Budgetvisning rettet',
+      en: 'Budget view fixed',
+      de: 'Budgetansicht korrigiert',
+      it: 'Visualizzazione budget corretta',
+      hu: 'Költségvetés-nézet javítva',
+    },
+    note: {
       da: 'Budgetvisning rettet',
       en: 'Budget view fixed',
       de: 'Budgetansicht korrigiert',
@@ -150,6 +197,7 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
     module_key: 'warranty',
     module_name: M.warranty,
     changed_at: '2026-06-04T11:00:00Z',
+    role_visibility: ['service', 'backend', 'dealer', 'admin'],
     title: {
       da: 'Geokodning af kundeadresser',
       en: 'Customer address geocoding',
@@ -157,12 +205,20 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       it: 'Geocodifica indirizzi cliente',
       hu: 'Ügyfélcímek geokódolása',
     },
+    note: {
+      da: 'Kundeadresser geokodes nu',
+      en: 'Customer addresses are now geocoded',
+      de: 'Kundenadressen werden jetzt geokodiert',
+      it: 'Gli indirizzi cliente vengono ora geocodificati',
+      hu: 'Az ügyfélcímek most geokódolva',
+    },
   },
   {
     id: '2026-06-03-claims',
     module_key: 'claims',
     module_name: M.claims,
     changed_at: '2026-06-03T08:45:00Z',
+    role_visibility: ['service', 'backend', 'dealer', 'admin'],
     title: {
       da: 'Hurtigere oprettelse af sag',
       en: 'Faster case creation',
@@ -170,10 +226,17 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       it: 'Creazione caso più rapida',
       hu: 'Gyorsabb ügylétrehozás',
     },
+    note: {
+      da: 'Hurtigere oprettelse',
+      en: 'Faster creation',
+      de: 'Schnellere Erstellung',
+      it: 'Creazione più rapida',
+      hu: 'Gyorsabb létrehozás',
+    },
   },
 ];
 
-// ---------- User key & visibility ----------
+// ---------- User key (for per-user read tracking) ----------
 
 export function getUserKey(user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null): string {
   if (!user) return 'anon';
@@ -182,18 +245,53 @@ export function getUserKey(user: Pick<SessionUser, 'email' | 'portal_role' | 'ro
   return `${email}::${role}`;
 }
 
+// ---------- Role mapping ----------
+
+/**
+ * Translate the session user's portal_role / legacy role into the changelog
+ * audience buckets used by `role_visibility`. Returns the set of buckets the
+ * user belongs to. Everyone always belongs to 'all'.
+ */
+export function mapUserToChangelogRoles(
+  user: Pick<SessionUser, 'portal_role' | 'role'> | null,
+): Set<ChangelogRole> {
+  const out = new Set<ChangelogRole>(['all']);
+  if (!user) return out;
+  const portalRole = (user.portal_role || '').toString();
+  const legacy = (user.role || '').toString();
+  switch (portalRole) {
+    case 'timan_backend':
+      out.add('backend'); out.add('admin'); out.add('sales'); out.add('service'); break;
+    case 'timan_seller':
+      out.add('sales'); break;
+    case 'timan_service':
+      out.add('service'); break;
+    case 'timan_importer':
+    case 'timan_dealer':
+    case 'timan_service_partner':
+    case 'dealer_user':
+      out.add('dealer'); break;
+  }
+  if (legacy === 'timan_saelger') out.add('sales');
+  if (legacy === 'partner') out.add('dealer');
+  return out;
+}
+
 function isEntryVisible(
   entry: ChangeLogEntry,
   user: Pick<SessionUser, 'portal_role' | 'role'> | null,
   language: Language,
 ): boolean {
   if (entry.languages && !entry.languages.includes(language)) return false;
-  if (entry.role_visibility && entry.role_visibility.length > 0) {
-    const role = user?.portal_role || user?.role;
-    if (!role || !entry.role_visibility.includes(String(role))) return false;
+  const vis = entry.role_visibility;
+  if (vis && vis.length > 0 && !vis.includes('all')) {
+    const userRoles = mapUserToChangelogRoles(user);
+    if (!vis.some(r => userRoles.has(r))) return false;
   }
   return true;
 }
+
+// ---------- Queries ----------
 
 export function getVisibleEntries(
   user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
@@ -203,6 +301,24 @@ export function getVisibleEntries(
     .filter(e => isEntryVisible(e, user, language))
     .slice()
     .sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
+}
+
+/** Recent changes for the user's roles, newest first. */
+export function getRecentChangesForRole(
+  user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
+  language: Language,
+  limit = 5,
+): ChangeLogEntry[] {
+  return getVisibleEntries(user, language).slice(0, limit);
+}
+
+/** Latest visible change for a specific module, or null. */
+export function getLatestChangeForModule(
+  moduleKey: ModuleKey,
+  user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
+  language: Language,
+): ChangeLogEntry | null {
+  return getVisibleEntries(user, language).find(e => e.module_key === moduleKey) || null;
 }
 
 // ---------- Storage adapter ----------
@@ -281,9 +397,11 @@ export interface UseChangelogResult {
   isRead: (id: string) => boolean;
   entriesForArea: (areaId: PortalAreaId) => ChangeLogEntry[];
   latestForArea: (areaId: PortalAreaId) => ChangeLogEntry | null;
+  latestForModule: (moduleKey: ModuleKey) => ChangeLogEntry | null;
   hasUnreadForArea: (areaId: PortalAreaId) => boolean;
   markEntryRead: (id: string) => void;
   markAreaRead: (areaId: PortalAreaId) => void;
+  markModuleRead: (moduleKey: ModuleKey) => void;
 }
 
 export function useChangelog(
@@ -311,10 +429,13 @@ export function useChangelog(
     isRead: (id) => readIds.has(id),
     entriesForArea,
     latestForArea: (areaId) => entriesForArea(areaId)[0] || null,
+    latestForModule: (moduleKey) => entries.find(e => e.module_key === moduleKey) || null,
     hasUnreadForArea: (areaId) =>
       entriesForArea(areaId).some(e => !readIds.has(e.id)),
     markEntryRead: (id) => localReadStore.markRead(userKey, [id]),
     markAreaRead: (areaId) =>
       localReadStore.markRead(userKey, entriesForArea(areaId).map(e => e.id)),
+    markModuleRead: (moduleKey) =>
+      localReadStore.markRead(userKey, entries.filter(e => e.module_key === moduleKey).map(e => e.id)),
   };
 }

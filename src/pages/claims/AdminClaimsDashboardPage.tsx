@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Eye, MessageSquare } from "lucide-react";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
+import LastChangedLine from "@/components/portal/LastChangedLine";
 import {
   CLAIM_STATUS_LABEL,
   CLAIM_STATUS_PILL,
@@ -42,6 +43,7 @@ function DashboardIntro() {
       <p className="mt-1 text-sm text-slate-500">
         Aktuelle claims på tværs af forhandlere — kun aktive sager.
       </p>
+      <LastChangedLine moduleKey="claims" className="mt-2" />
     </div>
   );
 }

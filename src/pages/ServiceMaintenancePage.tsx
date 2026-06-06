@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
+import LastChangedLine from '@/components/portal/LastChangedLine';
 import {
   ServiceMachine,
   ServiceRegistration,
@@ -337,6 +338,7 @@ export default function ServiceMaintenancePage() {
       <div>
         <h1 className="text-2xl md:text-3xl font-black text-slate-900">{t('title')}</h1>
         <p className="text-slate-600 text-sm mt-1 max-w-3xl">{t('subtitle')}</p>
+        <LastChangedLine moduleKey="service" className="mt-2" />
       </div>
     </div>
   );

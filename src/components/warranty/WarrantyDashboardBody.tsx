@@ -7,6 +7,7 @@
  */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import LastChangedLine from "@/components/portal/LastChangedLine";
 import {
   ArrowRight,
   CalendarRange,
@@ -51,6 +52,7 @@ export function WarrantyDashboardIntro({
             ? "Overblik over garantiregistreringer og forhandleraktivitet."
             : "Overblik over dine garantiregistreringer."}
         </p>
+        <LastChangedLine moduleKey="warranty" className="mt-2" />
       </div>
       {scope === "dealer" && showCreate && (
         <Link
