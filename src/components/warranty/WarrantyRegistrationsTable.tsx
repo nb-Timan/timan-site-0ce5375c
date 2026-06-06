@@ -863,6 +863,8 @@ function CertificateDialog({
                 }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
                 placeholder="Begynd at skrive adressen…"
+                showValidationState
+                addressParts={{ address_line_1: form.customer_address, postal_code: form.customer_postal_code, city: form.customer_city, country: form.customer_country }}
               />
             </label>
             <EditField label="Postnr" value={form.customer_postal_code} onChange={(v) => update("customer_postal_code", v)} />
