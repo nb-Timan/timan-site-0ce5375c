@@ -1340,22 +1340,26 @@ function ContactHero({
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
-  const mapsHref = addressLine
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`
-    : undefined;
+  const hasCoords = typeof dealer.latitude === "number" && typeof dealer.longitude === "number";
+  const mapsHref = hasCoords
+    ? `https://www.google.com/maps/dir/?api=1&destination=${dealer.latitude},${dealer.longitude}`
+    : addressLine
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`
+      : undefined;
   const websiteHref = dealer.website
     ? (dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`)
     : undefined;
 
-  const actions: HeroAction[] = [
-    { key: "call",     label: tl("call", lang),             icon: <Phone className="h-5 w-5" />,        href: callPhone ? `tel:${callPhone}` : undefined, disabled: !callPhone },
-    { key: "mail",     label: tl("send_mail", lang),        icon: <Mail className="h-5 w-5" />,         href: mailAddr ? `mailto:${mailAddr}` : undefined, disabled: !mailAddr },
-    { key: "route",    label: tl("directions", lang),       icon: <MapPin className="h-5 w-5" />,       href: mapsHref, disabled: !mapsHref },
-    { key: "web",      label: tl("website", lang),          icon: <Globe className="h-5 w-5" />,        href: websiteHref, disabled: !websiteHref },
+  // Only include actions whose data exists.
+  const actionsAll: HeroAction[] = [
+    callPhone ? { key: "call",   label: tl("call", lang),          icon: <Phone className="h-5 w-5" />,        href: `tel:${callPhone}` } : null,
+    mailAddr  ? { key: "mail",   label: tl("send_mail", lang),     icon: <Mail className="h-5 w-5" />,         href: `mailto:${mailAddr}` } : null,
+    mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
+    websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
     { key: "dealerdata", label: tl("open_dealer_data", lang), icon: <FileText className="h-5 w-5" />,   href: `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}` },
     { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
-    { key: "meeting",  label: tl("schedule_meeting", lang), icon: <CalendarPlus className="h-5 w-5" />, onClick: onAddActivity },
-  ];
+  ].filter(Boolean) as HeroAction[];
+  const actions = actionsAll;
 
   const initials = (dealer.company_name || "?")
     .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
