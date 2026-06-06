@@ -33,6 +33,7 @@ import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
 import { useSellerDirectory } from "@/lib/sellerDirectory";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 
 export type WarrantyScope = "admin" | "dealer";
@@ -849,7 +850,21 @@ function CertificateDialog({
             </div>
             <EditField label="Kunde" value={form.customer_name} onChange={(v) => update("customer_name", v)} />
             <EditField label="E-mail" value={form.customer_email} onChange={(v) => update("customer_email", v)} />
-            <EditField label="Adresse" value={form.customer_address} onChange={(v) => update("customer_address", v)} span2 />
+            <label className="flex flex-col gap-1 md:col-span-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adresse</span>
+              <AddressAutocomplete
+                value={form.customer_address ?? ""}
+                onChange={(v) => update("customer_address", v)}
+                onResolve={(r: ResolvedAddress) => {
+                  if (r.address_line_1) update("customer_address", r.address_line_1);
+                  if (r.postal_code) update("customer_postal_code", r.postal_code);
+                  if (r.city) update("customer_city", r.city);
+                  if (r.country) update("customer_country", r.country);
+                }}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                placeholder="Begynd at skrive adressen…"
+              />
+            </label>
             <EditField label="Postnr" value={form.customer_postal_code} onChange={(v) => update("customer_postal_code", v)} />
             <EditField label="By" value={form.customer_city} onChange={(v) => update("customer_city", v)} />
             <EditField label="Land" value={form.customer_country} onChange={(v) => update("customer_country", v)} />
