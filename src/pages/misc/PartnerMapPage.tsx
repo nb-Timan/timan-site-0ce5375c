@@ -968,6 +968,20 @@ export default function PartnerMapPage() {
                 <button onClick={worldView} className="h-9 px-2.5 flex items-center gap-1.5 text-gray-600 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200" title={T.worldView[lang]}>
                   <Globe className="h-4 w-4" /> <span className="hidden sm:inline">{T.worldView[lang]}</span>
                 </button>
+                <div className="relative h-9 flex items-center">
+                  <Layers className="h-4 w-4 text-gray-500 absolute left-2 pointer-events-none" />
+                  <select
+                    value={mapStyle}
+                    onChange={(e) => setMapStyle(e.target.value as MapStyleId)}
+                    title="Kortlag"
+                    className="h-9 pl-7 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="satellite">Satellit</option>
+                    <option value="terrain">Terræn</option>
+                    <option value="dark">Mørk</option>
+                  </select>
+                </div>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Fuldskærm"><Maximize2 className="h-4 w-4" /></button>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Hjælp"><HelpCircle className="h-4 w-4" /></button>
               </div>
