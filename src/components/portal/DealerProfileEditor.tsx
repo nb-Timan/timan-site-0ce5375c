@@ -285,12 +285,42 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           postal_code: draft.postal_code, city: draft.city,
           country: draft.country, vat_number: draft.vat_number, director_name: draft.director_name,
           phone: draft.phone, email: draft.email,
+          latitude: draft.latitude, longitude: draft.longitude,
+          google_place_id: draft.google_place_id,
         })}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
           <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-          <Field id="address_line_1" label={t("addressLine1")} value={draft.address_line_1} onChange={(v) => set("address_line_1", v)} disabled={!canEdit} required />
+          <AddressField
+            id="address_line_1"
+            label={t("addressLine1")}
+            value={draft.address_line_1}
+            disabled={!canEdit}
+            required
+            onChange={(v) => {
+              // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
+              setDraft((d) => ({
+                ...d,
+                address_line_1: v,
+                latitude: null,
+                longitude: null,
+                google_place_id: null,
+              }));
+            }}
+            onResolve={(r) => {
+              setDraft((d) => ({
+                ...d,
+                address_line_1: r.address_line_1 ?? r.formatted ?? d.address_line_1,
+                postal_code: r.postal_code ?? d.postal_code,
+                city: r.city ?? d.city,
+                country: r.country_name ?? d.country,
+                latitude: r.latitude ?? d.latitude,
+                longitude: r.longitude ?? d.longitude,
+                google_place_id: r.google_place_id ?? d.google_place_id,
+              }));
+            }}
+          />
           <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
           <div className="grid grid-cols-2 gap-3">
             <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => set("postal_code", v)} disabled={!canEdit} required />
