@@ -1423,11 +1423,8 @@ function ContactHero({
                 )}
               </div>
               {(() => {
-                const statusNode = dealer.is_blocked
-                  ? <span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>
-                  : dealer.is_deleted
-                    ? <span className="inline-flex items-center rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white">Slettet</span>
-                    : <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">{tl("status_active", lang)}</span>;
+                const sellerName0 = null; // status now shown only in title row
+
                 const sellerName = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
                 const contractStart = dealer.source_created_at || null;
                 const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
