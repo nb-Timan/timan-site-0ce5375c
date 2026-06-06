@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
-  Calendar as CalendarIcon, FileText, ClipboardList, TrendingUp,
+  FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
 } from "lucide-react";
@@ -663,7 +663,6 @@ export default function CrmDealerDetailPage() {
           {([
             ["overview", tl("tab_overview", lang)],
             ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
-            ["notes", tl("tab_notes", lang)],
             ["documents", tl("tab_documents", lang)],
           ] as const).map(([val, label]) => (
             <TabsTrigger
@@ -679,104 +678,87 @@ export default function CrmDealerDetailPage() {
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Forhandler metadata — compact, only meaningful fields */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">Forhandler metadata</h3>
-              {(() => {
-                const statusVal = dealer.is_blocked
-                  ? <span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>
-                  : dealer.is_deleted
-                    ? <span className="inline-flex items-center rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white">Slettet</span>
-                    : <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">{tl("status_active", lang)}</span>;
-                const vat = (dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || null;
-                const seller = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
-                const contractStart = dealer.source_created_at || null;
-                const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
-                  || (dealer as unknown as { updated_at?: string }).updated_at
-                  || null;
-                const rows: Array<{ label: string; value: React.ReactNode }> = [];
-                rows.push({ label: tl("status_lbl", lang), value: statusVal });
-                if (vat) rows.push({ label: tl("vat", lang), value: vat });
-                if (seller) rows.push({ label: tl("assigned_seller", lang), value: seller });
-                if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
-                if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
-                return (
-                  <ul className="text-sm space-y-1.5">
-                    {rows.map((r, i) => (
-                      <li key={i} className="flex items-baseline gap-2">
-                        <span className="text-slate-500 min-w-[120px]">{r.label}:</span>
-                        <span className="text-slate-800">{r.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
-            </div>
-
-            {/* Seneste noter */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 md:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* LEFT — Seneste noter (with inline add + full history) */}
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
                   Seneste noter
                   <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal">{notes.length}</span>
                 </h3>
-                <button
-                  onClick={() => setActiveTab("notes")}
-                  className="text-xs font-semibold text-emerald-700 hover:underline"
-                >
-                  Se alle noter →
+                <button onClick={() => setShowNoteModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
+                  <Plus className="h-3.5 w-3.5" /> {t("add_note")}
                 </button>
               </div>
               {notes.length === 0 ? (
-                <p className="text-sm text-slate-500">Ingen noter registreret</p>
+                <p className="text-sm text-slate-500">{t("no_notes")}</p>
               ) : (
-                <ul className="divide-y divide-slate-100">
-                  {notes.slice(0, 5).map((n) => (
-                    <li key={n.id} className="py-2">
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mb-0.5 flex-wrap">
-                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                        <span>·</span>
-                        <span>{fmtDate(n.created_at)}</span>
-                        <span>·</span>
-                        <span>{n.seller_initials || n.created_by_email || "—"}</span>
-                      </div>
-                      <p className="text-sm text-slate-800 line-clamp-2 whitespace-pre-wrap">{n.note_text}</p>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="space-y-2">
+                    {notes.slice(0, 10).map((n) => (
+                      <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                        <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+                            <span>·</span>
+                            <span>{fmtDateTime(n.created_at)}</span>
+                            <span>·</span>
+                            <span>sælger {n.seller_initials || "—"}</span>
+                          </div>
+                          {n.follow_up_date && (
+                            <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                              Opfølgning: {fmtDateTime(n.follow_up_date)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
+                        {n.linked_activity_id && (
+                          <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
+                            Se tilknyttet kalenderaktivitet →
+                          </Link>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {notes.length > 10 && (
+                    <p className="mt-3 text-[11px] text-slate-500">Viser de 10 nyeste af {notes.length} noter.</p>
+                  )}
+                </>
               )}
             </div>
 
-            {/* Seneste aktiviteter */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
-              {activitiesForScope.slice(0, 4).length === 0 ? (
-                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-              ) : (
-                <ul className="text-sm space-y-1.5">
-                  {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,4).map(a => (
-                    <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || activityTypeMeta(a.activity_type).label.da}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {/* RIGHT — Seneste tilbud + Seneste aktiviteter (stacked) */}
+            <div className="space-y-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
+                {dealerQuotesInScope.slice(0, 5).length === 0 ? (
+                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+                ) : (
+                  <ul className="text-sm space-y-1.5">
+                    {dealerQuotesInScope.slice(0, 5).map(q => (
+                      <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-            {/* Seneste tilbud */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 md:col-span-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
-              {dealerQuotesInScope.slice(0, 4).length === 0 ? (
-                <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-              ) : (
-                <ul className="text-sm space-y-1.5">
-                  {dealerQuotesInScope.slice(0, 4).map(q => (
-                    <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
-                  ))}
-                </ul>
-              )}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
+                {activitiesForScope.slice(0, 5).length === 0 ? (
+                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+                ) : (
+                  <ul className="text-sm space-y-1.5">
+                    {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,5).map(a => (
+                      <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || activityTypeMeta(a.activity_type).label.da}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         </TabsContent>
+
 
 
 
@@ -792,51 +774,6 @@ export default function CrmDealerDetailPage() {
 
 
 
-        {/* NOTES — internal only, already gated by canAccess at page level */}
-        <TabsContent value="notes" className="mt-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                {t("notes")} ({notes.length})
-              </h3>
-              <button onClick={() => setShowNoteModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
-                <Plus className="h-3.5 w-3.5" /> {t("add_note")}
-              </button>
-            </div>
-            {notes.length === 0 ? (
-              <p className="text-sm text-slate-500">{t("no_notes")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {notes.map(n => (
-                  <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                        <span>·</span>
-                        <span>{fmtDateTime(n.created_at)}</span>
-                        <span>·</span>
-                        <span>sælger {n.seller_initials || "—"}</span>
-                        {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
-                      </div>
-                      {n.follow_up_date && (
-                        <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                          Opfølgning: {fmtDateTime(n.follow_up_date)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
-                    {n.linked_activity_id && (
-                      <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
-                        Se tilknyttet kalenderaktivitet →
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </TabsContent>
 
         {/* DOCUMENTS — placeholder until document module exists */}
         <TabsContent value="documents" className="mt-0">
@@ -1490,18 +1427,62 @@ function ContactHero({
                   <div className="text-slate-400 italic">—</div>
                 )}
               </div>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
-                  {tl("language", lang)}: {langBadge}
-                </span>
-                {primaryName && (
-                  <span className="text-[11px] text-slate-500">
-                    {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const statusNode = dealer.is_blocked
+                  ? <span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>
+                  : dealer.is_deleted
+                    ? <span className="inline-flex items-center rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white">Slettet</span>
+                    : <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">{tl("status_active", lang)}</span>;
+                const sellerName = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
+                const contractStart = dealer.source_created_at || null;
+                const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
+                  || (dealer as unknown as { updated_at?: string }).updated_at
+                  || null;
+
+                let followupNode: React.ReactNode = <span className="italic text-slate-400">Ingen opfølgning planlagt</span>;
+                if (nextFollowup) {
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const tgt = new Date(nextFollowup.date); tgt.setHours(0,0,0,0);
+                  const diff = (tgt.getTime() - today.getTime()) / (1000*60*60*24);
+                  const cls = diff < 0
+                    ? "text-rose-700"
+                    : diff === 0 ? "text-amber-700" : "text-emerald-700";
+                  followupNode = (
+                    <span className={`font-semibold ${cls}`}>
+                      {fmtDate(nextFollowup.date)} · <span className="font-normal">{nextFollowup.title}</span>
+                    </span>
+                  );
+                }
+
+                const rows: Array<{ label: string; value: React.ReactNode }> = [
+                  { label: tl("language", lang), value: String(langBadge).toUpperCase() },
+                  { label: tl("status_lbl", lang), value: statusNode },
+                ];
+                if (sellerName) rows.push({ label: tl("assigned_seller", lang), value: sellerName });
+                if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
+                if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
+                rows.push({ label: t("next_followup"), value: followupNode });
+
+                return (
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {rows.map((r, i) => (
+                      <li key={i} className="flex items-baseline gap-2">
+                        <span className="text-slate-500 min-w-[140px]">{r.label}:</span>
+                        <span className="text-slate-800">{r.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+              {primaryName && (
+                <div className="mt-2 text-[11px] text-slate-500">
+                  {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
+                </div>
+              )}
             </div>
           </div>
+
+
 
           {/* Action cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -1526,34 +1507,8 @@ function ContactHero({
           </div>
         </div>
 
-        {/* Next follow-up — color coded */}
-        {(() => {
-          if (!nextFollowup) {
-            return (
-              <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
-                {t("next_followup")}: <span className="italic">Ingen opfølgning planlagt</span>
-              </div>
-            );
-          }
-          const d = new Date(nextFollowup.date);
-          const today = new Date(); today.setHours(0,0,0,0);
-          const tgt = new Date(d); tgt.setHours(0,0,0,0);
-          const diff = (tgt.getTime() - today.getTime()) / (1000*60*60*24);
-          const tone = diff < 0
-            ? { bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-200", label: "Overskredet" }
-            : diff === 0
-              ? { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200", label: "I dag" }
-              : { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200", label: "Kommende" };
-          return (
-            <div className={`mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 ${tone.bg} ${tone.text} ${tone.border}`}>
-              <CalendarIcon className="h-4 w-4 shrink-0" />
-              <span className="text-xs font-bold uppercase tracking-wide">{t("next_followup")}:</span>
-              <span className="text-sm font-bold">{fmtDate(nextFollowup.date)}</span>
-              <span className="text-xs">· {nextFollowup.title}</span>
-              <span className={`ml-auto inline-flex items-center rounded-full border ${tone.border} bg-white/60 px-2 py-0.5 text-[10px] font-bold`}>{tone.label}</span>
-            </div>
-          );
-        })()}
+
+
       </div>
     </div>
   );
