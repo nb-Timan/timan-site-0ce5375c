@@ -234,6 +234,16 @@ export default function ServiceTicketsPage() {
 
   useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
+  // Auto-open create dialog when navigating from maintenance page
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('create') === '1') {
+      setCreateOpen(true);
+      params.delete('create');
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    }
+  }, [location.search, location.pathname, navigate]);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader

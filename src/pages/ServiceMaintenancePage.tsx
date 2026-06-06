@@ -2,7 +2,7 @@
 // Sidebar-based module mirroring TSB Portal / Garantiregistrering structure.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Wrench, Upload, Search, Filter, Plus, Trash2, Building2, Calendar, ClipboardList } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -111,6 +111,7 @@ const T: Record<string, Record<Language, string>> = {
   settingsBody: { da: 'Modulindstillinger kommer snart.', en: 'Module settings coming soon.', de: 'Moduleinstellungen folgen in Kürze.', it: 'Impostazioni del modulo in arrivo.', hu: 'A modulbeállítások hamarosan elérhetők.' },
   createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása' },
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk' },
+  newServiceReg: { da: 'Ny service registrering', en: 'New service registration', de: 'Neue Serviceerfassung', it: 'Nuova registrazione servizio', hu: 'Új szervizregisztráció' },
 };
 
 const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines', 'settings'];
@@ -122,6 +123,7 @@ export default function ServiceMaintenancePage() {
   const { appUser, loading } = useAppUser();
   const { language: lang } = useLanguage();
   const t = (k: keyof typeof T) => T[k][lang] || T[k].en;
+  const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
@@ -386,6 +388,17 @@ export default function ServiceMaintenancePage() {
             <DashCard icon={Wrench} label={t('statTop')} value={topMachine ? `${topMachine.serial} (${topMachine.count})` : '—'} />
             <DashCard icon={Building2} label={t('statDealers')} value={activeDealerCount} />
           </div>
+          {!isBackend && (
+            <div className="flex">
+              <Button
+                onClick={() => navigate('/portal/service/tickets?create=1')}
+                className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('newServiceReg')}
+              </Button>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 mb-4">{t('latest')}</h2>
             {latestRegs.length === 0 ? (
