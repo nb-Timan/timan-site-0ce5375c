@@ -3,6 +3,7 @@
 // Metric loaders are placeholders so the dashboard can later show live numbers.
 
 import { AppUser } from '@/data/appUsers';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { Language } from '@/types/configurator';
 import { Wrench, BookOpen, Film, Sparkles, LifeBuoy, LucideIcon } from 'lucide-react';
 
