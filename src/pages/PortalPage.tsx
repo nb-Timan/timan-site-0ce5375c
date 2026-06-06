@@ -42,7 +42,7 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const prefLangApplied = useRef(false);
@@ -96,7 +96,7 @@ export default function PortalPage() {
               ))}
             </div>
           </div>
-          <p className="text-sm text-gray-500">{T.loginNeeded[lang]}</p>
+          <p className="text-sm text-gray-500">{t('loginNeeded', uiLanguage)}</p>
         </div>
         <LoginStep
           language={lang}
