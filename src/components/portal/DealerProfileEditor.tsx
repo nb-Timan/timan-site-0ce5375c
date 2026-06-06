@@ -84,6 +84,54 @@ function Field({ id, label, value, onChange, disabled, required, type = "text" }
   );
 }
 
+/**
+ * Address field with Google Places autocomplete, styled like the standard
+ * shadcn <Input> so it slots into the dealer profile grid without visual
+ * changes. Falls back to a plain text input when no API key is configured
+ * (see AddressAutocomplete). Manual edits after a suggestion clear the
+ * captured coordinates / place_id so stale geocoding is never saved.
+ */
+interface AddressFieldProps {
+  id: string;
+  label: string;
+  value: string | null;
+  onChange: (v: string) => void;
+  onResolve: (r: ResolvedAddress) => void;
+  disabled?: boolean;
+  required?: boolean;
+}
+
+function AddressField({ id, label, value, onChange, onResolve, disabled, required }: AddressFieldProps) {
+  const isEmpty = !value || (typeof value === "string" && value.trim().length === 0);
+  const missing = !!required && isEmpty;
+  const base =
+    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  const cls = missing
+    ? `${base} border-rose-400 bg-rose-50 focus-visible:ring-rose-300`
+    : base;
+  return (
+    <div>
+      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
+        {label}{required ? " *" : ""}
+      </Label>
+      {disabled ? (
+        <Input id={id} value={value ?? ""} disabled />
+      ) : (
+        <AddressAutocomplete
+          id={id}
+          value={value ?? ""}
+          onChange={onChange}
+          onResolve={onResolve}
+          className={cls}
+        />
+      )}
+      {missing && (
+        <p className="mt-1 text-xs text-rose-600">Mangler udfyldelse</p>
+      )}
+    </div>
+  );
+}
+
 interface SectionShellProps {
   skey: SectionKey;
   title: string;
