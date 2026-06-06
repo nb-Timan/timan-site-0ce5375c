@@ -15,6 +15,7 @@ import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
+import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,13 +56,14 @@ import {
   getPaymentTermsLabel,
 } from '@/lib/paymentTerms';
 
-const LANGUAGES: { code: Language; flag: string }[] = [
-  { code: 'da', flag: '🇩🇰' },
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'de', flag: '🇩🇪' },
-  { code: 'it', flag: '🇮🇹' },
-  { code: 'hu', flag: '🇭🇺' },
-];
+// Configurator language selector — uses the 9 portal UI languages.
+// Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
+// Record<Language, T> tables don't crash) while the portal-wide
+// `uiLanguage` keeps the real selection so chrome (header, t() lookups,
+// active flag highlight) localises correctly.
+const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.map(l => ({
+  code: l.code, flag: l.emoji,
+}));
 
 const MACHINE_KEYS = ['RC-1000S', 'RC-751', 'Timan 3330', 'Timan 2620', 'Loader Line', 'LOOSE_TOOL'];
 
@@ -100,22 +102,27 @@ export default function ConfiguratorPage() {
   } = useConfigurator();
 
   const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
-  const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage();
+  const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
 
   // Keep the configurator's internal language in sync with the global portal
   // language so the top-bar selector controls every page consistently.
+  // `globalLanguage` is the legacy `Language` (sv/fr/pl/cs map to 'en'), which
+  // matches the keys used by the inline T objects throughout the configurator.
   useEffect(() => {
     if (state.language !== globalLanguage) {
       setConfigLanguage(globalLanguage);
     }
   }, [globalLanguage, state.language, setConfigLanguage]);
 
-  // Wrap setLanguage so the in-page flag buttons also push to the global store.
-  const setLanguage = useCallback((next: Language) => {
-    setConfigLanguage(next);
+  // Wrap setLanguage so the in-page flag buttons push BOTH:
+  //  - the global portal selection (preserves the real chosen code, e.g. 'fr')
+  //  - the configurator state (mapped to a legacy Language so inline T objects
+  //    keep working without crashes)
+  const setLanguage = useCallback((next: PortalUiLanguage) => {
     setGlobalLanguage(next);
+    setConfigLanguage(mapUiLanguageToLegacy(next));
   }, [setConfigLanguage, setGlobalLanguage]);
   // Phase 38/40 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
   // permission stored in app_users.permissions.can_apply_extra_dealer_discount.
@@ -1943,7 +1950,7 @@ export default function ConfiguratorPage() {
         <div className="flex space-x-1 p-1 rounded-lg bg-white shadow-md border">
           {LANGUAGES.map(l => (
             <button key={l.code} onClick={() => setLanguage(l.code)}
-              className={`flag-button ${state.language === l.code ? 'active' : ''}`}>
+              className={`flag-button ${uiLanguage === l.code ? 'active' : ''}`}>
               <span className="text-lg">{l.flag}</span>
             </button>
           ))}
