@@ -92,6 +92,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
 
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{T.title[lang]}{pageTitle ? <span className="text-gray-400 font-medium"> · {pageTitle}</span> : null}</h1>
+          <LastChangedLine moduleKey="crm" className="mt-2" />
         </div>
 
         <nav className="relative flex flex-wrap items-center gap-1 mb-8 border-b border-slate-200/80">
