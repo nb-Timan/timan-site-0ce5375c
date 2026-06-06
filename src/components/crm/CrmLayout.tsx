@@ -77,11 +77,11 @@ export default function CrmLayout({ children, pageTitle }: Props) {
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
 
-      <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8 flex-grow w-full">
-        <div className="flex items-center justify-between mb-4">
-          <button type="button" onClick={() => navigate('/portal')} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+      <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-4 pb-8 flex-grow w-full">
+        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {T.back[lang]}
+            {T.back_crm[lang]}
           </button>
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
@@ -91,12 +91,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
           </span>
         </div>
 
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{T.title[lang]}{pageTitle ? <span className="text-gray-400 font-medium"> · {pageTitle}</span> : null}</h1>
-          <LastChangedLine moduleKey="crm" className="mt-2" />
-        </div>
-
-        <nav className="relative flex flex-wrap items-center gap-1 mb-8 border-b border-slate-200/80">
+        <nav className="relative flex flex-wrap items-center gap-1 mb-6 border-b border-slate-200/80">
           {NAV.map(item => {
             const active = location.pathname === item.to;
             const Icon = item.icon;
@@ -120,7 +115,14 @@ export default function CrmLayout({ children, pageTitle }: Props) {
               </Link>
             );
           })}
+          <div className="ml-auto hidden md:flex items-center pr-2">
+            <LastChangedLine moduleKey="crm" />
+          </div>
+          <div className="basis-full md:hidden mt-1 pl-2 pb-2">
+            <LastChangedLine moduleKey="crm" className="text-[11px]" />
+          </div>
         </nav>
+
 
         {children}
       </main>
