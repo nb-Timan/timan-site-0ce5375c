@@ -54,6 +54,7 @@ import { supabase } from "@/lib/supabase";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import DealerProfileImportPanel from "@/components/backend/DealerProfileImportPanel";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -1284,7 +1285,21 @@ function CreateDealerModal({
     phone: "",
     seller_initials: "EM",
   });
+  const [geo, setGeo] = useState<{ latitude: number | null; longitude: number | null; google_place_id: string | null }>({
+    latitude: null, longitude: null, google_place_id: null,
+  });
   const seller = TIMAN_SELLERS.find((s) => s.initials === d.seller_initials)!;
+
+  function applyResolved(r: ResolvedAddress) {
+    setD((prev) => ({
+      ...prev,
+      address: r.address_line_1 || r.formatted || prev.address,
+      postal_code: r.postal_code ?? prev.postal_code,
+      city: r.city ?? prev.city,
+      country: r.country ?? prev.country,
+    }));
+    setGeo({ latitude: r.latitude, longitude: r.longitude, google_place_id: r.google_place_id });
+  }
 
   async function submit() {
     setErr(null);
@@ -1307,6 +1322,17 @@ function CreateDealerModal({
       assigned_seller_name: seller.name,
       assigned_seller_email: seller.email,
     });
+    if (res.ok && res.row && (geo.latitude != null || geo.google_place_id)) {
+      // Best-effort: persist coordinates + place_id captured from Google Places.
+      // Failure here must not block dealer creation.
+      try {
+        await updateDealerAccount(res.row.id, {
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          google_place_id: geo.google_place_id,
+        });
+      } catch { /* swallow — dealer is already created */ }
+    }
     setBusy(false);
     if (!res.ok) {
       const msg = res.error ?? "Kunne ikke oprette forhandler.";
@@ -1334,7 +1360,15 @@ function CreateDealerModal({
               </select>
             </Field>
             <Field label="Land (ISO-2 eller navn)"><input value={d.country} onChange={(e) => setD({ ...d, country: e.target.value })} className={inp} /></Field>
-            <Field label="Adresse"><input value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} className={inp} /></Field>
+            <Field label="Adresse">
+              <AddressAutocomplete
+                className={inp}
+                value={d.address}
+                onChange={(v) => setD({ ...d, address: v })}
+                onResolve={applyResolved}
+                placeholder="Begynd at skrive adressen…"
+              />
+            </Field>
             <Field label="By"><input value={d.city} onChange={(e) => setD({ ...d, city: e.target.value })} className={inp} /></Field>
             <Field label="Postnr"><input value={d.postal_code} onChange={(e) => setD({ ...d, postal_code: e.target.value })} className={inp} /></Field>
             <Field label="Email"><input value={d.email} onChange={(e) => setD({ ...d, email: e.target.value })} className={inp} /></Field>
