@@ -314,6 +314,8 @@ export function WarrantyNewForm({ defaultDealerName = "" }: { defaultDealerName?
             }}
             className={inputCls}
             placeholder="Begynd at skrive adressen…"
+            showValidationState
+            addressParts={{ address_line_1: state.customerAddress, postal_code: state.postalCity }}
           />
         </Field>
         <Field label="Postnr/by" required>
