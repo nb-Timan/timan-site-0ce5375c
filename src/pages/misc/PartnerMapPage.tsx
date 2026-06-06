@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
