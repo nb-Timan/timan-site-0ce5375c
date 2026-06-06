@@ -15,14 +15,10 @@ import {
   type ActiveMode,
 } from '@/lib/activeMode';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
+import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { useLanguage } from '@/context/LanguageContext';
 
-const LANGS: { code: Language; flag: string }[] = [
-  { code: 'da', flag: '🇩🇰' },
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'de', flag: '🇩🇪' },
-  { code: 'it', flag: '🇮🇹' },
-  { code: 'hu', flag: '🇭🇺' },
-];
+const LANGS = PORTAL_LANGUAGES;
 
 const T: Record<string, Record<Language, string>> = {
   portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
@@ -38,7 +34,7 @@ const T: Record<string, Record<Language, string>> = {
 interface Props {
   user: SessionUser;
   language: Language;
-  onLanguageChange: (lang: Language) => void;
+  onLanguageChange: (lang: PortalUiLanguage) => void;
   onLogout: () => void;
 }
 
@@ -50,6 +46,7 @@ function getInitials(name: string): string {
 }
 
 export default function PortalHeader({ user, language, onLanguageChange, onLogout }: Props) {
+  const { uiLanguage } = useLanguage();
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -137,15 +134,16 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
           {/* Right: language flags + bell + user chip + logout */}
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-gray-50 border border-gray-200">
+            <div className="hidden sm:flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-gray-50 border border-gray-200">
               {LANGS.map(l => (
                 <button
                   key={l.code}
                   onClick={() => onLanguageChange(l.code)}
-                  className={`px-1.5 py-0.5 rounded transition ${language === l.code ? 'bg-white shadow-sm border border-[#2d5a27]/30' : 'hover:bg-white'}`}
+                  className={`px-1.5 py-0.5 rounded-md transition ${uiLanguage === l.code ? 'bg-white shadow-sm border border-[#2d5a27]/30' : 'border border-transparent hover:bg-white'}`}
                   aria-label={l.code}
+                  title={l.label}
                 >
-                  <span className="text-base leading-none">{l.flag}</span>
+                  <span className="text-base leading-none">{l.emoji}</span>
                 </button>
               ))}
             </div>
