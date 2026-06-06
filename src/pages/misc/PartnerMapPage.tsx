@@ -536,12 +536,14 @@ export default function PartnerMapPage() {
   // see the Garantiregistreringer-laget — scoped to their own dealer.
   const canSeeMachineStats =
     portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
-  const canSeeMachineLayer =
-    canSeeMachineStats ||
+  // Dealer-side users: forhandlere, importører, servicepartnere, dealer-users.
+  // They MUST only see their own account/data — no Timan-wide partner browsing.
+  const isDealerSide =
     portalRole === 'timan_dealer' ||
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
+  const canSeeMachineLayer = canSeeMachineStats || isDealerSide;
   const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
