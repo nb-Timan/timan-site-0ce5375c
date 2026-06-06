@@ -71,7 +71,7 @@ interface Props { areaId: PortalAreaId }
 
 export default function PortalAreaPage({ areaId }: Props) {
   const { appUser, loading, setAppUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
@@ -135,12 +135,12 @@ export default function PortalAreaPage({ areaId }: Props) {
       <main className={`${areaId === 'timan_backend' || areaId === 'teknik_service' ? 'max-w-[1700px] xl:px-12' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full`}>
         <Link to="/portal" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          {T.back[lang]}
+          {t('backToPortal', uiLanguage)}
         </Link>
 
         <div className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{area.title[lang] || area.title.en}</h1>
-          <p className="text-gray-600 text-base mt-2 max-w-3xl">{area.description[lang] || area.description.en}</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{AREA_TITLE_KEY[areaId] ? t(AREA_TITLE_KEY[areaId], uiLanguage) : (area.title[lang] || area.title.en)}</h1>
+          <p className="text-gray-600 text-base mt-2 max-w-3xl">{AREA_DESC_KEY[areaId] ? t(AREA_DESC_KEY[areaId], uiLanguage) : (area.description[lang] || area.description.en)}</p>
         </div>
 
         {areaId === 'timan_backend' ? (
@@ -151,84 +151,49 @@ export default function PortalAreaPage({ areaId }: Props) {
           {area.placeholders.map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;
-            let description: string | undefined;
             if (p.key === 'tsb_portal') {
-              // TSB visibility: any role with 'tsb' module access (default or override)
               if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
               href = '/portal/service/tsb';
-              description = T.desc_tsb[lang];
             } else if (p.key === 'warranty_reg') {
               href = '/portal/service/warranty';
-              description = T.desc_warranty_reg[lang];
             } else if (p.key === 'service_maintenance') {
-              href = '/portal/service/maintenance';
-              icon = Wrench;
-              description = T.desc_service_maintenance[lang];
+              href = '/portal/service/maintenance'; icon = Wrench;
             } else if (p.key === 'service_tickets') {
-              href = '/portal/service/tickets';
-              icon = Ticket;
-              description = T.desc_service_tickets[lang];
+              href = '/portal/service/tickets'; icon = Ticket;
             } else if (p.key === 'machine_search') {
-              href = '/portal/service/machines';
-              icon = Search;
-              description = T.desc_machine_search[lang];
+              href = '/portal/service/machines'; icon = Search;
             } else if (p.key === 'claims') {
               if (!hasModuleAccess(portalRole, 'claims', moduleOverride)) return null;
-              href = '/portal/service/claims';
-              icon = LifeBuoy;
-              description = lang === 'da' ? 'Opret og følg service- og garantisager direkte i portalen.' : 'Create and track service and warranty claims directly in the portal.';
-
+              href = '/portal/service/claims'; icon = LifeBuoy;
             } else if (p.key === 'users') {
-              href = '/portal/backend/users';
-              icon = Users;
-              description = lang === 'da' ? 'Administrer alle portal-brugere, godkend nye signups og tildel roller.' : 'Manage all portal users, approve signups and assign roles.';
+              href = '/portal/backend/users'; icon = Users;
             } else if (p.key === 'roles') {
-              href = '/portal/backend/roles';
-              icon = ShieldCheck;
-              description = lang === 'da' ? 'Definér portal-roller og standard-rettigheder.' : 'Define portal roles and default permissions.';
+              href = '/portal/backend/roles'; icon = ShieldCheck;
             } else if (p.key === 'module_access') {
-              href = '/portal/backend/module-access';
-              icon = KeyRound;
-              description = lang === 'da' ? 'Styr hvilke moduler hver rolle har adgang til.' : 'Control which modules each role can access.';
+              href = '/portal/backend/module-access'; icon = KeyRound;
             } else if (p.key === 'audit') {
-              href = '/portal/backend/audit-log';
-              icon = ScrollText;
-              description = lang === 'da' ? 'Se ændringer på brugere, roller og adgang.' : 'See changes to users, roles and access.';
+              href = '/portal/backend/audit-log'; icon = ScrollText;
             } else if (p.key === 'portal_analytics') {
-              href = '/portal/backend/portal-analytics';
-              icon = BarChart3;
-              description = lang === 'da' ? 'Brug af portalen — besøg, sessioner og moduler.' : 'Portal usage — visits, sessions and modules.';
+              href = '/portal/backend/portal-analytics'; icon = BarChart3;
             } else if (p.key === 'dealer_accounts') {
-              href = '/portal/backend/dealer-accounts';
-              icon = Building2;
-              description = lang === 'da'
-                ? 'Master-overblik over alle forhandlere, service partnere og importører — med tildelt sælger, brugere, tilbud og ordrer.'
-                : 'Master overview of all dealers, service partners and importers — with assigned seller, users, quotes and orders.';
+              href = '/portal/backend/dealer-accounts'; icon = Building2;
             } else if (p.key === 'sellers') {
-              href = '/portal/backend/sellers';
-              icon = UserCog;
-              description = lang === 'da' ? 'Timan sælgere og deres tildelte forhandlere.' : 'Timan sellers and their assigned dealers.';
+              href = '/portal/backend/sellers'; icon = UserCog;
             } else if (p.key === 'price_lists') {
-              href = '/portal/backend/price-lists';
-              icon = Tag;
-              description = lang === 'da'
-                ? 'Administrér varepriser, importér prislister fra ERP og eksportér til CSV.'
-                : 'Manage product prices, import from ERP and export to CSV.';
+              href = '/portal/backend/price-lists'; icon = Tag;
             } else if (p.key === 'budget_import') {
-              href = '/portal/backend/budget-import';
-              icon = Upload;
-              description = lang === 'da'
-                ? 'Importér sælgerbudgetter fra Excel-oversigt til CRM Budget.'
-                : 'Import seller budgets from Excel overview to CRM Budget.';
+              href = '/portal/backend/budget-import'; icon = Upload;
             }
+            const titleKey = PLACEHOLDER_TITLE_KEY[p.key];
+            const descKey = PLACEHOLDER_DESC_KEY[p.key];
             return (
               <PlaceholderCard
                 key={p.key}
-                title={p.title[lang] || p.title.en}
+                title={titleKey ? t(titleKey, uiLanguage) : (p.title[lang] || p.title.en)}
                 language={lang}
                 to={href}
                 icon={icon}
-                description={description}
+                description={descKey ? t(descKey, uiLanguage) : undefined}
               />
             );
           })}
@@ -237,20 +202,20 @@ export default function PortalAreaPage({ areaId }: Props) {
 
         {areaId === 'teknik_service' && (
           <section className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.support_section_title[lang]}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('supportSectionTitle', uiLanguage)}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.support_heading[lang]}</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{t('supportHeading', uiLanguage)}</h3>
                 <dl className="space-y-2 text-sm text-gray-700">
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_phone[lang]}:</dt><dd><a href="tel:+4596744466" className="text-[#2d5a27] hover:underline">96 74 44 66</a></dd></div>
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_email[lang]}:</dt><dd><a href="mailto:service@timan.dk" className="text-[#2d5a27] hover:underline">service@timan.dk</a></dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelPhone', uiLanguage)}:</dt><dd><a href="tel:+4596744466" className="text-[#2d5a27] hover:underline">96 74 44 66</a></dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelEmail', uiLanguage)}:</dt><dd><a href="mailto:service@timan.dk" className="text-[#2d5a27] hover:underline">service@timan.dk</a></dd></div>
                 </dl>
               </div>
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">{T.company_heading[lang]}</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{t('companyHeading', uiLanguage)}</h3>
                 <dl className="space-y-2 text-sm text-gray-700">
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_company[lang]}:</dt><dd>Timan A/S</dd></div>
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{T.label_address[lang]}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCompany', uiLanguage)}:</dt><dd>Timan A/S</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelAddress', uiLanguage)}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
                 </dl>
               </div>
             </div>
