@@ -614,6 +614,23 @@ export default function ServiceTicketDetailPage() {
               {ticket.description && (
                 <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{ticket.description}</p>
               )}
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleConvertToClaim}
+                  disabled={converting}
+                  className="border-amber-300 text-amber-800 hover:bg-amber-50"
+                >
+                  <FileWarning className="h-4 w-4 mr-2" />
+                  {converting
+                    ? 'Opretter…'
+                    : isInternal
+                      ? 'Konverter til claim'
+                      : 'Ansøg om claim fra sag'}
+                </Button>
+              </div>
             </div>
 
             {/* Two-column detail grid */}
