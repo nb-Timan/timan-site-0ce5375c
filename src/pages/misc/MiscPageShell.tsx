@@ -8,15 +8,20 @@ import BackButton from '@/components/portal/BackButton';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 
 
+import LastChangedLine from '@/components/portal/LastChangedLine';
+import type { ModuleKey } from '@/lib/portalChangelog';
+
 interface Props {
   title: string;
   intro?: string;
   /** Optional override for back link target. */
   backTo?: string;
+  /** Optional changelog module key — renders "Senest ændret …" under the title. */
+  changelogModule?: ModuleKey;
   children: ReactNode;
 }
 
-export default function MiscPageShell({ title, intro, backTo, children }: Props) {
+export default function MiscPageShell({ title, intro, backTo, changelogModule, children }: Props) {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
