@@ -4,7 +4,7 @@
 
 import { AppUser } from '@/data/appUsers';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
-import { Language } from '@/types/configurator';
+
 import { Wrench, BookOpen, Film, Sparkles, LifeBuoy, LucideIcon } from 'lucide-react';
 
 export type PortalModuleId =
