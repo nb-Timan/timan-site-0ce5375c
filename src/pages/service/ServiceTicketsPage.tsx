@@ -178,23 +178,24 @@ function fmtDate(v: string | null | undefined): string {
   } catch { return v as string; }
 }
 
-function statusLabel(v: string, lang: Language): string {
+function statusLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `st_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
-function priorityLabel(v: string, lang: Language): string {
+function priorityLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `pr_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
-function categoryLabel(v: string, lang: Language): string {
+function categoryLabel(v: string, uiLang: PortalUiLanguage | string): string {
   if (!v) return "—";
   const key = `cat_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
+  const uiLang = uiLanguage;
   const navigate = useNavigate();
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
@@ -343,6 +344,7 @@ export default function ServiceTicketsPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         lang={lang}
+        uiLang={uiLang}
         isInternal={isInternal}
         lockedDealerNumber={isInternal ? null : dealerScope.lockedDealerNumber}
         lockedDealerName={isInternal ? null : dealerScope.lockedDealerName}
@@ -362,12 +364,13 @@ function CreateTicketDialog(props: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   lang: Language;
+  uiLang: PortalUiLanguage;
   isInternal: boolean;
   lockedDealerNumber: string | null;
   lockedDealerName: string | null;
   onCreated: () => void;
 }) {
-  const { open, onOpenChange, lang, isInternal, lockedDealerNumber, lockedDealerName, onCreated } = props;
+  const { open, onOpenChange, lang, uiLang, isInternal, lockedDealerNumber, lockedDealerName, onCreated } = props;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
