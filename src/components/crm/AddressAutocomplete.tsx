@@ -51,10 +51,14 @@ interface PlaceResult {
   geometry?: { location?: { lat: () => number; lng: () => number } };
 }
 
-const DEV = import.meta.env.DEV;
+// TEMP: unconditional logging to debug deployed preview (remove after verification)
 let warnedMissingKey = false;
 function devLog(...args: unknown[]) {
-  if (DEV) console.debug('[AddressAutocomplete]', ...args);
+  console.log('[AddressAutocomplete]', ...args);
+}
+// Log once at module load so we can see it even before any component mounts.
+if (typeof window !== 'undefined') {
+  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'keyLen:', API_KEY.length, 'MODE:', import.meta.env.MODE);
 }
 
 let loaderPromise: Promise<boolean> | null = null;
@@ -88,10 +92,18 @@ function loadPlaces(): Promise<boolean> {
     s.async = true;
     s.defer = true;
     s.dataset.googleMapsLoader = '1';
-    s.onload = () => { devLog('script loaded'); resolve(true); };
-    s.onerror = () => { devLog('script failed to load'); resolve(false); };
+    s.onload = () => {
+      const ww = window as unknown as { google?: { maps?: { places?: unknown } } };
+      devLog('script loaded: true, google.maps.places present:', !!ww.google?.maps?.places);
+      resolve(true);
+    };
+    s.onerror = (e) => { devLog('script loaded: false (error)', e); resolve(false); };
     document.head.appendChild(s);
   });
+  // Surface Google's auth failure callback (invalid key, referer not allowed, etc.)
+  (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+    devLog('Google Places status: gm_authFailure (InvalidKey/RefererNotAllowed/BillingNotEnabled)');
+  };
   return loaderPromise;
 }
 
@@ -160,33 +172,41 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
     let cancelled = false;
     const restrict = (countries && countries.length > 0 ? countries : DEFAULT_COUNTRIES).map((c) => c.toLowerCase());
     loadPlaces().then((ok) => {
-      if (!ok || cancelled || !ref.current) return;
-      const g = (window as unknown as {
-        google: {
-          maps: {
-            places: {
-              Autocomplete: new (el: HTMLInputElement, opts: object) => {
-                addListener: (e: string, cb: () => void) => void;
-                getPlace: () => PlaceResult;
+      devLog('loadPlaces resolved:', ok);
+      if (!ok || cancelled || !ref.current) {
+        devLog('autocomplete initialized: false (loadPlaces ok=' + ok + ', cancelled=' + cancelled + ', ref=' + !!ref.current + ')');
+        return;
+      }
+      try {
+        const g = (window as unknown as {
+          google: {
+            maps: {
+              places: {
+                Autocomplete: new (el: HTMLInputElement, opts: object) => {
+                  addListener: (e: string, cb: () => void) => void;
+                  getPlace: () => PlaceResult;
+                };
               };
             };
           };
-        };
-      }).google;
-      const ac = new g.maps.places.Autocomplete(ref.current, {
-        types: ['address'],
-        fields: ['formatted_address', 'name', 'address_components', 'geometry.location', 'place_id'],
-        componentRestrictions: { country: restrict },
-      });
-      devLog('autocomplete initialized, countries:', restrict);
-      ac.addListener('place_changed', () => {
-        const p = ac.getPlace();
-        const resolved = extractResolved(p);
-        devLog('place selected:', resolved.formatted, resolved.country);
-        const v = resolved.formatted || resolved.address_line_1 || '';
-        if (v) onChangeRef.current(v);
-        if (onResolveRef.current) onResolveRef.current(resolved);
-      });
+        }).google;
+        const ac = new g.maps.places.Autocomplete(ref.current, {
+          types: ['address'],
+          fields: ['formatted_address', 'name', 'address_components', 'geometry.location', 'place_id'],
+          componentRestrictions: { country: restrict },
+        });
+        devLog('autocomplete initialized: true, countries:', restrict);
+        ac.addListener('place_changed', () => {
+          const p = ac.getPlace();
+          const resolved = extractResolved(p);
+          devLog('place selected:', resolved.formatted, resolved.country);
+          const v = resolved.formatted || resolved.address_line_1 || '';
+          if (v) onChangeRef.current(v);
+          if (onResolveRef.current) onResolveRef.current(resolved);
+        });
+      } catch (err) {
+        devLog('autocomplete initialized: false (exception)', err);
+      }
     });
     return () => { cancelled = true; };
     // restriction list is stable per mount; recreating Autocomplete on every keystroke would break selection
