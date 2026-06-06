@@ -7,6 +7,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, AlertTriangle, Plus, X } from "lucide-react";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import {
   MACHINE_TYPES,
   REPLACEMENT_BRANDS,
@@ -303,10 +304,16 @@ export function WarrantyNewForm({ defaultDealerName = "" }: { defaultDealerName?
           />
         </Field>
         <Field label="Kunde adresse" required>
-          <input
+          <AddressAutocomplete
             value={state.customerAddress}
-            onChange={(e) => set("customerAddress", e.target.value)}
+            onChange={(v) => set("customerAddress", v)}
+            onResolve={(r: ResolvedAddress) => {
+              if (r.address_line_1) set("customerAddress", r.address_line_1);
+              const pc = [r.postal_code, r.city].filter(Boolean).join(" ");
+              if (pc) set("postalCity", pc);
+            }}
             className={inputCls}
+            placeholder="Begynd at skrive adressen…"
           />
         </Field>
         <Field label="Postnr/by" required>
