@@ -161,3 +161,96 @@ function StatusPill({ status }: { status: ClaimStatus }) {
     </span>
   );
 }
+
+function PendingReviewQueue() {
+  const [items, setItems] = useState<ServiceClaim[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await loadPendingReviewClaims();
+      setItems(res.claims);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const onApprove = async (id: string) => {
+    setApprovingId(id);
+    const res = await approveClaim(id);
+    setApprovingId(null);
+    if (!res.ok) {
+      toast.error(res.error || "Kunne ikke godkende claim");
+      return;
+    }
+    toast.success("Claim godkendt og åbnet");
+    reload();
+  };
+
+  if (!loading && items.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
+      <div className="flex items-center justify-between border-b border-amber-100 px-6 py-3">
+        <div className="text-xs font-black uppercase tracking-widest text-amber-800">
+          Afventer servicegodkendelse {items.length > 0 && <span className="ml-1 rounded bg-amber-200 px-1.5 py-0.5 text-amber-900">{items.length}</span>}
+        </div>
+      </div>
+      {loading ? (
+        <div className="px-6 py-8 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
+        </div>
+      ) : (
+        <div className="divide-y divide-amber-100">
+          {items.map((c) => (
+            <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-black text-slate-700">{c.claim_number}</span>
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-orange-800">
+                    {claimStatusLabel(c.status)}
+                  </span>
+                  {c.service_ticket_id && (
+                    <Link
+                      to={`/portal/service/tickets/${c.service_ticket_id}`}
+                      className="text-[10px] font-bold text-slate-500 underline hover:text-slate-800"
+                    >
+                      fra service ticket
+                    </Link>
+                  )}
+                </div>
+                <div className="mt-1 truncate text-sm text-slate-700">
+                  <span className="font-semibold">{c.dealer_company || "—"}</span>
+                  {c.machine_serial && <span className="text-slate-500"> · {c.machine_serial}</span>}
+                  {c.customer_name && <span className="text-slate-500"> · {c.customer_name}</span>}
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500">{formatDate(c.created_at)}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/portal/service/claims/${c.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Åbn
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => onApprove(c.id)}
+                  disabled={approvingId === c.id}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {approvingId === c.id ? "Godkender…" : "Godkend og åbn claim"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
