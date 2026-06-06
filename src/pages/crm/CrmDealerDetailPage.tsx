@@ -1427,16 +1427,62 @@ function ContactHero({
                   <div className="text-slate-400 italic">—</div>
                 )}
               </div>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
-                  {tl("language", lang)}: {langBadge}
-                </span>
-                {primaryName && (
-                  <span className="text-[11px] text-slate-500">
-                    {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const statusNode = dealer.is_blocked
+                  ? <span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>
+                  : dealer.is_deleted
+                    ? <span className="inline-flex items-center rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white">Slettet</span>
+                    : <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">{tl("status_active", lang)}</span>;
+                const sellerName = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
+                const contractStart = dealer.source_created_at || null;
+                const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
+                  || (dealer as unknown as { updated_at?: string }).updated_at
+                  || null;
+
+                let followupNode: React.ReactNode = <span className="italic text-slate-400">Ingen opfølgning planlagt</span>;
+                if (nextFollowup) {
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const tgt = new Date(nextFollowup.date); tgt.setHours(0,0,0,0);
+                  const diff = (tgt.getTime() - today.getTime()) / (1000*60*60*24);
+                  const cls = diff < 0
+                    ? "text-rose-700"
+                    : diff === 0 ? "text-amber-700" : "text-emerald-700";
+                  followupNode = (
+                    <span className={`font-semibold ${cls}`}>
+                      {fmtDate(nextFollowup.date)} · <span className="font-normal">{nextFollowup.title}</span>
+                    </span>
+                  );
+                }
+
+                const rows: Array<{ label: string; value: React.ReactNode }> = [
+                  { label: tl("language", lang), value: String(langBadge).toUpperCase() },
+                  { label: tl("status_lbl", lang), value: statusNode },
+                ];
+                if (sellerName) rows.push({ label: tl("assigned_seller", lang), value: sellerName });
+                if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
+                if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
+                rows.push({ label: t("next_followup"), value: followupNode });
+
+                return (
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {rows.map((r, i) => (
+                      <li key={i} className="flex items-baseline gap-2">
+                        <span className="text-slate-500 min-w-[140px]">{r.label}:</span>
+                        <span className="text-slate-800">{r.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+              {primaryName && (
+                <div className="mt-2 text-[11px] text-slate-500">
+                  {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+
             </div>
           </div>
 
