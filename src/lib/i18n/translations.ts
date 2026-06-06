@@ -115,6 +115,14 @@ const da: Dict = {
   dealerBlocked: 'Forhandlerkonto er spærret',
   dealerInactiveBody: 'Denne forhandlerkonto er ikke længere aktiv. Kontakt venligst Timan.',
   dealerBlockedBody: 'Denne forhandlerkonto er spærret. Kontakt venligst Timan.',
+
+  // Claims dashboards
+  dealerClaimsSubtitle: 'Overblik over dine reklamationssager.',
+  adminClaimsSubtitle: 'Aktuelle claims på tværs af forhandlere — kun aktive sager.',
+};
+
+const __unused_da_close = {
+  dealerBlockedBody: 'Denne forhandlerkonto er spærret. Kontakt venligst Timan.',
 };
 
 // ---------------------------------------------------------------------------
