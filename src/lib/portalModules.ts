@@ -14,8 +14,15 @@ export type PortalModuleId =
   | 'misc'
   | 'claims';
 
+/**
+ * Localised label for a module/metric. Covers the legacy 5 (da/en/de/it/hu)
+ * plus the newer portal UI languages (sv/fr/pl/cs). Missing entries fall back
+ * to English via `pickT` in the consumer.
+ */
+export type ModuleLabel = Partial<Record<PortalUiLanguage, string>>;
+
 export interface PortalMetric {
-  label: Record<Language, string>;
+  label: ModuleLabel;
   /** Optional emphasis style — used for overdue / awaiting approval. */
   tone?: 'default' | 'warning' | 'danger';
   value: number | string;
@@ -23,10 +30,10 @@ export interface PortalMetric {
 
 export interface PortalModule {
   id: PortalModuleId;
-  title: Record<Language, string>;
-  description: Record<Language, string>;
+  title: ModuleLabel;
+  description: ModuleLabel;
   /** Localized CTA button label shown at the bottom of each card. */
-  cta: Record<Language, string>;
+  cta: ModuleLabel;
   icon: LucideIcon;
   /** Where the card navigates. Internal route OR external URL. */
   href: string;
