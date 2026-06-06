@@ -11,8 +11,8 @@ interface Props {
   icon: LucideIcon;
   accent: 'primary' | 'sky' | 'violet';
   badge?: { tone: BadgeTone; label: string } | null;
-  /** Small "Opdateret" / "Ny" pill shown when the user has unseen changelog entries for this area. */
-  updateBadge?: { label: string; tone: 'ny' | 'opdateret' } | null;
+  /** Compact "Opdateret dd-mm-yy · HH:mm" pill shown when the user has unseen changelog entries for this area. */
+  updateBadge?: { label: string } | null;
 }
 
 const ACCENT: Record<Props['accent'], { iconBg: string; iconColor: string; ctaColor: string }> = {
@@ -42,12 +42,8 @@ export default function AreaCard({ title, description, cta, to, icon: Icon, acce
         <div className="absolute top-4 right-4 flex items-center gap-1.5">
           {updateBadge && (
             <span
-              className={cn(
-                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-                updateBadge.tone === 'ny'
-                  ? 'bg-amber-100 text-amber-800 border-amber-200'
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-200',
-              )}
+              className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold tabular-nums"
+              title={updateBadge.label}
             >
               {updateBadge.label}
             </span>
