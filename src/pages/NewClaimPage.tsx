@@ -223,7 +223,7 @@ export default function NewClaimPage() {
     const role = derivePortalRole(appUser);
     const perms = role ? getPortalPermissions(role) : null;
     if (perms && !perms.canCreateClaim) {
-      toast.error(role === 'dealer_user' ? T.readOnlyMsg[lang] : T.noAccess[lang]);
+      toast.error(role === 'dealer_user' ? pickT(T.readOnlyMsg, uiLang) : pickT(T.noAccess, uiLang));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, appUser?.email]);
@@ -275,14 +275,14 @@ export default function NewClaimPage() {
     for (const p of parts) {
       if (!p.description && !p.part_number && !p.quantity && !p.unit_price_net) continue;
       if (!lineSchemaPart.safeParse(p).success) {
-        toast.error(T.validation[lang]);
+        toast.error(pickT(T.validation, uiLang));
         return { ok: false };
       }
     }
     for (const w of workLines) {
       if (!w.description && !w.hours && !w.hourly_rate_net) continue;
       if (!lineSchemaWork.safeParse(w).success) {
-        toast.error(T.validation[lang]);
+        toast.error(pickT(T.validation, uiLang));
         return { ok: false };
       }
     }
@@ -294,7 +294,7 @@ export default function NewClaimPage() {
     if (!canCreate) return;
     const { ok, values } = validate();
     if (!ok || !values) {
-      toast.error(T.validation[lang]);
+      toast.error(pickT(T.validation, uiLang));
       return;
     }
     setSubmitting(status);
@@ -326,10 +326,10 @@ export default function NewClaimPage() {
         created_by_email: appUser.email,
       }, status);
 
-      toast.success(status === 'draft' ? T.savedDraft[lang] : T.sentOk[lang]);
+      toast.success(status === 'draft' ? pickT(T.savedDraft, uiLang) : pickT(T.sentOk, uiLang));
       setDone({ id: res.claim.id, status });
     } catch {
-      toast.error(T.saveError[lang]);
+      toast.error(pickT(T.saveError, uiLang));
     } finally {
       setSubmitting(null);
     }
@@ -360,7 +360,7 @@ export default function NewClaimPage() {
             className="flex items-center text-white/80 hover:text-white text-sm font-medium mb-4 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {T.back[lang]}
+            {pickT(T.back, uiLang)}
           </button>
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -369,13 +369,13 @@ export default function NewClaimPage() {
                 <LifeBuoy className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{T.title[lang]}</h1>
-                <p className="text-white/80 mt-1 text-sm">{T.intro[lang]}</p>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{pickT(T.title, uiLang)}</h1>
+                <p className="text-white/80 mt-1 text-sm">{pickT(T.intro, uiLang)}</p>
               </div>
             </div>
             {viewVariant !== 'none' && (
               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/15 text-white ring-1 ring-white/20">
-                {viewVariant === 'internal' ? T.viewInternal[lang] : T.viewDealer[lang]}
+                {viewVariant === 'internal' ? pickT(T.viewInternal, uiLang) : pickT(T.viewDealer, uiLang)}
               </span>
             )}
           </div>
@@ -383,7 +383,7 @@ export default function NewClaimPage() {
           {/* Progress / step bar */}
           <div className="mt-6">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-white/70 mb-2">
-              <span>{T.progress[lang]}</span>
+              <span>{pickT(T.progress, uiLang)}</span>
               <span>{progressPct}%</span>
             </div>
             <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
@@ -393,7 +393,7 @@ export default function NewClaimPage() {
               />
             </div>
             <div className="mt-3 hidden md:flex items-center justify-between gap-2 text-[11px] text-white/80">
-              {[T.step1[lang], T.step2[lang], T.step3[lang], T.step4[lang], T.step5[lang], T.step6[lang], T.step7[lang]].map((s, i) => {
+              {[pickT(T.step1, uiLang), pickT(T.step2, uiLang), pickT(T.step3, uiLang), pickT(T.step4, uiLang), pickT(T.step5, uiLang), pickT(T.step6, uiLang), pickT(T.step7, uiLang)].map((s, i) => {
                 const done = stepDone[i];
                 const active = !done && stepDone.slice(0, i).every(Boolean);
                 return (
@@ -424,7 +424,7 @@ export default function NewClaimPage() {
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center max-w-2xl mx-auto">
             <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto mb-3" />
             <h2 className="text-xl font-bold text-gray-900 mb-1">
-              {done.status === 'draft' ? T.savedDraft[lang] : T.sentOk[lang]}
+              {done.status === 'draft' ? pickT(T.savedDraft, uiLang) : pickT(T.sentOk, uiLang)}
             </h2>
             <p className="text-sm text-gray-500 mb-6">#{done.id}</p>
             <div className="flex gap-3 justify-center">
@@ -432,13 +432,13 @@ export default function NewClaimPage() {
                 onClick={() => navigate('/portal/service/claims')}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-50"
               >
-                {T.back[lang]}
+                {pickT(T.back, uiLang)}
               </button>
               <button
                 onClick={() => navigate(`/portal/service/claims/${done.id}`)}
                 className="px-4 py-2 rounded-lg bg-[#2d5a27] text-white text-sm font-semibold hover:bg-[#244820]"
               >
-                {T.title[lang]} →
+                {pickT(T.title, uiLang)} →
               </button>
             </div>
           </div>
@@ -449,104 +449,104 @@ export default function NewClaimPage() {
           >
             {/* ===== Left column: form sections ===== */}
             <div className="lg:col-span-2 space-y-6">
-              <Section title={T.sDealer[lang]} icon={<Building2 className="h-4 w-4" />}>
+              <Section title={pickT(T.sDealer, uiLang)} icon={<Building2 className="h-4 w-4" />}>
                 <Grid>
-                  <FieldText label={T.fCompany[lang]} required value={form.dealer_company} onChange={(v) => setField('dealer_company', v)} cls={inputCls('dealer_company')} error={errors.dealer_company} />
-                  <FieldText label={T.fContact[lang]} value={form.dealer_contact} onChange={(v) => setField('dealer_contact', v)} cls={inputCls('dealer_contact')} />
-                  <FieldText label={T.fEmail[lang]} type="email" value={form.dealer_email} onChange={(v) => setField('dealer_email', v)} cls={inputCls('dealer_email')} error={errors.dealer_email} />
-                  <FieldText label={T.fPhone[lang]} value={form.dealer_phone} onChange={(v) => setField('dealer_phone', v)} cls={inputCls('dealer_phone')} />
+                  <FieldText label={pickT(T.fCompany, uiLang)} required value={form.dealer_company} onChange={(v) => setField('dealer_company', v)} cls={inputCls('dealer_company')} error={errors.dealer_company} />
+                  <FieldText label={pickT(T.fContact, uiLang)} value={form.dealer_contact} onChange={(v) => setField('dealer_contact', v)} cls={inputCls('dealer_contact')} />
+                  <FieldText label={pickT(T.fEmail, uiLang)} type="email" value={form.dealer_email} onChange={(v) => setField('dealer_email', v)} cls={inputCls('dealer_email')} error={errors.dealer_email} />
+                  <FieldText label={pickT(T.fPhone, uiLang)} value={form.dealer_phone} onChange={(v) => setField('dealer_phone', v)} cls={inputCls('dealer_phone')} />
                 </Grid>
               </Section>
 
-              <Section title={T.sOwner[lang]} icon={<User className="h-4 w-4" />}>
+              <Section title={pickT(T.sOwner, uiLang)} icon={<User className="h-4 w-4" />}>
                 <Grid>
-                  <FieldText label={T.fName[lang]} required value={form.customer_name} onChange={(v) => setField('customer_name', v)} cls={inputCls('customer_name')} error={errors.customer_name} />
-                  <FieldText label={T.fContact[lang]} value={form.customer_contact} onChange={(v) => setField('customer_contact', v)} cls={inputCls('customer_contact')} />
-                  <FieldText label={T.fEmail[lang]} type="email" value={form.customer_email} onChange={(v) => setField('customer_email', v)} cls={inputCls('customer_email')} error={errors.customer_email} />
-                  <FieldText label={T.fPhone[lang]} value={form.customer_phone} onChange={(v) => setField('customer_phone', v)} cls={inputCls('customer_phone')} />
+                  <FieldText label={pickT(T.fName, uiLang)} required value={form.customer_name} onChange={(v) => setField('customer_name', v)} cls={inputCls('customer_name')} error={errors.customer_name} />
+                  <FieldText label={pickT(T.fContact, uiLang)} value={form.customer_contact} onChange={(v) => setField('customer_contact', v)} cls={inputCls('customer_contact')} />
+                  <FieldText label={pickT(T.fEmail, uiLang)} type="email" value={form.customer_email} onChange={(v) => setField('customer_email', v)} cls={inputCls('customer_email')} error={errors.customer_email} />
+                  <FieldText label={pickT(T.fPhone, uiLang)} value={form.customer_phone} onChange={(v) => setField('customer_phone', v)} cls={inputCls('customer_phone')} />
                 </Grid>
               </Section>
 
-              <Section title={T.sMachine[lang]} icon={<Wrench className="h-4 w-4" />}>
+              <Section title={pickT(T.sMachine, uiLang)} icon={<Wrench className="h-4 w-4" />}>
                 <Grid>
-                  <FieldText label={T.fModel[lang]} required value={form.machine_model} onChange={(v) => setField('machine_model', v)} cls={inputCls('machine_model')} error={errors.machine_model} />
-                  <FieldText label={T.fSerial[lang]} required value={form.machine_serial} onChange={(v) => setField('machine_serial', v)} cls={inputCls('machine_serial')} error={errors.machine_serial} />
-                  <FieldText label={T.fYear[lang]} value={form.machine_year} onChange={(v) => setField('machine_year', v)} cls={inputCls('machine_year')} />
+                  <FieldText label={pickT(T.fModel, uiLang)} required value={form.machine_model} onChange={(v) => setField('machine_model', v)} cls={inputCls('machine_model')} error={errors.machine_model} />
+                  <FieldText label={pickT(T.fSerial, uiLang)} required value={form.machine_serial} onChange={(v) => setField('machine_serial', v)} cls={inputCls('machine_serial')} error={errors.machine_serial} />
+                  <FieldText label={pickT(T.fYear, uiLang)} value={form.machine_year} onChange={(v) => setField('machine_year', v)} cls={inputCls('machine_year')} />
                 </Grid>
               </Section>
 
-              <Section title={T.sDates[lang]} icon={<Calendar className="h-4 w-4" />}>
+              <Section title={pickT(T.sDates, uiLang)} icon={<Calendar className="h-4 w-4" />}>
                 <Grid cols={3}>
-                  <FieldText label={T.fDelivery[lang]} type="date" value={form.delivery_date} onChange={(v) => setField('delivery_date', v)} cls={inputCls('delivery_date')} />
-                  <FieldText label={T.fFault[lang]} type="date" value={form.fault_date} onChange={(v) => setField('fault_date', v)} cls={inputCls('fault_date')} />
-                  <FieldText label={T.fRepair[lang]} type="date" value={form.repair_date} onChange={(v) => setField('repair_date', v)} cls={inputCls('repair_date')} />
+                  <FieldText label={pickT(T.fDelivery, uiLang)} type="date" value={form.delivery_date} onChange={(v) => setField('delivery_date', v)} cls={inputCls('delivery_date')} />
+                  <FieldText label={pickT(T.fFault, uiLang)} type="date" value={form.fault_date} onChange={(v) => setField('fault_date', v)} cls={inputCls('fault_date')} />
+                  <FieldText label={pickT(T.fRepair, uiLang)} type="date" value={form.repair_date} onChange={(v) => setField('repair_date', v)} cls={inputCls('repair_date')} />
                 </Grid>
               </Section>
 
-              <Section title={T.sFault[lang]} icon={<FileText className="h-4 w-4" />}>
+              <Section title={pickT(T.sFault, uiLang)} icon={<FileText className="h-4 w-4" />}>
                 <Label>
-                  {T.fDesc[lang]} <span className="text-rose-500">*</span>
+                  {pickT(T.fDesc, uiLang)} <span className="text-rose-500">*</span>
                 </Label>
                 <textarea
                   rows={4}
                   value={form.description}
                   onChange={(e) => setField('description', e.target.value)}
                   className={inputCls('description')}
-                  placeholder={T.sFault[lang]}
+                  placeholder={pickT(T.sFault, uiLang)}
                 />
-                {errors.description && <p className="mt-1 text-xs text-rose-600">{T.required[lang]}</p>}
+                {errors.description && <p className="mt-1 text-xs text-rose-600">{pickT(T.required, uiLang)}</p>}
               </Section>
 
-              <Section title={T.sRepair[lang]} icon={<Hammer className="h-4 w-4" />}>
+              <Section title={pickT(T.sRepair, uiLang)} icon={<Hammer className="h-4 w-4" />}>
                 <textarea
                   rows={4}
                   value={form.repair_description}
                   onChange={(e) => setField('repair_description', e.target.value)}
                   className={inputCls('repair_description')}
-                  placeholder={T.sRepair[lang]}
+                  placeholder={pickT(T.sRepair, uiLang)}
                 />
                 <div className="mt-4">
                   <Grid>
-                    <FieldNumber label={T.fHours[lang]} value={form.work_hours} onChange={(v) => setField('work_hours', v)} cls={inputCls('work_hours')} />
-                    <FieldNumber label={T.fKm[lang]} value={form.driven_km} onChange={(v) => setField('driven_km', v)} cls={inputCls('driven_km')} />
+                    <FieldNumber label={pickT(T.fHours, uiLang)} value={form.work_hours} onChange={(v) => setField('work_hours', v)} cls={inputCls('work_hours')} />
+                    <FieldNumber label={pickT(T.fKm, uiLang)} value={form.driven_km} onChange={(v) => setField('driven_km', v)} cls={inputCls('driven_km')} />
                   </Grid>
                 </div>
               </Section>
 
               {/* ===== Combined Reservedele & arbejde ===== */}
-              <Section title={T.sPartsWork[lang]} icon={<Package className="h-4 w-4" />}>
+              <Section title={pickT(T.sPartsWork, uiLang)} icon={<Package className="h-4 w-4" />}>
                 {/* Parts subsection */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{T.sParts[lang]}</h3>
-                    <span className="text-xs text-gray-500">{T.partsTotal[lang]}: <strong className="text-gray-900">{fmtMoney(partsTotal)}</strong></span>
+                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{pickT(T.sParts, uiLang)}</h3>
+                    <span className="text-xs text-gray-500">{pickT(T.partsTotal, uiLang)}: <strong className="text-gray-900">{fmtMoney(partsTotal)}</strong></span>
                   </div>
                   <div className="space-y-2">
                     {parts.map((p, idx) => (
                       <div key={p.id} className="grid grid-cols-12 gap-2 items-end bg-gray-50/60 border border-gray-100 rounded-lg p-3">
                         <div className="col-span-12 md:col-span-3">
-                          <Label>{T.fPart[lang]}</Label>
+                          <Label>{pickT(T.fPart, uiLang)}</Label>
                           <input className={inputCls('')} value={p.part_number || ''} onChange={(e) => {
                             const v = e.target.value;
                             setParts(prev => prev.map((x, i) => i === idx ? { ...x, part_number: v } : x));
                           }} />
                         </div>
                         <div className="col-span-12 md:col-span-4">
-                          <Label>{T.fDesc[lang]}</Label>
+                          <Label>{pickT(T.fDesc, uiLang)}</Label>
                           <input className={inputCls('')} value={p.description} onChange={(e) => {
                             const v = e.target.value;
                             setParts(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
                           }} />
                         </div>
                         <div className="col-span-4 md:col-span-2">
-                          <Label>{T.fQty[lang]}</Label>
+                          <Label>{pickT(T.fQty, uiLang)}</Label>
                           <input type="number" min={0} step="1" className={inputCls('')} value={p.quantity || ''} onChange={(e) => {
                             const v = toNonNegNumber(e.target.value);
                             setParts(prev => prev.map((x, i) => i === idx ? { ...x, quantity: v } : x));
                           }} />
                         </div>
                         <div className="col-span-7 md:col-span-2">
-                          <Label>{T.fUnit[lang]}</Label>
+                          <Label>{pickT(T.fUnit, uiLang)}</Label>
                           <input type="number" min={0} step="0.01" className={inputCls('')} value={p.unit_price_net || ''} onChange={(e) => {
                             const v = toNonNegNumber(e.target.value);
                             setParts(prev => prev.map((x, i) => i === idx ? { ...x, unit_price_net: v } : x));
@@ -564,7 +564,7 @@ export default function NewClaimPage() {
                       onClick={() => setParts(prev => [...prev, { id: uid(), description: '', quantity: 0, unit_price_net: 0 }])}
                       className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
                     >
-                      <Plus className="h-4 w-4" /> {T.addPart[lang]}
+                      <Plus className="h-4 w-4" /> {pickT(T.addPart, uiLang)}
                     </button>
                   </div>
                 </div>
@@ -574,28 +574,28 @@ export default function NewClaimPage() {
                 {/* Work subsection */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{T.sWork[lang]}</h3>
-                    <span className="text-xs text-gray-500">{T.workTotal[lang]}: <strong className="text-gray-900">{fmtMoney(workTotal)}</strong></span>
+                    <h3 className="text-sm font-bold text-[#2d5a27] uppercase tracking-wide">{pickT(T.sWork, uiLang)}</h3>
+                    <span className="text-xs text-gray-500">{pickT(T.workTotal, uiLang)}: <strong className="text-gray-900">{fmtMoney(workTotal)}</strong></span>
                   </div>
                   <div className="space-y-2">
                     {workLines.map((w, idx) => (
                       <div key={w.id} className="grid grid-cols-12 gap-2 items-end bg-gray-50/60 border border-gray-100 rounded-lg p-3">
                         <div className="col-span-12 md:col-span-6">
-                          <Label>{T.fDesc[lang]}</Label>
+                          <Label>{pickT(T.fDesc, uiLang)}</Label>
                           <input className={inputCls('')} value={w.description} onChange={(e) => {
                             const v = e.target.value;
                             setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, description: v } : x));
                           }} />
                         </div>
                         <div className="col-span-4 md:col-span-2">
-                          <Label>{T.fLineHours[lang]}</Label>
+                          <Label>{pickT(T.fLineHours, uiLang)}</Label>
                           <input type="number" min={0} step="0.25" className={inputCls('')} value={w.hours || ''} onChange={(e) => {
                             const v = toNonNegNumber(e.target.value);
                             setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hours: v } : x));
                           }} />
                         </div>
                         <div className="col-span-7 md:col-span-3">
-                          <Label>{T.fRate[lang]}</Label>
+                          <Label>{pickT(T.fRate, uiLang)}</Label>
                           <input type="number" min={0} step="0.01" className={inputCls('')} value={w.hourly_rate_net || ''} onChange={(e) => {
                             const v = toNonNegNumber(e.target.value);
                             setWorkLines(prev => prev.map((x, i) => i === idx ? { ...x, hourly_rate_net: v } : x));
@@ -613,15 +613,15 @@ export default function NewClaimPage() {
                       onClick={() => setWorkLines(prev => [...prev, { id: uid(), description: '', hours: 0, hourly_rate_net: 0 }])}
                       className="inline-flex items-center gap-1 text-[#2d5a27] text-sm font-semibold hover:underline"
                     >
-                      <Plus className="h-4 w-4" /> {T.addWork[lang]}
+                      <Plus className="h-4 w-4" /> {pickT(T.addWork, uiLang)}
                     </button>
                   </div>
                 </div>
               </Section>
 
-              <Section title={T.sFiles[lang]} icon={<Paperclip className="h-4 w-4" />}>
+              <Section title={pickT(T.sFiles, uiLang)} icon={<Paperclip className="h-4 w-4" />}>
                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
-                  {T.filesSoon[lang]}
+                  {pickT(T.filesSoon, uiLang)}
                 </div>
               </Section>
             </div>
@@ -635,13 +635,13 @@ export default function NewClaimPage() {
                     style={{ background: `linear-gradient(135deg, ${BRAND}, #1f3f1c)` }}
                   >
                     <Calculator className="h-4 w-4" />
-                    <h3 className="text-sm font-bold uppercase tracking-wide">{T.sTotals[lang]}</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wide">{pickT(T.sTotals, uiLang)}</h3>
                   </div>
                   <div className="p-5 space-y-3">
-                    <Row label={T.partsTotal[lang]} value={fmtMoney(partsTotal)} />
-                    <Row label={T.workTotal[lang]} value={fmtMoney(workTotal)} />
+                    <Row label={pickT(T.partsTotal, uiLang)} value={fmtMoney(partsTotal)} />
+                    <Row label={pickT(T.workTotal, uiLang)} value={fmtMoney(workTotal)} />
                     <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-700">{T.total[lang]}</span>
+                      <span className="text-sm font-semibold text-gray-700">{pickT(T.total, uiLang)}</span>
                       <span className="text-2xl font-bold text-[#2d5a27]">{fmtMoney(total)}</span>
                     </div>
                   </div>
@@ -650,7 +650,7 @@ export default function NewClaimPage() {
                 {Object.keys(errors).length > 0 && (
                   <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700 flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{T.validation[lang]}</span>
+                    <span>{pickT(T.validation, uiLang)}</span>
                   </div>
                 )}
               </div>
@@ -664,7 +664,7 @@ export default function NewClaimPage() {
         <div className="sticky bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="text-xs text-gray-500">
-              <span className="font-semibold text-gray-700">{T.total[lang]}:</span>{' '}
+              <span className="font-semibold text-gray-700">{pickT(T.total, uiLang)}:</span>{' '}
               <span className="text-[#2d5a27] font-bold">{fmtMoney(total)}</span>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -675,7 +675,7 @@ export default function NewClaimPage() {
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                {submitting === 'draft' ? T.saving[lang] : T.saveDraft[lang]}
+                {submitting === 'draft' ? pickT(T.saving, uiLang) : pickT(T.saveDraft, uiLang)}
               </button>
               <button
                 type="button"
@@ -684,7 +684,7 @@ export default function NewClaimPage() {
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#2d5a27] text-white text-sm font-semibold hover:bg-[#244820] disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
-                {submitting === 'submitted' ? T.saving[lang] : T.sendTiman[lang]}
+                {submitting === 'submitted' ? pickT(T.saving, uiLang) : pickT(T.sendTiman, uiLang)}
               </button>
             </div>
           </div>
