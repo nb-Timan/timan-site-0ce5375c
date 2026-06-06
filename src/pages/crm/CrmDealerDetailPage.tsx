@@ -636,6 +636,7 @@ export default function CrmDealerDetailPage() {
               branchCount={branchNumbers.length}
               budgetTotals={budgetTotals}
               budgetYear={budgetYear}
+              nextFollowup={nextFollowup ? { date: nextFollowup.date, title: nextFollowup.title } : null}
               onAddActivity={() => setShowNoteModal(true)}
               onEdit={() => setShowEditDealer(true)}
             />
