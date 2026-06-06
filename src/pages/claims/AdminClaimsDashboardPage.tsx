@@ -28,6 +28,8 @@ import {
   type ServiceClaim,
 } from "@/lib/claimsService";
 import { formatDate } from "@/lib/format-date";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n/translations";
 
 const ACTIVE_STATUSES: ClaimStatus[] = [
   "waiting",
@@ -46,11 +48,12 @@ export default function AdminClaimsDashboardPage() {
 }
 
 function DashboardIntro() {
+  const { uiLanguage } = useLanguage();
   return (
     <div>
-      <h1 className="text-3xl font-black tracking-tight">Dashboard</h1>
+      <h1 className="text-3xl font-black tracking-tight">{t('navDashboard', uiLanguage)}</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Aktuelle claims på tværs af forhandlere — kun aktive sager.
+        {t('adminClaimsSubtitle', uiLanguage)}
       </p>
       <LastChangedLine moduleKey="claims" className="mt-2" />
     </div>

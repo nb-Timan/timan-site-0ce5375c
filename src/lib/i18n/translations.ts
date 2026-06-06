@@ -115,6 +115,10 @@ const da: Dict = {
   dealerBlocked: 'Forhandlerkonto er spærret',
   dealerInactiveBody: 'Denne forhandlerkonto er ikke længere aktiv. Kontakt venligst Timan.',
   dealerBlockedBody: 'Denne forhandlerkonto er spærret. Kontakt venligst Timan.',
+
+  // Claims dashboards
+  dealerClaimsSubtitle: 'Overblik over dine reklamationssager.',
+  adminClaimsSubtitle: 'Aktuelle claims på tværs af forhandlere — kun aktive sager.',
 };
 
 // ---------------------------------------------------------------------------
@@ -207,6 +211,8 @@ const en: Dict = {
   dealerBlocked: 'Dealer account is blocked',
   dealerInactiveBody: 'This dealer account is no longer active. Please contact Timan.',
   dealerBlockedBody: 'This dealer account is blocked. Please contact Timan.',
+  dealerClaimsSubtitle: 'Overview of your warranty claims.',
+  adminClaimsSubtitle: 'Active claims across dealers — open cases only.',
 };
 
 // ---------------------------------------------------------------------------
@@ -290,6 +296,8 @@ const de: Dict = {
   dealerBlocked: 'Händlerkonto ist gesperrt',
   dealerInactiveBody: 'Dieses Händlerkonto ist nicht mehr aktiv. Bitte kontaktieren Sie Timan.',
   dealerBlockedBody: 'Dieses Händlerkonto ist gesperrt. Bitte kontaktieren Sie Timan.',
+  dealerClaimsSubtitle: 'Übersicht über Ihre Reklamationen.',
+  adminClaimsSubtitle: 'Aktuelle Reklamationen über Händler hinweg — nur offene Fälle.',
 };
 
 // ---------------------------------------------------------------------------
@@ -370,6 +378,8 @@ const it: Dict = {
   dealerBlocked: 'L’account rivenditore è bloccato',
   dealerInactiveBody: 'Questo account rivenditore non è più attivo. Contatta Timan.',
   dealerBlockedBody: 'Questo account rivenditore è bloccato. Contatta Timan.',
+  dealerClaimsSubtitle: 'Panoramica dei tuoi reclami.',
+  adminClaimsSubtitle: 'Reclami attuali tra i rivenditori — solo casi attivi.',
 };
 
 // ---------------------------------------------------------------------------
@@ -450,6 +460,8 @@ const hu: Dict = {
   dealerBlocked: 'A kereskedői fiók letiltva',
   dealerInactiveBody: 'Ez a kereskedői fiók már nem aktív. Vegye fel a kapcsolatot a Timannal.',
   dealerBlockedBody: 'Ez a kereskedői fiók letiltva. Vegye fel a kapcsolatot a Timannal.',
+  dealerClaimsSubtitle: 'Áttekintés a reklamációidról.',
+  adminClaimsSubtitle: 'Aktív reklamációk a kereskedőknél — csak nyitott ügyek.',
 };
 
 // ---------------------------------------------------------------------------
@@ -531,6 +543,8 @@ const sv: Dict = {
   dealerBlocked: 'Återförsäljarkontot är blockerat',
   dealerInactiveBody: 'Detta återförsäljarkonto är inte längre aktivt. Kontakta Timan.',
   dealerBlockedBody: 'Detta återförsäljarkonto är blockerat. Kontakta Timan.',
+  dealerClaimsSubtitle: 'Översikt över dina reklamationer.',
+  adminClaimsSubtitle: 'Aktuella reklamationer hos återförsäljare — endast aktiva ärenden.',
 };
 
 // ---------------------------------------------------------------------------
@@ -612,6 +626,8 @@ const fr: Dict = {
   dealerBlocked: 'Le compte revendeur est bloqué',
   dealerInactiveBody: 'Ce compte revendeur n’est plus actif. Veuillez contacter Timan.',
   dealerBlockedBody: 'Ce compte revendeur est bloqué. Veuillez contacter Timan.',
+  dealerClaimsSubtitle: 'Aperçu de vos réclamations.',
+  adminClaimsSubtitle: 'Réclamations actives chez les revendeurs — cas ouverts uniquement.',
 };
 
 // ---------------------------------------------------------------------------
@@ -693,6 +709,8 @@ const pl: Dict = {
   dealerBlocked: 'Konto dealera jest zablokowane',
   dealerInactiveBody: 'To konto dealera nie jest już aktywne. Skontaktuj się z Timan.',
   dealerBlockedBody: 'To konto dealera jest zablokowane. Skontaktuj się z Timan.',
+  dealerClaimsSubtitle: 'Przegląd Twoich reklamacji.',
+  adminClaimsSubtitle: 'Aktywne reklamacje u dealerów — tylko otwarte sprawy.',
 };
 
 // ---------------------------------------------------------------------------
@@ -774,6 +792,8 @@ const cs: Dict = {
   dealerBlocked: 'Účet prodejce je zablokován',
   dealerInactiveBody: 'Tento účet prodejce již není aktivní. Kontaktujte Timan.',
   dealerBlockedBody: 'Tento účet prodejce je zablokován. Kontaktujte Timan.',
+  dealerClaimsSubtitle: 'Přehled vašich reklamací.',
+  adminClaimsSubtitle: 'Aktivní reklamace napříč prodejci — pouze otevřené případy.',
 };
 
 // ---------------------------------------------------------------------------

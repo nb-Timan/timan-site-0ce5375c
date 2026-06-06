@@ -15,6 +15,7 @@ import { derivePortalRole } from "@/lib/portalAccess";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import { Language } from "@/types/configurator";
+import { t as tt } from "@/lib/i18n/translations";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -216,7 +217,7 @@ function fmtMoney(v: number | null | undefined): string {
 
 export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
@@ -455,7 +456,7 @@ export default function MachineSearchPage() {
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            {T.back[lang]}
+            {tt('backToTechnicalService', uiLanguage)}
           </button>
         </div>
       </div>
@@ -466,7 +467,7 @@ export default function MachineSearchPage() {
             <Search className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight">{T.title[lang]}</h1>
+            <h1 className="text-3xl font-black tracking-tight">{tt('mod_machine_search', uiLanguage)}</h1>
             <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
           </div>
         </div>
