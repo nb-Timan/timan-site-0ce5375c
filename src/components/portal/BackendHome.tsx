@@ -18,8 +18,9 @@ import {
   Users, ShieldCheck, KeyRound, ScrollText,
   Building2, Link2, Map, MapPin,
   Database, BarChart3, Upload, LineChart,
-  Mail, ListChecks, Activity, FileSearch, LucideIcon,
+  Mail, ListChecks, Activity, FileSearch, Sparkles, LucideIcon,
 } from "lucide-react";
+
 import PlaceholderCard from "@/components/portal/PlaceholderCard";
 import { Language } from "@/types/configurator";
 
