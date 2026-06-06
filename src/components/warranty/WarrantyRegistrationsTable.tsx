@@ -482,9 +482,9 @@ export function WarrantyRegistrationsTable({
         <CertificateDialog
           record={selected}
           canEdit={canEdit}
-          onClose={() => setSelected(null)}
+          onClose={() => { selectedSnapshotRef.current = null; setSelectedId(null); }}
           onSaved={async (next) => {
-            setSelected(next);
+            selectedSnapshotRef.current = next;
             await reloadAfterEdit();
           }}
         />
