@@ -109,6 +109,10 @@ function AddressField({ id, label, value, onChange, onResolve, disabled, require
   const cls = missing
     ? `${base} border-rose-400 bg-rose-50 focus-visible:ring-rose-300`
     : base;
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[AddressField]', id, 'disabled:', !!disabled);
+  }
   return (
     <div>
       <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
