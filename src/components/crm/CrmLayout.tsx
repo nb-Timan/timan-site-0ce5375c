@@ -10,6 +10,7 @@ import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { getPortalBackTarget, goBackOrFallback } from '@/lib/portalBackNav';
 import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
+import LastChangedLine from '@/components/portal/LastChangedLine';
 
 const T: Record<string, Record<Language, string>> = {
   back:       { da: 'Tilbage til portal', en: 'Back to portal', de: 'Zurück zum Portal', it: 'Torna al portale', hu: 'Vissza a portálra' },
