@@ -41,6 +41,7 @@ const T: Record<string, Record<Language, string>> = {
 
 const STATUS_LABEL: Record<ClaimStatus, Record<Language, string>> = {
   draft:     { da: 'Gemt', en: 'Draft', de: 'Entwurf', it: 'Bozza', hu: 'Vázlat' },
+  pending_service_review: { da: 'Afventer servicegodkendelse', en: 'Awaiting service review', de: 'Wartet auf Service-Freigabe', it: 'In attesa di revisione assistenza', hu: 'Szerviz jóváhagyásra vár' },
   submitted: { da: 'Afventer accept', en: 'Awaiting acceptance', de: 'Wartet', it: 'In attesa', hu: 'Vár' },
   open:      { da: 'Åben', en: 'Open', de: 'Offen', it: 'Aperto', hu: 'Nyitott' },
   in_review: { da: 'Under behandling', en: 'In review', de: 'In Prüfung', it: 'In revisione', hu: 'Vizsgálat' },
@@ -50,6 +51,7 @@ const STATUS_LABEL: Record<ClaimStatus, Record<Language, string>> = {
 };
 const STATUS_CLASS: Record<ClaimStatus, string> = {
   draft: 'bg-gray-100 text-gray-700',
+  pending_service_review: 'bg-orange-100 text-orange-800',
   submitted: 'bg-indigo-100 text-indigo-800',
   open: 'bg-amber-100 text-amber-800',
   in_review: 'bg-blue-100 text-blue-800',
@@ -58,7 +60,7 @@ const STATUS_CLASS: Record<ClaimStatus, string> = {
   closed: 'bg-gray-100 text-gray-700',
 };
 
-const FILTER_STATUSES: (ClaimStatus | 'all')[] = ['all', 'draft', 'submitted', 'open', 'in_review', 'approved', 'rejected', 'closed'];
+const FILTER_STATUSES: (ClaimStatus | 'all')[] = ['all', 'draft', 'pending_service_review', 'submitted', 'open', 'in_review', 'approved', 'rejected', 'closed'];
 
 type DealerSection = 'dashboard' | 'mine';
 

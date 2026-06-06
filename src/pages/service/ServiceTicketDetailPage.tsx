@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download, FileWarning } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -222,8 +222,42 @@ export default function ServiceTicketDetailPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+  const isInternal = canEdit;
+  const [converting, setConverting] = useState(false);
 
-
+  const handleConvertToClaim = async () => {
+    if (!ticket || converting) return;
+    setConverting(true);
+    try {
+      const { convertTicketToClaim } = await import('@/lib/claimsService');
+      const res = await convertTicketToClaim(
+        {
+          id: ticket.id,
+          ticket_number: ticket.ticket_number,
+          title: ticket.title,
+          description: ticket.description,
+          serial_number: ticket.serial_number,
+          machine_type: ticket.machine_type,
+          dealer_name: ticket.dealer_name,
+          customer_name: ticket.customer_name,
+          contact_person: ticket.contact_person,
+          contact_email: ticket.contact_email,
+          contact_phone: ticket.contact_phone,
+          category: ticket.category,
+          created_by_email: appUser?.email ?? null,
+        },
+        { mode: isInternal ? 'internal' : 'dealer_request', createdByEmail: appUser?.email ?? null },
+      );
+      toast.success(
+        isInternal ? 'Claim oprettet og åbnet' : 'Claim-ansøgning sendt — afventer servicegodkendelse',
+      );
+      navigate(`/portal/service/claims/${res.claim.id}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Kunne ikke konvertere til claim');
+    } finally {
+      setConverting(false);
+    }
+  };
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -580,6 +614,23 @@ export default function ServiceTicketDetailPage() {
               {ticket.description && (
                 <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{ticket.description}</p>
               )}
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleConvertToClaim}
+                  disabled={converting}
+                  className="border-amber-300 text-amber-800 hover:bg-amber-50"
+                >
+                  <FileWarning className="h-4 w-4 mr-2" />
+                  {converting
+                    ? 'Opretter…'
+                    : isInternal
+                      ? 'Konverter til claim'
+                      : 'Ansøg om claim fra sag'}
+                </Button>
+              </div>
             </div>
 
             {/* Two-column detail grid */}
