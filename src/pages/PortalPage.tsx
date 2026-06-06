@@ -15,20 +15,21 @@ import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
+import { t } from '@/lib/i18n/translations';
 
-const T: Record<string, Record<Language, string>> = {
-  loginNeeded:  { da: 'Log ind for at fortsætte', en: 'Log in to continue', de: 'Bitte anmelden', it: 'Accedi per continuare', hu: 'Jelentkezzen be a folytatáshoz' },
-  heroTitle:    { da: 'Velkommen til Timan Portalen', en: 'Welcome to the Timan Portal', de: 'Willkommen im Timan-Portal', it: 'Benvenuto nel Portale Timan', hu: 'Üdvözöljük a Timan Portálon' },
-  heroBody: {
-    da: 'Vælg et område for at komme i gang.',
-    en: 'Select an area to get started.',
-    de: 'Wählen Sie einen Bereich, um zu beginnen.',
-    it: 'Seleziona un’area per iniziare.',
-    hu: 'Válasszon egy területet a kezdéshez.',
-  },
-  heroAlt: { da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar' },
-  open: { da: 'Åbn område', en: 'Open area', de: 'Bereich öffnen', it: 'Apri area', hu: 'Terület megnyitása' },
-  updated: { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve' },
+const AREA_TITLE_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_title',
+  salg_marketing: 'area_salg_marketing_title',
+  timan_crm:      'area_timan_crm_title',
+  timan_backend:  'area_timan_backend_title',
+  dealer_data:    'area_dealer_data_title',
+};
+const AREA_DESC_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_desc',
+  salg_marketing: 'area_salg_marketing_desc',
+  timan_crm:      'area_timan_crm_desc',
+  timan_backend:  'area_timan_backend_desc',
+  dealer_data:    'area_dealer_data_desc',
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
@@ -41,7 +42,7 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const prefLangApplied = useRef(false);
@@ -95,7 +96,7 @@ export default function PortalPage() {
               ))}
             </div>
           </div>
-          <p className="text-sm text-gray-500">{T.loginNeeded[lang]}</p>
+          <p className="text-sm text-gray-500">{t('loginNeeded', uiLanguage)}</p>
         </div>
         <LoginStep
           language={lang}
@@ -174,13 +175,13 @@ export default function PortalPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-black to-transparent z-10"></div>
           <img
             src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=2070"
-            alt={T.heroAlt[lang]}
+            alt={t('heroAlt', uiLanguage)}
             className="w-full h-full object-cover"
           />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{T.heroTitle[lang]}</h1>
-          <p className="text-gray-300 text-lg max-w-2xl">{T.heroBody[lang]}</p>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{t('heroTitle', uiLanguage)}</h1>
+          <p className="text-gray-300 text-lg max-w-2xl">{t('heroBody', uiLanguage)}</p>
         </div>
       </header>
 
@@ -192,14 +193,16 @@ export default function PortalPage() {
             const latest = changelog.latestForArea(area.id);
             const hasUnread = changelog.hasUnreadForArea(area.id);
             const updateBadge = latest && hasUnread
-              ? { label: `${T.updated[lang]} ${formatChangedAt(latest.changed_at)}` }
+              ? { label: `${t('updated', uiLanguage)} ${formatChangedAt(latest.changed_at)}` }
               : null;
+            const titleKey = AREA_TITLE_KEY[area.id];
+            const descKey = AREA_DESC_KEY[area.id];
             return (
               <AreaCard
                 key={area.id}
-                title={area.title[lang] || area.title.en}
-                description={area.description[lang] || area.description.en}
-                cta={T.open[lang]}
+                title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
+                description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
+                cta={t('openArea', uiLanguage)}
                 to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}

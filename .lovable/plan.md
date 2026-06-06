@@ -1,75 +1,50 @@
-## Mål
+# Portal-Wide Localization Plan
 
-Backend-forsiden bliver et tydeligt kontrolcenter med fem navngivne grupper i stedet for en flad gitter af kort. En ny side `Data & Integrationer` samler alle import/eksport/sync-værktøjer under faner med ensartet "Verificér / Dry-run / Kør sync / Historik"-mønster.
+The current state: language switcher + fallback layer ship; ~5 inline `Record<Language,…>` T objects per page still hardcode da/en/de/it/hu only. Extending real coverage to SE/FR/PL/CZ across the entire portal (CRM, Service, Warranty, Claims, Backend, Configurator, ~50 pages) is a large change. To keep diffs reviewable and the app stable I'll ship it in 4 PR-sized stages, each independently testable.
 
-Ingen route fjernes — alle eksisterende sider beholder deres URL. Ingen DB-, permission- eller funktionsændringer.
+## Stage 1 — Expand the central registry + shared chrome (this PR)
 
----
+Files:
+- `src/lib/i18n/translations.ts` — add ~120 keys covering: nav cards (Sales & Marketing, Technical & Service, Misc, Backend, Resources, Video gallery, Partner map, Configurator), common buttons (Open, Back to portal, Back to Sales & Marketing, Back to Technical & Service), CRM tab labels (My dealers, Leads, Quotes, Orders, Activities, Calendar, Budget, Budget Dashboard, Reports), Service/Warranty headers (Service tickets, Search machine, Warranty registration, Claims, TSB, Service registration and maintenance), shared status/priority labels, empty states, "No results", validation messages. Full dictionaries for `da`, `en`, `de`, `it`, `hu`, `sv`, `fr`, `pl`, `cs`.
+- `src/pages/PortalPage.tsx` — replace hardcoded card titles/subtitles with `t(key, uiLanguage)`.
+- `src/pages/PortalAreaPage.tsx` — same for area landing pages (Sales & Marketing, Technical & Service, Misc, Backend headers + "Back to portal").
+- `src/components/crm/CrmLayout.tsx` — translate nav tab labels via `t()`.
 
-## 1) Backend forsiden — grupperet layout
+Result after Stage 1: portal front page, all 4 area landing pages and CRM tab strip are fully localized in all 9 languages. Currency stays EUR for sv/fr/pl/cs via existing legacy mapping.
 
-Erstat det flade `placeholders`-grid i `PortalAreaPage` (kun for `areaId === 'timan_backend'`) med fem sektioner. Hver sektion = overskrift + grid af `PlaceholderCard`'er. Eksisterende kort genbruges; nye links (Data & Integrationer, Systemstatus, Mail Log, Job Queue, Partnerkort, Geografisk dækning) pegerer på eksisterende sider hvor de findes, ellers et "kommer snart"-kort (disabled visning, ingen route tilføjes).
+## Stage 2 — Configurator: extend language type to 9 codes
 
-Grupper:
+This is invasive because `Language = 'da'|'en'|'de'|'it'|'hu'` is referenced in ~80 files (every page that uses `Record<Language, string>`).
 
-1. **Brugerstyring** — Brugere, Roller, Modul-adgang, Audit Log
-2. **Partnerstyring** — Forhandlere, Dealer Matching, Partnerkort administration, Geografisk dækning
-3. **Data & Integrationer** — ét stort kort der linker til den nye `/portal/backend/data` side
-4. **Analyse & Budget** — Portal Analytics, Budget Import, Budget Dashboard
-5. **System** — Mail Log, Job Queue, Systemstatus, Persistence Audit
+Approach:
+- Widen `Language` in `src/types/configurator.ts` to include `'sv'|'fr'|'pl'|'cs'` (i.e. make it equal to `PortalUiLanguage`).
+- Add a `resolveT<T>(table: Partial<Record<Language,T>>, lang): T` helper that returns `table[lang] ?? table.en ?? table.da`. Use it in the configurator's existing T objects so they don't need new entries to compile.
+- Extend configurator's flag bar (`ConfiguratorPage.tsx` ~line 1946) to render all 9 `PORTAL_LANGUAGES`.
+- Add full sv/fr/pl/cs translations to the configurator's largest T blocks (step labels, CTA buttons, summary, ownership picker, account panel).
 
-Implementering: en ny lokal komponent `BackendHomeGrouped` i `PortalAreaPage.tsx` (eller separat fil `src/components/portal/BackendHome.tsx` for renlighed). Sektionerne er statiske; visibility-checks bibeholdes for hvert kort baseret på `derivePortalRole` / `hasModuleAccess` præcis som i dag.
+Result: configurator opens in any of 9 languages, syncs with portal language; untranslated strings fall back to English instead of crashing.
 
-## 2) Ny side: `/portal/backend/data` — Data & Integrationer
+## Stage 3 — Service, Warranty, Claims, Backend pages
 
-Ny fil `src/pages/backend/BackendDataIntegrationsPage.tsx` + route i `src/App.tsx`. Adgang: kun `timan_backend` (samme guard-mønster som de øvrige Backend-sider).
+Per page: add T entries for sv/fr/pl/cs (mirroring en), or migrate to `t()` from the central registry where the strings are reused.
 
-Faner via shadcn `Tabs`:
+Pages: `WarrantyPage`, `ClaimsPage`, `NewClaimPage`, `ClaimDetailPage`, `ServiceMaintenancePage`, all under `src/pages/service/*`, all under `src/pages/backend/*`, `src/pages/tsb/*`, `ResourcesPage`, `VideoGalleryPage`, `VideoCategoryPage`, `Co2CalculatorPage`, `DriftberegnerPage`.
 
-- **Forhandlere** — Dealer SharePoint sync (genbrug `SharePointSyncPanel`), Geocoding (genbrug `GeocodeDealersPanel`), Import firma-/kontaktinformation (genbrug `DealerProfileImportPanel`), Eksport forhandlerdata (knap → CSV-eksport via eksisterende `dealerAccountsService` — eller "kommer snart" hvis ikke trivielt).
-- **Garantiregistreringer** — Warranty SharePoint sync (`WarrantySharePointSyncPanel`), Dealer matching (`WarrantyDealerLinkBackfillPanel`), Eksport warranty registrations (CSV-knap eller "kommer snart").
-- **Prislister** — link til `/portal/backend/price-lists` (Import / Eksport / Prisvalidering henvises hertil).
-- **Budget** — link til `/portal/backend/budget-import` + Budget Dashboard (CRM-link).
-- **Brugere** — Eksport brugere / Eksport rettigheder (CSV via eksisterende `backendUsersService` eller "kommer snart").
-- **Sync Historik** — samlet liste over `sharepoint_sync_logs` (forhandlere), warranty sync (afledes af samme tabel hvis muligt, ellers "kommer snart"), Geocoding logs, Import logs. Viser senest kørt + status-badge.
+## Stage 4 — CRM internals
 
-## 3) Ensartet "sync-mønster"
+Page-by-page T expansion for: `CrmDashboardPage`, `CrmMyDealersPage`, `CrmLeadsPage`, `CrmQuotesOrdersPage`, `CrmActivitiesPage`, `CrmCalendarPage`, `CrmBudgetPage`, `CrmBudgetDashboardPage`, `CrmDealerDetailPage` (large — overview labels, notes, follow-up, table headers, filters).
 
-Hver sync-sektion i Data & Integrationer pakkes i en wrapper-komponent `SyncSection` med fire knap-pladser: Verificér, Dry-run, Kør sync, Historik. De eksisterende paneler eksponerer allerede disse handlinger (knapperne forbliver internt i panelet); wrapperen tilføjer en sektionsoverskrift + "Senest kørt: ÅÅÅÅ-MM-DD HH:MM" + farvet status-badge (grøn/gul/rød) ud fra seneste log-række.
+## What you'll get in this PR (Stage 1)
+1. Central registry grows from ~30 to ~150 keys, all in 9 languages.
+2. Portal front, all 4 area pages, and CRM tab strip render natively in DK/GB/DE/IT/HU/SE/FR/PL/CZ.
+3. Stages 2-4 remain as follow-up PRs; until then those pages display the legacy en/da fallback when SE/FR/PL/CZ is selected — no crashes, no missing UI.
 
-## 4) Status-badges + "Senest kørt"
+## How to test Stage 1
+1. Open `/portal`, switch language to each of the 9 flags — card titles/subtitles localize.
+2. Open Sales & Marketing, Technical & Service, Misc, Backend — headers and "Back to portal" localize.
+3. Open `/portal/crm/my-dealers` — tab strip localizes; table content still uses legacy en fallback (Stage 4).
+4. Language persists across navigation (already wired via `LanguageContext`).
+5. Confirm no console errors.
 
-Ny lille util `src/lib/syncStatusBadge.ts`:
-- input: seneste log-række (success-flag + timestamp + warnings count)
-- output: `{ tone: 'green'|'yellow'|'red', label, lastRunAt }`
-
-Brug `sharepoint_sync_logs` / `warranty_sync_logs` (hvis findes — verificeres ved implementering) til at hente "senest kørt" via en lille hook `useLatestSyncLog(kind)`.
-
-## 5) Ingen brud på det eksisterende
-
-- Alle nuværende routes (`/portal/backend/users`, `…/dealer-accounts`, `…/budget-import` osv.) består uændret.
-- Eksisterende dashboards der i dag huser `SharePointSyncPanel` / `WarrantySharePointSyncPanel` rører jeg ikke — panelerne genbruges, ikke flyttes.
-- Permissions: `BackendDataIntegrationsPage` bruger nøjagtigt samme rolle-guard som `BackendUsersPage`.
-- Ingen tabeller, RPC'er eller edge functions ændres.
-
----
-
-## Teknisk filoversigt
-
-```text
-NEW   src/pages/backend/BackendDataIntegrationsPage.tsx
-NEW   src/components/backend/SyncSection.tsx
-NEW   src/lib/syncStatusBadge.ts
-EDIT  src/pages/PortalAreaPage.tsx        (gruppér placeholders når areaId='timan_backend')
-EDIT  src/App.tsx                         (route '/portal/backend/data')
-EDIT  src/lib/portalAreas.ts              (tilføj nye placeholder-keys: data_integrations,
-                                           dealer_matching, partner_cards, geo_coverage,
-                                           mail_log, job_queue, system_status, budget_dashboard)
-```
-
-## Hvad jeg IKKE bygger i denne omgang
-
-- Faktiske eksport-CSV-handlers for forhandlere/warranty/budget/brugere hvis de ikke allerede findes — disse vises som "Kommer snart"-knap så UI'et er færdigt og næste opgave kan implementere dem.
-- Nye sider for Mail Log, Job Queue, Systemstatus, Dealer Matching standalone, Partnerkort administration, Geografisk dækning — kun kort med "kommer snart" badge til de manglende.
-
-Vil du have at jeg går videre med denne plan?
+## Why staged
+A single PR that adds 9-language coverage to every page would touch 80+ files with ~3,000 lines of translation tables and require widening the `Language` type (cascading TS errors across the configurator). Each stage is reviewable in ~15 minutes and shippable independently. Approve Stage 1 and I'll proceed; I can chain the remaining stages back-to-back without further questions if you want.
