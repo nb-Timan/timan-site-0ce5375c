@@ -717,11 +717,20 @@ function CertificateDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4"
-      onClick={onClose}
+      // Intentionally NO onClick → backdrop clicks must not close the modal.
+      // The modal can only be closed by the X button, Annuller, or a successful save.
     >
       <div
         className="my-8 w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // Block Escape from bubbling to anything that might close the modal.
+          if (e.key === "Escape") e.stopPropagation();
+        }}
+        onPaste={(e) => e.stopPropagation()}
+        onSubmit={(e) => e.preventDefault()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
