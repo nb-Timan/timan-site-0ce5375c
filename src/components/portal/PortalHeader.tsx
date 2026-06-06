@@ -34,7 +34,7 @@ const T: Record<string, Record<Language, string>> = {
 interface Props {
   user: SessionUser;
   language: Language;
-  onLanguageChange: (lang: Language) => void;
+  onLanguageChange: (lang: PortalUiLanguage) => void;
   onLogout: () => void;
 }
 
@@ -46,6 +46,7 @@ function getInitials(name: string): string {
 }
 
 export default function PortalHeader({ user, language, onLanguageChange, onLogout }: Props) {
+  const { uiLanguage } = useLanguage();
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
