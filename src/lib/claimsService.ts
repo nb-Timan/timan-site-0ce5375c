@@ -80,6 +80,8 @@ export interface ServiceClaim {
   status: ClaimStatus;
   created_at: string;
   created_by_email?: string | null;
+  // Link back to the originating service ticket (when claim was converted from one).
+  service_ticket_id?: string | null;
 }
 
 // Demo claims removed — Service / Claims now reads only from Supabase
