@@ -30,6 +30,8 @@ import {
   type ServiceClaim,
 } from "@/lib/claimsService";
 import { formatDate } from "@/lib/format-date";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n/translations";
 
 interface Props {
   /** When true (Dealer User), hides the "Ny claim" / "Rediger" actions. */
@@ -47,12 +49,13 @@ export default function DealerClaimsDashboardPage({ readOnly = false, dealerName
 }
 
 function DashboardIntro({ readOnly }: { readOnly: boolean }) {
+  const { uiLanguage } = useLanguage();
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-black tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-black tracking-tight">{t('navDashboard', uiLanguage)}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Overblik over dine reklamationssager.
+          {t('dealerClaimsSubtitle', uiLanguage)}
         </p>
         <LastChangedLine moduleKey="claims" className="mt-2" />
       </div>
