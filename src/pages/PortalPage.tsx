@@ -175,13 +175,13 @@ export default function PortalPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-black to-transparent z-10"></div>
           <img
             src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=2070"
-            alt={T.heroAlt[lang]}
+            alt={t('heroAlt', uiLanguage)}
             className="w-full h-full object-cover"
           />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{T.heroTitle[lang]}</h1>
-          <p className="text-gray-300 text-lg max-w-2xl">{T.heroBody[lang]}</p>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{t('heroTitle', uiLanguage)}</h1>
+          <p className="text-gray-300 text-lg max-w-2xl">{t('heroBody', uiLanguage)}</p>
         </div>
       </header>
 
@@ -193,14 +193,16 @@ export default function PortalPage() {
             const latest = changelog.latestForArea(area.id);
             const hasUnread = changelog.hasUnreadForArea(area.id);
             const updateBadge = latest && hasUnread
-              ? { label: `${T.updated[lang]} ${formatChangedAt(latest.changed_at)}` }
+              ? { label: `${t('updated', uiLanguage)} ${formatChangedAt(latest.changed_at)}` }
               : null;
+            const titleKey = AREA_TITLE_KEY[area.id];
+            const descKey = AREA_DESC_KEY[area.id];
             return (
               <AreaCard
                 key={area.id}
-                title={area.title[lang] || area.title.en}
-                description={area.description[lang] || area.description.en}
-                cta={T.open[lang]}
+                title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
+                description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
+                cta={t('openArea', uiLanguage)}
                 to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
