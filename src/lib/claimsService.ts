@@ -355,3 +355,122 @@ export async function saveClaim(
   throw new Error(lastError ?? 'Could not generate a unique claim number');
 }
 
+// ---------- Dealer-scoped + admin queue loaders ----------
+
+/**
+ * Load claims scoped to a single dealer (by `dealer_company` text match).
+ * Falls back to filtering the unified list locally when Supabase is unavailable.
+ */
+export async function loadClaimsForDealer(dealerCompany: string): Promise<LoadClaimsResult> {
+  const company = (dealerCompany || '').trim();
+  if (!company) return { claims: [], source: 'mock' };
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .select(SELECT_COLS)
+      .eq('dealer_company', company)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      const all = await loadClaims();
+      return { claims: all.claims.filter(c => (c.dealer_company || '') === company), source: 'mock', error: error.message };
+    }
+    return { claims: (data ?? []) as unknown as ServiceClaim[], source: 'supabase' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    const all = await loadClaims();
+    return { claims: all.claims.filter(c => (c.dealer_company || '') === company), source: 'mock', error: msg };
+  }
+}
+
+/** Load claims awaiting service review (admin queue). */
+export async function loadPendingReviewClaims(): Promise<LoadClaimsResult> {
+  try {
+    const { data, error } = await supabase
+      .from('service_claims')
+      .select(SELECT_COLS)
+      .eq('status', 'pending_service_review')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) {
+      const all = await loadClaims();
+      return { claims: all.claims.filter(c => c.status === 'pending_service_review'), source: 'mock', error: error.message };
+    }
+    return { claims: (data ?? []) as unknown as ServiceClaim[], source: 'supabase' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    const all = await loadClaims();
+    return { claims: all.claims.filter(c => c.status === 'pending_service_review'), source: 'mock', error: msg };
+  }
+}
+
+/**
+ * Service / internal action: approve a dealer-submitted claim request and move
+ * it into the active workflow (`open`). No-op if the claim is not currently
+ * pending service review.
+ */
+export async function approveClaim(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('service_claims')
+      .update({ status: 'open' })
+      .eq('id', id)
+      .eq('status', 'pending_service_review');
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+  }
+}
+
+// ---------- Ticket → Claim conversion ----------
+
+/** Minimum subset of ServiceTicketDetail we need to convert into a claim. */
+export interface TicketLikeInput {
+  id: string;
+  ticket_number?: string | null;
+  title?: string | null;
+  description?: string | null;
+  serial_number?: string | null;
+  machine_type?: string | null;
+  dealer_name?: string | null;
+  customer_name?: string | null;
+  contact_person?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  category?: string | null;
+  created_by_email?: string | null;
+}
+
+/**
+ * Create a claim from a service ticket. The ticket is intentionally NOT
+ * modified (stays open) — the claim simply links back via service_ticket_id.
+ *
+ * `mode: 'dealer_request'` → status = pending_service_review (needs approval).
+ * `mode: 'internal'`       → status = open (active workflow).
+ */
+export async function convertTicketToClaim(
+  ticket: TicketLikeInput,
+  opts: { mode: 'dealer_request' | 'internal'; createdByEmail?: string | null },
+): Promise<SaveClaimResult> {
+  const status: ClaimStatus = opts.mode === 'dealer_request' ? 'pending_service_review' : 'open';
+  const descPrefix = ticket.ticket_number ? `[Fra ticket ${ticket.ticket_number}] ` : '';
+  const baseDescription = (ticket.description || ticket.title || '').trim();
+
+  const input: NewClaimInput = {
+    dealer_company: ticket.dealer_name ?? null,
+    customer_name: ticket.customer_name ?? null,
+    customer_contact: ticket.contact_person ?? null,
+    customer_email: ticket.contact_email ?? null,
+    customer_phone: ticket.contact_phone ?? null,
+    machine_model: ticket.machine_type ?? null,
+    machine_serial: ticket.serial_number ?? null,
+    description: `${descPrefix}${baseDescription}`,
+    created_by_email: opts.createdByEmail ?? null,
+    service_ticket_id: ticket.id,
+  };
+
+  return saveClaim(input, status);
+}
+
+
