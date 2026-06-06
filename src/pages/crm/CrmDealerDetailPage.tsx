@@ -1423,7 +1423,7 @@ function ContactHero({
                 )}
               </div>
               {(() => {
-                const sellerName0 = null; // status now shown only in title row
+                
 
                 const sellerName = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
                 const contractStart = dealer.source_created_at || null;
