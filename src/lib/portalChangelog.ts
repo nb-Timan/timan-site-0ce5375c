@@ -11,6 +11,12 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { Language } from '@/types/configurator';
 import { PortalAreaId } from '@/lib/portalAreas';
 import type { SessionUser } from '@/context/AppUserContext';
+import {
+  subscribeChangelog,
+  getChangelogSnapshot,
+  getEntriesForLanguage,
+} from './portalChangelogService';
+
 
 // ---------- Types ----------
 
