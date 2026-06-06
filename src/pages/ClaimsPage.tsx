@@ -40,7 +40,15 @@ export default function ClaimsPage() {
     );
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
+  // Legacy `role='slutkunde'` may coexist with a real portal_role (e.g. timan_dealer).
+  // Only redirect true end-customers with no portal role to the configurator —
+  // otherwise dealer-side users get bounced out of Claims.
+  {
+    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    if (appUser.role === "slutkunde" && !portalRole) {
+      return <Navigate to="/configurator" replace />;
+    }
+  }
 
   const role = derivePortalRole(appUser);
   const allowed = hasModuleAccess(
