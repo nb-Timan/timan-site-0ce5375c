@@ -15,6 +15,8 @@
 
 import { Navigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n/translations";
 import {
   derivePortalRole,
   getPortalPermissions,
@@ -26,6 +28,8 @@ import ImportedClaimDetailPage from "@/pages/claims/ClaimDetailPage";
 
 export default function ClaimDetailPage() {
   const { appUser, loading } = useAppUser();
+  const { uiLanguage } = useLanguage();
+
 
   if (loading) {
     return (
@@ -49,9 +53,9 @@ export default function ClaimDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="text-xl font-black">Ingen adgang</h2>
+          <h2 className="text-xl font-black">{t('noAccessTitle', uiLanguage)}</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Du har ikke adgang til Service / Claims.
+            {t('noAccessClaims', uiLanguage)}
           </p>
         </div>
       </div>
