@@ -416,24 +416,20 @@ export function useChangelog(
 ): UseChangelogResult {
   const userKey = getUserKey(user);
 
-  // Static import done lazily via dynamic getter to keep a one-way dep at
-  // module-evaluation time (service imports from this file).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const svc: typeof import('./portalChangelogService') = require('./portalChangelogService');
-
   const subscribe = useCallback((cb: () => void) => {
     const off1 = localReadStore.subscribe(cb);
-    const off2 = svc.subscribeChangelog(cb);
+    const off2 = subscribeChangelog(cb);
     return () => { off1(); off2(); };
-  }, [svc]);
+  }, []);
   const getSnapshot = useCallback(() => {
     const ids = Array.from(localReadStore.getReadIds(userKey)).sort();
-    return `${userKey}|${ids.join(',')}|${svc.getChangelogSnapshot()}|${language}`;
-  }, [userKey, language, svc]);
+    return `${userKey}|${ids.join(',')}|${getChangelogSnapshot()}|${language}`;
+  }, [userKey, language]);
   useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const readIds = localReadStore.getReadIds(userKey);
-  const rawEntries = svc.getEntriesForLanguage(language);
+  const rawEntries = getEntriesForLanguage(language);
+
 
   const entries = rawEntries
     .filter(e => isEntryVisible(e, user, language))
