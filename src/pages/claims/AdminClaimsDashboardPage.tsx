@@ -61,6 +61,7 @@ function DashboardIntro() {
 }
 
 function DashboardBody() {
+  const { uiLanguage } = useLanguage();
   const active = useMemo(() => {
     return [...getAllClaims()]
       .filter((r) => ACTIVE_STATUSES.includes(r.status))
@@ -75,33 +76,33 @@ function DashboardBody() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
           <div className="text-xs font-black uppercase tracking-widest text-slate-500">
-            Aktuelle claims
+            {t('claimsActive', uiLanguage)}
           </div>
           <Link
             to="/portal/service/claims?tab=all"
             className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900"
           >
-            Se alle claims
+            {t('claimsSeeAllAdmin', uiLanguage)}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
         {active.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-slate-500">
-            Ingen aktive claims i øjeblikket.
+            {t('claimsEmptyAdmin', uiLanguage)}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
                 <tr>
-                  <th className="px-6 py-3">Claim nr.</th>
-                  <th className="px-6 py-3">Garantinr.</th>
-                  <th className="px-6 py-3">Forhandler</th>
-                  <th className="px-6 py-3">Land</th>
-                  <th className="px-6 py-3">Skadedato</th>
-                  <th className="px-6 py-3">Godkendt dato</th>
-                  <th className="px-6 py-3 text-right">Samlet pris</th>
-                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">{t('claimsColNumber', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColWarranty', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColDealer', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColCountry', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColDamageDate', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColApprovedDate', uiLanguage)}</th>
+                  <th className="px-6 py-3 text-right">{t('claimsColTotalPrice', uiLanguage)}</th>
+                  <th className="px-6 py-3">{t('claimsColStatus', uiLanguage)}</th>
                   <th className="px-6 py-3 text-right" />
                 </tr>
               </thead>
@@ -113,16 +114,16 @@ function DashboardBody() {
                         <span>{claimDisplayId(r)}</span>
                         {isClaimGrouped(r) && (
                           <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700">
-                            Samlet sag
+                            {t('claimsGrouped', uiLanguage)}
                           </span>
                         )}
                         {claimNeedsTimanAttention(r) && (
                           <span
-                            title="Forhandler-kommentar afventer Timan"
+                            title={t('claimsPendingComment', uiLanguage)}
                             className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-orange-700"
                           >
                             <MessageSquare className="h-3 w-3" />
-                            Kommentar
+                            {t('claimsCommentBadge', uiLanguage)}
                           </span>
                         )}
                       </div>
@@ -143,7 +144,7 @@ function DashboardBody() {
                         to={`/portal/service/claims/${r.id}`}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
                       >
-                        <Eye className="h-3.5 w-3.5" /> Åbn
+                        <Eye className="h-3.5 w-3.5" /> {t('open', uiLanguage)}
                       </Link>
                     </td>
                   </tr>
@@ -166,6 +167,7 @@ function StatusPill({ status }: { status: ClaimStatus }) {
 }
 
 function PendingReviewQueue() {
+  const { uiLanguage } = useLanguage();
   const [items, setItems] = useState<ServiceClaim[]>([]);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -187,10 +189,10 @@ function PendingReviewQueue() {
     const res = await approveClaim(id);
     setApprovingId(null);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke godkende claim");
+      toast.error(res.error || t('claimsApproveFailed', uiLanguage));
       return;
     }
-    toast.success("Claim godkendt og åbnet");
+    toast.success(t('claimsApproveSuccess', uiLanguage));
     reload();
   };
 
@@ -200,12 +202,12 @@ function PendingReviewQueue() {
     <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
       <div className="flex items-center justify-between border-b border-amber-100 px-6 py-3">
         <div className="text-xs font-black uppercase tracking-widest text-amber-800">
-          Afventer servicegodkendelse {items.length > 0 && <span className="ml-1 rounded bg-amber-200 px-1.5 py-0.5 text-amber-900">{items.length}</span>}
+          {t('claimsPendingReview', uiLanguage)} {items.length > 0 && <span className="ml-1 rounded bg-amber-200 px-1.5 py-0.5 text-amber-900">{items.length}</span>}
         </div>
       </div>
       {loading ? (
         <div className="px-6 py-8 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t('loading', uiLanguage)}
         </div>
       ) : (
         <div className="divide-y divide-amber-100">
@@ -222,7 +224,7 @@ function PendingReviewQueue() {
                       to={`/portal/service/tickets/${c.service_ticket_id}`}
                       className="text-[10px] font-bold text-slate-500 underline hover:text-slate-800"
                     >
-                      fra service ticket
+                      {t('claimsFromTicket', uiLanguage)}
                     </Link>
                   )}
                 </div>
@@ -238,7 +240,7 @@ function PendingReviewQueue() {
                   to={`/portal/service/claims/${c.id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
-                  <Eye className="h-3.5 w-3.5" /> Åbn
+                  <Eye className="h-3.5 w-3.5" /> {t('open', uiLanguage)}
                 </Link>
                 <button
                   type="button"
@@ -247,7 +249,7 @@ function PendingReviewQueue() {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  {approvingId === c.id ? "Godkender…" : "Godkend og åbn claim"}
+                  {approvingId === c.id ? t('claimsApproving', uiLanguage) : t('claimsApproveAndOpen', uiLanguage)}
                 </button>
               </div>
             </div>

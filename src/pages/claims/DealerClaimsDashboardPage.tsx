@@ -64,7 +64,7 @@ function DashboardIntro({ readOnly }: { readOnly: boolean }) {
           to="/portal/service/claims/new"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
         >
-          <PlusCircle className="h-4 w-4" /> Ny claim
+          <PlusCircle className="h-4 w-4" /> {t('claimsNew', uiLanguage)}
         </Link>
       )}
     </div>
@@ -72,33 +72,34 @@ function DashboardIntro({ readOnly }: { readOnly: boolean }) {
 }
 
 function DashboardBody({ dealerName, readOnly }: { dealerName: string; readOnly: boolean }) {
+  const { uiLanguage } = useLanguage();
   const records = useMemo(() => getDealerClaims(dealerName), [dealerName]);
   const stats = useMemo(() => summarizeDealerClaims(records), [records]);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Mine claims i alt" value={stats.total} icon={ClipboardList} accent="text-indigo-600" />
-        <Kpi label="Åbne claims" value={stats.open} icon={Wrench} accent="text-amber-600" />
-        <Kpi label="Godkendte" value={stats.approved} icon={CheckCircle2} accent="text-emerald-600" />
-        <Kpi label="Afviste" value={stats.rejected} icon={XCircle} accent="text-red-600" />
+        <Kpi label={t('claimsTotalMine', uiLanguage)} value={stats.total} icon={ClipboardList} accent="text-indigo-600" />
+        <Kpi label={t('claimsOpen', uiLanguage)} value={stats.open} icon={Wrench} accent="text-amber-600" />
+        <Kpi label={t('claimsApproved', uiLanguage)} value={stats.approved} icon={CheckCircle2} accent="text-emerald-600" />
+        <Kpi label={t('claimsRejected', uiLanguage)} value={stats.rejected} icon={XCircle} accent="text-red-600" />
       </div>
 
       <DealerSupabaseClaims dealerName={dealerName} />
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-black">Seneste claims</h2>
+          <h2 className="text-lg font-black">{t('claimsLatest', uiLanguage)}</h2>
           <Link
             to="/portal/service/claims?tab=mine"
             className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
           >
-            Se alle
+            {t('claimsSeeAll', uiLanguage)}
           </Link>
         </div>
         {stats.latest.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-slate-500">
-            Du har endnu ingen claims.
+            {t('claimsEmptyDealer', uiLanguage)}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -111,7 +112,7 @@ function DashboardBody({ dealerName, readOnly }: { dealerName: string; readOnly:
                     </span>
                     {isClaimGrouped(r) && (
                       <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700">
-                        Samlet sag
+                        {t('claimsGrouped', uiLanguage)}
                       </span>
                     )}
                     <span className="truncate font-bold">{r.title}</span>
@@ -130,14 +131,14 @@ function DashboardBody({ dealerName, readOnly }: { dealerName: string; readOnly:
                       to={`/portal/service/claims/${r.id}`}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
                     >
-                      <Eye className="h-3.5 w-3.5" /> Åbn
+                      <Eye className="h-3.5 w-3.5" /> {t('open', uiLanguage)}
                     </Link>
                     {!readOnly && isClaimEditable(r.status) && (
                       <Link
                         to={`/portal/service/claims/${r.id}`}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
                       >
-                        <Pencil className="h-3.5 w-3.5" /> Rediger
+                        <Pencil className="h-3.5 w-3.5" /> {t('claimsActionEdit', uiLanguage)}
                       </Link>
                     )}
                   </div>
@@ -172,6 +173,7 @@ function StatusPill({ status }: { status: ClaimStatus }) {
 }
 
 function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
+  const { uiLanguage } = useLanguage();
   const [items, setItems] = useState<ServiceClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -190,7 +192,7 @@ function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
   if (loading) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm text-sm text-slate-500 flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" /> Indlæser claim-ansøgninger…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t('claimsLoadingApplications', uiLanguage)}
       </div>
     );
   }
@@ -201,7 +203,7 @@ function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
       {pending.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
           <div className="border-b border-amber-100 px-6 py-3 text-xs font-black uppercase tracking-widest text-amber-800">
-            Mine claim-ansøgninger — afventer servicegodkendelse
+            {t('claimsMyApplicationsPending', uiLanguage)}
           </div>
           <div className="divide-y divide-amber-100">
             {pending.map((c) => (
@@ -223,7 +225,7 @@ function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
                   to={`/portal/service/claims/${c.id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
-                  <Eye className="h-3.5 w-3.5" /> Åbn
+                  <Eye className="h-3.5 w-3.5" /> {t('open', uiLanguage)}
                 </Link>
               </div>
             ))}
@@ -233,7 +235,7 @@ function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
       {otherSupabase.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-500">
-            Mine claims fra service-sager
+            {t('claimsMyFromTickets', uiLanguage)}
           </div>
           <div className="divide-y divide-slate-100">
             {otherSupabase.slice(0, 5).map((c) => (
@@ -254,7 +256,7 @@ function DealerSupabaseClaims({ dealerName }: { dealerName: string }) {
                   to={`/portal/service/claims/${c.id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
-                  <Eye className="h-3.5 w-3.5" /> Åbn
+                  <Eye className="h-3.5 w-3.5" /> {t('open', uiLanguage)}
                 </Link>
               </div>
             ))}

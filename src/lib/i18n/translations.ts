@@ -119,6 +119,52 @@ const da: Dict = {
   // Claims dashboards
   dealerClaimsSubtitle: 'Overblik over dine reklamationssager.',
   adminClaimsSubtitle: 'Aktuelle claims på tværs af forhandlere — kun aktive sager.',
+
+  // Claims — dealer
+  claimsNew: 'Ny claim',
+  claimsTotalMine: 'Mine claims i alt',
+  claimsOpen: 'Åbne claims',
+  claimsApproved: 'Godkendte',
+  claimsRejected: 'Afviste',
+  claimsLatest: 'Seneste claims',
+  claimsSeeAll: 'Se alle',
+  claimsEmptyDealer: 'Du har endnu ingen claims.',
+  claimsGrouped: 'Samlet sag',
+  claimsLoadingApplications: 'Indlæser claim-ansøgninger…',
+  claimsMyApplicationsPending: 'Mine claim-ansøgninger — afventer servicegodkendelse',
+  claimsMyFromTickets: 'Mine claims fra service-sager',
+  claimsActionEdit: 'Rediger',
+
+  // Claims — admin
+  claimsActive: 'Aktuelle claims',
+  claimsSeeAllAdmin: 'Se alle claims',
+  claimsEmptyAdmin: 'Ingen aktive claims i øjeblikket.',
+  claimsColNumber: 'Claim nr.',
+  claimsColWarranty: 'Garantinr.',
+  claimsColDealer: 'Forhandler',
+  claimsColCountry: 'Land',
+  claimsColDamageDate: 'Skadedato',
+  claimsColApprovedDate: 'Godkendt dato',
+  claimsColTotalPrice: 'Samlet pris',
+  claimsColStatus: 'Status',
+  claimsPendingComment: 'Forhandler-kommentar afventer Timan',
+  claimsCommentBadge: 'Kommentar',
+  claimsPendingReview: 'Afventer servicegodkendelse',
+  claimsFromTicket: 'fra service ticket',
+  claimsApproving: 'Godkender…',
+  claimsApproveAndOpen: 'Godkend og åbn claim',
+  claimsApproveFailed: 'Kunne ikke godkende claim',
+  claimsApproveSuccess: 'Claim godkendt og åbnet',
+
+  // Access denied (claims router)
+  noAccessTitle: 'Ingen adgang',
+  noAccessClaims: 'Du har ikke adgang til Service / Claims.',
+
+  // Warranty registrations
+  warrantyRegAdminTitle: 'Registrerede garantibeviser',
+  warrantyRegDealerTitle: 'Mine registreringer',
+  warrantyRegAdminSubtitle: 'Alle udstedte garantibeviser fra alle forhandlere. Klik på en række for at se eller downloade.',
+  warrantyRegDealerSubtitle: 'Søg og filtrér i dine garantiregistreringer.',
 };
 
 // ---------------------------------------------------------------------------
@@ -213,6 +259,48 @@ const en: Dict = {
   dealerBlockedBody: 'This dealer account is blocked. Please contact Timan.',
   dealerClaimsSubtitle: 'Overview of your warranty claims.',
   adminClaimsSubtitle: 'Active claims across dealers — open cases only.',
+
+  claimsNew: 'New claim',
+  claimsTotalMine: 'My claims total',
+  claimsOpen: 'Open claims',
+  claimsApproved: 'Approved',
+  claimsRejected: 'Rejected',
+  claimsLatest: 'Latest claims',
+  claimsSeeAll: 'See all',
+  claimsEmptyDealer: 'You have no claims yet.',
+  claimsGrouped: 'Grouped case',
+  claimsLoadingApplications: 'Loading claim applications…',
+  claimsMyApplicationsPending: 'My claim applications — awaiting service approval',
+  claimsMyFromTickets: 'My claims from service cases',
+  claimsActionEdit: 'Edit',
+
+  claimsActive: 'Current claims',
+  claimsSeeAllAdmin: 'See all claims',
+  claimsEmptyAdmin: 'No active claims right now.',
+  claimsColNumber: 'Claim no.',
+  claimsColWarranty: 'Warranty no.',
+  claimsColDealer: 'Dealer',
+  claimsColCountry: 'Country',
+  claimsColDamageDate: 'Damage date',
+  claimsColApprovedDate: 'Approved date',
+  claimsColTotalPrice: 'Total price',
+  claimsColStatus: 'Status',
+  claimsPendingComment: 'Dealer comment awaiting Timan',
+  claimsCommentBadge: 'Comment',
+  claimsPendingReview: 'Awaiting service approval',
+  claimsFromTicket: 'from service ticket',
+  claimsApproving: 'Approving…',
+  claimsApproveAndOpen: 'Approve and open claim',
+  claimsApproveFailed: 'Could not approve claim',
+  claimsApproveSuccess: 'Claim approved and opened',
+
+  noAccessTitle: 'No access',
+  noAccessClaims: 'You do not have access to Service / Claims.',
+
+  warrantyRegAdminTitle: 'Registered warranty certificates',
+  warrantyRegDealerTitle: 'My registrations',
+  warrantyRegAdminSubtitle: 'All issued warranty certificates from all dealers. Click a row to view or download.',
+  warrantyRegDealerSubtitle: 'Search and filter your warranty registrations.',
 };
 
 // ---------------------------------------------------------------------------

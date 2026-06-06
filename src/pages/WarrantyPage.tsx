@@ -6,6 +6,8 @@
  */
 import { Navigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n/translations";
 import { WarrantyAdminSidebarLayout } from "@/components/warranty/WarrantyAdminSidebarLayout";
 import {
   WarrantyDashboardBody,
@@ -31,6 +33,7 @@ type Page = "dashboard" | "registrations" | "new";
 
 export default function WarrantyPage({ page }: { page: Page }) {
   const { appUser, loading } = useAppUser();
+  const { uiLanguage } = useLanguage();
 
   if (loading) {
     return (
@@ -75,11 +78,11 @@ export default function WarrantyPage({ page }: { page: Page }) {
 
   if (page === "registrations") {
     const title =
-      variant === "admin" ? "Registrerede garantibeviser" : "Mine registreringer";
+      variant === "admin" ? t('warrantyRegAdminTitle', uiLanguage) : t('warrantyRegDealerTitle', uiLanguage);
     const subtitle =
       variant === "admin"
-        ? "Alle udstedte garantibeviser fra alle forhandlere. Klik på en række for at se eller downloade."
-        : "Søg og filtrér i dine garantiregistreringer.";
+        ? t('warrantyRegAdminSubtitle', uiLanguage)
+        : t('warrantyRegDealerSubtitle', uiLanguage);
     return (
       <WarrantyAdminSidebarLayout
         scope={variant}
