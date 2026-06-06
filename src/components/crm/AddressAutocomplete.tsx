@@ -71,7 +71,7 @@ function loadPlaces(): Promise<boolean> {
   if (!API_KEY) {
     if (!warnedMissingKey && typeof console !== 'undefined') {
       warnedMissingKey = true;
-      console.warn('Google Places autocomplete disabled: missing VITE_GOOGLE_MAPS_API_KEY');
+      console.warn('Google Places autocomplete disabled: missing VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY or VITE_GOOGLE_MAPS_API_KEY');
     }
     return Promise.resolve(false);
   }
