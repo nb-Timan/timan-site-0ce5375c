@@ -939,7 +939,9 @@ export default function PartnerMapPage() {
                 {search && (<button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>)}
               </div>
               <div className="flex items-center gap-1.5">
-                {(['dealer','service_partner','importer','demo_location'] as PartnerType[]).map((t) => {
+                {(['dealer','service_partner','importer','demo_location'] as PartnerType[])
+                  .filter((t) => !(isDealerSide && t === 'demo_location'))
+                  .map((t) => {
                   const on = activeTypes.has(t);
                   return (
                     <button key={t} onClick={() => toggleType(t)}
@@ -960,20 +962,24 @@ export default function PartnerMapPage() {
                   </button>
                 )}
               </div>
-              <select
-                value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}
-                className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
-                <option value="all">{T.allSellers[lang]}</option>
-                {sellerOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select
-                value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
-                title="Status"
-                className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
-                <option value="active">Aktive</option>
-                <option value="inactive">Spærrede/Lukkede</option>
-                <option value="all">Alle</option>
-              </select>
+              {!isDealerSide && (
+                <>
+                  <select
+                    value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}
+                    className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
+                    <option value="all">{T.allSellers[lang]}</option>
+                    {sellerOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select
+                    value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
+                    title="Status"
+                    className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
+                    <option value="active">Aktive</option>
+                    <option value="inactive">Spærrede/Lukkede</option>
+                    <option value="all">Alle</option>
+                  </select>
+                </>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
                   <Home className="h-4 w-4" />
