@@ -86,6 +86,8 @@ import BackendBudgetImportPage from "./pages/backend/BackendBudgetImportPage";
 import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import BackendDataIntegrationsPage from "./pages/backend/BackendDataIntegrationsPage";
+import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
+
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
 // Seed AKR realistic test data once per browser (idempotent — versioned flag).
@@ -178,6 +180,8 @@ const App = () => (
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
+              <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
+
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
