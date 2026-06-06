@@ -391,7 +391,7 @@ export default function ServiceMaintenancePage() {
           {!isBackend && (
             <div className="flex">
               <Button
-                onClick={() => navigate('/portal/service/tickets?create=1')}
+                onClick={() => setView('create')}
                 className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
