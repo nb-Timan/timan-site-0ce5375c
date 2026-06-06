@@ -1199,8 +1199,11 @@ function EditDealerModal({
               value={form.address}
               onChange={(v) => setForm((f) => ({ ...f, address: v }))}
               onResolve={applyResolved}
+              onGeocodeResolved={applyResolved}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               placeholder="Begynd at skrive adressen…"
+              showValidationState
+              addressParts={{ address_line_1: form.address, postal_code: form.postal_code, city: form.city, country: form.country }}
             />
             {geo.google_place_id && (
               <span className="mt-1 inline-block text-[10px] text-emerald-700">
