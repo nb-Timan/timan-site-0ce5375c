@@ -1134,7 +1134,7 @@ export default function PartnerMapPage() {
                       key={mapStyle}
                       attribution={MAP_STYLES[mapStyle].attribution}
                       url={MAP_STYLES[mapStyle].url}
-                      subdomains={MAP_STYLES[mapStyle].subdomains as any}
+                      subdomains={MAP_STYLES[mapStyle].subdomains ?? ['a','b','c']}
                       maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
