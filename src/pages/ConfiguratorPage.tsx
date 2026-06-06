@@ -243,7 +243,11 @@ export default function ConfiguratorPage() {
   const [savingChanges, setSavingChanges] = useState(false);
 
   const lang = state.language;
-  const T = (key: string) => t(key, lang);
+  // Use uiLanguage (9-locale) for translation lookups so PL/SE/FR/CZ resolve
+  // to their own strings. `lang` (5-locale state.language) still drives
+  // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
+  // localisation, which only have 5-language coverage.
+  const T = (key: string) => t(key, uiLanguage);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
