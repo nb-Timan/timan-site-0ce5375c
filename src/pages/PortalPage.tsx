@@ -7,10 +7,12 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
+import LatestChanges from '@/components/portal/LatestChanges';
 import QuickActions from '@/components/portal/QuickActions';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
+import { useChangelog } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
 
@@ -26,6 +28,8 @@ const T: Record<string, Record<Language, string>> = {
   },
   heroAlt: { da: 'Timan industri', en: 'Timan industry', de: 'Timan Industrie', it: 'Industria Timan', hu: 'Timan ipar' },
   open: { da: 'Åbn område', en: 'Open area', de: 'Bereich öffnen', it: 'Apri area', hu: 'Terület megnyitása' },
+  updateBadgeOpdateret: { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve' },
+  updateBadgeNy: { da: 'Ny ændring', en: 'New change', de: 'Neue Änderung', it: 'Nuova modifica', hu: 'Új változás' },
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
@@ -53,6 +57,7 @@ export default function PortalPage() {
 
   const effectiveUser = useEffectivePortalUser(appUser);
   const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
+  const changelog = useChangelog(appUser, lang);
 
   if (loading) {
     return (
@@ -185,6 +190,13 @@ export default function PortalPage() {
           {visibleAreas.map(area => {
             const meta = AREA_META[area.id];
             if (!meta) return null;
+            const unread = changelog.entries.filter(e => e.areaId === area.id && !changelog.isRead(e.id));
+            const updateBadge = unread.length > 0
+              ? {
+                  tone: unread.some(e => e.tag === 'ny') ? 'ny' as const : 'opdateret' as const,
+                  label: unread.some(e => e.tag === 'ny') ? T.updateBadgeNy[lang] : T.updateBadgeOpdateret[lang],
+                }
+              : null;
             return (
               <AreaCard
                 key={area.id}
@@ -195,12 +207,15 @@ export default function PortalPage() {
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' ? dealerBadge : null}
+                updateBadge={updateBadge}
               />
             );
           })}
         </div>
 
         <QuickActions />
+
+        <LatestChanges language={lang} />
 
         <LatestFromTiman language={lang} />
       </main>
