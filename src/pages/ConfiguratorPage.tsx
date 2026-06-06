@@ -5,6 +5,7 @@ import { CalendarIcon } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t } from '@/data/translations';
+import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
 import { AppUser } from '@/data/appUsers';
@@ -243,7 +244,11 @@ export default function ConfiguratorPage() {
   const [savingChanges, setSavingChanges] = useState(false);
 
   const lang = state.language;
-  const T = (key: string) => t(key, lang);
+  // Use uiLanguage (9-locale) for translation lookups so PL/SE/FR/CZ resolve
+  // to their own strings. `lang` (5-locale state.language) still drives
+  // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
+  // localisation, which only have 5-language coverage.
+  const T = (key: string) => t(key, uiLanguage);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
@@ -1980,14 +1985,10 @@ export default function ConfiguratorPage() {
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {lang === 'da' ? 'Tilbage til Salg & Marketing'
-                : lang === 'de' ? 'Zurück zu Vertrieb & Marketing'
-                : lang === 'it' ? 'Torna a Vendite & Marketing'
-                : lang === 'hu' ? 'Vissza: Értékesítés & Marketing'
-                : 'Back to Sales & Marketing'}
+              {tPortal('backToSalesMarketing', uiLanguage)}
             </span>
             <span className="sm:hidden">
-              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : 'Sales'}
+              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales')}
             </span>
           </button>
           ) : (
@@ -2632,7 +2633,7 @@ export default function ConfiguratorPage() {
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
                 <div className="max-w-lg mx-auto mb-5">
-                  <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="full" />
+                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" />
                 </div>
                 {state.flowType === 'quote' && (
                   <div className="max-w-lg mx-auto mb-5">
@@ -2792,7 +2793,7 @@ export default function ConfiguratorPage() {
               );
             })()}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
-              <OwnershipPicker value={ownership} onChange={setOwnership} language={lang} variant="compact" />
+              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" />
             </fieldset>
             <AccountPanel
               appUser={appUser}

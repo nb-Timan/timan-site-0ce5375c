@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { PortalModule } from '@/lib/portalModules';
 import { Language } from '@/types/configurator';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { pickT } from '@/lib/i18n/translations';
 import { cn } from '@/lib/utils';
 
 // Map abstract accent tokens to the exact mockup color classes.
@@ -14,13 +16,18 @@ const ACCENT: Record<PortalModule['accent'], { iconBg: string; iconBgHover: stri
   rose:    { iconBg: 'bg-rose-50',   iconBgHover: 'group-hover:bg-rose-100',   iconColor: 'text-rose-600',    ctaColor: 'text-rose-600' },
 };
 
-const SOON: Record<Language, string> = {
+const SOON: Partial<Record<PortalUiLanguage, string>> = {
   da: 'Kommer snart', en: 'Coming soon', de: 'Bald verfügbar', it: 'In arrivo', hu: 'Hamarosan',
+  sv: 'Kommer snart', fr: 'Bientôt disponible', pl: 'Wkrótce', cs: 'Brzy',
 };
 
 interface Props {
   module: PortalModule;
-  language: Language;
+  /**
+   * Portal UI language (9 codes). Accepts the legacy `Language` (5 codes) too —
+   * `pickT` falls back to English for missing translations.
+   */
+  language: PortalUiLanguage | Language;
   badge?: { text: string; tone: 'default' | 'warning' | 'danger' } | null;
 }
 
@@ -63,12 +70,12 @@ export default function ModuleCard({ module, language, badge }: Props) {
 
       {/* Title */}
       <h3 className="text-xl font-bold text-gray-900 mb-3">
-        {module.title[language] || module.title.en}
+        {pickT(module.title, language)}
       </h3>
 
       {/* Description */}
       <p className="text-gray-600 text-sm mb-6 flex-grow">
-        {module.description[language] || module.description.en}
+        {pickT(module.description, language)}
       </p>
 
       {/* Badges */}
@@ -76,7 +83,7 @@ export default function ModuleCard({ module, language, badge }: Props) {
         <div className="mb-4 flex items-center gap-2">
           {disabled && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
-              {SOON[language] || SOON.en}
+              {pickT(SOON, language) || 'Coming soon'}
             </span>
           )}
           {badge && (
@@ -89,7 +96,7 @@ export default function ModuleCard({ module, language, badge }: Props) {
 
       {/* CTA */}
       <div className={cn('flex items-center font-semibold text-sm', styles.ctaColor)}>
-        {module.cta[language] || module.cta.en}
+        {pickT(module.cta, language)}
         <ArrowRight className="h-4 w-4 ml-2" />
       </div>
     </button>

@@ -28,6 +28,7 @@ import { isExternalDealerRole } from '@/lib/configuratorOwnership';
 import { useDealerScope } from '@/lib/dealerScope';
 import { fetchDealerAccounts, DealerAccount } from '@/lib/dealerAccountsService';
 import { Language } from '@/types/configurator';
+import { pickT } from '@/lib/i18n/translations';
 
 export interface OwnershipSelection {
   /** BP/JTN/EM/AKR/NB or null. */
@@ -55,26 +56,34 @@ export const EMPTY_OWNERSHIP: OwnershipSelection = {
 interface Props {
   value: OwnershipSelection;
   onChange: (next: OwnershipSelection) => void;
-  language: Language;
+  /**
+   * Any portal UI language (da/en/de/it/hu/sv/fr/pl/cs). Falls back to English
+   * for keys/languages that are not translated below.
+   */
+  language: Language | string;
   /** 'compact' for the sticky basket panel, 'full' for step 4 form. */
   variant?: 'compact' | 'full';
 }
 
 const T = {
-  block_title: { da: 'Intern tildeling', en: 'Internal assignment', de: 'Interne Zuweisung', it: 'Assegnazione interna', hu: 'Belső hozzárendelés' },
-  block_compact: { da: 'Tildeling', en: 'Assignment', de: 'Zuweisung', it: 'Assegnazione', hu: 'Hozzárendelés' },
-  seller: { da: 'Timan Sælger', en: 'Timan Seller', de: 'Timan Verkäufer', it: 'Venditore Timan', hu: 'Timan Értékesítő' },
-  dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
-  none: { da: '— Ingen valgt —', en: '— None selected —', de: '— Keine Auswahl —', it: '— Nessuno —', hu: '— Nincs kiválasztva —' },
-  search_dealer: { da: 'Søg forhandler (nr. eller navn)…', en: 'Search dealer (no. or name)…', de: 'Händler suchen…', it: 'Cerca rivenditore…', hu: 'Kereskedő keresése…' },
-  no_results: { da: 'Ingen resultater', en: 'No results', de: 'Keine Ergebnisse', it: 'Nessun risultato', hu: 'Nincs találat' },
-  loading: { da: 'Henter…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
+  block_title: { da: 'Intern tildeling', en: 'Internal assignment', de: 'Interne Zuweisung', it: 'Assegnazione interna', hu: 'Belső hozzárendelés', sv: 'Intern tilldelning', fr: 'Affectation interne', pl: 'Przypisanie wewnętrzne', cs: 'Interní přiřazení' },
+  block_compact: { da: 'Tildeling', en: 'Assignment', de: 'Zuweisung', it: 'Assegnazione', hu: 'Hozzárendelés', sv: 'Tilldelning', fr: 'Affectation', pl: 'Przypisanie', cs: 'Přiřazení' },
+  seller: { da: 'Timan Sælger', en: 'Timan Seller', de: 'Timan Verkäufer', it: 'Venditore Timan', hu: 'Timan Értékesítő', sv: 'Timan-säljare', fr: 'Vendeur Timan', pl: 'Sprzedawca Timan', cs: 'Prodejce Timan' },
+  dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő', sv: 'Återförsäljare', fr: 'Revendeur', pl: 'Dealer', cs: 'Prodejce' },
+  none: { da: '— Ingen valgt —', en: '— None selected —', de: '— Keine Auswahl —', it: '— Nessuno —', hu: '— Nincs kiválasztva —', sv: '— Inget valt —', fr: '— Aucun sélectionné —', pl: '— Nie wybrano —', cs: '— Nic nevybráno —' },
+  search_dealer: { da: 'Søg forhandler (nr. eller navn)…', en: 'Search dealer (no. or name)…', de: 'Händler suchen…', it: 'Cerca rivenditore…', hu: 'Kereskedő keresése…', sv: 'Sök återförsäljare…', fr: 'Rechercher un revendeur…', pl: 'Szukaj dealera…', cs: 'Hledat prodejce…' },
+  no_results: { da: 'Ingen resultater', en: 'No results', de: 'Keine Ergebnisse', it: 'Nessun risultato', hu: 'Nincs találat', sv: 'Inga resultat', fr: 'Aucun résultat', pl: 'Brak wyników', cs: 'Žádné výsledky' },
+  loading: { da: 'Henter…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…', sv: 'Laddar…', fr: 'Chargement…', pl: 'Ładowanie…', cs: 'Načítání…' },
   locked_hint: {
     da: 'Forhandler er låst til din bruger-profil.',
     en: 'Dealer is locked to your user profile.',
     de: 'Händler ist an Ihr Profil gebunden.',
     it: 'Rivenditore bloccato al tuo profilo.',
     hu: 'A kereskedő a profilodhoz van rögzítve.',
+    sv: 'Återförsäljaren är låst till din profil.',
+    fr: 'Le revendeur est verrouillé à votre profil.',
+    pl: 'Dealer jest przypisany do Twojego profilu.',
+    cs: 'Prodejce je vázán na váš profil.',
   },
   no_dealer_warning: {
     da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin før du sender en ordre.',
@@ -82,12 +91,16 @@ const T = {
     de: 'Ihrem Benutzer ist kein Händler zugeordnet.',
     it: 'Il tuo utente non ha un rivenditore collegato.',
     hu: 'A felhasználódhoz nincs kereskedő rendelve.',
+    sv: 'Din användare har ingen återförsäljare kopplad.',
+    fr: 'Aucun revendeur n’est lié à votre utilisateur.',
+    pl: 'Twoje konto nie ma przypisanego dealera.',
+    cs: 'Váš účet nemá přiřazeného prodejce.',
   },
-  clear: { da: 'Ryd', en: 'Clear', de: 'Löschen', it: 'Cancella', hu: 'Törlés' },
+  clear: { da: 'Ryd', en: 'Clear', de: 'Löschen', it: 'Cancella', hu: 'Törlés', sv: 'Rensa', fr: 'Effacer', pl: 'Wyczyść', cs: 'Vymazat' },
 } as const;
 
-function tx(key: keyof typeof T, lang: Language): string {
-  return T[key][lang] || T[key].en || (key as string);
+function tx(key: keyof typeof T, lang: Language | string): string {
+  return pickT(T[key] as Partial<Record<string, string>>, lang) || (key as string);
 }
 
 /**
