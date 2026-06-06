@@ -121,10 +121,6 @@ const da: Dict = {
   adminClaimsSubtitle: 'Aktuelle claims på tværs af forhandlere — kun aktive sager.',
 };
 
-const __unused_da_close = {
-  dealerBlockedBody: 'Denne forhandlerkonto er spærret. Kontakt venligst Timan.',
-};
-
 // ---------------------------------------------------------------------------
 // English
 // ---------------------------------------------------------------------------
