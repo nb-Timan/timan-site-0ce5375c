@@ -8,42 +8,22 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { getPortalBackTarget, goBackOrFallback } from '@/lib/portalBackNav';
-import { Language } from '@/types/configurator';
 import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
+import { t } from '@/lib/i18n/translations';
 
-const T: Record<string, Record<Language, string>> = {
-  back:       { da: 'Tilbage til portal', en: 'Back to portal', de: 'Zurück zum Portal', it: 'Torna al portale', hu: 'Vissza a portálra' },
-  back_crm:   { da: 'Tilbage til CRM', en: 'Back to CRM', de: 'Zurück zum CRM', it: 'Torna al CRM', hu: 'Vissza a CRM-hez' },
-  title:      { da: 'Timan CRM', en: 'Timan CRM', de: 'Timan CRM', it: 'Timan CRM', hu: 'Timan CRM' },
-  dashboard:  { da: 'Dashboard',     en: 'Dashboard',  de: 'Dashboard',  it: 'Dashboard',  hu: 'Irányítópult' },
-  my_dealers: { da: 'Mine forhandlere', en: 'My dealers', de: 'Meine Händler', it: 'I miei rivenditori', hu: 'Kereskedőim' },
-  accounts:   { da: 'Konti',         en: 'Accounts',   de: 'Konten',     it: 'Account',    hu: 'Fiókok' },
-  leads:      { da: 'Leads',         en: 'Leads',      de: 'Leads',      it: 'Lead',       hu: 'Leadek' },
-  quotes:     { da: 'Tilbud',        en: 'Quotes',     de: 'Angebote',   it: 'Preventivi', hu: 'Árajánlatok' },
-  orders:     { da: 'Ordrer',        en: 'Orders',     de: 'Aufträge',   it: 'Ordini',     hu: 'Rendelések' },
-  activities: { da: 'Aktiviteter',   en: 'Activities', de: 'Aktivitäten',it: 'Attività',   hu: 'Tevékenységek' },
-  calendar:   { da: 'Kalender',      en: 'Calendar',   de: 'Kalender',   it: 'Calendario', hu: 'Naptár' },
-  budget:     { da: 'Budget',        en: 'Budget',     de: 'Budget',     it: 'Budget',     hu: 'Költségvetés' },
-  budget_dashboard: { da: 'Budget Dashboard', en: 'Budget Dashboard', de: 'Budget Dashboard', it: 'Budget Dashboard', hu: 'Budget Dashboard' },
-  reports:    { da: 'Rapporter',     en: 'Reports',    de: 'Berichte',   it: 'Report',     hu: 'Riportok' },
-  scope_all:    { da: 'Ser alle CRM-data', en: 'Viewing all CRM data', de: 'Alle CRM-Daten', it: 'Tutti i dati CRM', hu: 'Összes CRM adat' },
-  scope_owner:  { da: 'Ser kun egne tildelte konti', en: 'Viewing only your assigned accounts', de: 'Nur eigene Konten', it: 'Solo i tuoi account', hu: 'Csak saját fiókok' },
-};
-
-interface NavItem { key: keyof typeof T; to: string; icon: typeof LayoutDashboard }
+interface NavItem { tKey: string; to: string; icon: typeof LayoutDashboard }
 const NAV: NavItem[] = [
-  { key: 'dashboard',  to: '/portal/crm/dashboard',  icon: LayoutDashboard },
-  { key: 'my_dealers', to: '/portal/crm/my-dealers', icon: Store },
-  
-  { key: 'leads',      to: '/portal/crm/leads',      icon: Sparkles },
-  { key: 'quotes',     to: '/portal/crm/quotes',     icon: FileText },
-  { key: 'orders',     to: '/portal/crm/orders',     icon: ShoppingCart },
-  { key: 'activities', to: '/portal/crm/activities', icon: Activity },
-  { key: 'calendar',   to: '/portal/crm/calendar',   icon: CalendarDays },
-  { key: 'budget',     to: '/portal/crm/budget',     icon: Wallet },
-  { key: 'budget_dashboard', to: '/portal/crm/budget-dashboard', icon: Gauge },
-  { key: 'reports',    to: '/portal/crm/reports',    icon: BarChart3 },
+  { tKey: 'crmDashboard',        to: '/portal/crm/dashboard',        icon: LayoutDashboard },
+  { tKey: 'crmMyDealers',        to: '/portal/crm/my-dealers',       icon: Store },
+  { tKey: 'crmLeads',            to: '/portal/crm/leads',            icon: Sparkles },
+  { tKey: 'crmQuotes',           to: '/portal/crm/quotes',           icon: FileText },
+  { tKey: 'crmOrders',           to: '/portal/crm/orders',           icon: ShoppingCart },
+  { tKey: 'crmActivities',       to: '/portal/crm/activities',       icon: Activity },
+  { tKey: 'crmCalendar',         to: '/portal/crm/calendar',         icon: CalendarDays },
+  { tKey: 'crmBudget',           to: '/portal/crm/budget',           icon: Wallet },
+  { tKey: 'crmBudgetDashboard',  to: '/portal/crm/budget-dashboard', icon: Gauge },
+  { tKey: 'crmReports',          to: '/portal/crm/reports',          icon: BarChart3 },
 ];
 
 interface Props { children: ReactNode; pageTitle?: string }
