@@ -180,6 +180,8 @@ const App = () => (
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
+              <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
+
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
