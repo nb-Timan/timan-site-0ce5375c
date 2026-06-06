@@ -1984,14 +1984,10 @@ export default function ConfiguratorPage() {
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {lang === 'da' ? 'Tilbage til Salg & Marketing'
-                : lang === 'de' ? 'Zurück zu Vertrieb & Marketing'
-                : lang === 'it' ? 'Torna a Vendite & Marketing'
-                : lang === 'hu' ? 'Vissza: Értékesítés & Marketing'
-                : 'Back to Sales & Marketing'}
+              {tPortal('backToSalesMarketing', uiLanguage)}
             </span>
             <span className="sm:hidden">
-              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : 'Sales'}
+              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales')}
             </span>
           </button>
           ) : (
