@@ -81,6 +81,11 @@ export default function PortalAreaPage({ areaId }: Props) {
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const effectiveUser = useEffectivePortalUser(appUser);
+  const { markAreaRead } = useChangelog(appUser, lang);
+  useEffect(() => {
+    if (appUser) markAreaRead(areaId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaId, appUser?.email]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
