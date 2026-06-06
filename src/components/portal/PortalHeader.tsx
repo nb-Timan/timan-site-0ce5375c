@@ -15,14 +15,10 @@ import {
   type ActiveMode,
 } from '@/lib/activeMode';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
+import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { useLanguage } from '@/context/LanguageContext';
 
-const LANGS: { code: Language; flag: string }[] = [
-  { code: 'da', flag: '🇩🇰' },
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'de', flag: '🇩🇪' },
-  { code: 'it', flag: '🇮🇹' },
-  { code: 'hu', flag: '🇭🇺' },
-];
+const LANGS = PORTAL_LANGUAGES;
 
 const T: Record<string, Record<Language, string>> = {
   portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
