@@ -5,13 +5,31 @@
 import { supabase } from '@/lib/supabase';
 
 export type ClaimStatus =
-  | 'draft'         // Gemt / ikke afsendt
-  | 'submitted'     // Afventer accept
+  | 'draft'                   // Gemt / ikke afsendt
+  | 'pending_service_review'  // Afventer servicegodkendelse (dealer-created)
+  | 'submitted'               // Afventer accept
   | 'open'
   | 'in_review'
   | 'approved'
   | 'rejected'
   | 'closed';
+
+/** Friendly Danish labels for claim statuses. */
+export const CLAIM_STATUS_LABEL_DA: Record<ClaimStatus, string> = {
+  draft: 'Kladde',
+  pending_service_review: 'Afventer servicegodkendelse',
+  submitted: 'Indsendt',
+  open: 'Åben',
+  in_review: 'Under behandling',
+  approved: 'Godkendt',
+  rejected: 'Afvist',
+  closed: 'Lukket',
+};
+
+export function claimStatusLabel(status: string | null | undefined): string {
+  if (!status) return '—';
+  return (CLAIM_STATUS_LABEL_DA as Record<string, string>)[status] || status;
+}
 
 export interface ClaimPartLine {
   id: string;
