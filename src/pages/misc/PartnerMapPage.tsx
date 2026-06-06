@@ -1116,9 +1116,11 @@ export default function PartnerMapPage() {
                     worldCopyJump={true}
                   >
                     <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                      subdomains={['a','b','c','d']}
+                      key={mapStyle}
+                      attribution={MAP_STYLES[mapStyle].attribution}
+                      url={MAP_STYLES[mapStyle].url}
+                      subdomains={MAP_STYLES[mapStyle].subdomains as any}
+                      maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
