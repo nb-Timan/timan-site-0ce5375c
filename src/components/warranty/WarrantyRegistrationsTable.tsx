@@ -459,7 +459,7 @@ export function WarrantyRegistrationsTable({
                     <td className="whitespace-nowrap px-6 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => setSelected(r)}
+                        onClick={() => { selectedSnapshotRef.current = r; setSelectedId(r.id); }}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
                         <Eye className="h-3.5 w-3.5" /> Vis
