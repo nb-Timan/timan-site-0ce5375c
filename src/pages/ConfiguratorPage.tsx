@@ -55,13 +55,14 @@ import {
   getPaymentTermsLabel,
 } from '@/lib/paymentTerms';
 
-const LANGUAGES: { code: Language; flag: string }[] = [
-  { code: 'da', flag: '🇩🇰' },
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'de', flag: '🇩🇪' },
-  { code: 'it', flag: '🇮🇹' },
-  { code: 'hu', flag: '🇭🇺' },
-];
+// Configurator language selector — uses the 9 portal UI languages.
+// Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
+// Record<Language, T> tables don't crash) while the portal-wide
+// `uiLanguage` keeps the real selection so chrome (header, t() lookups,
+// active flag highlight) localises correctly.
+const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.map(l => ({
+  code: l.code, flag: l.emoji,
+}));
 
 const MACHINE_KEYS = ['RC-1000S', 'RC-751', 'Timan 3330', 'Timan 2620', 'Loader Line', 'LOOSE_TOOL'];
 
