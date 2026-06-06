@@ -184,6 +184,12 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
 export default function DealerProfileEditor({ dealer, language, canEdit, onUpdated }: Props) {
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
 
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[DealerProfileEditor] canEdit:', canEdit, 'dealer:', dealer?.account_number);
+  }
+
+
   const [draft, setDraft] = useState<DealerAccount>(dealer);
   const [savingSection, setSavingSection] = useState<SectionKey | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
