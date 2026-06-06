@@ -97,7 +97,7 @@ const T: Record<string, Record<Language, string>> = {
 
   // Status options
   st_created:               { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
-  st_in_progress:           { da: "Under behandling", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
+  st_in_progress:           { da: "I gang", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
   st_waiting_timan:         { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
   st_waiting_dealer:        { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
   st_waiting_customer:      { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
@@ -112,7 +112,7 @@ const T: Record<string, Record<Language, string>> = {
   pr_low:                       { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
   pr_normal:                    { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
   pr_high:                      { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
-  pr_critical_machine_stopped:  { da: "Kritisk / maskine stoppet", en: "Critical / machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+  pr_critical_machine_stopped:  { da: "Kritisk maskinstop", en: "Critical machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
 
   // Category options
   cat_engine:         { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
@@ -708,7 +708,7 @@ export default function ServiceTicketDetailPage() {
                       disabled={savingEdit}
                       className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
                     >
-                      <option value="">{T.none[lang]}</option>
+                      <option value="">—</option>
                       {CATEGORY_VALUES.map((c) => (
                         <option key={c} value={c}>{categoryLabel(c)}</option>
                       ))}
