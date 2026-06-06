@@ -169,7 +169,7 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
   useEffect(() => { onResolveRef.current = onResolve; }, [onResolve]);
 
   useEffect(() => {
-    devLog('mount, key present:', !!API_KEY);
+    devLog('mount, key present:', !!API_KEY, 'key source:', KEY_SOURCE);
     if (!API_KEY || !ref.current) {
       if (!API_KEY) loadPlaces(); // triggers the missing-key warning once
       return;
