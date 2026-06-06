@@ -410,15 +410,27 @@ export function useChangelog(
 ): UseChangelogResult {
   const userKey = getUserKey(user);
 
-  const subscribe = useCallback((cb: () => void) => localReadStore.subscribe(cb), []);
+  // Lazy import to avoid a circular dep at module-eval time.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const svc = require('./portalChangelogService') as typeof import('./portalChangelogService');
+
+  const subscribe = useCallback((cb: () => void) => {
+    const off1 = localReadStore.subscribe(cb);
+    const off2 = svc.subscribeChangelog(cb);
+    return () => { off1(); off2(); };
+  }, []);
   const getSnapshot = useCallback(() => {
     const ids = Array.from(localReadStore.getReadIds(userKey)).sort();
-    return `${userKey}|${ids.join(',')}`;
-  }, [userKey]);
+    return `${userKey}|${ids.join(',')}|${svc.getChangelogSnapshot()}|${language}`;
+  }, [userKey, language, svc]);
   useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const readIds = localReadStore.getReadIds(userKey);
-  const entries = getVisibleEntries(user, language);
+  const rawEntries = svc.getEntriesForLanguage(language);
+  const entries = rawEntries
+    .filter(e => isEntryVisible(e, user, language))
+    .slice()
+    .sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
 
   const entriesForArea = (areaId: PortalAreaId) =>
     entries.filter(e => areaForModule(e.module_key) === areaId);
@@ -439,3 +451,4 @@ export function useChangelog(
       localReadStore.markRead(userKey, entries.filter(e => e.module_key === moduleKey).map(e => e.id)),
   };
 }
+
