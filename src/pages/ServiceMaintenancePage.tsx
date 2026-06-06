@@ -111,6 +111,7 @@ const T: Record<string, Record<Language, string>> = {
   settingsBody: { da: 'Modulindstillinger kommer snart.', en: 'Module settings coming soon.', de: 'Moduleinstellungen folgen in Kürze.', it: 'Impostazioni del modulo in arrivo.', hu: 'A modulbeállítások hamarosan elérhetők.' },
   createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása' },
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk' },
+  newServiceReg: { da: 'Ny service registrering', en: 'New service registration', de: 'Neue Serviceerfassung', it: 'Nuova registrazione servizio', hu: 'Új szervizregisztráció' },
 };
 
 const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines', 'settings'];
