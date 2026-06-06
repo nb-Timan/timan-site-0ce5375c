@@ -648,42 +648,65 @@ export default function PartnerMapPage() {
   // - Sælger: only pins where the linked dealer's assigned_seller_initials
   //   matches the current user's initials (own/assigned dealers).
   // - Other roles: nothing (canSeeMachineStats is false so layer toggle is hidden).
+  // Helper: dealers assigned to the previewed/effective seller (AK↔AKR aware).
+  const sellerScopedDealers = useMemo(() => {
+    const me = (currentSellerInitials ?? '').toUpperCase();
+    if (!me) return { ids: new Set<string>(), accountNumbers: new Set<string>(), names: new Set<string>() };
+    const ids = new Set<string>();
+    const accountNumbers = new Set<string>();
+    const names = new Set<string>();
+    for (const d of dealers) {
+      if (!sellerInitialsMatch(d.assigned_seller_initials, me)) continue;
+      ids.add(d.id);
+      const acc = (d.account_number ?? '').trim().toUpperCase();
+      if (acc) accountNumbers.add(acc);
+      const nm = (d.company_name ?? '').trim().toLowerCase();
+      if (nm) names.add(nm);
+    }
+    return { ids, accountNumbers, names };
+  }, [dealers, currentSellerInitials]);
+
   const visibleMachinePins = useMemo(() => {
     if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
-      const me = (currentSellerInitials ?? '').toUpperCase();
-      if (!me) return [];
-      const ownDealerIds = new Set(
-        dealers
-          .filter((d) => (d.assigned_seller_initials ?? '').toUpperCase() === me)
-          .map((d) => d.id),
-      );
-      return machinePinsAll.filter((p) => p.dealerAccountId && ownDealerIds.has(p.dealerAccountId));
+      const { ids, accountNumbers, names } = sellerScopedDealers;
+      if (ids.size === 0 && accountNumbers.size === 0) return [];
+      return machinePinsAll.filter((p) => {
+        if (p.dealerAccountId && ids.has(p.dealerAccountId)) return true;
+        const acc = (p.dealerAccountNumber ?? '').trim().toUpperCase();
+        if (acc && accountNumbers.has(acc)) return true;
+        const nm = (p.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && names.has(nm)) return true;
+        return false;
+      });
     }
     if (!canSeeMachineStats) {
-      // Dealer-side roles: only own dealer's registrations (match by account_number).
       if (!ownDealerNumber) return [];
       return machinePinsAll.filter((p) => (p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
     }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
+  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
 
   const visibleMachineMissing = useMemo(() => {
     if (!canSeeMachineLayer) return [];
     if (portalRole === 'timan_seller') {
-      const me = (currentSellerInitials ?? '').toUpperCase();
-      if (!me) return [];
-      const ownDealerIds = new Set(
-        dealers.filter((d) => (d.assigned_seller_initials ?? '').toUpperCase() === me).map((d) => d.id),
-      );
-      return machineMissingAll.filter((r) => r.dealerAccountId && ownDealerIds.has(r.dealerAccountId));
+      const { ids, accountNumbers, names } = sellerScopedDealers;
+      if (ids.size === 0 && accountNumbers.size === 0) return [];
+      return machineMissingAll.filter((r) => {
+        if (r.dealerAccountId && ids.has(r.dealerAccountId)) return true;
+        const acc = (r.dealerAccountNumber ?? '').trim().toUpperCase();
+        if (acc && accountNumbers.has(acc)) return true;
+        const nm = (r.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && names.has(nm)) return true;
+        return false;
+      });
     }
     if (!canSeeMachineStats) {
       if (!ownDealerNumber) return [];
       return machineMissingAll.filter((r) => (r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
     }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, currentSellerInitials, dealers, ownDealerNumber]);
+  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
