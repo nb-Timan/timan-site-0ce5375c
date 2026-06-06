@@ -657,7 +657,7 @@ export default function CrmDealerDetailPage() {
         );
       })()}
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
@@ -679,48 +679,75 @@ export default function CrmDealerDetailPage() {
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* A. Kontaktinformation */}
+            {/* Forhandler metadata — compact, only meaningful fields */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("contact_info", lang)}</h3>
-              <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
-                <li><span className="text-slate-500">{tl("address_line_1", lang)}:</span> {dealer.address_line_1 || dealer.address || "—"}</li>
-                <li><span className="text-slate-500">{tl("address_line_2", lang)}:</span> {dealer.address_line_2 || "—"}</li>
-                <li><span className="text-slate-500">{tl("postal_code", lang)}:</span> {dealer.postal_code || "—"}</li>
-                <li><span className="text-slate-500">{tl("city", lang)}:</span> {dealer.city || "—"}</li>
-                <li><span className="text-slate-500">{tl("country", lang)}:</span> {formatCountry(dealer.country) || "—"}</li>
-                <li><span className="text-slate-500">{tl("phone", lang)}:</span> {dealer.phone ? <a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a> : "—"}</li>
-                <li><span className="text-slate-500">{tl("email", lang)}:</span> {dealer.email ? <a href={`mailto:${dealer.email}`} className="hover:underline">{dealer.email}</a> : "—"}</li>
-                <li><span className="text-slate-500">{tl("website", lang)}:</span> {dealer.website ? <a href={dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`} target="_blank" rel="noreferrer" className="hover:underline">{dealer.website}</a> : "—"}</li>
-              </ul>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">Forhandler metadata</h3>
+              {(() => {
+                const statusVal = dealer.is_blocked
+                  ? <span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>
+                  : dealer.is_deleted
+                    ? <span className="inline-flex items-center rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white">Slettet</span>
+                    : <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">{tl("status_active", lang)}</span>;
+                const vat = (dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || null;
+                const seller = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
+                const contractStart = dealer.source_created_at || null;
+                const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
+                  || (dealer as unknown as { updated_at?: string }).updated_at
+                  || null;
+                const rows: Array<{ label: string; value: React.ReactNode }> = [];
+                rows.push({ label: tl("status_lbl", lang), value: statusVal });
+                if (vat) rows.push({ label: tl("vat", lang), value: vat });
+                if (seller) rows.push({ label: tl("assigned_seller", lang), value: seller });
+                if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
+                if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
+                return (
+                  <ul className="text-sm space-y-1.5">
+                    {rows.map((r, i) => (
+                      <li key={i} className="flex items-baseline gap-2">
+                        <span className="text-slate-500 min-w-[120px]">{r.label}:</span>
+                        <span className="text-slate-800">{r.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
 
-            {/* B. Stamdata */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("master_data", lang)}</h3>
-              <ul className="text-sm space-y-1.5">
-                <li><span className="text-slate-500">{tl("company_name_lbl", lang)}:</span> {dealer.company_name || "—"}</li>
-                <li><span className="text-slate-500">{tl("account_number", lang)}:</span> <span className="font-mono">{dealer.account_number || "—"}</span></li>
-                <li><span className="text-slate-500">{tl("customer_type", lang)}:</span> {dealer.customer_type_label || dealer.customer_type || "—"}</li>
-                <li><span className="text-slate-500">{tl("country", lang)}:</span> {formatCountry(dealer.country) || "—"}</li>
-                <li><span className="text-slate-500">{tl("status_lbl", lang)}:</span> {dealer.is_blocked ? (<span className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Spærret</span>) : dealer.is_deleted ? "Slettet" : tl("status_active", lang)}</li>
-                <li><span className="text-slate-500">{tl("vat", lang)}:</span> {(dealer as unknown as { vat_number?: string; cvr?: string }).vat_number || (dealer as unknown as { cvr?: string }).cvr || "—"}</li>
-                <li><span className="text-slate-500">{tl("assigned_seller", lang)}:</span> {dealer.assigned_seller_name || dealer.assigned_seller_initials || "—"}</li>
-                <li><span className="text-slate-500">{tl("created_at_lbl", lang)}:</span> {fmtDate((dealer as unknown as { created_at?: string }).created_at)}</li>
-              </ul>
-            </div>
-
-            {/* C. Næste opfølgning */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{t("next_followup")}</h3>
-              {nextFollowup ? (
-                <p className="text-sm text-slate-800"><span className="font-semibold">{fmtDateTime(nextFollowup.date)}</span> · {nextFollowup.title}</p>
+            {/* Seneste noter */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 md:col-span-2">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
+                  Seneste noter
+                  <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal">{notes.length}</span>
+                </h3>
+                <button
+                  onClick={() => setActiveTab("notes")}
+                  className="text-xs font-semibold text-emerald-700 hover:underline"
+                >
+                  Se alle noter →
+                </button>
+              </div>
+              {notes.length === 0 ? (
+                <p className="text-sm text-slate-500">Ingen noter registreret</p>
               ) : (
-                <p className="text-sm text-slate-500">{t("none_followup")}</p>
+                <ul className="divide-y divide-slate-100">
+                  {notes.slice(0, 5).map((n) => (
+                    <li key={n.id} className="py-2">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mb-0.5 flex-wrap">
+                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+                        <span>·</span>
+                        <span>{fmtDate(n.created_at)}</span>
+                        <span>·</span>
+                        <span>{n.seller_initials || n.created_by_email || "—"}</span>
+                      </div>
+                      <p className="text-sm text-slate-800 line-clamp-2 whitespace-pre-wrap">{n.note_text}</p>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
-            {/* D. Seneste aktiviteter */}
+            {/* Seneste aktiviteter */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
               {activitiesForScope.slice(0, 4).length === 0 ? (
@@ -734,8 +761,8 @@ export default function CrmDealerDetailPage() {
               )}
             </div>
 
-            {/* E. Seneste tilbud */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            {/* Seneste tilbud */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 md:col-span-2">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
               {dealerQuotesInScope.slice(0, 4).length === 0 ? (
                 <p className="text-sm text-slate-500">{tl("none", lang)}</p>
@@ -749,6 +776,7 @@ export default function CrmDealerDetailPage() {
             </div>
           </div>
         </TabsContent>
+
 
 
         {/* USERS — portal users + registered contact persons */}
