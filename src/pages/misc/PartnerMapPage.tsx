@@ -576,6 +576,7 @@ export default function PartnerMapPage() {
       label: 'Satellit',
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Earthstar Geographics',
+      subdomains: ['a','b','c'],
       maxZoom: 19,
     },
     terrain: {
@@ -1133,7 +1134,7 @@ export default function PartnerMapPage() {
                       key={mapStyle}
                       attribution={MAP_STYLES[mapStyle].attribution}
                       url={MAP_STYLES[mapStyle].url}
-                      subdomains={MAP_STYLES[mapStyle].subdomains as any}
+                      subdomains={MAP_STYLES[mapStyle].subdomains ?? ['a','b','c']}
                       maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
