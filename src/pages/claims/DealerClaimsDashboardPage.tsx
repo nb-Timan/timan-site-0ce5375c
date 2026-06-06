@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
+import LastChangedLine from "@/components/portal/LastChangedLine";
 import {
   CLAIM_STATUS_LABEL,
   CLAIM_STATUS_PILL,
@@ -44,6 +45,7 @@ function DashboardIntro({ readOnly }: { readOnly: boolean }) {
         <p className="mt-1 text-sm text-slate-500">
           Overblik over dine reklamationssager.
         </p>
+        <LastChangedLine moduleKey="claims" className="mt-2" />
       </div>
       {!readOnly && (
         <Link
