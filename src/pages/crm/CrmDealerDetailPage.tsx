@@ -1451,8 +1451,8 @@ function ContactHero({
 
                 const rows: Array<{ label: string; value: React.ReactNode }> = [
                   { label: tl("language", lang), value: String(langBadge).toUpperCase() },
-                  { label: tl("status_lbl", lang), value: statusNode },
                 ];
+
                 if (sellerName) rows.push({ label: tl("assigned_seller", lang), value: sellerName });
                 if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
                 if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
