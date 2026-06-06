@@ -51,20 +51,45 @@ interface PlaceResult {
   geometry?: { location?: { lat: () => number; lng: () => number } };
 }
 
+const DEV = import.meta.env.DEV;
+let warnedMissingKey = false;
+function devLog(...args: unknown[]) {
+  if (DEV) console.debug('[AddressAutocomplete]', ...args);
+}
+
 let loaderPromise: Promise<boolean> | null = null;
 function loadPlaces(): Promise<boolean> {
-  if (!API_KEY) return Promise.resolve(false);
+  if (!API_KEY) {
+    if (!warnedMissingKey && typeof console !== 'undefined') {
+      warnedMissingKey = true;
+      console.warn('Google Places autocomplete disabled: missing VITE_GOOGLE_MAPS_API_KEY');
+    }
+    return Promise.resolve(false);
+  }
   if (typeof window === 'undefined') return Promise.resolve(false);
   const w = window as unknown as { google?: { maps?: { places?: unknown } } };
-  if (w.google?.maps?.places) return Promise.resolve(true);
+  if (w.google?.maps?.places) {
+    devLog('script already loaded, reusing');
+    return Promise.resolve(true);
+  }
   if (loaderPromise) return loaderPromise;
+  // Reuse an existing tag if another component already injected one.
+  const existing = document.querySelector<HTMLScriptElement>('script[data-google-maps-loader="1"]');
+  if (existing) {
+    loaderPromise = new Promise<boolean>((resolve) => {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+    });
+    return loaderPromise;
+  }
   loaderPromise = new Promise<boolean>((resolve) => {
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(API_KEY)}&libraries=places&v=weekly`;
     s.async = true;
     s.defer = true;
-    s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
+    s.dataset.googleMapsLoader = '1';
+    s.onload = () => { devLog('script loaded'); resolve(true); };
+    s.onerror = () => { devLog('script failed to load'); resolve(false); };
     document.head.appendChild(s);
   });
   return loaderPromise;
@@ -127,7 +152,11 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
   useEffect(() => { onResolveRef.current = onResolve; }, [onResolve]);
 
   useEffect(() => {
-    if (!API_KEY || !ref.current) return;
+    devLog('mount, key present:', !!API_KEY);
+    if (!API_KEY || !ref.current) {
+      if (!API_KEY) loadPlaces(); // triggers the missing-key warning once
+      return;
+    }
     let cancelled = false;
     const restrict = (countries && countries.length > 0 ? countries : DEFAULT_COUNTRIES).map((c) => c.toLowerCase());
     loadPlaces().then((ok) => {
@@ -149,9 +178,11 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
         fields: ['formatted_address', 'name', 'address_components', 'geometry.location', 'place_id'],
         componentRestrictions: { country: restrict },
       });
+      devLog('autocomplete initialized, countries:', restrict);
       ac.addListener('place_changed', () => {
         const p = ac.getPlace();
         const resolved = extractResolved(p);
+        devLog('place selected:', resolved.formatted, resolved.country);
         const v = resolved.formatted || resolved.address_line_1 || '';
         if (v) onChangeRef.current(v);
         if (onResolveRef.current) onResolveRef.current(resolved);

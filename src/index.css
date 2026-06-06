@@ -201,6 +201,13 @@ html, body {
   background-color: #f0fdf4;
   box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1), 0 2px 4px -1px rgba(16, 185, 129, 0.06);
 }
+
+/* Google Places autocomplete dropdown must float above cards, dialogs, and
+   the portal sticky chrome. Without this the .pac-container is hidden behind
+   shadcn Card / Dialog overlays and suggestions look "broken". */
+.pac-container {
+  z-index: 99999 !important;
+}
 .group-card.unselected {
   border: 1px solid #e5e7eb;
   background-color: white;
