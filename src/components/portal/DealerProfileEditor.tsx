@@ -99,9 +99,10 @@ interface AddressFieldProps {
   onResolve: (r: ResolvedAddress) => void;
   disabled?: boolean;
   required?: boolean;
+  addressParts?: { address_line_1?: string | null; postal_code?: string | null; city?: string | null; country?: string | null };
 }
 
-function AddressField({ id, label, value, onChange, onResolve, disabled, required }: AddressFieldProps) {
+function AddressField({ id, label, value, onChange, onResolve, disabled, required, addressParts }: AddressFieldProps) {
   const isEmpty = !value || (typeof value === "string" && value.trim().length === 0);
   const missing = !!required && isEmpty;
   const base =
@@ -109,10 +110,6 @@ function AddressField({ id, label, value, onChange, onResolve, disabled, require
   const cls = missing
     ? `${base} border-rose-400 bg-rose-50 focus-visible:ring-rose-300`
     : base;
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.log('[AddressField]', id, 'disabled:', !!disabled);
-  }
   return (
     <div>
       <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
@@ -126,7 +123,10 @@ function AddressField({ id, label, value, onChange, onResolve, disabled, require
           value={value ?? ""}
           onChange={onChange}
           onResolve={onResolve}
+          onGeocodeResolved={onResolve}
           className={cls}
+          showValidationState
+          addressParts={addressParts}
         />
       )}
       {missing && (
@@ -135,6 +135,7 @@ function AddressField({ id, label, value, onChange, onResolve, disabled, require
     </div>
   );
 }
+
 
 interface SectionShellProps {
   skey: SectionKey;
@@ -308,6 +309,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             value={draft.address_line_1}
             disabled={!canEdit}
             required
+            addressParts={{ address_line_1: draft.address_line_1, postal_code: draft.postal_code, city: draft.city, country: draft.country }}
             onChange={(v) => {
               // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
               setDraft((d) => ({

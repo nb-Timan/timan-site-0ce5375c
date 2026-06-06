@@ -1366,7 +1366,10 @@ function CreateDealerModal({
                 value={d.address}
                 onChange={(v) => setD({ ...d, address: v })}
                 onResolve={applyResolved}
+                onGeocodeResolved={applyResolved}
                 placeholder="Begynd at skrive adressen…"
+                showValidationState
+                addressParts={{ address_line_1: d.address, postal_code: d.postal_code, city: d.city, country: d.country }}
               />
             </Field>
             <Field label="By"><input value={d.city} onChange={(e) => setD({ ...d, city: e.target.value })} className={inp} /></Field>

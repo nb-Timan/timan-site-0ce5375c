@@ -14,7 +14,7 @@
  * Country bias: by default restricted to Timan's markets
  * (DK, DE, AT, CH, IT, HU, GB). Pass `countries={[...]}` to override.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
 const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
@@ -149,39 +149,83 @@ function extractResolved(place: PlaceResult): ResolvedAddress {
   };
 }
 
+export interface AddressParts {
+  address_line_1?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  country?: string | null;
+}
+
 interface Props {
   value: string;
   onChange: (v: string) => void;
   /** Called when the user picks a Places suggestion. */
   onResolve?: (r: ResolvedAddress) => void;
+  /** Called when the "Find koordinater" fallback geocoder resolves. Defaults to onResolve. */
+  onGeocodeResolved?: (r: ResolvedAddress) => void;
   /** ISO-2 country codes to restrict suggestions (lowercase). */
   countries?: string[];
+  /** Show "Adresse valideret ✓" / manual-edit warning below the input. */
+  showValidationState?: boolean;
+  /**
+   * Additional fields used to build a fallback geocode query when the user
+   * clicks "Find koordinater" without picking a Google suggestion.
+   * When omitted the button is hidden.
+   */
+  addressParts?: AddressParts;
   className?: string;
   placeholder?: string;
   id?: string;
+  disabled?: boolean;
 }
 
-export default function AddressAutocomplete({ value, onChange, onResolve, countries, className, placeholder, id }: Props) {
+type ValidationStatus = 'idle' | 'validated' | 'manual' | 'error';
+
+function reverseGeocode(query: string): Promise<PlaceResult | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const w = window as unknown as { google?: { maps?: { Geocoder?: new () => { geocode: (req: object, cb: (results: PlaceResult[] | null, status: string) => void) => void } } } };
+  const Geocoder = w.google?.maps?.Geocoder;
+  if (!Geocoder) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const gc = new Geocoder();
+      gc.geocode({ address: query }, (results, status) => {
+        if (status === 'OK' && results && results[0]) resolve(results[0]);
+        else resolve(null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+export default function AddressAutocomplete({
+  value, onChange, onResolve, onGeocodeResolved, countries, className, placeholder, id,
+  showValidationState, addressParts, disabled,
+}: Props) {
   const ref = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   const onResolveRef = useRef(onResolve);
+  const onGeocodeRef = useRef(onGeocodeResolved);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onResolveRef.current = onResolve; }, [onResolve]);
+  useEffect(() => { onGeocodeRef.current = onGeocodeResolved; }, [onGeocodeResolved]);
+
+  const [status, setStatus] = useState<ValidationStatus>('idle');
+  const [geocoding, setGeocoding] = useState(false);
+  const lastResolvedRef = useRef<string | null>(null);
 
   useEffect(() => {
     devLog('mount, key present:', !!API_KEY, 'key source:', KEY_SOURCE);
     if (!API_KEY || !ref.current) {
-      if (!API_KEY) loadPlaces(); // triggers the missing-key warning once
+      if (!API_KEY) loadPlaces();
       return;
     }
     let cancelled = false;
     const restrict = (countries && countries.length > 0 ? countries : DEFAULT_COUNTRIES).map((c) => c.toLowerCase());
     loadPlaces().then((ok) => {
       devLog('loadPlaces resolved:', ok);
-      if (!ok || cancelled || !ref.current) {
-        devLog('autocomplete initialized: false (loadPlaces ok=' + ok + ', cancelled=' + cancelled + ', ref=' + !!ref.current + ')');
-        return;
-      }
+      if (!ok || cancelled || !ref.current) return;
       try {
         const g = (window as unknown as {
           google: {
@@ -200,13 +244,13 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
           fields: ['formatted_address', 'name', 'address_components', 'geometry.location', 'place_id'],
           componentRestrictions: { country: restrict },
         });
-        devLog('autocomplete initialized: true, countries:', restrict);
         ac.addListener('place_changed', () => {
           const p = ac.getPlace();
           const resolved = extractResolved(p);
-          devLog('place selected:', resolved.formatted, resolved.country);
           const v = resolved.formatted || resolved.address_line_1 || '';
           if (v) onChangeRef.current(v);
+          lastResolvedRef.current = v || null;
+          setStatus('validated');
           if (onResolveRef.current) onResolveRef.current(resolved);
         });
       } catch (err) {
@@ -214,20 +258,83 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
       }
     });
     return () => { cancelled = true; };
-    // restriction list is stable per mount; recreating Autocomplete on every keystroke would break selection
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleInputChange = (next: string) => {
+    if (status === 'validated' && next !== lastResolvedRef.current) {
+      setStatus('manual');
+    } else if (status === 'error') {
+      setStatus('idle');
+    }
+    onChange(next);
+  };
+
+  const handleGeocodeClick = async () => {
+    const parts = addressParts ?? {};
+    const query = [value || parts.address_line_1, parts.postal_code, parts.city, parts.country]
+      .map((s) => (s ?? '').toString().trim())
+      .filter(Boolean)
+      .join(', ');
+    if (!query) {
+      setStatus('error');
+      return;
+    }
+    setGeocoding(true);
+    const result = await reverseGeocode(query);
+    setGeocoding(false);
+    if (!result) {
+      setStatus('error');
+      return;
+    }
+    const resolved = extractResolved(result);
+    const v = resolved.formatted || value;
+    if (v && v !== value) onChange(v);
+    lastResolvedRef.current = v || null;
+    setStatus('validated');
+    const cb = onGeocodeRef.current || onResolveRef.current;
+    if (cb) cb(resolved);
+  };
+
+  const showButton = showValidationState && !disabled && !!addressParts;
+
   return (
-    <input
-      id={id}
-      ref={ref}
-      type="text"
-      className={className}
-      placeholder={placeholder}
-      value={value}
-      autoComplete="off"
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <div>
+      <input
+        id={id}
+        ref={ref}
+        type="text"
+        className={className}
+        placeholder={placeholder}
+        value={value}
+        autoComplete="off"
+        disabled={disabled}
+        onChange={(e) => handleInputChange(e.target.value)}
+      />
+      {showValidationState && (
+        <div className="mt-1 flex items-center gap-2 text-xs">
+          {status === 'validated' && (
+            <span className="text-emerald-600">Adresse valideret ✓</span>
+          )}
+          {status === 'manual' && (
+            <span className="text-amber-600">Adressen er ændret manuelt – koordinater bør opdateres</span>
+          )}
+          {status === 'error' && (
+            <span className="text-rose-600">Kunne ikke finde koordinater for adressen.</span>
+          )}
+          {showButton && (
+            <button
+              type="button"
+              onClick={handleGeocodeClick}
+              disabled={geocoding}
+              className="ml-auto rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {geocoding ? 'Søger…' : 'Find koordinater'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
+

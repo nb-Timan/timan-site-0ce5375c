@@ -403,6 +403,8 @@ export default function CompanyContactInfoFormPage() {
                     if (r.country_name) setCountry(r.country_name);
                   }}
                   placeholder="Begynd at skrive adressen…"
+                  showValidationState
+                  addressParts={{ address_line_1: address, postal_code: zipCity, country }}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
