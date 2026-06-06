@@ -19,6 +19,7 @@ import { getEffectiveSellerInitials } from '@/lib/activeMode';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
 import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
+import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
