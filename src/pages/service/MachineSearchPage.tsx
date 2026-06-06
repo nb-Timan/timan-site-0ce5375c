@@ -130,6 +130,34 @@ const T: Record<string, Record<Language, string>> = {
   shPartSource:   { da: "Kilde", en: "Source", de: "Quelle", it: "Origine", hu: "Forrás" },
   shSrcKit:       { da: "Servicekit", en: "Service kit", de: "Servicekit", it: "Kit assistenza", hu: "Szerviz kit" },
   shSrcExtra:     { da: "Ekstra", en: "Extra", de: "Zusatz", it: "Extra", hu: "Extra" },
+
+  // Status labels
+  st_created: { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  st_in_progress: { da: "I gang", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
+  st_waiting_timan: { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
+  st_waiting_dealer: { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
+  st_waiting_customer: { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
+  st_waiting_parts: { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár" },
+  st_resolved: { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva" },
+  st_closed: { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+
+  // Priority labels
+  pr_low: { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
+  pr_normal: { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
+  pr_high: { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
+  pr_critical_machine_stopped: { da: "Kritisk maskinstop", en: "Critical machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+
+  // Category labels
+  cat_engine: { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
+  cat_hydraulics: { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika" },
+  cat_electronics: { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika" },
+  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító" },
+  cat_transmission: { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű" },
+  cat_service: { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz" },
+  cat_spare_part: { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész" },
+  cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
+  cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
+  cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -150,6 +178,20 @@ function priorityBadgeClasses(priority: string): string {
   if (p === "high") return "bg-orange-100 text-orange-700";
   if (p === "critical_machine_stopped") return "bg-red-100 text-red-700";
   return "bg-slate-100 text-slate-700";
+}
+
+function statusLabel(v: string, lang: Language): string {
+  const key = `st_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
+}
+function priorityLabel(v: string, lang: Language): string {
+  const key = `pr_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
+}
+function categoryLabel(v: string, lang: Language): string {
+  if (!v) return "—";
+  const key = `cat_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
 }
 
 function fmtDateShort(v: string | null | undefined): string {
@@ -551,15 +593,15 @@ export default function MachineSearchPage() {
                               <TableCell>{fmt(t.title)}</TableCell>
                               <TableCell>
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClasses(t.status)}`}>
-                                  {t.status}
+                                  {statusLabel(t.status, lang)}
                                 </span>
                               </TableCell>
                               <TableCell>
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${priorityBadgeClasses(t.priority)}`}>
-                                  {t.priority}
+                                  {priorityLabel(t.priority, lang)}
                                 </span>
                               </TableCell>
-                              <TableCell>{fmt(t.category)}</TableCell>
+                              <TableCell>{categoryLabel(t.category, lang)}</TableCell>
                               <TableCell>{fmt(t.dealer_name)}</TableCell>
                               <TableCell>{fmtDateShort(t.created_at)}</TableCell>
                               <TableCell>{fmt(t.assigned_name)}</TableCell>

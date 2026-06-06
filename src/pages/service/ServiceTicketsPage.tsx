@@ -88,6 +88,34 @@ const T: Record<string, Record<Language, string>> = {
   mtypeAutoFilled: { da: "Foreslået ud fra serienummer", en: "Suggested from serial number", de: "Vorgeschlagen anhand der Seriennummer", it: "Suggerito dal numero di serie", hu: "Javaslat a gyári szám alapján" },
   fEquip: { da: "Redskab / udstyr", en: "Equipment / attachment", de: "Anbaugerät / Ausstattung", it: "Attrezzatura / accessorio", hu: "Eszköz / felszerelés" },
   equipOtherLabel: { da: "Andet redskab / udstyr", en: "Other equipment", de: "Anderes Anbaugerät", it: "Altra attrezzatura", hu: "Egyéb eszköz" },
+
+  // Status labels
+  st_created: { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  st_in_progress: { da: "I gang", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
+  st_waiting_timan: { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
+  st_waiting_dealer: { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
+  st_waiting_customer: { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
+  st_waiting_parts: { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár" },
+  st_resolved: { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva" },
+  st_closed: { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+
+  // Priority labels
+  pr_low: { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
+  pr_normal: { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
+  pr_high: { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
+  pr_critical_machine_stopped: { da: "Kritisk maskinstop", en: "Critical machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+
+  // Category labels
+  cat_engine: { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
+  cat_hydraulics: { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika" },
+  cat_electronics: { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika" },
+  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító" },
+  cat_transmission: { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű" },
+  cat_service: { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz" },
+  cat_spare_part: { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész" },
+  cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
+  cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
+  cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
 };
 
 const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
@@ -146,6 +174,20 @@ function fmtDate(v: string | null | undefined): string {
     if (Number.isNaN(d.getTime())) return v;
     return d.toLocaleString();
   } catch { return v as string; }
+}
+
+function statusLabel(v: string, lang: Language): string {
+  const key = `st_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
+}
+function priorityLabel(v: string, lang: Language): string {
+  const key = `pr_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
+}
+function categoryLabel(v: string, lang: Language): string {
+  if (!v) return "—";
+  const key = `cat_${v}` as keyof typeof T;
+  return (T[key]?.[lang] as string | undefined) ?? v;
 }
 
 export default function ServiceTicketsPage() {
@@ -267,12 +309,12 @@ export default function ServiceTicketsPage() {
                     <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
-                        {t.status}
+                        {statusLabel(t.status, lang)}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + prioClass(t.priority)}>
-                        {t.priority}
+                        {priorityLabel(t.priority, lang)}
                       </span>
                     </TableCell>
                     <TableCell>{t.dealer_name || "—"}</TableCell>
@@ -620,7 +662,7 @@ function CreateTicketDialog(props: {
               onChange={(e) => setPriority(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{priorityLabel(p, lang)}</option>)}
             </select>
           </div>
 
@@ -631,7 +673,7 @@ function CreateTicketDialog(props: {
               onChange={(e) => setStatus(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s, lang)}</option>)}
             </select>
           </div>
 
@@ -643,7 +685,7 @@ function CreateTicketDialog(props: {
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="">—</option>
-              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{categoryLabel(c, lang)}</option>)}
             </select>
           </div>
 
