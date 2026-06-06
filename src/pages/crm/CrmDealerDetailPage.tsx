@@ -216,6 +216,7 @@ export default function CrmDealerDetailPage() {
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showEditDealer, setShowEditDealer] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("overview");
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
   // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
