@@ -30,7 +30,7 @@ interface Props { children: ReactNode; pageTitle?: string }
 
 export default function CrmLayout({ children, pageTitle }: Props) {
   const { appUser, loading, setAppUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -61,13 +61,13 @@ export default function CrmLayout({ children, pageTitle }: Props) {
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {T.back_crm[lang]}
+            {t('backToCrm', uiLanguage)}
           </button>
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
             isCrmAdmin(portalRole) ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-sky-50 text-sky-800 border border-sky-200"
           )}>
-            {isCrmAdmin(portalRole) ? T.scope_all[lang] : T.scope_owner[lang]}
+            {isCrmAdmin(portalRole) ? t('crmScopeAll', uiLanguage) : t('crmScopeOwner', uiLanguage)}
           </span>
         </div>
 
@@ -84,7 +84,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
                     : "text-slate-500 hover:text-slate-900"
                 )}>
                 <Icon className={cn("h-4 w-4 transition-colors", active ? "text-[#2d5a27]" : "text-slate-400 group-hover:text-slate-600")} />
-                {T[item.key as string][lang]}
+                {t(item.tKey, uiLanguage)}
                 <span
                   aria-hidden
                   className={cn(
