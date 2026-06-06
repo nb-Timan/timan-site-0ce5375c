@@ -1,6 +1,8 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, LucideIcon } from 'lucide-react';
+import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useChangelog } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
