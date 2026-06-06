@@ -1,6 +1,7 @@
 import { Language } from '@/types/configurator';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
-const translations: Record<Language, Record<string, string>> = {
+const translations: Record<string, Record<string, string>> = {
   da: {
     step1Title: 'Trin 1: Vælg Maskiner & Antal',
     step2Title: 'Trin 2: Leveringsdato & Start Konfiguration',
