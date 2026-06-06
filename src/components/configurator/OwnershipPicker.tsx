@@ -28,6 +28,7 @@ import { isExternalDealerRole } from '@/lib/configuratorOwnership';
 import { useDealerScope } from '@/lib/dealerScope';
 import { fetchDealerAccounts, DealerAccount } from '@/lib/dealerAccountsService';
 import { Language } from '@/types/configurator';
+import { pickT } from '@/lib/i18n/translations';
 
 export interface OwnershipSelection {
   /** BP/JTN/EM/AKR/NB or null. */
