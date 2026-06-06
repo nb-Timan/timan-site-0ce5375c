@@ -20,7 +20,8 @@ import { derivePortalRole } from "@/lib/portalAccess";
 import { useDealerScope } from "@/lib/dealerScope";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
-import { t as tt } from "@/lib/i18n/translations";
+import { t as tt, pickT } from "@/lib/i18n/translations";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
 import {
   ServiceTicket,
@@ -41,83 +42,83 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-const T: Record<string, Record<Language, string>> = {
-  back:   { da: "Tilbage til Teknik & Service", en: "Back to Technical & Service", de: "Zurück zu Technik & Service", it: "Torna a Tecnico & Assistenza", hu: "Vissza a Műszaki & Szerviz oldalra" },
-  title:  { da: "Service tickets", en: "Service tickets", de: "Service-Tickets", it: "Ticket di assistenza", hu: "Szervizjegyek" },
-  lead:   { da: "Opret, følg og håndter servicehenvendelser pr. maskine.", en: "Create, track and handle service requests per machine.", de: "Service-Anfragen pro Maschine erstellen, verfolgen und bearbeiten.", it: "Crea, monitora e gestisci le richieste di assistenza per macchina.", hu: "Szerviz kérések létrehozása, követése és kezelése gépenként." },
-  createBtn: { da: "Opret service ticket", en: "Create service ticket", de: "Service-Ticket erstellen", it: "Crea ticket di assistenza", hu: "Szervizjegy létrehozása" },
-  loading: { da: "Indlæser…", en: "Loading…", de: "Lädt…", it: "Caricamento…", hu: "Betöltés…" },
-  loadErr: { da: "Kunne ikke hente service tickets.", en: "Could not load service tickets.", de: "Service-Tickets konnten nicht geladen werden.", it: "Impossibile caricare i ticket di assistenza.", hu: "Nem sikerült betölteni a szervizjegyeket." },
-  empty:   { da: "Ingen service tickets endnu.", en: "No service tickets yet.", de: "Noch keine Service-Tickets.", it: "Nessun ticket di assistenza.", hu: "Még nincs szervizjegy." },
+const T = {
+  back:   { da: "Tilbage til Teknik & Service", en: "Back to Technical & Service", de: "Zurück zu Technik & Service", it: "Torna a Tecnico & Assistenza", hu: "Vissza a Műszaki & Szerviz oldalra", sv: "Tillbaka till Teknik & Service", fr: "Retour à Technique & Service", pl: "Powrót do Technika & Serwis", cs: "Zpět na Technika & Servis" },
+  title:  { da: "Service tickets", en: "Service tickets", de: "Service-Tickets", it: "Ticket di assistenza", hu: "Szervizjegyek", sv: "Serviceärenden", fr: "Tickets de service", pl: "Zgłoszenia serwisowe", cs: "Servisní tikety" },
+  lead:   { da: "Opret, følg og håndter servicehenvendelser pr. maskine.", en: "Create, track and handle service requests per machine.", de: "Service-Anfragen pro Maschine erstellen, verfolgen und bearbeiten.", it: "Crea, monitora e gestisci le richieste di assistenza per macchina.", hu: "Szerviz kérések létrehozása, követése és kezelése gépenként.", sv: "Skapa, följ och hantera serviceärenden per maskin.", fr: "Créez, suivez et gérez les demandes de service par machine.", pl: "Twórz, śledź i obsługuj zgłoszenia serwisowe dla każdej maszyny.", cs: "Vytvářejte, sledujte a řešte servisní požadavky pro každý stroj." },
+  createBtn: { da: "Opret service ticket", en: "Create service ticket", de: "Service-Ticket erstellen", it: "Crea ticket di assistenza", hu: "Szervizjegy létrehozása", sv: "Skapa serviceärende", fr: "Créer un ticket de service", pl: "Utwórz zgłoszenie serwisowe", cs: "Vytvořit servisní tiket" },
+  loading: { da: "Indlæser…", en: "Loading…", de: "Lädt…", it: "Caricamento…", hu: "Betöltés…", sv: "Laddar…", fr: "Chargement…", pl: "Ładowanie…", cs: "Načítání…" },
+  loadErr: { da: "Kunne ikke hente service tickets.", en: "Could not load service tickets.", de: "Service-Tickets konnten nicht geladen werden.", it: "Impossibile caricare i ticket di assistenza.", hu: "Nem sikerült betölteni a szervizjegyeket.", sv: "Kunde inte läsa in serviceärenden.", fr: "Impossible de charger les tickets de service.", pl: "Nie udało się załadować zgłoszeń serwisowych.", cs: "Nepodařilo se načíst servisní tikety." },
+  empty:   { da: "Ingen service tickets endnu.", en: "No service tickets yet.", de: "Noch keine Service-Tickets.", it: "Nessun ticket di assistenza.", hu: "Még nincs szervizjegy.", sv: "Inga serviceärenden ännu.", fr: "Aucun ticket de service.", pl: "Brak zgłoszeń serwisowych.", cs: "Zatím žádné servisní tikety." },
 
   // Columns
-  colNumber: { da: "Ticketnr.", en: "Ticket no.", de: "Ticket-Nr.", it: "N. ticket", hu: "Jegy szám" },
-  colTitle:  { da: "Titel", en: "Title", de: "Titel", it: "Titolo", hu: "Cím" },
-  colSerial: { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Gyári szám" },
-  colStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz" },
-  colPrio:   { da: "Prioritet", en: "Priority", de: "Priorität", it: "Priorità", hu: "Prioritás" },
-  colDealer: { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó" },
-  colCreated:{ da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
+  colNumber: { da: "Ticketnr.", en: "Ticket no.", de: "Ticket-Nr.", it: "N. ticket", hu: "Jegy szám", sv: "Ärendenr", fr: "N° ticket", pl: "Nr zgłoszenia", cs: "Č. tiketu" },
+  colTitle:  { da: "Titel", en: "Title", de: "Titel", it: "Titolo", hu: "Cím", sv: "Titel", fr: "Titre", pl: "Tytuł", cs: "Název" },
+  colSerial: { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Gyári szám", sv: "Serienummer", fr: "Numéro de série", pl: "Numer seryjny", cs: "Sériové číslo" },
+  colStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz", sv: "Status", fr: "Statut", pl: "Status", cs: "Stav" },
+  colPrio:   { da: "Prioritet", en: "Priority", de: "Priorität", it: "Priorità", hu: "Prioritás", sv: "Prioritet", fr: "Priorité", pl: "Priorytet", cs: "Priorita" },
+  colDealer: { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Forgalmazó", sv: "Återförsäljare", fr: "Concessionnaire", pl: "Dealer", cs: "Prodejce" },
+  colCreated:{ da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva", sv: "Skapad", fr: "Créé", pl: "Utworzone", cs: "Vytvořeno" },
 
   // Form
-  fTitle:   { da: "Titel *", en: "Title *", de: "Titel *", it: "Titolo *", hu: "Cím *" },
-  fDesc:    { da: "Beskrivelse *", en: "Description *", de: "Beschreibung *", it: "Descrizione *", hu: "Leírás *" },
-  fSerial:  { da: "Serienummer / maskinnummer *", en: "Serial / machine number *", de: "Serien- / Maschinennummer *", it: "Numero di serie / macchina *", hu: "Gyári / gép szám *" },
-  fMtype:   { da: "Maskintype", en: "Machine type", de: "Maschinentyp", it: "Tipo macchina", hu: "Gép típusa" },
-  fDealer:  { da: "Forhandler *", en: "Dealer *", de: "Händler *", it: "Rivenditore *", hu: "Forgalmazó *" },
-  fCust:    { da: "Kunde / bruger", en: "Customer / user", de: "Kunde / Anwender", it: "Cliente / utente", hu: "Ügyfél / felhasználó" },
-  fContact: { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó" },
-  fEmail:   { da: "Kontaktmail", en: "Contact email", de: "Kontakt-E-Mail", it: "Email di contatto", hu: "Kapcsolat e-mail" },
-  fPhone:   { da: "Telefonnummer", en: "Phone number", de: "Telefonnummer", it: "Numero di telefono", hu: "Telefonszám" },
-  fHours:   { da: "Driftstimer", en: "Operating hours", de: "Betriebsstunden", it: "Ore di funzionamento", hu: "Üzemórák" },
-  fPrio:    { da: "Prioritet *", en: "Priority *", de: "Priorität *", it: "Priorità *", hu: "Prioritás *" },
-  fStatus:  { da: "Status *", en: "Status *", de: "Status *", it: "Stato *", hu: "Státusz *" },
-  fCat:     { da: "Kategori", en: "Category", de: "Kategorie", it: "Categoria", hu: "Kategória" },
-  fAssign:  { da: "Ansvarlig Timan-medarbejder", en: "Assigned Timan staff", de: "Zuständige/r Timan-Mitarbeiter/in", it: "Responsabile Timan", hu: "Felelős Timan munkatárs" },
-  cancel:   { da: "Annullér", en: "Cancel", de: "Abbrechen", it: "Annulla", hu: "Mégse" },
-  save:     { da: "Opret", en: "Create", de: "Erstellen", it: "Crea", hu: "Létrehozás" },
-  saving:   { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…" },
-  saved:    { da: "Service ticket oprettet", en: "Service ticket created", de: "Service-Ticket erstellt", it: "Ticket di assistenza creato", hu: "Szervizjegy létrehozva" },
-  saveErr:  { da: "Kunne ikke oprette ticket. Tjek dine rettigheder og prøv igen.", en: "Could not create ticket. Check your permissions and try again.", de: "Ticket konnte nicht erstellt werden. Berechtigungen prüfen.", it: "Impossibile creare il ticket. Verifica i permessi.", hu: "A jegy létrehozása sikertelen. Ellenőrizze a jogosultságot." },
-  dealerLocked: { da: "Forhandler er låst til din egen organisation.", en: "Dealer is locked to your own organisation.", de: "Händler ist auf Ihre Organisation festgelegt.", it: "Rivenditore bloccato sulla tua organizzazione.", hu: "A forgalmazó a saját szervezetére van rögzítve." },
-  selectDealer: { da: "Vælg forhandler…", en: "Select dealer…", de: "Händler wählen…", it: "Seleziona rivenditore…", hu: "Válasszon forgalmazót…" },
-  required: { da: "Udfyld de obligatoriske felter.", en: "Fill in the required fields.", de: "Bitte Pflichtfelder ausfüllen.", it: "Compila i campi obbligatori.", hu: "Töltse ki a kötelező mezőket." },
-  noDealerLink: { da: "Din bruger er ikke koblet til en forhandlerkonto.", en: "Your user is not linked to a dealer account.", de: "Ihr Benutzer ist keinem Händlerkonto zugeordnet.", it: "Il tuo utente non è collegato a un account rivenditore.", hu: "Felhasználója nincs forgalmazói fiókhoz kapcsolva." },
-  mtypeSelect: { da: "Vælg maskintype…", en: "Select machine type…", de: "Maschinentyp wählen…", it: "Seleziona tipo macchina…", hu: "Válasszon gép típust…" },
-  mtypeOther: { da: "Andet", en: "Other", de: "Andere", it: "Altro", hu: "Egyéb" },
-  mtypeOtherLabel: { da: "Anden maskintype", en: "Other machine type", de: "Anderer Maschinentyp", it: "Altro tipo macchina", hu: "Egyéb gép típus" },
-  mtypeAutoFilled: { da: "Foreslået ud fra serienummer", en: "Suggested from serial number", de: "Vorgeschlagen anhand der Seriennummer", it: "Suggerito dal numero di serie", hu: "Javaslat a gyári szám alapján" },
-  fEquip: { da: "Redskab / udstyr", en: "Equipment / attachment", de: "Anbaugerät / Ausstattung", it: "Attrezzatura / accessorio", hu: "Eszköz / felszerelés" },
-  equipOtherLabel: { da: "Andet redskab / udstyr", en: "Other equipment", de: "Anderes Anbaugerät", it: "Altra attrezzatura", hu: "Egyéb eszköz" },
+  fTitle:   { da: "Titel *", en: "Title *", de: "Titel *", it: "Titolo *", hu: "Cím *", sv: "Titel *", fr: "Titre *", pl: "Tytuł *", cs: "Název *" },
+  fDesc:    { da: "Beskrivelse *", en: "Description *", de: "Beschreibung *", it: "Descrizione *", hu: "Leírás *", sv: "Beskrivning *", fr: "Description *", pl: "Opis *", cs: "Popis *" },
+  fSerial:  { da: "Serienummer / maskinnummer *", en: "Serial / machine number *", de: "Serien- / Maschinennummer *", it: "Numero di serie / macchina *", hu: "Gyári / gép szám *", sv: "Serie- / maskinnummer *", fr: "N° de série / machine *", pl: "Nr seryjny / maszyny *", cs: "Sériové / strojní číslo *" },
+  fMtype:   { da: "Maskintype", en: "Machine type", de: "Maschinentyp", it: "Tipo macchina", hu: "Gép típusa", sv: "Maskintyp", fr: "Type de machine", pl: "Typ maszyny", cs: "Typ stroje" },
+  fDealer:  { da: "Forhandler *", en: "Dealer *", de: "Händler *", it: "Rivenditore *", hu: "Forgalmazó *", sv: "Återförsäljare *", fr: "Concessionnaire *", pl: "Dealer *", cs: "Prodejce *" },
+  fCust:    { da: "Kunde / bruger", en: "Customer / user", de: "Kunde / Anwender", it: "Cliente / utente", hu: "Ügyfél / felhasználó", sv: "Kund / användare", fr: "Client / utilisateur", pl: "Klient / użytkownik", cs: "Zákazník / uživatel" },
+  fContact: { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Persona di contatto", hu: "Kapcsolattartó", sv: "Kontaktperson", fr: "Personne à contacter", pl: "Osoba kontaktowa", cs: "Kontaktní osoba" },
+  fEmail:   { da: "Kontaktmail", en: "Contact email", de: "Kontakt-E-Mail", it: "Email di contatto", hu: "Kapcsolat e-mail", sv: "Kontakt-e-post", fr: "E-mail de contact", pl: "E-mail kontaktowy", cs: "Kontaktní e-mail" },
+  fPhone:   { da: "Telefonnummer", en: "Phone number", de: "Telefonnummer", it: "Numero di telefono", hu: "Telefonszám", sv: "Telefonnummer", fr: "Numéro de téléphone", pl: "Numer telefonu", cs: "Telefonní číslo" },
+  fHours:   { da: "Driftstimer", en: "Operating hours", de: "Betriebsstunden", it: "Ore di funzionamento", hu: "Üzemórák", sv: "Drifttimmar", fr: "Heures de fonctionnement", pl: "Godziny pracy", cs: "Provozní hodiny" },
+  fPrio:    { da: "Prioritet *", en: "Priority *", de: "Priorität *", it: "Priorità *", hu: "Prioritás *", sv: "Prioritet *", fr: "Priorité *", pl: "Priorytet *", cs: "Priorita *" },
+  fStatus:  { da: "Status *", en: "Status *", de: "Status *", it: "Stato *", hu: "Státusz *", sv: "Status *", fr: "Statut *", pl: "Status *", cs: "Stav *" },
+  fCat:     { da: "Kategori", en: "Category", de: "Kategorie", it: "Categoria", hu: "Kategória", sv: "Kategori", fr: "Catégorie", pl: "Kategoria", cs: "Kategorie" },
+  fAssign:  { da: "Ansvarlig Timan-medarbejder", en: "Assigned Timan staff", de: "Zuständige/r Timan-Mitarbeiter/in", it: "Responsabile Timan", hu: "Felelős Timan munkatárs", sv: "Ansvarig Timan-medarbetare", fr: "Collaborateur Timan responsable", pl: "Odpowiedzialny pracownik Timan", cs: "Odpovědný pracovník Timan" },
+  cancel:   { da: "Annullér", en: "Cancel", de: "Abbrechen", it: "Annulla", hu: "Mégse", sv: "Avbryt", fr: "Annuler", pl: "Anuluj", cs: "Zrušit" },
+  save:     { da: "Opret", en: "Create", de: "Erstellen", it: "Crea", hu: "Létrehozás", sv: "Skapa", fr: "Créer", pl: "Utwórz", cs: "Vytvořit" },
+  saving:   { da: "Gemmer…", en: "Saving…", de: "Speichert…", it: "Salvataggio…", hu: "Mentés…", sv: "Sparar…", fr: "Enregistrement…", pl: "Zapisywanie…", cs: "Ukládání…" },
+  saved:    { da: "Service ticket oprettet", en: "Service ticket created", de: "Service-Ticket erstellt", it: "Ticket di assistenza creato", hu: "Szervizjegy létrehozva", sv: "Serviceärende skapat", fr: "Ticket de service créé", pl: "Utworzono zgłoszenie serwisowe", cs: "Servisní tiket byl vytvořen" },
+  saveErr:  { da: "Kunne ikke oprette ticket. Tjek dine rettigheder og prøv igen.", en: "Could not create ticket. Check your permissions and try again.", de: "Ticket konnte nicht erstellt werden. Berechtigungen prüfen.", it: "Impossibile creare il ticket. Verifica i permessi.", hu: "A jegy létrehozása sikertelen. Ellenőrizze a jogosultságot.", sv: "Kunde inte skapa ärendet. Kontrollera dina behörigheter.", fr: "Impossible de créer le ticket. Vérifiez vos autorisations.", pl: "Nie udało się utworzyć zgłoszenia. Sprawdź uprawnienia.", cs: "Tiket se nepodařilo vytvořit. Zkontrolujte oprávnění." },
+  dealerLocked: { da: "Forhandler er låst til din egen organisation.", en: "Dealer is locked to your own organisation.", de: "Händler ist auf Ihre Organisation festgelegt.", it: "Rivenditore bloccato sulla tua organizzazione.", hu: "A forgalmazó a saját szervezetére van rögzítve.", sv: "Återförsäljaren är låst till din egen organisation.", fr: "Le concessionnaire est verrouillé sur votre organisation.", pl: "Dealer jest przypisany do Twojej organizacji.", cs: "Prodejce je uzamčen na vaši organizaci." },
+  selectDealer: { da: "Vælg forhandler…", en: "Select dealer…", de: "Händler wählen…", it: "Seleziona rivenditore…", hu: "Válasszon forgalmazót…", sv: "Välj återförsäljare…", fr: "Sélectionner un concessionnaire…", pl: "Wybierz dealera…", cs: "Vyberte prodejce…" },
+  required: { da: "Udfyld de obligatoriske felter.", en: "Fill in the required fields.", de: "Bitte Pflichtfelder ausfüllen.", it: "Compila i campi obbligatori.", hu: "Töltse ki a kötelező mezőket.", sv: "Fyll i obligatoriska fält.", fr: "Veuillez remplir les champs obligatoires.", pl: "Wypełnij wymagane pola.", cs: "Vyplňte povinná pole." },
+  noDealerLink: { da: "Din bruger er ikke koblet til en forhandlerkonto.", en: "Your user is not linked to a dealer account.", de: "Ihr Benutzer ist keinem Händlerkonto zugeordnet.", it: "Il tuo utente non è collegato a un account rivenditore.", hu: "Felhasználója nincs forgalmazói fiókhoz kapcsolva.", sv: "Din användare är inte kopplad till ett återförsäljarkonto.", fr: "Votre utilisateur n'est pas lié à un compte concessionnaire.", pl: "Twoje konto nie jest powiązane z kontem dealera.", cs: "Váš uživatel není propojen s účtem prodejce." },
+  mtypeSelect: { da: "Vælg maskintype…", en: "Select machine type…", de: "Maschinentyp wählen…", it: "Seleziona tipo macchina…", hu: "Válasszon gép típust…", sv: "Välj maskintyp…", fr: "Sélectionner le type de machine…", pl: "Wybierz typ maszyny…", cs: "Vyberte typ stroje…" },
+  mtypeOther: { da: "Andet", en: "Other", de: "Andere", it: "Altro", hu: "Egyéb", sv: "Annat", fr: "Autre", pl: "Inne", cs: "Jiné" },
+  mtypeOtherLabel: { da: "Anden maskintype", en: "Other machine type", de: "Anderer Maschinentyp", it: "Altro tipo macchina", hu: "Egyéb gép típus", sv: "Annan maskintyp", fr: "Autre type de machine", pl: "Inny typ maszyny", cs: "Jiný typ stroje" },
+  mtypeAutoFilled: { da: "Foreslået ud fra serienummer", en: "Suggested from serial number", de: "Vorgeschlagen anhand der Seriennummer", it: "Suggerito dal numero di serie", hu: "Javaslat a gyári szám alapján", sv: "Föreslagen utifrån serienummer", fr: "Suggéré à partir du numéro de série", pl: "Sugerowane na podstawie numeru seryjnego", cs: "Navrženo podle sériového čísla" },
+  fEquip: { da: "Redskab / udstyr", en: "Equipment / attachment", de: "Anbaugerät / Ausstattung", it: "Attrezzatura / accessorio", hu: "Eszköz / felszerelés", sv: "Redskap / utrustning", fr: "Équipement / accessoire", pl: "Osprzęt / wyposażenie", cs: "Nástroj / vybavení" },
+  equipOtherLabel: { da: "Andet redskab / udstyr", en: "Other equipment", de: "Anderes Anbaugerät", it: "Altra attrezzatura", hu: "Egyéb eszköz", sv: "Annan utrustning", fr: "Autre équipement", pl: "Inne wyposażenie", cs: "Jiné vybavení" },
 
   // Status labels
-  st_created: { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva" },
-  st_in_progress: { da: "I gang", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban" },
-  st_waiting_timan: { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár" },
-  st_waiting_dealer: { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár" },
-  st_waiting_customer: { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár" },
-  st_waiting_parts: { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár" },
-  st_resolved: { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva" },
-  st_closed: { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva" },
+  st_created: { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato", hu: "Létrehozva", sv: "Skapad", fr: "Créé", pl: "Utworzone", cs: "Vytvořeno" },
+  st_in_progress: { da: "I gang", en: "In progress", de: "In Bearbeitung", it: "In corso", hu: "Folyamatban", sv: "Pågår", fr: "En cours", pl: "W toku", cs: "Probíhá" },
+  st_waiting_timan: { da: "Afventer Timan", en: "Waiting for Timan", de: "Wartet auf Timan", it: "In attesa di Timan", hu: "Timan-ra vár", sv: "Väntar på Timan", fr: "En attente de Timan", pl: "Oczekuje na Timan", cs: "Čeká na Timan" },
+  st_waiting_dealer: { da: "Afventer forhandler", en: "Waiting for dealer", de: "Wartet auf Händler", it: "In attesa del rivenditore", hu: "Forgalmazóra vár", sv: "Väntar på återförsäljare", fr: "En attente du concessionnaire", pl: "Oczekuje na dealera", cs: "Čeká na prodejce" },
+  st_waiting_customer: { da: "Afventer kunde", en: "Waiting for customer", de: "Wartet auf Kunden", it: "In attesa del cliente", hu: "Ügyfélre vár", sv: "Väntar på kund", fr: "En attente du client", pl: "Oczekuje na klienta", cs: "Čeká na zákazníka" },
+  st_waiting_parts: { da: "Afventer reservedele", en: "Waiting for parts", de: "Wartet auf Ersatzteile", it: "In attesa di ricambi", hu: "Alkatrészre vár", sv: "Väntar på reservdelar", fr: "En attente de pièces", pl: "Oczekuje na części", cs: "Čeká na díly" },
+  st_resolved: { da: "Løst", en: "Resolved", de: "Gelöst", it: "Risolto", hu: "Megoldva", sv: "Löst", fr: "Résolu", pl: "Rozwiązane", cs: "Vyřešeno" },
+  st_closed: { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárva", sv: "Stängd", fr: "Fermé", pl: "Zamknięte", cs: "Uzavřeno" },
 
   // Priority labels
-  pr_low: { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony" },
-  pr_normal: { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
-  pr_high: { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas" },
-  pr_critical_machine_stopped: { da: "Kritisk maskinstop", en: "Critical machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt" },
+  pr_low: { da: "Lav", en: "Low", de: "Niedrig", it: "Bassa", hu: "Alacsony", sv: "Låg", fr: "Faible", pl: "Niski", cs: "Nízká" },
+  pr_normal: { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál", sv: "Normal", fr: "Normale", pl: "Normalny", cs: "Normální" },
+  pr_high: { da: "Høj", en: "High", de: "Hoch", it: "Alta", hu: "Magas", sv: "Hög", fr: "Élevée", pl: "Wysoki", cs: "Vysoká" },
+  pr_critical_machine_stopped: { da: "Kritisk maskinstop", en: "Critical machine stopped", de: "Kritisch / Maschine steht", it: "Critica / macchina ferma", hu: "Kritikus / gép leállt", sv: "Kritisk / maskinen står", fr: "Critique / machine arrêtée", pl: "Krytyczny / maszyna stoi", cs: "Kritická / stroj stojí" },
 
   // Category labels
-  cat_engine: { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor" },
-  cat_hydraulics: { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika" },
-  cat_electronics: { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika" },
-  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító" },
-  cat_transmission: { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű" },
-  cat_service: { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz" },
-  cat_spare_part: { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész" },
-  cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
-  cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
-  cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
-};
+  cat_engine: { da: "Motor", en: "Engine", de: "Motor", it: "Motore", hu: "Motor", sv: "Motor", fr: "Moteur", pl: "Silnik", cs: "Motor" },
+  cat_hydraulics: { da: "Hydraulik", en: "Hydraulics", de: "Hydraulik", it: "Idraulica", hu: "Hidraulika", sv: "Hydraulik", fr: "Hydraulique", pl: "Hydraulika", cs: "Hydraulika" },
+  cat_electronics: { da: "Elektronik", en: "Electronics", de: "Elektronik", it: "Elettronica", hu: "Elektronika", sv: "Elektronik", fr: "Électronique", pl: "Elektronika", cs: "Elektronika" },
+  cat_remote_control: { da: "Fjernbetjening", en: "Remote control", de: "Fernbedienung", it: "Telecomando", hu: "Távirányító", sv: "Fjärrkontroll", fr: "Télécommande", pl: "Pilot", cs: "Dálkové ovládání" },
+  cat_transmission: { da: "Transmission", en: "Transmission", de: "Getriebe", it: "Trasmissione", hu: "Hajtómű", sv: "Transmission", fr: "Transmission", pl: "Skrzynia biegów", cs: "Převodovka" },
+  cat_service: { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz", sv: "Service", fr: "Service", pl: "Serwis", cs: "Servis" },
+  cat_spare_part: { da: "Reservedel", en: "Spare part", de: "Ersatzteil", it: "Ricambio", hu: "Alkatrész", sv: "Reservdel", fr: "Pièce de rechange", pl: "Część zamienna", cs: "Náhradní díl" },
+  cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver", sv: "Programvara", fr: "Logiciel", pl: "Oprogramowanie", cs: "Software" },
+  cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság", sv: "Säkerhet", fr: "Sécurité", pl: "Bezpieczeństwo", cs: "Bezpečnost" },
+  cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb", sv: "Annat", fr: "Autre", pl: "Inne", cs: "Jiné" },
+} as const;
 
 const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
 const SERIAL_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
@@ -177,23 +178,24 @@ function fmtDate(v: string | null | undefined): string {
   } catch { return v as string; }
 }
 
-function statusLabel(v: string, lang: Language): string {
+function statusLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `st_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
-function priorityLabel(v: string, lang: Language): string {
+function priorityLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `pr_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
-function categoryLabel(v: string, lang: Language): string {
+function categoryLabel(v: string, uiLang: PortalUiLanguage | string): string {
   if (!v) return "—";
   const key = `cat_${v}` as keyof typeof T;
-  return (T[key]?.[lang] as string | undefined) ?? v;
+  return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
+  const uiLang = uiLanguage;
   const navigate = useNavigate();
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
@@ -227,7 +229,7 @@ export default function ServiceTicketsPage() {
       setTickets(list);
     } catch (e) {
       console.error("[ServiceTickets] load error", e);
-      setLoadErr(T.loadErr[lang]);
+      setLoadErr(pickT(T.loadErr, uiLang));
     } finally {
       setLoading(false);
     }
@@ -274,7 +276,7 @@ export default function ServiceTicketsPage() {
             </div>
             <div>
               <h1 className="text-3xl font-black tracking-tight">{tt('mod_service_tickets', uiLanguage)}</h1>
-              <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
+              <p className="mt-1 text-sm text-slate-500">{pickT(T.lead, uiLang)}</p>
             </div>
           </div>
           <Button
@@ -282,30 +284,30 @@ export default function ServiceTicketsPage() {
             className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
           >
             <Plus className="h-4 w-4" />
-            {T.createBtn[lang]}
+            {pickT(T.createBtn, uiLang)}
           </Button>
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> {T.loading[lang]}
+              <Loader2 className="h-4 w-4 animate-spin" /> {pickT(T.loading, uiLang)}
             </div>
           ) : loadErr ? (
             <div className="p-10 text-center text-sm text-red-600">{loadErr}</div>
           ) : tickets.length === 0 ? (
-            <div className="p-10 text-center text-sm text-slate-500">{T.empty[lang]}</div>
+            <div className="p-10 text-center text-sm text-slate-500">{pickT(T.empty, uiLang)}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{T.colNumber[lang]}</TableHead>
-                  <TableHead>{T.colTitle[lang]}</TableHead>
-                  <TableHead>{T.colSerial[lang]}</TableHead>
-                  <TableHead>{T.colStatus[lang]}</TableHead>
-                  <TableHead>{T.colPrio[lang]}</TableHead>
-                  <TableHead>{T.colDealer[lang]}</TableHead>
-                  <TableHead>{T.colCreated[lang]}</TableHead>
+                  <TableHead>{pickT(T.colNumber, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colTitle, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colSerial, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colStatus, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colPrio, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colDealer, uiLang)}</TableHead>
+                  <TableHead>{pickT(T.colCreated, uiLang)}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -320,12 +322,12 @@ export default function ServiceTicketsPage() {
                     <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
-                        {statusLabel(t.status, lang)}
+                        {statusLabel(t.status, uiLang)}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + prioClass(t.priority)}>
-                        {priorityLabel(t.priority, lang)}
+                        {priorityLabel(t.priority, uiLang)}
                       </span>
                     </TableCell>
                     <TableCell>{t.dealer_name || "—"}</TableCell>
@@ -342,6 +344,7 @@ export default function ServiceTicketsPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         lang={lang}
+        uiLang={uiLang}
         isInternal={isInternal}
         lockedDealerNumber={isInternal ? null : dealerScope.lockedDealerNumber}
         lockedDealerName={isInternal ? null : dealerScope.lockedDealerName}
@@ -361,12 +364,13 @@ function CreateTicketDialog(props: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   lang: Language;
+  uiLang: PortalUiLanguage;
   isInternal: boolean;
   lockedDealerNumber: string | null;
   lockedDealerName: string | null;
   onCreated: () => void;
 }) {
-  const { open, onOpenChange, lang, isInternal, lockedDealerNumber, lockedDealerName, onCreated } = props;
+  const { open, onOpenChange, lang, uiLang, isInternal, lockedDealerNumber, lockedDealerName, onCreated } = props;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -463,7 +467,7 @@ function CreateTicketDialog(props: {
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !serial.trim() || !priority || !status) {
-      toast.error(T.required[lang]);
+      toast.error(pickT(T.required, uiLang));
       return;
     }
     // Resolve dealer info
@@ -472,7 +476,7 @@ function CreateTicketDialog(props: {
     let dealer_name: string | null = null;
     if (isInternal) {
       if (!selectedDealer) {
-        toast.error(T.required[lang]);
+        toast.error(pickT(T.required, uiLang));
         return;
       }
       dealer_account_id = selectedDealer.id;
@@ -482,7 +486,7 @@ function CreateTicketDialog(props: {
       dealer_number = lockedDealerNumber;
       dealer_name = lockedDealerName;
       if (!dealer_number) {
-        toast.error(T.noDealerLink[lang]);
+        toast.error(pickT(T.noDealerLink, uiLang));
         return;
       }
     }
@@ -491,7 +495,7 @@ function CreateTicketDialog(props: {
     // (no dedicated column yet — temporary).
     const equipList = resolvedEquipment();
     const finalDescription = equipList.length > 0
-      ? `${description.trim()}\n\n${T.fEquip[lang]}: ${equipList.join(", ")}`
+      ? `${description.trim()}\n\n${pickT(T.fEquip, uiLang)}: ${equipList.join(", ")}`
       : description.trim();
 
     const input: NewServiceTicketInput = {
@@ -513,11 +517,11 @@ function CreateTicketDialog(props: {
     setSaving(true);
     try {
       await createServiceTicket(input);
-      toast.success(T.saved[lang]);
+      toast.success(pickT(T.saved, uiLang));
       onCreated();
     } catch (e) {
       console.error("[ServiceTickets] create error", e);
-      toast.error(T.saveErr[lang]);
+      toast.error(pickT(T.saveErr, uiLang));
     } finally {
       setSaving(false);
     }
@@ -527,42 +531,42 @@ function CreateTicketDialog(props: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{T.createBtn[lang]}</DialogTitle>
+          <DialogTitle>{pickT(T.createBtn, uiLang)}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
           <div className="md:col-span-2">
-            <Label>{T.fTitle[lang]}</Label>
+            <Label>{pickT(T.fTitle, uiLang)}</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           <div className="md:col-span-2">
-            <Label>{T.fDesc[lang]}</Label>
+            <Label>{pickT(T.fDesc, uiLang)}</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
           </div>
 
           <div>
-            <Label>{T.fSerial[lang]}</Label>
+            <Label>{pickT(T.fSerial, uiLang)}</Label>
             <Input value={serial} onChange={(e) => handleSerialChange(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fMtype[lang]}</Label>
+            <Label>{pickT(T.fMtype, uiLang)}</Label>
             <select
               value={mtypeChoice}
               onChange={(e) => handleMtypeChange(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">{T.mtypeSelect[lang]}</option>
+              <option value="">{pickT(T.mtypeSelect, uiLang)}</option>
               {MACHINE_TYPE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-              <option value="__other__">{T.mtypeOther[lang]}</option>
+              <option value="__other__">{pickT(T.mtypeOther, uiLang)}</option>
             </select>
             {mtypeAutoFilled && mtypeChoice && mtypeChoice !== "__other__" ? (
-              <p className="mt-1 text-xs text-slate-500">{T.mtypeAutoFilled[lang]}</p>
+              <p className="mt-1 text-xs text-slate-500">{pickT(T.mtypeAutoFilled, uiLang)}</p>
             ) : null}
             {mtypeChoice === "__other__" ? (
               <Input
                 className="mt-2"
-                placeholder={T.mtypeOtherLabel[lang]}
+                placeholder={pickT(T.mtypeOtherLabel, uiLang)}
                 value={mtypeOther}
                 onChange={(e) => setMtypeOther(e.target.value)}
               />
@@ -571,7 +575,7 @@ function CreateTicketDialog(props: {
 
           {/* Equipment / attachment (multi-select). Stored temporarily in description. */}
           <div className="md:col-span-2">
-            <Label>{T.fEquip[lang]}</Label>
+            <Label>{pickT(T.fEquip, uiLang)}</Label>
             <div className="mt-1 grid grid-cols-2 md:grid-cols-3 gap-2 rounded-md border border-input bg-background p-3 text-sm">
               {EQUIPMENT_OPTIONS.map((item) => (
                 <label key={item} className="flex items-center gap-2 cursor-pointer">
@@ -589,13 +593,13 @@ function CreateTicketDialog(props: {
                   checked={equipOtherChecked}
                   onChange={(e) => setEquipOtherChecked(e.target.checked)}
                 />
-                <span>{T.mtypeOther[lang]}</span>
+                <span>{pickT(T.mtypeOther, uiLang)}</span>
               </label>
             </div>
             {equipOtherChecked ? (
               <Input
                 className="mt-2"
-                placeholder={T.equipOtherLabel[lang]}
+                placeholder={pickT(T.equipOtherLabel, uiLang)}
                 value={equipmentOther}
                 onChange={(e) => setEquipmentOther(e.target.value)}
               />
@@ -604,14 +608,14 @@ function CreateTicketDialog(props: {
 
           {/* Dealer */}
           <div className="md:col-span-2">
-            <Label>{T.fDealer[lang]}</Label>
+            <Label>{pickT(T.fDealer, uiLang)}</Label>
             {isInternal ? (
               <select
                 value={dealerId}
                 onChange={(e) => setDealerId(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">{T.selectDealer[lang]}</option>
+                <option value="">{pickT(T.selectDealer, uiLang)}</option>
                 {dealers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.company_name} {d.account_number ? `(${d.account_number})` : ""}
@@ -630,34 +634,34 @@ function CreateTicketDialog(props: {
                   className="bg-slate-50 cursor-default"
                 />
                 {lockedDealerNumber ? (
-                  <p className="mt-1 text-xs text-slate-500">{T.dealerLocked[lang]}</p>
+                  <p className="mt-1 text-xs text-slate-500">{pickT(T.dealerLocked, uiLang)}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-red-600">{T.noDealerLink[lang]}</p>
+                  <p className="mt-1 text-xs text-red-600">{pickT(T.noDealerLink, uiLang)}</p>
                 )}
               </>
             )}
           </div>
 
           <div>
-            <Label>{T.fCust[lang]}</Label>
+            <Label>{pickT(T.fCust, uiLang)}</Label>
             <Input value={customer} onChange={(e) => setCustomer(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fContact[lang]}</Label>
+            <Label>{pickT(T.fContact, uiLang)}</Label>
             <Input value={contact} onChange={(e) => setContact(e.target.value)} />
           </div>
 
           <div>
-            <Label>{T.fEmail[lang]}</Label>
+            <Label>{pickT(T.fEmail, uiLang)}</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <Label>{T.fPhone[lang]}</Label>
+            <Label>{pickT(T.fPhone, uiLang)}</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
           <div>
-            <Label>{T.fHours[lang]}</Label>
+            <Label>{pickT(T.fHours, uiLang)}</Label>
             <Input
               type="number"
               inputMode="numeric"
@@ -667,48 +671,48 @@ function CreateTicketDialog(props: {
           </div>
 
           <div>
-            <Label>{T.fPrio[lang]}</Label>
+            <Label>{pickT(T.fPrio, uiLang)}</Label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{priorityLabel(p, lang)}</option>)}
+              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{priorityLabel(p, uiLang)}</option>)}
             </select>
           </div>
 
           <div>
-            <Label>{T.fStatus[lang]}</Label>
+            <Label>{pickT(T.fStatus, uiLang)}</Label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s, lang)}</option>)}
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s, uiLang)}</option>)}
             </select>
           </div>
 
           <div>
-            <Label>{T.fCat[lang]}</Label>
+            <Label>{pickT(T.fCat, uiLang)}</Label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="">—</option>
-              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{categoryLabel(c, lang)}</option>)}
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{categoryLabel(c, uiLang)}</option>)}
             </select>
           </div>
 
           <div className="md:col-span-2">
-            <Label>{T.fAssign[lang]}</Label>
+            <Label>{pickT(T.fAssign, uiLang)}</Label>
             <Input value={assigned} onChange={(e) => setAssigned(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            {T.cancel[lang]}
+            {pickT(T.cancel, uiLang)}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -716,7 +720,7 @@ function CreateTicketDialog(props: {
             className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {saving ? T.saving[lang] : T.save[lang]}
+            {saving ? pickT(T.saving, uiLang) : pickT(T.save, uiLang)}
           </Button>
         </DialogFooter>
       </DialogContent>

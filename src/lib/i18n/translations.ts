@@ -906,3 +906,28 @@ export function t(key: string, lang: PortalUiLanguage | string | null | undefine
   }
   return key;
 }
+
+/**
+ * Pick a label from a per-page T table that may include any subset of the 9
+ * portal languages (da, en, de, it, hu, sv, fr, pl, cs).
+ *
+ * Use this from local `const T = { someKey: { da: '…', en: '…', …, sv: '…' } }`
+ * tables instead of `T.someKey[lang]`. It safely falls back:
+ *   requested language → English → Danish → first defined value → ''
+ *
+ * Does NOT widen the global `Language` type and never throws. New languages can
+ * be added per-row, incrementally, without touching every old call site.
+ */
+export function pickT(
+  entry: Partial<Record<string, string>> | undefined | null,
+  lang: PortalUiLanguage | string | null | undefined,
+): string {
+  if (!entry) return '';
+  const e = entry as Record<string, string | undefined>;
+  if (lang && typeof e[lang as string] === 'string') return e[lang as string]!;
+  if (typeof e.en === 'string') return e.en;
+  if (typeof e.da === 'string') return e.da;
+  for (const v of Object.values(e)) if (typeof v === 'string') return v;
+  return '';
+}
+
