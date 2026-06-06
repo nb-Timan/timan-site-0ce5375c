@@ -533,11 +533,6 @@ export default function CrmDealerDetailPage() {
 
   return (
     <CrmLayout pageTitle={dealer.branch_name || dealer.company_name}>
-      {/* Back nav */}
-      <button onClick={() => navigate("/portal/crm/my-dealers")}
-        className="mb-4 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-        <ArrowLeft className="h-4 w-4" /> {t("back")}
-      </button>
 
       {isDealerInactive(dealer) && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
