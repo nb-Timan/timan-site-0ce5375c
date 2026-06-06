@@ -2,7 +2,7 @@
 // Sidebar-based module mirroring TSB Portal / Garantiregistrering structure.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Wrench, Upload, Search, Filter, Plus, Trash2, Building2, Calendar, ClipboardList } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
