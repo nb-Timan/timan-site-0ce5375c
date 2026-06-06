@@ -222,8 +222,42 @@ export default function ServiceTicketDetailPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canEdit = INTERNAL_ROLES.has(appUser?.portal_role ?? "");
+  const isInternal = canEdit;
+  const [converting, setConverting] = useState(false);
 
-
+  const handleConvertToClaim = async () => {
+    if (!ticket || converting) return;
+    setConverting(true);
+    try {
+      const { convertTicketToClaim } = await import('@/lib/claimsService');
+      const res = await convertTicketToClaim(
+        {
+          id: ticket.id,
+          ticket_number: ticket.ticket_number,
+          title: ticket.title,
+          description: ticket.description,
+          serial_number: ticket.serial_number,
+          machine_type: ticket.machine_type,
+          dealer_name: ticket.dealer_name,
+          customer_name: ticket.customer_name,
+          contact_person: ticket.contact_person,
+          contact_email: ticket.contact_email,
+          contact_phone: ticket.contact_phone,
+          category: ticket.category,
+          created_by_email: appUser?.email ?? null,
+        },
+        { mode: isInternal ? 'internal' : 'dealer_request', createdByEmail: appUser?.email ?? null },
+      );
+      toast.success(
+        isInternal ? 'Claim oprettet og åbnet' : 'Claim-ansøgning sendt — afventer servicegodkendelse',
+      );
+      navigate(`/portal/service/claims/${res.claim.id}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Kunne ikke konvertere til claim');
+    } finally {
+      setConverting(false);
+    }
+  };
 
   if (!appUser) {
     navigate("/portal", { replace: true });
