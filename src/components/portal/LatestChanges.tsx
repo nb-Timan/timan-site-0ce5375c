@@ -8,36 +8,11 @@ import {
   hrefForEntry,
   areaForModule,
   isStillNew,
+  t,
   ChangeLogEntry,
 } from '@/lib/portalChangelog';
 import { useAppUser } from '@/context/AppUserContext';
 import { PortalAreaId } from '@/lib/portalAreas';
-
-const T: Record<string, Record<Language, string>> = {
-  heading: {
-    da: 'Hvad er nyt?',
-    en: 'What\u2019s new?',
-    de: 'Was ist neu?',
-    it: 'Cosa c\u2019è di nuovo?',
-    hu: 'Mi az új?',
-  },
-  subheading: {
-    da: 'Seneste ændringer',
-    en: 'Latest changes',
-    de: 'Letzte Änderungen',
-    it: 'Ultime modifiche',
-    hu: 'Legutóbbi változások',
-  },
-  empty: {
-    da: 'Ingen ændringer endnu.',
-    en: 'No changes yet.',
-    de: 'Noch keine Änderungen.',
-    it: 'Ancora nessuna modifica.',
-    hu: 'Még nincsenek változások.',
-  },
-  major: { da: 'Vigtig', en: 'Important', de: 'Wichtig', it: 'Importante', hu: 'Fontos' },
-  newTag: { da: 'Ny', en: 'New', de: 'Neu', it: 'Nuovo', hu: 'Új' },
-};
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
   teknik_service: '/portal/teknik-service',
