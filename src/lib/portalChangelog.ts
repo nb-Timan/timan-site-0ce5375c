@@ -410,15 +410,16 @@ export function useChangelog(
 ): UseChangelogResult {
   const userKey = getUserKey(user);
 
-  // Lazy import to avoid a circular dep at module-eval time.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const svc = require('./portalChangelogService') as typeof import('./portalChangelogService');
+  // Static import done lazily via dynamic getter to keep a one-way dep at
+  // module-evaluation time (service imports from this file).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const svc: typeof import('./portalChangelogService') = require('./portalChangelogService');
 
   const subscribe = useCallback((cb: () => void) => {
     const off1 = localReadStore.subscribe(cb);
     const off2 = svc.subscribeChangelog(cb);
     return () => { off1(); off2(); };
-  }, []);
+  }, [svc]);
   const getSnapshot = useCallback(() => {
     const ids = Array.from(localReadStore.getReadIds(userKey)).sort();
     return `${userKey}|${ids.join(',')}|${svc.getChangelogSnapshot()}|${language}`;
@@ -427,6 +428,7 @@ export function useChangelog(
 
   const readIds = localReadStore.getReadIds(userKey);
   const rawEntries = svc.getEntriesForLanguage(language);
+
   const entries = rawEntries
     .filter(e => isEntryVisible(e, user, language))
     .slice()
