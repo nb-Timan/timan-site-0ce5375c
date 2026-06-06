@@ -774,51 +774,6 @@ export default function CrmDealerDetailPage() {
 
 
 
-        {/* NOTES — internal only, already gated by canAccess at page level */}
-        <TabsContent value="notes" className="mt-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                {t("notes")} ({notes.length})
-              </h3>
-              <button onClick={() => setShowNoteModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
-                <Plus className="h-3.5 w-3.5" /> {t("add_note")}
-              </button>
-            </div>
-            {notes.length === 0 ? (
-              <p className="text-sm text-slate-500">{t("no_notes")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {notes.map(n => (
-                  <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                        <span>·</span>
-                        <span>{fmtDateTime(n.created_at)}</span>
-                        <span>·</span>
-                        <span>sælger {n.seller_initials || "—"}</span>
-                        {n.created_by_email && <><span>·</span><span>{n.created_by_email}</span></>}
-                      </div>
-                      {n.follow_up_date && (
-                        <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                          Opfølgning: {fmtDateTime(n.follow_up_date)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
-                    {n.linked_activity_id && (
-                      <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
-                        Se tilknyttet kalenderaktivitet →
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </TabsContent>
 
         {/* DOCUMENTS — placeholder until document module exists */}
         <TabsContent value="documents" className="mt-0">
