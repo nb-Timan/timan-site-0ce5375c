@@ -14,7 +14,7 @@
  * Country bias: by default restricted to Timan's markets
  * (DK, DE, AT, CH, IT, HU, GB). Pass `countries={[...]}` to override.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
 const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
