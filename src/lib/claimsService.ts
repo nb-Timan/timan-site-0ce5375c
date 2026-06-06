@@ -217,7 +217,7 @@ const SELECT_COLS =
   'delivery_date, fault_date, repair_date, ' +
   'description, repair_description, ' +
   'work_hours, driven_km, parts, work_lines, total_price_net, ' +
-  'status, created_at, created_by_email';
+  'status, created_at, created_by_email, service_ticket_id';
 
 export async function getClaimById(id: string): Promise<LoadClaimResult> {
   // Local-saved drafts always win
