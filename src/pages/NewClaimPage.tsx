@@ -11,6 +11,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Language } from '@/types/configurator';
+import { pickT } from '@/lib/i18n/translations';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   derivePortalRole,
   getPortalPermissions,
@@ -25,72 +27,72 @@ import {
   ClaimStatus,
 } from '@/lib/claimsService';
 
-const T: Record<string, Record<Language, string>> = {
-  back:        { da: 'Tilbage til sagsoversigt', en: 'Back to claims list', de: 'Zurück zur Fallübersicht', it: 'Torna ai reclami', hu: 'Vissza az ügylistához' },
-  title:       { da: 'Ny sag', en: 'New claim', de: 'Neuer Fall', it: 'Nuovo reclamo', hu: 'Új ügy' },
-  intro:       { da: 'Opret en ny service- eller garantisag.', en: 'Create a new service or warranty case.', de: 'Neuen Service- oder Garantiefall anlegen.', it: 'Crea un nuovo caso.', hu: 'Új szerviz- vagy garanciaeset létrehozása.' },
-  noAccess:    { da: 'Ingen adgang til oprettelse af sager.', en: 'No access to create claims.', de: 'Kein Zugriff zum Anlegen.', it: 'Nessun accesso alla creazione.', hu: 'Nincs jogosultság új ügy létrehozására.' },
-  readOnlyMsg: { da: 'Skrivebeskyttet adgang — du kan ikke oprette nye sager.', en: 'Read-only access — you cannot create new claims.', de: 'Nur-Lese-Zugriff — Sie können keine neuen Fälle anlegen.', it: 'Accesso in sola lettura — non puoi creare nuovi reclami.', hu: 'Csak olvasható hozzáférés — nem hozhat létre új ügyet.' },
-  required:    { da: 'Påkrævet', en: 'Required', de: 'Pflicht', it: 'Obbligatorio', hu: 'Kötelező' },
-  saveDraft:   { da: 'Gem til senere', en: 'Save for later', de: 'Später speichern', it: 'Salva per dopo', hu: 'Mentés későbbre' },
-  sendTiman:   { da: 'Send til Timan', en: 'Send to Timan', de: 'An Timan senden', it: 'Invia a Timan', hu: 'Küldés a Timan-nak' },
-  saving:      { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…' },
-  savedDraft:  { da: 'Gemt som kladde', en: 'Saved as draft', de: 'Als Entwurf gespeichert', it: 'Salvato come bozza', hu: 'Vázlatként mentve' },
-  sentOk:      { da: 'Sendt til Timan', en: 'Sent to Timan', de: 'An Timan gesendet', it: 'Inviato a Timan', hu: 'Elküldve a Timan-nak' },
-  saveError:   { da: 'Kunne ikke gemme. Prøv igen.', en: 'Could not save. Try again.', de: 'Speichern fehlgeschlagen.', it: 'Salvataggio fallito.', hu: 'Mentés sikertelen.' },
-  validation:  { da: 'Ret venligst de markerede felter.', en: 'Please fix the highlighted fields.', de: 'Bitte markierte Felder korrigieren.', it: 'Correggi i campi evidenziati.', hu: 'Kérlek javítsd a megjelölt mezőket.' },
-  progress:    { da: 'Fremdrift', en: 'Progress', de: 'Fortschritt', it: 'Avanzamento', hu: 'Előrehaladás' },
+const T = {
+  back:        { da: 'Tilbage til sagsoversigt', en: 'Back to claims list', de: 'Zurück zur Fallübersicht', it: 'Torna ai reclami', hu: 'Vissza az ügylistához', sv: 'Tillbaka till ärendelistan', fr: 'Retour à la liste des dossiers', pl: 'Powrót do listy zgłoszeń', cs: 'Zpět na seznam případů' },
+  title:       { da: 'Ny sag', en: 'New claim', de: 'Neuer Fall', it: 'Nuovo reclamo', hu: 'Új ügy', sv: 'Nytt ärende', fr: 'Nouveau dossier', pl: 'Nowe zgłoszenie', cs: 'Nový případ' },
+  intro:       { da: 'Opret en ny service- eller garantisag.', en: 'Create a new service or warranty case.', de: 'Neuen Service- oder Garantiefall anlegen.', it: 'Crea un nuovo caso.', hu: 'Új szerviz- vagy garanciaeset létrehozása.', sv: 'Skapa ett nytt service- eller garantiärende.', fr: 'Créez un nouveau dossier de service ou de garantie.', pl: 'Utwórz nowe zgłoszenie serwisowe lub gwarancyjne.', cs: 'Vytvořte nový servisní nebo záruční případ.' },
+  noAccess:    { da: 'Ingen adgang til oprettelse af sager.', en: 'No access to create claims.', de: 'Kein Zugriff zum Anlegen.', it: 'Nessun accesso alla creazione.', hu: 'Nincs jogosultság új ügy létrehozására.', sv: 'Ingen behörighet att skapa ärenden.', fr: 'Pas d\'accès pour créer des dossiers.', pl: 'Brak dostępu do tworzenia zgłoszeń.', cs: 'Bez přístupu k vytváření případů.' },
+  readOnlyMsg: { da: 'Skrivebeskyttet adgang — du kan ikke oprette nye sager.', en: 'Read-only access — you cannot create new claims.', de: 'Nur-Lese-Zugriff — Sie können keine neuen Fälle anlegen.', it: 'Accesso in sola lettura — non puoi creare nuovi reclami.', hu: 'Csak olvasható hozzáférés — nem hozhat létre új ügyet.', sv: 'Skrivskyddad åtkomst — du kan inte skapa nya ärenden.', fr: 'Accès en lecture seule — vous ne pouvez pas créer de dossier.', pl: 'Dostęp tylko do odczytu — nie możesz tworzyć nowych zgłoszeń.', cs: 'Přístup pouze pro čtení — nemůžete vytvářet nové případy.' },
+  required:    { da: 'Påkrævet', en: 'Required', de: 'Pflicht', it: 'Obbligatorio', hu: 'Kötelező', sv: 'Obligatoriskt', fr: 'Obligatoire', pl: 'Wymagane', cs: 'Povinné' },
+  saveDraft:   { da: 'Gem til senere', en: 'Save for later', de: 'Später speichern', it: 'Salva per dopo', hu: 'Mentés későbbre', sv: 'Spara till senare', fr: 'Enregistrer pour plus tard', pl: 'Zapisz na później', cs: 'Uložit na později' },
+  sendTiman:   { da: 'Send til Timan', en: 'Send to Timan', de: 'An Timan senden', it: 'Invia a Timan', hu: 'Küldés a Timan-nak', sv: 'Skicka till Timan', fr: 'Envoyer à Timan', pl: 'Wyślij do Timan', cs: 'Odeslat Timanu' },
+  saving:      { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…', sv: 'Sparar…', fr: 'Enregistrement…', pl: 'Zapisywanie…', cs: 'Ukládání…' },
+  savedDraft:  { da: 'Gemt som kladde', en: 'Saved as draft', de: 'Als Entwurf gespeichert', it: 'Salvato come bozza', hu: 'Vázlatként mentve', sv: 'Sparat som utkast', fr: 'Enregistré comme brouillon', pl: 'Zapisano jako wersję roboczą', cs: 'Uloženo jako koncept' },
+  sentOk:      { da: 'Sendt til Timan', en: 'Sent to Timan', de: 'An Timan gesendet', it: 'Inviato a Timan', hu: 'Elküldve a Timan-nak', sv: 'Skickat till Timan', fr: 'Envoyé à Timan', pl: 'Wysłano do Timan', cs: 'Odesláno Timanu' },
+  saveError:   { da: 'Kunne ikke gemme. Prøv igen.', en: 'Could not save. Try again.', de: 'Speichern fehlgeschlagen.', it: 'Salvataggio fallito.', hu: 'Mentés sikertelen.', sv: 'Kunde inte spara. Försök igen.', fr: 'Échec de l\'enregistrement. Réessayez.', pl: 'Nie udało się zapisać. Spróbuj ponownie.', cs: 'Nepodařilo se uložit. Zkuste znovu.' },
+  validation:  { da: 'Ret venligst de markerede felter.', en: 'Please fix the highlighted fields.', de: 'Bitte markierte Felder korrigieren.', it: 'Correggi i campi evidenziati.', hu: 'Kérlek javítsd a megjelölt mezőket.', sv: 'Vänligen rätta de markerade fälten.', fr: 'Veuillez corriger les champs indiqués.', pl: 'Popraw zaznaczone pola.', cs: 'Opravte označená pole.' },
+  progress:    { da: 'Fremdrift', en: 'Progress', de: 'Fortschritt', it: 'Avanzamento', hu: 'Előrehaladás', sv: 'Förlopp', fr: 'Progression', pl: 'Postęp', cs: 'Průběh' },
 
-  step1:       { da: 'Kontakt Timan før start', en: 'Contact Timan before start', de: 'Timan vor Beginn kontaktieren', it: 'Contatta Timan prima di iniziare', hu: 'Lépjen kapcsolatba Timan-nal' },
-  step2:       { da: 'Reklamations nr.', en: 'Claim number', de: 'Reklamationsnummer', it: 'N. reclamo', hu: 'Reklamációs szám' },
-  step3:       { da: 'Forhandler & ejer', en: 'Dealer & owner', de: 'Händler & Eigentümer', it: 'Rivenditore & proprietario', hu: 'Kereskedő & tulajdonos' },
-  step4:       { da: 'Maskin info', en: 'Machine info', de: 'Maschineninfo', it: 'Info macchina', hu: 'Gép adatai' },
-  step5:       { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
-  step6:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
-  step7:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
+  step1:       { da: 'Kontakt Timan før start', en: 'Contact Timan before start', de: 'Timan vor Beginn kontaktieren', it: 'Contatta Timan prima di iniziare', hu: 'Lépjen kapcsolatba Timan-nal', sv: 'Kontakta Timan innan start', fr: 'Contactez Timan avant de commencer', pl: 'Skontaktuj się z Timan przed rozpoczęciem', cs: 'Kontaktujte Timan před zahájením' },
+  step2:       { da: 'Reklamations nr.', en: 'Claim number', de: 'Reklamationsnummer', it: 'N. reclamo', hu: 'Reklamációs szám', sv: 'Reklamationsnr', fr: 'N° de réclamation', pl: 'Nr reklamacji', cs: 'Číslo reklamace' },
+  step3:       { da: 'Forhandler & ejer', en: 'Dealer & owner', de: 'Händler & Eigentümer', it: 'Rivenditore & proprietario', hu: 'Kereskedő & tulajdonos', sv: 'Återförsäljare & ägare', fr: 'Concessionnaire & propriétaire', pl: 'Dealer i właściciel', cs: 'Prodejce a vlastník' },
+  step4:       { da: 'Maskin info', en: 'Machine info', de: 'Maschineninfo', it: 'Info macchina', hu: 'Gép adatai', sv: 'Maskininfo', fr: 'Infos machine', pl: 'Informacje o maszynie', cs: 'Informace o stroji' },
+  step5:       { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum', sv: 'Datum', fr: 'Date', pl: 'Data', cs: 'Datum' },
+  step6:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás', sv: 'Beskrivning', fr: 'Description', pl: 'Opis', cs: 'Popis' },
+  step7:       { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka', sv: 'Reservdelar & arbete', fr: 'Pièces & main d\'œuvre', pl: 'Części i robocizna', cs: 'Díly a práce' },
 
-  sDealer:     { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
-  sOwner:      { da: 'Ejer / Kunde', en: 'Owner / Customer', de: 'Eigentümer / Kunde', it: 'Proprietario / Cliente', hu: 'Tulajdonos / Ügyfél' },
-  sMachine:    { da: 'Maskininformation', en: 'Machine information', de: 'Maschineninformation', it: 'Informazioni macchina', hu: 'Gép adatai' },
-  sDates:      { da: 'Datoer', en: 'Dates', de: 'Daten', it: 'Date', hu: 'Dátumok' },
-  sFault:      { da: 'Fejlbeskrivelse', en: 'Fault description', de: 'Fehlerbeschreibung', it: 'Descrizione del guasto', hu: 'Hibaleírás' },
-  sRepair:     { da: 'Reparationsbeskrivelse', en: 'Repair description', de: 'Reparaturbeschreibung', it: 'Descrizione riparazione', hu: 'Javítás leírása' },
-  sPartsWork:  { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka' },
-  sParts:      { da: 'Reservedele', en: 'Spare parts', de: 'Ersatzteile', it: 'Ricambi', hu: 'Pótalkatrészek' },
-  sWork:       { da: 'Arbejdslinjer', en: 'Work lines', de: 'Arbeitspositionen', it: 'Voci di lavoro', hu: 'Munkasorok' },
-  sService:    { da: 'Service', en: 'Service', de: 'Service', it: 'Servizio', hu: 'Szerviz' },
-  sTotals:     { da: 'Totaloversigt', en: 'Total overview', de: 'Gesamtübersicht', it: 'Totale', hu: 'Összesítés' },
-  sFiles:      { da: 'Vedhæftninger', en: 'Attachments', de: 'Anhänge', it: 'Allegati', hu: 'Csatolmányok' },
-  filesSoon:   { da: 'Upload kommer snart.', en: 'Upload coming soon.', de: 'Upload folgt bald.', it: 'Caricamento in arrivo.', hu: 'A feltöltés hamarosan elérhető.' },
+  sDealer:     { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő', sv: 'Återförsäljare', fr: 'Concessionnaire', pl: 'Dealer', cs: 'Prodejce' },
+  sOwner:      { da: 'Ejer / Kunde', en: 'Owner / Customer', de: 'Eigentümer / Kunde', it: 'Proprietario / Cliente', hu: 'Tulajdonos / Ügyfél', sv: 'Ägare / Kund', fr: 'Propriétaire / Client', pl: 'Właściciel / Klient', cs: 'Vlastník / Zákazník' },
+  sMachine:    { da: 'Maskininformation', en: 'Machine information', de: 'Maschineninformation', it: 'Informazioni macchina', hu: 'Gép adatai', sv: 'Maskininformation', fr: 'Informations machine', pl: 'Informacje o maszynie', cs: 'Informace o stroji' },
+  sDates:      { da: 'Datoer', en: 'Dates', de: 'Daten', it: 'Date', hu: 'Dátumok', sv: 'Datum', fr: 'Dates', pl: 'Daty', cs: 'Data' },
+  sFault:      { da: 'Fejlbeskrivelse', en: 'Fault description', de: 'Fehlerbeschreibung', it: 'Descrizione del guasto', hu: 'Hibaleírás', sv: 'Felbeskrivning', fr: 'Description de la panne', pl: 'Opis usterki', cs: 'Popis závady' },
+  sRepair:     { da: 'Reparationsbeskrivelse', en: 'Repair description', de: 'Reparaturbeschreibung', it: 'Descrizione riparazione', hu: 'Javítás leírása', sv: 'Reparationsbeskrivning', fr: 'Description de la réparation', pl: 'Opis naprawy', cs: 'Popis opravy' },
+  sPartsWork:  { da: 'Reservedele & arbejde', en: 'Parts & work', de: 'Ersatzteile & Arbeit', it: 'Ricambi & lavoro', hu: 'Alkatrészek & munka', sv: 'Reservdelar & arbete', fr: 'Pièces & main d\'œuvre', pl: 'Części i robocizna', cs: 'Díly a práce' },
+  sParts:      { da: 'Reservedele', en: 'Spare parts', de: 'Ersatzteile', it: 'Ricambi', hu: 'Pótalkatrészek', sv: 'Reservdelar', fr: 'Pièces de rechange', pl: 'Części zamienne', cs: 'Náhradní díly' },
+  sWork:       { da: 'Arbejdslinjer', en: 'Work lines', de: 'Arbeitspositionen', it: 'Voci di lavoro', hu: 'Munkasorok', sv: 'Arbetsrader', fr: 'Lignes de main d\'œuvre', pl: 'Pozycje robocizny', cs: 'Pracovní položky' },
+  sService:    { da: 'Service', en: 'Service', de: 'Service', it: 'Servizio', hu: 'Szerviz', sv: 'Service', fr: 'Service', pl: 'Serwis', cs: 'Servis' },
+  sTotals:     { da: 'Totaloversigt', en: 'Total overview', de: 'Gesamtübersicht', it: 'Totale', hu: 'Összesítés', sv: 'Totalöversikt', fr: 'Récapitulatif', pl: 'Podsumowanie', cs: 'Souhrn' },
+  sFiles:      { da: 'Vedhæftninger', en: 'Attachments', de: 'Anhänge', it: 'Allegati', hu: 'Csatolmányok', sv: 'Bilagor', fr: 'Pièces jointes', pl: 'Załączniki', cs: 'Přílohy' },
+  filesSoon:   { da: 'Upload kommer snart.', en: 'Upload coming soon.', de: 'Upload folgt bald.', it: 'Caricamento in arrivo.', hu: 'A feltöltés hamarosan elérhető.', sv: 'Uppladdning kommer snart.', fr: 'Téléversement bientôt disponible.', pl: 'Wgrywanie wkrótce.', cs: 'Nahrávání brzy.' },
 
-  fCompany:    { da: 'Firma', en: 'Company', de: 'Firma', it: 'Azienda', hu: 'Cégnév' },
-  fContact:    { da: 'Kontaktperson', en: 'Contact person', de: 'Ansprechpartner', it: 'Contatto', hu: 'Kapcsolattartó' },
-  fEmail:      { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'Email', hu: 'E-mail' },
-  fPhone:      { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon' },
-  fName:       { da: 'Navn', en: 'Name', de: 'Name', it: 'Nome', hu: 'Név' },
-  fModel:      { da: 'Model', en: 'Model', de: 'Modell', it: 'Modello', hu: 'Modell' },
-  fSerial:     { da: 'Serienummer', en: 'Serial number', de: 'Seriennummer', it: 'N. di serie', hu: 'Sorozatszám' },
-  fYear:       { da: 'Årgang', en: 'Year', de: 'Baujahr', it: 'Anno', hu: 'Év' },
-  fDelivery:   { da: 'Leveringsdato', en: 'Delivery date', de: 'Lieferdatum', it: 'Consegna', hu: 'Szállítás dátuma' },
-  fFault:      { da: 'Fejldato', en: 'Fault date', de: 'Fehlerdatum', it: 'Data guasto', hu: 'Hiba dátuma' },
-  fRepair:     { da: 'Reparationsdato', en: 'Repair date', de: 'Reparaturdatum', it: 'Data riparazione', hu: 'Javítás dátuma' },
-  fHours:      { da: 'Arbejdstimer', en: 'Work hours', de: 'Arbeitsstunden', it: 'Ore di lavoro', hu: 'Munkaóra' },
-  fKm:         { da: 'Kørte km', en: 'Driven km', de: 'Gefahrene km', it: 'Km percorsi', hu: 'Megtett km' },
-  fPart:       { da: 'Reservedelsnr.', en: 'Part #', de: 'Ersatzteil-Nr.', it: 'N. ricambio', hu: 'Alkatrész szám' },
-  fDesc:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás' },
-  fQty:        { da: 'Antal', en: 'Qty', de: 'Menge', it: 'Q.tà', hu: 'Db' },
-  fUnit:       { da: 'Stykpris (netto)', en: 'Unit price (net)', de: 'Stückpreis (netto)', it: 'Prezzo unitario (netto)', hu: 'Egységár (nettó)' },
-  fRate:       { da: 'Timepris (netto)', en: 'Hourly rate (net)', de: 'Stundensatz (netto)', it: 'Tariffa oraria (netta)', hu: 'Óradíj (nettó)' },
-  fLineHours:  { da: 'Timer', en: 'Hours', de: 'Std.', it: 'Ore', hu: 'Óra' },
-  addPart:     { da: 'Tilføj reservedel', en: 'Add part', de: 'Ersatzteil hinzufügen', it: 'Aggiungi ricambio', hu: 'Alkatrész hozzáadása' },
-  addWork:     { da: 'Tilføj arbejdslinje', en: 'Add work line', de: 'Arbeitszeile hinzufügen', it: 'Aggiungi lavoro', hu: 'Munkasor hozzáadása' },
-  partsTotal:  { da: 'Reservedele i alt', en: 'Parts total', de: 'Ersatzteile gesamt', it: 'Totale ricambi', hu: 'Alkatrészek összesen' },
-  workTotal:   { da: 'Arbejde i alt', en: 'Work total', de: 'Arbeit gesamt', it: 'Totale lavoro', hu: 'Munka összesen' },
-  total:       { da: 'I alt (netto)', en: 'Total (net)', de: 'Gesamt (netto)', it: 'Totale (netto)', hu: 'Összesen (nettó)' },
+  fCompany:    { da: 'Firma', en: 'Company', de: 'Firma', it: 'Azienda', hu: 'Cégnév', sv: 'Företag', fr: 'Société', pl: 'Firma', cs: 'Společnost' },
+  fContact:    { da: 'Kontaktperson', en: 'Contact person', de: 'Ansprechpartner', it: 'Contatto', hu: 'Kapcsolattartó', sv: 'Kontaktperson', fr: 'Personne à contacter', pl: 'Osoba kontaktowa', cs: 'Kontaktní osoba' },
+  fEmail:      { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'Email', hu: 'E-mail', sv: 'E-post', fr: 'E-mail', pl: 'E-mail', cs: 'E-mail' },
+  fPhone:      { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon', sv: 'Telefon', fr: 'Téléphone', pl: 'Telefon', cs: 'Telefon' },
+  fName:       { da: 'Navn', en: 'Name', de: 'Name', it: 'Nome', hu: 'Név', sv: 'Namn', fr: 'Nom', pl: 'Imię i nazwisko', cs: 'Jméno' },
+  fModel:      { da: 'Model', en: 'Model', de: 'Modell', it: 'Modello', hu: 'Modell', sv: 'Modell', fr: 'Modèle', pl: 'Model', cs: 'Model' },
+  fSerial:     { da: 'Serienummer', en: 'Serial number', de: 'Seriennummer', it: 'N. di serie', hu: 'Sorozatszám', sv: 'Serienummer', fr: 'Numéro de série', pl: 'Numer seryjny', cs: 'Sériové číslo' },
+  fYear:       { da: 'Årgang', en: 'Year', de: 'Baujahr', it: 'Anno', hu: 'Év', sv: 'Årsmodell', fr: 'Année', pl: 'Rok', cs: 'Rok' },
+  fDelivery:   { da: 'Leveringsdato', en: 'Delivery date', de: 'Lieferdatum', it: 'Consegna', hu: 'Szállítás dátuma', sv: 'Leveransdatum', fr: 'Date de livraison', pl: 'Data dostawy', cs: 'Datum dodání' },
+  fFault:      { da: 'Fejldato', en: 'Fault date', de: 'Fehlerdatum', it: 'Data guasto', hu: 'Hiba dátuma', sv: 'Feldatum', fr: 'Date de la panne', pl: 'Data usterki', cs: 'Datum závady' },
+  fRepair:     { da: 'Reparationsdato', en: 'Repair date', de: 'Reparaturdatum', it: 'Data riparazione', hu: 'Javítás dátuma', sv: 'Reparationsdatum', fr: 'Date de réparation', pl: 'Data naprawy', cs: 'Datum opravy' },
+  fHours:      { da: 'Arbejdstimer', en: 'Work hours', de: 'Arbeitsstunden', it: 'Ore di lavoro', hu: 'Munkaóra', sv: 'Arbetstimmar', fr: 'Heures de travail', pl: 'Godziny pracy', cs: 'Pracovní hodiny' },
+  fKm:         { da: 'Kørte km', en: 'Driven km', de: 'Gefahrene km', it: 'Km percorsi', hu: 'Megtett km', sv: 'Körda km', fr: 'Km parcourus', pl: 'Przejechane km', cs: 'Ujeté km' },
+  fPart:       { da: 'Reservedelsnr.', en: 'Part #', de: 'Ersatzteil-Nr.', it: 'N. ricambio', hu: 'Alkatrész szám', sv: 'Reservdelsnr', fr: 'N° de pièce', pl: 'Nr części', cs: 'Č. dílu' },
+  fDesc:       { da: 'Beskrivelse', en: 'Description', de: 'Beschreibung', it: 'Descrizione', hu: 'Leírás', sv: 'Beskrivning', fr: 'Description', pl: 'Opis', cs: 'Popis' },
+  fQty:        { da: 'Antal', en: 'Qty', de: 'Menge', it: 'Q.tà', hu: 'Db', sv: 'Antal', fr: 'Qté', pl: 'Ilość', cs: 'Množství' },
+  fUnit:       { da: 'Stykpris (netto)', en: 'Unit price (net)', de: 'Stückpreis (netto)', it: 'Prezzo unitario (netto)', hu: 'Egységár (nettó)', sv: 'Styckpris (netto)', fr: 'Prix unitaire (net)', pl: 'Cena jedn. (netto)', cs: 'Jedn. cena (netto)' },
+  fRate:       { da: 'Timepris (netto)', en: 'Hourly rate (net)', de: 'Stundensatz (netto)', it: 'Tariffa oraria (netta)', hu: 'Óradíj (nettó)', sv: 'Timpris (netto)', fr: 'Taux horaire (net)', pl: 'Stawka godz. (netto)', cs: 'Hodinová sazba (netto)' },
+  fLineHours:  { da: 'Timer', en: 'Hours', de: 'Std.', it: 'Ore', hu: 'Óra', sv: 'Timmar', fr: 'Heures', pl: 'Godziny', cs: 'Hodiny' },
+  addPart:     { da: 'Tilføj reservedel', en: 'Add part', de: 'Ersatzteil hinzufügen', it: 'Aggiungi ricambio', hu: 'Alkatrész hozzáadása', sv: 'Lägg till reservdel', fr: 'Ajouter une pièce', pl: 'Dodaj część', cs: 'Přidat díl' },
+  addWork:     { da: 'Tilføj arbejdslinje', en: 'Add work line', de: 'Arbeitszeile hinzufügen', it: 'Aggiungi lavoro', hu: 'Munkasor hozzáadása', sv: 'Lägg till arbetsrad', fr: 'Ajouter une ligne de travail', pl: 'Dodaj pozycję robocizny', cs: 'Přidat pracovní položku' },
+  partsTotal:  { da: 'Reservedele i alt', en: 'Parts total', de: 'Ersatzteile gesamt', it: 'Totale ricambi', hu: 'Alkatrészek összesen', sv: 'Reservdelar totalt', fr: 'Total pièces', pl: 'Suma części', cs: 'Díly celkem' },
+  workTotal:   { da: 'Arbejde i alt', en: 'Work total', de: 'Arbeit gesamt', it: 'Totale lavoro', hu: 'Munka összesen', sv: 'Arbete totalt', fr: 'Total main d\'œuvre', pl: 'Suma robocizny', cs: 'Práce celkem' },
+  total:       { da: 'I alt (netto)', en: 'Total (net)', de: 'Gesamt (netto)', it: 'Totale (netto)', hu: 'Összesen (nettó)', sv: 'Totalt (netto)', fr: 'Total (net)', pl: 'Razem (netto)', cs: 'Celkem (netto)' },
 
-  viewInternal:{ da: 'Intern visning', en: 'Internal view', de: 'Interne Ansicht', it: 'Vista interna', hu: 'Belső nézet' },
-  viewDealer:  { da: 'Forhandlervisning', en: 'Dealer view', de: 'Händleransicht', it: 'Vista rivenditore', hu: 'Kereskedői nézet' },
-};
+  viewInternal:{ da: 'Intern visning', en: 'Internal view', de: 'Interne Ansicht', it: 'Vista interna', hu: 'Belső nézet', sv: 'Intern vy', fr: 'Vue interne', pl: 'Widok wewnętrzny', cs: 'Interní zobrazení' },
+  viewDealer:  { da: 'Forhandlervisning', en: 'Dealer view', de: 'Händleransicht', it: 'Vista rivenditore', hu: 'Kereskedői nézet', sv: 'Återförsäljarvy', fr: 'Vue concessionnaire', pl: 'Widok dealera', cs: 'Zobrazení prodejce' },
+} as const;
 
 // ---- Validation ----
 const lineSchemaPart = z.object({
@@ -172,7 +174,8 @@ const BRAND = '#2d5a27';
 
 export default function NewClaimPage() {
   const { appUser, loading: authLoading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
+  const uiLang: PortalUiLanguage = uiLanguage;
   const navigate = useNavigate();
 
   const [form, setForm] = useState<FormState>(initial);
