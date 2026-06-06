@@ -561,6 +561,48 @@ export default function PartnerMapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
+
+  // Map base layer style — persisted per user in localStorage.
+  type MapStyleId = 'standard' | 'satellite' | 'terrain' | 'dark';
+  const MAP_STYLES: Record<MapStyleId, { label: string; url: string; attribution: string; subdomains?: string[]; maxZoom?: number }> = {
+    standard: {
+      label: 'Standard',
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: ['a','b','c','d'],
+      maxZoom: 19,
+    },
+    satellite: {
+      label: 'Satellit',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Earthstar Geographics',
+      maxZoom: 19,
+    },
+    terrain: {
+      label: 'Terræn',
+      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+      subdomains: ['a','b','c'],
+      maxZoom: 17,
+    },
+    dark: {
+      label: 'Mørk',
+      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: ['a','b','c','d'],
+      maxZoom: 19,
+    },
+  };
+  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle';
+  const [mapStyle, setMapStyle] = useState<MapStyleId>(() => {
+    if (typeof window === 'undefined') return 'standard';
+    const saved = window.localStorage.getItem(MAP_STYLE_STORAGE_KEY);
+    return (saved === 'standard' || saved === 'satellite' || saved === 'terrain' || saved === 'dark') ? saved : 'standard';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(MAP_STYLE_STORAGE_KEY, mapStyle);
+  }, [mapStyle]);
+
   
   const [resultsOpen, setResultsOpen] = useState(true);
 
