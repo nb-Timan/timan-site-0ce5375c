@@ -11,6 +11,8 @@ interface Props {
   icon: LucideIcon;
   accent: 'primary' | 'sky' | 'violet';
   badge?: { tone: BadgeTone; label: string } | null;
+  /** Small "Opdateret" / "Ny" pill shown when the user has unseen changelog entries for this area. */
+  updateBadge?: { label: string; tone: 'ny' | 'opdateret' } | null;
 }
 
 const ACCENT: Record<Props['accent'], { iconBg: string; iconColor: string; ctaColor: string }> = {
@@ -26,7 +28,7 @@ const BADGE_TONE: Record<BadgeTone, string> = {
   neutral: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
-export default function AreaCard({ title, description, cta, to, icon: Icon, accent, badge }: Props) {
+export default function AreaCard({ title, description, cta, to, icon: Icon, accent, badge, updateBadge }: Props) {
   const s = ACCENT[accent];
   return (
     <Link
@@ -36,15 +38,31 @@ export default function AreaCard({ title, description, cta, to, icon: Icon, acce
         'hover:-translate-y-1.5 hover:shadow-lg hover:border-gray-200',
       )}
     >
-      {badge && (
-        <span
-          className={cn(
-            'absolute top-4 right-4 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-            BADGE_TONE[badge.tone],
+      {(badge || updateBadge) && (
+        <div className="absolute top-4 right-4 flex items-center gap-1.5">
+          {updateBadge && (
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                updateBadge.tone === 'ny'
+                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                  : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+              )}
+            >
+              {updateBadge.label}
+            </span>
           )}
-        >
-          {badge.label}
-        </span>
+          {badge && (
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                BADGE_TONE[badge.tone],
+              )}
+            >
+              {badge.label}
+            </span>
+          )}
+        </div>
       )}
       <div className={cn('w-16 h-16 rounded-xl flex items-center justify-center mb-6', s.iconBg)}>
         <Icon className={cn('h-9 w-9', s.iconColor)} strokeWidth={2} />
