@@ -47,14 +47,14 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-[#2d5a27]" />
         <div>
-          <h2 className="text-lg font-bold text-gray-900 leading-tight">{T.heading[language]}</h2>
-          <p className="text-xs text-gray-500">{T.subheading[language]}</p>
+          <h2 className="text-lg font-bold text-gray-900 leading-tight">{t('whatsNew', language)}</h2>
+          <p className="text-xs text-gray-500">{t('latestChanges', language)}</p>
         </div>
       </div>
 
       {shown.length === 0 ? (
         <div className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
-          {T.empty[language]}
+          {t('empty', language)}
         </div>
       ) : (
         <ul className="rounded-xl border border-gray-100 bg-white divide-y divide-gray-100 overflow-hidden">
@@ -82,7 +82,7 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                   <span className="flex items-center gap-1.5 ml-auto shrink-0">
                     {showNew && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">
-                        {T.newTag[language]}
+                        {t('newTag', language)}
                       </span>
                     )}
                     {entry.is_major && (
@@ -91,7 +91,7 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                         read ? 'bg-gray-200 text-gray-500' : 'bg-rose-100 text-rose-700',
                       )}>
                         <Star className="h-3 w-3" />
-                        {T.major[language]}
+                        {t('important', language)}
                       </span>
                     )}
                   </span>
