@@ -20,6 +20,7 @@ import { derivePortalRole } from "@/lib/portalAccess";
 import { useDealerScope } from "@/lib/dealerScope";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
+import { t as tt } from "@/lib/i18n/translations";
 
 import {
   ServiceTicket,
@@ -192,7 +193,7 @@ function categoryLabel(v: string, lang: Language): string {
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
@@ -260,7 +261,7 @@ export default function ServiceTicketsPage() {
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            {T.back[lang]}
+            {tt('backToTechnicalService', uiLanguage)}
           </button>
         </div>
       </div>
@@ -272,7 +273,7 @@ export default function ServiceTicketsPage() {
               <Ticket className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-black tracking-tight">{T.title[lang]}</h1>
+              <h1 className="text-3xl font-black tracking-tight">{tt('mod_service_tickets', uiLanguage)}</h1>
               <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
             </div>
           </div>
