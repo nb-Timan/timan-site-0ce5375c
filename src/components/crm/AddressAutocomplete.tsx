@@ -16,10 +16,15 @@
  */
 import { useEffect, useRef } from 'react';
 
-const API_KEY =
-  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
-  (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) ||
-  '';
+const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
+const GOOGLE_PLACES_KEY = (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) || '';
+
+const API_KEY = LOVABLE_KEY || GOOGLE_MAPS_KEY || GOOGLE_PLACES_KEY || '';
+const KEY_SOURCE: string | null = LOVABLE_KEY ? 'VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'
+  : GOOGLE_MAPS_KEY ? 'VITE_GOOGLE_MAPS_API_KEY'
+  : GOOGLE_PLACES_KEY ? 'VITE_GOOGLE_PLACES_API_KEY'
+  : null;
 
 const DEFAULT_COUNTRIES = ['dk', 'de', 'at', 'ch', 'it', 'hu', 'gb'];
 
@@ -58,7 +63,7 @@ function devLog(...args: unknown[]) {
 }
 // Log once at module load so we can see it even before any component mounts.
 if (typeof window !== 'undefined') {
-  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'keyLen:', API_KEY.length, 'MODE:', import.meta.env.MODE);
+  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'key source:', KEY_SOURCE, 'MODE:', import.meta.env.MODE);
 }
 
 let loaderPromise: Promise<boolean> | null = null;
@@ -66,7 +71,7 @@ function loadPlaces(): Promise<boolean> {
   if (!API_KEY) {
     if (!warnedMissingKey && typeof console !== 'undefined') {
       warnedMissingKey = true;
-      console.warn('Google Places autocomplete disabled: missing VITE_GOOGLE_MAPS_API_KEY');
+      console.warn('Google Places autocomplete disabled: missing VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY or VITE_GOOGLE_MAPS_API_KEY');
     }
     return Promise.resolve(false);
   }
@@ -164,7 +169,7 @@ export default function AddressAutocomplete({ value, onChange, onResolve, countr
   useEffect(() => { onResolveRef.current = onResolve; }, [onResolve]);
 
   useEffect(() => {
-    devLog('mount, key present:', !!API_KEY);
+    devLog('mount, key present:', !!API_KEY, 'key source:', KEY_SOURCE);
     if (!API_KEY || !ref.current) {
       if (!API_KEY) loadPlaces(); // triggers the missing-key warning once
       return;
