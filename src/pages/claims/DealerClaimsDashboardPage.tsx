@@ -1,11 +1,15 @@
 /**
- * Dealer Claims — Dashboard (1:1 from old src/routes/dealer.claims.dashboard.tsx).
+ * Dealer Claims — Dashboard.
+ * Local claims-store powers the existing KPIs + "Seneste claims" list.
+ * Supabase-backed `service_claims` powers the new "Mine claim-ansøgninger"
+ * section (dealer-side ticket→claim requests awaiting service approval),
+ * scoped by dealer_company text match.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  CheckCircle2, ClipboardList, Eye, Pencil, PlusCircle, Wrench, XCircle,
+  CheckCircle2, ClipboardList, Eye, Loader2, Pencil, PlusCircle, Wrench, XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
@@ -20,6 +24,11 @@ import {
   summarizeDealerClaims,
   type ClaimStatus,
 } from "@/lib/claims-store";
+import {
+  loadClaimsForDealer,
+  claimStatusLabel,
+  type ServiceClaim,
+} from "@/lib/claimsService";
 import { formatDate } from "@/lib/format-date";
 
 interface Props {
@@ -71,6 +80,8 @@ function DashboardBody({ dealerName, readOnly }: { dealerName: string; readOnly:
         <Kpi label="Godkendte" value={stats.approved} icon={CheckCircle2} accent="text-emerald-600" />
         <Kpi label="Afviste" value={stats.rejected} icon={XCircle} accent="text-red-600" />
       </div>
+
+      <DealerSupabaseClaims dealerName={dealerName} />
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
