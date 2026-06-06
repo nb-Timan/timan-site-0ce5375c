@@ -1071,7 +1071,7 @@ export default function PartnerMapPage() {
                             </span>
                           </div>
                           {visibleMachinePins.length === 0 ? (
-                            <div className="text-[11px] text-gray-400 italic">Ingen registreringer med koordinater.</div>
+                            <div className="text-[11px] text-gray-400 italic">{isDealerSide ? 'Ingen egne garantiregistreringer med koordinater.' : 'Ingen registreringer med koordinater.'}</div>
                           ) : (
                             <div className="max-h-72 overflow-y-auto -mx-1 divide-y divide-gray-100">
                               {visibleMachinePins.slice(0, 200).map((r) => {
