@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download } from "lucide-react";
+import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download, FileWarning } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
