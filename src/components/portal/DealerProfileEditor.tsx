@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/use-toast";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 import type { Language } from "@/types/configurator";
 import { tProfile, type ProfileI18nKey } from "@/lib/dealerProfileI18n";
@@ -76,6 +77,54 @@ function Field({ id, label, value, onChange, disabled, required, type = "text" }
         className={missing ? "border-rose-400 bg-rose-50 focus-visible:ring-rose-300" : undefined}
         aria-invalid={missing || undefined}
       />
+      {missing && (
+        <p className="mt-1 text-xs text-rose-600">Mangler udfyldelse</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Address field with Google Places autocomplete, styled like the standard
+ * shadcn <Input> so it slots into the dealer profile grid without visual
+ * changes. Falls back to a plain text input when no API key is configured
+ * (see AddressAutocomplete). Manual edits after a suggestion clear the
+ * captured coordinates / place_id so stale geocoding is never saved.
+ */
+interface AddressFieldProps {
+  id: string;
+  label: string;
+  value: string | null;
+  onChange: (v: string) => void;
+  onResolve: (r: ResolvedAddress) => void;
+  disabled?: boolean;
+  required?: boolean;
+}
+
+function AddressField({ id, label, value, onChange, onResolve, disabled, required }: AddressFieldProps) {
+  const isEmpty = !value || (typeof value === "string" && value.trim().length === 0);
+  const missing = !!required && isEmpty;
+  const base =
+    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  const cls = missing
+    ? `${base} border-rose-400 bg-rose-50 focus-visible:ring-rose-300`
+    : base;
+  return (
+    <div>
+      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
+        {label}{required ? " *" : ""}
+      </Label>
+      {disabled ? (
+        <Input id={id} value={value ?? ""} disabled />
+      ) : (
+        <AddressAutocomplete
+          id={id}
+          value={value ?? ""}
+          onChange={onChange}
+          onResolve={onResolve}
+          className={cls}
+        />
+      )}
       {missing && (
         <p className="mt-1 text-xs text-rose-600">Mangler udfyldelse</p>
       )}
@@ -236,12 +285,42 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           postal_code: draft.postal_code, city: draft.city,
           country: draft.country, vat_number: draft.vat_number, director_name: draft.director_name,
           phone: draft.phone, email: draft.email,
+          latitude: draft.latitude, longitude: draft.longitude,
+          google_place_id: draft.google_place_id,
         })}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
           <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-          <Field id="address_line_1" label={t("addressLine1")} value={draft.address_line_1} onChange={(v) => set("address_line_1", v)} disabled={!canEdit} required />
+          <AddressField
+            id="address_line_1"
+            label={t("addressLine1")}
+            value={draft.address_line_1}
+            disabled={!canEdit}
+            required
+            onChange={(v) => {
+              // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
+              setDraft((d) => ({
+                ...d,
+                address_line_1: v,
+                latitude: null,
+                longitude: null,
+                google_place_id: null,
+              }));
+            }}
+            onResolve={(r) => {
+              setDraft((d) => ({
+                ...d,
+                address_line_1: r.address_line_1 ?? r.formatted ?? d.address_line_1,
+                postal_code: r.postal_code ?? d.postal_code,
+                city: r.city ?? d.city,
+                country: r.country_name ?? d.country,
+                latitude: r.latitude ?? d.latitude,
+                longitude: r.longitude ?? d.longitude,
+                google_place_id: r.google_place_id ?? d.google_place_id,
+              }));
+            }}
+          />
           <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
           <div className="grid grid-cols-2 gap-3">
             <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => set("postal_code", v)} disabled={!canEdit} required />
