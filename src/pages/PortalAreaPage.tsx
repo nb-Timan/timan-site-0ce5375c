@@ -15,61 +15,56 @@ import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
 import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
+import { t } from '@/lib/i18n/translations';
 
-const T: Record<string, Record<Language, string>> = {
-  back: { da: 'Tilbage til portal', en: 'Back to portal', de: 'Zurück zum Portal', it: 'Torna al portale', hu: 'Vissza a portálra' },
-  desc_service_maintenance: {
-    da: 'Registrer udført service og se servicehistorik pr. maskine.',
-    en: 'Register completed service and view service history per machine.',
-    de: 'Erfassen Sie durchgeführte Wartungen und zeigen Sie den Wartungsverlauf pro Maschine an.',
-    it: 'Registra gli interventi di assistenza completati e visualizza la cronologia di assistenza per macchina.',
-    hu: 'Rögzítse az elvégzett szervizeléseket és tekintse meg a szervizelési előzményeket gépenként.',
-  },
-  desc_service_tickets: {
-    da: 'Opret, følg og håndter servicehenvendelser pr. maskine.',
-    en: 'Create, track and handle service requests per machine.',
-    de: 'Erstellen, verfolgen und bearbeiten Sie Serviceanfragen pro Maschine.',
-    it: 'Crea, monitora e gestisci le richieste di assistenza per macchina.',
-    hu: 'Hozzon létre, kövessen és kezeljen szerviz kéréseket gépenként.',
-  },
-  desc_machine_search: {
-    da: 'Find en maskine på serienummer og se samlet maskinprofil.',
-    en: 'Find a machine by serial number and see a full machine profile.',
-    de: 'Finden Sie eine Maschine anhand der Seriennummer und zeigen Sie ein vollständiges Maschinenprofil an.',
-    it: 'Trova una macchina tramite numero di serie e visualizza il profilo completo della macchina.',
-    hu: 'Keressen gépet gyári szám alapján és tekintse meg a teljes gépprofilt.',
-  },
-  desc_warranty_reg: {
-    da: 'Registrér maskinen inden salg for nemmere og hurtigere service efterfølgende.',
-    en: 'Register the machine before sale for easier and faster service afterwards.',
-    de: 'Registrieren Sie die Maschine vor dem Verkauf, damit der spätere Service einfacher und schneller wird.',
-    it: 'Registra la macchina prima della vendita per rendere l\u2019assistenza successiva più semplice e veloce.',
-    hu: 'Regisztrálja a gépet értékesítés előtt, hogy a későbbi szerviz gyorsabb és egyszerűbb legyen.',
-  },
-  desc_tsb: {
-    da: 'Technical Service Bulletin.',
-    en: 'Technical Service Bulletin.',
-    de: 'Technical Service Bulletin.',
-    it: 'Technical Service Bulletin.',
-    hu: 'Technical Service Bulletin.',
-  },
-  support_section_title: {
-    da: 'Timan Teknik support og firmainformation',
-    en: 'Timan Technical support and company information',
-    de: 'Timan Technik Support und Firmeninformationen',
-    it: 'Supporto tecnico Timan e informazioni aziendali',
-    hu: 'Timan műszaki támogatás és cégadatok',
-  },
-  support_heading: {
-    da: 'Support', en: 'Support', de: 'Support', it: 'Supporto', hu: 'Támogatás',
-  },
-  company_heading: {
-    da: 'Firmainformation', en: 'Company information', de: 'Firmeninformationen', it: 'Informazioni aziendali', hu: 'Cégadatok',
-  },
-  label_phone: { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon' },
-  label_email: { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
-  label_company: { da: 'Virksomhed', en: 'Company', de: 'Unternehmen', it: 'Azienda', hu: 'Vállalat' },
-  label_address: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
+const AREA_TITLE_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_title',
+  salg_marketing: 'area_salg_marketing_title',
+  timan_crm:      'area_timan_crm_title',
+  timan_backend:  'area_timan_backend_title',
+  dealer_data:    'area_dealer_data_title',
+};
+const AREA_DESC_KEY: Record<string, string> = {
+  teknik_service: 'area_teknik_service_desc',
+  salg_marketing: 'area_salg_marketing_desc',
+  timan_crm:      'area_timan_crm_desc',
+  timan_backend:  'area_timan_backend_desc',
+  dealer_data:    'area_dealer_data_desc',
+};
+
+const PLACEHOLDER_TITLE_KEY: Record<string, string> = {
+  tsb_portal: 'mod_tsb',
+  warranty_reg: 'mod_warranty_reg',
+  service_maintenance: 'mod_service_maintenance',
+  service_tickets: 'mod_service_tickets',
+  machine_search: 'mod_machine_search',
+  claims: 'mod_claims',
+  users: 'mod_users',
+  roles: 'mod_roles',
+  module_access: 'mod_module_access',
+  audit: 'mod_audit',
+  portal_analytics: 'mod_portal_analytics',
+  dealer_accounts: 'mod_dealer_accounts',
+  sellers: 'mod_sellers',
+  price_lists: 'mod_price_lists',
+  budget_import: 'mod_budget_import',
+};
+const PLACEHOLDER_DESC_KEY: Record<string, string> = {
+  tsb_portal: 'mod_tsb_desc',
+  warranty_reg: 'mod_warranty_reg_desc',
+  service_maintenance: 'mod_service_maintenance_desc',
+  service_tickets: 'mod_service_tickets_desc',
+  machine_search: 'mod_machine_search_desc',
+  claims: 'mod_claims_desc',
+  users: 'mod_users_desc',
+  roles: 'mod_roles_desc',
+  module_access: 'mod_module_access_desc',
+  audit: 'mod_audit_desc',
+  portal_analytics: 'mod_portal_analytics_desc',
+  dealer_accounts: 'mod_dealer_accounts_desc',
+  sellers: 'mod_sellers_desc',
+  price_lists: 'mod_price_lists_desc',
+  budget_import: 'mod_budget_import_desc',
 };
 
 interface Props { areaId: PortalAreaId }
