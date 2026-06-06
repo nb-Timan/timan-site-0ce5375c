@@ -109,6 +109,10 @@ function AddressField({ id, label, value, onChange, onResolve, disabled, require
   const cls = missing
     ? `${base} border-rose-400 bg-rose-50 focus-visible:ring-rose-300`
     : base;
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[AddressField]', id, 'disabled:', !!disabled);
+  }
   return (
     <div>
       <Label htmlFor={id} className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">
@@ -179,6 +183,12 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
 
 export default function DealerProfileEditor({ dealer, language, canEdit, onUpdated }: Props) {
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
+
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[DealerProfileEditor] canEdit:', canEdit, 'dealer:', dealer?.account_number);
+  }
+
 
   const [draft, setDraft] = useState<DealerAccount>(dealer);
   const [savingSection, setSavingSection] = useState<SectionKey | null>(null);

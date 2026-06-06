@@ -210,11 +210,21 @@ export default function DealerDataPage() {
   // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
+  // Internal Timan staff (backend/seller/service) may always edit the dealer
+  // profile they are viewing — including dealers reached via ?accountNumber=…
+  // from CRM. External dealer-side roles edit only their own account (RLS).
   const canEditProfile = portalRole === 'timan_backend'
+    || portalRole === 'timan_seller'
+    || portalRole === 'timan_service'
     || portalRole === 'timan_dealer'
     || portalRole === 'timan_importer'
     || portalRole === 'timan_service_partner'
     || portalRole === 'dealer_user';
+
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[DealerDataPage] canEditProfile:', canEditProfile, 'portalRole:', portalRole, 'dealerNumber:', dealerNumber);
+  }
 
   const dealerName = dealer?.company_name || appUser.company_dealer || '—';
 
