@@ -656,6 +656,16 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
+      // Dealer-side users only see their own account. No demo-locations
+      // unless reliably owned by their account (we cannot determine that
+      // here, so demo-locations are always hidden for dealer-side users).
+      if (isDealerSide) {
+        const acc = (d.account_number ?? '').trim().toUpperCase();
+        if (!ownDealerNumber || acc !== ownDealerNumber) return false;
+        if (normalizeType(d.dealer_type) === 'demo_location') return false;
+        // Skip status filter for dealer-side users — their own account is shown as-is.
+        return true;
+      }
       if (d.is_deleted && statusFilter === 'active') return false;
       if (d.is_blocked && statusFilter === 'active') return false;
       if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
@@ -686,7 +696,7 @@ export default function PartnerMapPage() {
         website: d.website ?? null,
         facebook: d.social_facebook ?? null,
       } as Partner;
-    }), [dealers, stats, statusFilter]);
+    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber]);
 
   // Machine pins visible to the current user.
   // - Backend / Service: all pins
