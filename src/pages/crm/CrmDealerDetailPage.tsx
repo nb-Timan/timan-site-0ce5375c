@@ -1308,6 +1308,7 @@ function ContactHero({
   branchCount,
   budgetTotals,
   budgetYear,
+  nextFollowup,
   onAddActivity,
   onEdit,
 }: {
@@ -1323,6 +1324,7 @@ function ContactHero({
   branchCount: number;
   budgetTotals: ReturnType<typeof aggregateDealerBudget> | null;
   budgetYear: number;
+  nextFollowup: { date: string; title: string } | null;
   onAddActivity: () => void;
   onEdit: () => void;
 }) {
