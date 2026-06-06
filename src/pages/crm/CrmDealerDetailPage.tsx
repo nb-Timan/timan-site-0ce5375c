@@ -28,6 +28,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import {
@@ -1147,16 +1148,33 @@ function EditDealerModal({
     assigned_seller_initials: dealer.assigned_seller_initials || "",
     customer_type_label: dealer.customer_type_label || "",
   });
+  // Geo captured from Google Places when the user selects a suggestion.
+  // Manual typing leaves these null; backend manual geocode panel handles backfill.
+  const [geo, setGeo] = useState<{ latitude: number | null; longitude: number | null; google_place_id: string | null }>({
+    latitude: dealer.latitude ?? null,
+    longitude: dealer.longitude ?? null,
+    google_place_id: dealer.google_place_id ?? null,
+  });
   const [saving, setSaving] = useState(false);
 
   const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  function applyResolved(r: ResolvedAddress) {
+    setForm((f) => ({
+      ...f,
+      address: r.address_line_1 || r.formatted || f.address,
+      postal_code: r.postal_code ?? f.postal_code,
+      city: r.city ?? f.city,
+      country: r.country ?? f.country,
+    }));
+    setGeo({ latitude: r.latitude, longitude: r.longitude, google_place_id: r.google_place_id });
+  }
+
   const fields: Array<{ label: string; k: keyof typeof form; type?: string }> = [
     { label: "Firmanavn", k: "company_name" },
     { label: "Kontonummer", k: "account_number" },
     { label: "Land", k: "country" },
-    { label: "Adresse", k: "address" },
     { label: "Postnr.", k: "postal_code" },
     { label: "By", k: "city" },
     { label: "Email", k: "email", type: "email" },
@@ -1174,6 +1192,22 @@ function EditDealerModal({
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Adresse with Google Places autocomplete — spans both columns */}
+          <label className="block md:col-span-2">
+            <span className="block text-xs font-bold text-slate-600 mb-1">Adresse</span>
+            <AddressAutocomplete
+              value={form.address}
+              onChange={(v) => setForm((f) => ({ ...f, address: v }))}
+              onResolve={applyResolved}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Begynd at skrive adressen…"
+            />
+            {geo.google_place_id && (
+              <span className="mt-1 inline-block text-[10px] text-emerald-700">
+                Google-koordinater: {geo.latitude?.toFixed(5)}, {geo.longitude?.toFixed(5)}
+              </span>
+            )}
+          </label>
           {fields.map((f) => (
             <label key={f.k} className="block">
               <span className="block text-xs font-bold text-slate-600 mb-1">{f.label}</span>
@@ -1201,7 +1235,12 @@ function EditDealerModal({
               setSaving(true);
               try {
                 const trim = (s: string) => (s.trim() === "" ? null : s.trim());
-                await onSave({
+                const addressChanged =
+                  trim(form.address) !== (dealer.address ?? null) ||
+                  trim(form.postal_code) !== (dealer.postal_code ?? null) ||
+                  trim(form.city) !== (dealer.city ?? null) ||
+                  trim(form.country) !== (dealer.country ?? null);
+                const patch: UpdateDealerAccountPatch = {
                   company_name: form.company_name.trim(),
                   account_number: form.account_number.trim(),
                   country: trim(form.country),
@@ -1212,7 +1251,20 @@ function EditDealerModal({
                   phone: trim(form.phone),
                   assigned_seller_initials: trim(form.assigned_seller_initials),
                   customer_type_label: trim(form.customer_type_label),
-                });
+                };
+                // Persist Google geo only when present (selected from suggestion).
+                // If the user typed manually and changed the address, clear stale
+                // coords so the backend manual geocode panel can refresh them.
+                if (geo.google_place_id) {
+                  patch.latitude = geo.latitude;
+                  patch.longitude = geo.longitude;
+                  patch.google_place_id = geo.google_place_id;
+                } else if (addressChanged) {
+                  patch.latitude = null;
+                  patch.longitude = null;
+                  patch.google_place_id = null;
+                }
+                await onSave(patch);
               } finally {
                 setSaving(false);
               }
