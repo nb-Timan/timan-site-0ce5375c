@@ -147,7 +147,7 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome language={lang} />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {areaModules.map(m => <ModuleCard key={m.id} module={m} language={lang} />)}
+          {areaModules.map(m => <ModuleCard key={m.id} module={m} language={uiLanguage} />)}
           {area.placeholders.map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;
