@@ -1,12 +1,14 @@
 /**
- * Admin Claims — Dashboard view (1:1 from old Timan TSB Hub
- * src/routes/admin.claims.dashboard.tsx).
+ * Admin Claims — Dashboard view.
  * Shown to internal roles: Timan Backend, Timan Service, Timan Sælger.
+ * Adds a "Afventer servicegodkendelse" queue for dealer-submitted claim
+ * requests sourced from Supabase `service_claims`.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Eye, MessageSquare } from "lucide-react";
+import { ArrowRight, Eye, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
 import LastChangedLine from "@/components/portal/LastChangedLine";
 import {
@@ -19,6 +21,13 @@ import {
   isClaimGrouped,
   type ClaimStatus,
 } from "@/lib/claims-store";
+import {
+  approveClaim,
+  loadPendingReviewClaims,
+  claimStatusLabel,
+  type ServiceClaim,
+} from "@/lib/claimsService";
+import { formatDate } from "@/lib/format-date";
 
 const ACTIVE_STATUSES: ClaimStatus[] = [
   "waiting",
@@ -58,6 +67,8 @@ function DashboardBody() {
 
   return (
     <div className="space-y-6">
+      <PendingReviewQueue />
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
           <div className="text-xs font-black uppercase tracking-widest text-slate-500">
