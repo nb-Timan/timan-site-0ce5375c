@@ -309,6 +309,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             value={draft.address_line_1}
             disabled={!canEdit}
             required
+            addressParts={{ address_line_1: draft.address_line_1, postal_code: draft.postal_code, city: draft.city, country: draft.country }}
             onChange={(v) => {
               // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
               setDraft((d) => ({
