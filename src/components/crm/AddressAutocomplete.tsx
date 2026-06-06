@@ -63,7 +63,7 @@ function devLog(...args: unknown[]) {
 }
 // Log once at module load so we can see it even before any component mounts.
 if (typeof window !== 'undefined') {
-  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'keyLen:', API_KEY.length, 'MODE:', import.meta.env.MODE);
+  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'key source:', KEY_SOURCE, 'MODE:', import.meta.env.MODE);
 }
 
 let loaderPromise: Promise<boolean> | null = null;
