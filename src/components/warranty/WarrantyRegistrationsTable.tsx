@@ -130,7 +130,19 @@ export function WarrantyRegistrationsTable({
   const [sortKey, setSortKey] = useState<SortKey>("certificate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const [selected, setSelected] = useState<DbWarrantyRegistration | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Snapshot of the selected record so the modal stays stable across refetches
+  // / re-renders, even if the row briefly disappears from `records`.
+  const selectedSnapshotRef = useRef<DbWarrantyRegistration | null>(null);
+  const selected = useMemo(() => {
+    if (!selectedId) return null;
+    const fromRecords = records.find((r) => r.id === selectedId) ?? null;
+    if (fromRecords) {
+      selectedSnapshotRef.current = fromRecords;
+      return fromRecords;
+    }
+    return selectedSnapshotRef.current;
+  }, [selectedId, records]);
 
   const scoped = useMemo(() => {
     if (scope === "admin") return records;
