@@ -16,10 +16,15 @@
  */
 import { useEffect, useRef } from 'react';
 
-const API_KEY =
-  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
-  (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) ||
-  '';
+const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
+const GOOGLE_PLACES_KEY = (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) || '';
+
+const API_KEY = LOVABLE_KEY || GOOGLE_MAPS_KEY || GOOGLE_PLACES_KEY || '';
+const KEY_SOURCE: string | null = LOVABLE_KEY ? 'VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'
+  : GOOGLE_MAPS_KEY ? 'VITE_GOOGLE_MAPS_API_KEY'
+  : GOOGLE_PLACES_KEY ? 'VITE_GOOGLE_PLACES_API_KEY'
+  : null;
 
 const DEFAULT_COUNTRIES = ['dk', 'de', 'at', 'ch', 'it', 'hu', 'gb'];
 
