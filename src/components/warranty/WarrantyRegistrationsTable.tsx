@@ -4,7 +4,7 @@
  *  - Dealer (scope="dealer"):  /portal/service/warranty/registrations
  *  - Timan Admin (scope="admin"): /portal/service/warranty/registrations
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDown,
@@ -130,7 +130,19 @@ export function WarrantyRegistrationsTable({
   const [sortKey, setSortKey] = useState<SortKey>("certificate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const [selected, setSelected] = useState<DbWarrantyRegistration | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Snapshot of the selected record so the modal stays stable across refetches
+  // / re-renders, even if the row briefly disappears from `records`.
+  const selectedSnapshotRef = useRef<DbWarrantyRegistration | null>(null);
+  const selected = useMemo(() => {
+    if (!selectedId) return null;
+    const fromRecords = records.find((r) => r.id === selectedId) ?? null;
+    if (fromRecords) {
+      selectedSnapshotRef.current = fromRecords;
+      return fromRecords;
+    }
+    return selectedSnapshotRef.current;
+  }, [selectedId, records]);
 
   const scoped = useMemo(() => {
     if (scope === "admin") return records;
@@ -447,7 +459,7 @@ export function WarrantyRegistrationsTable({
                     <td className="whitespace-nowrap px-6 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => setSelected(r)}
+                        onClick={() => { selectedSnapshotRef.current = r; setSelectedId(r.id); }}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
                       >
                         <Eye className="h-3.5 w-3.5" /> Vis
@@ -470,9 +482,9 @@ export function WarrantyRegistrationsTable({
         <CertificateDialog
           record={selected}
           canEdit={canEdit}
-          onClose={() => setSelected(null)}
+          onClose={() => { selectedSnapshotRef.current = null; setSelectedId(null); }}
           onSaved={async (next) => {
-            setSelected(next);
+            selectedSnapshotRef.current = next;
             await reloadAfterEdit();
           }}
         />
@@ -705,11 +717,20 @@ function CertificateDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4"
-      onClick={onClose}
+      // Intentionally NO onClick → backdrop clicks must not close the modal.
+      // The modal can only be closed by the X button, Annuller, or a successful save.
     >
       <div
         className="my-8 w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // Block Escape from bubbling to anything that might close the modal.
+          if (e.key === "Escape") e.stopPropagation();
+        }}
+        onPaste={(e) => e.stopPropagation()}
+        onSubmit={(e) => e.preventDefault()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
