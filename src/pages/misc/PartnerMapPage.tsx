@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -561,6 +561,48 @@ export default function PartnerMapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
+
+  // Map base layer style — persisted per user in localStorage.
+  type MapStyleId = 'standard' | 'satellite' | 'terrain' | 'dark';
+  const MAP_STYLES: Record<MapStyleId, { label: string; url: string; attribution: string; subdomains?: string[]; maxZoom?: number }> = {
+    standard: {
+      label: 'Standard',
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: ['a','b','c','d'],
+      maxZoom: 19,
+    },
+    satellite: {
+      label: 'Satellit',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Earthstar Geographics',
+      maxZoom: 19,
+    },
+    terrain: {
+      label: 'Terræn',
+      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+      subdomains: ['a','b','c'],
+      maxZoom: 17,
+    },
+    dark: {
+      label: 'Mørk',
+      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: ['a','b','c','d'],
+      maxZoom: 19,
+    },
+  };
+  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle';
+  const [mapStyle, setMapStyle] = useState<MapStyleId>(() => {
+    if (typeof window === 'undefined') return 'standard';
+    const saved = window.localStorage.getItem(MAP_STYLE_STORAGE_KEY);
+    return (saved === 'standard' || saved === 'satellite' || saved === 'terrain' || saved === 'dark') ? saved : 'standard';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(MAP_STYLE_STORAGE_KEY, mapStyle);
+  }, [mapStyle]);
+
   
   const [resultsOpen, setResultsOpen] = useState(true);
 
@@ -926,6 +968,20 @@ export default function PartnerMapPage() {
                 <button onClick={worldView} className="h-9 px-2.5 flex items-center gap-1.5 text-gray-600 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200" title={T.worldView[lang]}>
                   <Globe className="h-4 w-4" /> <span className="hidden sm:inline">{T.worldView[lang]}</span>
                 </button>
+                <div className="relative h-9 flex items-center">
+                  <Layers className="h-4 w-4 text-gray-500 absolute left-2 pointer-events-none" />
+                  <select
+                    value={mapStyle}
+                    onChange={(e) => setMapStyle(e.target.value as MapStyleId)}
+                    title="Kortlag"
+                    className="h-9 pl-7 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="satellite">Satellit</option>
+                    <option value="terrain">Terræn</option>
+                    <option value="dark">Mørk</option>
+                  </select>
+                </div>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Fuldskærm"><Maximize2 className="h-4 w-4" /></button>
                 <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Hjælp"><HelpCircle className="h-4 w-4" /></button>
               </div>
@@ -1074,9 +1130,11 @@ export default function PartnerMapPage() {
                     worldCopyJump={true}
                   >
                     <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                      subdomains={['a','b','c','d']}
+                      key={mapStyle}
+                      attribution={MAP_STYLES[mapStyle].attribution}
+                      url={MAP_STYLES[mapStyle].url}
+                      subdomains={MAP_STYLES[mapStyle].subdomains as any}
+                      maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
