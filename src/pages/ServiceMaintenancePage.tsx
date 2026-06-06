@@ -388,6 +388,17 @@ export default function ServiceMaintenancePage() {
             <DashCard icon={Wrench} label={t('statTop')} value={topMachine ? `${topMachine.serial} (${topMachine.count})` : '—'} />
             <DashCard icon={Building2} label={t('statDealers')} value={activeDealerCount} />
           </div>
+          {!isBackend && (
+            <div className="flex">
+              <Button
+                onClick={() => navigate('/portal/service/tickets?create=1')}
+                className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('newServiceReg')}
+              </Button>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 mb-4">{t('latest')}</h2>
             {latestRegs.length === 0 ? (
