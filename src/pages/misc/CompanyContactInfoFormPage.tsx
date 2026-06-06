@@ -6,6 +6,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
 import { submitPortalForm, PortalFormSubmission } from '@/lib/portalFormsService';
+import AddressAutocomplete, { type ResolvedAddress } from '@/components/crm/AddressAutocomplete';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Phase 49 — "Firma Information" (company_contact_info)
@@ -391,7 +392,18 @@ export default function CompanyContactInfoFormPage() {
               </div>
               <div>
                 <label className={labelCls}>Firma Adresse{reqMark}</label>
-                <input className={inputCls} value={address} onChange={(e) => setAddress(e.target.value)} />
+                <AddressAutocomplete
+                  className={inputCls}
+                  value={address}
+                  onChange={setAddress}
+                  onResolve={(r: ResolvedAddress) => {
+                    if (r.address_line_1) setAddress(r.address_line_1);
+                    const pc = [r.postal_code, r.city].filter(Boolean).join(' ');
+                    if (pc) setZipCity(pc);
+                    if (r.country_name) setCountry(r.country_name);
+                  }}
+                  placeholder="Begynd at skrive adressen…"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

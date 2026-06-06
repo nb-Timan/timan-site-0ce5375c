@@ -55,6 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format-date";
+import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 // Compatibility shim — old portal had a "PortalLang" type that was just
 // "DK" | "GB" | etc.; we adapt to this project's Language and only support
@@ -832,14 +833,23 @@ export function ClaimTool({
                 required
                 disabled={readOnly && !adminMode}
               />
-              <FormInput
-                label={t("labels.address")}
-                value={formData.ownerAddress}
-                onChange={(value) =>
-                  setFormData({ ...formData, ownerAddress: value })
-                }
-                required
-              />
+              <div className="w-full">
+                <label className="mb-1 block text-[9px] font-bold uppercase text-slate-400 print:text-black">
+                  {t("labels.address")} *
+                </label>
+                <AddressAutocomplete
+                  value={formData.ownerAddress}
+                  onChange={(value) => setFormData({ ...formData, ownerAddress: value })}
+                  onResolve={(r: ResolvedAddress) => {
+                    const next = { ...formData };
+                    if (r.address_line_1) next.ownerAddress = r.address_line_1;
+                    if (r.postal_code) next.ownerPostal = r.postal_code;
+                    setFormData(next);
+                  }}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-all focus:border-slate-400"
+                  placeholder="Begynd at skrive adressen…"
+                />
+              </div>
               <FormInput
                 label={t("labels.postal")}
                 value={formData.ownerPostal}
