@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, ChevronLeft, ChevronRight, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -561,7 +561,7 @@ export default function PartnerMapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
-  const [legendOpen, setLegendOpen] = useState(false);
+  
   const [resultsOpen, setResultsOpen] = useState(true);
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -863,34 +863,11 @@ export default function PartnerMapPage() {
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
         <div className="flex gap-3">
           {/* Legend */}
-          <aside className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 ${legendOpen ? 'w-52' : 'w-0'}`}>
-            {legendOpen && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-5 sticky top-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">{T.pinLegend[lang]}</div>
-                  <button onClick={() => setLegendOpen(false)} className="text-gray-400 hover:text-gray-700"><ChevronLeft className="h-4 w-4" /></button>
-                </div>
-                <div className="space-y-2">
-                  {(['dealer','service_partner','importer','demo_location'] as PartnerType[]).map((t) => (
-                    <div key={t} className="flex items-center gap-2 text-xs text-gray-700">
-                      <span className="inline-block w-4 h-4 rounded-full shrink-0" style={{ background: TYPE_COLORS[t] }} />
-                      {T[t][lang]}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </aside>
 
           {/* Map area */}
           <section className="flex-1 min-w-0">
             {/* Topbar */}
             <div className="bg-white rounded-t-2xl border border-b-0 border-gray-100 shadow-sm px-3 py-2 flex flex-wrap items-center gap-2">
-              {!legendOpen && (
-                <button onClick={() => setLegendOpen(true)} className="hidden lg:flex h-9 w-9 items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Vis legend">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              )}
               <button
                 onClick={() => setResultsOpen((v) => !v)}
                 className={`hidden md:flex h-9 px-2.5 items-center gap-1.5 rounded-md text-xs font-medium border ${resultsOpen ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
