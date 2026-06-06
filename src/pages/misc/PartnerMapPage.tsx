@@ -536,12 +536,14 @@ export default function PartnerMapPage() {
   // see the Garantiregistreringer-laget — scoped to their own dealer.
   const canSeeMachineStats =
     portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
-  const canSeeMachineLayer =
-    canSeeMachineStats ||
+  // Dealer-side users: forhandlere, importører, servicepartnere, dealer-users.
+  // They MUST only see their own account/data — no Timan-wide partner browsing.
+  const isDealerSide =
     portalRole === 'timan_dealer' ||
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
+  const canSeeMachineLayer = canSeeMachineStats || isDealerSide;
   const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
@@ -654,6 +656,16 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
+      // Dealer-side users only see their own account. No demo-locations
+      // unless reliably owned by their account (we cannot determine that
+      // here, so demo-locations are always hidden for dealer-side users).
+      if (isDealerSide) {
+        const acc = (d.account_number ?? '').trim().toUpperCase();
+        if (!ownDealerNumber || acc !== ownDealerNumber) return false;
+        if (normalizeType(d.dealer_type) === 'demo_location') return false;
+        // Skip status filter for dealer-side users — their own account is shown as-is.
+        return true;
+      }
       if (d.is_deleted && statusFilter === 'active') return false;
       if (d.is_blocked && statusFilter === 'active') return false;
       if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
@@ -684,7 +696,7 @@ export default function PartnerMapPage() {
         website: d.website ?? null,
         facebook: d.social_facebook ?? null,
       } as Partner;
-    }), [dealers, stats, statusFilter]);
+    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber]);
 
   // Machine pins visible to the current user.
   // - Backend / Service: all pins
@@ -927,7 +939,9 @@ export default function PartnerMapPage() {
                 {search && (<button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>)}
               </div>
               <div className="flex items-center gap-1.5">
-                {(['dealer','service_partner','importer','demo_location'] as PartnerType[]).map((t) => {
+                {(['dealer','service_partner','importer','demo_location'] as PartnerType[])
+                  .filter((t) => !(isDealerSide && t === 'demo_location'))
+                  .map((t) => {
                   const on = activeTypes.has(t);
                   return (
                     <button key={t} onClick={() => toggleType(t)}
@@ -948,20 +962,24 @@ export default function PartnerMapPage() {
                   </button>
                 )}
               </div>
-              <select
-                value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}
-                className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
-                <option value="all">{T.allSellers[lang]}</option>
-                {sellerOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select
-                value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
-                title="Status"
-                className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
-                <option value="active">Aktive</option>
-                <option value="inactive">Spærrede/Lukkede</option>
-                <option value="all">Alle</option>
-              </select>
+              {!isDealerSide && (
+                <>
+                  <select
+                    value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}
+                    className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
+                    <option value="all">{T.allSellers[lang]}</option>
+                    {sellerOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select
+                    value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
+                    title="Status"
+                    className="text-xs font-medium px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-gray-700 focus:outline-none focus:border-[#2d5a27]">
+                    <option value="active">Aktive</option>
+                    <option value="inactive">Spærrede/Lukkede</option>
+                    <option value="all">Alle</option>
+                  </select>
+                </>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
                   <Home className="h-4 w-4" />
@@ -1053,7 +1071,7 @@ export default function PartnerMapPage() {
                             </span>
                           </div>
                           {visibleMachinePins.length === 0 ? (
-                            <div className="text-[11px] text-gray-400 italic">Ingen registreringer med koordinater.</div>
+                            <div className="text-[11px] text-gray-400 italic">{isDealerSide ? 'Ingen egne garantiregistreringer med koordinater.' : 'Ingen registreringer med koordinater.'}</div>
                           ) : (
                             <div className="max-h-72 overflow-y-auto -mx-1 divide-y divide-gray-100">
                               {visibleMachinePins.slice(0, 200).map((r) => {
