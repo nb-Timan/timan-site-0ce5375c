@@ -526,7 +526,8 @@ export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const { appUser } = useAppUser();
-  const portalRole = derivePortalRole(appUser);
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   const canSeeAssignedSeller = canOpenCrm;
   // Internal roles get aggregate machine stats on partner cards. Dealer-side
@@ -540,13 +541,17 @@ export default function PartnerMapPage() {
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
-  const ownDealerNumber = (appUser?.dealer_number ?? '').trim().toUpperCase();
+  const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
-    if (!appUser?.email) return null;
-    const d = resolveSellerDisplay({ email: appUser.email }, sellerDir);
+    // In "view as <seller>" mode this resolves to the previewed seller's
+    // initials (e.g. AKR), not the logged-in backend user.
+    const viaActiveMode = getEffectiveSellerInitials(appUser);
+    if (viaActiveMode) return viaActiveMode.toUpperCase();
+    if (!effectiveUser?.email) return null;
+    const d = resolveSellerDisplay({ email: effectiveUser.email }, sellerDir);
     return (d.initials || '').toUpperCase() || null;
-  }, [sellerDir, appUser?.email]);
+  }, [sellerDir, effectiveUser?.email, appUser]);
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
