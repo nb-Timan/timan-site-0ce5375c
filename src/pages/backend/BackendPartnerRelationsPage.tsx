@@ -209,10 +209,13 @@ export default function BackendPartnerRelationsPage() {
               <span className="text-slate-700">Forhandler (barn)</span>
               <select className="mt-1 w-full rounded border-slate-300" value={impChild} onChange={(e) => setImpChild(e.target.value)}>
                 <option value="">— vælg —</option>
-                {dealers.filter((d) => d.id !== impParent).map((d) => (
+                {dealerOptions.filter((d) => d.id !== impParent).map((d) => (
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
+              {!loading && importers.length === 0 && (
+                <span className="mt-1 block text-xs text-amber-700">Ingen importører fundet. Tjek forhandlertype på dealer_accounts.</span>
+              )}
             </label>
             <button
               type="button"
