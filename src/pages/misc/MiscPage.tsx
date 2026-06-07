@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Map } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
+import { useAppUser } from '@/context/AppUserContext';
+import { useChangelog, formatChangedDate, t as ct } from '@/lib/portalChangelog';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
+import { cn } from '@/lib/utils';
 
 const T: Record<string, Record<Language, string>> = {
   title: { da: 'Diverse', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb' },
