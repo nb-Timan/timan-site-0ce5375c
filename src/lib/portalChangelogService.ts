@@ -157,6 +157,7 @@ export interface ChangelogDraft {
   id?: string;
   module_key: string;
   module_name: string;
+  submodule_key?: string | null;
   title: string;
   description?: string | null;
   changed_at: string;            // ISO
@@ -180,6 +181,7 @@ export async function adminCreateChangelog(draft: ChangelogDraft): Promise<{ err
   const { error } = await supabase.from('portal_change_log').insert({
     module_key: draft.module_key,
     module_name: draft.module_name,
+    submodule_key: draft.submodule_key || null,
     title: draft.title,
     description: draft.description || null,
     changed_at: draft.changed_at,
@@ -197,6 +199,7 @@ export async function adminUpdateChangelog(id: string, draft: ChangelogDraft): P
   const { error } = await supabase.from('portal_change_log').update({
     module_key: draft.module_key,
     module_name: draft.module_name,
+    submodule_key: draft.submodule_key || null,
     title: draft.title,
     description: draft.description || null,
     changed_at: draft.changed_at,
