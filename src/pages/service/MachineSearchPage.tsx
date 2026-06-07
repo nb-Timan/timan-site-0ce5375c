@@ -255,6 +255,33 @@ export default function MachineSearchPage() {
   const [historyParts, setHistoryParts] = useState<Record<string, ServiceRegistrationPartRow[]>>({});
   const [historyPartsLoading, setHistoryPartsLoading] = useState<Record<string, boolean>>({});
 
+  // ---- Machine Registry Overview (Phase 1) ----
+  const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [overviewPage, setOverviewPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  useEffect(() => {
+    if (!appUser) return;
+    let cancelled = false;
+    (async () => {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      try {
+        const scope = await buildJournalScope(appUser, portalRole);
+        const rows = await listAccessibleMachines(scope);
+        if (!cancelled) setOverview(rows);
+      } catch (e) {
+        console.error("[MachineSearch] overview load failed", e);
+        if (!cancelled) setOverviewError("Kunne ikke hente maskineoversigt.");
+      } finally {
+        if (!cancelled) setOverviewLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [appUser, portalRole]);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
