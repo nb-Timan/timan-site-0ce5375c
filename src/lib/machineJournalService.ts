@@ -625,6 +625,14 @@ export async function loadMachineJournal(
     tsbPending: tsbForSerial.filter((t) => t.status === "afventer").length,
     status: machine ? "active" : (firstWarranty?.status === "archived" ? "archived" : "active"),
     machineRecord: machine ?? null,
+    dealerLinkMissing: !(
+      (machine && (machine.dealer_number || machine.dealer_account_id || machine.dealer_name)) ||
+      warranties.some((w) => w.dealerAccountNumber || w.dealerAccountId || w.dealerName) ||
+      serviceRegs.some((s) => s.dealer_number || s.dealer_name) ||
+      ticketsForSerial.some((t) => (t as { dealer_number?: string | null }).dealer_number || t.dealer_name) ||
+      claimsForSerial.some((c) => c.dealer) ||
+      tsbForSerial.some((t) => t.dealerName)
+    ),
   };
 
   // ---------- Timeline ----------
