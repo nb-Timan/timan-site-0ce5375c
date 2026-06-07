@@ -2101,7 +2101,7 @@ export default function ConfiguratorPage() {
                           <div className="space-y-1 py-3 border-t border-b border-gray-200">
                             {p.techSpecs.map((spec, i) => (
                               <div key={i} className="flex justify-between text-sm">
-                                <span className="text-gray-600">{spec.label}:</span>
+                                <span className="text-gray-600">{translateSpecLabel(spec.label, uiLanguage)}:</span>
                                 <span className="font-semibold text-gray-900">{typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '')}</span>
                               </div>
                             ))}
