@@ -462,7 +462,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 {savedItems.map(item => (
                   <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
                     {(() => {
-                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' } as Record<string, string>)[language] || 'en-GB';
+                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
                       const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : null;
                       const createdAt = fmt(item.created_case_at) || fmt(item.created_at);
                       const quoteSentAt = fmt(item.quote_sent_at);
