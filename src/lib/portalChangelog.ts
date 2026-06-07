@@ -22,6 +22,7 @@ import {
 
 export type ModuleKey =
   | 'partner_map'
+  | 'misc'
   | 'dealer_data'
   | 'crm'
   | 'warranty'
