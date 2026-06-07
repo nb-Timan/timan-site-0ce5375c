@@ -2752,7 +2752,7 @@ export default function ConfiguratorPage() {
                   ? T('savingChangesBtn')
                   : savedConfigurationId
                     ? T('saveChangesBtn')
-                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang])}
+                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang] || T('saveCase'))}
                 {savedConfigurationId && (
                   <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                     {savedQuoteNumber || savedOrderNumber || ''}
