@@ -42,6 +42,13 @@ export type ChangelogRole =
 export interface ChangeLogEntry {
   id: string;
   module_key: ModuleKey;
+  /**
+   * Optional submodule identifier — when set, the entry is attributed to a
+   * specific card inside the module's portal area (e.g. 'service_tickets',
+   * 'claims', 'warranty_reg', 'service_maintenance', 'machine_search',
+   * 'tsb_portal'). Entries without submodule_key are module-level changes.
+   */
+  submodule_key?: string;
   module_name: Record<Language, string>;
   /** ISO timestamp of when the change went live. */
   changed_at: string;
