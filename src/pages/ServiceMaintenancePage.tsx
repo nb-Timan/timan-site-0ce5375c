@@ -15,6 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { Language } from '@/types/configurator';
+import { pickT } from '@/lib/i18n/translations';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import {
