@@ -14,6 +14,7 @@ import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
+import { searchMachinesByIdentifier, type MachineSearchHit } from "@/lib/machineJournalService";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -228,6 +229,7 @@ export default function MachineSearchPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [machine, setMachine] = useState<MachineRecord | null>(null);
+  const [crossHits, setCrossHits] = useState<MachineSearchHit[]>([]);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -263,12 +265,24 @@ export default function MachineSearchPage() {
     setError(null);
     setSearched(true);
     setMachine(null);
+    setCrossHits([]);
     setTickets([]);
     setTicketsError(null);
     setActiveTab("overview");
     try {
       const result = await findMachineByIdentifier(q);
       setMachine(result);
+      // Also probe other sources by serial — surfaces machines that exist
+      // only in warranty/service/ticket/claim/TSB sources.
+      try {
+        const hits = await searchMachinesByIdentifier(q, {
+          role: portalRole,
+          dealerLabel: appUser?.display_name ?? null,
+        });
+        setCrossHits(hits);
+      } catch (sErr) {
+        console.warn("[MachineSearch] cross-source search failed", sErr);
+      }
     } catch (e) {
       console.error("[MachineSearch] supabase error", e);
       setError(T.errorMsg[lang]);
