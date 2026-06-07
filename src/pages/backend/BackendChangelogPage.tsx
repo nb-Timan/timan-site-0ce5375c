@@ -217,6 +217,23 @@ export default function BackendChangelogPage() {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2" />
               </Field>
 
+              <Field label="Submodul-key (valgfri)">
+                <input
+                  type="text"
+                  list="submodule-suggestions"
+                  value={draft.submodule_key || ""}
+                  onChange={e => setDraft({ ...draft, submodule_key: e.target.value || null })}
+                  placeholder="fx service_tickets, claims, warranty_reg"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                />
+                <datalist id="submodule-suggestions">
+                  {(SUBMODULE_SUGGESTIONS[draft.module_key] || []).map(s => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+                <p className="mt-1 text-[11px] text-slate-400">Sætter badge på et bestemt undermodul-kort i området.</p>
+              </Field>
+
               <Field label="Titel">
                 <input type="text" value={draft.title}
                   onChange={e => setDraft({ ...draft, title: e.target.value })}
