@@ -656,14 +656,14 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
-      // Dealer-side users only see their own account. No demo-locations
-      // unless reliably owned by their account (we cannot determine that
-      // here, so demo-locations are always hidden for dealer-side users).
+      // Dealer-side users may see all partner accounts (Forhandler, Servicepartner,
+      // Importør) so they can find other partners on the map. Demo-locations remain
+      // hidden because ownership cannot be reliably proven on the client. Active/
+      // inactive status filtering is internal-only; dealer-side users see all active
+      // partners (and skip soft-deleted/blocked accounts to avoid stale entries).
       if (isDealerSide) {
-        const acc = (d.account_number ?? '').trim().toUpperCase();
-        if (!ownDealerNumber || acc !== ownDealerNumber) return false;
         if (normalizeType(d.dealer_type) === 'demo_location') return false;
-        // Skip status filter for dealer-side users — their own account is shown as-is.
+        if (d.is_deleted || d.is_blocked) return false;
         return true;
       }
       if (d.is_deleted && statusFilter === 'active') return false;
