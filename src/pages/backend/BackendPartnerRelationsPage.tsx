@@ -72,12 +72,39 @@ export default function BackendPartnerRelationsPage() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const importers = useMemo(
-    () => dealers.filter((d) => (d.customer_type || "").toLowerCase().includes("importør")),
-    [dealers],
-  );
-  const servicePartners = useMemo(
-    () => dealers.filter((d) => (d.customer_type || "").toLowerCase().includes("service")),
+  // Filter on a normalised concat of all type/role fields. We accept many
+  // historical spellings (DK + EN, with/without space, with/without timan_ prefix).
+  const norm = (d: DealerAccount) =>
+    [d.customer_type, d.customer_type_label, d.dealer_type]
+      .filter(Boolean)
+      .join("|")
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  const isImporter = (d: DealerAccount) => {
+    const s = norm(d);
+    return s.includes("import"); // matches importer, importør, timan_importer
+  };
+  const isServicePartner = (d: DealerAccount) => {
+    const s = norm(d);
+    return (
+      s.includes("servicepartner") || // service partner, servicepartner, Service partner
+      s.includes("service_partner") ||
+      s.includes("timan_service_partner")
+    );
+  };
+  const isDealer = (d: DealerAccount) => {
+    const s = norm(d);
+    return (
+      s.includes("forhandler") ||
+      s.includes("dealer") ||
+      s.includes("timan_dealer") ||
+      s.includes("dealer_user")
+    );
+  };
+  const importers = useMemo(() => dealers.filter(isImporter), [dealers]);
+  const servicePartners = useMemo(() => dealers.filter(isServicePartner), [dealers]);
+  const dealerOptions = useMemo(
+    () => dealers.filter((d) => isDealer(d) || isServicePartner(d)),
     [dealers],
   );
   const dealersById = useMemo(() => {
