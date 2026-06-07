@@ -51,6 +51,7 @@ const T: Record<string, Record<Language, string>> = {
   newestFirst:      { da: "Nyeste først", en: "Newest first", de: "Neueste zuerst", it: "Più recenti", hu: "Legújabb elöl" },
   oldestFirst:      { da: "Ældste først", en: "Oldest first", de: "Älteste zuerst", it: "Più vecchi", hu: "Legrégebbi elöl" },
   noEvents:         { da: "Ingen hændelser registreret.", en: "No events recorded.", de: "Keine Ereignisse erfasst.", it: "Nessun evento registrato.", hu: "Nincs rögzített esemény." },
+  allTypes:         { da: "Alle", en: "All", de: "Alle", it: "Tutti", hu: "Mind" },
 
   related:          { da: "Tilknyttede sager", en: "Related records", de: "Verwandte Vorgänge", it: "Record correlati", hu: "Kapcsolódó esetek" },
   open:             { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyit" },
