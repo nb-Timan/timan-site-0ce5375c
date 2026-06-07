@@ -283,10 +283,8 @@ export default function MachineSearchPage() {
           matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
           registryError: null, registrySkippedReason: null, totalHits: 0,
         };
-        const hits = await searchMachinesByIdentifier(q, {
-          role: portalRole,
-          dealerLabel: appUser?.display_name ?? null,
-        }, dbg);
+        const scope = await buildJournalScope(appUser, portalRole);
+        const hits = await searchMachinesByIdentifier(q, scope, dbg);
         setCrossHits(hits);
         setSearchDebug(dbg);
         // eslint-disable-next-line no-console
