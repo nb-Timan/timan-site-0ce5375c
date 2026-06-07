@@ -881,9 +881,13 @@ export async function loadMachineJournal(
   journal.documents = documents.filter((d) => !isImage(d));
   journal.photos = documents.filter(isImage);
 
-  // ---------- Owners (current only — TODO: full history when schema supports it) ----------
-  if (journal.summary.customerName) {
-    journal.owners = [{ period: "Nuværende", name: journal.summary.customerName }];
+  // ---------- Owners (current = current dealer/forhandler) ----------
+  // Per Phase 2.1: end customers are always registered under a dealer, so
+  // the canonical "current owner" of the machine is the dealer. The end
+  // customer is still shown separately in the summary header.
+  // TODO: full owner history once a machine_owners table exists.
+  if (journal.summary.dealerName) {
+    journal.owners = [{ period: "Nuværende", name: journal.summary.dealerName }];
   }
 
   return journal;
