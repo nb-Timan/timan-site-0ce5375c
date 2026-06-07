@@ -321,24 +321,35 @@ export async function searchMachinesByIdentifier(
     }
   }
 
-  // 7. machine_registry_index — auto-populated identity layer (RLS authenticated)
-  try {
-    const safe = q.replace(/[(),]/g, "");
-    const { data } = await supabase
-      .from("machine_registry_index")
-      .select("normalized_serial, display_serial, machine_model, machine_type, last_source")
-      .or(`normalized_serial.ilike.%${safe.toUpperCase()}%,display_serial.ilike.%${safe}%`)
-      .limit(50);
-    for (const r of (data ?? []) as Array<{
-      normalized_serial: string; display_serial: string;
-      machine_model: string | null; machine_type: string | null; last_source: string | null;
-    }>) {
-      const src = (r.last_source as TimelineKind) ?? "service";
-      push(r.display_serial, src, { machineType: r.machine_type });
+  // 7. machine_registry_index — INTERNAL ONLY.
+  //    RLS restricts SELECT to timan_backend / timan_service. Dealer-side
+  //    users get no rows from this table (and would also leak cross-dealer
+  //    serial existence if exposed), so we skip the query entirely for
+  //    them and rely on the RLS-scoped source queries above.
+  if (isInternalRole(scope.role)) {
+    try {
+      const safe = q.replace(/[(),]/g, "");
+      const { data, error } = await supabase
+        .from("machine_registry_index")
+        .select("normalized_serial, display_serial, machine_model, machine_type, last_source")
+        .or(`normalized_serial.ilike.%${safe.toUpperCase()}%,display_serial.ilike.%${safe}%`)
+        .limit(50);
+      if (error) {
+        console.warn("[machineJournal] registry search returned error (tolerated)", error.message);
+      } else {
+        for (const r of (data ?? []) as Array<{
+          normalized_serial: string; display_serial: string;
+          machine_model: string | null; machine_type: string | null; last_source: string | null;
+        }>) {
+          const src = (r.last_source as TimelineKind) ?? "service";
+          push(r.display_serial, src, { machineType: r.machine_type });
+        }
+      }
+    } catch (e) {
+      console.warn("[machineJournal] registry search failed (tolerated)", e);
     }
-  } catch (e) {
-    console.warn("[machineJournal] registry search failed", e);
   }
+
 
   return Array.from(hits.values()).slice(0, 100);
 }
