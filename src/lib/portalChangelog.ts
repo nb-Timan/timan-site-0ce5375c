@@ -71,6 +71,7 @@ export interface ChangeLogEntry {
 
 const MODULE_AREA: Record<ModuleKey, PortalAreaId | null> = {
   partner_map: 'salg_marketing',
+  misc:        'salg_marketing',
   dealer_data: 'dealer_data',
   crm: 'timan_crm',
   warranty: 'teknik_service',
@@ -82,6 +83,7 @@ const MODULE_AREA: Record<ModuleKey, PortalAreaId | null> = {
 
 const MODULE_HREF: Partial<Record<ModuleKey, string>> = {
   partner_map: '/portal/misc/partner-map',
+  misc:        '/portal/misc',
   dealer_data: '/portal/dealer-data',
   crm: '/portal/crm',
   warranty: '/portal/service/warranty',
