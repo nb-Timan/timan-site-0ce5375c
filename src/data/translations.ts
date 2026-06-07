@@ -686,6 +686,12 @@ const translations: Record<string, Record<string, string>> = {
     orderCannotResendTitle: 'Questo ordine è già stato inviato e non può essere inviato di nuovo.',
     saveChangesBtn: 'Salva modifiche',
     savingChangesBtn: 'Salvataggio…',
+    packagingCostBody: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
+    reminderTitle: 'Tubo centrale',
+    reminderBody721122: 'Non hai selezionato il codice articolo 721122 per questa Timan 3330.\n\nÈ intenzionale o hai dimenticato di aggiungerlo?',
+    reminderBody721059: 'Non hai selezionato il codice articolo 721059 (retrofit tubo centrale) per questo cassone di raccolta sciolto.\n\nÈ intenzionale o hai dimenticato di aggiungerlo?',
+    reminderAdd: 'Aggiungi',
+    reminderContinueWithout: 'Continua senza',
   },
   hu: {
     step1Title: '1. lépés: Gép és Mennyiség',
