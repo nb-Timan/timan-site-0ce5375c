@@ -26,6 +26,7 @@ export interface PortalChangeLogRow {
   id: string;
   module_key: string;
   module_name: string;
+  submodule_key: string | null;
   changed_at: string;
   title: string;
   description: string | null;
