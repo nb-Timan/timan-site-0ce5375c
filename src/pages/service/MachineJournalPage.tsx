@@ -476,3 +476,25 @@ function RelatedCard({
     </div>
   );
 }
+
+function FilterChip({
+  label, active, activeClass, onClick,
+}: {
+  label: string;
+  active: boolean;
+  activeClass?: string;
+  onClick: () => void;
+}) {
+  const cls = active
+    ? `border ${activeClass ?? "bg-slate-900 text-white border-slate-900"}`
+    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider transition ${cls}`}
+    >
+      {label}
+    </button>
+  );
+}
