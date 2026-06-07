@@ -387,7 +387,7 @@ export default function MachineJournalPage() {
         )}
       </main>
 
-      <PortalFooter />
+      <PortalFooter language={lang} />
     </div>
   );
 }

@@ -324,24 +324,24 @@ export async function loadMachineJournal(
   const journal: MachineJournal = { ...empty, found: false };
 
   // Parallel fetches across all sources.
-  const [
-    machinesRes,
-    warrantiesAll,
-    serviceRegs,
-    tickets,
-  ] = await Promise.all([
-    supabase
-      .from("machines")
-      .select(
-        "id, serial_number, machine_number, machine_type, model, production_year, " +
-        "dealer_account_id, dealer_number, dealer_name, customer_name, customer_email, customer_phone, " +
-        "seller_user_id, seller_email, seller_initials, " +
-        "warranty_start_date, warranty_end_date, current_hours, created_at, updated_at",
-      )
-      .ilike("serial_number", display)
-      .limit(1)
-      .then((r) => (r.data && r.data[0] ? (r.data[0] as unknown as MachineRecord) : null))
-      .catch(() => null as MachineRecord | null),
+  const machineLookup = (async (): Promise<MachineRecord | null> => {
+    try {
+      const r = await supabase
+        .from("machines")
+        .select(
+          "id, serial_number, machine_number, machine_type, model, production_year, " +
+          "dealer_account_id, dealer_number, dealer_name, customer_name, customer_email, customer_phone, " +
+          "seller_user_id, seller_email, seller_initials, " +
+          "warranty_start_date, warranty_end_date, current_hours, created_at, updated_at",
+        )
+        .ilike("serial_number", display)
+        .limit(1);
+      return (r.data && r.data[0]) ? (r.data[0] as unknown as MachineRecord) : null;
+    } catch { return null; }
+  })();
+
+  const [machinesRes, warrantiesAll, serviceRegs, tickets] = await Promise.all([
+    machineLookup,
     fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
     listServiceRegistrations({ serialNumber: display }).catch(() => [] as ServiceRegistration[]),
     fetchVisibleServiceTickets(500).catch(() => [] as ServiceTicket[]),
