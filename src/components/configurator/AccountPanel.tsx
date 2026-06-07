@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
+import { pickT } from '@/lib/i18n/translations';
+import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -41,7 +43,8 @@ export { markAsOrderSubmitted, markPdfDownloaded } from '@/lib/configurationsSer
 
 interface Props {
   appUser: AppUser & { email: string };
-  language: Language;
+  /** Portal UI language (9-locale). Falls back to legacy 5 for raw-data helpers. */
+  language: PortalUiLanguage | Language | string;
   currentState: ConfiguratorState;
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string, ownership?: {
@@ -58,23 +61,23 @@ interface Props {
   ownershipOverride?: () => Promise<ConfiguratorOwnership>;
 }
 
-function getRoleBadge(role: string, lang: Language) {
+function getRoleBadge(role: string, lang: string) {
   const map: Record<string, Record<string, string>> = {
-    slutkunde: { da: 'Default bruger', en: 'Default user', de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó' },
-    partner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
-    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkauf', it: 'Timan Vendite', hu: 'Timan Értékesítő' },
+    slutkunde:     { da: 'Default bruger', en: 'Default user',   de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó', sv: 'Standardanvändare', fr: 'Utilisateur par défaut', pl: 'Użytkownik domyślny', cs: 'Výchozí uživatel' },
+    partner:       { da: 'Partner',         en: 'Partner',        de: 'Partner',          it: 'Partner',             hu: 'Partner',                    sv: 'Partner',           fr: 'Partenaire',             pl: 'Partner',             cs: 'Partner' },
+    timan_saelger: { da: 'Timan Sælger',    en: 'Timan Sales',    de: 'Timan Verkauf',    it: 'Timan Vendite',       hu: 'Timan Értékesítő',           sv: 'Timan Sälj',        fr: 'Vente Timan',            pl: 'Sprzedaż Timan',      cs: 'Prodej Timan' },
   };
-  return map[role]?.[lang] || map[role]?.en || role;
+  return pickT(map[role], lang) || role;
 }
 
-function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
+function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: string): string | null {
   if (!subRole) return null;
   const map: Record<PartnerType, Record<string, string>> = {
-    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner' },
-    forhandler: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
-    importoer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
+    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner', sv: 'Servicepartner', fr: 'Partenaire de service', pl: 'Partner serwisowy', cs: 'Servisní partner' },
+    forhandler:      { da: 'Forhandler',      en: 'Dealer',          de: 'Händler',        it: 'Rivenditore',         hu: 'Kereskedő',      sv: 'Återförsäljare', fr: 'Revendeur',             pl: 'Dealer',            cs: 'Prodejce' },
+    importoer:       { da: 'Importør',        en: 'Importer',        de: 'Importeur',      it: 'Importatore',         hu: 'Importőr',       sv: 'Importör',       fr: 'Importateur',           pl: 'Importer',          cs: 'Dovozce' },
   };
-  return map[subRole]?.[lang] || map[subRole]?.en || subRole;
+  return pickT(map[subRole], lang) || subRole;
 }
 
 function roleBadgeColor(role: string) {
@@ -83,14 +86,14 @@ function roleBadgeColor(role: string) {
   return 'bg-gray-100 text-gray-700';
 }
 
-function statusLabel(status: SavedStatus, lang: Language): string {
+function statusLabel(status: SavedStatus, lang: string): string {
   const labels: Record<SavedStatus, Record<string, string>> = {
-    aktiv: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
-    pause: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
-    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Bestellung aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
-    deleted: { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
+    aktiv:         { da: 'Aktiv',          en: 'Active',           de: 'Aktiv',                  it: 'Attivo',           hu: 'Aktív',          sv: 'Aktiv',             fr: 'Actif',             pl: 'Aktywne',           cs: 'Aktivní' },
+    pause:         { da: 'Pause',          en: 'Paused',           de: 'Pausiert',               it: 'In pausa',         hu: 'Szünetel',       sv: 'Pausad',            fr: 'En pause',          pl: 'Wstrzymane',        cs: 'Pozastaveno' },
+    ordre_afgivet: { da: 'Ordre afgivet',  en: 'Order submitted',  de: 'Bestellung aufgegeben',  it: 'Ordine inviato',   hu: 'Rendelés leadva',sv: 'Order skickad',     fr: 'Commande envoyée',  pl: 'Zamówienie złożone',cs: 'Objednávka odeslána' },
+    deleted:       { da: 'Slettet',        en: 'Deleted',          de: 'Gelöscht',               it: 'Eliminato',        hu: 'Törölve',        sv: 'Borttagen',         fr: 'Supprimé',          pl: 'Usunięte',          cs: 'Smazáno' },
   };
-  return labels[status]?.[lang] || labels[status]?.en || status;
+  return pickT(labels[status], lang) || status;
 }
 
 function statusColor(status: SavedStatus): string {
@@ -285,60 +288,60 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   }, [savedItems]);
 
   const tx = useMemo(() => {
-    const strings: Record<string, Record<Language, string>> = {
-      myAccount: { da: 'Min konto', en: 'My account', de: 'Mein Konto', it: 'Il mio account', hu: 'Fiókom' },
-      name: { da: 'Navn', en: 'Name', de: 'Name', it: 'Nome', hu: 'Név' },
-      role: { da: 'Rolle', en: 'Role', de: 'Rolle', it: 'Ruolo', hu: 'Szerepkör' },
-      partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp', it: 'Tipo di partner', hu: 'Partnertípus' },
-      savedCases: { da: 'Gemte sager', en: 'Saved cases', de: 'Gespeicherte Fälle', it: 'Casi salvati', hu: 'Mentett ügyek' },
-      saveCurrent: { da: '+ Gem nuværende', en: '+ Save current', de: '+ Aktuelle speichern', it: '+ Salva corrente', hu: '+ Jelenlegi mentése' },
-      saveHint: { da: 'Udfyld firma, kontaktperson og email i trin 4 for at gemme', en: 'Fill in company, contact and email in step 4 to save', de: 'Firma, Kontakt und E-Mail in Schritt 4 ausfüllen zum Speichern', it: 'Compila azienda, contatto ed email al passo 4 per salvare', hu: 'Töltsd ki a cégnevet, kapcsolattartót és e-mailt a 4. lépésben a mentéshez' },
-      nameCase: { da: 'Navngiv sag...', en: 'Name case...', de: 'Fall benennen...', it: 'Nomina caso...', hu: 'Ügy elnevezése...' },
-      save: { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés' },
-      noCases: { da: 'Ingen gemte sager', en: 'No saved cases', de: 'Keine gespeicherten Fälle', it: 'Nessun caso salvato', hu: 'Nincsenek mentett ügyek' },
-      quote: { da: 'Tilbud', en: 'Quote', de: 'Angebot', it: 'Preventivo', hu: 'Árajánlat' },
-      order: { da: 'Ordre', en: 'Order', de: 'Bestellung', it: 'Ordine', hu: 'Rendelés' },
-      internalNote: { da: 'Intern note', en: 'Internal note', de: 'Interne Notiz', it: 'Nota interna', hu: 'Belső jegyzet' },
-      writeNote: { da: 'Skriv en huskenote...', en: 'Write a reminder...', de: 'Erinnerung schreiben...', it: 'Scrivi un promemoria...', hu: 'Írj emlékeztetőt...' },
-      open: { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
-      pause: { da: 'Sæt på pause', en: 'Pause', de: 'Pausieren', it: 'Pausa', hu: 'Szüneteltetés' },
-      reactivate: { da: 'Genaktivér', en: 'Reactivate', de: 'Reaktivieren', it: 'Riattiva', hu: 'Újraaktiválás' },
-      statusActive: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
-      statusPaused: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
-      clickToPause: { da: 'Klik for at sætte på pause', en: 'Click to pause', de: 'Klicken zum Pausieren', it: 'Clicca per mettere in pausa', hu: 'Kattints a szüneteltetéshez' },
-      clickToActivate: { da: 'Klik for at genaktivere', en: 'Click to reactivate', de: 'Klicken zum Reaktivieren', it: 'Clicca per riattivare', hu: 'Kattints az újraaktiváláshoz' },
-      delete: { da: 'Slet', en: 'Delete', de: 'Löschen', it: 'Elimina', hu: 'Törlés' },
-      logout: { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
-      saveFailed: { da: 'Kunne ikke gemme sag', en: 'Failed to save case', de: 'Speichern fehlgeschlagen', it: 'Salvataggio fallito', hu: 'Mentés sikertelen' },
-      savedButLinesFailed: { da: 'Sag gemt, men linjer fejlede', en: 'Case saved, but line items failed', de: 'Fall gespeichert, aber Positionen fehlgeschlagen', it: 'Caso salvato, ma righe fallite', hu: 'Ügy mentve, de a tételek sikertelenek' },
-      caseSaved: { da: 'Sag gemt', en: 'Case saved', de: 'Fall gespeichert', it: 'Caso salvato', hu: 'Ügy mentve' },
-      caseId: { da: 'Sag ID', en: 'Case ID', de: 'Fall-ID', it: 'ID caso', hu: 'Ügy ID' },
-      openFailed: { da: 'Kunne ikke åbne sag', en: 'Failed to open case', de: 'Öffnen fehlgeschlagen', it: 'Apertura fallita', hu: 'Megnyitás sikertelen' },
-      missingState: { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok' },
-      statsActive: { da: 'Aktive sager', en: 'Active cases', de: 'Aktive Fälle', it: 'Casi attivi', hu: 'Aktív ügyek' },
-      statsClosed: { da: 'Sendte/lukkede ordrer', en: 'Sent/closed orders', de: 'Gesendete/abgeschlossene Bestellungen', it: 'Ordini inviati/chiusi', hu: 'Elküldött/lezárt rendelések' },
-      statsPaused: { da: 'Sager på pause', en: 'Paused cases', de: 'Pausierte Fälle', it: 'Casi in pausa', hu: 'Szüneteltetett ügyek' },
-      statsTotalValue: { da: 'Samlet værdi', en: 'Total value', de: 'Gesamtwert', it: 'Valore totale', hu: 'Teljes érték' },
-      statsCount: { da: 'antal', en: 'count', de: 'Anzahl', it: 'numero', hu: 'darab' },
-      quoteNumber: { da: 'Tilbudsnr', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Árajánlatszám' },
-      orderNumber: { da: 'Ordrenr', en: 'Order no.', de: 'Bestellnr.', it: 'N. ordine', hu: 'Rendelésszám' },
-      sentDate: { da: 'Dato for afsendt ordre', en: 'Order sent date', de: 'Versanddatum der Bestellung', it: 'Data ordine inviato', hu: 'Rendelés elküldésének dátuma' },
-      createdCaseAt: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
-      quoteSentAt: { da: 'Afsendt tilbud', en: 'Quote sent', de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
-      orderSentAt: { da: 'Afsendt ordre', en: 'Order sent', de: 'Bestellung gesendet', it: 'Ordine inviato', hu: 'Rendelés elküldve' },
-      openSentPdf: { da: 'Åbn afsendt PDF', en: 'Open sent PDF', de: 'Gesendete PDF öffnen', it: 'Apri PDF inviato', hu: 'Elküldött PDF megnyitása' },
-      openCasePdf: { da: 'Åbn sag', en: 'Open case', de: 'Fall öffnen', it: 'Apri caso', hu: 'Ügy megnyitása' },
-      pdfOpenFailed: { da: 'Kunne ikke åbne PDF', en: 'Could not open PDF', de: 'PDF konnte nicht geöffnet werden', it: 'Impossibile aprire il PDF', hu: 'A PDF nem nyitható meg' },
-      pdfNotStored: { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz' },
-      noDealerLinked: { da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin.', en: 'Your user has no dealer linked — please contact an admin.', de: 'Ihr Benutzer hat keinen Händler verknüpft – bitte Admin kontaktieren.', it: 'Il tuo utente non ha un rivenditore collegato — contatta un amministratore.', hu: 'A felhasználódhoz nincs kereskedő rendelve — fordulj az adminhoz.' },
-      hideTitle: { da: 'Fjern sag fra Min konto?', en: 'Remove case from My account?', de: 'Fall aus Meinem Konto entfernen?', it: 'Rimuovere il caso da Il mio account?', hu: 'Eltávolítod az ügyet a Fiókomból?' },
-      hideBody: { da: 'Sagen fjernes kun fra din egen liste. Den slettes ikke fra CRM eller Timan Backend.', en: 'The case is only removed from your own list. It is not deleted from CRM or Timan Backend.', de: 'Der Fall wird nur aus Ihrer eigenen Liste entfernt. Er wird nicht aus dem CRM oder Timan Backend gelöscht.', it: 'Il caso viene rimosso solo dal tuo elenco. Non viene eliminato da CRM o Timan Backend.', hu: 'Az ügy csak a saját listádról kerül eltávolításra. Nem törlődik a CRM-ből vagy a Timan Backendből.' },
-      hideCancel: { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
-      hideConfirm: { da: 'Fjern fra Min konto', en: 'Remove from My account', de: 'Aus Meinem Konto entfernen', it: 'Rimuovi da Il mio account', hu: 'Eltávolítás a Fiókomból' },
-      hideSuccess: { da: 'Sagen er fjernet fra Min konto.', en: 'The case has been removed from My account.', de: 'Der Fall wurde aus Meinem Konto entfernt.', it: 'Il caso è stato rimosso da Il mio account.', hu: 'Az ügy eltávolítva a Fiókomból.' },
-      hideFailed: { da: 'Kunne ikke fjerne sag fra Min konto', en: 'Could not remove case from My account', de: 'Fall konnte nicht aus Meinem Konto entfernt werden', it: 'Impossibile rimuovere il caso da Il mio account', hu: 'Nem sikerült eltávolítani az ügyet a Fiókomból' },
+    const strings: Record<string, Record<string, string>> = {
+      myAccount:           { da: 'Min konto',                                en: 'My account',                          de: 'Mein Konto',                          it: 'Il mio account',                                  hu: 'Fiókom',                                        sv: 'Mitt konto',                                  fr: 'Mon compte',                                pl: 'Moje konto',                                cs: 'Můj účet' },
+      name:                { da: 'Navn',                                    en: 'Name',                                de: 'Name',                                it: 'Nome',                                            hu: 'Név',                                           sv: 'Namn',                                        fr: 'Nom',                                       pl: 'Imię',                                      cs: 'Jméno' },
+      role:                { da: 'Rolle',                                   en: 'Role',                                de: 'Rolle',                               it: 'Ruolo',                                           hu: 'Szerepkör',                                     sv: 'Roll',                                        fr: 'Rôle',                                      pl: 'Rola',                                      cs: 'Role' },
+      partnerType:         { da: 'Partnertype',                             en: 'Partner type',                        de: 'Partnertyp',                          it: 'Tipo di partner',                                 hu: 'Partnertípus',                                  sv: 'Partnertyp',                                  fr: 'Type de partenaire',                        pl: 'Typ partnera',                              cs: 'Typ partnera' },
+      savedCases:          { da: 'Gemte sager',                             en: 'Saved cases',                         de: 'Gespeicherte Fälle',                  it: 'Casi salvati',                                    hu: 'Mentett ügyek',                                 sv: 'Sparade ärenden',                             fr: 'Dossiers enregistrés',                      pl: 'Zapisane sprawy',                           cs: 'Uložené případy' },
+      saveCurrent:         { da: '+ Gem nuværende',                         en: '+ Save current',                      de: '+ Aktuelle speichern',                it: '+ Salva corrente',                                hu: '+ Jelenlegi mentése',                           sv: '+ Spara nuvarande',                           fr: '+ Enregistrer en cours',                    pl: '+ Zapisz bieżące',                          cs: '+ Uložit aktuální' },
+      saveHint:            { da: 'Udfyld firma, kontaktperson og email i trin 4 for at gemme', en: 'Fill in company, contact and email in step 4 to save', de: 'Firma, Kontakt und E-Mail in Schritt 4 ausfüllen zum Speichern', it: 'Compila azienda, contatto ed email al passo 4 per salvare', hu: 'Töltsd ki a cégnevet, kapcsolattartót és e-mailt a 4. lépésben a mentéshez', sv: 'Fyll i företag, kontakt och e-post i steg 4 för att spara', fr: 'Renseignez société, contact et e-mail à l’étape 4 pour enregistrer', pl: 'Wypełnij firmę, kontakt i e-mail w kroku 4, aby zapisać', cs: 'Vyplňte firmu, kontakt a e-mail v kroku 4 pro uložení' },
+      nameCase:            { da: 'Navngiv sag...',                          en: 'Name case...',                        de: 'Fall benennen...',                    it: 'Nomina caso...',                                  hu: 'Ügy elnevezése...',                             sv: 'Namnge ärende...',                            fr: 'Nommer le dossier...',                      pl: 'Nazwij sprawę...',                          cs: 'Pojmenovat případ...' },
+      save:                { da: 'Gem',                                     en: 'Save',                                de: 'Speichern',                           it: 'Salva',                                           hu: 'Mentés',                                        sv: 'Spara',                                       fr: 'Enregistrer',                               pl: 'Zapisz',                                    cs: 'Uložit' },
+      noCases:             { da: 'Ingen gemte sager',                       en: 'No saved cases',                      de: 'Keine gespeicherten Fälle',           it: 'Nessun caso salvato',                             hu: 'Nincsenek mentett ügyek',                       sv: 'Inga sparade ärenden',                        fr: 'Aucun dossier enregistré',                  pl: 'Brak zapisanych spraw',                     cs: 'Žádné uložené případy' },
+      quote:               { da: 'Tilbud',                                  en: 'Quote',                               de: 'Angebot',                             it: 'Preventivo',                                      hu: 'Árajánlat',                                     sv: 'Offert',                                      fr: 'Devis',                                     pl: 'Oferta',                                    cs: 'Nabídka' },
+      order:               { da: 'Ordre',                                   en: 'Order',                               de: 'Bestellung',                          it: 'Ordine',                                          hu: 'Rendelés',                                      sv: 'Order',                                       fr: 'Commande',                                  pl: 'Zamówienie',                                cs: 'Objednávka' },
+      internalNote:        { da: 'Intern note',                             en: 'Internal note',                       de: 'Interne Notiz',                       it: 'Nota interna',                                    hu: 'Belső jegyzet',                                 sv: 'Intern anteckning',                           fr: 'Note interne',                              pl: 'Notatka wewnętrzna',                        cs: 'Interní poznámka' },
+      writeNote:           { da: 'Skriv en huskenote...',                   en: 'Write a reminder...',                 de: 'Erinnerung schreiben...',             it: 'Scrivi un promemoria...',                         hu: 'Írj emlékeztetőt...',                           sv: 'Skriv en påminnelse...',                      fr: 'Écrire un rappel...',                       pl: 'Napisz przypomnienie...',                   cs: 'Napsat připomínku...' },
+      open:                { da: 'Åbn',                                     en: 'Open',                                de: 'Öffnen',                              it: 'Apri',                                            hu: 'Megnyitás',                                     sv: 'Öppna',                                       fr: 'Ouvrir',                                    pl: 'Otwórz',                                    cs: 'Otevřít' },
+      pause:               { da: 'Sæt på pause',                            en: 'Pause',                               de: 'Pausieren',                           it: 'Pausa',                                           hu: 'Szüneteltetés',                                 sv: 'Pausa',                                       fr: 'Mettre en pause',                           pl: 'Wstrzymaj',                                 cs: 'Pozastavit' },
+      reactivate:          { da: 'Genaktivér',                              en: 'Reactivate',                          de: 'Reaktivieren',                        it: 'Riattiva',                                        hu: 'Újraaktiválás',                                 sv: 'Återaktivera',                                fr: 'Réactiver',                                 pl: 'Aktywuj ponownie',                          cs: 'Znovu aktivovat' },
+      statusActive:        { da: 'Aktiv',                                   en: 'Active',                              de: 'Aktiv',                               it: 'Attivo',                                          hu: 'Aktív',                                         sv: 'Aktiv',                                       fr: 'Actif',                                     pl: 'Aktywne',                                   cs: 'Aktivní' },
+      statusPaused:        { da: 'Pause',                                   en: 'Paused',                              de: 'Pausiert',                            it: 'In pausa',                                        hu: 'Szünetel',                                      sv: 'Pausad',                                      fr: 'En pause',                                  pl: 'Wstrzymane',                                cs: 'Pozastaveno' },
+      clickToPause:        { da: 'Klik for at sætte på pause',              en: 'Click to pause',                      de: 'Klicken zum Pausieren',               it: 'Clicca per mettere in pausa',                     hu: 'Kattints a szüneteltetéshez',                   sv: 'Klicka för att pausa',                        fr: 'Cliquer pour mettre en pause',              pl: 'Kliknij, aby wstrzymać',                    cs: 'Klikněte pro pozastavení' },
+      clickToActivate:     { da: 'Klik for at genaktivere',                 en: 'Click to reactivate',                 de: 'Klicken zum Reaktivieren',            it: 'Clicca per riattivare',                           hu: 'Kattints az újraaktiváláshoz',                  sv: 'Klicka för att återaktivera',                 fr: 'Cliquer pour réactiver',                    pl: 'Kliknij, aby aktywować',                    cs: 'Klikněte pro reaktivaci' },
+      delete:              { da: 'Slet',                                    en: 'Delete',                              de: 'Löschen',                             it: 'Elimina',                                         hu: 'Törlés',                                        sv: 'Ta bort',                                     fr: 'Supprimer',                                 pl: 'Usuń',                                      cs: 'Smazat' },
+      logout:              { da: 'Log ud',                                  en: 'Log out',                             de: 'Abmelden',                            it: 'Esci',                                            hu: 'Kijelentkezés',                                 sv: 'Logga ut',                                    fr: 'Se déconnecter',                            pl: 'Wyloguj się',                               cs: 'Odhlásit se' },
+      saveFailed:          { da: 'Kunne ikke gemme sag',                    en: 'Failed to save case',                 de: 'Speichern fehlgeschlagen',            it: 'Salvataggio fallito',                             hu: 'Mentés sikertelen',                             sv: 'Kunde inte spara ärendet',                    fr: 'Échec de l’enregistrement',                 pl: 'Nie udało się zapisać sprawy',              cs: 'Nepodařilo se uložit případ' },
+      savedButLinesFailed: { da: 'Sag gemt, men linjer fejlede',            en: 'Case saved, but line items failed',   de: 'Fall gespeichert, aber Positionen fehlgeschlagen', it: 'Caso salvato, ma righe fallite',        hu: 'Ügy mentve, de a tételek sikertelenek',         sv: 'Ärende sparat, men rader misslyckades',       fr: 'Dossier enregistré, mais les lignes ont échoué', pl: 'Zapisano sprawę, ale pozycje zawiodły', cs: 'Případ uložen, ale položky selhaly' },
+      caseSaved:           { da: 'Sag gemt',                                en: 'Case saved',                          de: 'Fall gespeichert',                    it: 'Caso salvato',                                    hu: 'Ügy mentve',                                    sv: 'Ärende sparat',                               fr: 'Dossier enregistré',                        pl: 'Sprawa zapisana',                           cs: 'Případ uložen' },
+      caseId:              { da: 'Sag ID',                                  en: 'Case ID',                             de: 'Fall-ID',                             it: 'ID caso',                                         hu: 'Ügy ID',                                        sv: 'Ärende-ID',                                   fr: 'ID dossier',                                pl: 'ID sprawy',                                 cs: 'ID případu' },
+      openFailed:          { da: 'Kunne ikke åbne sag',                     en: 'Failed to open case',                 de: 'Öffnen fehlgeschlagen',               it: 'Apertura fallita',                                hu: 'Megnyitás sikertelen',                          sv: 'Kunde inte öppna ärendet',                    fr: 'Échec de l’ouverture',                      pl: 'Nie udało się otworzyć sprawy',             cs: 'Nepodařilo se otevřít případ' },
+      missingState:        { da: 'Sagen mangler komplet gemt konfigurationsdata', en: 'The case is missing the full saved configurator state', de: 'Dem Fall fehlen vollständige Konfigurationsdaten', it: 'Il caso non contiene i dati di configurazione completi', hu: 'Az ügyből hiányoznak a teljes konfigurációs adatok', sv: 'Ärendet saknar fullständig sparad konfiguration', fr: 'Le dossier ne contient pas l’état complet du configurateur', pl: 'Sprawa nie zawiera pełnych zapisanych danych konfiguratora', cs: 'Případu chybí kompletní uložený stav konfigurátoru' },
+      statsActive:         { da: 'Aktive sager',                            en: 'Active cases',                        de: 'Aktive Fälle',                        it: 'Casi attivi',                                     hu: 'Aktív ügyek',                                   sv: 'Aktiva ärenden',                              fr: 'Dossiers actifs',                           pl: 'Aktywne sprawy',                            cs: 'Aktivní případy' },
+      statsClosed:         { da: 'Sendte/lukkede ordrer',                   en: 'Sent/closed orders',                  de: 'Gesendete/abgeschlossene Bestellungen', it: 'Ordini inviati/chiusi',                          hu: 'Elküldött/lezárt rendelések',                   sv: 'Skickade/avslutade ordrar',                    fr: 'Commandes envoyées/clôturées',              pl: 'Wysłane/zamknięte zamówienia',              cs: 'Odeslané/uzavřené objednávky' },
+      statsPaused:         { da: 'Sager på pause',                          en: 'Paused cases',                        de: 'Pausierte Fälle',                     it: 'Casi in pausa',                                   hu: 'Szüneteltetett ügyek',                          sv: 'Pausade ärenden',                             fr: 'Dossiers en pause',                         pl: 'Sprawy wstrzymane',                         cs: 'Pozastavené případy' },
+      statsTotalValue:     { da: 'Samlet værdi',                            en: 'Total value',                         de: 'Gesamtwert',                          it: 'Valore totale',                                   hu: 'Teljes érték',                                  sv: 'Totalt värde',                                fr: 'Valeur totale',                             pl: 'Wartość łączna',                            cs: 'Celková hodnota' },
+      statsCount:          { da: 'antal',                                   en: 'count',                               de: 'Anzahl',                              it: 'numero',                                          hu: 'darab',                                         sv: 'antal',                                       fr: 'nombre',                                    pl: 'liczba',                                    cs: 'počet' },
+      quoteNumber:         { da: 'Tilbudsnr',                               en: 'Quote no.',                           de: 'Angebotsnr.',                         it: 'N. preventivo',                                   hu: 'Árajánlatszám',                                 sv: 'Offertnr',                                    fr: 'N° devis',                                  pl: 'Nr oferty',                                 cs: 'Č. nabídky' },
+      orderNumber:         { da: 'Ordrenr',                                 en: 'Order no.',                           de: 'Bestellnr.',                          it: 'N. ordine',                                       hu: 'Rendelésszám',                                  sv: 'Ordernr',                                     fr: 'N° commande',                               pl: 'Nr zamówienia',                             cs: 'Č. objednávky' },
+      sentDate:            { da: 'Dato for afsendt ordre',                  en: 'Order sent date',                     de: 'Versanddatum der Bestellung',         it: 'Data ordine inviato',                             hu: 'Rendelés elküldésének dátuma',                  sv: 'Datum för skickad order',                     fr: 'Date d’envoi de la commande',               pl: 'Data wysłania zamówienia',                  cs: 'Datum odeslání objednávky' },
+      createdCaseAt:       { da: 'Oprettet',                                en: 'Created',                             de: 'Erstellt',                            it: 'Creato',                                          hu: 'Létrehozva',                                    sv: 'Skapad',                                      fr: 'Créé',                                      pl: 'Utworzono',                                 cs: 'Vytvořeno' },
+      quoteSentAt:         { da: 'Afsendt tilbud',                          en: 'Quote sent',                          de: 'Angebot gesendet',                    it: 'Preventivo inviato',                              hu: 'Árajánlat elküldve',                            sv: 'Offert skickad',                              fr: 'Devis envoyé',                              pl: 'Oferta wysłana',                            cs: 'Nabídka odeslána' },
+      orderSentAt:         { da: 'Afsendt ordre',                           en: 'Order sent',                          de: 'Bestellung gesendet',                 it: 'Ordine inviato',                                  hu: 'Rendelés elküldve',                             sv: 'Order skickad',                               fr: 'Commande envoyée',                          pl: 'Zamówienie wysłane',                        cs: 'Objednávka odeslána' },
+      openSentPdf:         { da: 'Åbn afsendt PDF',                         en: 'Open sent PDF',                       de: 'Gesendete PDF öffnen',                it: 'Apri PDF inviato',                                hu: 'Elküldött PDF megnyitása',                      sv: 'Öppna skickad PDF',                           fr: 'Ouvrir le PDF envoyé',                      pl: 'Otwórz wysłany PDF',                        cs: 'Otevřít odeslaný PDF' },
+      openCasePdf:         { da: 'Åbn sag',                                 en: 'Open case',                           de: 'Fall öffnen',                         it: 'Apri caso',                                       hu: 'Ügy megnyitása',                                sv: 'Öppna ärende',                                fr: 'Ouvrir le dossier',                         pl: 'Otwórz sprawę',                             cs: 'Otevřít případ' },
+      pdfOpenFailed:       { da: 'Kunne ikke åbne PDF',                     en: 'Could not open PDF',                  de: 'PDF konnte nicht geöffnet werden',    it: 'Impossibile aprire il PDF',                       hu: 'A PDF nem nyitható meg',                        sv: 'Kunde inte öppna PDF',                        fr: 'Impossible d’ouvrir le PDF',                pl: 'Nie można otworzyć PDF',                    cs: 'PDF nelze otevřít' },
+      pdfNotStored:        { da: 'Den afsendte PDF er ikke gemt for denne sag', en: 'No stored sent PDF for this case', de: 'Für diesen Fall ist keine gesendete PDF gespeichert', it: 'Nessun PDF inviato salvato per questo caso', hu: 'Nincs mentett elküldött PDF ehhez az ügyhöz', sv: 'Ingen sparad skickad PDF för detta ärende', fr: 'Aucun PDF envoyé enregistré pour ce dossier', pl: 'Brak zapisanego wysłanego PDF dla tej sprawy', cs: 'Pro tento případ není uložen odeslaný PDF' },
+      noDealerLinked:      { da: 'Din bruger har ingen forhandler tilknyttet — kontakt admin.', en: 'Your user has no dealer linked — please contact an admin.', de: 'Ihr Benutzer hat keinen Händler verknüpft – bitte Admin kontaktieren.', it: 'Il tuo utente non ha un rivenditore collegato — contatta un amministratore.', hu: 'A felhasználódhoz nincs kereskedő rendelve — fordulj az adminhoz.', sv: 'Din användare har ingen återförsäljare kopplad — kontakta admin.', fr: 'Aucun revendeur lié à votre utilisateur — contactez un administrateur.', pl: 'Twoje konto nie ma przypisanego dealera — skontaktuj się z administratorem.', cs: 'Váš uživatel nemá přiřazeného prodejce — kontaktujte admina.' },
+      hideTitle:           { da: 'Fjern sag fra Min konto?',                en: 'Remove case from My account?',        de: 'Fall aus Meinem Konto entfernen?',    it: 'Rimuovere il caso da Il mio account?',            hu: 'Eltávolítod az ügyet a Fiókomból?',             sv: 'Ta bort ärendet från Mitt konto?',            fr: 'Retirer le dossier de Mon compte ?',        pl: 'Usunąć sprawę z Mojego konta?',             cs: 'Odebrat případ z Mého účtu?' },
+      hideBody:            { da: 'Sagen fjernes kun fra din egen liste. Den slettes ikke fra CRM eller Timan Backend.', en: 'The case is only removed from your own list. It is not deleted from CRM or Timan Backend.', de: 'Der Fall wird nur aus Ihrer eigenen Liste entfernt. Er wird nicht aus dem CRM oder Timan Backend gelöscht.', it: 'Il caso viene rimosso solo dal tuo elenco. Non viene eliminato da CRM o Timan Backend.', hu: 'Az ügy csak a saját listádról kerül eltávolításra. Nem törlődik a CRM-ből vagy a Timan Backendből.', sv: 'Ärendet tas endast bort från din egen lista. Det raderas inte från CRM eller Timan Backend.', fr: 'Le dossier est uniquement retiré de votre liste. Il n’est pas supprimé du CRM ni du Timan Backend.', pl: 'Sprawa zostanie usunięta tylko z Twojej listy. Nie zostanie usunięta z CRM ani Timan Backend.', cs: 'Případ bude odstraněn pouze z vašeho seznamu. Nebude smazán z CRM ani Timan Backendu.' },
+      hideCancel:          { da: 'Annuller',                                en: 'Cancel',                              de: 'Abbrechen',                           it: 'Annulla',                                         hu: 'Mégse',                                         sv: 'Avbryt',                                      fr: 'Annuler',                                   pl: 'Anuluj',                                    cs: 'Zrušit' },
+      hideConfirm:         { da: 'Fjern fra Min konto',                     en: 'Remove from My account',              de: 'Aus Meinem Konto entfernen',          it: 'Rimuovi da Il mio account',                       hu: 'Eltávolítás a Fiókomból',                       sv: 'Ta bort från Mitt konto',                     fr: 'Retirer de Mon compte',                     pl: 'Usuń z Mojego konta',                       cs: 'Odebrat z Mého účtu' },
+      hideSuccess:         { da: 'Sagen er fjernet fra Min konto.',         en: 'The case has been removed from My account.', de: 'Der Fall wurde aus Meinem Konto entfernt.', it: 'Il caso è stato rimosso da Il mio account.',         hu: 'Az ügy eltávolítva a Fiókomból.',               sv: 'Ärendet har tagits bort från Mitt konto.',    fr: 'Le dossier a été retiré de Mon compte.',    pl: 'Sprawa została usunięta z Mojego konta.',   cs: 'Případ byl odebrán z Mého účtu.' },
+      hideFailed:          { da: 'Kunne ikke fjerne sag fra Min konto',     en: 'Could not remove case from My account', de: 'Fall konnte nicht aus Meinem Konto entfernt werden', it: 'Impossibile rimuovere il caso da Il mio account', hu: 'Nem sikerült eltávolítani az ügyet a Fiókomból', sv: 'Kunde inte ta bort ärendet från Mitt konto', fr: 'Impossible de retirer le dossier de Mon compte', pl: 'Nie udało się usunąć sprawy z Mojego konta', cs: 'Nepodařilo se odebrat případ z Mého účtu' },
     };
-    return (key: string) => strings[key]?.[language] || strings[key]?.en || key;
+    return (key: string) => pickT(strings[key], language) || key;
   }, [language]);
 
   return (
@@ -415,7 +418,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-emerald-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.active.value, language)}
+                  {formatMoney(stats.active.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
 
@@ -427,7 +430,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-blue-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.closed.value, language)}
+                  {formatMoney(stats.closed.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
 
@@ -439,7 +442,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-amber-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.paused.value, language)}
+                  {formatMoney(stats.paused.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
             </div>
@@ -459,7 +462,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 {savedItems.map(item => (
                   <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
                     {(() => {
-                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' } as Record<string, string>)[language] || 'en-GB';
+                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
                       const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : null;
                       const createdAt = fmt(item.created_case_at) || fmt(item.created_at);
                       const quoteSentAt = fmt(item.quote_sent_at);
