@@ -525,7 +525,7 @@ export async function loadMachineJournal(
     } catch { return null; }
   })();
 
-  const [machinesRes, warrantiesAll, serviceRegs, tickets] = await Promise.all([
+  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets] = await Promise.all([
     machineLookup,
     fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
     listServiceRegistrations({ serialNumber: display }).catch(() => [] as ServiceRegistration[]),
