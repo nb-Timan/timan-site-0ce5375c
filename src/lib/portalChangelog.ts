@@ -138,8 +138,9 @@ const M = {
 export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
   {
     id: '2026-06-06-partner-map',
-    module_key: 'partner_map',
-    module_name: M.partner_map,
+    module_key: 'misc',
+    submodule_key: 'partner_map',
+    module_name: M.misc,
     changed_at: '2026-06-06T09:32:00Z',
     role_visibility: ['all'],
     is_major: true,
