@@ -11,7 +11,6 @@ import {
   ClipboardList,
   LayoutDashboard,
   PlusCircle,
-  Settings,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -19,16 +18,16 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { goBackOrFallback } from "@/lib/portalBackNav";
-import type { Language } from "@/types/configurator";
+import { getPortalBackInfo } from "@/lib/portalBackNav";
+import { pickT } from "@/lib/i18n/translations";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
 export type ServiceMaintView =
   | "dashboard"
   | "registrations"
   | "create"
   | "dealers"
-  | "machines"
-  | "settings";
+  | "machines";
 
 interface NavItem {
   view: ServiceMaintView;
@@ -42,17 +41,25 @@ const NAV: NavItem[] = [
   { view: "create", icon: PlusCircle },
   { view: "dealers", icon: Building2, internalOnly: true },
   { view: "machines", icon: Wrench, internalOnly: true },
-  { view: "settings", icon: Settings, internalOnly: true },
 ];
 
-const L: Record<ServiceMaintView, Record<Language, string>> = {
-  dashboard: { da: "Dashboard", en: "Dashboard", de: "Dashboard", it: "Dashboard", hu: "Dashboard" },
+type Dict = Partial<Record<PortalUiLanguage, string>>;
+
+const L: Record<ServiceMaintView, Dict> = {
+  dashboard: {
+    da: "Dashboard", en: "Dashboard", de: "Dashboard", it: "Dashboard", hu: "Dashboard",
+    sv: "Dashboard", fr: "Tableau de bord", pl: "Panel", cs: "Přehled",
+  },
   registrations: {
     da: "Service registreringer / Maskinoversigt",
     en: "Service registrations / Machine overview",
     de: "Serviceerfassungen / Maschinenübersicht",
     it: "Registrazioni servizio / Panoramica macchine",
     hu: "Szervizregisztrációk / Gépek áttekintése",
+    sv: "Serviceregistreringar / Maskinöversikt",
+    fr: "Enregistrements de service / Aperçu des machines",
+    pl: "Rejestracje serwisowe / Przegląd maszyn",
+    cs: "Servisní záznamy / Přehled strojů",
   },
   create: {
     da: "Opret service registrering",
@@ -60,26 +67,31 @@ const L: Record<ServiceMaintView, Record<Language, string>> = {
     de: "Serviceerfassung erstellen",
     it: "Crea registrazione servizio",
     hu: "Szervizregisztráció létrehozása",
+    sv: "Skapa serviceregistrering",
+    fr: "Créer un enregistrement de service",
+    pl: "Utwórz rejestrację serwisową",
+    cs: "Vytvořit servisní záznam",
   },
-  dealers: { da: "Forhandlere", en: "Dealers", de: "Händler", it: "Rivenditori", hu: "Kereskedők" },
-  machines: { da: "Maskiner", en: "Machines", de: "Maschinen", it: "Macchine", hu: "Gépek" },
-  settings: { da: "Indstillinger", en: "Settings", de: "Einstellungen", it: "Impostazioni", hu: "Beállítások" },
+  dealers: {
+    da: "Forhandlere", en: "Dealers", de: "Händler", it: "Rivenditori", hu: "Kereskedők",
+    sv: "Återförsäljare", fr: "Revendeurs", pl: "Dealerzy", cs: "Prodejci",
+  },
+  machines: {
+    da: "Maskiner", en: "Machines", de: "Maschinen", it: "Macchine", hu: "Gépek",
+    sv: "Maskiner", fr: "Machines", pl: "Maszyny", cs: "Stroje",
+  },
 };
 
-const BACK_LABEL: Record<Language, string> = {
-  da: "Tilbage til Teknik & Service",
-  en: "Back to Technical & Service",
-  de: "Zurück zu Technik & Service",
-  it: "Torna a Tecnico & Assistenza",
-  hu: "Vissza a Műszaki & Szervizhez",
-};
-
-const SECTION_LABEL: Record<Language, string> = {
+const SECTION_LABEL: Dict = {
   da: "Service & vedligehold",
   en: "Service & maintenance",
   de: "Service & Wartung",
   it: "Servizio & manutenzione",
   hu: "Szerviz & karbantartás",
+  sv: "Service & underhåll",
+  fr: "Service & entretien",
+  pl: "Serwis i konserwacja",
+  cs: "Servis a údržba",
 };
 
 class ServiceErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -120,11 +132,12 @@ export function ServiceMaintenanceSidebarLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const { appUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
 
   if (!appUser) return null;
 
   const items = NAV.filter((n) => isInternal || !n.internalOnly);
+  const back = getPortalBackInfo(location.pathname, lang);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -138,11 +151,11 @@ export function ServiceMaintenanceSidebarLayout({
       <div className="bg-white border-b border-slate-200 py-3">
         <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
-            onClick={() => goBackOrFallback(navigate, location)}
+            onClick={() => navigate(back.to)}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            {BACK_LABEL[lang] ?? BACK_LABEL.en}
+            {back.label}
           </button>
         </div>
       </div>
@@ -151,12 +164,12 @@ export function ServiceMaintenanceSidebarLayout({
         <aside className="hidden w-64 shrink-0 lg:block">
           <nav className="sticky top-[88px] space-y-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             <div className="px-3 py-2 text-[11px] font-black uppercase tracking-widest text-slate-400">
-              {SECTION_LABEL[lang] ?? SECTION_LABEL.en}
+              {pickT(SECTION_LABEL, uiLanguage)}
             </div>
             {items.map((item) => {
               const Icon = item.icon;
               const active = currentView === item.view;
-              const label = L[item.view][lang] ?? L[item.view].en;
+              const label = pickT(L[item.view], uiLanguage);
               return (
                 <button
                   key={item.view}
