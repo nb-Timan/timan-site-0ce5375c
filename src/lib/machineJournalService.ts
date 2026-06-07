@@ -159,6 +159,21 @@ export interface JournalComment {
   href?: string;
 }
 
+export interface HoursRegressionWarning {
+  /** Highest hour count recorded previously. */
+  previousHours: number;
+  /** Source label for the previous (higher) record. */
+  previousSource: string;
+  /** Date (ISO) of the previous record. */
+  previousDate: string | null;
+  /** New (lower) hour count just observed. */
+  newerHours: number;
+  /** Source label for the new (lower) record. */
+  newerSource: string;
+  /** Date (ISO) of the new record. */
+  newerDate: string | null;
+}
+
 export interface JournalSummary {
   serial: string; // display casing
   normalizedSerial: string;
@@ -175,6 +190,10 @@ export interface JournalSummary {
   openTickets: number;
   openClaims: number;
   tsbPending: number;
+  /** Sum of all open items shown on the journal page banner. */
+  openItemsCount: number;
+  /** Operating-hours regression detected across source records. */
+  hoursRegression: HoursRegressionWarning | null;
   status: "active" | "archived" | null;
   machineRecord: MachineRecord | null;
   /** True when no source record carries any dealer link. Internal UI
