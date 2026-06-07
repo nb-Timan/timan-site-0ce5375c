@@ -832,6 +832,12 @@ const translations: Record<string, Record<string, string>> = {
     orderCannotResendTitle: 'Ez a rendelés már leadva, nem küldhető el újra.',
     saveChangesBtn: 'Módosítások mentése',
     savingChangesBtn: 'Mentés…',
+    packagingCostBody: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.',
+    reminderTitle: 'Központi tömlő',
+    reminderBody721122: 'Nem választotta a 721122 cikkszámot ehhez a Timan 3330-hoz.\n\nSzándékos ez, vagy elfelejtette hozzáadni?',
+    reminderBody721059: 'Nem választotta a 721059 cikkszámot (központi tömlő utólagos felszerelése) ehhez a laza gyűjtőtartályhoz.\n\nSzándékos ez, vagy elfelejtette hozzáadni?',
+    reminderAdd: 'Hozzáadás',
+    reminderContinueWithout: 'Folytatás nélküle',
   },
   // ----- Stage 7: complete native translations for sv/fr/pl/cs -----
   // Missing keys still fall back to English via t() below.
