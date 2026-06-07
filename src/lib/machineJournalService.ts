@@ -306,12 +306,12 @@ export async function searchMachinesByIdentifier(
     console.warn("[machineJournal] tickets search failed", e);
   }
 
-  // 5. claims (mock; scope-filtered)
+  // 5. claims (canonical claims store; scope-filtered)
   for (const c of filterClaimsForScope(getAllClaims(), scope)) {
     push(c.serial, "claim", { machineType: c.machineType, customerName: c.customer, dealerName: c.dealer });
   }
 
-  // 6. tsb (mock; scope-filtered)
+  // 6. tsb (canonical TSB store; scope-filtered)
   for (const t of filterTsbForScope(getAllTsbs(), scope)) {
     for (const d of t.dealers) {
       for (const serial of d.machineSerials) {
@@ -319,6 +319,25 @@ export async function searchMachinesByIdentifier(
         push(serial, "tsb", { dealerName: dealer?.name ?? null });
       }
     }
+  }
+
+  // 7. machine_registry_index — auto-populated identity layer (RLS authenticated)
+  try {
+    const safe = q.replace(/[(),]/g, "");
+    const { data } = await supabase
+      .from("machine_registry_index")
+      .select("normalized_serial, display_serial, machine_model, machine_type, last_source")
+      .or(`normalized_serial.ilike.%${safe.toUpperCase()}%,display_serial.ilike.%${safe}%`)
+      .limit(50);
+    for (const r of (data ?? []) as Array<{
+      normalized_serial: string; display_serial: string;
+      machine_model: string | null; machine_type: string | null; last_source: string | null;
+    }>) {
+      const src = (r.last_source as TimelineKind) ?? "service";
+      push(r.display_serial, src, { machineType: r.machine_type });
+    }
+  } catch (e) {
+    console.warn("[machineJournal] registry search failed", e);
   }
 
   return Array.from(hits.values()).slice(0, 100);
