@@ -336,12 +336,22 @@ export async function searchMachinesByIdentifier(
   const push = (
     serial: string | null | undefined,
     source: TimelineKind,
-    extra: { machineType?: string | null; customerName?: string | null; dealerName?: string | null },
+    extra: {
+      machineType?: string | null;
+      customerName?: string | null;
+      dealerName?: string | null;
+      dealerNumber?: string | null;
+    },
     matchCounterKey?: keyof MachineSearchDebug["matched"],
   ) => {
     const display = (serial ?? "").toString().trim();
     const norm = normalizeSerial(display);
     if (!norm || !norm.includes(nq)) return;
+    // Scope guard — hide serials the user is not allowed to see.
+    if (!dealerScopeAllows(scope, {
+      dealer_number: extra.dealerNumber ?? null,
+      dealer_name: extra.dealerName ?? null,
+    })) return;
     if (debug && matchCounterKey) debug.matched[matchCounterKey] += 1;
     let hit = hits.get(norm);
     if (!hit) {
