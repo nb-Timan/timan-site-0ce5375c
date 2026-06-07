@@ -2797,7 +2797,7 @@ export default function ConfiguratorPage() {
             </fieldset>
             <AccountPanel
               appUser={appUser}
-              language={lang}
+              language={uiLanguage}
               currentState={state}
               ownershipOverride={buildOwnershipPayload}
               onSavedConfiguration={(configId, quoteNumber, orderNumber) => {
