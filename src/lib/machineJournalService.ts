@@ -79,7 +79,7 @@ function serialMatches(a: string | null | undefined, b: string | null | undefine
 
 export interface JournalScope {
   role: PortalRole | null;
-  /** Dealer-side users only see mock claims/TSB matching this label. */
+  /** Dealer-side users only see claims/TSB whose dealer matches this label. */
   dealerLabel: string | null;
 }
 
