@@ -21,8 +21,8 @@ import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
-  loadMachineJournal, isInternalRole, type MachineJournal,
-  type TimelineKind, type JournalScope,
+  loadMachineJournal, isInternalRole, type MachineJournal, type JournalSummary,
+  type TimelineKind, type JournalScope, type StatusTone, type HealthLevel,
 } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
