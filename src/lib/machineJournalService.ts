@@ -495,6 +495,7 @@ export async function loadMachineJournal(
       sellerLabel: null, warrantyStart: null, warrantyEnd: null,
       registrationDate: null, currentHours: null, latestServiceDate: null,
       openTickets: 0, openClaims: 0, tsbPending: 0, status: null, machineRecord: null,
+      dealerLinkMissing: false,
     },
     timeline: [],
     comments: [],
