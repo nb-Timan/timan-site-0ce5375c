@@ -3348,7 +3348,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
             >
-              Tilføj 721122
+              {T('reminderAdd')} 721122
             </button>
             <button
               onClick={() => {
