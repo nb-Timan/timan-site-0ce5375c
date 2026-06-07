@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LifeBuoy, AlertCircle, Plus, Search, LayoutDashboard, FileText,
   Clock, CheckCircle2, XCircle, Layers, Eye,
