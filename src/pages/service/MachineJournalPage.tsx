@@ -161,10 +161,18 @@ export default function MachineJournalPage() {
 
   const sortedTimeline = useMemo(() => {
     if (!journal) return [];
-    const arr = [...journal.timeline];
+    let arr = [...journal.timeline];
+    if (kindFilter !== "all") arr = arr.filter((e) => e.kind === kindFilter);
     if (oldestFirst) arr.reverse();
     return arr;
-  }, [journal, oldestFirst]);
+  }, [journal, oldestFirst, kindFilter]);
+
+  const availableKinds = useMemo<TimelineKind[]>(() => {
+    if (!journal) return [];
+    const set = new Set<TimelineKind>();
+    for (const e of journal.timeline) set.add(e.kind);
+    return Array.from(set);
+  }, [journal]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
