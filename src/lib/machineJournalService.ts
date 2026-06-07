@@ -301,6 +301,231 @@ function filterTsbForScope(all: Tsb[], scope: JournalScope): Tsb[] {
 }
 
 
+// ---------- Machine Registry Overview (Phase 1) ----------
+
+export interface MachineOverviewRow {
+  serial: string;
+  normalizedSerial: string;
+  machineModel: string | null;
+  machineType: string | null;
+  dealerName: string | null;
+  dealerNumber: string | null;
+  deliveryDate: string | null;
+  operatingHours: number | null;
+  latestActivityDate: string | null;
+  latestActivityLabel: string | null;
+  sources: TimelineKind[];
+  openTickets: number;
+  openClaims: number;
+  openTsb: number;
+  health: HealthLevel;
+}
+
+function fmtDateDk(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+}
+
+/**
+ * Lightweight cross-source listing of every machine the caller is allowed
+ * to see. One row per normalized serial. Does NOT load timeline/comments/
+ * documents — only the summary fields needed for the registry overview.
+ *
+ * Scope enforcement: every source row is filtered by `dealerScopeAllows`
+ * before it can contribute to a row, so external users can never discover
+ * machines outside their scope (registry index query is internal-only).
+ */
+export async function listAccessibleMachines(scope: JournalScope): Promise<MachineOverviewRow[]> {
+  const map = new Map<string, MachineOverviewRow>();
+
+  const touch = (
+    serial: string | null | undefined,
+    source: TimelineKind,
+    extra: {
+      machineModel?: string | null;
+      machineType?: string | null;
+      dealerName?: string | null;
+      dealerNumber?: string | null;
+      deliveryDate?: string | null;
+      operatingHours?: number | null;
+      activityDate?: string | null;
+      activityLabel?: string | null;
+    },
+  ): MachineOverviewRow | null => {
+    const display = (serial ?? "").toString().trim();
+    if (!display) return null;
+    if (!dealerScopeAllows(scope, {
+      dealer_number: extra.dealerNumber ?? null,
+      dealer_name: extra.dealerName ?? null,
+    })) return null;
+    const norm = normalizeSerial(display);
+    let row = map.get(norm);
+    if (!row) {
+      row = {
+        serial: display, normalizedSerial: norm,
+        machineModel: extra.machineModel ?? null,
+        machineType: extra.machineType ?? null,
+        dealerName: extra.dealerName ?? null,
+        dealerNumber: extra.dealerNumber ?? null,
+        deliveryDate: extra.deliveryDate ?? null,
+        operatingHours: extra.operatingHours ?? null,
+        latestActivityDate: null, latestActivityLabel: null,
+        sources: [], openTickets: 0, openClaims: 0, openTsb: 0,
+        health: "healthy",
+      };
+      map.set(norm, row);
+    }
+    row.machineModel ??= extra.machineModel ?? null;
+    row.machineType ??= extra.machineType ?? null;
+    row.dealerName ??= extra.dealerName ?? null;
+    row.dealerNumber ??= extra.dealerNumber ?? null;
+    row.deliveryDate ??= extra.deliveryDate ?? null;
+    if (row.operatingHours == null && extra.operatingHours != null) row.operatingHours = extra.operatingHours;
+    if (!row.sources.includes(source)) row.sources.push(source);
+    const newDate = extra.activityDate ?? null;
+    if (newDate) {
+      const cur = row.latestActivityDate ? new Date(row.latestActivityDate).getTime() : -Infinity;
+      const n = new Date(newDate).getTime();
+      if (!Number.isNaN(n) && n >= cur) {
+        row.latestActivityDate = newDate;
+        row.latestActivityLabel = extra.activityLabel ?? row.latestActivityLabel;
+      }
+    }
+    return row;
+  };
+
+  const [machinesRes, warranties, serviceRegs, tickets] = await Promise.all([
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("machines")
+          .select("serial_number, machine_type, model, dealer_name, dealer_number, current_hours, warranty_start_date, updated_at")
+          .limit(2000);
+        return (data ?? []) as Array<{
+          serial_number: string | null; machine_type: string | null; model: string | null;
+          dealer_name: string | null; dealer_number: string | null; current_hours: number | null;
+          warranty_start_date: string | null; updated_at: string | null;
+        }>;
+      } catch { return []; }
+    })(),
+    fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
+    listServiceRegistrations().catch(() => [] as ServiceRegistration[]),
+    fetchVisibleServiceTickets(1000).catch(() => [] as ServiceTicket[]),
+  ]);
+
+  for (const m of machinesRes) {
+    touch(m.serial_number, "service", {
+      machineModel: m.model, machineType: m.machine_type,
+      dealerName: m.dealer_name, dealerNumber: m.dealer_number,
+      operatingHours: m.current_hours, deliveryDate: m.warranty_start_date,
+      activityDate: m.updated_at,
+      activityLabel: m.updated_at ? `${fmtDateDk(m.updated_at)} · Maskine opdateret` : null,
+    });
+  }
+
+  for (const w of warranties) {
+    const d = w.registrationDate || w.deliveryDate || w.createdAt;
+    touch(w.machineSerial, "warranty", {
+      machineModel: w.machineModel ?? null,
+      machineType: w.machineType ?? null,
+      dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
+      dealerNumber: w.dealerAccountNumber,
+      deliveryDate: w.deliveryDate || null,
+      activityDate: d,
+      activityLabel: d ? `${fmtDateDk(d)} · Garantiregistrering` : null,
+    });
+  }
+
+  for (const s of serviceRegs) {
+    const label = s.service_date
+      ? `${fmtDateDk(s.service_date)} · Service registration${s.operating_hours != null ? ` · ${s.operating_hours} timer` : ""}`
+      : null;
+    const row = touch(s.serial_number, "service", {
+      machineType: s.machine_type,
+      dealerName: s.dealer_name, dealerNumber: s.dealer_number,
+      operatingHours: s.operating_hours ?? null,
+      activityDate: s.service_date, activityLabel: label,
+    });
+    if (row && s.operating_hours != null) {
+      if (row.operatingHours == null || s.operating_hours > row.operatingHours) row.operatingHours = s.operating_hours;
+    }
+  }
+
+  for (const t of tickets as Array<ServiceTicket & { serial_number?: string | null; dealer_number?: string | null }>) {
+    const row = touch(t.serial_number ?? null, "ticket", {
+      dealerName: t.dealer_name, dealerNumber: t.dealer_number ?? null,
+      activityDate: t.created_at,
+      activityLabel: t.created_at ? `${fmtDateDk(t.created_at)} · Ticket oprettet` : null,
+    });
+    if (row && isOpenTicketStatus(t.status)) row.openTickets += 1;
+  }
+
+  for (const c of filterClaimsForScope(getAllClaims(), scope)) {
+    const row = touch(c.serial, "claim", {
+      machineModel: c.machineType, dealerName: c.dealer,
+      activityDate: c.createdAt,
+      activityLabel: c.createdAt ? `${fmtDateDk(c.createdAt)} · Claim oprettet` : null,
+    });
+    if (row && isOpenClaim(c)) row.openClaims += 1;
+  }
+
+  for (const t of filterTsbForScope(getAllTsbs(), scope)) {
+    for (const d of t.dealers) {
+      const dealer = getDealer(d.dealerId);
+      for (const serial of d.machineSerials) {
+        const date = t.activeFrom || t.createdAt;
+        const label = d.status === "accepteret" ? "TSB udført" : "TSB tildelt";
+        const row = touch(serial, "tsb", {
+          dealerName: dealer?.name ?? null,
+          activityDate: date,
+          activityLabel: date ? `${fmtDateDk(date)} · ${label}` : null,
+        });
+        if (row && d.status === "afventer") row.openTsb += 1;
+      }
+    }
+  }
+
+  // Internal-only registry sweep — surfaces any serials whose source
+  // records aren't reachable through scoped queries above.
+  if (isInternalRole(scope.role)) {
+    try {
+      const { data } = await supabase
+        .from("machine_registry_index")
+        .select("display_serial, machine_model, machine_type, last_source, last_activity_at")
+        .order("last_activity_at", { ascending: false })
+        .limit(2000);
+      for (const r of (data ?? []) as Array<{
+        display_serial: string; machine_model: string | null; machine_type: string | null;
+        last_source: string | null; last_activity_at: string | null;
+      }>) {
+        const src = (r.last_source as TimelineKind) ?? "service";
+        touch(r.display_serial, src, {
+          machineModel: r.machine_model, machineType: r.machine_type,
+          activityDate: r.last_activity_at,
+        });
+      }
+    } catch (e) {
+      console.warn("[machineJournal] registry index sweep failed (tolerated)", e);
+    }
+  }
+
+  const out = Array.from(map.values());
+  for (const row of out) {
+    if (row.openClaims > 0 || row.openTsb > 0) row.health = "critical";
+    else if (row.openTickets > 0) row.health = "needs_attention";
+    else row.health = "healthy";
+  }
+  out.sort((a, b) => {
+    const da = a.latestActivityDate ? new Date(a.latestActivityDate).getTime() : 0;
+    const db = b.latestActivityDate ? new Date(b.latestActivityDate).getTime() : 0;
+    return db - da;
+  });
+  return out;
+}
+
+
 // ---------- Cross-source search ----------
 
 export interface MachineSearchHit {
