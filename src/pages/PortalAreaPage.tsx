@@ -76,8 +76,10 @@ export default function PortalAreaPage({ areaId }: Props) {
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { markAreaRead } = useChangelog(appUser, lang);
+  const { markAreaRead, submoduleBadge, markSubmoduleRead } = useChangelog(appUser, lang);
   useEffect(() => {
+    // Mark only module-level area entries read on mount. Submodule-tagged
+    // entries remain unread until the user opens the matching submodule.
     if (appUser) markAreaRead(areaId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
