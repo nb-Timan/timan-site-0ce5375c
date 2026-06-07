@@ -19,7 +19,8 @@ import {
 
 interface Props {
   productId: string | undefined;
-  lang: Language;
+  /** Accepts the wider portal UI language (sv/fr/pl/cs) in addition to the legacy 5. */
+  lang: Language | string;
   className?: string;
 }
 
