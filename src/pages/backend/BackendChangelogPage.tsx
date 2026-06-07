@@ -112,6 +112,7 @@ export default function BackendChangelogPage() {
       id: r.id,
       module_key: r.module_key,
       module_name: r.module_name,
+      submodule_key: r.submodule_key || null,
       title: r.title,
       description: r.description || "",
       changed_at: r.changed_at,
