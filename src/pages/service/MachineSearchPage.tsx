@@ -570,6 +570,14 @@ export default function MachineSearchPage() {
                 {machine.model && (
                   <span className="text-sm text-slate-500">· {machine.model}</span>
                 )}
+                {machine.serial_number && (
+                  <button
+                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(machine.serial_number!)}`)}
+                    className="ml-auto inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                  >
+                    Min Maskine →
+                  </button>
+                )}
               </div>
             </div>
 
