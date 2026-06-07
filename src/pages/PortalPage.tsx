@@ -191,10 +191,22 @@ export default function PortalPage() {
             const meta = AREA_META[area.id];
             if (!meta) return null;
             const latest = changelog.latestForArea(area.id);
-            const hasUnread = changelog.hasUnreadForArea(area.id);
-            const updateBadge = latest && hasUnread
-              ? { label: `${t('updated', uiLanguage)} ${formatChangedAt(latest.changed_at)}` }
-              : null;
+            const unreadCount = changelog.unreadCountForArea(area.id);
+            const hasMajor = changelog.hasMajorUnreadForArea(area.id);
+            let updateBadge: { label: string } | null = null;
+            if (latest && unreadCount > 0) {
+              const newLabel = t('newTag', uiLanguage).toUpperCase();
+              const impLabel = t('important', uiLanguage).toUpperCase();
+              if (hasMajor) {
+                updateBadge = {
+                  label: unreadCount > 1 ? `${impLabel} · ${newLabel} ${unreadCount}` : impLabel,
+                };
+              } else {
+                updateBadge = {
+                  label: unreadCount > 1 ? `${newLabel} ${unreadCount}` : `${t('updated', uiLanguage)} ${formatChangedAt(latest.changed_at)}`,
+                };
+              }
+            }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
             return (
