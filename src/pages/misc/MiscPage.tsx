@@ -38,7 +38,15 @@ const T: Record<string, Record<Language, string>> = {
 
 export default function MiscPage() {
   const { language: lang } = useLanguage();
+  const { appUser } = useAppUser();
   const navigate = useNavigate();
+  const { submoduleBadge, markSubmoduleRead } = useChangelog(appUser, lang);
+  const partnerBadge = submoduleBadge('partner_map');
+
+  const openPartnerMap = () => {
+    markSubmoduleRead('partner_map');
+    navigate('/portal/misc/partner-map');
+  };
 
   return (
     <MiscPageShell title={T.title[lang]} intro={T.intro[lang]}>
@@ -58,9 +66,25 @@ export default function MiscPage() {
 
         <button
           type="button"
-          onClick={() => navigate('/portal/misc/partner-map')}
-          className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
+          onClick={openPartnerMap}
+          className="relative bg-white p-8 rounded-2xl border border-gray-100 shadow-sm cursor-pointer group text-left transition-all duration-300 hover:-translate-y-1.5 hover:shadow-md"
         >
+          {partnerBadge && (
+            <span
+              className={cn(
+                'absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+                partnerBadge.kind === 'major' ? 'bg-rose-100 text-rose-700' : 'bg-green-100 text-[#2d5a27]',
+              )}
+              title={[
+                formatChangedDate(partnerBadge.latest.changed_at),
+                partnerBadge.latest.title?.[lang] || partnerBadge.latest.title?.da || '',
+                partnerBadge.latest.description?.[lang] || partnerBadge.latest.description?.da || '',
+              ].filter(Boolean).join('\n')}
+            >
+              {partnerBadge.kind === 'major' ? ct('important', lang).toUpperCase() : ct('newTag', lang).toUpperCase()}
+              {partnerBadge.count > 1 ? ` ${partnerBadge.count}` : ''}
+            </span>
+          )}
           <div className="w-12 h-12 bg-[#2d5a27] rounded-lg flex items-center justify-center text-white mb-6">
             <Map className="h-6 w-6" />
           </div>
