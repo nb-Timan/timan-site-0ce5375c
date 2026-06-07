@@ -42,6 +42,13 @@ export type ChangelogRole =
 export interface ChangeLogEntry {
   id: string;
   module_key: ModuleKey;
+  /**
+   * Optional submodule identifier — when set, the entry is attributed to a
+   * specific card inside the module's portal area (e.g. 'service_tickets',
+   * 'claims', 'warranty_reg', 'service_maintenance', 'machine_search',
+   * 'tsb_portal'). Entries without submodule_key are module-level changes.
+   */
+  submodule_key?: string;
   module_name: Record<Language, string>;
   /** ISO timestamp of when the change went live. */
   changed_at: string;
@@ -395,7 +402,33 @@ export function isStillNew(entry: ChangeLogEntry): boolean {
   return Number.isFinite(t) && t > Date.now();
 }
 
+
+// ---------- Submodule aliasing ----------
+
+/**
+ * Map alternative submodule_key spellings (as authors may use them in the
+ * admin form, e.g. 'warranty' / 'tsb' / 'service_registration') to the
+ * canonical placeholder key used by PortalAreaPage (e.g. 'warranty_reg',
+ * 'tsb_portal', 'service_maintenance'). Unknown keys are returned as-is.
+ */
+const SUBMODULE_ALIAS: Record<string, string> = {
+  warranty: 'warranty_reg',
+  tsb: 'tsb_portal',
+  service_registration: 'service_maintenance',
+};
+export function normalizeSubmoduleKey(key: string | null | undefined): string | null {
+  if (!key) return null;
+  const k = key.trim();
+  return SUBMODULE_ALIAS[k] || k;
+}
+
 // ---------- Hook ----------
+
+export interface SubmoduleBadge {
+  kind: 'new' | 'major';
+  count: number;
+  latest: ChangeLogEntry;
+}
 
 export interface UseChangelogResult {
   entries: ChangeLogEntry[];
@@ -405,9 +438,17 @@ export interface UseChangelogResult {
   latestForArea: (areaId: PortalAreaId) => ChangeLogEntry | null;
   latestForModule: (moduleKey: ModuleKey) => ChangeLogEntry | null;
   hasUnreadForArea: (areaId: PortalAreaId) => boolean;
+  /** Number of unread visible entries in the area (module-level + submodule). */
+  unreadCountForArea: (areaId: PortalAreaId) => number;
+  /** True if any unread visible entry in the area is_major. */
+  hasMajorUnreadForArea: (areaId: PortalAreaId) => boolean;
+  /** Unread badge for a specific submodule card (key uses canonical placeholder spelling). */
+  submoduleBadge: (submoduleKey: string) => SubmoduleBadge | null;
   markEntryRead: (id: string) => void;
+  /** Marks module-level area entries read (entries without submodule_key). */
   markAreaRead: (areaId: PortalAreaId) => void;
   markModuleRead: (moduleKey: ModuleKey) => void;
+  markSubmoduleRead: (submoduleKey: string) => void;
 }
 
 export function useChangelog(
@@ -439,6 +480,11 @@ export function useChangelog(
   const entriesForArea = (areaId: PortalAreaId) =>
     entries.filter(e => areaForModule(e.module_key) === areaId);
 
+  const entriesForSubmodule = (submoduleKey: string) => {
+    const target = normalizeSubmoduleKey(submoduleKey);
+    return entries.filter(e => normalizeSubmoduleKey(e.submodule_key) === target);
+  };
+
   return {
     entries,
     readIds,
@@ -448,11 +494,33 @@ export function useChangelog(
     latestForModule: (moduleKey) => entries.find(e => e.module_key === moduleKey) || null,
     hasUnreadForArea: (areaId) =>
       entriesForArea(areaId).some(e => !readIds.has(e.id)),
+    unreadCountForArea: (areaId) =>
+      entriesForArea(areaId).filter(e => !readIds.has(e.id)).length,
+    hasMajorUnreadForArea: (areaId) =>
+      entriesForArea(areaId).some(e => !readIds.has(e.id) && !!e.is_major),
+    submoduleBadge: (submoduleKey) => {
+      const sub = entriesForSubmodule(submoduleKey).filter(e => !readIds.has(e.id));
+      if (sub.length === 0) return null;
+      const major = sub.find(e => !!e.is_major);
+      return {
+        kind: major ? 'major' : 'new',
+        count: sub.length,
+        latest: sub[0],
+      };
+    },
     markEntryRead: (id) => localReadStore.markRead(userKey, [id]),
+    // Mark only module-level area entries read — leaves submodule-tagged
+    // entries unread so per-card badges remain until the user opens the
+    // matching submodule.
     markAreaRead: (areaId) =>
-      localReadStore.markRead(userKey, entriesForArea(areaId).map(e => e.id)),
+      localReadStore.markRead(
+        userKey,
+        entriesForArea(areaId).filter(e => !e.submodule_key).map(e => e.id),
+      ),
     markModuleRead: (moduleKey) =>
       localReadStore.markRead(userKey, entries.filter(e => e.module_key === moduleKey).map(e => e.id)),
+    markSubmoduleRead: (submoduleKey) =>
+      localReadStore.markRead(userKey, entriesForSubmodule(submoduleKey).map(e => e.id)),
   };
 }
 

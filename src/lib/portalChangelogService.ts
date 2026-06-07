@@ -26,6 +26,7 @@ export interface PortalChangeLogRow {
   id: string;
   module_key: string;
   module_name: string;
+  submodule_key: string | null;
   changed_at: string;
   title: string;
   description: string | null;
@@ -48,6 +49,7 @@ export function rowToEntry(row: PortalChangeLogRow): ChangeLogEntry & { _lang: L
   return {
     id: row.id,
     module_key: row.module_key as ModuleKey,
+    submodule_key: row.submodule_key || undefined,
     module_name: fanout(row.module_name),
     changed_at: row.changed_at,
     title: fanout(row.title),
@@ -155,6 +157,7 @@ export interface ChangelogDraft {
   id?: string;
   module_key: string;
   module_name: string;
+  submodule_key?: string | null;
   title: string;
   description?: string | null;
   changed_at: string;            // ISO
@@ -178,6 +181,7 @@ export async function adminCreateChangelog(draft: ChangelogDraft): Promise<{ err
   const { error } = await supabase.from('portal_change_log').insert({
     module_key: draft.module_key,
     module_name: draft.module_name,
+    submodule_key: draft.submodule_key || null,
     title: draft.title,
     description: draft.description || null,
     changed_at: draft.changed_at,
@@ -195,6 +199,7 @@ export async function adminUpdateChangelog(id: string, draft: ChangelogDraft): P
   const { error } = await supabase.from('portal_change_log').update({
     module_key: draft.module_key,
     module_name: draft.module_name,
+    submodule_key: draft.submodule_key || null,
     title: draft.title,
     description: draft.description || null,
     changed_at: draft.changed_at,

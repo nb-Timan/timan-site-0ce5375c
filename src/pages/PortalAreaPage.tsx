@@ -2,7 +2,7 @@ import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
-import { useChangelog } from '@/lib/portalChangelog';
+import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
@@ -76,8 +76,10 @@ export default function PortalAreaPage({ areaId }: Props) {
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { markAreaRead } = useChangelog(appUser, lang);
+  const { markAreaRead, submoduleBadge, markSubmoduleRead } = useChangelog(appUser, lang);
   useEffect(() => {
+    // Mark only module-level area entries read on mount. Submodule-tagged
+    // entries remain unread until the user opens the matching submodule.
     if (appUser) markAreaRead(areaId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
@@ -186,6 +188,18 @@ export default function PortalAreaPage({ areaId }: Props) {
             }
             const titleKey = PLACEHOLDER_TITLE_KEY[p.key];
             const descKey = PLACEHOLDER_DESC_KEY[p.key];
+            const sb = submoduleBadge(p.key);
+            const updateBadge = sb
+              ? {
+                  kind: sb.kind,
+                  label: sb.kind === 'major' ? 'VIGTIG' : 'NY',
+                  tooltip: [
+                    formatChangedDate(sb.latest.changed_at),
+                    sb.latest.title?.[lang] || sb.latest.title?.da || '',
+                    sb.latest.description?.[lang] || sb.latest.description?.da || '',
+                  ].filter(Boolean).join('\n'),
+                }
+              : null;
             return (
               <PlaceholderCard
                 key={p.key}
@@ -194,6 +208,8 @@ export default function PortalAreaPage({ areaId }: Props) {
                 to={href}
                 icon={icon}
                 description={descKey ? t(descKey, uiLanguage) : undefined}
+                updateBadge={updateBadge}
+                onActivate={() => markSubmoduleRead(p.key)}
               />
             );
           })}

@@ -31,6 +31,24 @@ const MODULE_KEYS = [
 const ROLES = ["all", "sales", "service", "backend", "admin", "dealer"] as const;
 const LANGS = ["da", "en", "de", "it", "hu"] as const;
 
+const SUBMODULE_SUGGESTIONS: Record<string, string[]> = {
+  service: [
+    "service_tickets",
+    "service_maintenance",   // alias: service_registration
+    "claims",
+    "warranty_reg",          // alias: warranty
+    "machine_search",
+    "tsb_portal",            // alias: tsb
+  ],
+  warranty: ["warranty_reg"],
+  claims: ["claims"],
+  backend: [
+    "users", "roles", "module_access", "audit",
+    "portal_analytics", "dealer_accounts", "sellers",
+    "price_lists", "budget_import",
+  ],
+};
+
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -47,6 +65,7 @@ function fromLocalInput(v: string): string {
 const emptyDraft = (): ChangelogDraft => ({
   module_key: "partner_map",
   module_name: "Partnerkort",
+  submodule_key: null,
   title: "",
   description: "",
   changed_at: new Date().toISOString(),
@@ -93,6 +112,7 @@ export default function BackendChangelogPage() {
       id: r.id,
       module_key: r.module_key,
       module_name: r.module_name,
+      submodule_key: r.submodule_key || null,
       title: r.title,
       description: r.description || "",
       changed_at: r.changed_at,
@@ -195,6 +215,23 @@ export default function BackendChangelogPage() {
                 <input type="text" value={draft.module_name}
                   onChange={e => setDraft({ ...draft, module_name: e.target.value })}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+              </Field>
+
+              <Field label="Submodul-key (valgfri)">
+                <input
+                  type="text"
+                  list="submodule-suggestions"
+                  value={draft.submodule_key || ""}
+                  onChange={e => setDraft({ ...draft, submodule_key: e.target.value || null })}
+                  placeholder="fx service_tickets, claims, warranty_reg"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                />
+                <datalist id="submodule-suggestions">
+                  {(SUBMODULE_SUGGESTIONS[draft.module_key] || []).map(s => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+                <p className="mt-1 text-[11px] text-slate-400">Sætter badge på et bestemt undermodul-kort i området.</p>
               </Field>
 
               <Field label="Titel">
