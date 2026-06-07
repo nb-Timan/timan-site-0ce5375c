@@ -510,12 +510,16 @@ export function useChangelog(
 
 
   const entries = rawEntries
+    .map(normalizeEntry)
     .filter(e => isEntryVisible(e, user, language))
     .slice()
     .sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
 
   const entriesForArea = (areaId: PortalAreaId) =>
     entries.filter(e => areaForModule(e.module_key) === areaId);
+
+  const entriesForModule = (moduleKey: ModuleKey | string) =>
+    entries.filter(e => e.module_key === (moduleKey as ModuleKey));
 
   const entriesForSubmodule = (submoduleKey: string) => {
     const target = normalizeSubmoduleKey(submoduleKey);
