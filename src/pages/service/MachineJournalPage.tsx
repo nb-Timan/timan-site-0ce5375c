@@ -135,17 +135,18 @@ export default function MachineJournalPage() {
     if (!serial) return;
     let cancelled = false;
     setLoading(true);
-    const scope: JournalScope = {
-      role,
-      dealerLabel: appUser.display_name ?? null,
-    };
-    loadMachineJournal(serial, scope)
-      .then((j) => { if (!cancelled) setJournal(j); })
-      .catch((e) => {
+    (async () => {
+      try {
+        const scope: JournalScope = await buildJournalScope(appUser, role);
+        const j = await loadMachineJournal(serial, scope);
+        if (!cancelled) setJournal(j);
+      } catch (e) {
         console.error("[MachineJournal] load failed", e);
         if (!cancelled) setJournal(null);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => { cancelled = true; };
   }, [appUser, serial, role, navigate]);
 
