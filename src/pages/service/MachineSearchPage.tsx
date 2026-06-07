@@ -526,6 +526,20 @@ export default function MachineSearchPage() {
           {!loading && !error && searched && !machine && crossHits.length === 0 && (
             <div className="mt-4 text-center text-sm text-slate-500">{T.notFound[lang]}</div>
           )}
+
+          {/* DEV-only debug HUD. Remove once "Søg på maskine" is verified. */}
+          {import.meta.env.DEV && searched && !loading && searchDebug && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-mono text-amber-900 space-y-1">
+              <div className="font-semibold">[DEV] Machine Search debug</div>
+              <div>Search term: <span className="font-bold">{searchDebug.searchTerm || "(empty)"}</span> · normalized: <span className="font-bold">{searchDebug.normalizedQuery || "(empty)"}</span></div>
+              <div>Portal role: <span className="font-bold">{String(searchDebug.role)}</span> · internal: <span className="font-bold">{String(searchDebug.isInternal)}</span></div>
+              <div>Raw rows fetched per source — machines: {searchDebug.raw.machines}, warranties: {searchDebug.raw.warranties}, serviceRegs: {searchDebug.raw.serviceRegistrations}, tickets: {searchDebug.raw.tickets}, claims: {searchDebug.raw.claims}, tsb: {searchDebug.raw.tsb}, <span className="font-bold">registry: {searchDebug.raw.registry}</span></div>
+              <div>Rows matched (after normalized-serial substring filter) — machines: {searchDebug.matched.machines}, warranties: {searchDebug.matched.warranties}, serviceRegs: {searchDebug.matched.serviceRegistrations}, tickets: {searchDebug.matched.tickets}, claims: {searchDebug.matched.claims}, tsb: {searchDebug.matched.tsb}, <span className="font-bold">registry: {searchDebug.matched.registry}</span></div>
+              <div>Total deduped hits: <span className="font-bold">{searchDebug.totalHits}</span> · primary machine row: <span className="font-bold">{machine ? "yes" : "no"}</span></div>
+              {searchDebug.registryError && <div className="text-red-700">Registry error: {searchDebug.registryError}</div>}
+              {searchDebug.registrySkippedReason && <div className="text-amber-700">Registry skipped: {searchDebug.registrySkippedReason}</div>}
+            </div>
+          )}
         </section>
 
         {/* Cross-source results: serials found only in warranty/service/ticket/claim/TSB. */}
