@@ -3286,7 +3286,7 @@ export default function ConfiguratorPage() {
                               )}
                               <RecommendationInfoPopover
                                 productId={recommendationData.bulletProductIds?.[i]}
-                                lang={lang}
+                                lang={uiLanguage}
                               />
                             </div>
                           </label>
