@@ -626,6 +626,62 @@ export async function loadMachineJournal(
   // ---------- Summary ----------
   const firstWarranty = warranties[0];
   const latestService = serviceRegs[0];
+
+  // ---------- Hours regression detection ----------
+  // Walk every source carrying an operating-hours number, sort by date
+  // ascending, and flag the first record whose hours are strictly lower
+  // than the running max. Surface only the most recent regression so the
+  // UI banner stays focused.
+  const hoursEntries: Array<{ hours: number; date: string | null; source: string }> = [];
+  for (const s of serviceRegs) {
+    if (typeof s.operating_hours === "number" && s.operating_hours >= 0) {
+      hoursEntries.push({ hours: s.operating_hours, date: s.service_date ?? null, source: "Service" });
+    }
+  }
+  for (const t of ticketsForSerial) {
+    const oh = (t as { operating_hours?: number | null }).operating_hours;
+    if (typeof oh === "number" && oh >= 0) {
+      hoursEntries.push({ hours: oh, date: t.created_at ?? null, source: "Service ticket" });
+    }
+  }
+  for (const c of claimsForSerial) {
+    const oh = (c as { operatingHours?: number | null }).operatingHours;
+    if (typeof oh === "number" && oh >= 0) {
+      hoursEntries.push({ hours: oh, date: c.createdAt ?? null, source: "Claim" });
+    }
+  }
+  if (machine && typeof machine.current_hours === "number" && machine.current_hours >= 0) {
+    hoursEntries.push({
+      hours: machine.current_hours,
+      date: machine.updated_at ?? machine.created_at ?? null,
+      source: "Maskine (master)",
+    });
+  }
+  hoursEntries.sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return da - db;
+  });
+  let hoursRegression: HoursRegressionWarning | null = null;
+  let runningMax: { hours: number; date: string | null; source: string } | null = null;
+  for (const e of hoursEntries) {
+    if (runningMax && e.hours < runningMax.hours) {
+      hoursRegression = {
+        previousHours: runningMax.hours,
+        previousSource: runningMax.source,
+        previousDate: runningMax.date,
+        newerHours: e.hours,
+        newerSource: e.source,
+        newerDate: e.date,
+      };
+    }
+    if (!runningMax || e.hours > runningMax.hours) runningMax = e;
+  }
+
+  const openTickets = ticketsForSerial.filter((t) => isOpenTicketStatus(t.status)).length;
+  const openClaims = claimsForSerial.filter(isOpenClaim).length;
+  const tsbPending = tsbForSerial.filter((t) => t.status === "afventer").length;
+
   journal.summary = {
     serial: machine?.serial_number || firstWarranty?.machineSerial || serviceRegs[0]?.serial_number || display,
     normalizedSerial: target,
@@ -651,9 +707,11 @@ export async function loadMachineJournal(
     registrationDate: firstWarranty?.registrationDate ?? null,
     currentHours: machine?.current_hours ?? (latestService?.operating_hours ?? null),
     latestServiceDate: latestService?.service_date ?? null,
-    openTickets: ticketsForSerial.filter((t) => isOpenTicketStatus(t.status)).length,
-    openClaims: claimsForSerial.filter(isOpenClaim).length,
-    tsbPending: tsbForSerial.filter((t) => t.status === "afventer").length,
+    openTickets,
+    openClaims,
+    tsbPending,
+    openItemsCount: openTickets + openClaims + tsbPending,
+    hoursRegression,
     status: machine ? "active" : (firstWarranty?.status === "archived" ? "archived" : "active"),
     machineRecord: machine ?? null,
     dealerLinkMissing: !(
