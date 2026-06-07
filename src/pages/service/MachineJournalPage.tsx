@@ -231,6 +231,13 @@ export default function MachineJournalPage() {
               </div>
             </header>
 
+            {internal && journal.summary.dealerLinkMissing && (
+              <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                Maskinen mangler forhandlerkobling
+              </div>
+            )}
+
+
             {/* Quick stats */}
             <section className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {journal.summary.currentHours != null && (
