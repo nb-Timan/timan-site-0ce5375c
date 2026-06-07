@@ -762,14 +762,7 @@ export default function ConfiguratorPage() {
       }
       // Packaging popup for loose tool
       if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
-        const packMsg: Record<string, string> = {
-          da: 'Du har valgt et løst redskab med særlige pakkeomkostninger i form af specialbygget palle og arbejdstid.',
-          en: 'You have selected an attachment with special packaging costs in the form of a custom-built pallet and labor time.',
-          de: 'Sie haben ein Anbaugerät mit besonderen Verpackungskosten in Form einer maßgefertigten Palette und Arbeitszeit ausgewählt.',
-          it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
-          hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
-        };
-        setInfoModal({ title: T('packagingCostTitle'), content: packMsg[lang] || packMsg.en });
+        setInfoModal({ title: T('packagingCostTitle'), content: T('packagingCostBody') });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
@@ -3333,10 +3326,10 @@ export default function ConfiguratorPage() {
       <Dialog open={reminder721122.open} onOpenChange={(open) => { if (!open) setReminder721122({ open: false, pendingNext: null }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Centerslange (varenummer 721122)</DialogTitle>
+            <DialogTitle>{T('reminderTitle')} (721122)</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-700 whitespace-pre-line">
-            {`Du har ikke valgt varenummer 721122 til denne Timan 3330.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+            {T('reminderBody721122')}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button
@@ -3355,7 +3348,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
             >
-              Tilføj 721122
+              {T('reminderAdd')} 721122
             </button>
             <button
               onClick={() => {
@@ -3374,7 +3367,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
             >
-              Fortsæt uden 721122
+              {T('reminderContinueWithout')} 721122
             </button>
           </div>
         </DialogContent>
@@ -3384,10 +3377,10 @@ export default function ConfiguratorPage() {
       <Dialog open={reminder721059.open} onOpenChange={(open) => { if (!open) setReminder721059({ open: false, pendingNext: null }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Centerslange (varenummer 721059)</DialogTitle>
+            <DialogTitle>{T('reminderTitle')} (721059)</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-700 whitespace-pre-line">
-            {`Du har ikke valgt varenummer 721059 (centerslange eftermontering) til denne løse opsamlingstank.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+            {T('reminderBody721059')}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button
@@ -3405,7 +3398,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium"
             >
-              Tilføj 721059
+              {T('reminderAdd')} 721059
             </button>
             <button
               onClick={() => {
@@ -3424,7 +3417,7 @@ export default function ConfiguratorPage() {
               }}
               className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium"
             >
-              Fortsæt uden 721059
+              {T('reminderContinueWithout')} 721059
             </button>
           </div>
         </DialogContent>
