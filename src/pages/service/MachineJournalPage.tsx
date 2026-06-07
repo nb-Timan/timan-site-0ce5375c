@@ -461,6 +461,54 @@ export default function MachineJournalPage() {
 
 // ---------- Subcomponents ----------
 
+const TONE_CLASS: Record<StatusTone, string> = {
+  green:   "bg-emerald-50 border-emerald-200 text-emerald-900",
+  yellow:  "bg-amber-50 border-amber-200 text-amber-900",
+  red:     "bg-red-50 border-red-200 text-red-900",
+  neutral: "bg-slate-50 border-slate-200 text-slate-700",
+};
+const TONE_DOT: Record<StatusTone, string> = {
+  green: "bg-emerald-500", yellow: "bg-amber-500", red: "bg-red-500", neutral: "bg-slate-400",
+};
+const HEALTH_META: Record<HealthLevel, { label: string; cls: string; dot: string }> = {
+  healthy:         { label: "Healthy",         cls: "bg-emerald-100 text-emerald-800 border-emerald-300", dot: "bg-emerald-500" },
+  needs_attention: { label: "Needs Attention", cls: "bg-amber-100 text-amber-800 border-amber-300",       dot: "bg-amber-500" },
+  critical:        { label: "Critical",        cls: "bg-red-100 text-red-800 border-red-300",             dot: "bg-red-500" },
+};
+
+function HealthDashboard({ summary }: { summary: JournalSummary }) {
+  const meta = HEALTH_META[summary.health.level];
+  return (
+    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Maskinestatus</h2>
+        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${meta.cls}`}>
+          <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+          {meta.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {summary.statusItems.map((it) => (
+          <div key={it.key} className={`rounded-lg border px-2.5 py-2 ${TONE_CLASS[it.tone]}`}>
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider opacity-75">
+              <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[it.tone]}`} />
+              {it.label}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold truncate" title={it.value}>{it.value}</div>
+          </div>
+        ))}
+      </div>
+      {summary.health.reasons.length > 0 && (
+        <div className="mt-2 text-xs text-slate-600">
+          <span className="font-semibold">Begrundelse:</span> {summary.health.reasons.join(" · ")}
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+
 function StatCard({ label, value, tone }: { label: string; value: string; tone?: "amber" | "red" | "purple" }) {
   const toneClass =
     tone === "amber" ? "bg-amber-50 border-amber-200 text-amber-900"
