@@ -7,7 +7,7 @@
  * Standard supabase-js client only — RLS controls visibility.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Ticket, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
