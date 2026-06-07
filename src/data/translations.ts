@@ -540,6 +540,12 @@ const translations: Record<string, Record<string, string>> = {
     orderCannotResendTitle: 'Diese Bestellung wurde bereits erteilt und kann nicht erneut gesendet werden.',
     saveChangesBtn: 'Änderungen speichern',
     savingChangesBtn: 'Speichern…',
+    packagingCostBody: 'Sie haben ein Anbaugerät mit besonderen Verpackungskosten in Form einer maßgefertigten Palette und Arbeitszeit ausgewählt.',
+    reminderTitle: 'Zentralschlauch',
+    reminderBody721122: 'Sie haben die Artikelnummer 721122 für diese Timan 3330 nicht ausgewählt.\n\nIst das beabsichtigt oder haben Sie vergessen, sie hinzuzufügen?',
+    reminderBody721059: 'Sie haben die Artikelnummer 721059 (Zentralschlauch-Nachrüstung) für diesen losen Auffangbehälter nicht ausgewählt.\n\nIst das beabsichtigt oder haben Sie vergessen, sie hinzuzufügen?',
+    reminderAdd: 'Hinzufügen',
+    reminderContinueWithout: 'Weiter ohne',
   },
   it: {
     step1Title: 'Passo 1: Seleziona Macchine e Quantità',
