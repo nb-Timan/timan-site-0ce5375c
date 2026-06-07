@@ -63,23 +63,33 @@ export function WarrantyNewFormIntro() {
   );
 }
 
-export function WarrantyNewForm({ defaultDealerName = "" }: { defaultDealerName?: string }) {
+export function WarrantyNewForm({
+  defaultDealerName = "",
+  role = null,
+}: {
+  defaultDealerName?: string;
+  role?: PortalRole | null;
+}) {
   const navigate = useNavigate();
   const [state, setState] = useState<FormState>({ ...EMPTY, dealerName: defaultDealerName });
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
     certificate: string;
     customer: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const internal = isInternalRole(role);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
+    if (key === "machineSerial") setWarning(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setWarning(null);
 
     const required: [keyof FormState, string][] = [
       ["dealerName", "Forhandlernavn"],
@@ -101,6 +111,22 @@ export function WarrantyNewForm({ defaultDealerName = "" }: { defaultDealerName?
 
     setSubmitting(true);
     try {
+      // ---- Serial validation (Phase 2.1) ----
+      // External users are BLOCKED on duplicates. Internal Timan
+      // (backend / service) sees a warning but may proceed = approval.
+      // Unknown serials only surface a soft warning (catalogue TBD).
+      const v = await validateWarrantySerial(state.machineSerial, role);
+      if (v.kind === "duplicate") {
+        if (v.blocking) {
+          setError(v.message);
+          setSubmitting(false);
+          return;
+        }
+        setWarning(v.message);
+      } else if (v.kind === "unknown") {
+        setWarning(v.message);
+      }
+
       const input: NewRegistrationInput = {
         dealerName: state.dealerName.trim(),
         isDemo: state.isDemo as "Ja" | "Nej",
@@ -132,6 +158,8 @@ export function WarrantyNewForm({ defaultDealerName = "" }: { defaultDealerName?
       setSubmitting(false);
     }
   }
+  // Suppress unused-warning for `internal` (reserved for future inline UI hint).
+  void internal;
 
   if (success) {
     return (
