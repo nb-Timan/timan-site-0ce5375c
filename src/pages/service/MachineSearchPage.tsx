@@ -513,10 +513,46 @@ export default function MachineSearchPage() {
           {error && (
             <div className="mt-4 text-center text-sm text-red-600">{error}</div>
           )}
-          {!loading && !error && searched && !machine && (
+          {!loading && !error && searched && !machine && crossHits.length === 0 && (
             <div className="mt-4 text-center text-sm text-slate-500">{T.notFound[lang]}</div>
           )}
         </section>
+
+        {/* Cross-source results: serials found only in warranty/service/ticket/claim/TSB. */}
+        {searched && !loading && crossHits.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
+              {crossHits.length} {crossHits.length === 1 ? "resultat" : "resultater"}
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {crossHits.map(h => (
+                <li key={h.normalizedSerial} className="px-6 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
+                      {h.machineType && <span className="text-xs text-slate-500">· {h.machineType}</span>}
+                      {h.customerName && <span className="text-xs text-slate-500">· {h.customerName}</span>}
+                      {h.dealerName && <span className="text-xs text-slate-500">· {h.dealerName}</span>}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {h.sources.map(s => (
+                        <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
+                    className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                  >
+                    Min Maskine →
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Machine profile + tabs */}
         {machine && (
