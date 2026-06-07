@@ -773,10 +773,25 @@ export default function PartnerMapPage() {
     }
     if (!canSeeMachineStats) {
       if (!ownDealerNumber) return [];
-      return machineMissingAll.filter((r) => (r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+      const ownIds = new Set<string>();
+      const ownNames = new Set<string>();
+      for (const d of dealers) {
+        if ((d.account_number ?? '').trim().toUpperCase() === ownDealerNumber) {
+          ownIds.add(d.id);
+          const nm = (d.company_name ?? '').trim().toLowerCase();
+          if (nm) ownNames.add(nm);
+        }
+      }
+      return machineMissingAll.filter((r) => {
+        if (r.dealerAccountId && ownIds.has(r.dealerAccountId)) return true;
+        if ((r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber) return true;
+        const nm = (r.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && ownNames.has(nm)) return true;
+        return false;
+      });
     }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
+  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
