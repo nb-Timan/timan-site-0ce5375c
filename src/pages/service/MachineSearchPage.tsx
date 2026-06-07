@@ -272,8 +272,16 @@ export default function MachineSearchPage() {
     setTicketsError(null);
     setActiveTab("overview");
     try {
+      const scope = await buildJournalScope(appUser, portalRole);
       const result = await findMachineByIdentifier(q);
-      setMachine(result);
+      // Belt+suspenders: drop machine row that the dealer scope does not allow.
+      const allowed = result && (scope.unrestricted
+        || (result.dealer_number && scope.dealerNumbers.has(String(result.dealer_number).trim().toLowerCase()))
+        || (result.dealer_name && Array.from(scope.dealerNames).some((n) => {
+              const h = String(result.dealer_name).trim().toLowerCase();
+              return h === n || h.includes(n) || n.includes(h);
+            })));
+      setMachine(allowed ? result : null);
       // Also probe other sources by serial — surfaces machines that exist
       // only in warranty/service/ticket/claim/TSB sources.
       try {
@@ -283,7 +291,6 @@ export default function MachineSearchPage() {
           matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
           registryError: null, registrySkippedReason: null, totalHits: 0,
         };
-        const scope = await buildJournalScope(appUser, portalRole);
         const hits = await searchMachinesByIdentifier(q, scope, dbg);
         setCrossHits(hits);
         setSearchDebug(dbg);
