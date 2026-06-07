@@ -418,7 +418,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-emerald-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.active.value, language)}
+                  {formatMoney(stats.active.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
 
@@ -430,7 +430,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-blue-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.closed.value, language)}
+                  {formatMoney(stats.closed.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
 
@@ -442,7 +442,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-amber-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.paused.value, language)}
+                  {formatMoney(stats.paused.value, mapUiLanguageToLegacy(language))}
                 </div>
               </div>
             </div>
