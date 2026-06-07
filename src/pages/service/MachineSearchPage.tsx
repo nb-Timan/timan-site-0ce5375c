@@ -557,31 +557,46 @@ export default function MachineSearchPage() {
               {crossHits.length} {crossHits.length === 1 ? "resultat" : "resultater"}
             </div>
             <ul className="divide-y divide-slate-100">
-              {crossHits.map(h => (
-                <li key={h.normalizedSerial} className="px-6 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
-                      {h.machineType && <span className="text-xs text-slate-500">· {h.machineType}</span>}
-                      {h.customerName && <span className="text-xs text-slate-500">· {h.customerName}</span>}
-                      {h.dealerName && <span className="text-xs text-slate-500">· {h.dealerName}</span>}
+              {crossHits.map(h => {
+                const sourceLabels: Record<string, string> = {
+                  warranty: "Warranty", service: "Service", ticket: "Ticket",
+                  claim: "Claim", tsb: "TSB", comment: "Comment",
+                };
+                return (
+                  <li key={h.normalizedSerial} className="px-6 py-4 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
+                        {h.machineType && <span className="text-xs text-slate-500">· {h.machineType}</span>}
+                      </div>
+                      <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-600">
+                        {h.dealerName && (
+                          <div><dt className="text-slate-400">Forhandler / nuværende ejer</dt><dd className="font-medium text-slate-800">{h.dealerName}</dd></div>
+                        )}
+                        {h.deliveryDate && (
+                          <div><dt className="text-slate-400">Leveringsdato</dt><dd className="font-medium text-slate-800">{fmtDateShort(h.deliveryDate)}</dd></div>
+                        )}
+                        {h.operatingHours != null && (
+                          <div><dt className="text-slate-400">Driftstimer</dt><dd className="font-medium text-slate-800">{h.operatingHours}</dd></div>
+                        )}
+                      </dl>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {h.sources.map(s => (
+                          <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                            {sourceLabels[s] ?? s}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {h.sources.map(s => (
-                        <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
-                    className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
-                  >
-                    Min Maskine →
-                  </button>
-                </li>
-              ))}
+                    <button
+                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
+                      className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                    >
+                      Min Maskine →
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
