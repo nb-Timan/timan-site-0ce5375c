@@ -309,6 +309,11 @@ export interface MachineSearchHit {
   machineType: string | null;
   customerName: string | null;
   dealerName: string | null;
+  dealerNumber: string | null;
+  /** Warranty delivery date (and serves as "sold" date when nothing better exists). */
+  deliveryDate: string | null;
+  /** Latest known operating hours (from machines row when present). */
+  operatingHours: number | null;
   /** Sources where this serial was found. */
   sources: TimelineKind[];
 }
@@ -332,6 +337,11 @@ export interface MachineSearchDebug {
     machines: number; warranties: number; serviceRegistrations: number;
     tickets: number; claims: number; tsb: number; registry: number;
   };
+  /** Warranty source breakdown (Task 5). */
+  warrantiesTotal: number;
+  warrantiesWithSerial: number;
+  warrantiesSkippedNoSerial: number;
+  warrantiesSkippedByScope: number;
   registryError: string | null;
   registrySkippedReason: string | null;
   totalHits: number;
@@ -342,6 +352,7 @@ function emptyDebug(): MachineSearchDebug {
     searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
     raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
     matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+    warrantiesTotal: 0, warrantiesWithSerial: 0, warrantiesSkippedNoSerial: 0, warrantiesSkippedByScope: 0,
     registryError: null, registrySkippedReason: null, totalHits: 0,
   };
 }
