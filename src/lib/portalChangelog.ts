@@ -408,7 +408,7 @@ export function isStillNew(entry: ChangeLogEntry): boolean {
 }
 
 
-// ---------- Submodule aliasing ----------
+// ---------- Submodule + module aliasing ----------
 
 /**
  * Map alternative submodule_key spellings (as authors may use them in the
@@ -420,11 +420,37 @@ const SUBMODULE_ALIAS: Record<string, string> = {
   warranty: 'warranty_reg',
   tsb: 'tsb_portal',
   service_registration: 'service_maintenance',
+  partnerkort: 'partner_map',
+  partners: 'partner_map',
+  misc_partner_map: 'partner_map',
 };
 export function normalizeSubmoduleKey(key: string | null | undefined): string | null {
   if (!key) return null;
   const k = key.trim();
   return SUBMODULE_ALIAS[k] || k;
+}
+
+/**
+ * Map legacy / alternative module_key values to a canonical
+ * { module_key, submodule_key } pair. Used so older entries authored as
+ * standalone modules (e.g. 'partner_map', 'partnerkort') get attributed to
+ * the right area card AND the right submodule card under it.
+ */
+const MODULE_REROUTE: Record<string, { module: ModuleKey; submodule: string }> = {
+  partner_map:      { module: 'misc', submodule: 'partner_map' },
+  partnerkort:      { module: 'misc', submodule: 'partner_map' },
+  partners:         { module: 'misc', submodule: 'partner_map' },
+  misc_partner_map: { module: 'misc', submodule: 'partner_map' },
+};
+function normalizeEntry(entry: ChangeLogEntry): ChangeLogEntry {
+  const reroute = MODULE_REROUTE[entry.module_key as string];
+  const subNorm = normalizeSubmoduleKey(entry.submodule_key) ?? undefined;
+  if (!reroute && subNorm === entry.submodule_key) return entry;
+  return {
+    ...entry,
+    module_key: reroute ? reroute.module : entry.module_key,
+    submodule_key: subNorm ?? (reroute ? reroute.submodule : undefined),
+  };
 }
 
 // ---------- Hook ----------
