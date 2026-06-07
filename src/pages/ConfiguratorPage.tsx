@@ -803,10 +803,10 @@ export default function ConfiguratorPage() {
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${d.label}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, uiLanguage)}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${d.label}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, uiLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
