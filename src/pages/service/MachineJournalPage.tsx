@@ -256,7 +256,7 @@ export default function MachineJournalPage() {
 
             {/* Timeline */}
             <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-bold">{T.timeline[lang]}</h2>
                 <button
                   onClick={() => setOldestFirst((v) => !v)}
@@ -266,6 +266,24 @@ export default function MachineJournalPage() {
                   {oldestFirst ? T.oldestFirst[lang] : T.newestFirst[lang]}
                 </button>
               </div>
+              {availableKinds.length > 1 && (
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  <FilterChip
+                    label={T.allTypes[lang]}
+                    active={kindFilter === "all"}
+                    onClick={() => setKindFilter("all")}
+                  />
+                  {availableKinds.map((k) => (
+                    <FilterChip
+                      key={k}
+                      label={T[`source_${k}` as keyof typeof T]?.[lang] ?? k}
+                      active={kindFilter === k}
+                      activeClass={KIND_BADGE[k]}
+                      onClick={() => setKindFilter(k)}
+                    />
+                  ))}
+                </div>
+              )}
               {sortedTimeline.length === 0 ? (
                 <div className="py-6 text-center text-sm text-slate-500">{T.noEvents[lang]}</div>
               ) : (
