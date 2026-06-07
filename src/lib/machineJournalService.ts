@@ -378,6 +378,7 @@ export async function searchMachinesByIdentifier(
   }
   if (!q) return [];
   const nq = normalizeSerial(q);
+  const nqKey = serialKey(q);
   if (debug) debug.normalizedQuery = nq;
 
   const hits = new Map<string, MachineSearchHit>();
