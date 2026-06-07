@@ -231,6 +231,10 @@ export default function MachineJournalPage() {
               </div>
             </header>
 
+            {/* Maskinestatus — health dashboard */}
+            <HealthDashboard summary={journal.summary} />
+
+
             {internal && journal.summary.dealerLinkMissing && (
               <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
                 Maskinen mangler forhandlerkobling
