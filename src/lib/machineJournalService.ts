@@ -553,8 +553,9 @@ export async function loadMachineJournal(
   const claimsForSerial = filterClaimsForScope(getAllClaims(), scope)
     .filter((c) => serialMatches(c.serial, display));
 
-  // Service registrations: re-filter by scope too.
-  const serviceRegsScoped = serviceRegs
+  // Service registrations: re-filter by scope too (shadow the original).
+  const serviceRegsAll = serviceRegs;
+  const serviceRegsFiltered = serviceRegsAll
     .filter((s) => dealerScopeAllows(scope, { dealer_number: s.dealer_number, dealer_name: s.dealer_name }));
 
   // TSB for this serial (scope-filtered)
