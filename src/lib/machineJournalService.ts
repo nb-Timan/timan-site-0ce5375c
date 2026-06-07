@@ -703,6 +703,143 @@ export async function loadMachineJournal(
   const openClaims = claimsForSerial.filter(isOpenClaim).length;
   const tsbPending = tsbForSerial.filter((t) => t.status === "afventer").length;
 
+  const dealerName = machine?.dealer_name
+    ?? firstWarranty?.dealerName
+    ?? serviceRegs[0]?.dealer_name
+    ?? claimsForSerial[0]?.dealer
+    ?? null;
+  const dealerNumber = machine?.dealer_number
+    ?? firstWarranty?.dealerAccountNumber
+    ?? serviceRegs[0]?.dealer_number
+    ?? null;
+  const dealerAccountId = machine?.dealer_account_id
+    ?? firstWarranty?.dealerAccountId
+    ?? null;
+
+  // ---------- Importer + service partner enrichment ----------
+  // Best-effort, additive. Failures are tolerated and just leave the fields null.
+  let importerName: string | null = null;
+  let servicePartnerName: string | null = null;
+  try {
+    let dealerRow: { id: string; account_number: string | null; parent_account_number: string | null } | null = null;
+    if (dealerAccountId) {
+      const r = await supabase
+        .from("dealer_accounts")
+        .select("id, account_number, parent_account_number")
+        .eq("id", dealerAccountId)
+        .maybeSingle();
+      dealerRow = (r.data as typeof dealerRow) ?? null;
+    } else if (dealerNumber) {
+      const r = await supabase
+        .from("dealer_accounts")
+        .select("id, account_number, parent_account_number")
+        .eq("account_number", dealerNumber)
+        .maybeSingle();
+      dealerRow = (r.data as typeof dealerRow) ?? null;
+    }
+    if (dealerRow?.parent_account_number) {
+      const r = await supabase
+        .from("dealer_accounts")
+        .select("company_name, account_number")
+        .eq("account_number", dealerRow.parent_account_number)
+        .maybeSingle();
+      const parent = r.data as { company_name: string | null; account_number: string | null } | null;
+      if (parent?.company_name) importerName = parent.company_name;
+    }
+    if (dealerRow?.id) {
+      const r = await supabase
+        .from("service_partner_dealer_links")
+        .select("service_partner_account_id, active")
+        .eq("dealer_account_id", dealerRow.id)
+        .eq("active", true);
+      const links = (r.data ?? []) as Array<{ service_partner_account_id: string }>;
+      if (links.length > 0) {
+        const ids = links.map((l) => l.service_partner_account_id);
+        const sp = await supabase
+          .from("dealer_accounts")
+          .select("id, company_name")
+          .in("id", ids);
+        const names = ((sp.data ?? []) as Array<{ company_name: string | null }>)
+          .map((d) => d.company_name)
+          .filter((n): n is string => !!n);
+        if (names.length > 0) servicePartnerName = names.join(" · ");
+      }
+    }
+  } catch (e) {
+    console.warn("[machineJournal] importer/service-partner lookup failed (tolerated)", e);
+  }
+
+  // ---------- Health / status calculation ----------
+  // Tones:
+  //   green  = OK / no open issues
+  //   yellow = attention required (open tickets, missing relationship data, service due soon)
+  //   red    = action required (open claim, pending TSB, overdue service, hours regression)
+  const SERVICE_OVERDUE_DAYS = 365; // > 12 months since last service
+  const SERVICE_DUE_SOON_DAYS = 300; // 10–12 months
+  const latestServiceDate = latestService?.service_date ?? null;
+  let serviceDays: number | null = null;
+  if (latestServiceDate) {
+    const t = new Date(latestServiceDate).getTime();
+    if (!Number.isNaN(t)) serviceDays = Math.floor((Date.now() - t) / 86400000);
+  }
+  const warrantyEnd = machine?.warranty_end_date ?? null;
+  let warrantyTone: StatusTone = "neutral";
+  let warrantyValue = "Ukendt";
+  if (warrantyEnd) {
+    const we = new Date(warrantyEnd).getTime();
+    if (!Number.isNaN(we)) {
+      const daysLeft = Math.floor((we - Date.now()) / 86400000);
+      if (daysLeft < 0) { warrantyTone = "neutral"; warrantyValue = "Udløbet"; }
+      else if (daysLeft < 60) { warrantyTone = "yellow"; warrantyValue = `Udløber om ${daysLeft} dage`; }
+      else { warrantyTone = "green"; warrantyValue = "Aktiv"; }
+    }
+  }
+
+  const statusItems: JournalStatusItem[] = [
+    { key: "warranty", label: "Garanti", value: warrantyValue, tone: warrantyTone },
+    { key: "tickets", label: "Åbne tickets", value: String(openTickets), tone: openTickets > 0 ? "yellow" : "green" },
+    { key: "claims", label: "Åbne claims", value: String(openClaims), tone: openClaims > 0 ? "red" : "green" },
+    { key: "tsb", label: "Åbne TSB", value: String(tsbPending), tone: tsbPending > 0 ? "red" : "green" },
+    {
+      key: "service",
+      label: "Seneste service",
+      value: latestServiceDate ? new Date(latestServiceDate).toLocaleDateString("da-DK") : "Ingen",
+      tone: serviceDays == null ? "yellow"
+        : serviceDays > SERVICE_OVERDUE_DAYS ? "red"
+        : serviceDays > SERVICE_DUE_SOON_DAYS ? "yellow"
+        : "green",
+    },
+    {
+      key: "hours",
+      label: "Driftstimer",
+      value: (machine?.current_hours ?? latestService?.operating_hours) != null
+        ? `${machine?.current_hours ?? latestService?.operating_hours} t`
+        : "Ukendt",
+      tone: hoursRegression ? "red" : (machine?.current_hours ?? latestService?.operating_hours) != null ? "green" : "yellow",
+    },
+    { key: "dealer", label: "Forhandler", value: dealerName || "Mangler", tone: dealerName ? "green" : "red" },
+    { key: "importer", label: "Importør", value: importerName || "—", tone: importerName ? "green" : "yellow" },
+    { key: "servicePartner", label: "Service partner", value: servicePartnerName || "—", tone: servicePartnerName ? "green" : "yellow" },
+    {
+      key: "seller",
+      label: "Timan sælger",
+      value: machine?.seller_initials || machine?.seller_email || "—",
+      tone: (machine?.seller_initials || machine?.seller_email) ? "green" : "yellow",
+    },
+  ];
+
+  const reasons: string[] = [];
+  let level: HealthLevel = "healthy";
+  if (openClaims > 0) { level = "critical"; reasons.push(`${openClaims} åben(e) claim(s)`); }
+  if (tsbPending > 0) { level = "critical"; reasons.push(`${tsbPending} åben TSB`); }
+  if (serviceDays != null && serviceDays > SERVICE_OVERDUE_DAYS) { level = "critical"; reasons.push("Service forfalden"); }
+  if (hoursRegression) { level = "critical"; reasons.push("Konflikt i driftstimer"); }
+  if (level !== "critical") {
+    if (openTickets > 0) { level = "needs_attention"; reasons.push(`${openTickets} åben(e) ticket(s)`); }
+    if (serviceDays != null && serviceDays > SERVICE_DUE_SOON_DAYS) { level = "needs_attention"; reasons.push("Service nærmer sig"); }
+    if (!importerName || !servicePartnerName) { level = level === "healthy" ? "needs_attention" : level; reasons.push("Manglende relationsdata"); }
+  }
+
   journal.summary = {
     serial: machine?.serial_number || firstWarranty?.machineSerial || serviceRegs[0]?.serial_number || display,
     normalizedSerial: target,
@@ -717,17 +854,15 @@ export async function loadMachineJournal(
       ?? serviceRegs[0]?.customer_name
       ?? claimsForSerial[0]?.customer
       ?? null,
-    dealerName: machine?.dealer_name
-      ?? firstWarranty?.dealerName
-      ?? serviceRegs[0]?.dealer_name
-      ?? claimsForSerial[0]?.dealer
-      ?? null,
+    dealerName,
+    importerName,
+    servicePartnerName,
     sellerLabel: machine?.seller_initials || machine?.seller_email || null,
     warrantyStart: machine?.warranty_start_date ?? firstWarranty?.deliveryDate ?? null,
     warrantyEnd: machine?.warranty_end_date ?? null,
     registrationDate: firstWarranty?.registrationDate ?? null,
     currentHours: machine?.current_hours ?? (latestService?.operating_hours ?? null),
-    latestServiceDate: latestService?.service_date ?? null,
+    latestServiceDate,
     openTickets,
     openClaims,
     tsbPending,
@@ -743,6 +878,9 @@ export async function loadMachineJournal(
       claimsForSerial.some((c) => c.dealer) ||
       tsbForSerial.some((t) => t.dealerName)
     ),
+    statusItems,
+    health: { level, reasons },
+  };
   };
 
   // ---------- Timeline ----------
