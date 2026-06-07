@@ -14,7 +14,7 @@ import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
-import { searchMachinesByIdentifier, type MachineSearchHit } from "@/lib/machineJournalService";
+import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug } from "@/lib/machineJournalService";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -232,6 +232,7 @@ export default function MachineSearchPage() {
   const [crossHits, setCrossHits] = useState<MachineSearchHit[]>([]);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchDebug, setSearchDebug] = useState<MachineSearchDebug | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
@@ -275,11 +276,20 @@ export default function MachineSearchPage() {
       // Also probe other sources by serial — surfaces machines that exist
       // only in warranty/service/ticket/claim/TSB sources.
       try {
+        const dbg: MachineSearchDebug = {
+          searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
+          raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          registryError: null, registrySkippedReason: null, totalHits: 0,
+        };
         const hits = await searchMachinesByIdentifier(q, {
           role: portalRole,
           dealerLabel: appUser?.display_name ?? null,
-        });
+        }, dbg);
         setCrossHits(hits);
+        setSearchDebug(dbg);
+        // eslint-disable-next-line no-console
+        console.info("[MachineSearch] debug", dbg);
       } catch (sErr) {
         console.warn("[MachineSearch] cross-source search failed", sErr);
       }
@@ -515,6 +525,20 @@ export default function MachineSearchPage() {
           )}
           {!loading && !error && searched && !machine && crossHits.length === 0 && (
             <div className="mt-4 text-center text-sm text-slate-500">{T.notFound[lang]}</div>
+          )}
+
+          {/* DEV-only debug HUD. Remove once "Søg på maskine" is verified. */}
+          {import.meta.env.DEV && searched && !loading && searchDebug && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-mono text-amber-900 space-y-1">
+              <div className="font-semibold">[DEV] Machine Search debug</div>
+              <div>Search term: <span className="font-bold">{searchDebug.searchTerm || "(empty)"}</span> · normalized: <span className="font-bold">{searchDebug.normalizedQuery || "(empty)"}</span></div>
+              <div>Portal role: <span className="font-bold">{String(searchDebug.role)}</span> · internal: <span className="font-bold">{String(searchDebug.isInternal)}</span></div>
+              <div>Raw rows fetched per source — machines: {searchDebug.raw.machines}, warranties: {searchDebug.raw.warranties}, serviceRegs: {searchDebug.raw.serviceRegistrations}, tickets: {searchDebug.raw.tickets}, claims: {searchDebug.raw.claims}, tsb: {searchDebug.raw.tsb}, <span className="font-bold">registry: {searchDebug.raw.registry}</span></div>
+              <div>Rows matched (after normalized-serial substring filter) — machines: {searchDebug.matched.machines}, warranties: {searchDebug.matched.warranties}, serviceRegs: {searchDebug.matched.serviceRegistrations}, tickets: {searchDebug.matched.tickets}, claims: {searchDebug.matched.claims}, tsb: {searchDebug.matched.tsb}, <span className="font-bold">registry: {searchDebug.matched.registry}</span></div>
+              <div>Total deduped hits: <span className="font-bold">{searchDebug.totalHits}</span> · primary machine row: <span className="font-bold">{machine ? "yes" : "no"}</span></div>
+              {searchDebug.registryError && <div className="text-red-700">Registry error: {searchDebug.registryError}</div>}
+              {searchDebug.registrySkippedReason && <div className="text-amber-700">Registry skipped: {searchDebug.registrySkippedReason}</div>}
+            </div>
           )}
         </section>
 

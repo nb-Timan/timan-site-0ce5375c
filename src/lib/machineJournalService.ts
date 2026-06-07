@@ -220,31 +220,76 @@ export interface MachineSearchHit {
 }
 
 /**
+ * Optional out-parameter populated by searchMachinesByIdentifier() with
+ * per-source row counts. Used by the search page's DEV debug HUD so we
+ * can tell whether a "no results" outcome is caused by RLS, the query
+ * itself returning 0 rows, or post-filter exclusion in push().
+ */
+export interface MachineSearchDebug {
+  searchTerm: string;
+  normalizedQuery: string;
+  role: PortalRole | null;
+  isInternal: boolean;
+  raw: {
+    machines: number; warranties: number; serviceRegistrations: number;
+    tickets: number; claims: number; tsb: number; registry: number;
+  };
+  matched: {
+    machines: number; warranties: number; serviceRegistrations: number;
+    tickets: number; claims: number; tsb: number; registry: number;
+  };
+  registryError: string | null;
+  registrySkippedReason: string | null;
+  totalHits: number;
+}
+
+function emptyDebug(): MachineSearchDebug {
+  return {
+    searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
+    raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+    matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+    registryError: null, registrySkippedReason: null, totalHits: 0,
+  };
+}
+
+/**
  * Search across all sources by serial number (case-insensitive substring).
  * Returns deduped hits keyed on normalized serial.
+ *
+ * Pass an optional `debug` object to capture per-source raw/matched row
+ * counts. The function mutates the object in place — never reassigns it —
+ * so the caller can keep a reference and read it after the promise settles.
  */
 export async function searchMachinesByIdentifier(
   rawQuery: string,
   scope: JournalScope,
+  debug?: MachineSearchDebug,
 ): Promise<MachineSearchHit[]> {
   const q = rawQuery.trim();
+  if (debug) {
+    Object.assign(debug, emptyDebug(), {
+      searchTerm: q, role: scope.role, isInternal: isInternalRole(scope.role),
+    });
+  }
   if (!q) return [];
   const nq = normalizeSerial(q);
+  if (debug) debug.normalizedQuery = nq;
 
   const hits = new Map<string, MachineSearchHit>();
   const push = (
     serial: string | null | undefined,
     source: TimelineKind,
     extra: { machineType?: string | null; customerName?: string | null; dealerName?: string | null },
+    matchCounterKey?: keyof MachineSearchDebug["matched"],
   ) => {
     const display = (serial ?? "").toString().trim();
     const norm = normalizeSerial(display);
     if (!norm || !norm.includes(nq)) return;
+    if (debug && matchCounterKey) debug.matched[matchCounterKey] += 1;
     let hit = hits.get(norm);
     if (!hit) {
       hit = {
-        serial: display,
-        normalizedSerial: norm,
+        serial: display, normalizedSerial: norm,
         machineType: extra.machineType ?? null,
         customerName: extra.customerName ?? null,
         dealerName: extra.dealerName ?? null,
@@ -266,11 +311,13 @@ export async function searchMachinesByIdentifier(
       .select("serial_number, machine_number, machine_type, customer_name, dealer_name")
       .or(`serial_number.ilike.%${safe}%,machine_number.ilike.%${safe}%`)
       .limit(50);
-    for (const r of (data ?? []) as Array<{
+    const rows = (data ?? []) as Array<{
       serial_number: string | null; machine_number: string | null;
       machine_type: string | null; customer_name: string | null; dealer_name: string | null;
-    }>) {
-      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name });
+    }>;
+    if (debug) debug.raw.machines = rows.length;
+    for (const r of rows) {
+      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name }, "machines");
     }
   } catch (e) {
     console.warn("[machineJournal] machines search failed", e);
@@ -279,8 +326,9 @@ export async function searchMachinesByIdentifier(
   // 2. warranty_registrations (RLS)
   try {
     const list = await fetchWarrantyRegistrations();
+    if (debug) debug.raw.warranties = list.length;
     for (const w of list) {
-      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName });
+      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName }, "warranties");
     }
   } catch (e) {
     console.warn("[machineJournal] warranty search failed", e);
@@ -289,8 +337,9 @@ export async function searchMachinesByIdentifier(
   // 3. service_registrations (RLS)
   try {
     const list = await listServiceRegistrations();
+    if (debug) debug.raw.serviceRegistrations = list.length;
     for (const s of list) {
-      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name });
+      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name }, "serviceRegistrations");
     }
   } catch (e) {
     console.warn("[machineJournal] service reg search failed", e);
@@ -299,33 +348,43 @@ export async function searchMachinesByIdentifier(
   // 4. service_tickets (RLS)
   try {
     const list = await fetchVisibleServiceTickets(500);
+    if (debug) debug.raw.tickets = list.length;
     for (const t of list as Array<ServiceTicket & { serial_number?: string | null }>) {
-      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name });
+      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name }, "tickets");
     }
   } catch (e) {
     console.warn("[machineJournal] tickets search failed", e);
   }
 
   // 5. claims (canonical claims store; scope-filtered)
-  for (const c of filterClaimsForScope(getAllClaims(), scope)) {
-    push(c.serial, "claim", { machineType: c.machineType, customerName: c.customer, dealerName: c.dealer });
+  {
+    const list = filterClaimsForScope(getAllClaims(), scope);
+    if (debug) debug.raw.claims = list.length;
+    for (const c of list) {
+      push(c.serial, "claim", { machineType: c.machineType, customerName: c.customer, dealerName: c.dealer }, "claims");
+    }
   }
 
   // 6. tsb (canonical TSB store; scope-filtered)
-  for (const t of filterTsbForScope(getAllTsbs(), scope)) {
-    for (const d of t.dealers) {
-      for (const serial of d.machineSerials) {
-        const dealer = getDealer(d.dealerId);
-        push(serial, "tsb", { dealerName: dealer?.name ?? null });
+  {
+    const list = filterTsbForScope(getAllTsbs(), scope);
+    let tsbRawCount = 0;
+    for (const t of list) {
+      for (const d of t.dealers) {
+        for (const serial of d.machineSerials) {
+          tsbRawCount += 1;
+          const dealer = getDealer(d.dealerId);
+          push(serial, "tsb", { dealerName: dealer?.name ?? null }, "tsb");
+        }
       }
     }
+    if (debug) debug.raw.tsb = tsbRawCount;
   }
 
   // 7. machine_registry_index — INTERNAL ONLY.
   //    RLS restricts SELECT to timan_backend / timan_service. Dealer-side
-  //    users get no rows from this table (and would also leak cross-dealer
-  //    serial existence if exposed), so we skip the query entirely for
-  //    them and rely on the RLS-scoped source queries above.
+  //    users get no rows from this table and we skip the query entirely
+  //    to avoid leaking cross-dealer serial existence.
   if (isInternalRole(scope.role)) {
     try {
       const safe = q.replace(/[(),]/g, "");
@@ -335,23 +394,30 @@ export async function searchMachinesByIdentifier(
         .or(`normalized_serial.ilike.%${safe.toUpperCase()}%,display_serial.ilike.%${safe}%`)
         .limit(50);
       if (error) {
+        if (debug) debug.registryError = error.message;
         console.warn("[machineJournal] registry search returned error (tolerated)", error.message);
       } else {
-        for (const r of (data ?? []) as Array<{
+        const rows = (data ?? []) as Array<{
           normalized_serial: string; display_serial: string;
           machine_model: string | null; machine_type: string | null; last_source: string | null;
-        }>) {
+        }>;
+        if (debug) debug.raw.registry = rows.length;
+        for (const r of rows) {
           const src = (r.last_source as TimelineKind) ?? "service";
-          push(r.display_serial, src, { machineType: r.machine_type });
+          push(r.display_serial, src, { machineType: r.machine_type }, "registry");
         }
       }
     } catch (e) {
+      if (debug) debug.registryError = String((e as Error)?.message ?? e);
       console.warn("[machineJournal] registry search failed (tolerated)", e);
     }
+  } else if (debug) {
+    debug.registrySkippedReason = `role ${scope.role ?? "null"} is not internal — registry query skipped by client`;
   }
 
-
-  return Array.from(hits.values()).slice(0, 100);
+  const out = Array.from(hits.values()).slice(0, 100);
+  if (debug) debug.totalHits = out.length;
+  return out;
 }
 
 // ---------- Full journal load ----------
