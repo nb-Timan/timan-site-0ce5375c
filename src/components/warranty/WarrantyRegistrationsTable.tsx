@@ -435,7 +435,16 @@ export function WarrantyRegistrationsTable({
                     </td>
                     <td className="px-6 py-3">{r.machineType || "—"}</td>
                     <td className="whitespace-nowrap px-6 py-3 font-mono text-xs">
-                      {r.machineSerial || "—"}
+                      {r.machineSerial ? (
+                        <Link
+                          to={`/portal/service/machines/${encodeURIComponent(r.machineSerial)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-slate-700 hover:underline"
+                          title="Min Maskine"
+                        >
+                          {r.machineSerial}
+                        </Link>
+                      ) : "—"}
                     </td>
                     <td className="whitespace-nowrap px-6 py-3 text-slate-600">
                       {formatDate(r.deliveryDate)}
