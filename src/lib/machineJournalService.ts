@@ -881,7 +881,6 @@ export async function loadMachineJournal(
     statusItems,
     health: { level, reasons },
   };
-  };
 
   // ---------- Timeline ----------
   const events: TimelineEvent[] = [];
