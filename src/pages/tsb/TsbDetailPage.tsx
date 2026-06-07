@@ -171,7 +171,15 @@ export default function TsbDetailPage() {
                 const dealer = getDealer(link.dealerId);
                 return link.machineSerials.map((serial) => (
                   <tr key={`${link.dealerId}-${serial}`} className="border-b border-border-soft last:border-0 hover:bg-page-bg">
-                    <td className="px-5 py-4 font-mono text-sm">{serial}</td>
+                    <td className="px-5 py-4 font-mono text-sm">
+                      <Link
+                        to={`/portal/service/machines/${encodeURIComponent(serial)}`}
+                        className="hover:underline"
+                        title="Min Maskine"
+                      >
+                        {serial}
+                      </Link>
+                    </td>
                     <td className="px-5 py-4 text-muted-foreground">{dealer?.name ?? "—"}</td>
                   </tr>
                 ));
