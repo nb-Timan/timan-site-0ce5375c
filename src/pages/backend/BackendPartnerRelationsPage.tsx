@@ -14,7 +14,7 @@
  * a list of existing links per section.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { derivePortalRole } from "@/lib/portalAccess";
@@ -37,8 +37,9 @@ import {
 const STAFF = new Set(["timan_backend", "timan_service"]);
 
 export default function BackendPartnerRelationsPage() {
-  const { appUser } = useAppUser();
-  const { language } = useLanguage();
+  const { appUser, logout } = useAppUser();
+  const { language, setLanguage } = useLanguage();
+  const navigate = useNavigate();
   const role = derivePortalRole(appUser);
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
