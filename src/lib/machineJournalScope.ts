@@ -106,8 +106,9 @@ async function fetchServicePartnerLinkedDealers(servicePartnerAccountId: string)
     .eq("active", true);
   if (error || !data) return [];
   const out: Array<{ account_number: string; company_name: string | null }> = [];
-  for (const r of data as Array<{ active: boolean; dealer_account: { account_number: string; company_name: string | null } | null }>) {
-    if (r.dealer_account?.account_number) out.push(r.dealer_account);
+  for (const r of data as unknown as Array<{ active: boolean; dealer_account: { account_number: string; company_name: string | null } | Array<{ account_number: string; company_name: string | null }> | null }>) {
+    const da = Array.isArray(r.dealer_account) ? r.dealer_account[0] : r.dealer_account;
+    if (da?.account_number) out.push(da);
   }
   return out;
 }
