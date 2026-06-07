@@ -22,6 +22,7 @@ import {
 
 export type ModuleKey =
   | 'partner_map'
+  | 'misc'
   | 'dealer_data'
   | 'crm'
   | 'warranty'
@@ -70,6 +71,7 @@ export interface ChangeLogEntry {
 
 const MODULE_AREA: Record<ModuleKey, PortalAreaId | null> = {
   partner_map: 'salg_marketing',
+  misc:        'salg_marketing',
   dealer_data: 'dealer_data',
   crm: 'timan_crm',
   warranty: 'teknik_service',
@@ -81,6 +83,7 @@ const MODULE_AREA: Record<ModuleKey, PortalAreaId | null> = {
 
 const MODULE_HREF: Partial<Record<ModuleKey, string>> = {
   partner_map: '/portal/misc/partner-map',
+  misc:        '/portal/misc',
   dealer_data: '/portal/dealer-data',
   crm: '/portal/crm',
   warranty: '/portal/service/warranty',
@@ -123,6 +126,7 @@ export function t(key: keyof typeof CHANGELOG_LABELS, language: Language): strin
 
 const M = {
   partner_map: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
+  misc:        { da: 'Diverse', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb' },
   dealer_data: { da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
   crm:         { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM' },
   warranty:    { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' },
@@ -134,8 +138,9 @@ const M = {
 export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
   {
     id: '2026-06-06-partner-map',
-    module_key: 'partner_map',
-    module_name: M.partner_map,
+    module_key: 'misc',
+    submodule_key: 'partner_map',
+    module_name: M.misc,
     changed_at: '2026-06-06T09:32:00Z',
     role_visibility: ['all'],
     is_major: true,
@@ -403,7 +408,7 @@ export function isStillNew(entry: ChangeLogEntry): boolean {
 }
 
 
-// ---------- Submodule aliasing ----------
+// ---------- Submodule + module aliasing ----------
 
 /**
  * Map alternative submodule_key spellings (as authors may use them in the
@@ -415,11 +420,37 @@ const SUBMODULE_ALIAS: Record<string, string> = {
   warranty: 'warranty_reg',
   tsb: 'tsb_portal',
   service_registration: 'service_maintenance',
+  partnerkort: 'partner_map',
+  partners: 'partner_map',
+  misc_partner_map: 'partner_map',
 };
 export function normalizeSubmoduleKey(key: string | null | undefined): string | null {
   if (!key) return null;
   const k = key.trim();
   return SUBMODULE_ALIAS[k] || k;
+}
+
+/**
+ * Map legacy / alternative module_key values to a canonical
+ * { module_key, submodule_key } pair. Used so older entries authored as
+ * standalone modules (e.g. 'partner_map', 'partnerkort') get attributed to
+ * the right area card AND the right submodule card under it.
+ */
+const MODULE_REROUTE: Record<string, { module: ModuleKey; submodule: string }> = {
+  partner_map:      { module: 'misc', submodule: 'partner_map' },
+  partnerkort:      { module: 'misc', submodule: 'partner_map' },
+  partners:         { module: 'misc', submodule: 'partner_map' },
+  misc_partner_map: { module: 'misc', submodule: 'partner_map' },
+};
+function normalizeEntry(entry: ChangeLogEntry): ChangeLogEntry {
+  const reroute = MODULE_REROUTE[entry.module_key as string];
+  const subNorm = normalizeSubmoduleKey(entry.submodule_key) ?? undefined;
+  if (!reroute && subNorm === entry.submodule_key) return entry;
+  return {
+    ...entry,
+    module_key: reroute ? reroute.module : entry.module_key,
+    submodule_key: subNorm ?? (reroute ? reroute.submodule : undefined),
+  };
 }
 
 // ---------- Hook ----------
@@ -444,6 +475,12 @@ export interface UseChangelogResult {
   hasMajorUnreadForArea: (areaId: PortalAreaId) => boolean;
   /** Unread badge for a specific submodule card (key uses canonical placeholder spelling). */
   submoduleBadge: (submoduleKey: string) => SubmoduleBadge | null;
+  /** Unread badge for a specific module card (e.g. 'misc' card inside an area). */
+  moduleBadge: (moduleKey: ModuleKey | string) => SubmoduleBadge | null;
+  /** Number of unread visible entries for a specific module. */
+  unreadCountForModule: (moduleKey: ModuleKey | string) => number;
+  /** True if any unread visible entry for the module is_major. */
+  hasMajorUnreadForModule: (moduleKey: ModuleKey | string) => boolean;
   markEntryRead: (id: string) => void;
   /** Marks module-level area entries read (entries without submodule_key). */
   markAreaRead: (areaId: PortalAreaId) => void;
@@ -473,12 +510,16 @@ export function useChangelog(
 
 
   const entries = rawEntries
+    .map(normalizeEntry)
     .filter(e => isEntryVisible(e, user, language))
     .slice()
     .sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
 
   const entriesForArea = (areaId: PortalAreaId) =>
     entries.filter(e => areaForModule(e.module_key) === areaId);
+
+  const entriesForModule = (moduleKey: ModuleKey | string) =>
+    entries.filter(e => e.module_key === (moduleKey as ModuleKey));
 
   const entriesForSubmodule = (submoduleKey: string) => {
     const target = normalizeSubmoduleKey(submoduleKey);
@@ -508,6 +549,16 @@ export function useChangelog(
         latest: sub[0],
       };
     },
+    moduleBadge: (moduleKey) => {
+      const sub = entriesForModule(moduleKey).filter(e => !readIds.has(e.id));
+      if (sub.length === 0) return null;
+      const major = sub.find(e => !!e.is_major);
+      return { kind: major ? 'major' : 'new', count: sub.length, latest: sub[0] };
+    },
+    unreadCountForModule: (moduleKey) =>
+      entriesForModule(moduleKey).filter(e => !readIds.has(e.id)).length,
+    hasMajorUnreadForModule: (moduleKey) =>
+      entriesForModule(moduleKey).some(e => !readIds.has(e.id) && !!e.is_major),
     markEntryRead: (id) => localReadStore.markRead(userKey, [id]),
     // Mark only module-level area entries read — leaves submodule-tagged
     // entries unread so per-card badges remain until the user opens the
