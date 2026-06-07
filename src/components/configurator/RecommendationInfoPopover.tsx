@@ -10,6 +10,7 @@ import { Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/types/configurator';
+import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import {
   getRecommendationMeta,
   getProductSourceLinks,
