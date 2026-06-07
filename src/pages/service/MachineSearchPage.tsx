@@ -15,6 +15,7 @@ import { derivePortalRole } from "@/lib/portalAccess";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug } from "@/lib/machineJournalService";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -271,8 +272,16 @@ export default function MachineSearchPage() {
     setTicketsError(null);
     setActiveTab("overview");
     try {
+      const scope = await buildJournalScope(appUser, portalRole);
       const result = await findMachineByIdentifier(q);
-      setMachine(result);
+      // Belt+suspenders: drop machine row that the dealer scope does not allow.
+      const allowed = result && (scope.unrestricted
+        || (result.dealer_number && scope.dealerNumbers.has(String(result.dealer_number).trim().toLowerCase()))
+        || (result.dealer_name && Array.from(scope.dealerNames).some((n) => {
+              const h = String(result.dealer_name).trim().toLowerCase();
+              return h === n || h.includes(n) || n.includes(h);
+            })));
+      setMachine(allowed ? result : null);
       // Also probe other sources by serial — surfaces machines that exist
       // only in warranty/service/ticket/claim/TSB sources.
       try {
@@ -282,10 +291,7 @@ export default function MachineSearchPage() {
           matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
           registryError: null, registrySkippedReason: null, totalHits: 0,
         };
-        const hits = await searchMachinesByIdentifier(q, {
-          role: portalRole,
-          dealerLabel: appUser?.display_name ?? null,
-        }, dbg);
+        const hits = await searchMachinesByIdentifier(q, scope, dbg);
         setCrossHits(hits);
         setSearchDebug(dbg);
         // eslint-disable-next-line no-console

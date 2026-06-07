@@ -24,6 +24,7 @@ import {
   loadMachineJournal, isInternalRole, type MachineJournal,
   type TimelineKind, type JournalScope,
 } from "@/lib/machineJournalService";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
 
 const T: Record<string, Record<Language, string>> = {
@@ -134,17 +135,18 @@ export default function MachineJournalPage() {
     if (!serial) return;
     let cancelled = false;
     setLoading(true);
-    const scope: JournalScope = {
-      role,
-      dealerLabel: appUser.display_name ?? null,
-    };
-    loadMachineJournal(serial, scope)
-      .then((j) => { if (!cancelled) setJournal(j); })
-      .catch((e) => {
+    (async () => {
+      try {
+        const scope: JournalScope = await buildJournalScope(appUser, role);
+        const j = await loadMachineJournal(serial, scope);
+        if (!cancelled) setJournal(j);
+      } catch (e) {
         console.error("[MachineJournal] load failed", e);
         if (!cancelled) setJournal(null);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => { cancelled = true; };
   }, [appUser, serial, role, navigate]);
 
@@ -228,6 +230,13 @@ export default function MachineJournalPage() {
                 {journal.summary.sellerLabel && <> · {T.seller[lang]}: {journal.summary.sellerLabel}</>}
               </div>
             </header>
+
+            {internal && journal.summary.dealerLinkMissing && (
+              <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                Maskinen mangler forhandlerkobling
+              </div>
+            )}
+
 
             {/* Quick stats */}
             <section className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

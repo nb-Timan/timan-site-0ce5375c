@@ -79,12 +79,55 @@ function serialMatches(a: string | null | undefined, b: string | null | undefine
 
 export interface JournalScope {
   role: PortalRole | null;
-  /** Dealer-side users only see claims/TSB whose dealer matches this label. */
+  /** Legacy dealer label (display_name) — soft fallback for claims/TSB. */
   dealerLabel: string | null;
+  /** Allow-listed dealer_numbers (lowercased, trimmed). */
+  dealerNumbers: Set<string>;
+  /** Allow-listed dealer names (lowercased) used for records that only
+   *  carry a name (claims, tsb, some tickets, some warranties). */
+  dealerNames: Set<string>;
+  /** True for internal Timan staff (backend / service): no dealer filter. */
+  unrestricted: boolean;
 }
 
+/** Internal Timan staff: see every machine across every dealer. */
 export function isInternalRole(role: PortalRole | null): boolean {
-  return role === "timan_backend" || role === "timan_seller" || role === "timan_service";
+  return role === "timan_backend" || role === "timan_service";
+}
+
+/** Seller: scoped to dealers assigned via CRM account ownership. */
+export function isSellerScopedRole(role: PortalRole | null): boolean {
+  return role === "timan_seller";
+}
+
+interface DealerishRecord {
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+}
+
+function normLower(v: string | null | undefined): string {
+  return (v ?? "").toString().trim().toLowerCase();
+}
+
+/**
+ * Predicate used to filter ALL source records before they're shown to
+ * the user. Internal roles bypass the filter. External roles must match
+ * either a dealer_number from the allow-list, or a dealer_name fuzzy-
+ * equal to an entry in the name allow-list. Records with NO dealer link
+ * are hidden from every external role.
+ */
+export function dealerScopeAllows(scope: JournalScope, rec: DealerishRecord): boolean {
+  if (scope.unrestricted) return true;
+  const num = normLower(rec.dealer_number);
+  if (num && scope.dealerNumbers.has(num)) return true;
+  const name = normLower(rec.dealer_name);
+  if (name) {
+    for (const n of scope.dealerNames) {
+      if (!n) continue;
+      if (name === n || name.includes(n) || n.includes(name)) return true;
+    }
+  }
+  return false;
 }
 
 // ---------- Output types ----------
@@ -134,6 +177,9 @@ export interface JournalSummary {
   tsbPending: number;
   status: "active" | "archived" | null;
   machineRecord: MachineRecord | null;
+  /** True when no source record carries any dealer link. Internal UI
+   *  renders "Maskinen mangler forhandlerkobling" when this is set. */
+  dealerLinkMissing: boolean;
 }
 
 export interface RelatedRecord {
@@ -181,20 +227,30 @@ function dealerMatchesLabel(needle: string | null, hay: string | null | undefine
   return h.includes(n) || n.includes(h);
 }
 
+function claimAllowedByScope(scope: JournalScope, c: ClaimRecord): boolean {
+  if (scope.unrestricted) return true;
+  if (dealerScopeAllows(scope, { dealer_name: c.dealer })) return true;
+  if (scope.dealerLabel && dealerMatchesLabel(scope.dealerLabel, c.dealer)) return true;
+  return false;
+}
+
 function filterClaimsForScope(all: ClaimRecord[], scope: JournalScope): ClaimRecord[] {
-  if (isInternalRole(scope.role)) return all;
-  if (!scope.dealerLabel) return [];
-  return all.filter((c) => dealerMatchesLabel(scope.dealerLabel, c.dealer));
+  if (scope.unrestricted) return all;
+  return all.filter((c) => claimAllowedByScope(scope, c));
 }
 
 function filterTsbForScope(all: Tsb[], scope: JournalScope): Tsb[] {
-  if (isInternalRole(scope.role)) return all;
-  if (!scope.dealerLabel) return [];
+  if (scope.unrestricted) return all;
   const allowedDealerIds = new Set<string>();
   for (const t of all) {
     for (const d of t.dealers) {
       const dealer = getDealer(d.dealerId);
-      if (dealer && dealerMatchesLabel(scope.dealerLabel, dealer.name)) {
+      if (!dealer) continue;
+      if (dealerScopeAllows(scope, { dealer_name: dealer.name })) {
+        allowedDealerIds.add(d.dealerId);
+        continue;
+      }
+      if (scope.dealerLabel && dealerMatchesLabel(scope.dealerLabel, dealer.name)) {
         allowedDealerIds.add(d.dealerId);
       }
     }
@@ -206,6 +262,7 @@ function filterTsbForScope(all: Tsb[], scope: JournalScope): Tsb[] {
     }))
     .filter((t) => t.dealers.length > 0);
 }
+
 
 // ---------- Cross-source search ----------
 
@@ -279,12 +336,22 @@ export async function searchMachinesByIdentifier(
   const push = (
     serial: string | null | undefined,
     source: TimelineKind,
-    extra: { machineType?: string | null; customerName?: string | null; dealerName?: string | null },
+    extra: {
+      machineType?: string | null;
+      customerName?: string | null;
+      dealerName?: string | null;
+      dealerNumber?: string | null;
+    },
     matchCounterKey?: keyof MachineSearchDebug["matched"],
   ) => {
     const display = (serial ?? "").toString().trim();
     const norm = normalizeSerial(display);
     if (!norm || !norm.includes(nq)) return;
+    // Scope guard — hide serials the user is not allowed to see.
+    if (!dealerScopeAllows(scope, {
+      dealer_number: extra.dealerNumber ?? null,
+      dealer_name: extra.dealerName ?? null,
+    })) return;
     if (debug && matchCounterKey) debug.matched[matchCounterKey] += 1;
     let hit = hits.get(norm);
     if (!hit) {
@@ -308,16 +375,17 @@ export async function searchMachinesByIdentifier(
     const safe = q.replace(/[(),]/g, "");
     const { data } = await supabase
       .from("machines")
-      .select("serial_number, machine_number, machine_type, customer_name, dealer_name")
+      .select("serial_number, machine_number, machine_type, customer_name, dealer_name, dealer_number")
       .or(`serial_number.ilike.%${safe}%,machine_number.ilike.%${safe}%`)
       .limit(50);
     const rows = (data ?? []) as Array<{
       serial_number: string | null; machine_number: string | null;
-      machine_type: string | null; customer_name: string | null; dealer_name: string | null;
+      machine_type: string | null; customer_name: string | null;
+      dealer_name: string | null; dealer_number: string | null;
     }>;
     if (debug) debug.raw.machines = rows.length;
     for (const r of rows) {
-      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name }, "machines");
+      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name, dealerNumber: r.dealer_number }, "machines");
     }
   } catch (e) {
     console.warn("[machineJournal] machines search failed", e);
@@ -328,7 +396,7 @@ export async function searchMachinesByIdentifier(
     const list = await fetchWarrantyRegistrations();
     if (debug) debug.raw.warranties = list.length;
     for (const w of list) {
-      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName }, "warranties");
+      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName, dealerNumber: w.dealerAccountNumber }, "warranties");
     }
   } catch (e) {
     console.warn("[machineJournal] warranty search failed", e);
@@ -339,7 +407,7 @@ export async function searchMachinesByIdentifier(
     const list = await listServiceRegistrations();
     if (debug) debug.raw.serviceRegistrations = list.length;
     for (const s of list) {
-      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name }, "serviceRegistrations");
+      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name, dealerNumber: s.dealer_number }, "serviceRegistrations");
     }
   } catch (e) {
     console.warn("[machineJournal] service reg search failed", e);
@@ -349,8 +417,8 @@ export async function searchMachinesByIdentifier(
   try {
     const list = await fetchVisibleServiceTickets(500);
     if (debug) debug.raw.tickets = list.length;
-    for (const t of list as Array<ServiceTicket & { serial_number?: string | null }>) {
-      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name }, "tickets");
+    for (const t of list as Array<ServiceTicket & { serial_number?: string | null; dealer_number?: string | null }>) {
+      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name, dealerNumber: t.dealer_number ?? null }, "tickets");
     }
   } catch (e) {
     console.warn("[machineJournal] tickets search failed", e);
@@ -438,6 +506,7 @@ export async function loadMachineJournal(
       sellerLabel: null, warrantyStart: null, warrantyEnd: null,
       registrationDate: null, currentHours: null, latestServiceDate: null,
       openTickets: 0, openClaims: 0, tsbPending: 0, status: null, machineRecord: null,
+      dealerLinkMissing: false,
     },
     timeline: [],
     comments: [],
@@ -467,26 +536,37 @@ export async function loadMachineJournal(
     } catch { return null; }
   })();
 
-  const [machinesRes, warrantiesAll, serviceRegs, tickets] = await Promise.all([
+  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets] = await Promise.all([
     machineLookup,
     fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
     listServiceRegistrations({ serialNumber: display }).catch(() => [] as ServiceRegistration[]),
     fetchVisibleServiceTickets(500).catch(() => [] as ServiceTicket[]),
   ]);
 
-  const machine = machinesRes;
+  let machine = machinesRes;
+  // Drop machine row if dealer scope disallows it (RLS belt + suspenders).
+  if (machine && !dealerScopeAllows(scope, { dealer_number: machine.dealer_number, dealer_name: machine.dealer_name })) {
+    machine = null;
+  }
   if (machine) journal.summary.machineRecord = machine;
 
-  // Warranties for this serial
-  const warranties = warrantiesAll.filter((w) => serialMatches(w.machineSerial, display));
+  // Warranties for this serial (scope-filtered).
+  const warranties = warrantiesAll
+    .filter((w) => serialMatches(w.machineSerial, display))
+    .filter((w) => dealerScopeAllows(scope, { dealer_number: w.dealerAccountNumber, dealer_name: w.dealerName }));
 
-  // Tickets for this serial
-  const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null }>)
-    .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id));
+  // Tickets for this serial (scope-filtered).
+  const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null; dealer_number?: string | null }>)
+    .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id))
+    .filter((t) => dealerScopeAllows(scope, { dealer_number: t.dealer_number ?? null, dealer_name: t.dealer_name }));
 
-  // Claims for this serial (scope-filtered)
+  // Claims for this serial (scope-filtered).
   const claimsForSerial = filterClaimsForScope(getAllClaims(), scope)
     .filter((c) => serialMatches(c.serial, display));
+
+  // Service registrations: re-filter by scope (RLS belt + suspenders).
+  const serviceRegs = serviceRegsRaw
+    .filter((s) => dealerScopeAllows(scope, { dealer_number: s.dealer_number, dealer_name: s.dealer_name }));
 
   // TSB for this serial (scope-filtered)
   const tsbForSerial: Array<{ tsb: Tsb; dealerName: string | null; status: string }> = [];
@@ -556,6 +636,14 @@ export async function loadMachineJournal(
     tsbPending: tsbForSerial.filter((t) => t.status === "afventer").length,
     status: machine ? "active" : (firstWarranty?.status === "archived" ? "archived" : "active"),
     machineRecord: machine ?? null,
+    dealerLinkMissing: !(
+      (machine && (machine.dealer_number || machine.dealer_account_id || machine.dealer_name)) ||
+      warranties.some((w) => w.dealerAccountNumber || w.dealerAccountId || w.dealerName) ||
+      serviceRegs.some((s) => s.dealer_number || s.dealer_name) ||
+      ticketsForSerial.some((t) => (t as { dealer_number?: string | null }).dealer_number || t.dealer_name) ||
+      claimsForSerial.some((c) => c.dealer) ||
+      tsbForSerial.some((t) => t.dealerName)
+    ),
   };
 
   // ---------- Timeline ----------
