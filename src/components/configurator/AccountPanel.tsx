@@ -43,7 +43,8 @@ export { markAsOrderSubmitted, markPdfDownloaded } from '@/lib/configurationsSer
 
 interface Props {
   appUser: AppUser & { email: string };
-  language: Language;
+  /** Portal UI language (9-locale). Falls back to legacy 5 for raw-data helpers. */
+  language: PortalUiLanguage | Language | string;
   currentState: ConfiguratorState;
   onLogout: () => void;
   onRestoreState: (state: ConfiguratorState, configId: string, ownership?: {
