@@ -762,14 +762,7 @@ export default function ConfiguratorPage() {
       }
       // Packaging popup for loose tool
       if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
-        const packMsg: Record<string, string> = {
-          da: 'Du har valgt et løst redskab med særlige pakkeomkostninger i form af specialbygget palle og arbejdstid.',
-          en: 'You have selected an attachment with special packaging costs in the form of a custom-built pallet and labor time.',
-          de: 'Sie haben ein Anbaugerät mit besonderen Verpackungskosten in Form einer maßgefertigten Palette und Arbeitszeit ausgewählt.',
-          it: 'Hai selezionato un accessorio con costi di imballaggio speciali sotto forma di pallet costruito su misura e tempo di lavoro.',
-          hu: 'Ön egy olyan tartozékot választott, amely speciális csomagolási költséggel jár egy egyedileg épített raklap és munkaidő formájában.'
-        };
-        setInfoModal({ title: T('packagingCostTitle'), content: packMsg[lang] || packMsg.en });
+        setInfoModal({ title: T('packagingCostTitle'), content: T('packagingCostBody') });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
