@@ -428,7 +428,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
   for (const w of warranties) {
     const d = w.registrationDate || w.deliveryDate || w.createdAt;
     touch(w.machineSerial, "warranty", {
-      machineModel: w.machineModel ?? null,
+      machineModel: w.machineType ?? null,
       machineType: w.machineType ?? null,
       dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
       dealerNumber: w.dealerAccountNumber,
