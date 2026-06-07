@@ -402,7 +402,6 @@ export function isStillNew(entry: ChangeLogEntry): boolean {
   return Number.isFinite(t) && t > Date.now();
 }
 
-// ---------- Hook ----------
 
 // ---------- Submodule aliasing ----------
 
