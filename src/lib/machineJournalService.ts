@@ -174,6 +174,16 @@ export interface HoursRegressionWarning {
   newerDate: string | null;
 }
 
+export type StatusTone = "green" | "yellow" | "red" | "neutral";
+export type HealthLevel = "healthy" | "needs_attention" | "critical";
+
+export interface JournalStatusItem {
+  key: string;
+  label: string;
+  value: string;
+  tone: StatusTone;
+}
+
 export interface JournalSummary {
   serial: string; // display casing
   normalizedSerial: string;
@@ -181,6 +191,10 @@ export interface JournalSummary {
   model: string | null;
   customerName: string | null;
   dealerName: string | null;
+  /** Importer (= parent dealer of current dealer). */
+  importerName: string | null;
+  /** Active service partner(s) linked to current dealer, joined with " · ". */
+  servicePartnerName: string | null;
   sellerLabel: string | null;
   warrantyStart: string | null;
   warrantyEnd: string | null;
@@ -199,6 +213,10 @@ export interface JournalSummary {
   /** True when no source record carries any dealer link. Internal UI
    *  renders "Maskinen mangler forhandlerkobling" when this is set. */
   dealerLinkMissing: boolean;
+  /** Compact per-metric status used by the "Maskinestatus" health card. */
+  statusItems: JournalStatusItem[];
+  /** Overall health rollup. */
+  health: { level: HealthLevel; reasons: string[] };
 }
 
 export interface RelatedRecord {
