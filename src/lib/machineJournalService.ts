@@ -79,12 +79,55 @@ function serialMatches(a: string | null | undefined, b: string | null | undefine
 
 export interface JournalScope {
   role: PortalRole | null;
-  /** Dealer-side users only see claims/TSB whose dealer matches this label. */
+  /** Legacy dealer label (display_name) — soft fallback for claims/TSB. */
   dealerLabel: string | null;
+  /** Allow-listed dealer_numbers (lowercased, trimmed). */
+  dealerNumbers: Set<string>;
+  /** Allow-listed dealer names (lowercased) used for records that only
+   *  carry a name (claims, tsb, some tickets, some warranties). */
+  dealerNames: Set<string>;
+  /** True for internal Timan staff (backend / service): no dealer filter. */
+  unrestricted: boolean;
 }
 
+/** Internal Timan staff: see every machine across every dealer. */
 export function isInternalRole(role: PortalRole | null): boolean {
-  return role === "timan_backend" || role === "timan_seller" || role === "timan_service";
+  return role === "timan_backend" || role === "timan_service";
+}
+
+/** Seller: scoped to dealers assigned via CRM account ownership. */
+export function isSellerScopedRole(role: PortalRole | null): boolean {
+  return role === "timan_seller";
+}
+
+interface DealerishRecord {
+  dealer_number?: string | null;
+  dealer_name?: string | null;
+}
+
+function normLower(v: string | null | undefined): string {
+  return (v ?? "").toString().trim().toLowerCase();
+}
+
+/**
+ * Predicate used to filter ALL source records before they're shown to
+ * the user. Internal roles bypass the filter. External roles must match
+ * either a dealer_number from the allow-list, or a dealer_name fuzzy-
+ * equal to an entry in the name allow-list. Records with NO dealer link
+ * are hidden from every external role.
+ */
+export function dealerScopeAllows(scope: JournalScope, rec: DealerishRecord): boolean {
+  if (scope.unrestricted) return true;
+  const num = normLower(rec.dealer_number);
+  if (num && scope.dealerNumbers.has(num)) return true;
+  const name = normLower(rec.dealer_name);
+  if (name) {
+    for (const n of scope.dealerNames) {
+      if (!n) continue;
+      if (name === n || name.includes(n) || n.includes(name)) return true;
+    }
+  }
+  return false;
 }
 
 // ---------- Output types ----------
@@ -134,6 +177,9 @@ export interface JournalSummary {
   tsbPending: number;
   status: "active" | "archived" | null;
   machineRecord: MachineRecord | null;
+  /** True when no source record carries any dealer link. Internal UI
+   *  renders "Maskinen mangler forhandlerkobling" when this is set. */
+  dealerLinkMissing: boolean;
 }
 
 export interface RelatedRecord {
@@ -181,20 +227,30 @@ function dealerMatchesLabel(needle: string | null, hay: string | null | undefine
   return h.includes(n) || n.includes(h);
 }
 
+function claimAllowedByScope(scope: JournalScope, c: ClaimRecord): boolean {
+  if (scope.unrestricted) return true;
+  if (dealerScopeAllows(scope, { dealer_name: c.dealer })) return true;
+  if (scope.dealerLabel && dealerMatchesLabel(scope.dealerLabel, c.dealer)) return true;
+  return false;
+}
+
 function filterClaimsForScope(all: ClaimRecord[], scope: JournalScope): ClaimRecord[] {
-  if (isInternalRole(scope.role)) return all;
-  if (!scope.dealerLabel) return [];
-  return all.filter((c) => dealerMatchesLabel(scope.dealerLabel, c.dealer));
+  if (scope.unrestricted) return all;
+  return all.filter((c) => claimAllowedByScope(scope, c));
 }
 
 function filterTsbForScope(all: Tsb[], scope: JournalScope): Tsb[] {
-  if (isInternalRole(scope.role)) return all;
-  if (!scope.dealerLabel) return [];
+  if (scope.unrestricted) return all;
   const allowedDealerIds = new Set<string>();
   for (const t of all) {
     for (const d of t.dealers) {
       const dealer = getDealer(d.dealerId);
-      if (dealer && dealerMatchesLabel(scope.dealerLabel, dealer.name)) {
+      if (!dealer) continue;
+      if (dealerScopeAllows(scope, { dealer_name: dealer.name })) {
+        allowedDealerIds.add(d.dealerId);
+        continue;
+      }
+      if (scope.dealerLabel && dealerMatchesLabel(scope.dealerLabel, dealer.name)) {
         allowedDealerIds.add(d.dealerId);
       }
     }
@@ -206,6 +262,7 @@ function filterTsbForScope(all: Tsb[], scope: JournalScope): Tsb[] {
     }))
     .filter((t) => t.dealers.length > 0);
 }
+
 
 // ---------- Cross-source search ----------
 
