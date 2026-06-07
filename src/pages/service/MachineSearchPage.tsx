@@ -289,6 +289,7 @@ export default function MachineSearchPage() {
           searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
           raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
           matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          warrantiesTotal: 0, warrantiesWithSerial: 0, warrantiesSkippedNoSerial: 0, warrantiesSkippedByScope: 0,
           registryError: null, registrySkippedReason: null, totalHits: 0,
         };
         const hits = await searchMachinesByIdentifier(q, scope, dbg);
