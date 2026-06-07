@@ -208,6 +208,12 @@ export function WarrantyNewForm({
           <span>{error}</span>
         </div>
       )}
+      {warning && !error && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{warning}</span>
+        </div>
+      )}
 
       <Section title="Forhandler & maskine">
         <Field label="Forhandlernavn" required>
