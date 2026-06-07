@@ -14,7 +14,7 @@ import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
-import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug } from "@/lib/machineJournalService";
+import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, listAccessibleMachines, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
