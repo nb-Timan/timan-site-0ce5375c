@@ -375,16 +375,17 @@ export async function searchMachinesByIdentifier(
     const safe = q.replace(/[(),]/g, "");
     const { data } = await supabase
       .from("machines")
-      .select("serial_number, machine_number, machine_type, customer_name, dealer_name")
+      .select("serial_number, machine_number, machine_type, customer_name, dealer_name, dealer_number")
       .or(`serial_number.ilike.%${safe}%,machine_number.ilike.%${safe}%`)
       .limit(50);
     const rows = (data ?? []) as Array<{
       serial_number: string | null; machine_number: string | null;
-      machine_type: string | null; customer_name: string | null; dealer_name: string | null;
+      machine_type: string | null; customer_name: string | null;
+      dealer_name: string | null; dealer_number: string | null;
     }>;
     if (debug) debug.raw.machines = rows.length;
     for (const r of rows) {
-      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name }, "machines");
+      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name, dealerNumber: r.dealer_number }, "machines");
     }
   } catch (e) {
     console.warn("[machineJournal] machines search failed", e);
@@ -395,7 +396,7 @@ export async function searchMachinesByIdentifier(
     const list = await fetchWarrantyRegistrations();
     if (debug) debug.raw.warranties = list.length;
     for (const w of list) {
-      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName }, "warranties");
+      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName, dealerNumber: w.dealerAccountNumber }, "warranties");
     }
   } catch (e) {
     console.warn("[machineJournal] warranty search failed", e);
@@ -406,7 +407,7 @@ export async function searchMachinesByIdentifier(
     const list = await listServiceRegistrations();
     if (debug) debug.raw.serviceRegistrations = list.length;
     for (const s of list) {
-      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name }, "serviceRegistrations");
+      push(s.serial_number, "service", { machineType: s.machine_type, customerName: s.customer_name, dealerName: s.dealer_name, dealerNumber: s.dealer_number }, "serviceRegistrations");
     }
   } catch (e) {
     console.warn("[machineJournal] service reg search failed", e);
@@ -416,8 +417,8 @@ export async function searchMachinesByIdentifier(
   try {
     const list = await fetchVisibleServiceTickets(500);
     if (debug) debug.raw.tickets = list.length;
-    for (const t of list as Array<ServiceTicket & { serial_number?: string | null }>) {
-      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name }, "tickets");
+    for (const t of list as Array<ServiceTicket & { serial_number?: string | null; dealer_number?: string | null }>) {
+      push(t.serial_number ?? null, "ticket", { dealerName: t.dealer_name, dealerNumber: t.dealer_number ?? null }, "tickets");
     }
   } catch (e) {
     console.warn("[machineJournal] tickets search failed", e);
