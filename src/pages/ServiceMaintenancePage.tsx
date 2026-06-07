@@ -123,8 +123,9 @@ function parseView(v: string | null, fallback: ServiceMaintView): ServiceMaintVi
 
 export default function ServiceMaintenancePage() {
   const { appUser, loading } = useAppUser();
-  const { language: lang } = useLanguage();
-  const t = (k: keyof typeof T) => T[k][lang] || T[k].en;
+  const { language: lang, uiLanguage } = useLanguage();
+  const t = (k: keyof typeof T) => pickT(T[k], uiLanguage);
+  void lang;
   const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
