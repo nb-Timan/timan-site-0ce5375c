@@ -33,20 +33,55 @@ CREATE INDEX IF NOT EXISTS machine_registry_index_display_idx
 CREATE INDEX IF NOT EXISTS machine_registry_index_last_activity_idx
   ON public.machine_registry_index (last_activity_at DESC);
 
--- 2. Grants — readable by any authenticated user (RLS still scopes detail data
---    in the source tables). The registry only knows that a serial exists.
+-- 2. Grants + RLS — INTERNAL ROLES ONLY.
+--
+-- Security rationale:
+--   The registry holds one row per normalized serial across ALL dealers.
+--   Exposing it to every authenticated user would leak the existence of
+--   serial numbers (and model/type metadata) across dealer boundaries,
+--   even though the underlying source tables are RLS-scoped.
+--
+--   The source tables (warranty_registrations, service_registrations,
+--   service_tickets, service_claims) use heterogeneous dealer scoping
+--   (dealer_account_id, dealer_company text, dealer email, etc.), so a
+--   single per-row RLS predicate on the registry cannot reliably reproduce
+--   every source policy without risking false-positive disclosure.
+--
+--   Therefore: only internal Timan roles (timan_backend, timan_service)
+--   may SELECT directly from the registry. Dealer / importer / service
+--   partner / partner / default users get machine search results from
+--   scoped queries against the source tables (already RLS-protected),
+--   exactly as today. The registry remains the fast cross-source index
+--   for internal users and the trigger/backfill machinery still runs
+--   for every write regardless of who performed it (SECURITY DEFINER).
 GRANT SELECT ON public.machine_registry_index TO authenticated;
 GRANT ALL    ON public.machine_registry_index TO service_role;
 
 ALTER TABLE public.machine_registry_index ENABLE ROW LEVEL SECURITY;
 
+-- Drop any earlier permissive policy from previous iterations.
 DROP POLICY IF EXISTS "Authenticated read machine_registry_index"
   ON public.machine_registry_index;
-CREATE POLICY "Authenticated read machine_registry_index"
+DROP POLICY IF EXISTS machine_registry_index_select_internal
+  ON public.machine_registry_index;
+
+CREATE POLICY machine_registry_index_select_internal
   ON public.machine_registry_index
   FOR SELECT
   TO authenticated
-  USING (true);
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.app_users au
+      WHERE lower(au.email) = lower(auth.jwt() ->> 'email')
+        AND au.is_active = true
+        AND au.approved  = true
+        AND au.portal_role IN ('timan_backend', 'timan_service')
+    )
+  );
+
+-- No INSERT/UPDATE/DELETE policy for authenticated. All writes happen via
+-- SECURITY DEFINER triggers (_machine_registry_touch) or the service role
+-- during backfill, so dealer-side users cannot mutate the registry either.
 
 -- 3. Normalization function — mirrors src/lib/machineJournalService.ts
 --    normalizeSerial(): trim, uppercase, collapse whitespace. Separator
