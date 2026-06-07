@@ -737,10 +737,25 @@ export default function PartnerMapPage() {
     }
     if (!canSeeMachineStats) {
       if (!ownDealerNumber) return [];
-      return machinePinsAll.filter((p) => (p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+      const ownIds = new Set<string>();
+      const ownNames = new Set<string>();
+      for (const d of dealers) {
+        if ((d.account_number ?? '').trim().toUpperCase() === ownDealerNumber) {
+          ownIds.add(d.id);
+          const nm = (d.company_name ?? '').trim().toLowerCase();
+          if (nm) ownNames.add(nm);
+        }
+      }
+      return machinePinsAll.filter((p) => {
+        if (p.dealerAccountId && ownIds.has(p.dealerAccountId)) return true;
+        if ((p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber) return true;
+        const nm = (p.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && ownNames.has(nm)) return true;
+        return false;
+      });
     }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
+  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
 
   const visibleMachineMissing = useMemo(() => {
     if (!canSeeMachineLayer) return [];
