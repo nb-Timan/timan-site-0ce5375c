@@ -267,12 +267,15 @@ export default function BackendPartnerRelationsPage() {
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
+              {!loading && servicePartners.length === 0 && (
+                <span className="mt-1 block text-xs text-amber-700">Ingen servicepartnere fundet. Tjek forhandlertype på dealer_accounts.</span>
+              )}
             </label>
             <label className="block text-sm">
               <span className="text-slate-700">Forhandler</span>
               <select className="mt-1 w-full rounded border-slate-300" value={spDealerId} onChange={(e) => setSpDealerId(e.target.value)}>
                 <option value="">— vælg —</option>
-                {dealers.filter((d) => d.id !== spPartnerId).map((d) => (
+                {dealerOptions.filter((d) => d.id !== spPartnerId).map((d) => (
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
