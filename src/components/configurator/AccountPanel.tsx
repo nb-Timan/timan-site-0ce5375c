@@ -61,23 +61,23 @@ interface Props {
   ownershipOverride?: () => Promise<ConfiguratorOwnership>;
 }
 
-function getRoleBadge(role: string, lang: Language) {
+function getRoleBadge(role: string, lang: string) {
   const map: Record<string, Record<string, string>> = {
-    slutkunde: { da: 'Default bruger', en: 'Default user', de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó' },
-    partner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner' },
-    timan_saelger: { da: 'Timan Sælger', en: 'Timan Sales', de: 'Timan Verkauf', it: 'Timan Vendite', hu: 'Timan Értékesítő' },
+    slutkunde:     { da: 'Default bruger', en: 'Default user',   de: 'Standardbenutzer', it: 'Utente predefinito', hu: 'Alapértelmezett felhasználó', sv: 'Standardanvändare', fr: 'Utilisateur par défaut', pl: 'Użytkownik domyślny', cs: 'Výchozí uživatel' },
+    partner:       { da: 'Partner',         en: 'Partner',        de: 'Partner',          it: 'Partner',             hu: 'Partner',                    sv: 'Partner',           fr: 'Partenaire',             pl: 'Partner',             cs: 'Partner' },
+    timan_saelger: { da: 'Timan Sælger',    en: 'Timan Sales',    de: 'Timan Verkauf',    it: 'Timan Vendite',       hu: 'Timan Értékesítő',           sv: 'Timan Sälj',        fr: 'Vente Timan',            pl: 'Sprzedaż Timan',      cs: 'Prodej Timan' },
   };
-  return map[role]?.[lang] || map[role]?.en || role;
+  return pickT(map[role], lang) || role;
 }
 
-function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: Language): string | null {
+function getSubRoleLabel(subRole: PartnerType | null | undefined, lang: string): string | null {
   if (!subRole) return null;
   const map: Record<PartnerType, Record<string, string>> = {
-    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner' },
-    forhandler: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
-    importoer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
+    service_partner: { da: 'Service partner', en: 'Service Partner', de: 'Servicepartner', it: 'Partner di servizio', hu: 'Szervizpartner', sv: 'Servicepartner', fr: 'Partenaire de service', pl: 'Partner serwisowy', cs: 'Servisní partner' },
+    forhandler:      { da: 'Forhandler',      en: 'Dealer',          de: 'Händler',        it: 'Rivenditore',         hu: 'Kereskedő',      sv: 'Återförsäljare', fr: 'Revendeur',             pl: 'Dealer',            cs: 'Prodejce' },
+    importoer:       { da: 'Importør',        en: 'Importer',        de: 'Importeur',      it: 'Importatore',         hu: 'Importőr',       sv: 'Importör',       fr: 'Importateur',           pl: 'Importer',          cs: 'Dovozce' },
   };
-  return map[subRole]?.[lang] || map[subRole]?.en || subRole;
+  return pickT(map[subRole], lang) || subRole;
 }
 
 function roleBadgeColor(role: string) {
@@ -86,14 +86,14 @@ function roleBadgeColor(role: string) {
   return 'bg-gray-100 text-gray-700';
 }
 
-function statusLabel(status: SavedStatus, lang: Language): string {
+function statusLabel(status: SavedStatus, lang: string): string {
   const labels: Record<SavedStatus, Record<string, string>> = {
-    aktiv: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
-    pause: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
-    ordre_afgivet: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Bestellung aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
-    deleted: { da: 'Slettet', en: 'Deleted', de: 'Gelöscht', it: 'Eliminato', hu: 'Törölve' },
+    aktiv:         { da: 'Aktiv',          en: 'Active',           de: 'Aktiv',                  it: 'Attivo',           hu: 'Aktív',          sv: 'Aktiv',             fr: 'Actif',             pl: 'Aktywne',           cs: 'Aktivní' },
+    pause:         { da: 'Pause',          en: 'Paused',           de: 'Pausiert',               it: 'In pausa',         hu: 'Szünetel',       sv: 'Pausad',            fr: 'En pause',          pl: 'Wstrzymane',        cs: 'Pozastaveno' },
+    ordre_afgivet: { da: 'Ordre afgivet',  en: 'Order submitted',  de: 'Bestellung aufgegeben',  it: 'Ordine inviato',   hu: 'Rendelés leadva',sv: 'Order skickad',     fr: 'Commande envoyée',  pl: 'Zamówienie złożone',cs: 'Objednávka odeslána' },
+    deleted:       { da: 'Slettet',        en: 'Deleted',          de: 'Gelöscht',               it: 'Eliminato',        hu: 'Törölve',        sv: 'Borttagen',         fr: 'Supprimé',          pl: 'Usunięte',          cs: 'Smazáno' },
   };
-  return labels[status]?.[lang] || labels[status]?.en || status;
+  return pickT(labels[status], lang) || status;
 }
 
 function statusColor(status: SavedStatus): string {
