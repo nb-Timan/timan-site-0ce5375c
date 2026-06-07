@@ -69,10 +69,10 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
             'hover:text-foreground hover:bg-muted/60 transition shrink-0',
             className,
           )}
-          aria-label={L.productInfo[lang]}
+          aria-label={pickL('productInfo', lang)}
         >
           <Info className="h-3 w-3" />
-          <span>{L.productInfo[lang]}</span>
+          <span>{pickL('productInfo', lang)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -86,7 +86,7 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
           </div>
           {meta?.varenr && (
             <div className="text-[11px] text-muted-foreground">
-              {L.itemNo[lang]} {meta.varenr}
+              {pickL('itemNo', lang)} {meta.varenr}
             </div>
           )}
         </div>
@@ -101,29 +101,29 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
           <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
             {links.sourceUrl && (
               <a href={links.sourceUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.source[lang]}</a>
+                className="text-primary hover:underline">{pickL('source', lang)}</a>
             )}
             {links.brochureUrl && (
               <a href={links.brochureUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.brochure[lang]}</a>
+                className="text-primary hover:underline">{pickL('brochure', lang)}</a>
             )}
             {links.imageUrl && (
               <a href={links.imageUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.image[lang]}</a>
+                className="text-primary hover:underline">{pickL('image', lang)}</a>
             )}
             {links.videoUrl && (
               <a href={links.videoUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.video[lang]}</a>
+                className="text-primary hover:underline">{pickL('video', lang)}</a>
             )}
             {links.documentationUrls.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noreferrer noopener"
                 className="text-primary hover:underline">
-                {L.docs[lang]}{links.documentationUrls.length > 1 ? ` ${i + 1}` : ''}
+                {pickL('docs', lang)}{links.documentationUrls.length > 1 ? ` ${i + 1}` : ''}
               </a>
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground italic pt-1">{L.noLinks[lang]}</p>
+          <p className="text-muted-foreground italic pt-1">{pickL('noLinks', lang)}</p>
         )}
       </PopoverContent>
     </Popover>
