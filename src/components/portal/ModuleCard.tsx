@@ -60,11 +60,22 @@ export default function ModuleCard({ module, language, badge, updateBadge }: Pro
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col cursor-pointer group text-left w-full transition-all duration-300',
+        'relative bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col cursor-pointer group text-left w-full transition-all duration-300',
         'hover:-translate-y-1.5 hover:shadow-md',
         disabled && 'opacity-70 cursor-not-allowed hover:translate-y-0 hover:shadow-sm',
       )}
     >
+      {updateBadge && (
+        <span
+          className={cn(
+            'absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+            updateBadge.kind === 'major' ? 'bg-rose-100 text-rose-700' : 'bg-green-100 text-[#2d5a27]',
+          )}
+          title={updateBadge.tooltip}
+        >
+          {updateBadge.label}
+        </span>
+      )}
       {/* Icon tile — 14x14 (56px) rounded-xl */}
       <div className={cn('w-14 h-14 rounded-xl flex items-center justify-center mb-6 transition-colors', styles.iconBg, styles.iconBgHover)}>
         <Icon className={cn('h-8 w-8', styles.iconColor)} strokeWidth={2} />
