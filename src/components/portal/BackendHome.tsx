@@ -56,6 +56,7 @@ function buildGroups(): Group[] {
         { title: "Forhandlere", icon: Building2, to: "/portal/backend/dealer-accounts", description: "Master-overblik over alle forhandlere, service partnere og importører." },
         { title: "Dealer Matching", icon: Link2, to: "/portal/backend/data?tab=garanti", description: "Manuel matching af garantiregistreringer mod forhandlere." },
         { title: "Partnerkort administration", icon: Map, description: "Administrér det offentlige partnerkort." },
+        { title: "Partner relationer", icon: Link2, to: "/portal/backend/partner-relations", description: "Importør→forhandler-hierarki og service-partner→forhandler-relationer for Min Maskine adgang." },
         { title: "Geografisk dækning", icon: MapPin, to: "/portal/backend/data?tab=forhandlere", description: "Geocoding af forhandleradresser og dækningsoverblik." },
       ],
     },

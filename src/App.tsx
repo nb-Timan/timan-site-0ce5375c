@@ -88,6 +88,7 @@ import BackendSellersPage from "./pages/backend/BackendSellersPage";
 import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import BackendDataIntegrationsPage from "./pages/backend/BackendDataIntegrationsPage";
 import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
+import BackendPartnerRelationsPage from "./pages/backend/BackendPartnerRelationsPage";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -183,6 +184,7 @@ const App = () => (
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
               <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
+              <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorPage />} />
