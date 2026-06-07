@@ -4,7 +4,7 @@ import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
-import { t } from '@/data/translations';
+import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
 import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
 import LoginStep from '@/components/configurator/LoginStep';
@@ -701,7 +701,7 @@ export default function ConfiguratorPage() {
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `Varenr: ${item.varenr}`;
+    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
     const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
     setInfoModal({ title: T('autoAddedTitle'), content: msg });
@@ -803,10 +803,10 @@ export default function ConfiguratorPage() {
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${d.label}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, uiLanguage)}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${d.label}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, uiLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
@@ -825,7 +825,7 @@ export default function ConfiguratorPage() {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
       techSpecs.forEach(s => {
         const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[lang] || (s.value as any)?.da || '');
-        html += `<div class="font-medium text-gray-700">${s.label}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, uiLanguage)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
       });
       html += '</div>';
     }
@@ -902,7 +902,7 @@ export default function ConfiguratorPage() {
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
               <div className="text-sm text-gray-800">{getLocalizedName(sub.name, lang)}</div>
-              <div className="text-xs text-gray-500">Varenr: {sub.varenr}</div>
+              <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
               {renderActionLinks(sub as any, machineType)}
             </div>
             <div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>
@@ -1764,7 +1764,7 @@ export default function ConfiguratorPage() {
                 <input type="radio" name="oil-choice" value="normal" checked={oilChoice === 'normal'} onChange={() => { setOilChoice('normal'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilNormal')} - Texaco HDZ46</div>
-                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_NORMAL}</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_NORMAL}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1779,7 +1779,7 @@ export default function ConfiguratorPage() {
                 <input type="radio" name="oil-choice" value="bio" checked={oilChoice === 'bio'} onChange={() => { setOilChoice('bio'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
-                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_BIO}</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_BIO}</div>
                   <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
@@ -2095,13 +2095,13 @@ export default function ConfiguratorPage() {
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
                         <h3 className="font-bold text-lg text-gray-900">{getLocalizedName(p.name, lang)}</h3>
                         {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>}
-                        <p className="text-sm text-gray-500">Varenr: {p.varenr}</p>
+                        <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
 
                         {p.techSpecs.length > 0 && (
                           <div className="space-y-1 py-3 border-t border-b border-gray-200">
                             {p.techSpecs.map((spec, i) => (
                               <div key={i} className="flex justify-between text-sm">
-                                <span className="text-gray-600">{spec.label}:</span>
+                                <span className="text-gray-600">{translateSpecLabel(spec.label, uiLanguage)}:</span>
                                 <span className="font-semibold text-gray-900">{typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '')}</span>
                               </div>
                             ))}
@@ -2442,7 +2442,7 @@ export default function ConfiguratorPage() {
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
                           <div className="text-sm text-gray-800">{getLocalizedName(a.name, lang)}</div>
-                          <div className="text-xs text-gray-500">Varenr: {a.varenr}</div>
+                          <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
@@ -2496,7 +2496,7 @@ export default function ConfiguratorPage() {
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
                               <span className="font-medium text-sm text-gray-800">{getLocalizedName(a.name, lang)}</span>
-                              <div className="text-gray-500 text-xs">Varenr: {a.varenr}</div>
+                              <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex-shrink-0 text-right">
@@ -3286,7 +3286,7 @@ export default function ConfiguratorPage() {
                               )}
                               <RecommendationInfoPopover
                                 productId={recommendationData.bulletProductIds?.[i]}
-                                lang={lang}
+                                lang={uiLanguage}
                               />
                             </div>
                           </label>

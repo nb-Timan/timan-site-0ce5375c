@@ -10,6 +10,7 @@ import { Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/types/configurator';
+import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import {
   getRecommendationMeta,
   getProductSourceLinks,
@@ -19,35 +20,48 @@ import {
 
 interface Props {
   productId: string | undefined;
-  lang: Language;
+  /** Accepts the wider portal UI language (sv/fr/pl/cs) in addition to the legacy 5. */
+  lang: Language | string;
   className?: string;
 }
 
-const L = {
-  productInfo: { da: 'Produktinfo', en: 'Product info', de: 'Produktinfo', it: 'Info prodotto', hu: 'Termékinfó' },
+const L: Record<string, Record<string, string>> = {
+  productInfo: { da: 'Produktinfo', en: 'Product info', de: 'Produktinfo', it: 'Info prodotto', hu: 'Termékinfó', sv: 'Produktinfo', fr: 'Infos produit', pl: 'Informacje o produkcie', cs: 'Informace o produktu' },
   noLinks: {
     da: 'Der er ikke tilføjet produktlinks endnu.',
     en: 'No product links have been added yet.',
     de: 'Es wurden noch keine Produktlinks hinzugefügt.',
     it: 'Non sono ancora stati aggiunti link al prodotto.',
     hu: 'Még nem adtak hozzá terméklinkeket.',
+    sv: 'Inga produktlänkar har lagts till ännu.',
+    fr: 'Aucun lien produit n’a encore été ajouté.',
+    pl: 'Nie dodano jeszcze linków do produktu.',
+    cs: 'Zatím nebyly přidány žádné odkazy na produkt.',
   },
-  itemNo: { da: 'Varenr.', en: 'Item no.', de: 'Art.-Nr.', it: 'Cod. art.', hu: 'Cikkszám' },
-  source: { da: 'Produktside', en: 'Product page', de: 'Produktseite', it: 'Pagina prodotto', hu: 'Termékoldal' },
-  brochure: { da: 'Brochure', en: 'Brochure', de: 'Broschüre', it: 'Brochure', hu: 'Brosúra' },
-  image: { da: 'Billede', en: 'Image', de: 'Bild', it: 'Immagine', hu: 'Kép' },
-  video: { da: 'Video', en: 'Video', de: 'Video', it: 'Video', hu: 'Videó' },
-  docs: { da: 'Dokumentation', en: 'Documentation', de: 'Dokumentation', it: 'Documentazione', hu: 'Dokumentáció' },
-} as const;
+  itemNo:   { da: 'Varenr.',       en: 'Item no.',      de: 'Art.-Nr.',     it: 'Cod. art.',    hu: 'Cikkszám',    sv: 'Art.nr',        fr: 'Réf.',          pl: 'Nr art.',       cs: 'Č. zboží' },
+  source:   { da: 'Produktside',   en: 'Product page',  de: 'Produktseite', it: 'Pagina prodotto', hu: 'Termékoldal', sv: 'Produktsida', fr: 'Page produit', pl: 'Strona produktu', cs: 'Stránka produktu' },
+  brochure: { da: 'Brochure',      en: 'Brochure',      de: 'Broschüre',    it: 'Brochure',     hu: 'Brosúra',     sv: 'Broschyr',      fr: 'Brochure',      pl: 'Broszura',      cs: 'Brožura' },
+  image:    { da: 'Billede',       en: 'Image',         de: 'Bild',         it: 'Immagine',     hu: 'Kép',         sv: 'Bild',          fr: 'Image',         pl: 'Zdjęcie',       cs: 'Obrázek' },
+  video:    { da: 'Video',         en: 'Video',         de: 'Video',        it: 'Video',        hu: 'Videó',       sv: 'Video',         fr: 'Vidéo',         pl: 'Wideo',         cs: 'Video' },
+  docs:     { da: 'Dokumentation', en: 'Documentation', de: 'Dokumentation',it: 'Documentazione', hu: 'Dokumentáció', sv: 'Dokumentation', fr: 'Documentation', pl: 'Dokumentacja', cs: 'Dokumentace' },
+};
+
+const pickL = (key: string, lang: string): string =>
+  L[key]?.[lang] || L[key]?.en || L[key]?.da || '';
 
 export function RecommendationInfoPopover({ productId, lang, className }: Props) {
   // No productId mapping (e.g. legacy fallback recommendation) → render nothing.
   if (!productId) return null;
 
+  // Helpers below are typed for the legacy 5-language `Language`. Map the
+  // (potentially wider) UI language down so sv/fr/pl/cs fall back to English
+  // for quote/shortPitch text while the popover label strings still use the
+  // wider 9-language `L` table directly.
+  const legacyLang = mapUiLanguageToLegacy(lang);
   const meta = getRecommendationMeta(productId);
   const links = getProductSourceLinks(productId);
-  const quote = getQuoteText(productId, lang);
-  const pitch = meta ? pickLocalized(meta.shortPitch, lang) : '';
+  const quote = getQuoteText(productId, legacyLang);
+  const pitch = meta ? pickLocalized(meta.shortPitch, legacyLang) : '';
 
   const hasAny = links.hasAny || Boolean(quote) || Boolean(pitch);
 
@@ -62,10 +76,10 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
             'hover:text-foreground hover:bg-muted/60 transition shrink-0',
             className,
           )}
-          aria-label={L.productInfo[lang]}
+          aria-label={pickL('productInfo', lang)}
         >
           <Info className="h-3 w-3" />
-          <span>{L.productInfo[lang]}</span>
+          <span>{pickL('productInfo', lang)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -79,7 +93,7 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
           </div>
           {meta?.varenr && (
             <div className="text-[11px] text-muted-foreground">
-              {L.itemNo[lang]} {meta.varenr}
+              {pickL('itemNo', lang)} {meta.varenr}
             </div>
           )}
         </div>
@@ -94,29 +108,29 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
           <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
             {links.sourceUrl && (
               <a href={links.sourceUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.source[lang]}</a>
+                className="text-primary hover:underline">{pickL('source', lang)}</a>
             )}
             {links.brochureUrl && (
               <a href={links.brochureUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.brochure[lang]}</a>
+                className="text-primary hover:underline">{pickL('brochure', lang)}</a>
             )}
             {links.imageUrl && (
               <a href={links.imageUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.image[lang]}</a>
+                className="text-primary hover:underline">{pickL('image', lang)}</a>
             )}
             {links.videoUrl && (
               <a href={links.videoUrl} target="_blank" rel="noreferrer noopener"
-                className="text-primary hover:underline">{L.video[lang]}</a>
+                className="text-primary hover:underline">{pickL('video', lang)}</a>
             )}
             {links.documentationUrls.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noreferrer noopener"
                 className="text-primary hover:underline">
-                {L.docs[lang]}{links.documentationUrls.length > 1 ? ` ${i + 1}` : ''}
+                {pickL('docs', lang)}{links.documentationUrls.length > 1 ? ` ${i + 1}` : ''}
               </a>
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground italic pt-1">{L.noLinks[lang]}</p>
+          <p className="text-muted-foreground italic pt-1">{pickL('noLinks', lang)}</p>
         )}
       </PopoverContent>
     </Popover>

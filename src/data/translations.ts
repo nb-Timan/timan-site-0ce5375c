@@ -884,3 +884,40 @@ const translations: Record<string, Record<string, string>> = {
 export function t(key: string, lang: PortalUiLanguage | Language | string = 'da'): string {
   return translations[lang as string]?.[key] ?? translations.en?.[key] ?? translations.da?.[key] ?? key;
 }
+
+/**
+ * Localized labels for product/spec rows. Keys are the canonical Danish labels
+ * stored in src/data/machines.ts so that data values stay intact while the UI
+ * label is translated at render time. Unknown labels fall through unchanged.
+ */
+const SPEC_LABEL_MAP: Record<string, Record<string, string>> = {
+  'Motor':              { da: 'Motor',              en: 'Engine',                de: 'Motor',                       it: 'Motore',                  hu: 'Motor',                 sv: 'Motor',              fr: 'Moteur',                  pl: 'Silnik',              cs: 'Motor' },
+  'Max. hældning':      { da: 'Max. hældning',      en: 'Max. slope',            de: 'Max. Steigung',               it: 'Pendenza max.',           hu: 'Max. lejtés',           sv: 'Max. lutning',       fr: 'Pente max.',              pl: 'Maks. nachylenie',    cs: 'Max. sklon' },
+  'Vægt (Basis)':       { da: 'Vægt (Basis)',       en: 'Weight (Base)',         de: 'Gewicht (Basis)',             it: 'Peso (Base)',             hu: 'Súly (alap)',           sv: 'Vikt (bas)',         fr: 'Poids (base)',            pl: 'Waga (baza)',         cs: 'Hmotnost (základ)' },
+  'Klippebredde':       { da: 'Klippebredde',       en: 'Cutting width',         de: 'Schnittbreite',               it: 'Larghezza di taglio',     hu: 'Vágási szélesség',      sv: 'Klippbredd',         fr: 'Largeur de coupe',        pl: 'Szerokość koszenia',  cs: 'Šířka záběru' },
+  'Brændstof':          { da: 'Brændstof',          en: 'Fuel',                  de: 'Kraftstoff',                  it: 'Carburante',              hu: 'Üzemanyag',             sv: 'Bränsle',            fr: 'Carburant',               pl: 'Paliwo',              cs: 'Palivo' },
+  'Tophastighed':       { da: 'Tophastighed',       en: 'Top speed',             de: 'Höchstgeschwindigkeit',       it: 'Velocità massima',        hu: 'Végsebesség',           sv: 'Topphastighet',      fr: 'Vitesse de pointe',       pl: 'Prędkość maks.',      cs: 'Maximální rychlost' },
+  'Lydniveau i kabine': { da: 'Lydniveau i kabine', en: 'Cabin noise level',     de: 'Geräuschpegel in der Kabine', it: 'Rumorosità in cabina',    hu: 'Zajszint a fülkében',   sv: 'Ljudnivå i hytt',    fr: 'Niveau sonore en cabine', pl: 'Poziom hałasu w kabinie', cs: 'Hladina hluku v kabině' },
+  'Lydniveau':          { da: 'Lydniveau',          en: 'Noise level',           de: 'Geräuschpegel',               it: 'Rumorosità',              hu: 'Zajszint',              sv: 'Ljudnivå',           fr: 'Niveau sonore',           pl: 'Poziom hałasu',       cs: 'Hladina hluku' },
+  'Køreklar vægt':      { da: 'Køreklar vægt',      en: 'Ready-to-drive weight', de: 'Fahrbereites Gewicht',        it: 'Peso in ordine di marcia',hu: 'Menetkész súly',        sv: 'Körklar vikt',       fr: 'Poids en ordre de marche',pl: 'Masa gotowa do jazdy',cs: 'Provozní hmotnost' },
+  'Beskrivelse':        { da: 'Beskrivelse',        en: 'Description',           de: 'Beschreibung',                it: 'Descrizione',             hu: 'Leírás',                sv: 'Beskrivning',        fr: 'Description',             pl: 'Opis',                cs: 'Popis' },
+  'Dimensioner':        { da: 'Dimensioner',        en: 'Dimensions',            de: 'Abmessungen',                 it: 'Dimensioni',              hu: 'Méretek',               sv: 'Mått',               fr: 'Dimensions',              pl: 'Wymiary',             cs: 'Rozměry' },
+  'Vægt':               { da: 'Vægt',               en: 'Weight',                de: 'Gewicht',                     it: 'Peso',                    hu: 'Súly',                  sv: 'Vikt',               fr: 'Poids',                   pl: 'Waga',                cs: 'Hmotnost' },
+};
+
+const ITEM_NO_LABEL: Record<string, string> = {
+  da: 'Varenr', en: 'Item no.', de: 'Art.-Nr.', it: 'Cod. art.', hu: 'Cikkszám',
+  sv: 'Art.nr', fr: 'Réf.',     pl: 'Nr art.', cs: 'Č. zboží',
+};
+
+/** Translate a known DA spec label to the active UI language. Unknown labels pass through. */
+export function translateSpecLabel(label: string, lang: PortalUiLanguage | Language | string = 'da'): string {
+  const entry = SPEC_LABEL_MAP[label];
+  if (!entry) return label;
+  return entry[lang as string] || entry.en || entry.da || label;
+}
+
+/** Localized "Item no." label used before raw varenr values. */
+export function itemNoLabel(lang: PortalUiLanguage | Language | string = 'da'): string {
+  return ITEM_NO_LABEL[lang as string] || ITEM_NO_LABEL.en;
+}
