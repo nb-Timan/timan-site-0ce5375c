@@ -701,7 +701,7 @@ export default function ConfiguratorPage() {
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `Varenr: ${item.varenr}`;
+    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
     const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
     setInfoModal({ title: T('autoAddedTitle'), content: msg });
