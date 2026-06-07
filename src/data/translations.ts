@@ -201,6 +201,7 @@ const translations: Record<string, Record<string, string>> = {
     sentTo: 'Sendt til',
     goToPortalHome: 'Gå til portal forsiden',
     backToConfigurator: 'Tilbage til konfigurator',
+    packagingCostBody: 'Du har valgt et løst redskab med særlige pakkeomkostninger i form af specialbygget palle og arbejdstid.',
   },
   en: {
     step1Title: 'Step 1: Select Machines & Quantity',
