@@ -289,6 +289,7 @@ export default function MachineSearchPage() {
           searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
           raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
           matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          warrantiesTotal: 0, warrantiesWithSerial: 0, warrantiesSkippedNoSerial: 0, warrantiesSkippedByScope: 0,
           registryError: null, registrySkippedReason: null, totalHits: 0,
         };
         const hits = await searchMachinesByIdentifier(q, scope, dbg);
@@ -541,6 +542,7 @@ export default function MachineSearchPage() {
               <div>Portal role: <span className="font-bold">{String(searchDebug.role)}</span> · internal: <span className="font-bold">{String(searchDebug.isInternal)}</span></div>
               <div>Raw rows fetched per source — machines: {searchDebug.raw.machines}, warranties: {searchDebug.raw.warranties}, serviceRegs: {searchDebug.raw.serviceRegistrations}, tickets: {searchDebug.raw.tickets}, claims: {searchDebug.raw.claims}, tsb: {searchDebug.raw.tsb}, <span className="font-bold">registry: {searchDebug.raw.registry}</span></div>
               <div>Rows matched (after normalized-serial substring filter) — machines: {searchDebug.matched.machines}, warranties: {searchDebug.matched.warranties}, serviceRegs: {searchDebug.matched.serviceRegistrations}, tickets: {searchDebug.matched.tickets}, claims: {searchDebug.matched.claims}, tsb: {searchDebug.matched.tsb}, <span className="font-bold">registry: {searchDebug.matched.registry}</span></div>
+              <div>Warranty breakdown — total active: <span className="font-bold">{searchDebug.warrantiesTotal}</span>, with valid serial: <span className="font-bold">{searchDebug.warrantiesWithSerial}</span>, skipped (no serial): {searchDebug.warrantiesSkippedNoSerial}, skipped (scope): {searchDebug.warrantiesSkippedByScope}</div>
               <div>Total deduped hits: <span className="font-bold">{searchDebug.totalHits}</span> · primary machine row: <span className="font-bold">{machine ? "yes" : "no"}</span></div>
               {searchDebug.registryError && <div className="text-red-700">Registry error: {searchDebug.registryError}</div>}
               {searchDebug.registrySkippedReason && <div className="text-amber-700">Registry skipped: {searchDebug.registrySkippedReason}</div>}
@@ -555,31 +557,46 @@ export default function MachineSearchPage() {
               {crossHits.length} {crossHits.length === 1 ? "resultat" : "resultater"}
             </div>
             <ul className="divide-y divide-slate-100">
-              {crossHits.map(h => (
-                <li key={h.normalizedSerial} className="px-6 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
-                      {h.machineType && <span className="text-xs text-slate-500">· {h.machineType}</span>}
-                      {h.customerName && <span className="text-xs text-slate-500">· {h.customerName}</span>}
-                      {h.dealerName && <span className="text-xs text-slate-500">· {h.dealerName}</span>}
+              {crossHits.map(h => {
+                const sourceLabels: Record<string, string> = {
+                  warranty: "Warranty", service: "Service", ticket: "Ticket",
+                  claim: "Claim", tsb: "TSB", comment: "Comment",
+                };
+                return (
+                  <li key={h.normalizedSerial} className="px-6 py-4 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
+                        {h.machineType && <span className="text-xs text-slate-500">· {h.machineType}</span>}
+                      </div>
+                      <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-600">
+                        {h.dealerName && (
+                          <div><dt className="text-slate-400">Forhandler / nuværende ejer</dt><dd className="font-medium text-slate-800">{h.dealerName}</dd></div>
+                        )}
+                        {h.deliveryDate && (
+                          <div><dt className="text-slate-400">Leveringsdato</dt><dd className="font-medium text-slate-800">{fmtDateShort(h.deliveryDate)}</dd></div>
+                        )}
+                        {h.operatingHours != null && (
+                          <div><dt className="text-slate-400">Driftstimer</dt><dd className="font-medium text-slate-800">{h.operatingHours}</dd></div>
+                        )}
+                      </dl>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {h.sources.map(s => (
+                          <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                            {sourceLabels[s] ?? s}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {h.sources.map(s => (
-                        <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
-                    className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
-                  >
-                    Min Maskine →
-                  </button>
-                </li>
-              ))}
+                    <button
+                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
+                      className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                    >
+                      Min Maskine →
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}

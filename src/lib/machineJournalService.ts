@@ -309,6 +309,11 @@ export interface MachineSearchHit {
   machineType: string | null;
   customerName: string | null;
   dealerName: string | null;
+  dealerNumber: string | null;
+  /** Warranty delivery date (and serves as "sold" date when nothing better exists). */
+  deliveryDate: string | null;
+  /** Latest known operating hours (from machines row when present). */
+  operatingHours: number | null;
   /** Sources where this serial was found. */
   sources: TimelineKind[];
 }
@@ -332,6 +337,11 @@ export interface MachineSearchDebug {
     machines: number; warranties: number; serviceRegistrations: number;
     tickets: number; claims: number; tsb: number; registry: number;
   };
+  /** Warranty source breakdown (Task 5). */
+  warrantiesTotal: number;
+  warrantiesWithSerial: number;
+  warrantiesSkippedNoSerial: number;
+  warrantiesSkippedByScope: number;
   registryError: string | null;
   registrySkippedReason: string | null;
   totalHits: number;
@@ -342,6 +352,7 @@ function emptyDebug(): MachineSearchDebug {
     searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
     raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
     matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+    warrantiesTotal: 0, warrantiesWithSerial: 0, warrantiesSkippedNoSerial: 0, warrantiesSkippedByScope: 0,
     registryError: null, registrySkippedReason: null, totalHits: 0,
   };
 }
@@ -367,6 +378,7 @@ export async function searchMachinesByIdentifier(
   }
   if (!q) return [];
   const nq = normalizeSerial(q);
+  const nqKey = serialKey(q);
   if (debug) debug.normalizedQuery = nq;
 
   const hits = new Map<string, MachineSearchHit>();
@@ -378,17 +390,27 @@ export async function searchMachinesByIdentifier(
       customerName?: string | null;
       dealerName?: string | null;
       dealerNumber?: string | null;
+      deliveryDate?: string | null;
+      operatingHours?: number | null;
     },
     matchCounterKey?: keyof MachineSearchDebug["matched"],
   ) => {
     const display = (serial ?? "").toString().trim();
+    if (!display) return; // Task 7: ignore empty/invalid serials.
     const norm = normalizeSerial(display);
-    if (!norm || !norm.includes(nq)) return;
+    const key = serialKey(display);
+    // Match either by normalized substring (preserves dashes) or by
+    // alphanumeric-only substring (so "411000021257" matches "411000-02-1257-").
+    const matches = (norm && norm.includes(nq)) || (key && nqKey && key.includes(nqKey));
+    if (!matches) return;
     // Scope guard — hide serials the user is not allowed to see.
     if (!dealerScopeAllows(scope, {
       dealer_number: extra.dealerNumber ?? null,
       dealer_name: extra.dealerName ?? null,
-    })) return;
+    })) {
+      if (source === "warranty" && debug) debug.warrantiesSkippedByScope += 1;
+      return;
+    }
     if (debug && matchCounterKey) debug.matched[matchCounterKey] += 1;
     let hit = hits.get(norm);
     if (!hit) {
@@ -397,6 +419,9 @@ export async function searchMachinesByIdentifier(
         machineType: extra.machineType ?? null,
         customerName: extra.customerName ?? null,
         dealerName: extra.dealerName ?? null,
+        dealerNumber: extra.dealerNumber ?? null,
+        deliveryDate: extra.deliveryDate ?? null,
+        operatingHours: extra.operatingHours ?? null,
         sources: [],
       };
       hits.set(norm, hit);
@@ -405,6 +430,9 @@ export async function searchMachinesByIdentifier(
     hit.machineType = hit.machineType || (extra.machineType ?? null);
     hit.customerName = hit.customerName || (extra.customerName ?? null);
     hit.dealerName = hit.dealerName || (extra.dealerName ?? null);
+    hit.dealerNumber = hit.dealerNumber || (extra.dealerNumber ?? null);
+    hit.deliveryDate = hit.deliveryDate || (extra.deliveryDate ?? null);
+    if (hit.operatingHours == null && extra.operatingHours != null) hit.operatingHours = extra.operatingHours;
   };
 
   // 1. machines (RLS)
@@ -412,32 +440,50 @@ export async function searchMachinesByIdentifier(
     const safe = q.replace(/[(),]/g, "");
     const { data } = await supabase
       .from("machines")
-      .select("serial_number, machine_number, machine_type, customer_name, dealer_name, dealer_number")
+      .select("serial_number, machine_number, machine_type, customer_name, dealer_name, dealer_number, current_hours")
       .or(`serial_number.ilike.%${safe}%,machine_number.ilike.%${safe}%`)
       .limit(50);
     const rows = (data ?? []) as Array<{
       serial_number: string | null; machine_number: string | null;
       machine_type: string | null; customer_name: string | null;
       dealer_name: string | null; dealer_number: string | null;
+      current_hours: number | null;
     }>;
     if (debug) debug.raw.machines = rows.length;
     for (const r of rows) {
-      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name, dealerNumber: r.dealer_number }, "machines");
+      push(r.serial_number, "service", { machineType: r.machine_type, customerName: r.customer_name, dealerName: r.dealer_name, dealerNumber: r.dealer_number, operatingHours: r.current_hours }, "machines");
     }
   } catch (e) {
     console.warn("[machineJournal] machines search failed", e);
   }
 
-  // 2. warranty_registrations (RLS)
+  // 2. warranty_registrations (RLS). Internal Timan users get all 191+
+  // active rows via RLS; external users get only their scope's rows.
   try {
     const list = await fetchWarrantyRegistrations();
-    if (debug) debug.raw.warranties = list.length;
+    if (debug) {
+      debug.raw.warranties = list.length;
+      debug.warrantiesTotal = list.length;
+    }
     for (const w of list) {
-      push(w.machineSerial, "warranty", { machineType: w.machineType, customerName: w.customer, dealerName: w.dealerName, dealerNumber: w.dealerAccountNumber }, "warranties");
+      const hasSerial = !!(w.machineSerial && String(w.machineSerial).trim());
+      if (!hasSerial) {
+        if (debug) debug.warrantiesSkippedNoSerial += 1;
+        continue;
+      }
+      if (debug) debug.warrantiesWithSerial += 1;
+      push(w.machineSerial, "warranty", {
+        machineType: w.machineType,
+        customerName: w.customer,
+        dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
+        dealerNumber: w.dealerAccountNumber,
+        deliveryDate: w.deliveryDate || null,
+      }, "warranties");
     }
   } catch (e) {
     console.warn("[machineJournal] warranty search failed", e);
   }
+
 
   // 3. service_registrations (RLS)
   try {
