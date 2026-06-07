@@ -14,6 +14,9 @@ import {
   addRegistration,
   type NewRegistrationInput,
 } from "@/lib/warranty-store";
+import { validateWarrantySerial } from "@/lib/warrantySerialValidation";
+import { isInternalRole } from "@/lib/machineJournalService";
+import type { PortalRole } from "@/lib/portalAccess";
 
 interface FormState {
   dealerName: string;
