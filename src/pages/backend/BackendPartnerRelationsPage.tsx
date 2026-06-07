@@ -72,12 +72,39 @@ export default function BackendPartnerRelationsPage() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const importers = useMemo(
-    () => dealers.filter((d) => (d.customer_type || "").toLowerCase().includes("importør")),
-    [dealers],
-  );
-  const servicePartners = useMemo(
-    () => dealers.filter((d) => (d.customer_type || "").toLowerCase().includes("service")),
+  // Filter on a normalised concat of all type/role fields. We accept many
+  // historical spellings (DK + EN, with/without space, with/without timan_ prefix).
+  const norm = (d: DealerAccount) =>
+    [d.customer_type, d.customer_type_label, d.dealer_type]
+      .filter(Boolean)
+      .join("|")
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  const isImporter = (d: DealerAccount) => {
+    const s = norm(d);
+    return s.includes("import"); // matches importer, importør, timan_importer
+  };
+  const isServicePartner = (d: DealerAccount) => {
+    const s = norm(d);
+    return (
+      s.includes("servicepartner") || // service partner, servicepartner, Service partner
+      s.includes("service_partner") ||
+      s.includes("timan_service_partner")
+    );
+  };
+  const isDealer = (d: DealerAccount) => {
+    const s = norm(d);
+    return (
+      s.includes("forhandler") ||
+      s.includes("dealer") ||
+      s.includes("timan_dealer") ||
+      s.includes("dealer_user")
+    );
+  };
+  const importers = useMemo(() => dealers.filter(isImporter), [dealers]);
+  const servicePartners = useMemo(() => dealers.filter(isServicePartner), [dealers]);
+  const dealerOptions = useMemo(
+    () => dealers.filter((d) => isDealer(d) || isServicePartner(d)),
     [dealers],
   );
   const dealersById = useMemo(() => {
@@ -182,10 +209,13 @@ export default function BackendPartnerRelationsPage() {
               <span className="text-slate-700">Forhandler (barn)</span>
               <select className="mt-1 w-full rounded border-slate-300" value={impChild} onChange={(e) => setImpChild(e.target.value)}>
                 <option value="">— vælg —</option>
-                {dealers.filter((d) => d.id !== impParent).map((d) => (
+                {dealerOptions.filter((d) => d.id !== impParent).map((d) => (
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
+              {!loading && importers.length === 0 && (
+                <span className="mt-1 block text-xs text-amber-700">Ingen importører fundet. Tjek forhandlertype på dealer_accounts.</span>
+              )}
             </label>
             <button
               type="button"
@@ -237,12 +267,15 @@ export default function BackendPartnerRelationsPage() {
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
+              {!loading && servicePartners.length === 0 && (
+                <span className="mt-1 block text-xs text-amber-700">Ingen servicepartnere fundet. Tjek forhandlertype på dealer_accounts.</span>
+              )}
             </label>
             <label className="block text-sm">
               <span className="text-slate-700">Forhandler</span>
               <select className="mt-1 w-full rounded border-slate-300" value={spDealerId} onChange={(e) => setSpDealerId(e.target.value)}>
                 <option value="">— vælg —</option>
-                {dealers.filter((d) => d.id !== spPartnerId).map((d) => (
+                {dealerOptions.filter((d) => d.id !== spPartnerId).map((d) => (
                   <option key={d.id} value={d.id}>{d.account_number} · {d.company_name}</option>
                 ))}
               </select>
