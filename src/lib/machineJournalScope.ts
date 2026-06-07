@@ -1,25 +1,27 @@
 /**
  * Build a JournalScope for the current portal user.
  *
- * Access matrix:
- *  - timan_backend / timan_service        → unrestricted (see all machines).
- *  - timan_seller                         → only machines linked to dealers
- *                                            assigned to the seller (via
- *                                            app_users.account_owner_user_id
- *                                            = sellerId). Reuses the same
- *                                            assignment used in CRM /
- *                                            "Mine forhandlere".
- *  - timan_dealer / dealer_user           → only own dealer_number.
- *  - timan_importer                       → own dealer_number only for now.
- *                                            TODO: expand to dealers under
- *                                            the importer when a hierarchy
- *                                            table is available.
- *  - timan_service_partner                → own dealer_number only for now.
- *                                            TODO: expand to dealers
- *                                            connected through the service
- *                                            partner relationship when
- *                                            available.
- *  - others                               → no access (empty scope).
+ * Access matrix (Phase 2.1 — "current owner" = current dealer):
+ *  - timan_backend / timan_service  → unrestricted (see all machines).
+ *  - timan_seller                   → all dealers assigned to the seller
+ *                                     via CRM ownership (already includes
+ *                                     importers + service partners
+ *                                     assigned to the seller). Full
+ *                                     importer→child-dealer expansion is a
+ *                                     future enhancement once a hierarchy
+ *                                     column exists.
+ *  - timan_dealer / dealer_user     → own dealer_number / name only.
+ *  - timan_importer                 → own dealer_number only for now.
+ *                                     TODO: expand to child dealers when a
+ *                                     hierarchy table is available.
+ *  - timan_service_partner          → own dealer_number only for now.
+ *                                     Service partners SHOULD see every
+ *                                     machine in their service area —
+ *                                     same visibility as the dealer for
+ *                                     those machines. TODO: expand once a
+ *                                     service_partner_dealer link table
+ *                                     exists.
+ *  - others                         → no access (empty scope).
  *
  * Internal Timan users get `unrestricted = true` and a permissive predicate.
  * Every other role gets explicit dealer_number + dealer_name allow-lists;

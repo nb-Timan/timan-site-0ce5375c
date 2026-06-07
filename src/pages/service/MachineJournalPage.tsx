@@ -237,6 +237,32 @@ export default function MachineJournalPage() {
               </div>
             )}
 
+            {journal.summary.openItemsCount > 0 && (
+              <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                Åbne punkter på maskinen: {journal.summary.openItemsCount}
+                <span className="ml-2 font-normal text-red-700">
+                  {[
+                    journal.summary.openTickets > 0 ? `${journal.summary.openTickets} ticket(s)` : null,
+                    journal.summary.openClaims > 0 ? `${journal.summary.openClaims} claim(s)` : null,
+                    journal.summary.tsbPending > 0 ? `${journal.summary.tsbPending} TSB` : null,
+                  ].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+            )}
+
+            {journal.summary.hoursRegression && (
+              <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                Advarsel: Timetal ser ud til at være lavere end tidligere registrering
+                <span className="ml-2 font-normal text-amber-700">
+                  ({journal.summary.hoursRegression.newerSource}: {journal.summary.hoursRegression.newerHours} t
+                  {journal.summary.hoursRegression.newerDate ? ` · ${fmtDate(journal.summary.hoursRegression.newerDate)}` : ""}
+                  {" "}vs. {journal.summary.hoursRegression.previousSource}: {journal.summary.hoursRegression.previousHours} t
+                  {journal.summary.hoursRegression.previousDate ? ` · ${fmtDate(journal.summary.hoursRegression.previousDate)}` : ""})
+                </span>
+              </div>
+            )}
+
+
 
             {/* Quick stats */}
             <section className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
