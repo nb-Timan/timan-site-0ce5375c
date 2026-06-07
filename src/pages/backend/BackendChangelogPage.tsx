@@ -31,6 +31,24 @@ const MODULE_KEYS = [
 const ROLES = ["all", "sales", "service", "backend", "admin", "dealer"] as const;
 const LANGS = ["da", "en", "de", "it", "hu"] as const;
 
+const SUBMODULE_SUGGESTIONS: Record<string, string[]> = {
+  service: [
+    "service_tickets",
+    "service_maintenance",   // alias: service_registration
+    "claims",
+    "warranty_reg",          // alias: warranty
+    "machine_search",
+    "tsb_portal",            // alias: tsb
+  ],
+  warranty: ["warranty_reg"],
+  claims: ["claims"],
+  backend: [
+    "users", "roles", "module_access", "audit",
+    "portal_analytics", "dealer_accounts", "sellers",
+    "price_lists", "budget_import",
+  ],
+};
+
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -47,6 +65,7 @@ function fromLocalInput(v: string): string {
 const emptyDraft = (): ChangelogDraft => ({
   module_key: "partner_map",
   module_name: "Partnerkort",
+  submodule_key: null,
   title: "",
   description: "",
   changed_at: new Date().toISOString(),
