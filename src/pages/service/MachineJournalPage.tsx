@@ -24,6 +24,7 @@ import {
   loadMachineJournal, isInternalRole, type MachineJournal,
   type TimelineKind, type JournalScope,
 } from "@/lib/machineJournalService";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
 
 const T: Record<string, Record<Language, string>> = {
