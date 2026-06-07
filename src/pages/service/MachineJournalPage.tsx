@@ -51,6 +51,7 @@ const T: Record<string, Record<Language, string>> = {
   newestFirst:      { da: "Nyeste først", en: "Newest first", de: "Neueste zuerst", it: "Più recenti", hu: "Legújabb elöl" },
   oldestFirst:      { da: "Ældste først", en: "Oldest first", de: "Älteste zuerst", it: "Più vecchi", hu: "Legrégebbi elöl" },
   noEvents:         { da: "Ingen hændelser registreret.", en: "No events recorded.", de: "Keine Ereignisse erfasst.", it: "Nessun evento registrato.", hu: "Nincs rögzített esemény." },
+  allTypes:         { da: "Alle", en: "All", de: "Alle", it: "Tutti", hu: "Mind" },
 
   related:          { da: "Tilknyttede sager", en: "Related records", de: "Verwandte Vorgänge", it: "Record correlati", hu: "Kapcsolódó esetek" },
   open:             { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyit" },
@@ -123,6 +124,7 @@ export default function MachineJournalPage() {
   const [journal, setJournal] = useState<MachineJournal | null>(null);
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
+  const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
 
   useEffect(() => {
     if (!appUser) {
@@ -159,10 +161,18 @@ export default function MachineJournalPage() {
 
   const sortedTimeline = useMemo(() => {
     if (!journal) return [];
-    const arr = [...journal.timeline];
+    let arr = [...journal.timeline];
+    if (kindFilter !== "all") arr = arr.filter((e) => e.kind === kindFilter);
     if (oldestFirst) arr.reverse();
     return arr;
-  }, [journal, oldestFirst]);
+  }, [journal, oldestFirst, kindFilter]);
+
+  const availableKinds = useMemo<TimelineKind[]>(() => {
+    if (!journal) return [];
+    const set = new Set<TimelineKind>();
+    for (const e of journal.timeline) set.add(e.kind);
+    return Array.from(set);
+  }, [journal]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
@@ -246,7 +256,7 @@ export default function MachineJournalPage() {
 
             {/* Timeline */}
             <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-bold">{T.timeline[lang]}</h2>
                 <button
                   onClick={() => setOldestFirst((v) => !v)}
@@ -256,6 +266,24 @@ export default function MachineJournalPage() {
                   {oldestFirst ? T.oldestFirst[lang] : T.newestFirst[lang]}
                 </button>
               </div>
+              {availableKinds.length > 1 && (
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  <FilterChip
+                    label={T.allTypes[lang]}
+                    active={kindFilter === "all"}
+                    onClick={() => setKindFilter("all")}
+                  />
+                  {availableKinds.map((k) => (
+                    <FilterChip
+                      key={k}
+                      label={T[`source_${k}` as keyof typeof T]?.[lang] ?? k}
+                      active={kindFilter === k}
+                      activeClass={KIND_BADGE[k]}
+                      onClick={() => setKindFilter(k)}
+                    />
+                  ))}
+                </div>
+              )}
               {sortedTimeline.length === 0 ? (
                 <div className="py-6 text-center text-sm text-slate-500">{T.noEvents[lang]}</div>
               ) : (
@@ -446,5 +474,27 @@ function RelatedCard({
         </ul>
       )}
     </div>
+  );
+}
+
+function FilterChip({
+  label, active, activeClass, onClick,
+}: {
+  label: string;
+  active: boolean;
+  activeClass?: string;
+  onClick: () => void;
+}) {
+  const cls = active
+    ? `border ${activeClass ?? "bg-slate-900 text-white border-slate-900"}`
+    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider transition ${cls}`}
+    >
+      {label}
+    </button>
   );
 }

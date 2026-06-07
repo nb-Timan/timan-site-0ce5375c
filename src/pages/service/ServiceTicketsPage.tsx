@@ -7,7 +7,7 @@
  * Standard supabase-js client only — RLS controls visibility.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Ticket, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -319,7 +319,21 @@ export default function ServiceTicketsPage() {
                   >
                     <TableCell className="font-mono text-xs">{t.ticket_number || "—"}</TableCell>
                     <TableCell className="font-medium">{t.title}</TableCell>
-                    <TableCell className="font-mono text-xs">{(t as ServiceTicket & { serial_number?: string }).serial_number || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {(() => {
+                        const sn = (t as ServiceTicket & { serial_number?: string }).serial_number;
+                        return sn ? (
+                          <Link
+                            to={`/portal/service/machines/${encodeURIComponent(sn)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:underline"
+                            title="Min Maskine"
+                          >
+                            {sn}
+                          </Link>
+                        ) : "—";
+                      })()}
+                    </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
                         {statusLabel(t.status, uiLang)}

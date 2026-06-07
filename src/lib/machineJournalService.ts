@@ -1,24 +1,43 @@
 /**
- * Unified machine journal aggregator (read-only v1).
+ * Unified machine journal aggregator — Phase 2.
  *
- * Combines records from warranty_registrations, service_registrations,
- * service_tickets, machine_activity_log, machine_documents (Supabase, RLS),
- * plus the in-memory claims-store and tsb-store, keyed by serial number.
+ * Combines records from:
+ *  - warranty_registrations          (Supabase, RLS)
+ *  - service_registrations           (Supabase, RLS)
+ *  - service_tickets                 (Supabase, RLS)
+ *  - machine_activity_log            (Supabase, RLS)
+ *  - machine_documents               (Supabase, RLS)
+ *  - machines                        (Supabase, RLS) — rich master record
+ *  - machine_registry_index          (Supabase, RLS) — auto-populated by triggers
+ *  - claims-store                    (canonical claims store; in-memory)
+ *  - tsb-store                       (canonical TSB store; in-memory)
  *
- * Used by:
- *  - MachineJournalPage (`/portal/service/machines/:serialNumber`)
- *  - MachineSearchPage cross-source search
+ * Keyed by serial number. Two normalization levels:
+ *  - normalizeSerial(): display-stable key (trim + uppercase + collapsed
+ *    whitespace). Used to dedupe across sources.
+ *  - serialKey(): strict fuzzy key (alphanumerics only, uppercase). Used
+ *    only for equality matching so "RC751-2025-01234", "rc751 2025 01234"
+ *    and "RC751-2025-01234" collapse to the same machine without
+ *    introducing false positives (no substring matching).
  *
- * No writes. Serial matching: trim + uppercase + collapsed whitespace.
- * The original casing from the first source that returned the serial is
+ * Original casing from the first source that returned the serial is
  * preserved for display.
  *
  * Permissions:
  *  - Supabase queries are RLS-scoped automatically.
- *  - Mock claims-store / tsb-store are filtered against the dealer-side
- *    user's display_name so dealer/importer/service_partner users can't
- *    see other dealers' mock claim/TSB entries. Internal Timan users
- *    (backend / seller / service) see everything.
+ *  - Claims and TSB stores are filtered against the dealer-side user's
+ *    display_name so dealer/importer/service_partner users can't see
+ *    other dealers' entries. Internal Timan users see everything.
+ *
+ * Comments (Phase 2):
+ *  - Currently READ-ONLY: comments are surfaced from the original record
+ *    (service notes, claim dealer comments, warranty comments). They
+ *    cannot be edited from the journal page; editing happens on the
+ *    source record via its "Open" link.
+ *  - Future machine-level comments will live in a dedicated
+ *    `machine_comments` table keyed on `normalized_serial`, merged into
+ *    the same `JournalComment[]` stream by `loadMachineJournal()`. The
+ *    UI already renders any extra entries that appear in that array.
  */
 import { supabase } from "@/lib/supabase";
 import { fetchWarrantyRegistrations, DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
@@ -33,22 +52,34 @@ import { PortalRole } from "@/lib/portalAccess";
 
 // ---------- Serial normalization ----------
 
+/** Display-stable key: trim, uppercase, collapse internal whitespace. */
 export function normalizeSerial(v: string | null | undefined): string {
   if (!v) return "";
   return String(v).trim().toUpperCase().replace(/\s+/g, " ");
 }
 
+/**
+ * Strict fuzzy match key: alphanumerics only, uppercase.
+ * Lets us treat "RC751-2025-01234", "rc751 2025 01234" and "RC7512025 01234"
+ * as the same machine for matching purposes, without enabling substring
+ * matches (we still compare full keys for equality).
+ */
+export function serialKey(v: string | null | undefined): string {
+  if (!v) return "";
+  return String(v).toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
+
 function serialMatches(a: string | null | undefined, b: string | null | undefined): boolean {
-  const na = normalizeSerial(a);
-  const nb = normalizeSerial(b);
-  return na.length > 0 && na === nb;
+  const ka = serialKey(a);
+  const kb = serialKey(b);
+  return ka.length > 0 && ka === kb;
 }
 
 // ---------- Scope ----------
 
 export interface JournalScope {
   role: PortalRole | null;
-  /** Dealer-side users only see mock claims/TSB matching this label. */
+  /** Dealer-side users only see claims/TSB whose dealer matches this label. */
   dealerLabel: string | null;
 }
 
@@ -275,12 +306,12 @@ export async function searchMachinesByIdentifier(
     console.warn("[machineJournal] tickets search failed", e);
   }
 
-  // 5. claims (mock; scope-filtered)
+  // 5. claims (canonical claims store; scope-filtered)
   for (const c of filterClaimsForScope(getAllClaims(), scope)) {
     push(c.serial, "claim", { machineType: c.machineType, customerName: c.customer, dealerName: c.dealer });
   }
 
-  // 6. tsb (mock; scope-filtered)
+  // 6. tsb (canonical TSB store; scope-filtered)
   for (const t of filterTsbForScope(getAllTsbs(), scope)) {
     for (const d of t.dealers) {
       for (const serial of d.machineSerials) {
@@ -288,6 +319,25 @@ export async function searchMachinesByIdentifier(
         push(serial, "tsb", { dealerName: dealer?.name ?? null });
       }
     }
+  }
+
+  // 7. machine_registry_index — auto-populated identity layer (RLS authenticated)
+  try {
+    const safe = q.replace(/[(),]/g, "");
+    const { data } = await supabase
+      .from("machine_registry_index")
+      .select("normalized_serial, display_serial, machine_model, machine_type, last_source")
+      .or(`normalized_serial.ilike.%${safe.toUpperCase()}%,display_serial.ilike.%${safe}%`)
+      .limit(50);
+    for (const r of (data ?? []) as Array<{
+      normalized_serial: string; display_serial: string;
+      machine_model: string | null; machine_type: string | null; last_source: string | null;
+    }>) {
+      const src = (r.last_source as TimelineKind) ?? "service";
+      push(r.display_serial, src, { machineType: r.machine_type });
+    }
+  } catch (e) {
+    console.warn("[machineJournal] registry search failed", e);
   }
 
   return Array.from(hits.values()).slice(0, 100);
@@ -357,11 +407,11 @@ export async function loadMachineJournal(
   const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null }>)
     .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id));
 
-  // Mock claims for this serial
+  // Claims for this serial (scope-filtered)
   const claimsForSerial = filterClaimsForScope(getAllClaims(), scope)
     .filter((c) => serialMatches(c.serial, display));
 
-  // Mock TSB for this serial
+  // TSB for this serial (scope-filtered)
   const tsbForSerial: Array<{ tsb: Tsb; dealerName: string | null; status: string }> = [];
   for (const t of filterTsbForScope(getAllTsbs(), scope)) {
     for (const d of t.dealers) {
