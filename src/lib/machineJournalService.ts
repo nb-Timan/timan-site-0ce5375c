@@ -532,19 +532,30 @@ export async function loadMachineJournal(
     fetchVisibleServiceTickets(500).catch(() => [] as ServiceTicket[]),
   ]);
 
-  const machine = machinesRes;
+  let machine = machinesRes;
+  // Drop machine row if dealer scope disallows it (RLS belt + suspenders).
+  if (machine && !dealerScopeAllows(scope, { dealer_number: machine.dealer_number, dealer_name: machine.dealer_name })) {
+    machine = null;
+  }
   if (machine) journal.summary.machineRecord = machine;
 
-  // Warranties for this serial
-  const warranties = warrantiesAll.filter((w) => serialMatches(w.machineSerial, display));
+  // Warranties for this serial (scope-filtered).
+  const warranties = warrantiesAll
+    .filter((w) => serialMatches(w.machineSerial, display))
+    .filter((w) => dealerScopeAllows(scope, { dealer_number: w.dealerAccountNumber, dealer_name: w.dealerName }));
 
-  // Tickets for this serial
-  const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null }>)
-    .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id));
+  // Tickets for this serial (scope-filtered).
+  const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null; dealer_number?: string | null }>)
+    .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id))
+    .filter((t) => dealerScopeAllows(scope, { dealer_number: t.dealer_number ?? null, dealer_name: t.dealer_name }));
 
-  // Claims for this serial (scope-filtered)
+  // Claims for this serial (scope-filtered).
   const claimsForSerial = filterClaimsForScope(getAllClaims(), scope)
     .filter((c) => serialMatches(c.serial, display));
+
+  // Service registrations: re-filter by scope too.
+  const serviceRegsScoped = serviceRegs
+    .filter((s) => dealerScopeAllows(scope, { dealer_number: s.dealer_number, dealer_name: s.dealer_name }));
 
   // TSB for this serial (scope-filtered)
   const tsbForSerial: Array<{ tsb: Tsb; dealerName: string | null; status: string }> = [];
