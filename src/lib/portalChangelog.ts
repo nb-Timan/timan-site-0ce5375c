@@ -549,6 +549,16 @@ export function useChangelog(
         latest: sub[0],
       };
     },
+    moduleBadge: (moduleKey) => {
+      const sub = entriesForModule(moduleKey).filter(e => !readIds.has(e.id));
+      if (sub.length === 0) return null;
+      const major = sub.find(e => !!e.is_major);
+      return { kind: major ? 'major' : 'new', count: sub.length, latest: sub[0] };
+    },
+    unreadCountForModule: (moduleKey) =>
+      entriesForModule(moduleKey).filter(e => !readIds.has(e.id)).length,
+    hasMajorUnreadForModule: (moduleKey) =>
+      entriesForModule(moduleKey).some(e => !readIds.has(e.id) && !!e.is_major),
     markEntryRead: (id) => localReadStore.markRead(userKey, [id]),
     // Mark only module-level area entries read — leaves submodule-tagged
     // entries unread so per-card badges remain until the user opens the
