@@ -496,14 +496,7 @@ export default function ServiceMaintenancePage() {
       );
     }
 
-    if (view === 'settings') {
-      return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 mb-3">{t('settingsTitle')}</h2>
-          <p className="text-sm text-slate-500">{t('settingsBody')}</p>
-        </div>
-      );
-    }
+
 
     // view === 'create'
     return (
