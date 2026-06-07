@@ -3377,10 +3377,10 @@ export default function ConfiguratorPage() {
       <Dialog open={reminder721059.open} onOpenChange={(open) => { if (!open) setReminder721059({ open: false, pendingNext: null }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Centerslange (varenummer 721059)</DialogTitle>
+            <DialogTitle>{T('reminderTitle')} (721059)</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-700 whitespace-pre-line">
-            {`Du har ikke valgt varenummer 721059 (centerslange eftermontering) til denne løse opsamlingstank.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+            {T('reminderBody721059')}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button
