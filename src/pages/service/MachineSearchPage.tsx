@@ -577,7 +577,132 @@ export default function MachineSearchPage() {
           )}
         </section>
 
+        {/* ---- Machine Registry Overview (Phase 1) ---- */}
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-slate-700">
+              {overviewLoading
+                ? "Indlæser maskiner…"
+                : `${overview.length} ${overview.length === 1 ? "maskine" : "maskiner"} fundet`}
+            </div>
+            {!overviewLoading && overview.length > PAGE_SIZE && (() => {
+              const totalPages = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
+              const page = Math.min(overviewPage, totalPages);
+              return (
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <button
+                    onClick={() => setOverviewPage(p => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40"
+                  >‹</button>
+                  <span>Side {page} / {totalPages}</span>
+                  <button
+                    onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40"
+                  >›</button>
+                  <select
+                    value={page}
+                    onChange={e => setOverviewPage(Number(e.target.value))}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+                  >
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
+          </div>
+          {overviewError && (
+            <div className="px-6 py-4 text-sm text-red-600">{overviewError}</div>
+          )}
+          {overviewLoading ? (
+            <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
+            </div>
+          ) : overview.length === 0 ? (
+            <div className="py-10 text-center text-sm text-slate-500">Ingen maskiner i din adgang.</div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {overview
+                .slice((overviewPage - 1) * PAGE_SIZE, overviewPage * PAGE_SIZE)
+                .map(row => {
+                  const healthClasses =
+                    row.health === "critical" ? "bg-red-100 text-red-700"
+                    : row.health === "needs_attention" ? "bg-amber-100 text-amber-700"
+                    : "bg-emerald-100 text-emerald-700";
+                  const healthLabel =
+                    row.health === "critical" ? "Critical"
+                    : row.health === "needs_attention" ? "Needs Attention"
+                    : "Healthy";
+                  const sourceLabels: Record<string, string> = {
+                    warranty: "Warranty", service: "Service", ticket: "Ticket",
+                    claim: "Claim", tsb: "TSB", comment: "Comment",
+                  };
+                  const openItems: string[] = [];
+                  if (row.openTickets > 0) openItems.push(`${row.openTickets} åbne tickets`);
+                  if (row.openClaims > 0) openItems.push(`${row.openClaims} åbne claims`);
+                  if (row.openTsb > 0) openItems.push(`${row.openTsb} åbne TSB`);
+                  return (
+                    <li
+                      key={row.normalizedSerial}
+                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                      className="px-6 py-4 cursor-pointer hover:bg-slate-50 flex items-start justify-between gap-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="font-mono text-sm font-semibold text-slate-900">{row.serial}</span>
+                          {row.machineModel && <span className="text-xs text-slate-600">· {row.machineModel}</span>}
+                          {row.machineType && row.machineType !== row.machineModel && (
+                            <span className="text-xs text-slate-500">· {row.machineType}</span>
+                          )}
+                          <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${healthClasses}`}>
+                            {healthLabel}
+                          </span>
+                        </div>
+                        <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs text-slate-600">
+                          {row.dealerName && (
+                            <div><dt className="text-slate-400">Forhandler</dt><dd className="font-medium text-slate-800 truncate">{row.dealerName}</dd></div>
+                          )}
+                          {row.deliveryDate && (
+                            <div><dt className="text-slate-400">Leveringsdato</dt><dd className="font-medium text-slate-800">{fmtDateShort(row.deliveryDate)}</dd></div>
+                          )}
+                          {row.operatingHours != null && (
+                            <div><dt className="text-slate-400">Driftstimer</dt><dd className="font-medium text-slate-800">{row.operatingHours}</dd></div>
+                          )}
+                          {row.latestActivityLabel && (
+                            <div className="sm:col-span-2 lg:col-span-1"><dt className="text-slate-400">Seneste aktivitet</dt><dd className="font-medium text-slate-800 truncate">{row.latestActivityLabel}</dd></div>
+                          )}
+                        </dl>
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          {row.sources.map(s => (
+                            <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                              {sourceLabels[s] ?? s}
+                            </span>
+                          ))}
+                          {openItems.length > 0 && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-red-50 text-red-700 px-2 py-0.5 text-[10px] font-semibold">
+                              {openItems.join(" · ")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                        className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
+                      >
+                        Min Maskine →
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </section>
+
         {/* Cross-source results: serials found only in warranty/service/ticket/claim/TSB. */}
+
         {searched && !loading && crossHits.length > 0 && (
           <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
