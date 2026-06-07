@@ -232,6 +232,7 @@ export default function MachineSearchPage() {
   const [crossHits, setCrossHits] = useState<MachineSearchHit[]>([]);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchDebug, setSearchDebug] = useState<MachineSearchDebug | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
