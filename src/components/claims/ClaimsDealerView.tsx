@@ -348,7 +348,18 @@ function DealerTable({
               <td className="px-4 py-3 font-semibold text-[#2d5a27] hover:underline whitespace-nowrap">{c.claim_number}</td>
               <td className="px-4 py-3 text-gray-700">
                 <div className="font-medium">{c.machine_model || '—'}</div>
-                <div className="text-xs text-gray-500">{c.machine_serial || ''}</div>
+                <div className="text-xs text-gray-500">
+                  {c.machine_serial ? (
+                    <Link
+                      to={`/portal/service/machines/${encodeURIComponent(c.machine_serial)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:underline"
+                      title="Min Maskine"
+                    >
+                      {c.machine_serial}
+                    </Link>
+                  ) : ''}
+                </div>
               </td>
               <td className="px-4 py-3 text-gray-700">{c.customer_name || '—'}</td>
               <td className="px-4 py-3 text-gray-700 max-w-md truncate">{c.description}</td>
