@@ -112,7 +112,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
       readOnly={false}
       intro={<WarrantyNewFormIntro />}
     >
-      <WarrantyNewForm defaultDealerName={dealerName} />
+      <WarrantyNewForm defaultDealerName={dealerName} role={portalRole} />
     </WarrantyAdminSidebarLayout>
   );
 }
