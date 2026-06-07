@@ -29,9 +29,11 @@ interface Props {
    */
   language: PortalUiLanguage | Language;
   badge?: { text: string; tone: 'default' | 'warning' | 'danger' } | null;
+  /** Optional changelog update badge ("NY" / "VIGTIG"). */
+  updateBadge?: { kind: 'new' | 'major'; label: string; tooltip?: string } | null;
 }
 
-export default function ModuleCard({ module, language, badge }: Props) {
+export default function ModuleCard({ module, language, badge, updateBadge }: Props) {
   const navigate = useNavigate();
   const styles = ACCENT[module.accent];
   const Icon = module.icon;
