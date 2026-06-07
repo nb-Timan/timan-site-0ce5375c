@@ -407,11 +407,11 @@ export async function loadMachineJournal(
   const ticketsForSerial = (tickets as Array<ServiceTicket & { serial_number?: string | null; machine_id?: string | null }>)
     .filter((t) => serialMatches(t.serial_number ?? "", display) || (machine && (t as { machine_id?: string }).machine_id === machine.id));
 
-  // Mock claims for this serial
+  // Claims for this serial (scope-filtered)
   const claimsForSerial = filterClaimsForScope(getAllClaims(), scope)
     .filter((c) => serialMatches(c.serial, display));
 
-  // Mock TSB for this serial
+  // TSB for this serial (scope-filtered)
   const tsbForSerial: Array<{ tsb: Tsb; dealerName: string | null; status: string }> = [];
   for (const t of filterTsbForScope(getAllTsbs(), scope)) {
     for (const d of t.dealers) {
