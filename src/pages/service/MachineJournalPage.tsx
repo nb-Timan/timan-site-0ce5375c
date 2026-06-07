@@ -124,6 +124,7 @@ export default function MachineJournalPage() {
   const [journal, setJournal] = useState<MachineJournal | null>(null);
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
+  const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
 
   useEffect(() => {
     if (!appUser) {
