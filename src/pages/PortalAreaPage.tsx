@@ -188,6 +188,18 @@ export default function PortalAreaPage({ areaId }: Props) {
             }
             const titleKey = PLACEHOLDER_TITLE_KEY[p.key];
             const descKey = PLACEHOLDER_DESC_KEY[p.key];
+            const sb = submoduleBadge(p.key);
+            const updateBadge = sb
+              ? {
+                  kind: sb.kind,
+                  label: sb.kind === 'major' ? 'VIGTIG' : 'NY',
+                  tooltip: [
+                    formatChangedDate(sb.latest.changed_at),
+                    sb.latest.title?.[lang] || sb.latest.title?.da || '',
+                    sb.latest.description?.[lang] || sb.latest.description?.da || '',
+                  ].filter(Boolean).join('\n'),
+                }
+              : null;
             return (
               <PlaceholderCard
                 key={p.key}
@@ -196,6 +208,8 @@ export default function PortalAreaPage({ areaId }: Props) {
                 to={href}
                 icon={icon}
                 description={descKey ? t(descKey, uiLanguage) : undefined}
+                updateBadge={updateBadge}
+                onActivate={() => markSubmoduleRead(p.key)}
               />
             );
           })}
