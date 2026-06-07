@@ -475,6 +475,12 @@ export interface UseChangelogResult {
   hasMajorUnreadForArea: (areaId: PortalAreaId) => boolean;
   /** Unread badge for a specific submodule card (key uses canonical placeholder spelling). */
   submoduleBadge: (submoduleKey: string) => SubmoduleBadge | null;
+  /** Unread badge for a specific module card (e.g. 'misc' card inside an area). */
+  moduleBadge: (moduleKey: ModuleKey | string) => SubmoduleBadge | null;
+  /** Number of unread visible entries for a specific module. */
+  unreadCountForModule: (moduleKey: ModuleKey | string) => number;
+  /** True if any unread visible entry for the module is_major. */
+  hasMajorUnreadForModule: (moduleKey: ModuleKey | string) => boolean;
   markEntryRead: (id: string) => void;
   /** Marks module-level area entries read (entries without submodule_key). */
   markAreaRead: (areaId: PortalAreaId) => void;
