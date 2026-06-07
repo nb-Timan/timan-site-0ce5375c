@@ -149,7 +149,21 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome language={lang} />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {areaModules.map(m => <ModuleCard key={m.id} module={m} language={uiLanguage} />)}
+          {areaModules.map(m => {
+            const mb = moduleBadge(m.id);
+            const mUpdateBadge = mb
+              ? {
+                  kind: mb.kind,
+                  label: mb.kind === 'major' ? 'VIGTIG' : (mb.count > 1 ? `NY ${mb.count}` : 'NY'),
+                  tooltip: [
+                    formatChangedDate(mb.latest.changed_at),
+                    mb.latest.title?.[lang] || mb.latest.title?.da || '',
+                    mb.latest.description?.[lang] || mb.latest.description?.da || '',
+                  ].filter(Boolean).join('\n'),
+                }
+              : null;
+            return <ModuleCard key={m.id} module={m} language={uiLanguage} updateBadge={mUpdateBadge} />;
+          })}
           {area.placeholders.map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;
