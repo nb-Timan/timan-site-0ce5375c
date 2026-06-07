@@ -276,11 +276,20 @@ export default function MachineSearchPage() {
       // Also probe other sources by serial — surfaces machines that exist
       // only in warranty/service/ticket/claim/TSB sources.
       try {
+        const dbg: MachineSearchDebug = {
+          searchTerm: "", normalizedQuery: "", role: null, isInternal: false,
+          raw: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          matched: { machines: 0, warranties: 0, serviceRegistrations: 0, tickets: 0, claims: 0, tsb: 0, registry: 0 },
+          registryError: null, registrySkippedReason: null, totalHits: 0,
+        };
         const hits = await searchMachinesByIdentifier(q, {
           role: portalRole,
           dealerLabel: appUser?.display_name ?? null,
-        });
+        }, dbg);
         setCrossHits(hits);
+        setSearchDebug(dbg);
+        // eslint-disable-next-line no-console
+        console.info("[MachineSearch] debug", dbg);
       } catch (sErr) {
         console.warn("[MachineSearch] cross-source search failed", sErr);
       }
