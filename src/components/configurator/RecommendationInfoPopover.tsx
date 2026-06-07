@@ -52,10 +52,15 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
   // No productId mapping (e.g. legacy fallback recommendation) → render nothing.
   if (!productId) return null;
 
+  // Helpers below are typed for the legacy 5-language `Language`. Map the
+  // (potentially wider) UI language down so sv/fr/pl/cs fall back to English
+  // for quote/shortPitch text while the popover label strings still use the
+  // wider 9-language `L` table directly.
+  const legacyLang = mapUiLanguageToLegacy(lang);
   const meta = getRecommendationMeta(productId);
   const links = getProductSourceLinks(productId);
-  const quote = getQuoteText(productId, lang);
-  const pitch = meta ? pickLocalized(meta.shortPitch, lang) : '';
+  const quote = getQuoteText(productId, legacyLang);
+  const pitch = meta ? pickLocalized(meta.shortPitch, legacyLang) : '';
 
   const hasAny = links.hasAny || Boolean(quote) || Boolean(pitch);
 
