@@ -49,6 +49,7 @@ export function rowToEntry(row: PortalChangeLogRow): ChangeLogEntry & { _lang: L
   return {
     id: row.id,
     module_key: row.module_key as ModuleKey,
+    submodule_key: row.submodule_key || undefined,
     module_name: fanout(row.module_name),
     changed_at: row.changed_at,
     title: fanout(row.title),
