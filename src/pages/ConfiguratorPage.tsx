@@ -3326,10 +3326,10 @@ export default function ConfiguratorPage() {
       <Dialog open={reminder721122.open} onOpenChange={(open) => { if (!open) setReminder721122({ open: false, pendingNext: null }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Centerslange (varenummer 721122)</DialogTitle>
+            <DialogTitle>{T('reminderTitle')} (721122)</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-700 whitespace-pre-line">
-            {`Du har ikke valgt varenummer 721122 til denne Timan 3330.\n\nEr dette bevidst, eller har du glemt at tilvælge den?`}
+            {T('reminderBody721122')}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button
