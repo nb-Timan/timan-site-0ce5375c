@@ -2752,7 +2752,7 @@ export default function ConfiguratorPage() {
                   ? T('savingChangesBtn')
                   : savedConfigurationId
                     ? T('saveChangesBtn')
-                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang])}
+                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang] || T('saveCase'))}
                 {savedConfigurationId && (
                   <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                     {savedQuoteNumber || savedOrderNumber || ''}
@@ -2913,7 +2913,7 @@ export default function ConfiguratorPage() {
                             <input type="text" maxLength={20}
                               value={state.reqNumbers[`machine_${item.index}`] || ''}
                               onChange={e => setReqNumber(item.index!, e.target.value)}
-                              placeholder="Rekv. nr. / Req. no. / Po. nr."
+                              placeholder={T('reqNumberPlaceholder')}
                               className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
                           </div>
                         )}
