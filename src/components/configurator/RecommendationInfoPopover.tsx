@@ -23,22 +23,29 @@ interface Props {
   className?: string;
 }
 
-const L = {
-  productInfo: { da: 'Produktinfo', en: 'Product info', de: 'Produktinfo', it: 'Info prodotto', hu: 'Termékinfó' },
+const L: Record<string, Record<string, string>> = {
+  productInfo: { da: 'Produktinfo', en: 'Product info', de: 'Produktinfo', it: 'Info prodotto', hu: 'Termékinfó', sv: 'Produktinfo', fr: 'Infos produit', pl: 'Informacje o produkcie', cs: 'Informace o produktu' },
   noLinks: {
     da: 'Der er ikke tilføjet produktlinks endnu.',
     en: 'No product links have been added yet.',
     de: 'Es wurden noch keine Produktlinks hinzugefügt.',
     it: 'Non sono ancora stati aggiunti link al prodotto.',
     hu: 'Még nem adtak hozzá terméklinkeket.',
+    sv: 'Inga produktlänkar har lagts till ännu.',
+    fr: 'Aucun lien produit n’a encore été ajouté.',
+    pl: 'Nie dodano jeszcze linków do produktu.',
+    cs: 'Zatím nebyly přidány žádné odkazy na produkt.',
   },
-  itemNo: { da: 'Varenr.', en: 'Item no.', de: 'Art.-Nr.', it: 'Cod. art.', hu: 'Cikkszám' },
-  source: { da: 'Produktside', en: 'Product page', de: 'Produktseite', it: 'Pagina prodotto', hu: 'Termékoldal' },
-  brochure: { da: 'Brochure', en: 'Brochure', de: 'Broschüre', it: 'Brochure', hu: 'Brosúra' },
-  image: { da: 'Billede', en: 'Image', de: 'Bild', it: 'Immagine', hu: 'Kép' },
-  video: { da: 'Video', en: 'Video', de: 'Video', it: 'Video', hu: 'Videó' },
-  docs: { da: 'Dokumentation', en: 'Documentation', de: 'Dokumentation', it: 'Documentazione', hu: 'Dokumentáció' },
-} as const;
+  itemNo:   { da: 'Varenr.',       en: 'Item no.',      de: 'Art.-Nr.',     it: 'Cod. art.',    hu: 'Cikkszám',    sv: 'Art.nr',        fr: 'Réf.',          pl: 'Nr art.',       cs: 'Č. zboží' },
+  source:   { da: 'Produktside',   en: 'Product page',  de: 'Produktseite', it: 'Pagina prodotto', hu: 'Termékoldal', sv: 'Produktsida', fr: 'Page produit', pl: 'Strona produktu', cs: 'Stránka produktu' },
+  brochure: { da: 'Brochure',      en: 'Brochure',      de: 'Broschüre',    it: 'Brochure',     hu: 'Brosúra',     sv: 'Broschyr',      fr: 'Brochure',      pl: 'Broszura',      cs: 'Brožura' },
+  image:    { da: 'Billede',       en: 'Image',         de: 'Bild',         it: 'Immagine',     hu: 'Kép',         sv: 'Bild',          fr: 'Image',         pl: 'Zdjęcie',       cs: 'Obrázek' },
+  video:    { da: 'Video',         en: 'Video',         de: 'Video',        it: 'Video',        hu: 'Videó',       sv: 'Video',         fr: 'Vidéo',         pl: 'Wideo',         cs: 'Video' },
+  docs:     { da: 'Dokumentation', en: 'Documentation', de: 'Dokumentation',it: 'Documentazione', hu: 'Dokumentáció', sv: 'Dokumentation', fr: 'Documentation', pl: 'Dokumentacja', cs: 'Dokumentace' },
+};
+
+const pickL = (key: string, lang: string): string =>
+  L[key]?.[lang] || L[key]?.en || L[key]?.da || '';
 
 export function RecommendationInfoPopover({ productId, lang, className }: Props) {
   // No productId mapping (e.g. legacy fallback recommendation) → render nothing.
