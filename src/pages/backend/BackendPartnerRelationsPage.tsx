@@ -147,7 +147,8 @@ export default function BackendPartnerRelationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalHeader language={language} />
+      <PortalHeader user={appUser} language={language} onLanguageChange={setLanguage}
+        onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
       <div className="mx-auto max-w-6xl px-4 py-8">
         <Link to="/portal/backend" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
           <ArrowLeft className="h-4 w-4" /> Tilbage til Timan Backend
@@ -290,7 +291,7 @@ export default function BackendPartnerRelationsPage() {
           </div>
         </section>
       </div>
-      <PortalFooter />
+      <PortalFooter language={language} />
     </div>
   );
 }
