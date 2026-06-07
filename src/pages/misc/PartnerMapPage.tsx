@@ -656,14 +656,14 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
-      // Dealer-side users only see their own account. No demo-locations
-      // unless reliably owned by their account (we cannot determine that
-      // here, so demo-locations are always hidden for dealer-side users).
+      // Dealer-side users may see all partner accounts (Forhandler, Servicepartner,
+      // Importør) so they can find other partners on the map. Demo-locations remain
+      // hidden because ownership cannot be reliably proven on the client. Active/
+      // inactive status filtering is internal-only; dealer-side users see all active
+      // partners (and skip soft-deleted/blocked accounts to avoid stale entries).
       if (isDealerSide) {
-        const acc = (d.account_number ?? '').trim().toUpperCase();
-        if (!ownDealerNumber || acc !== ownDealerNumber) return false;
         if (normalizeType(d.dealer_type) === 'demo_location') return false;
-        // Skip status filter for dealer-side users — their own account is shown as-is.
+        if (d.is_deleted || d.is_blocked) return false;
         return true;
       }
       if (d.is_deleted && statusFilter === 'active') return false;
@@ -737,10 +737,25 @@ export default function PartnerMapPage() {
     }
     if (!canSeeMachineStats) {
       if (!ownDealerNumber) return [];
-      return machinePinsAll.filter((p) => (p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+      const ownIds = new Set<string>();
+      const ownNames = new Set<string>();
+      for (const d of dealers) {
+        if ((d.account_number ?? '').trim().toUpperCase() === ownDealerNumber) {
+          ownIds.add(d.id);
+          const nm = (d.company_name ?? '').trim().toLowerCase();
+          if (nm) ownNames.add(nm);
+        }
+      }
+      return machinePinsAll.filter((p) => {
+        if (p.dealerAccountId && ownIds.has(p.dealerAccountId)) return true;
+        if ((p.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber) return true;
+        const nm = (p.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && ownNames.has(nm)) return true;
+        return false;
+      });
     }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
+  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
 
   const visibleMachineMissing = useMemo(() => {
     if (!canSeeMachineLayer) return [];
@@ -758,10 +773,25 @@ export default function PartnerMapPage() {
     }
     if (!canSeeMachineStats) {
       if (!ownDealerNumber) return [];
-      return machineMissingAll.filter((r) => (r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+      const ownIds = new Set<string>();
+      const ownNames = new Set<string>();
+      for (const d of dealers) {
+        if ((d.account_number ?? '').trim().toUpperCase() === ownDealerNumber) {
+          ownIds.add(d.id);
+          const nm = (d.company_name ?? '').trim().toLowerCase();
+          if (nm) ownNames.add(nm);
+        }
+      }
+      return machineMissingAll.filter((r) => {
+        if (r.dealerAccountId && ownIds.has(r.dealerAccountId)) return true;
+        if ((r.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber) return true;
+        const nm = (r.dealerNameSnapshot ?? '').trim().toLowerCase();
+        if (nm && ownNames.has(nm)) return true;
+        return false;
+      });
     }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber]);
+  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
