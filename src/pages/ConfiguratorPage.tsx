@@ -902,7 +902,7 @@ export default function ConfiguratorPage() {
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
               <div className="text-sm text-gray-800">{getLocalizedName(sub.name, lang)}</div>
-              <div className="text-xs text-gray-500">Varenr: {sub.varenr}</div>
+              <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
               {renderActionLinks(sub as any, machineType)}
             </div>
             <div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>
@@ -1764,7 +1764,7 @@ export default function ConfiguratorPage() {
                 <input type="radio" name="oil-choice" value="normal" checked={oilChoice === 'normal'} onChange={() => { setOilChoice('normal'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilNormal')} - Texaco HDZ46</div>
-                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_NORMAL}</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_NORMAL}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1779,7 +1779,7 @@ export default function ConfiguratorPage() {
                 <input type="radio" name="oil-choice" value="bio" checked={oilChoice === 'bio'} onChange={() => { setOilChoice('bio'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
                   <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
-                  <div className="text-xs text-gray-500">Varenr: {ACC_ID_OIL_BIO}</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_BIO}</div>
                   <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
@@ -2095,7 +2095,7 @@ export default function ConfiguratorPage() {
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
                         <h3 className="font-bold text-lg text-gray-900">{getLocalizedName(p.name, lang)}</h3>
                         {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>}
-                        <p className="text-sm text-gray-500">Varenr: {p.varenr}</p>
+                        <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
 
                         {p.techSpecs.length > 0 && (
                           <div className="space-y-1 py-3 border-t border-b border-gray-200">
@@ -2442,7 +2442,7 @@ export default function ConfiguratorPage() {
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
                           <div className="text-sm text-gray-800">{getLocalizedName(a.name, lang)}</div>
-                          <div className="text-xs text-gray-500">Varenr: {a.varenr}</div>
+                          <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
@@ -2496,7 +2496,7 @@ export default function ConfiguratorPage() {
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
                               <span className="font-medium text-sm text-gray-800">{getLocalizedName(a.name, lang)}</span>
-                              <div className="text-gray-500 text-xs">Varenr: {a.varenr}</div>
+                              <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex-shrink-0 text-right">
