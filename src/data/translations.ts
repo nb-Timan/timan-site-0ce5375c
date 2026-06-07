@@ -399,6 +399,7 @@ const translations: Record<string, Record<string, string>> = {
     sentTo: 'Sent to',
     goToPortalHome: 'Go to portal home',
     backToConfigurator: 'Back to configurator',
+    packagingCostBody: 'You have selected an attachment with special packaging costs in the form of a custom-built pallet and labor time.',
   },
   de: {
     step1Title: 'Schritt 1: Maschinen & Anzahl wählen',
