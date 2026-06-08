@@ -97,6 +97,7 @@ import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
+import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -128,7 +129,7 @@ const App = () => (
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
-              <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
+              <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/dealer-data" element={<DealerDataPage />} />
@@ -164,28 +165,30 @@ const App = () => (
               <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
               <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
               <Route path="/portal/misc/partner-map" element={<PartnerMapPage />} />
-              <Route path="/portal/service/claims" element={<ClaimsPage />} />
-              <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
-              <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
-              {/* TSB Portal — internal-only (Timan Backend / Service / Sælger) */}
-              <Route path="/portal/service/tsb" element={<TsbAccessGuard><TsbListPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/dashboard" element={<TsbAccessGuard><TsbDashboardPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/new" element={<TsbAccessGuard requireCreate><NewTsbPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/dealers" element={<TsbAccessGuard><TsbDealersPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/machines" element={<TsbAccessGuard><TsbMachinesPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/users" element={<TsbAccessGuard><TsbUsersPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/countries" element={<TsbAccessGuard><TsbCountriesPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/settings" element={<TsbAccessGuard><TsbSettingsPage /></TsbAccessGuard>} />
-              <Route path="/portal/service/tsb/:id" element={<TsbAccessGuard><TsbDetailPage /></TsbAccessGuard>} />
-              {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
-              <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
-              <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
-              <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
-              <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
-              <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
-              <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />
-              <Route path="/portal/service/machines" element={<MachineSearchPage />} />
-              <Route path="/portal/service/machines/:serialNumber" element={<MachineJournalPage />} />
+              <Route element={<DealerUserServiceGuard />}>
+                <Route path="/portal/service/claims" element={<ClaimsPage />} />
+                <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
+                <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
+                {/* TSB Portal — internal-only (Timan Backend / Service / Sælger) */}
+                <Route path="/portal/service/tsb" element={<TsbAccessGuard><TsbListPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/dashboard" element={<TsbAccessGuard><TsbDashboardPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/new" element={<TsbAccessGuard requireCreate><NewTsbPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/dealers" element={<TsbAccessGuard><TsbDealersPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/machines" element={<TsbAccessGuard><TsbMachinesPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/users" element={<TsbAccessGuard><TsbUsersPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/countries" element={<TsbAccessGuard><TsbCountriesPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/settings" element={<TsbAccessGuard><TsbSettingsPage /></TsbAccessGuard>} />
+                <Route path="/portal/service/tsb/:id" element={<TsbAccessGuard><TsbDetailPage /></TsbAccessGuard>} />
+                {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
+                <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
+                <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
+                <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
+                <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
+                <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
+                <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />
+                <Route path="/portal/service/machines" element={<MachineSearchPage />} />
+                <Route path="/portal/service/machines/:serialNumber" element={<MachineJournalPage />} />
+              </Route>
 
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
               <Route path="/portal/backend/users" element={<BackendUsersPage />} />

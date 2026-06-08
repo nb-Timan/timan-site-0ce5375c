@@ -141,7 +141,9 @@ export function isAreaVisible(
 
   // Forhandlerdata: external dealer-side roles see their own dealer record.
   // Internal Timan roles (backend, seller, service) also see it so they can
-  // verify what external users see. Hidden for slutkunde and unknown roles.
+  // verify what external users see. Dealer User is intentionally excluded
+  // from the default — they only see Forhandlerdata when an admin set
+  // `allowed_areas` to include it explicitly (handled above).
   if (area.id === 'dealer_data') {
     if (!portalRole) return false;
     return (
@@ -150,8 +152,7 @@ export function isAreaVisible(
       portalRole === 'timan_service' ||
       portalRole === 'timan_importer' ||
       portalRole === 'timan_dealer' ||
-      portalRole === 'timan_service_partner' ||
-      portalRole === 'dealer_user'
+      portalRole === 'timan_service_partner'
     );
   }
 

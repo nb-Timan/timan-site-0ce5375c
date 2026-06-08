@@ -175,9 +175,18 @@ export default function ConfiguratorPage() {
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: canApplyExtraDealerDiscount,
+    canSetDiscount: canApplyExtraDealerDiscount && activePortalRole !== 'dealer_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
+
+  // Dealer User pricing rule: see gross list price only. No automatic dealer
+  // discount, no quantity discount, no extra dealer discount, no demo discount.
+  // total incl. discount === gross subtotal. Discount rows are hidden in the
+  // price overview and in the generated PDF/email HTML.
+  const isDealerUserPricing = activePortalRole === 'dealer_user';
+  const displayCalc = calcResult && isDealerUserPricing
+    ? { ...calcResult, discountDetails: [], totalDiscount: 0, totalPct: 0, currentPrice: calcResult.subtotal }
+    : calcResult;
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
@@ -1031,20 +1040,22 @@ export default function ConfiguratorPage() {
     html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
         <span>${T('confirmSubtotal')}</span>
-        <span class="price-col">${formatMoney(calcResult.subtotal, lang)}</span>
+        <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
       </div>`;
-    calcResult.discountDetails.filter(d => d.amount > 0).forEach(d => {
+    displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
       const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
     });
-    html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
-        <span>${T('confirmTotalDiscount')} (${calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
-        <span class="price-col">-${formatMoney(calcResult.totalDiscount, lang)}</span>
-      </div>
-      <div class="flex justify-between w-full text-base font-bold mt-2">
+    if (!isDealerUserPricing) {
+      html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
+        <span>${T('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+        <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
+      </div>`;
+    }
+    html += `<div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${T('confirmTotal')}</span>
-        <span class="price-col">${formatMoney(calcResult.currentPrice, lang)}</span>
+        <span class="price-col">${formatMoney(displayCalc!.currentPrice, lang)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
@@ -2980,20 +2991,22 @@ export default function ConfiguratorPage() {
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>{T('subtotal')}</span>
-                      <span className="font-medium price-col">{formatMoney(calcResult.subtotal, lang)}</span>
+                      <span className="font-medium price-col">{formatMoney(displayCalc!.subtotal, lang)}</span>
                     </div>
-                    <div className="text-red-600 text-sm space-y-1">
-                      {calcResult.discountDetails.filter(d => d.amount > 0).map((d, i) => (
-                        <div key={i} className="flex justify-between">
-                          <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
-                          <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                    {!isDealerUserPricing && (
+                      <div className="text-red-600 text-sm space-y-1">
+                        {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
+                          <div key={i} className="flex justify-between">
+                            <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
+                            <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-bold">
+                          <span>{T('totalDiscount')} ({displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+                          <span className="price-col">-{formatMoney(displayCalc!.totalDiscount, lang)}</span>
                         </div>
-                      ))}
-                      <div className="flex justify-between font-bold">
-                        <span>{T('totalDiscount')} ({calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
-                        <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
                       </div>
-                    </div>
+                    )}
                     {/* Dealer discount - only for permitted roles */}
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
@@ -3032,7 +3045,7 @@ export default function ConfiguratorPage() {
                     )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
-                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
+                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(displayCalc!.currentPrice, lang)}</span>
                     </div>
                   </div>
                 )}

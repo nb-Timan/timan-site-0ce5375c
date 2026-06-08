@@ -104,10 +104,12 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
-  // Read-only / visual access only
+  // Read-only / visual access only.
+  // Dealer User is intentionally restricted to Salg & Marketing.
+  // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
+  // Teknik & Service, Timan CRM and Timan Backend are NEVER granted.
   dealer_user: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
-    'service_information', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
+    'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
   ],
   // Public exhibition / fair demo session — NO portal modules.
   // The /messe pages are public and bypass module_access entirely.
