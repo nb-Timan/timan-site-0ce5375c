@@ -161,6 +161,14 @@ const T: Record<string, Record<Language, string>> = {
   cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
   cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
   cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
+  // Health labels
+  healthy: { da: "Healthy", en: "Healthy", de: "Healthy", it: "Healthy", hu: "Healthy" },
+  needs_attention: { da: "Needs attention", en: "Needs attention", de: "Needs attention", it: "Needs attention", hu: "Needs attention" },
+  critical: { da: "Critical", en: "Critical", de: "Critical", it: "Critical", hu: "Critical" },
+  // Color legend
+  legend_green: { da: "Grøn", en: "Green", de: "Grün", it: "Verde", hu: "Zöld" },
+  legend_yellow: { da: "Gul", en: "Yellow", de: "Gelb", it: "Giallo", hu: "Sárga" },
+  legend_red: { da: "Rød", en: "Red", de: "Rot", it: "Rosso", hu: "Piros" },
 };
 
 function statusBadgeClasses(status: string): string {
