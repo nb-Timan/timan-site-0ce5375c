@@ -10,6 +10,7 @@ import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import BackendExitButton from '@/components/messe/BackendExitButton';
+import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
 
 
 const T: Record<string, Record<Language, string>> = {
@@ -89,7 +90,10 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
             <DemoModeBadge />
           </Link>
-          <BackendExitButton />
+          <div className="flex items-center gap-2">
+            <BackendRolePreviewSwitcher />
+            <BackendExitButton />
+          </div>
 
           <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
             {PORTAL_LANGUAGES.map(l => (
