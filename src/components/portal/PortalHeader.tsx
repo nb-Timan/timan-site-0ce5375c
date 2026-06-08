@@ -15,6 +15,7 @@ import {
   type ActiveMode,
 } from '@/lib/activeMode';
 import { enterExhibitionMode, leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { getCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
@@ -93,7 +94,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }, [showModeSwitch, user.email]);
 
   function chooseMode(mode: ActiveMode) {
-    setActiveMode(user.email, mode);
+    // Always run against the REAL backend user email — if PortalHeader is
+    // rendered with the synthetic exhibition user (rare but possible), the
+    // cached real user gives us the right key for activeMode storage.
+    const real = getCachedRealBackendUser();
+    const emailKey = real?.email || user.email;
+    try { setActiveMode(emailKey, mode); } catch { /* ignore */ }
     setActiveModeState(mode);
     setModeMenuOpen(false);
     // Clear any per-user cached seller-id mapping so the next CRM page
@@ -103,23 +109,36 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
       });
     } catch { /* ignore */ }
-    // Keep the synthetic Timan Messe session in sync with the selected
-    // preview so transitions in/out of /messe work cleanly on reload.
+
+    // Entering Timan Messe preview.
     if (mode === 'role:exhibition_user') {
       enterExhibitionMode();
-      window.location.href = '/messe';
+      window.location.assign('/messe');
       return;
     }
+
+    // Leaving exhibition (or switching seller/role from anywhere):
+    // 1) Drop the exhibition flag.
+    // 2) Restore the real backend user into the live appUser state so the
+    //    target page does not boot with the synthetic exhibition_user
+    //    (which would make ExhibitionRedirector bounce us back to /messe).
     leaveExhibitionMode();
-    // Force a full reload so all role-derived UI (areas, CRM scope,
-    // navigation guards) picks up the new mode cleanly. When leaving
-    // /messe we MUST navigate away — a plain reload would re-trigger
-    // the Messe entry effect and trap the user in exhibition layout.
-    const onMesse = typeof window !== 'undefined' && window.location.pathname.startsWith('/messe');
+    try { localStorage.removeItem('timan.exhibitionMode'); } catch { /* ignore */ }
+    if (real) {
+      try {
+        sessionStorage.setItem('timan.appUser', JSON.stringify(real));
+      } catch { /* ignore */ }
+    }
+
+    // Navigate to the right destination. Use a full assign so all
+    // role-derived UI re-evaluates cleanly.
     if (mode === 'backend') {
-      window.location.href = '/portal/backend';
-    } else if (onMesse) {
-      window.location.href = '/portal';
+      window.location.assign('/portal/backend');
+      return;
+    }
+    const onMesse = typeof window !== 'undefined' && window.location.pathname.startsWith('/messe');
+    if (onMesse) {
+      window.location.assign('/portal');
     } else {
       window.location.reload();
     }
