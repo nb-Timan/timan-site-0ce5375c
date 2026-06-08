@@ -855,6 +855,45 @@ export default function PartnerMapPage() {
   const resetView = () => goToView(EUROPE_VIEW);
   const worldView = () => { setSearch(''); goToView(WORLD_VIEW); };
 
+  // Fullscreen support for the map area
+  const mapWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenSupported = typeof document !== 'undefined' && (
+    document.fullscreenEnabled ||
+    // @ts-ignore - vendor prefix
+    document.webkitFullscreenEnabled
+  );
+  useEffect(() => {
+    const onChange = () => {
+      const el = document.fullscreenElement
+        // @ts-ignore - vendor prefix
+        || document.webkitFullscreenElement;
+      setIsFullscreen(!!el && el === mapWrapperRef.current);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange as EventListener);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange as EventListener);
+    };
+  }, []);
+  const toggleFullscreen = () => {
+    const el = mapWrapperRef.current;
+    if (!el) return;
+    const fsEl = document.fullscreenElement
+      // @ts-ignore - vendor prefix
+      || document.webkitFullscreenElement;
+    if (fsEl) {
+      (document.exitFullscreen
+        // @ts-ignore - vendor prefix
+        || document.webkitExitFullscreen)?.call(document);
+    } else {
+      (el.requestFullscreen
+        // @ts-ignore - vendor prefix
+        || el.webkitRequestFullscreen)?.call(el);
+    }
+  };
+
   const focusPartner = (p: Partner) => {
     setSelectedId(p.id);
     if (p.coords) setFitTo([p.coords]);
