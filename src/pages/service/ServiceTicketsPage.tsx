@@ -223,11 +223,17 @@ export default function ServiceTicketsPage() {
   }
 
   const reload = async () => {
+  const { scope: teknikScope } = useTeknikScope();
+  const reload = async () => {
     setLoading(true);
     setLoadErr(null);
     try {
       const list = await fetchVisibleServiceTickets();
-      setTickets(list);
+      const scoped = applyScopeFilter(teknikScope, list, (r) => ({
+        dealer_number: (r as { dealer_number?: string | null }).dealer_number ?? null,
+        dealer_name: (r as { dealer_name?: string | null }).dealer_name ?? null,
+      }));
+      setTickets(scoped);
     } catch (e) {
       console.error("[ServiceTickets] load error", e);
       setLoadErr(pickT(T.loadErr, uiLang));
@@ -236,7 +242,7 @@ export default function ServiceTicketsPage() {
     }
   };
 
-  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [teknikScope]);
 
   // Auto-open create dialog when navigating from maintenance page
   useEffect(() => {
