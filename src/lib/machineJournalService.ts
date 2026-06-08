@@ -319,6 +319,10 @@ export interface MachineOverviewRow {
   openClaims: number;
   openTsb: number;
   health: HealthLevel;
+  /** Highest warranty certificate number for this serial, e.g. "SP-222". */
+  warrantyId: string | null;
+  /** Numeric portion used for sorting (e.g. 222 from "SP-222"); null if no warranty. */
+  warrantyIdNumeric: number | null;
 }
 
 function fmtDateDk(iso: string | null | undefined): string | null {
