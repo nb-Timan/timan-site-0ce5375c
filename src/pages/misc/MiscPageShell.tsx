@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate, useNavigate, Link } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -34,6 +34,7 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
   const { appUser, setAppUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const realUser = useCachedRealBackendUser();
 
   if (loading) {
@@ -44,10 +45,11 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
     );
   }
 
-  // Exhibition / Timan Messe demo session: render a minimal Messe-styled
-  // shell so /messe/partner-map (and similar) work without the dealer-side
-  // portal chrome and access gates.
-  const exhibitionRole = isExhibitionRole(derivePortalRole(appUser));
+  // Exhibition / Timan Messe demo session: only render the special Messe
+  // shell when we are actually on a /messe route. A backend user previewing
+  // exhibition_user from elsewhere keeps their normal portal layout.
+  const onMesseRoute = location.pathname.startsWith('/messe');
+  const exhibitionRole = onMesseRoute && isExhibitionRole(derivePortalRole(appUser));
   if (exhibitionRole) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
