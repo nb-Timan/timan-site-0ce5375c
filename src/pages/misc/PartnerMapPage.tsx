@@ -1249,9 +1249,24 @@ export default function PartnerMapPage() {
                     )}
                   </MapContainer>
 
-                  <div className="pointer-events-none absolute top-3 right-3 z-[500] bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
-                    <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
-                    <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
+                  <div className="absolute top-3 right-3 z-[500] flex flex-col items-end gap-1.5">
+                    <div className="bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 flex items-center gap-2">
+                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
+                      <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
+                    </div>
+                    {isFullscreen && (
+                      <button
+                        onClick={() => {
+                          (document.exitFullscreen
+                            // @ts-ignore - vendor prefix
+                            || document.webkitExitFullscreen)?.call(document);
+                        }}
+                        className="bg-white rounded-md shadow-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1"
+                        title="Afslut fuld skærm"
+                      >
+                        <span aria-hidden>↙</span> Afslut fuld skærm
+                      </button>
+                    )}
                   </div>
 
                   {loading && (
