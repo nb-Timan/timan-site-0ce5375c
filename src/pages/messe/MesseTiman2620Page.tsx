@@ -117,7 +117,7 @@ export default function MesseTiman2620Page() {
                   className="inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
                 >
                   <ArrowLeft className="h-5 w-5" />
-                  Til forsiden
+                  {t('m2620_back_home', uiLanguage)}
                 </button>
               </div>
               <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
