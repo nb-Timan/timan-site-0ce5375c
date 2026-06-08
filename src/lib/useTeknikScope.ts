@@ -44,6 +44,12 @@ export function useTeknikScope(): UseTeknikScopeResult {
   const [scope, setScope] = useState<JournalScope>(EMPTY_SCOPE);
   const [loading, setLoading] = useState(true);
 
+  // Depend on stable primitives. `effective` is a fresh object on every
+  // render when view-as is active (the hook returns `{...appUser, ...target}`),
+  // so using it directly as a dependency would re-run the effect forever and
+  // freeze the page when this hook is mounted on pages that re-render often
+  // (e.g. WarrantyRegistrationsTable behind a navigation from Min Maskine).
+  const effectiveKey = effective?.id ?? effective?.email ?? null;
   useEffect(() => {
     let cancelled = false;
     if (!effective || !role) {
@@ -66,7 +72,8 @@ export function useTeknikScope(): UseTeknikScopeResult {
     return () => {
       cancelled = true;
     };
-  }, [effective, role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveKey, role]);
 
   return { scope, role, loading };
 }
