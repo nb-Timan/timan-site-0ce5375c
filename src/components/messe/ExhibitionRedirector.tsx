@@ -1,5 +1,5 @@
-import { useEffect, useSyncExternalStore } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, isExhibitionRole } from '@/lib/portalAccess';
 import { getCachedRealBackendUser, getRealBackendUserFromAppUser } from '@/lib/cachedRealUser';
@@ -39,6 +39,18 @@ export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['
     shouldLeaveMesse: !!realUser && !isExhibitionPreview,
     destination: getPortalDestinationForActiveMode(activeMode),
   };
+}
+
+export function MesseRouteGuard({ children }: { children: ReactNode }) {
+  const { appUser } = useAppUser();
+  const { shouldLeaveMesse, destination } = useMesseRouteGuardState(appUser);
+
+  useEffect(() => {
+    if (shouldLeaveMesse) leaveExhibitionMode();
+  }, [shouldLeaveMesse]);
+
+  if (shouldLeaveMesse) return <Navigate to={destination} replace />;
+  return <>{children}</>;
 }
 
 /**
