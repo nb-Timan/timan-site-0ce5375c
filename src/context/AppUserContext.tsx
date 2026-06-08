@@ -81,15 +81,26 @@ function isExhibitionFlagSet(): boolean {
   try { return localStorage.getItem(EXHIBITION_FLAG) === '1'; } catch { return false; }
 }
 
-function loadFromStorage(): SessionUser | null {
+const REAL_AUTH_ROLES = new Set(['timan_backend', 'timan_service']);
+
+function readCachedSessionUser(): SessionUser | null {
   try {
-    if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as SessionUser;
-  } catch {
-    return null;
+  } catch { return null; }
+}
+
+function loadFromStorage(): SessionUser | null {
+  const cached = readCachedSessionUser();
+  // Real authenticated backend/service user ALWAYS wins over a stale
+  // exhibition flag — otherwise admins get trapped in /messe demo mode.
+  const cachedRole = (cached?.portal_role || '').toLowerCase();
+  if (cached && REAL_AUTH_ROLES.has(cachedRole)) {
+    return cached;
   }
+  if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
+  return cached;
 }
 
 export function AppUserProvider({ children }: { children: ReactNode }) {
@@ -133,11 +144,18 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         // Exhibition mode short-circuits any Supabase session lookup —
-        // the public Messe session never authenticates against the DB.
+        // but ONLY for public visitors. If a real Supabase session exists
+        // (backend/service user), the real user wins and we clear the
+        // stale exhibition flag so admins can navigate the normal portal.
         if (isExhibitionFlagSet()) {
-          setAppUserState(EXHIBITION_SESSION_USER);
-          setLoading(false);
-          return;
+          const { data: sessionProbe } = await supabase.auth.getSession();
+          if (!sessionProbe.session?.user?.email) {
+            setAppUserState(EXHIBITION_SESSION_USER);
+            setLoading(false);
+            return;
+          }
+          // Real auth session present — drop the stale flag and continue.
+          try { localStorage.removeItem(EXHIBITION_FLAG); } catch { /* ignore */ }
         }
         const { data } = await supabase.auth.getSession();
         const session = data.session;

@@ -1,56 +1,51 @@
 import { ArrowLeftCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { setActiveMode } from '@/lib/activeMode';
-import { leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { setActiveMode, getActiveMode } from '@/lib/activeMode';
+import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { useAppUser } from '@/context/AppUserContext';
+import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
 
 /**
- * Find the real backend/service user email that is currently previewing
- * Timan Messe via "Vis som rolle" → exhibition_user. The exhibition session
- * itself overwrites appUser with the synthetic Messe user, so the only way
- * to recover the original email is to scan the activeMode storage entries.
- */
-function findBackendPreviewerEmail(): string | null {
-  try {
-    const prefix = 'timan.activeMode.';
-    for (const key of Object.keys(localStorage)) {
-      if (!key.startsWith(prefix)) continue;
-      if (localStorage.getItem(key) === 'role:exhibition_user') {
-        return key.slice(prefix.length);
-      }
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-/**
- * Top-bar exit button shown ONLY when a Timan Backend / Timan Service user
- * is previewing exhibition_user via "Vis som rolle". Public QR visitors on
- * /messe never see this button.
+ * Top-bar recovery button shown ONLY when a real Timan Backend / Timan
+ * Service user is on a Messe page (either via "Vis som rolle" preview or
+ * because a stale exhibition flag dropped them here). Public QR visitors
+ * never see this button.
+ *
+ * Clicking it clears the exhibition flag + role preview and navigates the
+ * user back to /portal/backend.
  */
 export default function BackendExitButton({ className }: { className?: string }) {
   const { setAppUser } = useAppUser();
-  const [previewerEmail, setPreviewerEmail] = useState<string | null>(() => findBackendPreviewerEmail());
+  const realUser = useCachedRealBackendUser();
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const refresh = () => setPreviewerEmail(findBackendPreviewerEmail());
+    const refresh = () => setTick((n) => n + 1);
     window.addEventListener('storage', refresh);
     window.addEventListener('timan:active-mode-changed', refresh);
+    window.addEventListener('timan:exhibition-mode-changed', refresh);
     return () => {
       window.removeEventListener('storage', refresh);
       window.removeEventListener('timan:active-mode-changed', refresh);
+      window.removeEventListener('timan:exhibition-mode-changed', refresh);
     };
   }, []);
 
-  if (!previewerEmail) return null;
+  if (!realUser) return null;
+  const previewingExhibition = getActiveMode(realUser.email) === 'role:exhibition_user';
+  const exhibitionActive = isExhibitionActive();
+  // Render whenever the real backend user is in Messe context.
+  void tick;
+  if (!previewingExhibition && !exhibitionActive) return null;
 
   return (
     <button
       type="button"
       onClick={() => {
-        try { setActiveMode(previewerEmail, 'backend'); } catch { /* ignore */ }
+        try { setActiveMode(realUser.email, 'backend'); } catch { /* ignore */ }
         leaveExhibitionMode();
-        setAppUser(null);
+        // Keep the real user — do NOT clear appUser, otherwise we lose the session.
+        setAppUser(realUser);
         window.location.href = '/portal/backend';
       }}
       className={
