@@ -106,6 +106,9 @@ export default function ConfiguratorPage() {
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
+  // Timan Messe / exhibition demo session — hide save/send/account UI and
+  // short-circuit any persistence handler that may still be invoked.
+  const isExhibition = (appUser as { portal_role?: string | null } | null)?.portal_role === 'exhibition_user';
 
   // Keep the configurator's internal language in sync with the global portal
   // language so the top-bar selector controls every page consistently.
