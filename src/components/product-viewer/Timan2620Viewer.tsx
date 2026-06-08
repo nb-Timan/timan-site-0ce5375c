@@ -89,15 +89,15 @@ export default function Timan2620Viewer() {
 
   return (
     <div className="w-full">
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-5">
         {/* Left control panel */}
-        <aside className="w-full lg:w-[280px] xl:w-[300px] lg:flex-shrink-0 lg:sticky lg:top-4 lg:bg-white lg:rounded-xl lg:border lg:border-slate-200 lg:shadow-sm lg:p-4 lg:self-start">
+        <aside className="w-full lg:w-[260px] xl:w-[280px] lg:flex-shrink-0 lg:sticky lg:top-4 lg:bg-white lg:rounded-lg lg:border lg:border-slate-200 lg:shadow-sm lg:p-3 lg:self-start">
           {/* Section 1 — Base machine */}
-          <section className="mb-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          <section className="mb-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 leading-tight">
               Basismaskine
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2" role="radiogroup" aria-label="Basismaskine">
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5" role="radiogroup" aria-label="Basismaskine">
               {TIMAN_2620_BASE_OPTIONS.map(o => {
                 const active = base === o.key;
                 return (
@@ -107,7 +107,7 @@ export default function Timan2620Viewer() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => setBase(o.key)}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-semibold border text-left transition ${
+                    className={`w-full px-2.5 py-[6px] rounded-lg text-sm font-semibold border text-left transition ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow ring-2 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
@@ -121,11 +121,11 @@ export default function Timan2620Viewer() {
           </section>
 
           {/* Section 2 — Equipment */}
-          <section className="mb-5">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          <section className="mb-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 leading-tight">
               Udstyr
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2" role="group" aria-label="Udstyr">
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5" role="group" aria-label="Udstyr">
               {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
                 const active = equipment.has(o.key);
                 return (
@@ -134,7 +134,7 @@ export default function Timan2620Viewer() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleEquipment(o.key)}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-semibold border text-left transition ${
+                    className={`w-full px-2.5 py-[6px] rounded-lg text-sm font-semibold border text-left transition ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow ring-2 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
@@ -150,19 +150,19 @@ export default function Timan2620Viewer() {
           {/* Active badges */}
           {(equipment.size > 0 || hasFullWinter) && (
             <section>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 leading-tight">
                 Valgt opsætning
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {hasFullWinter && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200">
+                  <span className="inline-flex items-center px-1.5 py-[3px] rounded bg-emerald-100 text-emerald-800 text-[11px] font-semibold border border-emerald-200">
                     Fuldt vintersæt
                   </span>
                 )}
                 {Array.from(equipment).map(eq => (
                   <span
                     key={eq}
-                    className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200"
+                    className="inline-flex items-center px-1.5 py-[3px] rounded bg-amber-100 text-amber-800 text-[11px] font-semibold border border-amber-200"
                   >
                     {labelOfEquipment(eq)}
                   </span>
