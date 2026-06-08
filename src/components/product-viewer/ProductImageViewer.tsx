@@ -200,7 +200,7 @@ export default function ProductImageViewer({
       {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
+        className="relative w-full bg-transparent overflow-visible touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
