@@ -6,23 +6,29 @@ import { getCachedRealBackendUser, getRealBackendUserFromAppUser } from '@/lib/c
 import { getActiveMode, type ActiveMode } from '@/lib/activeMode';
 import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
 
+let modeSnapshotVersion = 0;
+
 export function getPortalDestinationForActiveMode(mode: ActiveMode | null): '/portal/backend' | '/portal' {
   return mode === 'backend' ? '/portal/backend' : '/portal';
 }
 
 function subscribeToModeChanges(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener('timan:active-mode-changed', callback);
-  window.addEventListener('timan:exhibition-mode-changed', callback);
+  const onChange = () => {
+    modeSnapshotVersion += 1;
+    callback();
+  };
+  window.addEventListener('storage', onChange);
+  window.addEventListener('timan:active-mode-changed', onChange);
+  window.addEventListener('timan:exhibition-mode-changed', onChange);
   return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('timan:active-mode-changed', callback);
-    window.removeEventListener('timan:exhibition-mode-changed', callback);
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener('timan:active-mode-changed', onChange);
+    window.removeEventListener('timan:exhibition-mode-changed', onChange);
   };
 }
 
 export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['appUser']) {
-  useSyncExternalStore(subscribeToModeChanges, () => Date.now(), () => 0);
+  useSyncExternalStore(subscribeToModeChanges, () => modeSnapshotVersion, () => 0);
   const realUser = getRealBackendUserFromAppUser(appUser) || getCachedRealBackendUser();
   const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
   const isExhibitionPreview = activeMode === 'role:exhibition_user';
