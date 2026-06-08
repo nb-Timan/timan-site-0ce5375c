@@ -287,7 +287,7 @@ function Stage() {
   return (
     <>
       <div>
-        <ProductImageViewer key={imageKey} configuration={configuration} />
+        <ProductImageViewer key={imageKey} configuration={configuration} hideControls />
       </div>
 
       {conflict && (
