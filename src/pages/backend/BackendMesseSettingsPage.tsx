@@ -99,10 +99,18 @@ export default function BackendMesseSettingsPage() {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-1">Offentlig URL</h2>
-          <p className="text-sm text-slate-500 mb-4">Brug denne URL eller QR-koden på messen.</p>
+          <h2 className="text-lg font-bold text-slate-900 mb-1">Messe login-link</h2>
+          <p className="text-sm text-slate-500 mb-4">Brug dette link eller QR-koden på messen. Besøgeren skal logge ind før adgang til Messe Portal.</p>
           <div className="flex flex-wrap items-center gap-3 mb-6">
-            <code className="px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 text-sm text-slate-800 break-all">{url}</code>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 text-sm text-slate-800 hover:bg-slate-200 break-all"
+            >
+              {url}
+              <ExternalLink className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            </a>
             <button onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
               {copied ? 'Kopieret' : 'Kopiér link'}
@@ -114,7 +122,7 @@ export default function BackendMesseSettingsPage() {
               <canvas ref={canvasRef} className="block" />
             </div>
             <div className="flex-grow">
-              <p className="text-sm text-slate-600 mb-3">QR-koden peger på den offentlige <code>/messe</code> side. Print eller download som PNG til skilte og stande.</p>
+              <p className="text-sm text-slate-600 mb-3">QR-koden peger på login-siden. Når en Messe Portal-bruger logger ind, sendes vedkommende automatisk til <code>/messe</code>. Print eller download som PNG til skilte og stande.</p>
               <button onClick={downloadQr} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
                 <Download className="h-4 w-4" /> Download QR (PNG)
               </button>
