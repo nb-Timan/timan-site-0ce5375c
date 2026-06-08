@@ -237,11 +237,13 @@ function buildHotspots(
   imageKey: string,
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
+  lang: string,
 ): ViewerHotspot[] {
   void base; // base is encoded in imageKey
   const view = VIEW_POSITIONS[imageKey];
   if (!view) return [];
 
+  const partContent = buildPartContent(lang);
   const visibleParts = new Set<PartId>(['motor', 'affjedring']);
   if (imageKey.startsWith('cab')) visibleParts.add('kabine');
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
@@ -261,7 +263,7 @@ function buildHotspots(
         y: pos.anchor.y,
         variant: 'callout',
         calloutCenter: { cx: pos.callout.cx, cy: pos.callout.cy },
-        ...PART_CONTENT[part],
+        ...partContent[part],
       });
     });
   }
