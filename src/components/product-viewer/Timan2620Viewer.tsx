@@ -183,29 +183,38 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   //   frame 2 (IMG 8): rear/mirrored — v-plov RIGHT, cab upper-right;
   //                    saltspreder hidden to avoid overlap & confusion
   cab_full_winter_setup: {
+    // Frame 2 (IMG 8) is the rear/mirrored view:
+    //   dozer blade → RIGHT, cab → centre, engine/rear body → LEFT.
+    // Every frame-2 entry uses its own anchor + callout so the bubble
+    // sits in empty background and the connector never crosses the body.
     v_plow: [
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
-      // frame 2: bubble far right, connector enters dozer blade from outside
-      { anchor: { x: 72, y: 65 }, callout: { cx: 94, cy: 55 }, frame: 2 },
+      // frame 2: anchor on the dozer blade (right-front), bubble in the
+      // lower-right corner — short diagonal through empty background.
+      { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
     motor: [
       { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 70 }, frame: 1 },
-      // frame 2: bubble lower-left, points up to red rear body/engine area
-      { anchor: { x: 40, y: 60 }, callout: { cx: 10, cy: 88 }, frame: 2 },
+      // frame 2: anchor on the rear/engine body (left side of the
+      // mirrored view), bubble pushed out to the left margin.
+      { anchor: { x: 28, y: 58 }, callout: { cx: 6,  cy: 72 }, frame: 2 },
     ],
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
-      // frame 2: anchor slightly back on cab; bubble upper-left, no roof cut
-      { anchor: { x: 55, y: 32 }, callout: { cx: 22, cy: 8  }, frame: 2 },
+      // frame 2: anchor on the cab roof, bubble straight up — clean
+      // vertical connector, no roof or body crossing.
+      { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
       { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      // frame 2: bottom-center, points up to wheel/suspension
-      { anchor: { x: 50, y: 78 }, callout: { cx: 50, cy: 96 }, frame: 2 },
+      // frame 2: anchor on rear wheel/suspension area, bubble lower-left
+      // along the bottom margin so it doesn't collide with the dozer bubble.
+      { anchor: { x: 42, y: 80 }, callout: { cx: 22, cy: 96 }, frame: 2 },
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
-      // frame 2 intentionally omitted — hidden on rear/mirrored view
+      // frame 2 intentionally omitted — DS-250 cannot be reached cleanly
+      // on the rear/mirrored view without the connector crossing the body.
     ],
   },
 };
