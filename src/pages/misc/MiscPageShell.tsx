@@ -8,6 +8,8 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import BackendExitButton from '@/components/messe/BackendExitButton';
+
 import { derivePortalRole, hasModuleAccess, isExhibitionRole } from '@/lib/portalAccess';
 import timanLogo from '@/assets/timan-logo.png';
 
@@ -68,7 +70,9 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
                 </button>
               ))}
             </div>
+            <BackendExitButton />
           </div>
+
         </header>
         <header className="bg-white border-b border-slate-200 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

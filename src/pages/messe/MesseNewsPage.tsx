@@ -5,7 +5,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import BackendExitButton from '@/components/messe/BackendExitButton';
 import timanLogo from '@/assets/timan-logo.png';
+
 
 const T: Record<string, Record<Language, string>> = {
   back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -40,9 +42,13 @@ export default function MesseNewsPage() {
             <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
             <DemoModeBadge />
           </Link>
-          <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
-            <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
+            </Link>
+            <BackendExitButton />
+          </div>
+
         </div>
       </header>
 
