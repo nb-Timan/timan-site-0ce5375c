@@ -84,7 +84,7 @@ export default function BackendMesseSettingsPage() {
             <div>
               <h2 className="text-lg font-bold text-slate-900">Messe-adgang</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Når aktiv, kan brugere med Portal variant = "Messe Portal" logge ind via QR-koden og blive sendt direkte til demo-portalen.
+                Når aktiv, kan brugere med Portal variant = "Messe Portal" scanne QR-koden, logge ind og blive sendt direkte til demo-portalen.
                 {' '}Når deaktiveret, viser <code>/messe</code> en venlig besked.
               </p>
             </div>
