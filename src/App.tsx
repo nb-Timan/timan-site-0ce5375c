@@ -97,6 +97,7 @@ import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
+import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
