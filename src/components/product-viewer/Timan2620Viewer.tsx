@@ -126,11 +126,11 @@ function buildHotspots(
     list.push({
       id: 'salt_spreader',
       frame: 0,
-      x: 78, y: 55,
+      x: 75, y: 38,
       title: 'Saltspreder',
       subtitle: 'Præcis vinterbekæmpelse',
       variant: 'callout',
-      calloutCenter: { cx: 93, cy: 62 },
+      calloutCenter: { cx: 93, cy: 25 },
       description:
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
       bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
