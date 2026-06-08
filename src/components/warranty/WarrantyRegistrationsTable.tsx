@@ -146,12 +146,19 @@ export function WarrantyRegistrationsTable({
     return selectedSnapshotRef.current;
   }, [selectedId, records]);
 
+  const { scope: teknikScope } = useTeknikScope();
   const scoped = useMemo(() => {
-    if (scope === "admin") return records;
+    if (scope === "admin") {
+      // Seller / dealer / importer / service partner: filter by assigned dealers.
+      return applyScopeFilter(teknikScope, records, (r) => ({
+        dealer_number: r.dealerAccountNumber,
+        dealer_name: r.dealerName,
+      }));
+    }
     if (!dealerName) return [];
     const needle = dealerName.toLowerCase();
     return records.filter((r) => r.dealerName.toLowerCase() === needle);
-  }, [records, scope, dealerName]);
+  }, [records, scope, dealerName, teknikScope]);
 
   const dealers = useMemo(() => {
     const set = new Set<string>();
