@@ -132,6 +132,13 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
+        // Exhibition mode short-circuits any Supabase session lookup —
+        // the public Messe session never authenticates against the DB.
+        if (isExhibitionFlagSet()) {
+          setAppUserState(EXHIBITION_SESSION_USER);
+          setLoading(false);
+          return;
+        }
         const { data } = await supabase.auth.getSession();
         const session = data.session;
         if (!session?.user?.email) {
