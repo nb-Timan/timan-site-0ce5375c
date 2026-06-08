@@ -19,7 +19,6 @@
 import { useSyncExternalStore } from 'react';
 import {
   getActiveMode,
-  setActiveMode,
   type ActiveMode,
 } from './activeMode';
 import {
@@ -128,13 +127,28 @@ export function useMesseMode(
 }
 
 /**
- * Centralized "Vis som rolle" handler for backend users. Switch preview
- * role and navigate to the matching route. The synthetic exhibition_user
- * is in-memory only — never persisted to Supabase.
+ * Centralized "Vis som rolle" handler for backend users.
+ *
+ * Writes the new preview mode to storage WITHOUT dispatching the
+ * `timan:active-mode-changed` event (which would schedule React updates
+ * and let MesseRouteGuard race the hard navigation with its own
+ * `<Navigate>`), then HARD-navigates to the matching route via
+ * `window.location.replace` so the next page boots cleanly from storage
+ * and the back button cannot return to a stale /messe layout.
+ *
+ * The synthetic `exhibition_user` lives only in-memory — it is never
+ * persisted to Supabase.
  */
 export function switchPreviewRole(realUserEmail: string, mode: ActiveMode): void {
+  const real = getCachedRealBackendUser();
+  const target =
+    mode === 'role:exhibition_user' ? '/messe' : portalDestinationFor(real, mode);
+
   try {
-    setActiveMode(realUserEmail, mode);
+    const norm = (realUserEmail || '').trim().toLowerCase();
+    if (norm) localStorage.setItem('timan.activeMode.' + norm, mode);
+  } catch { /* ignore */ }
+  try {
     Object.keys(sessionStorage).forEach((k) => {
       if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
     });
@@ -142,14 +156,12 @@ export function switchPreviewRole(realUserEmail: string, mode: ActiveMode): void
 
   if (mode === 'role:exhibition_user') {
     enterExhibitionMode();
-    window.location.assign('/messe');
-    return;
+  } else {
+    leaveExhibitionMode();
+    if (real) {
+      try { sessionStorage.setItem('timan.appUser', JSON.stringify(real)); } catch { /* ignore */ }
+    }
   }
 
-  leaveExhibitionMode();
-  const real = getCachedRealBackendUser();
-  if (real) {
-    try { sessionStorage.setItem('timan.appUser', JSON.stringify(real)); } catch { /* ignore */ }
-  }
-  window.location.assign(portalDestinationFor(real, mode));
+  window.location.replace(target);
 }
