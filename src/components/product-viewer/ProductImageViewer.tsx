@@ -46,7 +46,6 @@ const AUTO_ROTATE_INTERVAL_MS = 120;
 
 export default function ProductImageViewer({
   configuration: config,
-  aspectRatio = 4 / 3,
   className,
 }: Props) {
   const [frame, setFrame] = useState(0);
