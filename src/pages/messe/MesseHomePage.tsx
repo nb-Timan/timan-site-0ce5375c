@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
-import { enterExhibitionMode, isMesseEnabled } from '@/lib/exhibitionMode';
+import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
 import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import BackendExitButton from '@/components/messe/BackendExitButton';
 import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
+import PortalHeader from '@/components/portal/PortalHeader';
+import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { supabase } from '@/lib/supabase';
 
 
 const T: Record<string, Record<Language, string>> = {
