@@ -90,7 +90,10 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
             <DemoModeBadge />
           </Link>
-          <BackendExitButton />
+          <div className="flex items-center gap-2">
+            <BackendRolePreviewSwitcher />
+            <BackendExitButton />
+          </div>
 
           <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
             {PORTAL_LANGUAGES.map(l => (
