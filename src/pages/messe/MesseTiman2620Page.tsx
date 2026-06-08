@@ -109,37 +109,36 @@ export default function MesseTiman2620Page() {
 
           {/* Unified footer row: back button + benefit bar */}
           <section className="mt-8 pt-6 border-t border-slate-200">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
-              <div className="lg:w-[180px] lg:flex-shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
+              {/* Back button */}
+              <div className="flex items-center py-2">
                 <button
                   type="button"
                   onClick={() => navigate('/messe')}
-                  className="inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-sm lg:text-base transition"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4 lg:h-5 lg:w-5" />
                   {t('m2620_back_home', uiLanguage)}
                 </button>
               </div>
-              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
-                {benefits.map((b, i) => {
-                  const Icon = b.icon;
-                  return (
-                    <div key={i} className={`flex items-start gap-3 ${i > 0 ? 'md:pl-6 lg:pl-8' : ''}`}>
-                      <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
-                          {b.title}
-                        </h3>
-                        <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                          {b.text}
-                        </p>
-                      </div>
+              {benefits.map((b, i) => {
+                const Icon = b.icon;
+                return (
+                  <div key={i} className="flex items-start gap-3 py-2 md:pl-6 lg:pl-8">
+                    <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
+                        {b.title}
+                      </h3>
+                      <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                        {b.text}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
         </Timan2620Viewer.Provider>
