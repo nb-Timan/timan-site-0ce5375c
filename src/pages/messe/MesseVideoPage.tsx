@@ -26,9 +26,9 @@ const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service'
 export default function MesseVideoPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
-  const cachedRealUser = useCachedRealBackendUser();
   const { appUser, setAppUser } = useAppUser();
-  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
+  const location = useLocation();
+  const { realUser } = useMesseMode(appUser, location.pathname);
   const navigate = useNavigate();
 
   useEffect(() => {
