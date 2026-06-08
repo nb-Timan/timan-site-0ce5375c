@@ -1090,7 +1090,7 @@ export default function PartnerMapPage() {
             </div>
 
             {/* Map + results panel */}
-            <div className="relative bg-white rounded-b-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div ref={mapWrapperRef} className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${isFullscreen ? 'rounded-none h-screen w-screen' : 'rounded-b-2xl'}`}>
               <div className="flex h-[74vh] min-h-[520px] max-h-[760px]">
                 {/* Results sidebar */}
                 {resultsOpen && (
