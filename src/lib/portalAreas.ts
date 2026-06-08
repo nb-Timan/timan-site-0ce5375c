@@ -128,7 +128,14 @@ export function isAreaVisible(
   // assigned a real portal_role (e.g. timan_dealer). Only bail when there
   // is no portal_role to grant access.
   if (user.role === 'slutkunde' && !portalRole) return false;
-  
+
+  // Dealer User is hard-locked out of Teknik & Service, Timan CRM and
+  // Timan Backend regardless of any module_access / allowed_areas override.
+  if (portalRole === 'dealer_user' && (
+    area.id === 'teknik_service' || area.id === 'timan_crm' || area.id === 'timan_backend'
+  )) {
+    return false;
+  }
 
   // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
   // If the admin saved an allowed_areas list, it is the source of truth for
