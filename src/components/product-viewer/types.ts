@@ -46,9 +46,16 @@ export interface ViewerHotspot {
   variant?: 'dot' | 'callout';
   /**
    * Where the callout card sits relative to the (x, y) anchor on the image.
-   * Defaults to 'right'.
+   * Defaults to 'right'. Used only as a fallback when `calloutCenter` is not set.
    */
   calloutPlacement?: 'left' | 'right' | 'top' | 'bottom';
+  /**
+   * Explicit centre of the callout card in canvas percent (0..100).
+   * When set, this overrides any computed placement so callouts can be
+   * orbited around the machine silhouette without overlapping each other
+   * or the product.
+   */
+  calloutCenter?: { cx: number; cy: number };
 }
 
 export interface EquipmentBadge {
