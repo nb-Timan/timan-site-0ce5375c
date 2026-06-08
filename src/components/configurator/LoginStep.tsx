@@ -51,6 +51,7 @@ interface LoginStepProps {
     dealer_number?: string | null;
     permissions?: Record<string, boolean> | null;
     quick_actions?: string[] | null;
+    portal_variant?: string | null;
   }) => void;
 }
 
