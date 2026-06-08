@@ -99,49 +99,10 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     // cached real user gives us the right key for activeMode storage.
     const real = getCachedRealBackendUser();
     const emailKey = real?.email || user.email;
-    try { setActiveMode(emailKey, mode); } catch { /* ignore */ }
     setActiveModeState(mode);
     setModeMenuOpen(false);
-    // Clear any per-user cached seller-id mapping so the next CRM page
-    // re-resolves against the newly selected seller view.
-    try {
-      Object.keys(sessionStorage).forEach((k) => {
-        if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
-      });
-    } catch { /* ignore */ }
-
-    // Entering Timan Messe preview.
-    if (mode === 'role:exhibition_user') {
-      enterExhibitionMode();
-      window.location.assign('/messe');
-      return;
-    }
-
-    // Leaving exhibition (or switching seller/role from anywhere):
-    // 1) Drop the exhibition flag.
-    // 2) Restore the real backend user into the live appUser state so the
-    //    target page does not boot with the synthetic exhibition_user
-    //    (which would make ExhibitionRedirector bounce us back to /messe).
-    leaveExhibitionMode();
-    try { localStorage.removeItem('timan.exhibitionMode'); } catch { /* ignore */ }
-    if (real) {
-      try {
-        sessionStorage.setItem('timan.appUser', JSON.stringify(real));
-      } catch { /* ignore */ }
-    }
-
-    // Navigate to the right destination. Use a full assign so all
-    // role-derived UI re-evaluates cleanly.
-    if (mode === 'backend') {
-      window.location.assign('/portal/backend');
-      return;
-    }
-    const onMesse = typeof window !== 'undefined' && window.location.pathname.startsWith('/messe');
-    if (onMesse) {
-      window.location.assign('/portal');
-    } else {
-      window.location.reload();
-    }
+    // Delegate role-switch + routing to the single source of truth.
+    switchPreviewRole(emailKey, mode);
   }
 
   useEffect(() => {
