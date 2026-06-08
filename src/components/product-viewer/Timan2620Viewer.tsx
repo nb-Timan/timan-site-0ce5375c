@@ -91,53 +91,55 @@ interface PosEntry {
   frame?: number;
 }
 
-const PART_CONTENT: Record<PartId, PartContent> = {
-  motor: {
-    title: 'Motor',
-    subtitle: 'Kraftfuld og driftssikker',
-    description:
-      'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
-    bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
-    technical: [
-      { label: 'Effekt', value: '26 hk' },
-      { label: 'Cylindere', value: '3' },
-      { label: 'Brændstof', value: 'Diesel' },
-    ],
-  },
-  kabine: {
-    title: 'Kabine',
-    subtitle: 'Komfort og godt udsyn',
-    description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
-    bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
-  },
-  affjedring: {
-    title: 'Affjedring',
-    subtitle: 'Stabilitet og komfort',
-    description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
-    bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
-  },
-  v_plow: {
-    title: 'Dozer blad',
-    subtitle: 'Effektiv snerydning',
-    description:
-      'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
-    bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
-  },
-  salt_spreader: {
-    title: 'Saltspreder',
-    subtitle: 'Præcis vinterbekæmpelse',
-    description:
-      'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
-    bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
-  },
-  brush: {
-    title: 'Kost',
-    subtitle: 'Effektiv fejning',
-    description:
-      'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
-    bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
-  },
-};
+function buildPartContent(lang: string): Record<PartId, PartContent> {
+  return {
+    motor: {
+      title: t('m2620_hot_motor_title', lang),
+      subtitle: t('m2620_hot_motor_sub', lang),
+      description:
+        'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
+      bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
+      technical: [
+        { label: 'Effekt', value: '26 hk' },
+        { label: 'Cylindere', value: '3' },
+        { label: 'Brændstof', value: 'Diesel' },
+      ],
+    },
+    kabine: {
+      title: t('m2620_hot_kabine_title', lang),
+      subtitle: t('m2620_hot_kabine_sub', lang),
+      description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
+      bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
+    },
+    affjedring: {
+      title: t('m2620_hot_affjedring_title', lang),
+      subtitle: t('m2620_hot_affjedring_sub', lang),
+      description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
+      bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
+    },
+    v_plow: {
+      title: t('m2620_hot_vplow_title', lang),
+      subtitle: t('m2620_hot_vplow_sub', lang),
+      description:
+        'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
+      bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
+    },
+    salt_spreader: {
+      title: t('m2620_hot_salt_title', lang),
+      subtitle: t('m2620_hot_salt_sub', lang),
+      description:
+        'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
+      bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
+    },
+    brush: {
+      title: t('m2620_hot_brush_title', lang),
+      subtitle: t('m2620_hot_brush_sub', lang),
+      description:
+        'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
+      bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
+    },
+  };
+}
 
 /**
  * Per-view part positions. Coordinates are in percent of the rendered
