@@ -18,7 +18,7 @@ import {
   Users, ShieldCheck, KeyRound, ScrollText,
   Building2, Link2, Map, MapPin,
   Database, BarChart3, Upload, LineChart,
-  Mail, ListChecks, Activity, FileSearch, Sparkles, LucideIcon,
+  Mail, ListChecks, Activity, FileSearch, Sparkles, QrCode, LucideIcon,
 } from "lucide-react";
 
 import PlaceholderCard from "@/components/portal/PlaceholderCard";
@@ -85,6 +85,7 @@ function buildGroups(): Group[] {
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
         { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
         { title: "Systemstatus", icon: Activity, description: "Edge functions, database og integrationer." },
+        { title: "Timan Messe", icon: QrCode, to: "/portal/backend/messe", description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
       ],
     },
 
