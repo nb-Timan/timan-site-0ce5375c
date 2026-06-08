@@ -95,7 +95,7 @@ export default function Timan2620Viewer() {
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 leading-tight">
               Basismaskine
             </div>
-            <div className="flex flex-col items-start gap-1.5" role="radiogroup" aria-label="Basismaskine">
+            <div className="inline-flex flex-col items-stretch gap-1.5" role="radiogroup" aria-label="Basismaskine">
               {TIMAN_2620_BASE_OPTIONS.map(o => {
                 const active = base === o.key;
                 return (
@@ -105,7 +105,7 @@ export default function Timan2620Viewer() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => setBase(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
@@ -123,7 +123,7 @@ export default function Timan2620Viewer() {
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 leading-tight">
               Udstyr
             </div>
-            <div className="flex flex-col items-start gap-1.5" role="group" aria-label="Udstyr">
+            <div className="inline-flex flex-col items-stretch gap-1.5" role="group" aria-label="Udstyr">
               {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
                 const active = equipment.has(o.key);
                 return (
@@ -132,7 +132,7 @@ export default function Timan2620Viewer() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleEquipment(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
