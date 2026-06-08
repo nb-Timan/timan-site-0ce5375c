@@ -171,6 +171,17 @@ export function isExhibitionRole(role: PortalRole | null | undefined): boolean {
   return role === 'exhibition_user';
 }
 
+/**
+ * Phase 59 — Messe Portal users are real authenticated users
+ * (typically dealer_user) whose app_users.portal_variant is set to 'messe'.
+ * They are locked to the /messe layout and blocked from CRM/Backend/etc.
+ */
+export function isMesseVariantUser(
+  user: { portal_variant?: string | null } | null | undefined,
+): boolean {
+  return (user?.portal_variant || '').toLowerCase() === 'messe';
+}
+
 // ---------- Claims view variant ----------
 // Internal/admin view: Timan Backend, Timan Service, Timan Sælger
 // Dealer-side view:    Timan Importør, Timan Forhandler, Timan Service Partner, Dealer User (read-only)
