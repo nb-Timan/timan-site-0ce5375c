@@ -33,6 +33,7 @@ import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
 import { useSellerDirectory } from "@/lib/sellerDirectory";
+import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 
