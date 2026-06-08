@@ -8,7 +8,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { supabase } from '@/lib/supabase';
 
@@ -35,7 +35,8 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const realUser = useCachedRealBackendUser();
+  const cachedRealUser = useCachedRealBackendUser();
+  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
 
   if (loading) {
     return (

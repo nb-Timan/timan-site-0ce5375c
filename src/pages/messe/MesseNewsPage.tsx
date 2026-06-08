@@ -6,7 +6,7 @@ import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { useAppUser } from '@/context/AppUserContext';
 import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { supabase } from '@/lib/supabase';
@@ -28,8 +28,9 @@ const PLACEHOLDER: NewsPost[] = [
 export default function MesseNewsPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
-  const realUser = useCachedRealBackendUser();
-  const { setAppUser } = useAppUser();
+  const cachedRealUser = useCachedRealBackendUser();
+  const { appUser, setAppUser } = useAppUser();
+  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
   const navigate = useNavigate();
 
   useEffect(() => {
