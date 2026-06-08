@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Search, ExternalLink, X, MapPin, Home, Maximize2, HelpCircle, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook, Layers } from 'lucide-react';
+import { Search, ExternalLink, X, MapPin, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
@@ -855,6 +855,45 @@ export default function PartnerMapPage() {
   const resetView = () => goToView(EUROPE_VIEW);
   const worldView = () => { setSearch(''); goToView(WORLD_VIEW); };
 
+  // Fullscreen support for the map area
+  const mapWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenSupported = typeof document !== 'undefined' && (
+    document.fullscreenEnabled ||
+    // @ts-ignore - vendor prefix
+    document.webkitFullscreenEnabled
+  );
+  useEffect(() => {
+    const onChange = () => {
+      const el = document.fullscreenElement
+        // @ts-ignore - vendor prefix
+        || document.webkitFullscreenElement;
+      setIsFullscreen(!!el && el === mapWrapperRef.current);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange as EventListener);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange as EventListener);
+    };
+  }, []);
+  const toggleFullscreen = () => {
+    const el = mapWrapperRef.current;
+    if (!el) return;
+    const fsEl = document.fullscreenElement
+      // @ts-ignore - vendor prefix
+      || document.webkitFullscreenElement;
+    if (fsEl) {
+      (document.exitFullscreen
+        // @ts-ignore - vendor prefix
+        || document.webkitExitFullscreen)?.call(document);
+    } else {
+      (el.requestFullscreen
+        // @ts-ignore - vendor prefix
+        || el.webkitRequestFullscreen)?.call(el);
+    }
+  };
+
   const focusPartner = (p: Partner) => {
     setSelectedId(p.id);
     if (p.coords) setFitTo([p.coords]);
@@ -1010,35 +1049,49 @@ export default function PartnerMapPage() {
                   </select>
                 </>
               )}
-              <div className="ml-auto flex items-center gap-1">
-                <button onClick={resetView} className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title={T.europeView[lang]}>
-                  <Home className="h-4 w-4" />
+              <div className="ml-auto flex flex-wrap items-center gap-1">
+                <button
+                  onClick={resetView}
+                  className="h-9 px-2.5 flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
+                  title={T.europeView[lang]}
+                >
+                  <span aria-hidden>🌍</span> Vis Europa
                 </button>
-                <button onClick={worldView} className="h-9 px-2.5 flex items-center gap-1.5 text-gray-600 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200" title={T.worldView[lang]}>
-                  <Globe className="h-4 w-4" /> <span className="hidden sm:inline">{T.worldView[lang]}</span>
+                <button
+                  onClick={worldView}
+                  className="h-9 px-2.5 flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
+                  title={T.worldView[lang]}
+                >
+                  <span aria-hidden>🌐</span> Global visning
                 </button>
                 <div className="relative h-9 flex items-center">
-                  <Layers className="h-4 w-4 text-gray-500 absolute left-2 pointer-events-none" />
                   <select
                     value={mapStyle}
                     onChange={(e) => setMapStyle(e.target.value as MapStyleId)}
-                    title="Kortlag"
-                    className="h-9 pl-7 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer"
+                    title="Korttype"
+                    className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer"
                   >
-                    <option value="standard">Standard</option>
-                    <option value="satellite">Satellit</option>
-                    <option value="terrain">Terræn</option>
-                    <option value="dark">Mørk</option>
+                    <option value="standard">Korttype: Standard</option>
+                    <option value="satellite">Korttype: Satellit</option>
+                    <option value="terrain">Korttype: Terræn</option>
+                    <option value="dark">Korttype: Mørk</option>
                   </select>
                 </div>
-                <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Fuldskærm"><Maximize2 className="h-4 w-4" /></button>
-                <button className="h-9 w-9 hidden md:flex items-center justify-center text-gray-500 hover:text-[#2d5a27] rounded-md hover:bg-gray-50" title="Hjælp"><HelpCircle className="h-4 w-4" /></button>
+                {fullscreenSupported && (
+                  <button
+                    onClick={toggleFullscreen}
+                    className="h-9 px-2.5 hidden md:flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
+                    title={isFullscreen ? 'Afslut fuld skærm' : 'Fuld skærm'}
+                  >
+                    <span aria-hidden>⛶</span> {isFullscreen ? 'Afslut fuld skærm' : 'Fuld skærm'}
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Map + results panel */}
-            <div className="relative bg-white rounded-b-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex h-[74vh] min-h-[520px] max-h-[760px]">
+            <div ref={mapWrapperRef} className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${isFullscreen ? 'rounded-none h-screen w-screen' : 'rounded-b-2xl'}`}>
+              <div className={isFullscreen ? 'flex h-screen' : 'flex h-[74vh] min-h-[520px] max-h-[760px]'}>
                 {/* Results sidebar */}
                 {resultsOpen && (
                   <div className="hidden md:flex flex-col w-72 shrink-0 border-r border-gray-100 bg-gray-50/60">
@@ -1186,7 +1239,7 @@ export default function PartnerMapPage() {
                       maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
-                    <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
+                    <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     {showPartnerLayer && (
                       <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
