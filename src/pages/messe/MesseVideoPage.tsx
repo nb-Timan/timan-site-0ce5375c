@@ -23,8 +23,11 @@ const T: Record<string, Record<Language, string>> = {
 const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service', 'salg'];
 
 export default function MesseVideoPage() {
-  const { language: lang } = useLanguage();
+  const { language: lang, setLanguage } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
+  const realUser = useCachedRealBackendUser();
+  const { setAppUser } = useAppUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!active) return;
