@@ -60,15 +60,27 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     };
   }, []);
 
-  // When entering via /messe, activate the exhibition session.
+  // When entering via /messe, activate the exhibition session — but ONLY
+  // for public visitors. Real Timan Backend / Timan Service users keep
+  // their authenticated session and just preview the Messe pages.
   useEffect(() => {
     if (!isEntry) return;
     if (!enabled) return;
+    if (realUser) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('[MesseHomePage] real backend user on /messe — skipping exhibition takeover', {
+          email: realUser.email,
+          role: realUser.portal_role,
+        });
+      }
+      return;
+    }
     enterExhibitionMode();
     if (!appUser || appUser.email !== EXHIBITION_SESSION_USER.email) {
       setAppUser(EXHIBITION_SESSION_USER);
     }
-  }, [isEntry, enabled, appUser, setAppUser]);
+  }, [isEntry, enabled, appUser, setAppUser, realUser]);
 
   if (!enabled) {
     return (
