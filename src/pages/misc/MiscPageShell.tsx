@@ -33,9 +33,10 @@ interface Props {
 }
 
 export default function MiscPageShell({ title, intro, backTo, changelogModule, children }: Props) {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser, setAppUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
+  const realUser = useCachedRealBackendUser();
 
   if (loading) {
     return (
