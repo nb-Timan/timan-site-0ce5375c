@@ -2701,7 +2701,11 @@ export default function ConfiguratorPage() {
                       {T('startNewConfig')}
                     </button>
                   </div>
-                  {state.flowType === 'order' && orderLocked ? (
+                  {isExhibition ? (
+                    <span className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold uppercase tracking-wide">
+                      Demo mode — ordrer er deaktiveret
+                    </span>
+                  ) : state.flowType === 'order' && orderLocked ? (
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
                         {T('orderSubmittedBadge')}
@@ -2733,7 +2737,12 @@ export default function ConfiguratorPage() {
                 {T('orderLockedReadonly')}
               </div>
             )}
-            {state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
+            {isExhibition && (
+              <div className="w-full mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold uppercase tracking-wide text-center">
+                Demo mode — Timan Messe
+              </div>
+            )}
+            {!isExhibition && state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
