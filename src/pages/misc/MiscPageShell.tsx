@@ -8,8 +8,6 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import BackendExitButton from '@/components/messe/BackendExitButton';
-import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
 import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { supabase } from '@/lib/supabase';
