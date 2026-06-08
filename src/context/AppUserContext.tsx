@@ -48,9 +48,42 @@ const AppUserContext = createContext<AppUserContextValue | undefined>(undefined)
 
 const STORAGE_KEY = 'timan.appUser';
 const SESSION_CACHE_VERSION = 2;
+const EXHIBITION_FLAG = 'timan.exhibitionMode';
+
+/** Synthetic user used for the public Timan Messe (exhibition) session. */
+export const EXHIBITION_SESSION_USER: SessionUser = {
+  email: 'messe@timan.local',
+  role: 'slutkunde',
+  partner_type: null,
+  approved: true,
+  is_active: true,
+  start_step: 1,
+  max_step: 4,
+  can_view_prices: true,
+  can_submit_order: false,
+  can_edit_discount: false,
+  can_switch_customer_mode: false,
+  display_name: 'Timan Messe',
+  portal_role: 'exhibition_user',
+  preferred_language: null,
+  preferred_currency: null,
+  company_dealer: null,
+  module_access: [],
+  allowed_areas: [],
+  allowed_modules: [],
+  status: 'exhibition',
+  dealer_number: null,
+  permissions: null,
+  quick_actions: [],
+};
+
+function isExhibitionFlagSet(): boolean {
+  try { return localStorage.getItem(EXHIBITION_FLAG) === '1'; } catch { return false; }
+}
 
 function loadFromStorage(): SessionUser | null {
   try {
+    if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as SessionUser;
