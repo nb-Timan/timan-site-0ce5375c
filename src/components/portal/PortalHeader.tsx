@@ -9,7 +9,6 @@ import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
 import {
   canSwitchMode,
   getActiveMode,
-  setActiveMode,
   SELLER_VIEWS,
   ROLE_PREVIEWS,
   type ActiveMode,
