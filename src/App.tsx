@@ -89,6 +89,13 @@ import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
 import BackendDataIntegrationsPage from "./pages/backend/BackendDataIntegrationsPage";
 import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
 import BackendPartnerRelationsPage from "./pages/backend/BackendPartnerRelationsPage";
+import BackendMesseSettingsPage from "./pages/backend/BackendMesseSettingsPage";
+
+import MesseHomePage from "./pages/messe/MesseHomePage";
+import MesseVideoPage from "./pages/messe/MesseVideoPage";
+import MesseNewsPage from "./pages/messe/MesseNewsPage";
+import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
+import ExhibitionGuard from "./components/messe/ExhibitionGuard";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
