@@ -218,6 +218,8 @@ export default function ServiceMaintenancePage() {
   const kitTotal = selectedStep?.stepTotal ?? 0;
   const grandTotal = kitTotal + extraTotal;
 
+  const { scope: teknikScope } = useTeknikScope();
+
   const reload = useMemo(() => async () => {
     try {
       const m = await listServiceMachines({
@@ -225,15 +227,23 @@ export default function ServiceMaintenancePage() {
         machineType: fType || null,
         search: fSerial || null,
       });
-      setMachines(m);
+      const mScoped = applyScopeFilter(teknikScope, m, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      }));
+      setMachines(mScoped);
       const r = await listServiceRegistrations({
         dealerNumber: isBackend ? (fDealer || undefined) : dealerNumber ?? undefined,
       });
-      setRegistrations(r);
+      const rScoped = applyScopeFilter(teknikScope, r, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      }));
+      setRegistrations(rScoped);
     } catch (e) {
       console.error('[service-maintenance] load failed', e);
     }
-  }, [isBackend, dealerNumber, fDealer, fType, fSerial]);
+  }, [isBackend, dealerNumber, fDealer, fType, fSerial, teknikScope]);
 
   useEffect(() => { if (appUser) reload(); }, [appUser, reload]);
 
