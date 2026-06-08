@@ -5,7 +5,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import BackendExitButton from '@/components/messe/BackendExitButton';
 import timanLogo from '@/assets/timan-logo.png';
+
 
 const T: Record<string, Record<Language, string>> = {
   back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
