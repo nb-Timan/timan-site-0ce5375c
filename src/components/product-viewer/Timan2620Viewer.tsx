@@ -227,8 +227,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
-      // frame 2 intentionally omitted — DS-250 cannot be reached cleanly
-      // on the rear/mirrored view without the connector crossing the body.
+      // frame 2: anchor on the DS-250 spreader (rear of machine = LEFT
+      // side in this mirrored view), bubble pushed up to the top-left
+      // corner — connector stays in empty sky, never crosses the body.
+      { anchor: { x: 22, y: 40 }, callout: { cx: 4,  cy: 18 }, frame: 2 },
     ],
   },
 };
