@@ -605,9 +605,9 @@ export default function MachineSearchPage() {
           };
 
           const healthMeta = (h: string) => {
-            if (h === "critical") return { chip: "bg-red-100 text-red-700", border: "border-l-red-500", label: "Critical" };
-            if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: "Needs Attention" };
-            return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: "Healthy" };
+            if (h === "critical") return { chip: "bg-red-100 text-red-700", border: "border-l-red-500", label: T.critical[lang], dot: "bg-red-500", text: "text-red-600" };
+            if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: T.needs_attention[lang], dot: "bg-amber-500", text: "text-amber-600" };
+            return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: T.healthy[lang], dot: "bg-emerald-500", text: "text-emerald-600" };
           };
 
           return (
