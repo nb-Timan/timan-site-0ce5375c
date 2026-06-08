@@ -1143,8 +1143,8 @@ export async function loadMachineJournal(
     {
       key: "seller",
       label: "Timan sælger",
-      value: machine?.seller_initials || machine?.seller_email || "—",
-      tone: (machine?.seller_initials || machine?.seller_email) ? "green" : "yellow",
+      value: effectiveSellerLabel || "—",
+      tone: effectiveSellerLabel ? "green" : "yellow",
     },
   ];
 
