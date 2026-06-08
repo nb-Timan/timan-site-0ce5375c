@@ -1261,7 +1261,7 @@ export default function PartnerMapPage() {
                             // @ts-ignore - vendor prefix
                             || document.webkitExitFullscreen)?.call(document);
                         }}
-                        className="bg-white rounded-md shadow-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1"
+                        className="bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 text-[11px] font-bold tracking-wider text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1.5"
                         title="Afslut fuld skærm"
                       >
                         <span aria-hidden>↙</span> Afslut fuld skærm
