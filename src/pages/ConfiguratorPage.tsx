@@ -3045,7 +3045,7 @@ export default function ConfiguratorPage() {
                     )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
-                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(calcResult.currentPrice, lang)}</span>
+                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(displayCalc!.currentPrice, lang)}</span>
                     </div>
                   </div>
                 )}
