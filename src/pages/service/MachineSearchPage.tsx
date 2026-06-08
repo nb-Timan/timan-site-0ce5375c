@@ -270,6 +270,7 @@ export default function MachineSearchPage() {
   const [overviewPage, setOverviewPage] = useState(1);
   const PAGE_SIZE_OPTIONS: Array<number | "all"> = [50, 100, 200, 300, 400, "all"];
   const [pageSize, setPageSize] = useState<number | "all">(50);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'needs_attention' | 'critical'>('all');
 
   useEffect(() => {
     if (!appUser) return;
@@ -592,12 +593,24 @@ export default function MachineSearchPage() {
           const healthyCount = overview.filter(r => r.health === "healthy").length;
           const attentionCount = overview.filter(r => r.health === "needs_attention").length;
           const criticalCount = overview.filter(r => r.health === "critical").length;
-          const effectivePageSize = pageSize === "all" ? Math.max(1, totalMachines) : pageSize;
-          const totalPages = Math.max(1, Math.ceil(totalMachines / effectivePageSize));
+
+          const q = query.trim().toLowerCase();
+          const filteredOverview = overview.filter(row => {
+            const matchesStatus = statusFilter === 'all' || row.health === statusFilter;
+            if (!q) return matchesStatus;
+            const s = row.serial.toLowerCase();
+            const m = (row.machineModel || '').toLowerCase();
+            const d = (row.dealerName || '').toLowerCase();
+            const w = (row.warrantyId || '').toLowerCase();
+            return matchesStatus && (s.includes(q) || m.includes(q) || d.includes(q) || w.includes(q));
+          });
+          const displayedTotal = filteredOverview.length;
+          const effectivePageSize = pageSize === "all" ? Math.max(1, displayedTotal) : pageSize;
+          const totalPages = Math.max(1, Math.ceil(displayedTotal / effectivePageSize));
           const page = Math.min(overviewPage, totalPages);
           const sliceStart = (page - 1) * effectivePageSize;
-          const sliceEnd = Math.min(totalMachines, sliceStart + effectivePageSize);
-          const pageRows = overview.slice(sliceStart, sliceEnd);
+          const sliceEnd = Math.min(displayedTotal, sliceStart + effectivePageSize);
+          const pageRows = filteredOverview.slice(sliceStart, sliceEnd);
 
           const sourceLabels: Record<string, string> = {
             warranty: "Warranty", service: "Service", ticket: "Ticket",
@@ -615,22 +628,50 @@ export default function MachineSearchPage() {
               {/* KPI bar */}
               {!overviewLoading && totalMachines > 0 && (
                 <div className="px-4 py-3 border-b border-slate-200 bg-white grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="rounded-lg border border-slate-200 px-3 py-2">
+                  <button
+                    onClick={() => { setStatusFilter('all'); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 cursor-pointer transition-shadow hover:shadow-sm ${
+                      statusFilter === 'all'
+                        ? 'ring-2 ring-slate-400 bg-slate-50 border-slate-300'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-slate-500">Maskiner totalt</div>
                     <div className="text-lg font-bold text-slate-900 leading-tight">{totalMachines}</div>
-                  </div>
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('healthy'); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 cursor-pointer transition-shadow hover:shadow-sm ${
+                      statusFilter === 'healthy'
+                        ? 'ring-2 ring-emerald-500 bg-emerald-100 border-emerald-300'
+                        : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100'
+                    }`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-emerald-700">Healthy</div>
                     <div className="text-lg font-bold text-emerald-800 leading-tight">{healthyCount}</div>
-                  </div>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('needs_attention'); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 cursor-pointer transition-shadow hover:shadow-sm ${
+                      statusFilter === 'needs_attention'
+                        ? 'ring-2 ring-amber-500 bg-amber-100 border-amber-300'
+                        : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
+                    }`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-amber-700">Needs Attention</div>
                     <div className="text-lg font-bold text-amber-800 leading-tight">{attentionCount}</div>
-                  </div>
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  </button>
+                  <button
+                    onClick={() => { setStatusFilter('critical'); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 cursor-pointer transition-shadow hover:shadow-sm ${
+                      statusFilter === 'critical'
+                        ? 'ring-2 ring-red-500 bg-red-100 border-red-300'
+                        : 'border-red-200 bg-red-50 hover:bg-red-100'
+                    }`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-red-700">Critical</div>
                     <div className="text-lg font-bold text-red-800 leading-tight">{criticalCount}</div>
-                  </div>
+                  </button>
                 </div>
               )}
 
@@ -639,11 +680,11 @@ export default function MachineSearchPage() {
                 <div className="text-xs font-semibold text-slate-700">
                   {overviewLoading
                     ? "Indlæser maskiner…"
-                    : totalMachines === 0
+                    : displayedTotal === 0
                       ? "0 maskiner"
-                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"} · ● ${T.legend_green[lang]} = ${T.healthy[lang]} · ● ${T.legend_yellow[lang]} = ${T.needs_attention[lang]} · ● ${T.legend_red[lang]} = ${T.critical[lang]}`}
+                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${displayedTotal} ${displayedTotal === 1 ? "maskine" : "maskiner"}${statusFilter !== 'all' ? ` · Filter: ${healthMeta(statusFilter).label}` : ''} · ● ${T.legend_green[lang]} = ${T.healthy[lang]} · ● ${T.legend_yellow[lang]} = ${T.needs_attention[lang]} · ● ${T.legend_red[lang]} = ${T.critical[lang]}`}
                 </div>
-                {!overviewLoading && totalMachines > 0 && (
+                {!overviewLoading && displayedTotal > 0 && (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                     <label className="flex items-center gap-1">
                       <span className="text-slate-500">Pr. side:</span>
@@ -690,8 +731,8 @@ export default function MachineSearchPage() {
                 <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
                 </div>
-              ) : totalMachines === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-500">Ingen maskiner i din adgang.</div>
+              ) : displayedTotal === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500">{totalMachines === 0 ? "Ingen maskiner i din adgang." : "Ingen maskiner matcher det aktuelle filter."}</div>
               ) : (
                 <>
                   {/* Desktop / wide: compact table */}
