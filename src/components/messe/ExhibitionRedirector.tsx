@@ -17,6 +17,11 @@ export function MesseRouteGuard({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { redirectTarget } = useMesseMode(appUser, location.pathname);
 
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug('[messe] MesseRouteGuard render', { path: location.pathname, redirectTarget });
+  }
+
   if (redirectTarget) {
     if (redirectTarget.startsWith('/portal')) leaveExhibitionMode();
     return <Navigate to={redirectTarget} replace />;
@@ -24,48 +29,48 @@ export function MesseRouteGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * Global redirector mounted in App.
- *   1. Messe-variant users are locked to /messe — bounce them back from
- *      every other portal route.
- *   2. Public exhibition_user (legacy) → trapped on /messe.
- *   3. Backend/service users with a stale exhibition flag outside /messe
- *      → clear the flag.
- */
 export default function ExhibitionRedirector() {
   const { appUser } = useAppUser();
   const location = useLocation();
   const navigate = useNavigate();
-  const { realUser, appUserIsMesseVariant, redirectTarget } = useMesseMode(appUser, location.pathname);
+  const { realUser, appUserIsMesseVariant, isExhibitionPreview } = useMesseMode(appUser, location.pathname);
   const role = derivePortalRole(appUser);
   const isExhibition = isExhibitionRole(role);
+  const onMesse = location.pathname.startsWith('/messe');
 
   useEffect(() => {
-    // Messe-variant authenticated users: lock to /messe.
-    if (appUserIsMesseVariant && !location.pathname.startsWith('/messe')) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[messe] ExhibitionRedirector effect', {
+        path: location.pathname,
+        onMesse,
+        appUserIsMesseVariant,
+        isExhibitionPreview,
+        hasRealUser: !!realUser,
+        isExhibition,
+      });
+    }
+
+    // 1. Messe-variant authenticated users: lock to /messe.
+    if (appUserIsMesseVariant && !onMesse) {
       if (location.pathname === '/update-password' || location.pathname === '/reset-password') return;
       navigate('/messe', { replace: true });
       return;
     }
 
-    // Real backend/service user → ensure no stale exhibition flag lingers
-    // when they navigate away from /messe.
-    if (realUser) {
-      if (!location.pathname.startsWith('/messe')) {
-        leaveExhibitionMode();
-      } else if (redirectTarget) {
-        navigate(redirectTarget, { replace: true });
-      }
+    // 2. Backend/service real user navigated off /messe — clear stale
+    //    exhibition flag ONCE (leaveExhibitionMode is now a no-op when the
+    //    flag isn't set, so this can't loop).
+    if (realUser && !onMesse) {
+      leaveExhibitionMode();
       return;
     }
 
-    // Legacy synthetic exhibition session → bounce back to /messe.
-    if (!isExhibition) return;
-    const p = location.pathname;
-    if (p.startsWith('/messe')) return;
-    if (p === '/update-password' || p === '/reset-password') return;
+    // 3. Legacy synthetic exhibition session → bounce back to /messe.
+    if (!isExhibition || onMesse) return;
+    if (location.pathname === '/update-password' || location.pathname === '/reset-password') return;
     navigate('/messe', { replace: true });
-  }, [realUser, appUserIsMesseVariant, redirectTarget, isExhibition, location.pathname, navigate]);
+  }, [realUser, appUserIsMesseVariant, isExhibitionPreview, isExhibition, onMesse, location.pathname, navigate]);
 
   return null;
 }
