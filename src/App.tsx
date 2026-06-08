@@ -113,11 +113,18 @@ const App = () => (
         <AppUserProvider>
           <LanguageProvider>
             <Routes>
+              {/* Public Timan Messe / exhibition routes (no auth required) */}
+              <Route path="/messe" element={<MesseHomePage isEntry />} />
+              <Route path="/messe/konfigurator" element={<MesseConfiguratorPage />} />
+              <Route path="/messe/partner-map" element={<MessePartnerMapPage />} />
+              <Route path="/messe/video" element={<MesseVideoPage />} />
+              <Route path="/messe/nyt" element={<MesseNewsPage />} />
+
               {/* Portal is the new landing page after login */}
-              <Route path="/" element={<Navigate to="/portal" replace />} />
+              <Route path="/" element={<ExhibitionGuard><Navigate to="/portal" replace /></ExhibitionGuard>} />
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
-              <Route path="/portal" element={<PortalPage />} />
+              <Route path="/portal" element={<ExhibitionGuard><PortalPage /></ExhibitionGuard>} />
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
