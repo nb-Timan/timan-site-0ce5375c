@@ -65,13 +65,22 @@ export const TIMAN_2620_INCOMPATIBLE: Array<[Timan2620Equipment, Timan2620Equipm
 
 const BASE = '/images/timan-2620';
 
-/** Helper: build `<folder>/01.jpg .. <folder>/NN.jpg`. */
-function seq(folder: string, count: number, ext: 'jpg' | 'png' | 'webp' = 'jpg'): string[] {
-  return Array.from(
-    { length: count },
-    (_, i) => `${BASE}/${folder}/${String(i + 1).padStart(2, '0')}.${ext}`,
-  );
-}
+/**
+ * Explicit mapping from uploaded source photos.
+ * All 8 reference images currently live in `public/images/timan-2620/standard/`
+ * as NN.jpg (01..08). Each combination below references those files directly
+ * — no path guessing, no inferred folders.
+ *
+ *   Image 1 → Kabine + Saltspreder
+ *   Image 2 → Standard + Saltspreder
+ *   Image 3 → Standard
+ *   Image 4 → Standard + V-plov
+ *   Image 5 → Standard + Fuldt vintersæt
+ *   Image 6 → Kabine + Fuldt vintersæt
+ *   Image 7 → Kabine
+ *   Image 8 → Kabine + Fuldt vintersæt (alternate view)
+ */
+const IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
 
 /**
  * Image sequences and hotspots for every base + equipment combination.
@@ -79,17 +88,25 @@ function seq(folder: string, count: number, ext: 'jpg' | 'png' | 'webp' = 'jpg')
  * viewer shows a friendly placeholder instead of a broken image.
  */
 export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
-  standard: { imageSequence: seq('standard', 8), hotspots: [] },
-  standard_v_plow: { imageSequence: [], hotspots: [] },
-  standard_salt_spreader: { imageSequence: [], hotspots: [] },
-  standard_brush: { imageSequence: [], hotspots: [] },
-  standard_full_winter_setup: { imageSequence: [], hotspots: [] },
+  // Base machine only
+  standard: { imageSequence: [IMG(3)], hotspots: [] },
+  cab: { imageSequence: [IMG(7)], hotspots: [] },
 
-  cab: { imageSequence: [], hotspots: [] },
+  // Saltspreder only
+  standard_salt_spreader: { imageSequence: [IMG(2)], hotspots: [] },
+  cab_salt_spreader: { imageSequence: [IMG(1)], hotspots: [] },
+
+  // V-plov only
+  standard_v_plow: { imageSequence: [IMG(4)], hotspots: [] },
   cab_v_plow: { imageSequence: [], hotspots: [] },
-  cab_salt_spreader: { imageSequence: [], hotspots: [] },
+
+  // Fuldt vintersæt (V-plov + Saltspreder)
+  standard_full_winter_setup: { imageSequence: [IMG(5)], hotspots: [] },
+  cab_full_winter_setup: { imageSequence: [IMG(6), IMG(8)], hotspots: [] },
+
+  // Kost — not photographed yet
+  standard_brush: { imageSequence: [], hotspots: [] },
   cab_brush: { imageSequence: [], hotspots: [] },
-  cab_full_winter_setup: { imageSequence: [], hotspots: [] },
 };
 
 /**
