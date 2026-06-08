@@ -677,12 +677,24 @@ export default function MachineSearchPage() {
 
               {/* Header / pagination */}
               <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs font-semibold text-slate-700">
-                  {overviewLoading
-                    ? "Indlæser maskiner…"
-                    : displayedTotal === 0
-                      ? "0 maskiner"
-                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${displayedTotal} ${displayedTotal === 1 ? "maskine" : "maskiner"}${statusFilter !== 'all' ? ` · Filter: ${healthMeta(statusFilter).label}` : ''} · ● ${T.legend_green[lang]} = ${T.healthy[lang]} · ● ${T.legend_yellow[lang]} = ${T.needs_attention[lang]} · ● ${T.legend_red[lang]} = ${T.critical[lang]}`}
+                <div className="text-xs font-semibold text-slate-700 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {overviewLoading ? (
+                    <span>Indlæser maskiner…</span>
+                  ) : displayedTotal === 0 ? (
+                    <span>0 maskiner</span>
+                  ) : (
+                    <>
+                      <span>
+                        {`Viser ${sliceStart + 1}–${sliceEnd} af ${displayedTotal} ${displayedTotal === 1 ? "maskine" : "maskiner"}${statusFilter !== 'all' ? ` · Filter: ${healthMeta(statusFilter).label}` : ''}`}
+                      </span>
+                      <span className="text-slate-400">·</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />{T.healthy[lang]}</span>
+                      <span className="text-slate-400">·</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-amber-500" />{T.needs_attention[lang]}</span>
+                      <span className="text-slate-400">·</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-500" />{T.critical[lang]}</span>
+                    </>
+                  )}
                 </div>
                 {!overviewLoading && displayedTotal > 0 && (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
