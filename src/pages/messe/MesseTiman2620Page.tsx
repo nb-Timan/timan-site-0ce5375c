@@ -98,6 +98,16 @@ export default function MesseTiman2620Page() {
                 <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
               </div>
               <Timan2620Viewer.Sidebar />
+
+              {/* Bottom-left back button */}
+              <button
+                type="button"
+                onClick={() => navigate('/messe')}
+                className="mt-6 inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                Til forsiden
+              </button>
             </div>
 
             {/* Right column: machine area + benefit bar aligned to machine width */}
