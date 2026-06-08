@@ -378,6 +378,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
         latestActivityDate: null, latestActivityLabel: null,
         sources: [], openTickets: 0, openClaims: 0, openTsb: 0,
         health: "healthy",
+        warrantyId: null, warrantyIdNumeric: null,
       };
       map.set(norm, row);
     }
