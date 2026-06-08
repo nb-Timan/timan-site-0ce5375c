@@ -432,6 +432,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
         ? null
         : [...draft.quick_actions].sort(),
     ],
+    ["portal_variant", (row.portal_variant as string | null) ?? 'standard', draft.portal_variant === 'messe' ? 'messe' : 'standard'],
   ];
   // Permissions: only compare keys we actually sent, since the DB row may
   // hold extra keys from older edits we don't want to overwrite logic on.
