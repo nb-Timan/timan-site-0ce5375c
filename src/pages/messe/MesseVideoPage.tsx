@@ -5,7 +5,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { MESSE_VIDEOS, MESSE_VIDEO_CATEGORY_LABEL, extractYouTubeId, youtubeThumbnail, type MesseVideo, type MesseVideoCategory } from '@/data/messeVideos';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import BackendExitButton from '@/components/messe/BackendExitButton';
 import timanLogo from '@/assets/timan-logo.png';
+
 
 const T: Record<string, Record<Language, string>> = {
   back:   { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
