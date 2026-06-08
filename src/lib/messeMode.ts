@@ -19,7 +19,6 @@
 import { useSyncExternalStore } from 'react';
 import {
   getActiveMode,
-  setActiveMode,
   type ActiveMode,
 } from './activeMode';
 import {
