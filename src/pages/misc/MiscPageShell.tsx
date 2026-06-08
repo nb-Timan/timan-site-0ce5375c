@@ -71,6 +71,7 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
                 </button>
               ))}
             </div>
+            <BackendRolePreviewSwitcher />
             <BackendExitButton />
           </div>
 
