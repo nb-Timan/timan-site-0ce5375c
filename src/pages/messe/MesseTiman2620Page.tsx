@@ -97,7 +97,7 @@ export default function MesseTiman2620Page() {
             <div className="flex-1 min-w-0">
               <Timan2620Viewer.Stage />
 
-              <section className="mt-5 bg-white rounded-2xl border border-slate-200 shadow-md px-5 py-4 lg:px-7 lg:py-5">
+              <section className="mt-8 pt-6 border-t border-slate-200">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
                   {benefits.map((b, i) => {
                     const Icon = b.icon;
