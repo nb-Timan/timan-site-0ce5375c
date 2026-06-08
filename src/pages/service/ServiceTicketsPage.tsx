@@ -210,6 +210,7 @@ export default function ServiceTicketsPage() {
   // Phase 51 — fælles dealer-scope helper. Eksterne roller låses automatisk
   // til egen forhandler. Interne Timan-roller kan fortsat vælge i dropdown.
   const dealerScope = useDealerScope();
+  const { scope: teknikScope } = useTeknikScope();
 
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +223,6 @@ export default function ServiceTicketsPage() {
     return null;
   }
 
-  const { scope: teknikScope } = useTeknikScope();
   const reload = async () => {
     setLoading(true);
     setLoadErr(null);
