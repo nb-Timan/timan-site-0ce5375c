@@ -175,9 +175,18 @@ export default function ConfiguratorPage() {
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: canApplyExtraDealerDiscount,
+    canSetDiscount: canApplyExtraDealerDiscount && activePortalRole !== 'dealer_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
+
+  // Dealer User pricing rule: see gross list price only. No automatic dealer
+  // discount, no quantity discount, no extra dealer discount, no demo discount.
+  // total incl. discount === gross subtotal. Discount rows are hidden in the
+  // price overview and in the generated PDF/email HTML.
+  const isDealerUserPricing = activePortalRole === 'dealer_user';
+  const displayCalc = calcResult && isDealerUserPricing
+    ? { ...calcResult, discountDetails: [], totalDiscount: 0, totalPct: 0, currentPrice: calcResult.subtotal }
+    : calcResult;
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
