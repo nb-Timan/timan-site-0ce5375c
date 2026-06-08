@@ -35,16 +35,20 @@ import type { SessionUser } from '@/context/AppUserContext';
 export type { ActiveMode };
 
 let version = 0;
+const listeners = new Set<() => void>();
+function bump() { version += 1; listeners.forEach((l) => l()); }
+let installed = false;
+function installGlobalListeners() {
+  if (installed) return;
+  installed = true;
+  window.addEventListener('storage', bump);
+  window.addEventListener('timan:active-mode-changed', bump);
+  window.addEventListener('timan:exhibition-mode-changed', bump);
+}
 function subscribe(cb: () => void) {
-  const h = () => { version += 1; cb(); };
-  window.addEventListener('storage', h);
-  window.addEventListener('timan:active-mode-changed', h);
-  window.addEventListener('timan:exhibition-mode-changed', h);
-  return () => {
-    window.removeEventListener('storage', h);
-    window.removeEventListener('timan:active-mode-changed', h);
-    window.removeEventListener('timan:exhibition-mode-changed', h);
-  };
+  installGlobalListeners();
+  listeners.add(cb);
+  return () => { listeners.delete(cb); };
 }
 
 export interface MesseModeState {
