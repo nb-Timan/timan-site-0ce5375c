@@ -9,8 +9,6 @@ import { Language } from '@/types/configurator';
 import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import BackendExitButton from '@/components/messe/BackendExitButton';
-import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { supabase } from '@/lib/supabase';
