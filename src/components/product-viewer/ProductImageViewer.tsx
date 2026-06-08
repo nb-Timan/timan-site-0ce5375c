@@ -255,23 +255,24 @@ export default function ProductImageViewer({
             const p = computeCalloutPosition(h);
             return (
               <div key={h.id} className="absolute inset-0 pointer-events-none z-[5]">
-                {/* Anchor dot on the machine */}
-                <span
-                  aria-hidden
-                  className="absolute h-3.5 w-3.5 rounded-full bg-emerald-600 border-2 border-white shadow"
-                  style={{ left: `${h.x}%`, top: `${h.y}%`, transform: 'translate(-50%, -50%)' }}
-                />
-                {/* Round callout card — clamped inside the canvas */}
+                {/* Green plus anchor marker on the machine */}
                 <button
                   type="button"
                   onClick={() => setActiveHotspot(h)}
-                  className="absolute pointer-events-auto flex flex-col items-center justify-center bg-white border-2 border-emerald-600 rounded-full shadow-md hover:shadow-lg hover:scale-[1.04] transition text-center h-[104px] w-[104px] p-2"
+                  className="absolute pointer-events-auto h-7 w-7 rounded-full bg-emerald-600 border-2 border-white shadow-md flex items-center justify-center text-white text-base font-bold leading-none hover:scale-110 transition"
+                  style={{ left: `${h.x}%`, top: `${h.y}%`, transform: 'translate(-50%, -50%)' }}
+                  aria-label={`${h.title}${h.subtitle ? ` – ${h.subtitle}` : ''}`}
+                >
+                  +
+                </button>
+                {/* Round callout bubble — outside the machine */}
+                <button
+                  type="button"
+                  onClick={() => setActiveHotspot(h)}
+                  className="absolute pointer-events-auto flex flex-col items-center justify-center bg-white border border-slate-200 rounded-full shadow-md hover:shadow-lg hover:scale-[1.04] transition text-center h-[104px] w-[104px] p-2"
                   style={{ left: `${p.cx}%`, top: `${p.cy}%`, transform: 'translate(-50%, -50%)' }}
                   aria-label={`${h.title}${h.subtitle ? ` – ${h.subtitle}` : ''}`}
                 >
-                  <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-bold leading-none shadow">
-                    +
-                  </span>
                   <span className="text-[12px] font-bold text-slate-900 leading-tight">{h.title}</span>
                   {h.subtitle && (
                     <span className="text-[10px] text-slate-600 leading-tight mt-0.5 px-1">{h.subtitle}</span>
