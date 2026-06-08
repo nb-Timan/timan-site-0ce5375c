@@ -1091,7 +1091,7 @@ export default function PartnerMapPage() {
 
             {/* Map + results panel */}
             <div ref={mapWrapperRef} className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${isFullscreen ? 'rounded-none h-screen w-screen' : 'rounded-b-2xl'}`}>
-              <div className="flex h-[74vh] min-h-[520px] max-h-[760px]">
+              <div className={isFullscreen ? 'flex h-screen' : 'flex h-[74vh] min-h-[520px] max-h-[760px]'}>
                 {/* Results sidebar */}
                 {resultsOpen && (
                   <div className="hidden md:flex flex-col w-72 shrink-0 border-r border-gray-100 bg-gray-50/60">
