@@ -9,11 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   daysUntil, deadlineLabel, formatDate, getProcessStatus, PROCESS_STATUS_LABEL,
   PROCESS_STATUS_OPTIONS, setTsbProcessStatus, totalMachineCount, useTsbs,
+  getDealer,
   type ProcessStatus, type Tsb,
 } from "@/lib/tsb-store";
 import { canCreateTsb } from "@/components/tsb/TsbAccessGuard";
 import { useAppUser } from "@/context/AppUserContext";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { useTeknikScope } from "@/lib/useTeknikScope";
+import { dealerScopeAllows } from "@/lib/machineJournalService";
 
 type AdminTab = "all" | "aktive" | "kladder" | "afventer" | "near" | "overdue" | "lukkede";
 
