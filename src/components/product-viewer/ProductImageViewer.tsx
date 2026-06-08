@@ -200,7 +200,7 @@ export default function ProductImageViewer({
         {hasImage && frameHotspots.map(h => {
           if (h.variant === 'callout') {
             const placement = h.calloutPlacement ?? 'right';
-            const GAP = 72; // longer connector — keeps callouts off the machine
+            const GAP = 220; // long brochure-style connector — keeps callouts well off the machine
             const cardStyle: CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
             const cardTransform =
               placement === 'right' ? `translate(${GAP}px, -50%)`
