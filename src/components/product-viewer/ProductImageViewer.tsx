@@ -160,14 +160,16 @@ export default function ProductImageViewer({
   }
 
   const currentSrc = hasImage ? (config.imageSequence[frame] || config.imageSequence[0]) : '';
-  const frameHotspots = config.hotspots.filter(h => h.frame === frame + 1);
+  const frameHotspots = config.hotspots.filter(h => h.frame === 0 || h.frame === frame + 1);
+
+  const hasCalloutHotspot = activeHotspot?.variant === 'callout';
 
   return (
     <div className={`w-full select-none ${className ?? ''}`}>
       {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[70vh] lg:max-h-[850px]"
+        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[65vh] lg:max-h-[780px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -192,18 +194,72 @@ export default function ProductImageViewer({
         )}
 
         {/* Hotspots */}
-        {hasImage && frameHotspots.map(h => (
-          <button
-            key={h.id}
-            type="button"
-            onClick={() => setActiveHotspot(h)}
-            className="absolute -translate-x-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-emerald-600 border-2 border-white shadow-md hover:scale-110 transition"
-            style={{ left: `${h.x}%`, top: `${h.y}%` }}
-            aria-label={h.title}
-          >
-            <span className="block h-full w-full rounded-full animate-ping bg-emerald-400/60" />
-          </button>
-        ))}
+        {hasImage && frameHotspots.map(h => {
+          if (h.variant === 'callout') {
+            const placement = h.calloutPlacement ?? 'right';
+            // Card offset from the anchor point. Connector line spans the gap.
+            const cardStyle: React.CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
+            const cardTransform =
+              placement === 'right' ? 'translate(24px, -50%)'
+              : placement === 'left' ? 'translate(calc(-100% - 24px), -50%)'
+              : placement === 'top' ? 'translate(-50%, calc(-100% - 24px))'
+              : 'translate(-50%, 24px)';
+            return (
+              <div key={h.id} className="absolute z-[5]" style={cardStyle}>
+                {/* Connector line */}
+                <span
+                  aria-hidden
+                  className="absolute bg-emerald-600/70"
+                  style={
+                    placement === 'right'
+                      ? { left: 0, top: '50%', width: 24, height: 2, transform: 'translateY(-50%)' }
+                      : placement === 'left'
+                      ? { right: 0, top: '50%', width: 24, height: 2, transform: 'translateY(-50%)' }
+                      : placement === 'top'
+                      ? { left: '50%', bottom: 0, width: 2, height: 24, transform: 'translateX(-50%)' }
+                      : { left: '50%', top: 0, width: 2, height: 24, transform: 'translateX(-50%)' }
+                  }
+                />
+                {/* Anchor dot */}
+                <span
+                  aria-hidden
+                  className="absolute h-3 w-3 rounded-full bg-emerald-600 border-2 border-white shadow"
+                  style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
+                />
+                {/* Callout card */}
+                <button
+                  type="button"
+                  onClick={() => setActiveHotspot(h)}
+                  className="flex items-center gap-2 bg-white border-2 border-emerald-600 rounded-full pl-1.5 pr-4 py-1.5 shadow-md hover:shadow-lg hover:scale-[1.03] transition text-left min-h-[56px] min-w-[160px] max-w-[240px]"
+                  style={{ transform: cardTransform }}
+                  aria-label={`${h.title}${h.subtitle ? ` – ${h.subtitle}` : ''}`}
+                >
+                  <span className="flex-shrink-0 h-9 w-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold leading-none">
+                    +
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-[13px] font-bold text-slate-900">{h.title}</span>
+                    {h.subtitle && (
+                      <span className="text-[11px] text-slate-600">{h.subtitle}</span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            );
+          }
+          return (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => setActiveHotspot(h)}
+              className="absolute -translate-x-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-emerald-600 border-2 border-white shadow-md hover:scale-110 transition"
+              style={{ left: `${h.x}%`, top: `${h.y}%` }}
+              aria-label={h.title}
+            >
+              <span className="block h-full w-full rounded-full animate-ping bg-emerald-400/60" />
+            </button>
+          );
+        })}
 
         {/* Prev/next arrows */}
         {canRotate && (
@@ -240,8 +296,8 @@ export default function ProductImageViewer({
           </div>
         )}
 
-        {/* Hotspot popover */}
-        {activeHotspot && (
+        {/* Inline (dot-style) hotspot popover */}
+        {activeHotspot && !hasCalloutHotspot && (
           <div
             className="absolute z-10 max-w-xs bg-white border border-slate-200 rounded-xl shadow-lg p-3"
             style={{
@@ -275,6 +331,81 @@ export default function ProductImageViewer({
           </div>
         )}
       </div>
+
+      {/* Callout hotspot detail modal */}
+      {activeHotspot && hasCalloutHotspot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="viewer-hotspot-title"
+          onClick={() => setActiveHotspot(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {activeHotspot.imageUrl ? (
+              <img
+                src={activeHotspot.imageUrl}
+                alt=""
+                className="w-full h-48 object-contain bg-slate-50"
+              />
+            ) : (
+              <div className="w-full h-48 bg-slate-100 flex items-center justify-center text-slate-400">
+                <ImageOff className="h-10 w-10" />
+              </div>
+            )}
+            <div className="p-5">
+              <h3 id="viewer-hotspot-title" className="text-xl font-bold text-slate-900">
+                {activeHotspot.title}
+              </h3>
+              {activeHotspot.subtitle && (
+                <p className="text-sm text-emerald-700 font-semibold mt-0.5">
+                  {activeHotspot.subtitle}
+                </p>
+              )}
+              {activeHotspot.description && (
+                <p className="text-sm text-slate-600 mt-2">{activeHotspot.description}</p>
+              )}
+              {activeHotspot.bullets && activeHotspot.bullets.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {activeHotspot.bullets.map((b, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-slate-700">
+                      <span className="text-emerald-600 font-bold leading-tight">•</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {activeHotspot.technical && activeHotspot.technical.length > 0 && (
+                <div className="mt-4 border-t border-slate-200 pt-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                    Tekniske data
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                    {activeHotspot.technical.map((t, i) => (
+                      <div key={i} className="contents">
+                        <dt className="text-slate-500">{t.label}</dt>
+                        <dd className="text-slate-900 font-medium text-right">{t.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveHotspot(null)}
+                  className="px-4 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold"
+                >
+                  Tilbage til maskinen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       {hasImage && (
