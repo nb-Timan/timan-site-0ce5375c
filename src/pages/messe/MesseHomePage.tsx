@@ -114,9 +114,10 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             }}
           />
           <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2 flex-wrap">
               <DemoModeBadge />
               <span className="opacity-80">— Du forhåndsviser Timan Messe</span>
+              <BackendExitButton className="ml-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-900 hover:text-emerald-950 bg-white border border-emerald-300 hover:border-emerald-400 rounded-md px-2 py-1 shadow-sm" />
             </div>
           </div>
         </>
