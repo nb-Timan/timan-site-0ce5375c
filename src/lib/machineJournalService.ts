@@ -1013,26 +1013,42 @@ export async function loadMachineJournal(
     ?? firstWarranty?.dealerAccountId
     ?? null;
 
-  // ---------- Importer + service partner enrichment ----------
+  // ---------- Importer + service partner + assigned seller enrichment ----------
   // Best-effort, additive. Failures are tolerated and just leave the fields null.
   let importerName: string | null = null;
   let servicePartnerName: string | null = null;
+  let dealerAssignedSellerInitials: string | null = null;
+  let dealerAssignedSellerName: string | null = null;
+  let dealerAssignedSellerEmail: string | null = null;
   try {
-    let dealerRow: { id: string; account_number: string | null; parent_account_number: string | null } | null = null;
+    let dealerRow: {
+      id: string;
+      account_number: string | null;
+      parent_account_number: string | null;
+      assigned_seller_initials: string | null;
+      assigned_seller_name: string | null;
+      assigned_seller_email: string | null;
+    } | null = null;
+    const dealerSelect = "id, account_number, parent_account_number, assigned_seller_initials, assigned_seller_name, assigned_seller_email";
     if (dealerAccountId) {
       const r = await supabase
         .from("dealer_accounts")
-        .select("id, account_number, parent_account_number")
+        .select(dealerSelect)
         .eq("id", dealerAccountId)
         .maybeSingle();
       dealerRow = (r.data as typeof dealerRow) ?? null;
     } else if (dealerNumber) {
       const r = await supabase
         .from("dealer_accounts")
-        .select("id, account_number, parent_account_number")
+        .select(dealerSelect)
         .eq("account_number", dealerNumber)
         .maybeSingle();
       dealerRow = (r.data as typeof dealerRow) ?? null;
+    }
+    if (dealerRow) {
+      dealerAssignedSellerInitials = dealerRow.assigned_seller_initials;
+      dealerAssignedSellerName = dealerRow.assigned_seller_name;
+      dealerAssignedSellerEmail = dealerRow.assigned_seller_email;
     }
     if (dealerRow?.parent_account_number) {
       const r = await supabase
@@ -1065,6 +1081,13 @@ export async function loadMachineJournal(
   } catch (e) {
     console.warn("[machineJournal] importer/service-partner lookup failed (tolerated)", e);
   }
+
+  // Effective seller — prefer machine row, then warranty registration's
+  // dealer assigned seller (dealer_accounts.assigned_seller_*).
+  const effectiveSellerInitials = machine?.seller_initials || dealerAssignedSellerInitials || null;
+  const effectiveSellerName = dealerAssignedSellerName || null;
+  const effectiveSellerEmail = machine?.seller_email || dealerAssignedSellerEmail || null;
+  const effectiveSellerLabel = effectiveSellerInitials || effectiveSellerName || effectiveSellerEmail || null;
 
   // ---------- Health / status calculation ----------
   // Tones:
