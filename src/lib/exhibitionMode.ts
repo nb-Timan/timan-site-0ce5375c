@@ -19,6 +19,8 @@ export function isExhibitionActive(): boolean {
 
 export function enterExhibitionMode(): void {
   try {
+    const was = localStorage.getItem(EXHIBITION_FLAG);
+    if (was === '1') return; // no-op: avoid event storms / render loops
     localStorage.setItem(EXHIBITION_FLAG, '1');
     window.dispatchEvent(new CustomEvent('timan:exhibition-mode-changed'));
   } catch { /* ignore */ }
@@ -26,6 +28,8 @@ export function enterExhibitionMode(): void {
 
 export function leaveExhibitionMode(): void {
   try {
+    const was = localStorage.getItem(EXHIBITION_FLAG);
+    if (was === null) return; // no-op: avoid event storms / render loops
     localStorage.removeItem(EXHIBITION_FLAG);
     window.dispatchEvent(new CustomEvent('timan:exhibition-mode-changed'));
   } catch { /* ignore */ }
