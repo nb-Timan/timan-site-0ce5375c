@@ -2767,7 +2767,7 @@ export default function ConfiguratorPage() {
                 )}
               </button>
             )}
-            {state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
+            {!isExhibition && state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
               const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
               const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
               const disabledTitle = !hasRequired
