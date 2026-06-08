@@ -1,8 +1,14 @@
 import { useNavigate } from 'react-router-dom';
-import { Cog, Snowflake, Wrench } from 'lucide-react';
+import { ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import timanLogo from '@/assets/timan-logo.png';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 
