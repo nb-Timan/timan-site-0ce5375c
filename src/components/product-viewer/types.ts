@@ -10,19 +10,45 @@
  * `object-fit: contain` to preserve original proportions.
  */
 
+export interface ViewerHotspotTechnical {
+  label: string;
+  value: string;
+}
+
 export interface ViewerHotspot {
   id: string;
-  /** 1-based frame index this hotspot belongs to. */
+  /**
+   * 1-based frame index this hotspot belongs to.
+   * Use 0 for "always visible" (frame-independent callouts).
+   */
   frame: number;
   /** Position in percent of the rendered image box (0..100). */
   x: number;
   y: number;
   title: string;
+  /** Short tagline shown under the title in the callout chip. */
+  subtitle?: string;
   description?: string;
-  /** Optional thumbnail shown in the hotspot popover. */
+  /** Optional bullets shown in the detail modal. */
+  bullets?: string[];
+  /** Optional technical specs shown in the detail modal. */
+  technical?: ViewerHotspotTechnical[];
+  /** Optional thumbnail shown in the hotspot popover/modal. */
   imageUrl?: string;
   /** Optional outbound link from the popover. */
   linkUrl?: string;
+  /**
+   * Visual variant:
+   *  - 'dot'      → classic small pulsing dot (default, existing behaviour)
+   *  - 'callout'  → large round white card with green plus marker,
+   *                 connector line, title + subtitle; click opens a modal.
+   */
+  variant?: 'dot' | 'callout';
+  /**
+   * Where the callout card sits relative to the (x, y) anchor on the image.
+   * Defaults to 'right'.
+   */
+  calloutPlacement?: 'left' | 'right' | 'top' | 'bottom';
 }
 
 export interface EquipmentBadge {
