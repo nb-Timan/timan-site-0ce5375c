@@ -75,7 +75,7 @@ export default function BackendMesseSettingsPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Timan Messe</h1>
-            <p className="text-slate-500 mt-1 text-sm">Offentlig QR-adgang til demo-portalen for messer og events.</p>
+            <p className="text-slate-500 mt-1 text-sm">Login-beskyttet Messe-adgang til demo-portalen for messer og events.</p>
           </div>
         </div>
 
