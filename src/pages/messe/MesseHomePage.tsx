@@ -54,8 +54,25 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const navigate = useNavigate();
   const { realUser, shouldRenderMesseLayout } = useMesseMode(appUser, location.pathname);
 
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug('[messe] MesseHomePage render', {
+      path: location.pathname,
+      hasRealUser: !!realUser,
+      shouldRenderMesseLayout,
+      isEntry,
+    });
+  }
+
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
+    window.addEventListener('timan:messe-enabled-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('timan:messe-enabled-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
     window.addEventListener('timan:messe-enabled-changed', refresh);
     window.addEventListener('storage', refresh);
     return () => {
