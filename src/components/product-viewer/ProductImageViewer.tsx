@@ -36,6 +36,8 @@ interface Props {
   configuration: ViewerConfiguration;
   /** Optional className for the outer wrapper. */
   className?: string;
+  /** Hide zoom / rotate toolbar (kiosk mode). */
+  hideControls?: boolean;
 }
 
 const MIN_ZOOM = 1;
@@ -78,6 +80,7 @@ function computeCalloutPosition(h: ViewerHotspot): { cx: number; cy: number } {
 export default function ProductImageViewer({
   configuration: config,
   className,
+  hideControls = false,
 }: Props) {
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -457,7 +460,7 @@ export default function ProductImageViewer({
       )}
 
       {/* Toolbar */}
-      {hasImage && (
+      {hasImage && !hideControls && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setZoom(z => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">

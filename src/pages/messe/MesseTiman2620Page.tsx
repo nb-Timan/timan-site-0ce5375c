@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
@@ -50,20 +50,12 @@ export default function MesseTiman2620Page() {
       className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* Kiosk top bar: logo · back pill (centered) · language */}
+      {/* Kiosk top bar: logo · language */}
       <header className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-slate-200/70">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 grid grid-cols-[1fr_auto] items-center gap-4">
           <div className="flex items-center">
             <img src={timanLogo} alt="Timan" className="h-14 sm:h-16 lg:h-[72px] w-auto object-contain" />
           </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/messe')}
-            className="justify-self-center inline-flex items-center px-6 min-h-[48px] rounded-full bg-white border border-slate-300 shadow-sm hover:shadow hover:border-emerald-600 text-slate-700 hover:text-emerald-800 font-semibold text-base transition"
-          >
-            Tilbage til maskiner
-          </button>
 
           <div className="justify-self-end">
             <DropdownMenu>
@@ -106,6 +98,16 @@ export default function MesseTiman2620Page() {
                 <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
               </div>
               <Timan2620Viewer.Sidebar />
+
+              {/* Bottom-left back button */}
+              <button
+                type="button"
+                onClick={() => navigate('/messe')}
+                className="mt-6 inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                Til forsiden
+              </button>
             </div>
 
             {/* Right column: machine area + benefit bar aligned to machine width */}
