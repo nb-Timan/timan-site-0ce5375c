@@ -94,6 +94,7 @@ import BackendMesseSettingsPage from "./pages/backend/BackendMesseSettingsPage";
 import MesseHomePage from "./pages/messe/MesseHomePage";
 import MesseVideoPage from "./pages/messe/MesseVideoPage";
 import MesseNewsPage from "./pages/messe/MesseNewsPage";
+import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import ExhibitionGuard from "./components/messe/ExhibitionGuard";
 import ExhibitionRedirector, { MesseRouteGuard } from "./components/messe/ExhibitionRedirector";
@@ -120,6 +121,8 @@ const App = () => (
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
+              <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseTiman2620Page /></MesseRouteGuard>} />
+
 
               {/* Portal is the new landing page after login */}
               <Route path="/" element={<ExhibitionGuard><Navigate to="/portal" replace /></ExhibitionGuard>} />
