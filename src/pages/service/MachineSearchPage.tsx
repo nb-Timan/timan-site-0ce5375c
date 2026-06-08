@@ -260,7 +260,8 @@ export default function MachineSearchPage() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewPage, setOverviewPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE_OPTIONS: Array<number | "all"> = [50, 100, 200, 300, 400, "all"];
+  const [pageSize, setPageSize] = useState<number | "all">(50);
 
   useEffect(() => {
     if (!appUser) return;
