@@ -55,6 +55,7 @@ export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
   timan_dealer: [],
   timan_service_partner: [],
   dealer_user: [],
+  exhibition_user: [],
   pending: [],
 };
 

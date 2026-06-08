@@ -106,6 +106,9 @@ export default function ConfiguratorPage() {
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
+  // Timan Messe / exhibition demo session — hide save/send/account UI and
+  // short-circuit any persistence handler that may still be invoked.
+  const isExhibition = (appUser as { portal_role?: string | null } | null)?.portal_role === 'exhibition_user';
 
   // Keep the configurator's internal language in sync with the global portal
   // language so the top-bar selector controls every page consistently.
@@ -323,6 +326,7 @@ export default function ConfiguratorPage() {
   }, [savedConfigurationId]);
 
   const handleSaveChanges = useCallback(async () => {
+    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
@@ -420,6 +424,7 @@ export default function ConfiguratorPage() {
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async () => {
+    if (isExhibition) { toast.info('Demo mode — lead-oprettelse er deaktiveret.'); return; }
     if (savingAsLead) return;
     // Duplicate protection: configuration already linked to a lead.
     if (linkedLeadId) {
@@ -2696,7 +2701,11 @@ export default function ConfiguratorPage() {
                       {T('startNewConfig')}
                     </button>
                   </div>
-                  {state.flowType === 'order' && orderLocked ? (
+                  {isExhibition ? (
+                    <span className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold uppercase tracking-wide">
+                      Demo mode — ordrer er deaktiveret
+                    </span>
+                  ) : state.flowType === 'order' && orderLocked ? (
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
                         {T('orderSubmittedBadge')}
@@ -2728,7 +2737,12 @@ export default function ConfiguratorPage() {
                 {T('orderLockedReadonly')}
               </div>
             )}
-            {state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
+            {isExhibition && (
+              <div className="w-full mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold uppercase tracking-wide text-center">
+                Demo mode — Timan Messe
+              </div>
+            )}
+            {!isExhibition && state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
@@ -2753,7 +2767,7 @@ export default function ConfiguratorPage() {
                 )}
               </button>
             )}
-            {state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
+            {!isExhibition && state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
               const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
               const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
               const disabledTitle = !hasRequired

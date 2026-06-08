@@ -50,7 +50,8 @@ export type RolePreviewKey =
   | 'timan_service'
   | 'timan_importer'
   | 'timan_service_partner'
-  | 'dealer_user';
+  | 'dealer_user'
+  | 'exhibition_user';
 
 export interface RolePreview {
   key: RolePreviewKey;
@@ -64,6 +65,7 @@ export const ROLE_PREVIEWS: readonly RolePreview[] = [
   { key: 'timan_importer',        label: 'Timan Importør' },
   { key: 'timan_service_partner', label: 'Timan ServicePartner' },
   { key: 'dealer_user',           label: 'Dealer User' },
+  { key: 'exhibition_user',       label: 'Timan Messe' },
 ];
 
 const ROLE_PREVIEW_KEYS = ROLE_PREVIEWS.map((r) => r.key) as readonly string[];
