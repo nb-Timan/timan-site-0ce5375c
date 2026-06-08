@@ -1177,7 +1177,7 @@ export async function loadMachineJournal(
     dealerName,
     importerName,
     servicePartnerName,
-    sellerLabel: machine?.seller_initials || machine?.seller_email || null,
+    sellerLabel: effectiveSellerLabel,
     warrantyStart: machine?.warranty_start_date ?? firstWarranty?.deliveryDate ?? null,
     warrantyEnd: machine?.warranty_end_date ?? null,
     registrationDate: firstWarranty?.registrationDate ?? null,
