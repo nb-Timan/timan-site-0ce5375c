@@ -53,11 +53,11 @@ function buildHotspots(
   list.push({
     id: 'motor',
     frame: 0,
-    x: 58, y: 38,
+    x: 58, y: 40,
     title: 'Motor',
     subtitle: 'Kraftfuld og driftssikker',
     variant: 'callout',
-    calloutPlacement: 'right',
+    calloutCenter: { cx: 93, cy: 28 },
     description:
       'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
     bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
@@ -70,11 +70,11 @@ function buildHotspots(
   list.push({
     id: 'affjedring',
     frame: 0,
-    x: 38, y: 78,
+    x: 38, y: 75,
     title: 'Affjedring',
     subtitle: 'Stabilitet og komfort',
     variant: 'callout',
-    calloutPlacement: 'bottom',
+    calloutCenter: { cx: 18, cy: 92 },
     description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
     bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
   });
@@ -83,11 +83,11 @@ function buildHotspots(
     list.push({
       id: 'kabine',
       frame: 0,
-      x: 48, y: 22,
+      x: 50, y: 24,
       title: 'Kabine',
       subtitle: 'Komfort og godt udsyn',
       variant: 'callout',
-      calloutPlacement: 'top',
+      calloutCenter: { cx: 78, cy: 8 },
       description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
       bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
     });
@@ -97,11 +97,11 @@ function buildHotspots(
     list.push({
       id: 'redskaber',
       frame: 0,
-      x: 18, y: 58,
+      x: 30, y: 70,
       title: 'Redskaber',
       subtitle: 'Nem montering af udstyr',
       variant: 'callout',
-      calloutPlacement: 'left',
+      calloutCenter: { cx: 50, cy: 95 },
       description:
         'Hurtigkobling i fronten gør det muligt at skifte mellem redskaber på under et minut.',
       bullets: ['Værktøjsfri skift', 'Bredt udvalg af tilbehør', 'Hydraulisk tilslutning'],
@@ -112,11 +112,11 @@ function buildHotspots(
     list.push({
       id: 'v_plow',
       frame: 0,
-      x: 12, y: 68,
+      x: 22, y: 65,
       title: 'V-plov',
       subtitle: 'Effektiv snerydning',
       variant: 'callout',
-      calloutPlacement: 'left',
+      calloutCenter: { cx: 8, cy: 55 },
       description:
         'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
       bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
@@ -127,11 +127,11 @@ function buildHotspots(
     list.push({
       id: 'salt_spreader',
       frame: 0,
-      x: 86, y: 52,
+      x: 78, y: 55,
       title: 'Saltspreder',
       subtitle: 'Præcis vinterbekæmpelse',
       variant: 'callout',
-      calloutPlacement: 'right',
+      calloutCenter: { cx: 93, cy: 62 },
       description:
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
       bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
