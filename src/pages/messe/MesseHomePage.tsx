@@ -49,6 +49,8 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const { appUser, setAppUser } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
+  const realUser = useCachedRealBackendUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
