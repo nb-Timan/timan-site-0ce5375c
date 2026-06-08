@@ -43,20 +43,46 @@ function findConflict(
   return null;
 }
 
-function buildHotspots(
-  base: Timan2620Base,
-  equipment: ReadonlySet<Timan2620Equipment>,
-): ViewerHotspot[] {
-  const list: ViewerHotspot[] = [];
+/* --------------------------------------------------------------
+ * View-aware hotspot system
+ *
+ * Each configuration is photographed from a different angle (some
+ * mirrored). Hotspots must point at the correct machine part in
+ * the *current* photo, so positions are defined per imageKey and
+ * per frame — not as a single global layout.
+ *
+ * `PART_CONTENT` holds the descriptive payload (title, subtitle,
+ * description, bullets, technical) for each machine part — it never
+ * changes between views.
+ *
+ * `VIEW_POSITIONS` holds per-view anchor + callout coordinates for
+ * each part visible in that view. A part missing from a view is
+ * simply not rendered for that view. Multi-frame keys (e.g. the cab
+ * full-winter-setup rotation) use an array of position entries with
+ * an explicit `frame` (1-based).
+ * -------------------------------------------------------------- */
 
-  list.push({
-    id: 'motor',
-    frame: 0,
-    x: 62, y: 55,
+type PartId =
+  | 'motor'
+  | 'kabine'
+  | 'affjedring'
+  | 'v_plow'
+  | 'salt_spreader'
+  | 'brush';
+
+type PartContent = Omit<ViewerHotspot, 'id' | 'frame' | 'x' | 'y' | 'calloutCenter' | 'variant'>;
+
+interface PosEntry {
+  anchor: { x: number; y: number };
+  callout: { cx: number; cy: number };
+  /** 1-based frame index; defaults to 0 (always visible). */
+  frame?: number;
+}
+
+const PART_CONTENT: Record<PartId, PartContent> = {
+  motor: {
     title: 'Motor',
     subtitle: 'Kraftfuld og driftssikker',
-    variant: 'callout',
-    calloutCenter: { cx: 93, cy: 65 },
     description:
       'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
     bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
@@ -65,80 +91,154 @@ function buildHotspots(
       { label: 'Cylindere', value: '3' },
       { label: 'Brændstof', value: 'Diesel' },
     ],
-  });
-  list.push({
-    id: 'affjedring',
-    frame: 0,
-    x: 38, y: 75,
+  },
+  kabine: {
+    title: 'Kabine',
+    subtitle: 'Komfort og godt udsyn',
+    description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
+    bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
+  },
+  affjedring: {
     title: 'Affjedring',
     subtitle: 'Stabilitet og komfort',
-    variant: 'callout',
-    calloutCenter: { cx: 18, cy: 92 },
     description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
     bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
-  });
+  },
+  v_plow: {
+    title: 'V-plov',
+    subtitle: 'Effektiv snerydning',
+    description:
+      'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
+    bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
+  },
+  salt_spreader: {
+    title: 'Saltspreder',
+    subtitle: 'Præcis vinterbekæmpelse',
+    description:
+      'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
+    bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
+  },
+  brush: {
+    title: 'Kost',
+    subtitle: 'Effektiv fejning',
+    description:
+      'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
+    bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
+  },
+};
 
-  if (base === 'cab') {
-    list.push({
-      id: 'kabine',
-      frame: 0,
-      x: 50, y: 24,
-      title: 'Kabine',
-      subtitle: 'Komfort og godt udsyn',
-      variant: 'callout',
-      calloutCenter: { cx: 78, cy: 8 },
-      description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
-      bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
+/**
+ * Per-view part positions. Coordinates are in percent of the rendered
+ * image box (0..100). `anchor` sits on the machine part; `callout`
+ * orbits around the silhouette so the card never overlaps the machine.
+ *
+ * Camera orientation per image (left = west side of frame):
+ *   standard / cab / *_salt_spreader / *_full_winter_setup (frame 1)
+ *     → machine faces LEFT (front = left, rear = right)
+ *   standard_v_plow / cab_full_winter_setup (frame 2)
+ *     → machine faces RIGHT (front = right, rear = left)
+ */
+const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
+  // Bare machines — front faces LEFT
+  standard: {
+    motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 88, cy: 65 } },
+    affjedring: { anchor: { x: 40, y: 75 }, callout: { cx: 15, cy: 90 } },
+  },
+  cab: {
+    motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
+    kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
+    affjedring: { anchor: { x: 40, y: 75 }, callout: { cx: 15, cy: 90 } },
+  },
+
+  // Saltspreder only — saltspreder bin dominates right side
+  standard_salt_spreader: {
+    motor:         { anchor: { x: 48, y: 55 }, callout: { cx: 15, cy: 65 } },
+    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 15, cy: 92 } },
+    salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
+  },
+  cab_salt_spreader: {
+    motor:         { anchor: { x: 50, y: 55 }, callout: { cx: 15, cy: 70 } },
+    kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
+    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 50, cy: 95 } },
+    salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
+  },
+
+  // V-plov only — MIRRORED view, machine faces RIGHT, v-plov at right
+  standard_v_plow: {
+    motor:      { anchor: { x: 40, y: 55 }, callout: { cx: 12, cy: 65 } },
+    affjedring: { anchor: { x: 50, y: 75 }, callout: { cx: 50, cy: 95 } },
+    v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
+  },
+
+  // Full winter setup standard — front (V-plov) LEFT, saltspreder RIGHT
+  // This is the "rear/3-quarter" angle: per spec, hide saltspreder to
+  // avoid overlap and keep motor on the rear body.
+  standard_full_winter_setup: {
+    v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+    motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 68 } },
+    affjedring: { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 } },
+    // salt_spreader intentionally omitted on this rear-view layout
+  },
+
+  // Full winter setup cab — 2 frames (rotation)
+  //   frame 1 (IMG 6): front LEFT  — v-plov left, cab centre, saltspreder right
+  //   frame 2 (IMG 8): MIRRORED   — v-plov right, cab upper-right, saltspreder left
+  cab_full_winter_setup: {
+    v_plow: [
+      { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
+      { anchor: { x: 72, y: 65 }, callout: { cx: 92, cy: 50 }, frame: 2 },
+    ],
+    motor: [
+      { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 70 }, frame: 1 },
+      { anchor: { x: 50, y: 55 }, callout: { cx: 8,  cy: 70 }, frame: 2 },
+    ],
+    kabine: [
+      { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
+      { anchor: { x: 60, y: 30 }, callout: { cx: 30, cy: 10 }, frame: 2 },
+    ],
+    affjedring: [
+      { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      { anchor: { x: 50, y: 78 }, callout: { cx: 50, cy: 95 }, frame: 2 },
+    ],
+    // salt_spreader hidden on both frames (overlaps with V-plov layout)
+  },
+};
+
+function buildHotspots(
+  imageKey: string,
+  base: Timan2620Base,
+  equipment: ReadonlySet<Timan2620Equipment>,
+): ViewerHotspot[] {
+  void base; // base is encoded in imageKey
+  const view = VIEW_POSITIONS[imageKey];
+  if (!view) return [];
+
+  const visibleParts = new Set<PartId>(['motor', 'affjedring']);
+  if (imageKey.startsWith('cab')) visibleParts.add('kabine');
+  if (equipment.has('v_plow')) visibleParts.add('v_plow');
+  if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
+  if (equipment.has('brush')) visibleParts.add('brush');
+
+  const list: ViewerHotspot[] = [];
+  for (const part of visibleParts) {
+    const entry = view[part];
+    if (!entry) continue;
+    const positions = Array.isArray(entry) ? entry : [entry];
+    positions.forEach((pos, i) => {
+      list.push({
+        id: positions.length > 1 ? `${part}-f${pos.frame ?? i + 1}` : part,
+        frame: pos.frame ?? 0,
+        x: pos.anchor.x,
+        y: pos.anchor.y,
+        variant: 'callout',
+        calloutCenter: { cx: pos.callout.cx, cy: pos.callout.cy },
+        ...PART_CONTENT[part],
+      });
     });
   }
-
-  if (equipment.has('brush')) {
-    list.push({
-      id: 'brush',
-      frame: 0,
-      x: 32, y: 68,
-      title: 'Kost',
-      subtitle: 'Effektiv fejning',
-      variant: 'callout',
-      calloutCenter: { cx: 35, cy: 95 },
-      description:
-        'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
-      bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
-    });
-  }
-
-  if (equipment.has('v_plow')) {
-    list.push({
-      id: 'v_plow',
-      frame: 0,
-      x: 22, y: 65,
-      title: 'V-plov',
-      subtitle: 'Effektiv snerydning',
-      variant: 'callout',
-      calloutCenter: { cx: 8, cy: 55 },
-      description:
-        'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
-      bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
-    });
-  }
-
-  if (equipment.has('salt_spreader')) {
-    list.push({
-      id: 'salt_spreader',
-      frame: 0,
-      x: 75, y: 38,
-      title: 'Saltspreder',
-      subtitle: 'Præcis vinterbekæmpelse',
-      variant: 'callout',
-      calloutCenter: { cx: 93, cy: 25 },
-      description:
-        'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
-      bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
-    });
-  }
-
   return list;
 }
+
 
 interface Timan2620Ctx {
   base: Timan2620Base;
