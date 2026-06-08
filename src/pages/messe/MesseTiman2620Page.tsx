@@ -9,9 +9,10 @@ import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 /**
  * Timan 2620 Messe page — premium touchscreen kiosk layout.
  *
- * Scope: this page only. Hides the normal portal header; keeps the
- * language selector and the Timan logo. Title and back button live inside
- * the kiosk frame so the page feels like a standalone exhibition product.
+ * Scope: this page only. Hides the normal portal header. The kiosk top bar
+ * shows the Timan logo (left), a large back pill button (centre/left) and
+ * the language selector (right). Title sits above the left configuration
+ * panel; the benefit bar is aligned to the machine column only.
  */
 export default function MesseTiman2620Page() {
   const { uiLanguage, setLanguage } = useLanguage();
@@ -43,10 +44,23 @@ export default function MesseTiman2620Page() {
       className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* Minimal kiosk top bar — language selector only on the right */}
-      <header className="sticky top-0 z-40">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-14 flex items-center justify-end">
-          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-white/80 backdrop-blur border border-slate-200 shadow-sm">
+      {/* Kiosk top bar: logo · back pill · language */}
+      <header className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-slate-200/70">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-16 flex items-center gap-4">
+          <img src={timanLogo} alt="Timan" className="h-8 sm:h-9 w-auto object-contain" />
+
+          <button
+            type="button"
+            onClick={() => navigate('/messe')}
+            className="inline-flex items-center gap-2.5 pl-2 pr-5 min-h-[48px] rounded-full bg-white border border-emerald-700/30 shadow-sm hover:shadow hover:border-emerald-600 text-emerald-800 hover:text-emerald-900 font-semibold text-base transition group"
+          >
+            <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100">
+              <ArrowLeft className="h-5 w-5" />
+            </span>
+            Tilbage til maskiner
+          </button>
+
+          <div className="ml-auto flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-white/90 border border-slate-200 shadow-sm">
             {PORTAL_LANGUAGES.map(l => (
               <button
                 key={l.code}
@@ -66,54 +80,46 @@ export default function MesseTiman2620Page() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 pb-6 lg:pb-8 flex flex-col">
-        {/* Title row: logo + headline aligned over the left panel column */}
-        <div className="lg:max-w-[300px] mb-4 lg:mb-5">
-          <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto object-contain mb-3" />
-          <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 leading-tight">
-            Timan 2620
-          </h1>
-          <p className="text-base lg:text-lg text-slate-600 mt-1">Udforsk maskinen</p>
-        </div>
-
-        <Timan2620Viewer />
-
-        {/* Bottom benefit bar */}
-        <section className="mt-5 lg:mt-6 bg-white rounded-2xl border border-slate-200 shadow-md px-5 py-4 lg:px-7 lg:py-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
-            {benefits.map((b, i) => {
-              const Icon = b.icon;
-              return (
-                <div key={i} className={`flex items-start gap-3 ${i > 0 ? 'md:pl-6 lg:pl-8' : ''}`}>
-                  <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
-                      {b.title}
-                    </h3>
-                    <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                      {b.text}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 lg:py-7">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+          {/* Left column: title + configuration panel */}
+          <div className="w-full lg:w-[260px] lg:flex-shrink-0">
+            <div className="mb-4">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
+                Timan 2620
+              </h1>
+              <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
+            </div>
+            <Timan2620Viewer.Sidebar />
           </div>
-        </section>
 
-        {/* Premium back button — bottom-left of the kiosk frame */}
-        <div className="mt-5 lg:mt-6">
-          <button
-            type="button"
-            onClick={() => navigate('/messe')}
-            className="inline-flex items-center gap-3 pl-2 pr-5 py-2 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow hover:border-emerald-500 text-emerald-800 hover:text-emerald-900 font-semibold text-base lg:text-lg transition group"
-          >
-            <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100">
-              <ArrowLeft className="h-5 w-5" />
-            </span>
-            Tilbage til maskiner
-          </button>
+          {/* Right column: machine area + benefit bar aligned to machine width */}
+          <div className="flex-1 min-w-0">
+            <Timan2620Viewer.Stage />
+
+            <section className="mt-5 bg-white rounded-2xl border border-slate-200 shadow-md px-5 py-4 lg:px-7 lg:py-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
+                {benefits.map((b, i) => {
+                  const Icon = b.icon;
+                  return (
+                    <div key={i} className={`flex items-start gap-3 ${i > 0 ? 'md:pl-6 lg:pl-8' : ''}`}>
+                      <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
+                          {b.title}
+                        </h3>
+                        <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                          {b.text}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
