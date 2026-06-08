@@ -254,7 +254,10 @@ export default function ServiceMaintenancePage() {
   const historyOpen = async (m: ServiceMachine) => {
     setHistoryFor(m);
     const rows = await listServiceRegistrations({ serialNumber: m.serial_number });
-    setHistoryRows(rows);
+    setHistoryRows(applyScopeFilter(teknikScope, rows, (row) => ({
+      dealer_number: row.dealer_number,
+      dealer_name: row.dealer_name,
+    })));
   };
 
   async function handleSubmit(e: React.FormEvent) {
