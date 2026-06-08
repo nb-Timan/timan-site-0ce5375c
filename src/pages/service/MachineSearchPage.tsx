@@ -584,9 +584,12 @@ export default function MachineSearchPage() {
           const healthyCount = overview.filter(r => r.health === "healthy").length;
           const attentionCount = overview.filter(r => r.health === "needs_attention").length;
           const criticalCount = overview.filter(r => r.health === "critical").length;
-          const totalPages = Math.max(1, Math.ceil(totalMachines / PAGE_SIZE));
+          const effectivePageSize = pageSize === "all" ? Math.max(1, totalMachines) : pageSize;
+          const totalPages = Math.max(1, Math.ceil(totalMachines / effectivePageSize));
           const page = Math.min(overviewPage, totalPages);
-          const pageRows = overview.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+          const sliceStart = (page - 1) * effectivePageSize;
+          const sliceEnd = Math.min(totalMachines, sliceStart + effectivePageSize);
+          const pageRows = overview.slice(sliceStart, sliceEnd);
 
           const sourceLabels: Record<string, string> = {
             warranty: "Warranty", service: "Service", ticket: "Ticket",
