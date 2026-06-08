@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
 import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
@@ -9,12 +9,11 @@ import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
 import {
   canSwitchMode,
   getActiveMode,
+  setActiveMode,
   SELLER_VIEWS,
   ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
-import { getCachedRealBackendUser } from '@/lib/cachedRealUser';
-import { switchPreviewRole } from '@/lib/messeMode';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
