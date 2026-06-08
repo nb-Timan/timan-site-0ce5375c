@@ -30,6 +30,7 @@ import {
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
 import { ServiceMaintenanceSidebarLayout, type ServiceMaintView } from '@/components/service/ServiceMaintenanceSidebarLayout';
+import { useTeknikScope, applyScopeFilter } from '@/lib/useTeknikScope';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
