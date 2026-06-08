@@ -103,9 +103,21 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
       });
     } catch { /* ignore */ }
+    // Keep the synthetic Timan Messe session in sync with the selected
+    // preview so transitions in/out of /messe work cleanly on reload.
+    if (mode === 'role:exhibition_user') {
+      enterExhibitionMode();
+      window.location.href = '/messe';
+      return;
+    }
+    leaveExhibitionMode();
     // Force a full reload so all role-derived UI (areas, CRM scope,
     // navigation guards) picks up the new mode cleanly.
-    window.location.reload();
+    if (mode === 'backend') {
+      window.location.href = '/portal/backend';
+    } else {
+      window.location.reload();
+    }
   }
 
   useEffect(() => {
