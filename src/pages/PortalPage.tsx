@@ -109,7 +109,20 @@ export default function PortalPage() {
         </div>
         <LoginStep
           language={lang}
-          onResolved={(user) => { setAppUser(user); navigate('/portal', { replace: true }); }}
+          onResolved={(user) => {
+            setAppUser(user);
+            // Phase 59 — Messe Portal users always land on /messe.
+            if (isMesseVariantUser(user)) {
+              navigate('/messe', { replace: true });
+              return;
+            }
+            // Honor ?redirect=… (e.g. QR-code login flow) when safe.
+            if (redirectParam && redirectParam.startsWith('/')) {
+              navigate(redirectParam, { replace: true });
+              return;
+            }
+            navigate('/portal', { replace: true });
+          }}
         />
       </div>
     );
