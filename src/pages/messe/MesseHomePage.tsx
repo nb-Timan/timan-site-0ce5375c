@@ -52,7 +52,7 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const location = useLocation();
   const navigate = useNavigate();
-  const { realUser, shouldRenderMesseLayout, isPublicMesseVisitor } = useMesseMode(appUser, location.pathname);
+  const { realUser, shouldRenderMesseLayout } = useMesseMode(appUser, location.pathname);
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
