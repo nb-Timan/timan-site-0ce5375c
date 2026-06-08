@@ -147,30 +147,6 @@ export default function Timan2620Viewer() {
             </div>
           </section>
 
-          {/* Active badges */}
-          {(equipment.size > 0 || hasFullWinter) && (
-            <section>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 leading-tight">
-                Valgt opsætning
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {hasFullWinter && (
-                  <span className="inline-flex items-center px-1.5 py-[3px] rounded bg-emerald-100 text-emerald-800 text-[11px] font-semibold border border-emerald-200">
-                    Fuldt vintersæt
-                  </span>
-                )}
-                {Array.from(equipment).map(eq => (
-                  <span
-                    key={eq}
-                    className="inline-flex items-center px-1.5 py-[3px] rounded bg-amber-100 text-amber-800 text-[11px] font-semibold border border-amber-200"
-                  >
-                    {labelOfEquipment(eq)}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
         </aside>
 
         {/* Right viewer column */}
