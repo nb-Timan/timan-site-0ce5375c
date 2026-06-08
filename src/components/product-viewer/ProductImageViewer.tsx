@@ -170,7 +170,7 @@ export default function ProductImageViewer({
       {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[65vh] lg:max-h-[780px]"
+        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -183,8 +183,10 @@ export default function ProductImageViewer({
             src={currentSrc}
             alt={`${config.label} – billede ${frame + 1}/${total}`}
             draggable={false}
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-transform duration-75"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+            className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-all duration-300 ${
+              hasCalloutHotspot ? 'scale-110 blur-sm brightness-75' : ''
+            }`}
+            style={hasCalloutHotspot ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'center center' }}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
