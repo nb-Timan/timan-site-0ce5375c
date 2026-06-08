@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
-import { enterExhibitionMode, isMesseEnabled } from '@/lib/exhibitionMode';
+import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
 import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import BackendExitButton from '@/components/messe/BackendExitButton';
-import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
+import PortalHeader from '@/components/portal/PortalHeader';
+import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { supabase } from '@/lib/supabase';
 
 
 const T: Record<string, Record<Language, string>> = {
@@ -46,6 +47,8 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const { appUser, setAppUser } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
+  const realUser = useCachedRealBackendUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
@@ -84,32 +87,50 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link to="/messe" className="flex items-center gap-3">
-            <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-            <DemoModeBadge />
-          </Link>
-          <div className="flex items-center gap-2">
-            <BackendRolePreviewSwitcher />
-            <BackendExitButton />
+      {realUser ? (
+        <>
+          <PortalHeader
+            user={realUser}
+            language={lang}
+            onLanguageChange={setLanguage}
+            onLogout={async () => {
+              leaveExhibitionMode();
+              try { await supabase.auth.signOut(); } catch { /* ignore */ }
+              setAppUser(null);
+              navigate('/portal', { replace: true });
+            }}
+          />
+          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+              <DemoModeBadge />
+              <span className="opacity-80">— Du forhåndsviser Timan Messe</span>
+            </div>
           </div>
+        </>
+      ) : (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <Link to="/messe" className="flex items-center gap-3">
+              <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
+              <DemoModeBadge />
+            </Link>
 
-          <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
-            {PORTAL_LANGUAGES.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
-                title={l.label}
-                aria-label={l.code}
-              >
-                {l.emoji}
-              </button>
-            ))}
+            <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
+              {PORTAL_LANGUAGES.map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => setLanguage(l.code)}
+                  className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
+                  title={l.label}
+                  aria-label={l.code}
+                >
+                  {l.emoji}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-10">
         <div className="text-center mb-10">

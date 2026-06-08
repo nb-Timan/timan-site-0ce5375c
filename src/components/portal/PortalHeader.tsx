@@ -14,6 +14,7 @@ import {
   ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
+import { enterExhibitionMode, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
@@ -102,9 +103,21 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
       });
     } catch { /* ignore */ }
+    // Keep the synthetic Timan Messe session in sync with the selected
+    // preview so transitions in/out of /messe work cleanly on reload.
+    if (mode === 'role:exhibition_user') {
+      enterExhibitionMode();
+      window.location.href = '/messe';
+      return;
+    }
+    leaveExhibitionMode();
     // Force a full reload so all role-derived UI (areas, CRM scope,
     // navigation guards) picks up the new mode cleanly.
-    window.location.reload();
+    if (mode === 'backend') {
+      window.location.href = '/portal/backend';
+    } else {
+      window.location.reload();
+    }
   }
 
   useEffect(() => {
