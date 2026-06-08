@@ -49,7 +49,7 @@ export function useTeknikScope(): UseTeknikScopeResult {
   // so using it directly as a dependency would re-run the effect forever and
   // freeze the page when this hook is mounted on pages that re-render often
   // (e.g. WarrantyRegistrationsTable behind a navigation from Min Maskine).
-  const effectiveKey = effective?.id ?? effective?.email ?? null;
+  const effectiveKey = effective?.email ?? null;
   useEffect(() => {
     let cancelled = false;
     if (!effective || !role) {
