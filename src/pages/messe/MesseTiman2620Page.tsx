@@ -30,18 +30,18 @@ export default function MesseTiman2620Page() {
   const benefits = [
     {
       icon: Cog,
-      title: 'Kompakt og stærk',
-      text: 'Timan 2620 kombinerer kompakt design med stor ydeevne.',
+      title: t('m2620_benefit1_title', uiLanguage),
+      text: t('m2620_benefit1_text', uiLanguage),
     },
     {
       icon: Snowflake,
-      title: 'Kan bruges hele året',
-      text: 'Fra sne og salt om vinteren til fejning og vedligehold om sommeren.',
+      title: t('m2620_benefit2_title', uiLanguage),
+      text: t('m2620_benefit2_text', uiLanguage),
     },
     {
       icon: Wrench,
-      title: 'Utrolig nem at skifte redskaber',
-      text: 'Hurtigt skift af udstyr uden værktøj — mere tid på opgaven, mindre tid på skift.',
+      title: t('m2620_benefit3_title', uiLanguage),
+      text: t('m2620_benefit3_text', uiLanguage),
     },
   ];
 
