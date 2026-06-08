@@ -46,14 +46,19 @@ const DRAG_PX_PER_FRAME = 30;
 const AUTO_ROTATE_INTERVAL_MS = 120;
 
 /**
- * Compute a callout's centre position (percent) so it sits away from its
- * anchor in the preferred direction, but always stays inside the canvas with
- * room for the 104px circular card. Auto-flips to the opposite side when the
- * preferred side would clip.
+ * Compute a callout's centre position (percent). Prefers an explicit
+ * `calloutCenter` so callouts can orbit around the machine silhouette without
+ * overlapping. Falls back to the legacy placement-based offset.
  */
 function computeCalloutPosition(h: ViewerHotspot): { cx: number; cy: number } {
-  const OFFSET = 28; // % distance from anchor to callout centre
-  const EDGE = 10;   // % margin from canvas edges (keeps 104px card visible)
+  const EDGE = 7; // % margin from canvas edges
+  if (h.calloutCenter) {
+    return {
+      cx: Math.max(EDGE, Math.min(100 - EDGE, h.calloutCenter.cx)),
+      cy: Math.max(EDGE, Math.min(100 - EDGE, h.calloutCenter.cy)),
+    };
+  }
+  const OFFSET = 28;
   const placement = h.calloutPlacement ?? 'right';
   let dx = 0, dy = 0;
   if (placement === 'right') dx = 1;
@@ -63,10 +68,8 @@ function computeCalloutPosition(h: ViewerHotspot): { cx: number; cy: number } {
 
   let cx = h.x + dx * OFFSET;
   let cy = h.y + dy * OFFSET;
-  // Auto-flip if outside safe area
   if (dx !== 0 && (cx < EDGE || cx > 100 - EDGE)) cx = h.x - dx * OFFSET;
   if (dy !== 0 && (cy < EDGE || cy > 100 - EDGE)) cy = h.y - dy * OFFSET;
-  // Final clamp
   cx = Math.max(EDGE, Math.min(100 - EDGE, cx));
   cy = Math.max(EDGE, Math.min(100 - EDGE, cy));
   return { cx, cy };
