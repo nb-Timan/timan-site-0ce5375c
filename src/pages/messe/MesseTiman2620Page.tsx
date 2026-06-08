@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cog, Snowflake, Wrench } from 'lucide-react';
+import { Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
@@ -44,23 +44,22 @@ export default function MesseTiman2620Page() {
       className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* Kiosk top bar: logo · back pill · language */}
+      {/* Kiosk top bar: logo · back pill (centered) · language */}
       <header className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-slate-200/70">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-16 flex items-center gap-4">
-          <img src={timanLogo} alt="Timan" className="h-8 sm:h-9 w-auto object-contain" />
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="flex items-center">
+            <img src={timanLogo} alt="Timan" className="h-14 sm:h-16 lg:h-[72px] w-auto object-contain" />
+          </div>
 
           <button
             type="button"
             onClick={() => navigate('/messe')}
-            className="inline-flex items-center gap-2.5 pl-2 pr-5 min-h-[48px] rounded-full bg-white border border-emerald-700/30 shadow-sm hover:shadow hover:border-emerald-600 text-emerald-800 hover:text-emerald-900 font-semibold text-base transition group"
+            className="justify-self-center inline-flex items-center px-6 min-h-[48px] rounded-full bg-white border border-slate-300 shadow-sm hover:shadow hover:border-emerald-600 text-slate-700 hover:text-emerald-800 font-semibold text-base transition"
           >
-            <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100">
-              <ArrowLeft className="h-5 w-5" />
-            </span>
             Tilbage til maskiner
           </button>
 
-          <div className="ml-auto flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-white/90 border border-slate-200 shadow-sm">
+          <div className="justify-self-end flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-white/90 border border-slate-200 shadow-sm">
             {PORTAL_LANGUAGES.map(l => (
               <button
                 key={l.code}
@@ -84,7 +83,7 @@ export default function MesseTiman2620Page() {
         <Timan2620Viewer.Provider>
           <div className="flex flex-col lg:flex-row lg:items-start gap-5">
             {/* Left column: title + configuration panel */}
-            <div className="w-full lg:w-[260px] lg:flex-shrink-0">
+            <div className="w-full lg:w-[180px] lg:flex-shrink-0">
               <div className="mb-4">
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
                   Timan 2620

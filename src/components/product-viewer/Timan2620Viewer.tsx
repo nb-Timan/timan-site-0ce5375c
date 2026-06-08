@@ -218,13 +218,16 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
+  // Fixed width sized to longest label "Saltspreder"
+  const pillClass =
+    'w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center';
   return (
-    <aside className="bg-white rounded-2xl border border-slate-200 shadow-md p-4 lg:sticky lg:top-20">
-      <section className="mb-4">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
+    <aside className="bg-white rounded-2xl border border-slate-200 shadow-md p-4 lg:sticky lg:top-24">
+      <section className="mb-6">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
           Basismaskine
         </div>
-        <div className="inline-flex flex-col items-stretch gap-2.5 w-full" role="radiogroup" aria-label="Basismaskine">
+        <div className="flex flex-col items-start gap-4" role="radiogroup" aria-label="Basismaskine">
           {TIMAN_2620_BASE_OPTIONS.map(o => {
             const active = base === o.key;
             return (
@@ -234,7 +237,7 @@ function Sidebar() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setBase(o.key)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                className={`${pillClass} ${
                   active
                     ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
@@ -248,10 +251,10 @@ function Sidebar() {
       </section>
 
       <section>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
           Udstyr
         </div>
-        <div className="inline-flex flex-col items-stretch gap-2.5 w-full" role="group" aria-label="Udstyr">
+        <div className="flex flex-col items-start gap-4" role="group" aria-label="Udstyr">
           {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
             const active = equipment.has(o.key);
             return (
@@ -260,7 +263,7 @@ function Sidebar() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => toggleEquipment(o.key)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                className={`${pillClass} ${
                   active
                     ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
