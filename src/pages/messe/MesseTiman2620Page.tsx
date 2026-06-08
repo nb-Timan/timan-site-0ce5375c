@@ -36,7 +36,7 @@ export default function MesseTiman2620Page() {
         </div>
       </div>
 
-      <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+      <main className="flex-grow max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 lg:py-10">
         <h1 className="text-3xl font-bold text-slate-900">Timan 2620</h1>
         <p className="text-slate-600 mt-1 mb-6">
           Udforsk Timan 2620 i 360° og se forskellige konfigurationer.

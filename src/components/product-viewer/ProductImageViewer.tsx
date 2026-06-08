@@ -33,8 +33,6 @@ import type { ViewerConfiguration, ViewerHotspot } from './types';
 
 interface Props {
   configuration: ViewerConfiguration;
-  /** Optional aspect ratio for the image stage (default 4/3). */
-  aspectRatio?: number;
   /** Optional className for the outer wrapper. */
   className?: string;
 }
@@ -48,7 +46,6 @@ const AUTO_ROTATE_INTERVAL_MS = 120;
 
 export default function ProductImageViewer({
   configuration: config,
-  aspectRatio = 4 / 3,
   className,
 }: Props) {
   const [frame, setFrame] = useState(0);
@@ -167,11 +164,10 @@ export default function ProductImageViewer({
 
   return (
     <div className={`w-full select-none ${className ?? ''}`}>
-      {/* Image stage */}
+      {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 touch-none"
-        style={{ aspectRatio: String(aspectRatio) }}
+        className="relative w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[70vh] lg:max-h-[850px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
