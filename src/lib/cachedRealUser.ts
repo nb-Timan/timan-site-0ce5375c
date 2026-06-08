@@ -4,6 +4,15 @@ import type { SessionUser } from '@/context/AppUserContext';
 const STORAGE_KEY = 'timan.appUser';
 const REAL_ROLES = new Set(['timan_backend', 'timan_service']);
 
+export function isRealBackendOrServiceUser(user: { portal_role?: string | null } | null | undefined): boolean {
+  const role = (user?.portal_role || '').toLowerCase();
+  return REAL_ROLES.has(role);
+}
+
+export function getRealBackendUserFromAppUser(user: SessionUser | null | undefined): SessionUser | null {
+  return isRealBackendOrServiceUser(user) ? user : null;
+}
+
 /**
  * Read the cached REAL Supabase-authenticated user from sessionStorage.
  *
@@ -22,8 +31,7 @@ function readCachedRealUser(): SessionUser | null {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SessionUser;
-    const role = (parsed?.portal_role || '').toLowerCase();
-    if (!REAL_ROLES.has(role)) return null;
+    if (!isRealBackendOrServiceUser(parsed)) return null;
     return parsed;
   } catch {
     return null;

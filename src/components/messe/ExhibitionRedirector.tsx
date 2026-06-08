@@ -1,10 +1,61 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, isExhibitionRole } from '@/lib/portalAccess';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
-import { getActiveMode } from '@/lib/activeMode';
+import { getCachedRealBackendUser, getRealBackendUserFromAppUser } from '@/lib/cachedRealUser';
+import { getActiveMode, type ActiveMode } from '@/lib/activeMode';
 import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
+
+let modeSnapshotVersion = 0;
+
+export function getPortalDestinationForActiveMode(
+  mode: ActiveMode | null,
+  realUser?: { portal_role?: string | null } | null,
+): '/portal/backend' | '/portal' {
+  return mode === 'backend' && (realUser?.portal_role || '').toLowerCase() === 'timan_backend'
+    ? '/portal/backend'
+    : '/portal';
+}
+
+function subscribeToModeChanges(callback: () => void) {
+  const onChange = () => {
+    modeSnapshotVersion += 1;
+    callback();
+  };
+  window.addEventListener('storage', onChange);
+  window.addEventListener('timan:active-mode-changed', onChange);
+  window.addEventListener('timan:exhibition-mode-changed', onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener('timan:active-mode-changed', onChange);
+    window.removeEventListener('timan:exhibition-mode-changed', onChange);
+  };
+}
+
+export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['appUser']) {
+  useSyncExternalStore(subscribeToModeChanges, () => modeSnapshotVersion, () => 0);
+  const realUser = getRealBackendUserFromAppUser(appUser) || getCachedRealBackendUser();
+  const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
+  const isExhibitionPreview = activeMode === 'role:exhibition_user';
+  return {
+    realUser,
+    activeMode,
+    isExhibitionPreview,
+    shouldLeaveMesse: !!realUser && !isExhibitionPreview,
+    destination: getPortalDestinationForActiveMode(activeMode, realUser),
+  };
+}
+
+export function MesseRouteGuard({ children }: { children: ReactNode }) {
+  const { appUser } = useAppUser();
+  const { shouldLeaveMesse, destination } = useMesseRouteGuardState(appUser);
+
+  if (shouldLeaveMesse) {
+    leaveExhibitionMode();
+    return <Navigate to={destination} replace />;
+  }
+  return <>{children}</>;
+}
 
 /**
  * Global redirector for the public Timan Messe / exhibition session.
@@ -17,7 +68,7 @@ import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
  */
 export default function ExhibitionRedirector() {
   const { appUser } = useAppUser();
-  const realUser = useCachedRealBackendUser();
+  const guard = useMesseRouteGuardState(appUser);
   const location = useLocation();
   const navigate = useNavigate();
   const role = derivePortalRole(appUser);
@@ -25,7 +76,7 @@ export default function ExhibitionRedirector() {
 
   useEffect(() => {
     const exhibitionActive = isExhibitionActive();
-    const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
+    const { realUser, activeMode, shouldLeaveMesse, destination } = guard;
 
     // DEV log — temporary, helps diagnose stuck exhibition issues.
     if (import.meta.env.DEV) {
@@ -38,6 +89,7 @@ export default function ExhibitionRedirector() {
         activeMode,
         derivedRole: role,
         isExhibition,
+        redirectDecision: shouldLeaveMesse && location.pathname.startsWith('/messe') ? destination : null,
       });
     }
 
@@ -48,11 +100,9 @@ export default function ExhibitionRedirector() {
       // If on /messe but active preview is NOT exhibition_user → leave /messe
       // and route to the correct portal for the selected mode.
       if (onMesse) {
-        const isExhibitionPreview = activeMode === 'role:exhibition_user';
-        if (!isExhibitionPreview) {
-          if (exhibitionActive) leaveExhibitionMode();
-          const dest = activeMode === 'backend' ? '/portal/backend' : '/portal';
-          navigate(dest, { replace: true });
+        if (shouldLeaveMesse) {
+          leaveExhibitionMode();
+          navigate(destination, { replace: true });
         }
         return;
       }
@@ -66,7 +116,7 @@ export default function ExhibitionRedirector() {
     if (p.startsWith('/messe')) return;
     if (p === '/update-password' || p === '/reset-password') return;
     navigate('/messe', { replace: true });
-  }, [isExhibition, location.pathname, navigate, realUser, role]);
+  }, [guard, isExhibition, location.pathname, navigate, role]);
 
   return null;
 }

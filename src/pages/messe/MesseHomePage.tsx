@@ -10,7 +10,7 @@ import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { getActiveMode } from '@/lib/activeMode';
 import { supabase } from '@/lib/supabase';
 import BackendExitButton from '@/components/messe/BackendExitButton';
@@ -49,7 +49,8 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const { appUser, setAppUser } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
-  const realUser = useCachedRealBackendUser();
+  const cachedRealUser = useCachedRealBackendUser();
+  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
   const navigate = useNavigate();
 
   useEffect(() => {

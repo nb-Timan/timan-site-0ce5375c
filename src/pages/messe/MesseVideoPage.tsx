@@ -6,7 +6,7 @@ import { MESSE_VIDEOS, MESSE_VIDEO_CATEGORY_LABEL, extractYouTubeId, youtubeThum
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { useAppUser } from '@/context/AppUserContext';
 import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { supabase } from '@/lib/supabase';
@@ -25,8 +25,9 @@ const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service'
 export default function MesseVideoPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
-  const realUser = useCachedRealBackendUser();
-  const { setAppUser } = useAppUser();
+  const cachedRealUser = useCachedRealBackendUser();
+  const { appUser, setAppUser } = useAppUser();
+  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
   const navigate = useNavigate();
 
   useEffect(() => {
