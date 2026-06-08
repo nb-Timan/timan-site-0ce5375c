@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import {
-  setActiveMode,
   getActiveMode,
   SELLER_VIEWS,
   ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
-import { leaveExhibitionMode } from '@/lib/exhibitionMode';
-import { useAppUser } from '@/context/AppUserContext';
+import { switchPreviewRole } from '@/lib/messeMode';
 
 /**
  * Recover the real Timan Backend / Timan Service user email that is
- * currently previewing Timan Messe (role:exhibition_user). The synthetic
- * exhibition session overwrites appUser, so we scan localStorage activeMode
- * keys to find which real user picked the exhibition preview.
+ * currently previewing Timan Messe (role:exhibition_user).
  */
 function findBackendPreviewerEmail(): string | null {
   try {
@@ -33,14 +29,8 @@ function findBackendPreviewerEmail(): string | null {
  * Top-bar role/mode selector shown ONLY for real Backend/Service users who
  * are previewing Timan Messe via "Vis som rolle". Public QR visitors on
  * /messe never see this control.
- *
- * Mirrors the same options as the normal PortalHeader switcher:
- *   - Backend
- *   - Seller views (BP/EM/JTN/AKR/NB)
- *   - Role previews (dealer/importer/service/etc. including Timan Messe)
  */
 export default function BackendRolePreviewSwitcher({ className }: { className?: string }) {
-  const { setAppUser } = useAppUser();
   const [previewerEmail, setPreviewerEmail] = useState<string | null>(() => findBackendPreviewerEmail());
   const [open, setOpen] = useState(false);
 
@@ -60,32 +50,10 @@ export default function BackendRolePreviewSwitcher({ className }: { className?: 
 
   function chooseMode(mode: ActiveMode) {
     if (!previewerEmail) return;
-    try {
-      setActiveMode(previewerEmail, mode);
-      // Clear cached seller-id mapping like PortalHeader does.
-      Object.keys(sessionStorage).forEach((k) => {
-        if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
-      });
-    } catch { /* ignore */ }
     setOpen(false);
-
-    // Staying inside Messe preview → just reload.
-    if (mode === 'role:exhibition_user') {
-      window.location.reload();
-      return;
-    }
-
-    // Leaving Messe: drop the synthetic exhibition session and route to
-    // the appropriate destination. A full navigation guarantees all
-    // role-derived state is re-evaluated cleanly.
-    leaveExhibitionMode();
-    setAppUser(null);
-    if (mode === 'backend') {
-      window.location.href = '/portal/backend';
-    } else {
-      window.location.href = '/portal';
-    }
+    switchPreviewRole(previewerEmail, mode);
   }
+
 
   const activeRole = typeof activeMode === 'string' && activeMode.startsWith('role:')
     ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
