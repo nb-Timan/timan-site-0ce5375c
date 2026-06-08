@@ -11,6 +11,7 @@ import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getActiveMode } from '@/lib/activeMode';
 import { supabase } from '@/lib/supabase';
 import BackendExitButton from '@/components/messe/BackendExitButton';
 
