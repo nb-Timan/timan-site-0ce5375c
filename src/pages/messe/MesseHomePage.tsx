@@ -4,12 +4,13 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
-import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
-import { getActiveRolePreview, setActiveMode } from '@/lib/activeMode';
+import { enterExhibitionMode, isMesseEnabled } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
-import { Wrench, MapPin, Play, Newspaper, ArrowLeftCircle } from 'lucide-react';
+import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import BackendExitButton from '@/components/messe/BackendExitButton';
+
 
 const T: Record<string, Record<Language, string>> = {
   welcome:    { da: 'Velkommen til Timan Messe', en: 'Welcome to Timan Exhibition', de: 'Willkommen bei Timan Messe', it: 'Benvenuti a Timan Fiera', hu: 'Üdvözöljük a Timan kiállításon' },
