@@ -1,11 +1,16 @@
 import { ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
-import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
+import DemoModeBadge from '@/components/messe/DemoModeBadge';
+import { derivePortalRole, hasModuleAccess, isExhibitionRole } from '@/lib/portalAccess';
+import timanLogo from '@/assets/timan-logo.png';
+
 
 
 import LastChangedLine from '@/components/portal/LastChangedLine';
