@@ -86,9 +86,9 @@ export default function MesseTiman2620Page() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 lg:py-7">
+      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 lg:py-7 flex flex-col">
         <Timan2620Viewer.Provider>
-          <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-5 flex-grow">
             {/* Left column: title + configuration panel */}
             <div className="w-full lg:w-[180px] lg:flex-shrink-0">
               <div className="mb-4">
@@ -98,46 +98,49 @@ export default function MesseTiman2620Page() {
                 <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
               </div>
               <Timan2620Viewer.Sidebar />
-
-              {/* Bottom-left back button */}
-              <button
-                type="button"
-                onClick={() => navigate('/messe')}
-                className="mt-6 inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                Til forsiden
-              </button>
             </div>
 
-            {/* Right column: machine area + benefit bar aligned to machine width */}
+            {/* Right column: machine area */}
             <div className="flex-1 min-w-0">
               <Timan2620Viewer.Stage />
-
-              <section className="mt-8 pt-6 border-t border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
-                  {benefits.map((b, i) => {
-                    const Icon = b.icon;
-                    return (
-                      <div key={i} className={`flex items-start gap-3 ${i > 0 ? 'md:pl-6 lg:pl-8' : ''}`}>
-                        <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
-                          <Icon className="h-5 w-5" />
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
-                            {b.title}
-                          </h3>
-                          <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                            {b.text}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
             </div>
           </div>
+
+          {/* Unified footer row: back button + benefit bar */}
+          <section className="mt-8 pt-6 border-t border-slate-200">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
+              <div className="lg:w-[180px] lg:flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => navigate('/messe')}
+                  className="inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                  Til forsiden
+                </button>
+              </div>
+              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
+                {benefits.map((b, i) => {
+                  const Icon = b.icon;
+                  return (
+                    <div key={i} className={`flex items-start gap-3 ${i > 0 ? 'md:pl-6 lg:pl-8' : ''}`}>
+                      <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
+                          {b.title}
+                        </h3>
+                        <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                          {b.text}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
         </Timan2620Viewer.Provider>
       </main>
 
