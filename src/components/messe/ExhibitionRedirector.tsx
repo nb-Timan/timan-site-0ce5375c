@@ -1,10 +1,39 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, isExhibitionRole } from '@/lib/portalAccess';
-import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
-import { getActiveMode } from '@/lib/activeMode';
+import { getCachedRealBackendUser, getRealBackendUserFromAppUser } from '@/lib/cachedRealUser';
+import { getActiveMode, type ActiveMode } from '@/lib/activeMode';
 import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
+
+export function getPortalDestinationForActiveMode(mode: ActiveMode | null): '/portal/backend' | '/portal' {
+  return mode === 'backend' ? '/portal/backend' : '/portal';
+}
+
+function subscribeToModeChanges(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener('timan:active-mode-changed', callback);
+  window.addEventListener('timan:exhibition-mode-changed', callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener('timan:active-mode-changed', callback);
+    window.removeEventListener('timan:exhibition-mode-changed', callback);
+  };
+}
+
+export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['appUser']) {
+  useSyncExternalStore(subscribeToModeChanges, () => Date.now(), () => 0);
+  const realUser = getRealBackendUserFromAppUser(appUser) || getCachedRealBackendUser();
+  const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
+  const isExhibitionPreview = activeMode === 'role:exhibition_user';
+  return {
+    realUser,
+    activeMode,
+    isExhibitionPreview,
+    shouldLeaveMesse: !!realUser && !isExhibitionPreview,
+    destination: getPortalDestinationForActiveMode(activeMode),
+  };
+}
 
 /**
  * Global redirector for the public Timan Messe / exhibition session.
@@ -17,7 +46,7 @@ import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
  */
 export default function ExhibitionRedirector() {
   const { appUser } = useAppUser();
-  const realUser = useCachedRealBackendUser();
+  const guard = useMesseRouteGuardState(appUser);
   const location = useLocation();
   const navigate = useNavigate();
   const role = derivePortalRole(appUser);
@@ -25,7 +54,7 @@ export default function ExhibitionRedirector() {
 
   useEffect(() => {
     const exhibitionActive = isExhibitionActive();
-    const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
+    const { realUser, activeMode, shouldLeaveMesse, destination } = guard;
 
     // DEV log — temporary, helps diagnose stuck exhibition issues.
     if (import.meta.env.DEV) {
@@ -38,6 +67,7 @@ export default function ExhibitionRedirector() {
         activeMode,
         derivedRole: role,
         isExhibition,
+        redirectDecision: shouldLeaveMesse && location.pathname.startsWith('/messe') ? destination : null,
       });
     }
 
@@ -48,11 +78,9 @@ export default function ExhibitionRedirector() {
       // If on /messe but active preview is NOT exhibition_user → leave /messe
       // and route to the correct portal for the selected mode.
       if (onMesse) {
-        const isExhibitionPreview = activeMode === 'role:exhibition_user';
-        if (!isExhibitionPreview) {
-          if (exhibitionActive) leaveExhibitionMode();
-          const dest = activeMode === 'backend' ? '/portal/backend' : '/portal';
-          navigate(dest, { replace: true });
+        if (shouldLeaveMesse) {
+          leaveExhibitionMode();
+          navigate(destination, { replace: true });
         }
         return;
       }
@@ -66,7 +94,7 @@ export default function ExhibitionRedirector() {
     if (p.startsWith('/messe')) return;
     if (p === '/update-password' || p === '/reset-password') return;
     navigate('/messe', { replace: true });
-  }, [isExhibition, location.pathname, navigate, realUser, role]);
+  }, [guard, isExhibition, location.pathname, navigate, role]);
 
   return null;
 }
