@@ -29,9 +29,9 @@ const PLACEHOLDER: NewsPost[] = [
 export default function MesseNewsPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
-  const cachedRealUser = useCachedRealBackendUser();
   const { appUser, setAppUser } = useAppUser();
-  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
+  const location = useLocation();
+  const { realUser } = useMesseMode(appUser, location.pathname);
   const navigate = useNavigate();
 
   useEffect(() => {
