@@ -88,6 +88,31 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
             <DemoModeBadge />
           </Link>
+          {(() => {
+            // Backend admins previewing as Timan Messe via "Vis som rolle" can exit back.
+            const preview = getActiveRolePreview(null) || (typeof window !== 'undefined' ? (() => {
+              try {
+                const keys = Object.keys(localStorage).filter(k => k.startsWith('timan.activeMode.'));
+                for (const k of keys) if (localStorage.getItem(k) === 'role:exhibition_user') return { email: k.slice('timan.activeMode.'.length) };
+              } catch { /* ignore */ }
+              return null;
+            })() : null);
+            if (!preview) return null;
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  try { setActiveMode((preview as { email: string }).email, 'backend'); } catch { /* ignore */ }
+                  leaveExhibitionMode();
+                  setAppUser(null);
+                  window.location.href = '/portal/backend';
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
+              >
+                <ArrowLeftCircle className="h-4 w-4" /> Forlad demo
+              </button>
+            );
+          })()}
           <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
             {PORTAL_LANGUAGES.map(l => (
               <button
