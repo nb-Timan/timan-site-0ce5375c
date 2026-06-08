@@ -1978,7 +1978,7 @@ export default function ConfiguratorPage() {
                 className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Tilbage til Messe</span>
+                <span>Tilbage til Timan Messe</span>
               </button>
             );
           }
