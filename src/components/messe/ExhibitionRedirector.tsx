@@ -41,12 +41,23 @@ export default function ExhibitionRedirector() {
       });
     }
 
-    // Real backend/service user → never redirect. Clear stale flag if set
-    // and the user is heading anywhere outside /messe.
+    const onMesse = location.pathname.startsWith('/messe');
+
+    // Real backend/service user
     if (realUser) {
-      if (exhibitionActive && !location.pathname.startsWith('/messe')) {
-        leaveExhibitionMode();
+      // If on /messe but active preview is NOT exhibition_user → leave /messe
+      // and route to the correct portal for the selected mode.
+      if (onMesse) {
+        const isExhibitionPreview = activeMode === 'role:exhibition_user';
+        if (!isExhibitionPreview) {
+          if (exhibitionActive) leaveExhibitionMode();
+          const dest = activeMode === 'backend' ? '/portal/backend' : '/portal';
+          navigate(dest, { replace: true });
+        }
+        return;
       }
+      // Outside /messe: clear stale exhibition flag if it lingers.
+      if (exhibitionActive) leaveExhibitionMode();
       return;
     }
 
