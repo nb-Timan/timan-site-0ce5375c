@@ -285,15 +285,12 @@ export default function Timan2620Viewer() {
 
         {/* Right viewer column */}
         <div className="flex-1 min-w-0 w-full">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-5 lg:p-6">
-            <h2 className="text-2xl lg:text-3xl font-bold text-slate-900">Timan 2620</h2>
-            <p className="text-slate-600 mt-1 mb-4">
-              Udforsk Timan 2620 og se forskellige konfigurationer.
-            </p>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-3 lg:p-4">
             <ProductImageViewer key={imageKey} configuration={configuration} />
           </div>
         </div>
       </div>
+
 
       {/* Incompatibility confirm dialog */}
       {conflict && (

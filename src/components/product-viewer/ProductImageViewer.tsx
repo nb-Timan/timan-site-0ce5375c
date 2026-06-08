@@ -170,7 +170,7 @@ export default function ProductImageViewer({
       {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[65vh] lg:max-h-[780px]"
+        className="relative w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -183,8 +183,10 @@ export default function ProductImageViewer({
             src={currentSrc}
             alt={`${config.label} – billede ${frame + 1}/${total}`}
             draggable={false}
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-transform duration-75"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+            className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-all duration-300 ${
+              hasCalloutHotspot ? 'scale-110 blur-sm brightness-75' : ''
+            }`}
+            style={hasCalloutHotspot ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'center center' }}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
@@ -333,76 +335,91 @@ export default function ProductImageViewer({
         )}
       </div>
 
-      {/* Callout hotspot detail modal */}
+      {/* Callout hotspot detail overlay — large kiosk-style window */}
       {activeHotspot && hasCalloutHotspot && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-8 animate-fade-in"
           role="dialog"
           aria-modal="true"
           aria-labelledby="viewer-hotspot-title"
           onClick={() => setActiveHotspot(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-scale-in"
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden animate-scale-in flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            {activeHotspot.imageUrl ? (
-              <img
-                src={activeHotspot.imageUrl}
-                alt=""
-                className="w-full h-48 object-contain bg-slate-50"
-              />
-            ) : (
-              <div className="w-full h-48 bg-slate-100 flex items-center justify-center text-slate-400">
-                <ImageOff className="h-10 w-10" />
-              </div>
-            )}
-            <div className="p-5">
-              <h3 id="viewer-hotspot-title" className="text-xl font-bold text-slate-900">
-                {activeHotspot.title}
-              </h3>
-              {activeHotspot.subtitle && (
-                <p className="text-sm text-emerald-700 font-semibold mt-0.5">
-                  {activeHotspot.subtitle}
-                </p>
-              )}
-              {activeHotspot.description && (
-                <p className="text-sm text-slate-600 mt-2">{activeHotspot.description}</p>
-              )}
-              {activeHotspot.bullets && activeHotspot.bullets.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {activeHotspot.bullets.map((b, i) => (
-                    <li key={i} className="flex gap-2 text-sm text-slate-700">
-                      <span className="text-emerald-600 font-bold leading-tight">•</span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {activeHotspot.technical && activeHotspot.technical.length > 0 && (
-                <div className="mt-4 border-t border-slate-200 pt-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Tekniske data
+            <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 overflow-y-auto">
+              {/* Visual / future-video area */}
+              <div className="bg-slate-100 relative min-h-[260px] md:min-h-[420px] flex items-center justify-center">
+                {activeHotspot.imageUrl ? (
+                  <img
+                    src={activeHotspot.imageUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                    <ImageOff className="h-12 w-12 mb-3" />
+                    <div className="text-sm font-medium text-slate-500">Detaljebillede / video</div>
+                    <div className="text-xs text-slate-400 mt-1">Kommer snart</div>
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                    {activeHotspot.technical.map((t, i) => (
-                      <div key={i} className="contents">
-                        <dt className="text-slate-500">{t.label}</dt>
-                        <dd className="text-slate-900 font-medium text-right">{t.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-              <div className="mt-5 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setActiveHotspot(null)}
-                  className="px-4 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold"
-                >
-                  Tilbage til maskinen
-                </button>
+                )}
               </div>
+
+              {/* Content */}
+              <div className="p-6 lg:p-8 flex flex-col">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-emerald-700 font-semibold">
+                  Timan 2620
+                </div>
+                <h3 id="viewer-hotspot-title" className="text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                  {activeHotspot.title}
+                </h3>
+                {activeHotspot.subtitle && (
+                  <p className="text-base text-emerald-700 font-semibold mt-1">
+                    {activeHotspot.subtitle}
+                  </p>
+                )}
+                {activeHotspot.description && (
+                  <p className="text-sm lg:text-base text-slate-600 mt-3 leading-relaxed">
+                    {activeHotspot.description}
+                  </p>
+                )}
+                {activeHotspot.bullets && activeHotspot.bullets.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {activeHotspot.bullets.map((b, i) => (
+                      <li key={i} className="flex gap-2.5 text-sm lg:text-base text-slate-700">
+                        <span className="text-emerald-600 font-bold leading-tight">✓</span>
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {activeHotspot.technical && activeHotspot.technical.length > 0 && (
+                  <div className="mt-5 border-t border-slate-200 pt-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                      Tekniske data
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      {activeHotspot.technical.map((t, i) => (
+                        <div key={i} className="contents">
+                          <dt className="text-slate-500">{t.label}</dt>
+                          <dd className="text-slate-900 font-semibold text-right">{t.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="border-t border-slate-200 p-4 lg:p-5 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveHotspot(null)}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm lg:text-base font-semibold shadow"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                Tilbage til maskinen
+              </button>
             </div>
           </div>
         </div>
