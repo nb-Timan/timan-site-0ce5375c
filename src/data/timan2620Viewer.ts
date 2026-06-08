@@ -53,7 +53,7 @@ export const TIMAN_2620_BASE_OPTIONS: Timan2620BaseOption[] = [
 ];
 
 export const TIMAN_2620_EQUIPMENT_OPTIONS: Timan2620EquipmentOption[] = [
-  { key: 'v_plow', label: 'V-plov' },
+  { key: 'v_plow', label: 'Dozer blad' },
   { key: 'salt_spreader', label: 'Saltspreder' },
   { key: 'brush', label: 'Kost' },
 ];
