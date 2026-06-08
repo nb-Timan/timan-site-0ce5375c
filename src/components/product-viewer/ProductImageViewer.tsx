@@ -36,6 +36,8 @@ interface Props {
   configuration: ViewerConfiguration;
   /** Optional className for the outer wrapper. */
   className?: string;
+  /** Hide zoom / rotate toolbar (kiosk mode). */
+  hideControls?: boolean;
 }
 
 const MIN_ZOOM = 1;
