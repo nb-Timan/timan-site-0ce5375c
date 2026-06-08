@@ -775,6 +775,9 @@ export default function MachineSearchPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>{meta.label}</span>
+                              {row.warrantyId && (
+                                <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
+                              )}
                               <span className="font-mono text-sm font-semibold text-slate-900 truncate">{row.serial}</span>
                             </div>
                             <button
