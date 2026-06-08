@@ -195,6 +195,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   const logout = useCallback(async () => {
+    try { localStorage.removeItem(EXHIBITION_FLAG); } catch { /* ignore */ }
     await supabase.auth.signOut();
     setAppUser(null);
   }, [setAppUser]);
