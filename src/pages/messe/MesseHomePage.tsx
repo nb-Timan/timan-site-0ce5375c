@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
@@ -10,8 +10,7 @@ import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
-import { getActiveMode } from '@/lib/activeMode';
+import { useMesseMode } from '@/lib/messeMode';
 import { supabase } from '@/lib/supabase';
 import BackendExitButton from '@/components/messe/BackendExitButton';
 
@@ -25,7 +24,7 @@ const T: Record<string, Record<Language, string>> = {
   partnerMapDesc: { da: 'Forhandlere, importører og servicepartnere', en: 'Dealers, importers and service partners', de: 'Händler, Importeure und Servicepartner', it: 'Rivenditori, importatori e service partner', hu: 'Kereskedők, importőrök, szervizpartnerek' },
   video:       { da: 'Video Akademi', en: 'Video Academy', de: 'Video-Akademie', it: 'Video Academy', hu: 'Videó Akadémia' },
   videoDesc:   { da: 'Maskinvideoer og guides', en: 'Machine videos and guides', de: 'Maschinenvideos und Anleitungen', it: 'Video macchine e guide', hu: 'Gépvideók és útmutatók' },
-  news:        { da: 'Seneste nyt', en: 'Latest news', de: 'Aktuelles', it: 'Ultime notizie', hu: 'Legfrissebb hírek' },
+  news:        { da: 'Seneste nyt', en: 'Latest news', de: 'Nyheder', it: 'Ultime notizie', hu: 'Legfrissebb hírek' },
   newsDesc:    { da: 'Nyt fra Timan-verdenen', en: 'News from the Timan world', de: 'Neues aus der Timan-Welt', it: 'Notizie dal mondo Timan', hu: 'Hírek a Timan világából' },
   disabled:    { da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.', de: 'Messe-Zugang ist derzeit nicht aktiv.', it: 'Accesso fiera attualmente disattivato.', hu: 'A kiállítási hozzáférés jelenleg nem aktív.' },
 };
@@ -49,9 +48,9 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const { appUser, setAppUser } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
-  const cachedRealUser = useCachedRealBackendUser();
-  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
+  const location = useLocation();
   const navigate = useNavigate();
+  const { realUser, shouldRenderMesseLayout, isPublicMesseVisitor } = useMesseMode(appUser, location.pathname);
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
@@ -63,27 +62,18 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     };
   }, []);
 
-  // When entering via /messe, activate the exhibition session — but ONLY
-  // for public visitors. Real Timan Backend / Timan Service users keep
-  // their authenticated session and just preview the Messe pages.
+  // Public visitor on /messe: create the synthetic exhibition session.
+  // Real backend/service users are NEVER overwritten — they only render
+  // the Messe layout when their activePreviewRole is exhibition_user.
   useEffect(() => {
-    if (!isEntry) return;
-    if (!enabled) return;
-    if (realUser) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.debug('[MesseHomePage] real backend user on /messe — skipping exhibition takeover', {
-          email: realUser.email,
-          role: realUser.portal_role,
-        });
-      }
-      return;
-    }
+    if (!isEntry || !enabled) return;
+    if (realUser) return;
+    if (!isPublicMesseVisitor) return;
     enterExhibitionMode();
     if (!appUser || appUser.email !== EXHIBITION_SESSION_USER.email) {
       setAppUser(EXHIBITION_SESSION_USER);
     }
-  }, [isEntry, enabled, appUser, setAppUser, realUser]);
+  }, [isEntry, enabled, realUser, isPublicMesseVisitor, appUser, setAppUser]);
 
   if (!enabled) {
     return (
@@ -94,19 +84,15 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     );
   }
 
-  // Real backend/service user with a non-exhibition active preview must
-  // not see the Messe layout. ExhibitionRedirector will navigate away;
-  // render nothing in the meantime to avoid a flash of Messe UI.
-  if (realUser) {
-    const mode = getActiveMode(realUser.email);
-    if (mode !== 'role:exhibition_user') return null;
+  // Single guard: if not allowed to render Messe layout, MesseRouteGuard
+  // will redirect — render nothing in the meantime.
+  if (!shouldRenderMesseLayout) {
+    // Sub-page reached without entry → bounce to /messe to bootstrap session.
+    if (!isEntry && !realUser) return <Navigate to="/messe" replace />;
+    return null;
   }
 
-  // If user landed on / direct messe sub-page without first being upgraded
-  // (e.g. middle-click), bounce through /messe entry to activate the session.
-  if (!isEntry && (!appUser || appUser.portal_role !== 'exhibition_user')) {
-    return <Navigate to="/messe" replace />;
-  }
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
