@@ -94,23 +94,23 @@ export default function ClaimsInternalView({ lang }: Props) {
   }, []);
 
   const stats = useMemo(() => {
-    const total = claims.length;
-    const open = claims.filter(c => c.status === 'open' || c.status === 'in_review' || c.status === 'submitted').length;
-    const approved = claims.filter(c => c.status === 'approved').length;
-    const rejected = claims.filter(c => c.status === 'rejected').length;
+    const total = scopedClaims.length;
+    const open = scopedClaims.filter(c => c.status === 'open' || c.status === 'in_review' || c.status === 'submitted').length;
+    const approved = scopedClaims.filter(c => c.status === 'approved').length;
+    const rejected = scopedClaims.filter(c => c.status === 'rejected').length;
     return { total, open, approved, rejected };
-  }, [claims]);
+  }, [scopedClaims]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return claims.filter(c => {
+    return scopedClaims.filter(c => {
       if (filter !== 'all' && c.status !== filter) return false;
       if (!q) return true;
       const blob = [c.claim_number, c.dealer_company, c.machine_model, c.machine_serial, c.customer_name, c.description]
         .filter(Boolean).join(' ').toLowerCase();
       return blob.includes(q);
     });
-  }, [claims, query, filter]);
+  }, [scopedClaims, query, filter]);
 
   return (
     <>
