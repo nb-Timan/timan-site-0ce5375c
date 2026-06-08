@@ -73,13 +73,6 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
       window.removeEventListener('storage', refresh);
     };
   }, []);
-    window.addEventListener('timan:messe-enabled-changed', refresh);
-    window.addEventListener('storage', refresh);
-    return () => {
-      window.removeEventListener('timan:messe-enabled-changed', refresh);
-      window.removeEventListener('storage', refresh);
-    };
-  }, []);
 
   // Phase 59 — /messe now requires login. No more synthetic exhibition
   // session for anonymous visitors. The MesseRouteGuard redirects
