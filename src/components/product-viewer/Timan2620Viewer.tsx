@@ -267,7 +267,7 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
-  const hotspots = useMemo(() => buildHotspots(base, equipment), [base, equipment]);
+  const hotspots = useMemo(() => buildHotspots(imageKey, base, equipment), [imageKey, base, equipment]);
 
   function toggleEquipment(eq: Timan2620Equipment) {
     const next = new Set(equipment);
