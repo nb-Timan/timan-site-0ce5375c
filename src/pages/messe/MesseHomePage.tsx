@@ -26,6 +26,8 @@ const T: Record<string, Record<Language, string>> = {
   videoDesc:   { da: 'Maskinvideoer og guides', en: 'Machine videos and guides', de: 'Maschinenvideos und Anleitungen', it: 'Video macchine e guide', hu: 'Gépvideók és útmutatók' },
   news:        { da: 'Seneste nyt', en: 'Latest news', de: 'Nyheder', it: 'Ultime notizie', hu: 'Legfrissebb hírek' },
   newsDesc:    { da: 'Nyt fra Timan-verdenen', en: 'News from the Timan world', de: 'Neues aus der Timan-Welt', it: 'Notizie dal mondo Timan', hu: 'Hírek a Timan világából' },
+  timan2620:     { da: 'Timan 2620', en: 'Timan 2620', de: 'Timan 2620', it: 'Timan 2620', hu: 'Timan 2620' },
+  timan2620Desc: { da: 'Udforsk maskinen i 360° med udstyrsvalg', en: 'Explore the machine in 360° with equipment options', de: 'Erkunden Sie die Maschine in 360° mit Ausstattungsoptionen', it: 'Esplora la macchina in 360° con opzioni di equipaggiamento', hu: 'Fedezze fel a gépet 360°-ban felszereltség-választással' },
   disabled:    { da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.', de: 'Messe-Zugang ist derzeit nicht aktiv.', it: 'Accesso fiera attualmente disattivato.', hu: 'A kiállítási hozzáférés jelenleg nem aktív.' },
 };
 
@@ -39,6 +41,7 @@ interface Tile {
 
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />,   title: 'configurator', desc: 'configuratorDesc', accent: 'from-emerald-500 to-emerald-700' },
+  { to: '/messe/timan-2620',   icon: <Tractor className="h-14 w-14" />,  title: 'timan2620',    desc: 'timan2620Desc',    accent: 'from-slate-600 to-slate-800' },
   { to: '/messe/partner-map',  icon: <MapPin className="h-14 w-14" />,    title: 'partnerMap',   desc: 'partnerMapDesc',   accent: 'from-sky-500 to-sky-700' },
   { to: '/messe/video',        icon: <Play className="h-14 w-14" />,      title: 'video',        desc: 'videoDesc',        accent: 'from-rose-500 to-rose-700' },
   { to: '/messe/nyt',          icon: <Newspaper className="h-14 w-14" />, title: 'news',         desc: 'newsDesc',         accent: 'from-amber-500 to-amber-700' },
