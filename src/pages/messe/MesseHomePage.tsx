@@ -4,9 +4,10 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
-import { enterExhibitionMode, isMesseEnabled } from '@/lib/exhibitionMode';
+import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { getActiveRolePreview, setActiveMode } from '@/lib/activeMode';
 import { Language } from '@/types/configurator';
-import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
+import { Wrench, MapPin, Play, Newspaper, ArrowLeftCircle } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 
