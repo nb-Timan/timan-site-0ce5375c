@@ -47,6 +47,7 @@ export default function MesseNewsPage() {
             <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
               <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
             </Link>
+            <BackendRolePreviewSwitcher />
             <BackendExitButton />
           </div>
 
