@@ -1,14 +1,13 @@
 /**
  * Backend → Timan Messe settings.
  *
- * - Toggle public QR access on/off
- * - Shows the public /messe URL
+ * - Shows the login-protected Messe entry URL
  * - Copy link to clipboard
  * - Download QR PNG (rendered client-side from the live URL)
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, QrCode, Copy, Download, Check } from 'lucide-react';
+import { ArrowLeft, QrCode, Copy, Download, Check, ExternalLink } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
