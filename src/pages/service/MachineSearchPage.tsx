@@ -719,6 +719,7 @@ export default function MachineSearchPage() {
                                   {meta.label}
                                 </span>
                               </td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
                               <td className="px-3 py-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                               <td className="px-3 py-2 text-slate-700">
                                 <div className="truncate max-w-[180px]">{row.machineModel || "—"}</div>
