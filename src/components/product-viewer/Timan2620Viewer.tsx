@@ -52,11 +52,11 @@ function buildHotspots(
   list.push({
     id: 'motor',
     frame: 0,
-    x: 58, y: 40,
+    x: 62, y: 55,
     title: 'Motor',
     subtitle: 'Kraftfuld og driftssikker',
     variant: 'callout',
-    calloutCenter: { cx: 93, cy: 28 },
+    calloutCenter: { cx: 93, cy: 65 },
     description:
       'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
     bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
