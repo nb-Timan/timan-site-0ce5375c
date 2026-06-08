@@ -1,39 +1,19 @@
 /**
- * Timan Messe / Exhibition mode.
+ * Timan Messe — backend-controlled public-toggle + QR helper.
  *
- * A login-free, public demo session for fair visitors. Activated when a
- * visitor opens /messe. Stored in localStorage so the synthetic session
- * survives a page reload while the visitor is browsing the booth tablet.
+ * The runtime "exhibition session" model has been removed. Real /messe
+ * access now comes from either:
+ *   - a real Supabase user with appUser.portal_variant = 'messe', or
+ *   - a backend user temporarily previewing Messe via the PortalHeader
+ *     role selector (see src/lib/messePreview.ts).
+ *
+ * This module only retains:
+ *   - the backend on/off switch (controls whether QR visitors can land
+ *     on /messe at all), and
+ *   - the canonical QR URL for printed materials.
  */
 
-const EXHIBITION_FLAG = 'timan.exhibitionMode';
 const MESSE_ENABLED_KEY = 'timan.messeEnabled';
-
-export function isExhibitionActive(): boolean {
-  try {
-    return localStorage.getItem(EXHIBITION_FLAG) === '1';
-  } catch {
-    return false;
-  }
-}
-
-export function enterExhibitionMode(): void {
-  try {
-    const was = localStorage.getItem(EXHIBITION_FLAG);
-    if (was === '1') return; // no-op: avoid event storms / render loops
-    localStorage.setItem(EXHIBITION_FLAG, '1');
-    window.dispatchEvent(new CustomEvent('timan:exhibition-mode-changed'));
-  } catch { /* ignore */ }
-}
-
-export function leaveExhibitionMode(): void {
-  try {
-    const was = localStorage.getItem(EXHIBITION_FLAG);
-    if (was === null) return; // no-op: avoid event storms / render loops
-    localStorage.removeItem(EXHIBITION_FLAG);
-    window.dispatchEvent(new CustomEvent('timan:exhibition-mode-changed'));
-  } catch { /* ignore */ }
-}
 
 /** Backend-controlled toggle for public QR access. Default: enabled. */
 export function isMesseEnabled(): boolean {

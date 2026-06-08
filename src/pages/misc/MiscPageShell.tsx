@@ -3,19 +3,13 @@ import { Navigate, useNavigate, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import { useMesseMode } from '@/lib/messeMode';
-import { leaveExhibitionMode } from '@/lib/exhibitionMode';
-import { supabase } from '@/lib/supabase';
+import { canSwitchMode } from '@/lib/activeMode';
 
-import { derivePortalRole, hasModuleAccess, isExhibitionRole } from '@/lib/portalAccess';
-import timanLogo from '@/assets/timan-logo.png';
-
-
+import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import type { ModuleKey } from '@/lib/portalChangelog';
@@ -31,11 +25,10 @@ interface Props {
 }
 
 export default function MiscPageShell({ title, intro, backTo, changelogModule, children }: Props) {
-  const { appUser, setAppUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage, uiLanguage } = useLanguage();
+  const { appUser, loading, logout } = useAppUser();
+  const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const { realUser } = useMesseMode(appUser, location.pathname);
 
   if (loading) {
     return (
@@ -45,62 +38,29 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
     );
   }
 
-  // Exhibition / Timan Messe demo session: only render the special Messe
-  // shell when we are actually on a /messe route. A backend user previewing
-  // exhibition_user from elsewhere keeps their normal portal layout.
+  // /messe sub-routes share the simplified Messe layout — always full
+  // PortalHeader on top (MesseRouteGuard guarantees a real authenticated
+  // user is present), plus a green "Tilbage til Messe" strip below.
   const onMesseRoute = location.pathname.startsWith('/messe');
-  const exhibitionRole = onMesseRoute && isExhibitionRole(derivePortalRole(appUser));
-  if (exhibitionRole) {
+  if (onMesseRoute) {
+    if (!appUser) return null;
+    const isBackendPreview = canSwitchMode(appUser);
     return (
       <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-        {realUser ? (
-          <>
-            <PortalHeader
-              user={realUser}
-              language={lang}
-              onLanguageChange={setLanguage}
-              onLogout={async () => {
-                leaveExhibitionMode();
-                try { await supabase.auth.signOut(); } catch { /* ignore */ }
-                setAppUser(null);
-                navigate('/portal', { replace: true });
-              }}
-            />
-            <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-                <DemoModeBadge />
-                <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Tilbage til Messe
-                </Link>
-              </div>
-            </div>
-          </>
-        ) : (
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-              <Link to="/messe" className="flex items-center gap-3">
-                <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-                <DemoModeBadge />
-              </Link>
-              <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
-                <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til Messe
-              </Link>
-              <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
-                {PORTAL_LANGUAGES.map(l => (
-                  <button
-                    key={l.code}
-                    onClick={() => setLanguage(l.code)}
-                    className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
-                    title={l.label}
-                    aria-label={l.code}
-                  >
-                    {l.emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </header>
-        )}
+        <PortalHeader
+          user={appUser}
+          language={lang}
+          onLanguageChange={setLanguage}
+          onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+        />
+        <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+            {isBackendPreview && <DemoModeBadge />}
+            <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Tilbage til Messe
+            </Link>
+          </div>
+        </div>
         <header className="bg-white border-b border-slate-200 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
@@ -113,7 +73,6 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
       </div>
     );
   }
-
 
   if (!appUser) return <Navigate to="/portal" replace />;
   {

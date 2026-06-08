@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
-import { isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { isMesseEnabled } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
 import { Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { useMesseMode } from '@/lib/messeMode';
-import { supabase } from '@/lib/supabase';
-
-
+import { Link } from 'react-router-dom';
+import { canSwitchMode } from '@/lib/activeMode';
 
 const T: Record<string, Record<Language, string>> = {
   welcome:    { da: 'Velkommen til Timan Messe', en: 'Welcome to Timan Exhibition', de: 'Willkommen bei Timan Messe', it: 'Benvenuti a Timan Fiera', hu: 'Üdvözöljük a Timan kiállításon' },
@@ -27,6 +24,7 @@ const T: Record<string, Record<Language, string>> = {
   newsDesc:    { da: 'Nyt fra Timan-verdenen', en: 'News from the Timan world', de: 'Neues aus der Timan-Welt', it: 'Notizie dal mondo Timan', hu: 'Hírek a Timan világából' },
   timan2620:     { da: 'Timan 2620', en: 'Timan 2620', de: 'Timan 2620', it: 'Timan 2620', hu: 'Timan 2620' },
   timan2620Desc: { da: 'Udforsk maskinen i 360° med udstyrsvalg', en: 'Explore the machine in 360° with equipment options', de: 'Erkunden Sie die Maschine in 360° mit Ausstattungsoptionen', it: 'Esplora la macchina in 360° con opzioni di equipaggiamento', hu: 'Fedezze fel a gépet 360°-ban felszereltség-választással' },
+  preview:    { da: 'Du forhåndsviser Timan Messe', en: 'Previewing Timan Exhibition', de: 'Vorschau Timan Messe', it: 'Anteprima Timan Fiera', hu: 'Timan Kiállítás előnézet' },
   disabled:    { da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.', de: 'Messe-Zugang ist derzeit nicht aktiv.', it: 'Accesso fiera attualmente disattivato.', hu: 'A kiállítási hozzáférés jelenleg nem aktív.' },
 };
 
@@ -46,23 +44,19 @@ const TILES: Tile[] = [
   { to: '/messe/nyt',          icon: <Newspaper className="h-14 w-14" />, title: 'news',         desc: 'newsDesc',         accent: 'from-amber-500 to-amber-700' },
 ];
 
-export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }) {
-  const { appUser, setAppUser } = useAppUser();
-  const { language: lang, setLanguage, uiLanguage } = useLanguage();
+/**
+ * Timan Messe entry page.
+ *
+ * MesseRouteGuard already enforces that we have a real appUser that is
+ * either Messe-variant or a backend user with Messe preview active. We
+ * just render the normal PortalHeader on top so the role switcher works,
+ * plus the tile grid below.
+ */
+export default function MesseHomePage() {
+  const { appUser, logout } = useAppUser();
+  const { language: lang, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
-  const location = useLocation();
   const navigate = useNavigate();
-  const { realUser, shouldRenderMesseLayout } = useMesseMode(appUser, location.pathname);
-
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.debug('[messe] MesseHomePage render', {
-      path: location.pathname,
-      hasRealUser: !!realUser,
-      shouldRenderMesseLayout,
-      isEntry,
-    });
-  }
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
@@ -74,10 +68,6 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     };
   }, []);
 
-  // Phase 59 — /messe now requires login. No more synthetic exhibition
-  // session for anonymous visitors. The MesseRouteGuard redirects
-  // unauthenticated visitors to /portal?redirect=/messe.
-
   if (!enabled) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 text-center">
@@ -87,59 +77,26 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     );
   }
 
-  // Sub-page reached without entry → bounce to /messe to bootstrap header.
-  if (!shouldRenderMesseLayout) {
-    if (!isEntry) return <Navigate to="/messe" replace />;
-    return null;
-  }
+  // Guard guarantees appUser, but TS doesn't know that.
+  if (!appUser) return null;
 
-
+  const isBackendPreview = canSwitchMode(appUser);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {realUser ? (
-        <>
-          <PortalHeader
-            user={realUser}
-            language={lang}
-            onLanguageChange={setLanguage}
-            onLogout={async () => {
-              leaveExhibitionMode();
-              try { await supabase.auth.signOut(); } catch { /* ignore */ }
-              setAppUser(null);
-              navigate('/portal', { replace: true });
-            }}
-          />
-          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2 flex-wrap">
-              <DemoModeBadge />
-              <span className="opacity-80">— Du forhåndsviser Timan Messe</span>
-            </div>
+      <PortalHeader
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+      />
+      {isBackendPreview && (
+        <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2 flex-wrap">
+            <DemoModeBadge />
+            <span className="opacity-80">— {T.preview[lang]}</span>
           </div>
-        </>
-      ) : (
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <Link to="/messe" className="flex items-center gap-3">
-              <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-              <DemoModeBadge />
-            </Link>
-
-            <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
-              {PORTAL_LANGUAGES.map(l => (
-                <button
-                  key={l.code}
-                  onClick={() => setLanguage(l.code)}
-                  className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
-                  title={l.label}
-                  aria-label={l.code}
-                >
-                  {l.emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
+        </div>
       )}
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-10">
@@ -153,13 +110,7 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             <Link
               key={tile.to}
               to={tile.to}
-              onClick={() => {
-                if (import.meta.env.DEV) {
-                  // eslint-disable-next-line no-console
-                  console.debug('[messe] tile click', { to: tile.to, title: tile.title });
-                }
-              }}
-              className={`group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[180px] sm:min-h-[220px] flex flex-col justify-end p-6 sm:p-8`}
+              className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[180px] sm:min-h-[220px] flex flex-col justify-end p-6 sm:p-8"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} opacity-90 pointer-events-none`} />
               <div className="relative text-white pointer-events-none">
