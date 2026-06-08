@@ -326,6 +326,7 @@ export default function ConfiguratorPage() {
   }, [savedConfigurationId]);
 
   const handleSaveChanges = useCallback(async () => {
+    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked) {
@@ -423,6 +424,7 @@ export default function ConfiguratorPage() {
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async () => {
+    if (isExhibition) { toast.info('Demo mode — lead-oprettelse er deaktiveret.'); return; }
     if (savingAsLead) return;
     // Duplicate protection: configuration already linked to a lead.
     if (linkedLeadId) {
