@@ -89,81 +89,90 @@ export default function Timan2620Viewer() {
 
   return (
     <div className="w-full">
-      {/* Section 1 — Base machine */}
-      <section className="mb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-          Basismaskine
-        </div>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Basismaskine">
-          {TIMAN_2620_BASE_OPTIONS.map(o => {
-            const active = base === o.key;
-            return (
-              <button
-                key={o.key}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setBase(o.key)}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${
-                  active
-                    ? 'bg-emerald-700 text-white border-emerald-700 shadow'
-                    : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
-                }`}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-6">
+        {/* Left control panel */}
+        <aside className="w-full lg:w-[280px] xl:w-[300px] lg:flex-shrink-0 lg:sticky lg:top-4 lg:bg-white lg:rounded-xl lg:border lg:border-slate-200 lg:shadow-sm lg:p-4 lg:self-start">
+          {/* Section 1 — Base machine */}
+          <section className="mb-4">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              Basismaskine
+            </div>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Basismaskine">
+              {TIMAN_2620_BASE_OPTIONS.map(o => {
+                const active = base === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setBase(o.key)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${
+                      active
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow'
+                        : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      {/* Section 2 — Equipment */}
-      <section className="mb-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-          Udstyr
-        </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Udstyr">
-          {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
-            const active = equipment.has(o.key);
-            return (
-              <button
-                key={o.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => toggleEquipment(o.key)}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${
-                  active
-                    ? 'bg-emerald-700 text-white border-emerald-700 shadow'
-                    : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
-                }`}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          {/* Section 2 — Equipment */}
+          <section className="mb-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              Udstyr
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Udstyr">
+              {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
+                const active = equipment.has(o.key);
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleEquipment(o.key)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${
+                      active
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow'
+                        : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      {/* Active badges */}
-      {(equipment.size > 0 || hasFullWinter) && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {hasFullWinter && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200">
-              Fuldt vintersæt
-            </span>
+          {/* Active badges */}
+          {(equipment.size > 0 || hasFullWinter) && (
+            <div className="flex flex-wrap gap-1.5">
+              {hasFullWinter && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200">
+                  Fuldt vintersæt
+                </span>
+              )}
+              {Array.from(equipment).map(eq => (
+                <span
+                  key={eq}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200"
+                >
+                  {labelOfEquipment(eq)}
+                </span>
+              ))}
+            </div>
           )}
-          {Array.from(equipment).map(eq => (
-            <span
-              key={eq}
-              className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200"
-            >
-              {labelOfEquipment(eq)}
-            </span>
-          ))}
-        </div>
-      )}
+        </aside>
 
-      <ProductImageViewer key={imageKey} configuration={configuration} />
+        {/* Right viewer column */}
+        <div className="flex-1 min-w-0 w-full">
+          <ProductImageViewer key={imageKey} configuration={configuration} />
+        </div>
+      </div>
+
 
       {/* Incompatibility confirm dialog */}
       {conflict && (
