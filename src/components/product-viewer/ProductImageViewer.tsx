@@ -304,18 +304,18 @@ export default function ProductImageViewer({
             <button
               type="button"
               onClick={() => advance(-1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/85 hover:bg-white shadow flex items-center justify-center"
+              className="absolute left-7 top-1/2 -translate-y-1/2 z-[3] h-10 w-10 rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center"
               aria-label="Forrige billede"
             >
-              <ChevronLeft className="h-5 w-5 text-slate-700" />
+              <ChevronLeft className="h-5 w-5 text-slate-500" />
             </button>
             <button
               type="button"
               onClick={() => advance(1)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/85 hover:bg-white shadow flex items-center justify-center"
+              className="absolute right-7 top-1/2 -translate-y-1/2 z-[3] h-10 w-10 rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center"
               aria-label="Næste billede"
             >
-              <ChevronRight className="h-5 w-5 text-slate-700" />
+              <ChevronRight className="h-5 w-5 text-slate-500" />
             </button>
           </>
         )}
