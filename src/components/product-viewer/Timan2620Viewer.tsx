@@ -352,6 +352,9 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
+  const { uiLanguage } = useLanguage();
+  const baseLabel = t('m2620_basismaskine', uiLanguage);
+  const equipmentLabel = t('m2620_udstyr', uiLanguage);
   // Fixed width sized to longest label "Saltspreder"
   const pillClass =
     'w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center';
@@ -359,9 +362,9 @@ function Sidebar() {
     <aside className="lg:sticky lg:top-24">
       <section className="mb-6">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Basismaskine
+          {baseLabel}
         </div>
-        <div className="flex flex-col items-start gap-4" role="radiogroup" aria-label="Basismaskine">
+        <div className="flex flex-col items-start gap-4" role="radiogroup" aria-label={baseLabel}>
           {TIMAN_2620_BASE_OPTIONS.map(o => {
             const active = base === o.key;
             return (
@@ -377,7 +380,7 @@ function Sidebar() {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {o.label}
+                {t(BASE_LABEL_KEY[o.key], uiLanguage)}
               </button>
             );
           })}
@@ -386,9 +389,9 @@ function Sidebar() {
 
       <section>
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Udstyr
+          {equipmentLabel}
         </div>
-        <div className="flex flex-col items-start gap-4" role="group" aria-label="Udstyr">
+        <div className="flex flex-col items-start gap-4" role="group" aria-label={equipmentLabel}>
           {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
             const active = equipment.has(o.key);
             return (
@@ -403,7 +406,7 @@ function Sidebar() {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {o.label}
+                {t(EQUIPMENT_LABEL_KEY[o.key], uiLanguage)}
               </button>
             );
           })}
@@ -415,8 +418,9 @@ function Sidebar() {
 
 function Stage() {
   const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
+  const { uiLanguage } = useLanguage();
   const labelOfEquipment = (eq: Timan2620Equipment) =>
-    TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
+    t(EQUIPMENT_LABEL_KEY[eq], uiLanguage);
 
   return (
     <>
@@ -433,11 +437,14 @@ function Stage() {
         >
           <div className="bg-white rounded-xl shadow-xl p-5 max-w-sm w-full">
             <div id="timan-2620-conflict-title" className="text-base font-bold text-slate-900 mb-2">
-              {labelOfEquipment(conflict.candidate)} kan ikke kombineres med{' '}
+              {labelOfEquipment(conflict.candidate)}{' '}
+              {t('m2620_conflict_cannot_combine_with', uiLanguage)}{' '}
               {labelOfEquipment(conflict.conflictsWith)}.
             </div>
             <p className="text-sm text-slate-600 mb-4">
-              Vil du erstatte {labelOfEquipment(conflict.conflictsWith)} med{' '}
+              {t('m2620_conflict_replace_prefix', uiLanguage)}{' '}
+              {labelOfEquipment(conflict.conflictsWith)}{' '}
+              {t('m2620_conflict_with', uiLanguage)}{' '}
               {labelOfEquipment(conflict.candidate)}?
             </p>
             <div className="flex flex-wrap justify-end gap-2">
@@ -446,15 +453,15 @@ function Stage() {
                 onClick={cancelConflict}
                 className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
               >
-                Annuller
+                {t('cancel', uiLanguage)}
               </button>
               <button
                 type="button"
                 onClick={confirmReplace}
                 className="px-3 py-1.5 rounded-md bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800"
               >
-                Erstat {labelOfEquipment(conflict.conflictsWith)} med{' '}
-                {labelOfEquipment(conflict.candidate)}
+                {t('m2620_replace', uiLanguage)} {labelOfEquipment(conflict.conflictsWith)}{' '}
+                {t('m2620_conflict_with', uiLanguage)} {labelOfEquipment(conflict.candidate)}
               </button>
             </div>
           </div>
