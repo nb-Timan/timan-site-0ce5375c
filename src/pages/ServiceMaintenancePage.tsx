@@ -129,11 +129,10 @@ export default function ServiceMaintenancePage() {
   const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
-  // Only true Timan backend/service see all dealers. Sellers are scope-filtered
-  // to their assigned dealers and must NOT be treated as "backend".
-  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_service';
-  const isSeller = portalRole === 'timan_seller';
-  const showDealerSelector = isBackend || isSeller;
+  // Treat sellers like backend in UI (dealer selector, registration form),
+  // but apply CRM-scope filter on returned rows so they only see their own
+  // assigned dealers' data.
+  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('view'), 'dashboard');
