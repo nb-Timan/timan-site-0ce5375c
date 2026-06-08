@@ -170,37 +170,43 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
   },
 
-  // Full winter setup standard — front (V-plov) LEFT, saltspreder RIGHT
-  // This is the "rear/3-quarter" angle: per spec, hide saltspreder to
-  // avoid overlap and keep motor on the rear body.
+  // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
-    v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 68 } },
-    affjedring: { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 } },
-    // salt_spreader intentionally omitted on this rear-view layout
+    v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+    motor:         { anchor: { x: 50, y: 55 }, callout: { cx: 50, cy: 95 } },
+    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 15, cy: 92 } },
+    salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
   // Full winter setup cab — 2 frames (rotation)
-  //   frame 1 (IMG 6): front LEFT  — v-plov left, cab centre, saltspreder right
-  //   frame 2 (IMG 8): MIRRORED   — v-plov right, cab upper-right, saltspreder left
+  //   frame 1 (IMG 6): front/side — v-plov LEFT, cab centre, saltspreder RIGHT
+  //   frame 2 (IMG 8): rear/mirrored — v-plov RIGHT, cab upper-right;
+  //                    saltspreder hidden to avoid overlap & confusion
   cab_full_winter_setup: {
     v_plow: [
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
-      { anchor: { x: 72, y: 65 }, callout: { cx: 92, cy: 50 }, frame: 2 },
+      // frame 2: bubble far right, connector enters dozer blade from outside
+      { anchor: { x: 72, y: 65 }, callout: { cx: 94, cy: 55 }, frame: 2 },
     ],
     motor: [
       { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 70 }, frame: 1 },
-      { anchor: { x: 50, y: 55 }, callout: { cx: 8,  cy: 70 }, frame: 2 },
+      // frame 2: bubble lower-left, points up to red rear body/engine area
+      { anchor: { x: 40, y: 60 }, callout: { cx: 10, cy: 88 }, frame: 2 },
     ],
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
-      { anchor: { x: 60, y: 30 }, callout: { cx: 30, cy: 10 }, frame: 2 },
+      // frame 2: anchor slightly back on cab; bubble upper-left, no roof cut
+      { anchor: { x: 55, y: 32 }, callout: { cx: 22, cy: 8  }, frame: 2 },
     ],
     affjedring: [
       { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      { anchor: { x: 50, y: 78 }, callout: { cx: 50, cy: 95 }, frame: 2 },
+      // frame 2: bottom-center, points up to wheel/suspension
+      { anchor: { x: 50, y: 78 }, callout: { cx: 50, cy: 96 }, frame: 2 },
     ],
-    // salt_spreader hidden on both frames (overlaps with V-plov layout)
+    salt_spreader: [
+      { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
+      // frame 2 intentionally omitted — hidden on rear/mirrored view
+    ],
   },
 };
 
