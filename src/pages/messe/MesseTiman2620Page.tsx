@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cog, Snowflake, Wrench } from 'lucide-react';
+import { Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
