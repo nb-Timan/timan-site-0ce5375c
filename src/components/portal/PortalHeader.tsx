@@ -91,20 +91,26 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     };
   }, [showModeSwitch, user.email]);
 
+  const navigate = useNavigate();
+
   function chooseMode(mode: ActiveMode) {
-    // Always run against the REAL backend user email — if PortalHeader is
-    // rendered with the synthetic exhibition user (rare but possible), the
-    // cached real user gives us the right key for activeMode storage.
-    const real = getCachedRealBackendUser();
-    const emailKey = real?.email || user.email;
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug('[messe] chooseMode click', { mode, emailKey });
-    }
     setActiveModeState(mode);
     setModeMenuOpen(false);
-    // Delegate role-switch + routing to the single source of truth.
-    switchPreviewRole(emailKey, mode);
+    setActiveMode(user.email, mode);
+    // Clear CRM seller-scope caches whenever the active view changes.
+    try {
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith('timan.crm.sellerId.')) sessionStorage.removeItem(k);
+      });
+    } catch { /* ignore */ }
+    // Route to the page that matches the new mode.
+    let target = '/portal';
+    if (mode === 'role:exhibition_user') {
+      target = '/messe';
+    } else if (mode === 'backend' && (user.portal_role || '').toLowerCase() === 'timan_backend') {
+      target = '/portal/backend';
+    }
+    navigate(target);
   }
 
   // Close the role menu when clicking anywhere outside it. Using a
