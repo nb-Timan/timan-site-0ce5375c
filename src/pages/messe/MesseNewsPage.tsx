@@ -6,6 +6,7 @@ import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import BackendExitButton from '@/components/messe/BackendExitButton';
+import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
 import timanLogo from '@/assets/timan-logo.png';
 
 
