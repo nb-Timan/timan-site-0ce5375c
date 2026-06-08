@@ -80,6 +80,7 @@ function computeCalloutPosition(h: ViewerHotspot): { cx: number; cy: number } {
 export default function ProductImageViewer({
   configuration: config,
   className,
+  hideControls = false,
 }: Props) {
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
