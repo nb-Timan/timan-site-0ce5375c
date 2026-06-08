@@ -537,9 +537,16 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
     else row.health = "healthy";
   }
   out.sort((a, b) => {
+    // 1. Highest warranty registration ID first (e.g. SP-222 above SP-221)
+    const wa = a.warrantyIdNumeric ?? -Infinity;
+    const wb = b.warrantyIdNumeric ?? -Infinity;
+    if (wa !== wb) return wb - wa;
+    // 2. Then latest activity date descending
     const da = a.latestActivityDate ? new Date(a.latestActivityDate).getTime() : 0;
     const db = b.latestActivityDate ? new Date(b.latestActivityDate).getTime() : 0;
-    return db - da;
+    if (db !== da) return db - da;
+    // 3. Then serial number
+    return a.normalizedSerial.localeCompare(b.normalizedSerial);
   });
   return out;
 }
