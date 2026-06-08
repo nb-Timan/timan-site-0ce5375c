@@ -1,100 +1,150 @@
+# Timan Messe — Exhibition Mode
 
-# Min Maskine — Unified machine journal (read-only v1)
+A new public, login-free portal mode for fairs. Visitors scan a QR → land on `/messe` → use a touch-friendly front page with Configurator (demo), Partner Map, Video, News. No CRM/backend/service/dealer-data access. Backend admins can toggle access on/off and copy the QR.
 
-## Goal
+## 1. Role + access model
 
-Make the serial number the single source of truth across Warranty, Service registreringer, Service tickets, Claims and TSB. Build a unified journal page that aggregates everything for one serial, while leaving each existing module fully intact.
+- Add new role: `exhibition_user` (display: "Timan Messe").
+- Extend `PortalRole` union and `derivePortalRole` so a synthetic exhibition session resolves to this role.
+- New AppUser stub `EXHIBITION_USER` (no Supabase auth). Stored in `AppUserContext` via a new `enterExhibitionMode()` action that:
+  - clears any existing session,
+  - sets `appUser = exhibitionStub`,
+  - persists `localStorage["timan.exhibitionMode"] = true` so refresh on `/messe/...` keeps the mode,
+  - is reverted by `leaveExhibitionMode()` / normal login.
 
-## Scope of v1 (read-only)
-
-- Combined machine search (cross-source by serial)
-- Deep-link route `/portal/service/machines/:serialNumber`
-- Unified "Min Maskine" page: header, quick stats, timeline, comments (read-only), related-record cards, documents/photos sections, current owner/dealer
-- Direct links to the original detail pages (warranty / service reg / ticket / claim / TSB) — no data duplication
-- No schema migrations, no removal of existing modules, no new write paths
-
-Out of scope (deferred):
-- Cross-module "machine-level comment" writes (kept read-only — would need a new `machine_comments` table)
-- Full owner history workflow (show current owner only; TODO comment in code)
-- Document upload/photo upload (sections rendered with empty state if no data)
-
-## Data sources & matching
-
-| Source | Table / store | Serial field |
-| --- | --- | --- |
-| Machines | `public.machines` (Supabase) | `serial_number` |
-| Warranty registrations | `public.warranty_registrations` | `machine_serial_number` |
-| Service registrations | `public.service_maintenance_*` | `serial_number` |
-| Service tickets | `public.service_tickets` | `serial_number` / `machine_id` |
-| Machine activity log | `public.machine_activity_log` | `serial_number` |
-| Machine documents | `public.machine_documents` | `serial_number` / `machine_id` |
-| Claims | `claims-store.ts` (mock) | `serialNo` |
-| TSB | `tsb-store.ts` (mock) | `dealers[].machineSerials[]` |
-
-Serial normalization (`normalizeSerial`): `trim().toUpperCase()` with collapsed internal whitespace. Original display value preserved on every record. Matching is always done against the normalized form; the displayed serial keeps the casing of the first source that returned it (preference order: machines → warranty → service reg → ticket → claim → tsb).
-
-A machine becomes searchable as soon as **any** of these sources yields its serial — the `machines` table is not required.
-
-## Permissions
-
-All Supabase reads continue to go through RLS — dealer-side users only see rows for their own dealer. No new write paths means no new RLS to author.
-
-In the cross-source aggregator we filter the in-memory claims/TSB lists by `dealer_account_id` (or seller dealer scope) for non-internal users using `derivePortalRole(effectivePortalUser)`. Internal users see everything.
-
-Search results, related-record counts and timeline events are all built from already-permission-filtered source data, so dealer scoping is enforced at the data layer, not in the UI.
-
-## Files
-
-### New
-
-- `src/lib/machineJournalService.ts` — `normalizeSerial`, `searchMachinesByIdentifier(query, scope)`, `loadMachineJournal(serial, scope)` returning `{ summary, timeline, comments, related, documents, photos, owners }`. Aggregates Supabase + claims-store + tsb-store; applies dealer scope.
-- `src/pages/service/MachineJournalPage.tsx` — the "Min Maskine" page rendered at `/portal/service/machines/:serialNumber`. Sections in order: header, quick stats, timeline, related records, comments, documents, photos, owners. Uses `PortalHeader` / `PortalFooter` and existing translation helpers.
-- `src/components/machine/MachineTimeline.tsx` — color-coded timeline (warranty=blue, service=green, ticket=amber, claim=red, tsb=purple, comment=slate) with newest-first toggle.
-- `src/components/machine/MachineStatsCards.tsx` — compact stat cards (timer, garanti, seneste service, åbne tickets, åbne claims, TSB mangler) hiding empty values.
-- `src/components/machine/MachineRelatedRecords.tsx` — card grid linking to original detail pages.
-
-### Edited
-
-- `src/App.tsx` — add `<Route path="/portal/service/machines/:serialNumber" element={<MachineJournalPage />} />`.
-- `src/pages/service/MachineSearchPage.tsx` — extend search to also probe warranty + service-maintenance + tickets + claims + tsb via `searchMachinesByIdentifier`; render a small "Resultater" list when more than one source-only match exists; clicking a row navigates to `/portal/service/machines/:serial`. When a single match is found and it has a `machines` row, keep current tabbed view. When the serial only exists in non-machines sources, redirect/link to the new journal page.
-- Where serial numbers are displayed in existing tables (warranty / service reg / tickets / claims), wrap them in a `<Link>` to the journal page if the serial is non-empty. Surgical edits only — labels and table layout unchanged.
-
-## Timeline event types
-
+Allowed routes (whitelist):
 ```text
-warranty_registered      blue
-service_registered       green
-service_ticket_created   amber
-service_ticket_status    amber
-claim_created            red
-claim_status_changed     red
-tsb_assigned             purple
-tsb_completed            purple
-comment_added            slate
+/messe
+/messe/konfigurator           → wraps /configurator with demoMode flag
+/messe/partner-map            → wraps existing Partner Map
+/messe/video                  → new VideoPage
+/messe/video/:category
+/messe/nyt                    → new MessenewsPage
 ```
+Everything else for `exhibition_user` redirects to `/messe`.
 
-All events normalized to `{ kind, color, date, title, description?, href? }` where `href` deep-links to the originating record.
+## 2. Public entry route
 
-## Localization
+`/messe` (public, no auth gate):
+1. Reads backend setting `messe_enabled` (Supabase `app_settings` row, key `messe_enabled`, default `true`).
+2. If disabled → renders centered card with: "Messeadgang er ikke aktiv lige nu."
+3. If enabled → calls `enterExhibitionMode()` and renders the **Messe front page** with 4 large tiles:
+   - Konfigurator → `/messe/konfigurator`
+   - Find forhandler → `/messe/partner-map`
+   - Video Akademi → `/messe/video`
+   - Seneste nyt → `/messe/nyt`
+4. Tiles styled as large touch targets (min-h 180px, big icon + label), 2×2 grid on tablet, 1-col on phone, language switcher in header, no portal header chrome that exposes user/CRM menus.
 
-Page strings added under the existing `T` map (DK/GB/DE/IT/HU/SE/FR/PL/CZ) consistent with the prior i18n work. Product data (machine type, model, customer name, serials, prices) is never translated.
+## 3. Route guard
 
-## Testing
+New `<ExhibitionGuard>` wrapper used on protected app routes (CRM/backend/service/etc). If `portalRole === "exhibition_user"`, it `<Navigate to="/messe" replace />`. Mounted alongside the existing portal layout so it covers every non-`/messe` route in one place.
 
-1. Serial only in warranties: appears in search → journal page opens → warranty event in timeline + warranty in related records.
-2. Serial only in service tickets: search returns it → ticket appears in related + timeline.
-3. Serial only in claims (mock): search returns it → claim card + red claim event.
-4. Serial in multiple modules: one journal page combines events; counts match per-source totals; each "Åbn …" link opens its original detail page.
-5. Dealer user logged in: only own serials returned by search; foreign claim/TSB entries filtered out before render.
-6. Internal user: full cross-dealer view.
-7. Build passes (`tsc --noEmit`).
+Direct API calls are already gated by Supabase RLS; the exhibition stub has no Supabase session, so any authenticated query fails closed — no data leak even if a guard is bypassed.
 
-## Return at the end
+## 4. Configurator demo mode
 
-- list of files changed
-- new route registered
-- data sources included
-- serial normalization rule
-- how permissions stay enforced
-- read-only boundaries of v1
-- manual test steps
+`ConfiguratorPage` reads `isExhibition = portalRole === "exhibition_user"` and a new `demoMode` prop on `useConfigurator`. When demo:
+- hides Save / Send quote / Send order / "Mit account" / saved-cases buttons,
+- hides internal assignment fields (seller, dealer override),
+- forces `language` selectable + prices visible,
+- shows persistent small badge in header: "Demo mode".
+
+The existing save/send handlers short-circuit when `demoMode` is true so even direct invocation is a no-op.
+
+## 5. Partner Map visibility
+
+`PartnerMapPage` already lists dealers. Add filter when `isExhibition`:
+- include dealer_accounts where `is_active = true` AND type in (`dealer`, `importer`, `service_partner`),
+- exclude rows flagged `is_internal_test`, `is_hidden`, `deleted_at not null`,
+- never load warranty_registrations.
+
+## 6. Video page (simple)
+
+New file `src/data/messeVideos.ts`:
+```ts
+export interface MesseVideo {
+  id: string; title: Record<Language,string>; description: Record<Language,string>;
+  youtubeUrl: string; category: "maskiner"|"redskaber"|"service"|"salg";
+  language: Language[]; thumbnail?: string; publishedAt: string;
+}
+```
+`/messe/video` renders sections: Seneste videoer (top 6 by publishedAt) + one section per category, each card uses YouTube thumbnail + opens in modal lite-embed.
+
+## 7. News page (simple)
+
+New Supabase table reuse: extend existing `news_posts` (already used by `LatestFromTiman`) with optional `messe_visible boolean default true, link_url text, active boolean default true`. `/messe/nyt` queries `active = true AND messe_visible = true`, renders cards (image, title, short text, link).
+
+Migration: `db/sql/20260609_news_posts_messe_fields.sql`.
+
+## 8. Backend setting + QR
+
+New backend card in `BackendDataIntegrationsPage` (or new `BackendMessePage`):
+- toggle `Messe-adgang aktiv`,
+- shows full public URL `https://<host>/messe`,
+- "Kopiér link" button,
+- "Download QR" button using `qrcode` npm package (already small, ~20kb) — renders a 512×512 PNG client-side from the live URL.
+
+Setting persisted in `app_settings` (key/value JSON table). Migration: `db/sql/20260609_app_settings_messe.sql` creates the table if missing and seeds the row + GRANTs.
+
+## 9. Backend "Vis som rolle"
+
+Add `exhibition_user` / "Timan Messe" to the existing role preview dropdown in `BackendRolesPage` (or wherever `viewAsUser` is selected). Selecting it sets the preview role; the existing `useEffectivePortalUser` already drives UI from that role, so guards + Messe front page render automatically for backend testers.
+
+## 10. Future lead capture (prep only)
+
+Create empty module `src/lib/messeLeadCapture.ts` exporting a typed `MesseLeadDraft` interface (name/company/email/phone/country/machine interest) and a `submitMesseLead(draft)` stub that currently `console.warn`s "not implemented". No UI, no DB writes yet — just clean architecture so a popup can be wired later.
+
+## Files changed / added
+
+Added:
+- `src/pages/messe/MesseEntryPage.tsx`
+- `src/pages/messe/MesseHomePage.tsx`
+- `src/pages/messe/MesseVideoPage.tsx`
+- `src/pages/messe/MesseNewsPage.tsx`
+- `src/pages/messe/MesseConfiguratorPage.tsx` (thin wrapper passing `demoMode`)
+- `src/pages/messe/MessePartnerMapPage.tsx` (wrapper with exhibition filter)
+- `src/components/messe/ExhibitionGuard.tsx`
+- `src/components/messe/DemoModeBadge.tsx`
+- `src/data/messeVideos.ts`
+- `src/lib/exhibitionMode.ts` (enter/leave helpers + storage key)
+- `src/lib/messeLeadCapture.ts` (interface + stub)
+- `src/lib/appSettings.ts` (generic key/value reader)
+- `src/pages/backend/BackendMesseSettingsPage.tsx`
+- `db/sql/20260609_app_settings_messe.sql`
+- `db/sql/20260609_news_posts_messe_fields.sql`
+
+Edited:
+- `src/App.tsx` — register `/messe/*` routes + `ExhibitionGuard` on portal routes.
+- `src/context/AppUserContext.tsx` — exhibition stub + enter/leave actions, restore from `localStorage`.
+- `src/lib/portalAccess.ts` — add `"exhibition_user"` to `PortalRole`, derive helper, permission matrix.
+- `src/components/portal/PortalHeader.tsx` — hide user/CRM menus, show "Demo mode" badge when exhibition.
+- `src/hooks/useConfigurator.ts` + `src/pages/ConfiguratorPage.tsx` — `demoMode` flag, no-op save/send.
+- `src/pages/backend/BackendRolesPage.tsx` (or current "Vis som rolle" host) — add Timan Messe option.
+- `src/pages/misc/PartnerMapPage.tsx` — exhibition filter.
+- `src/components/portal/LatestFromTiman.tsx` — respect new `messe_visible` flag is unchanged on /portal; query unchanged.
+- `package.json` — add `qrcode` + `@types/qrcode`.
+
+## Access rules summary
+
+| Capability | exhibition_user |
+|---|---|
+| CRM / backend / service / dealer data / saved/sent offers / orders / account | blocked (guard + RLS) |
+| Language switch | allowed |
+| See prices | allowed |
+| Configurator | demo only (no save/send) |
+| Partner Map | active dealers/importers/service partners only |
+| Video page | allowed |
+| News page | allowed |
+
+## Test steps
+
+1. SQL: run both migrations; confirm `app_settings.messe_enabled = true` row exists.
+2. Open incognito `/messe` → front page with 4 tiles renders, header has "Demo mode" badge, no user menu.
+3. Click Konfigurator → demo configurator opens, Save/Send hidden, prices visible, language switch works.
+4. Click Find forhandler → only active dealers/importers/service partners shown; warranty data not requested in network tab.
+5. Click Video → sections render; clicking a card plays YouTube.
+6. Click Seneste nyt → only `active && messe_visible` news shown.
+7. Try `/portal/crm/leads` directly while in exhibition mode → redirects to `/messe`.
+8. Backend → Messe settings: toggle off → reload `/messe` → "Messeadgang er ikke aktiv lige nu." message.
+9. Backend → Vis som rolle → "Timan Messe" → app reflects exhibition_user UI/permissions.
+10. Copy link + download QR PNG buttons work; scanning QR opens `/messe` on phone.
