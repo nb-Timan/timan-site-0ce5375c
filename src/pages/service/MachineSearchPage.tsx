@@ -577,129 +577,206 @@ export default function MachineSearchPage() {
           )}
         </section>
 
-        {/* ---- Machine Registry Overview (Phase 1) ---- */}
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-slate-700">
-              {overviewLoading
-                ? "Indlæser maskiner…"
-                : `${overview.length} ${overview.length === 1 ? "maskine" : "maskiner"} fundet`}
-            </div>
-            {!overviewLoading && overview.length > PAGE_SIZE && (() => {
-              const totalPages = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
-              const page = Math.min(overviewPage, totalPages);
-              return (
-                <div className="flex items-center gap-2 text-xs text-slate-600">
-                  <button
-                    onClick={() => setOverviewPage(p => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40"
-                  >‹</button>
-                  <span>Side {page} / {totalPages}</span>
-                  <button
-                    onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages}
-                    className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40"
-                  >›</button>
-                  <select
-                    value={page}
-                    onChange={e => setOverviewPage(Number(e.target.value))}
-                    className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                  >
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
+        {/* ---- Machine Registry Overview (compact table) ---- */}
+        {(() => {
+          const totalMachines = overview.length;
+          const healthyCount = overview.filter(r => r.health === "healthy").length;
+          const attentionCount = overview.filter(r => r.health === "needs_attention").length;
+          const criticalCount = overview.filter(r => r.health === "critical").length;
+          const totalPages = Math.max(1, Math.ceil(totalMachines / PAGE_SIZE));
+          const page = Math.min(overviewPage, totalPages);
+          const pageRows = overview.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+          const sourceLabels: Record<string, string> = {
+            warranty: "Warranty", service: "Service", ticket: "Ticket",
+            claim: "Claim", tsb: "TSB", comment: "Comment",
+          };
+
+          const healthMeta = (h: string) => {
+            if (h === "critical") return { chip: "bg-red-100 text-red-700", border: "border-l-red-500", label: "Critical" };
+            if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: "Needs Attention" };
+            return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: "Healthy" };
+          };
+
+          return (
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              {/* KPI bar */}
+              {!overviewLoading && totalMachines > 0 && (
+                <div className="px-4 py-3 border-b border-slate-200 bg-white grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="rounded-lg border border-slate-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-500">Maskiner totalt</div>
+                    <div className="text-lg font-bold text-slate-900 leading-tight">{totalMachines}</div>
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wider text-emerald-700">Healthy</div>
+                    <div className="text-lg font-bold text-emerald-800 leading-tight">{healthyCount}</div>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wider text-amber-700">Needs Attention</div>
+                    <div className="text-lg font-bold text-amber-800 leading-tight">{attentionCount}</div>
+                  </div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wider text-red-700">Critical</div>
+                    <div className="text-lg font-bold text-red-800 leading-tight">{criticalCount}</div>
+                  </div>
                 </div>
-              );
-            })()}
-          </div>
-          {overviewError && (
-            <div className="px-6 py-4 text-sm text-red-600">{overviewError}</div>
-          )}
-          {overviewLoading ? (
-            <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
-            </div>
-          ) : overview.length === 0 ? (
-            <div className="py-10 text-center text-sm text-slate-500">Ingen maskiner i din adgang.</div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {overview
-                .slice((overviewPage - 1) * PAGE_SIZE, overviewPage * PAGE_SIZE)
-                .map(row => {
-                  const healthClasses =
-                    row.health === "critical" ? "bg-red-100 text-red-700"
-                    : row.health === "needs_attention" ? "bg-amber-100 text-amber-700"
-                    : "bg-emerald-100 text-emerald-700";
-                  const healthLabel =
-                    row.health === "critical" ? "Critical"
-                    : row.health === "needs_attention" ? "Needs Attention"
-                    : "Healthy";
-                  const sourceLabels: Record<string, string> = {
-                    warranty: "Warranty", service: "Service", ticket: "Ticket",
-                    claim: "Claim", tsb: "TSB", comment: "Comment",
-                  };
-                  const openItems: string[] = [];
-                  if (row.openTickets > 0) openItems.push(`${row.openTickets} åbne tickets`);
-                  if (row.openClaims > 0) openItems.push(`${row.openClaims} åbne claims`);
-                  if (row.openTsb > 0) openItems.push(`${row.openTsb} åbne TSB`);
-                  return (
-                    <li
-                      key={row.normalizedSerial}
-                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
-                      className="px-6 py-4 cursor-pointer hover:bg-slate-50 flex items-start justify-between gap-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="font-mono text-sm font-semibold text-slate-900">{row.serial}</span>
-                          {row.machineModel && <span className="text-xs text-slate-600">· {row.machineModel}</span>}
-                          {row.machineType && row.machineType !== row.machineModel && (
-                            <span className="text-xs text-slate-500">· {row.machineType}</span>
+              )}
+
+              {/* Header / pagination */}
+              <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs font-semibold text-slate-700">
+                  {overviewLoading
+                    ? "Indlæser maskiner…"
+                    : `${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
+                </div>
+                {!overviewLoading && totalMachines > PAGE_SIZE && (
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <button onClick={() => setOverviewPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
+                    <span>Side {page} / {totalPages}</span>
+                    <button onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
+                    <select value={page} onChange={e => setOverviewPage(Number(e.target.value))}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {overviewError && (
+                <div className="px-4 py-3 text-sm text-red-600">{overviewError}</div>
+              )}
+
+              {overviewLoading ? (
+                <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Indlæser…
+                </div>
+              ) : totalMachines === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500">Ingen maskiner i din adgang.</div>
+              ) : (
+                <>
+                  {/* Desktop / wide: compact table */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="text-left font-semibold px-3 py-2 w-[120px]">Status</th>
+                          <th className="text-left font-semibold px-3 py-2">Serienummer</th>
+                          <th className="text-left font-semibold px-3 py-2">Model</th>
+                          <th className="text-left font-semibold px-3 py-2">Forhandler</th>
+                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Levering</th>
+                          <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Timer</th>
+                          <th className="text-left font-semibold px-3 py-2">Seneste aktivitet</th>
+                          <th className="text-left font-semibold px-3 py-2">Historik</th>
+                          <th className="text-right font-semibold px-3 py-2">Handling</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {pageRows.map(row => {
+                          const meta = healthMeta(row.health);
+                          const openItems: string[] = [];
+                          if (row.openTickets > 0) openItems.push(`Ticket ${row.openTickets}`);
+                          if (row.openClaims > 0) openItems.push(`Claim ${row.openClaims}`);
+                          if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
+                          return (
+                            <tr key={row.normalizedSerial}
+                              onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                              className={`cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
+                              <td className="px-3 py-2">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>
+                                  {meta.label}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
+                              <td className="px-3 py-2 text-slate-700">
+                                <div className="truncate max-w-[180px]">{row.machineModel || "—"}</div>
+                                {row.machineType && row.machineType !== row.machineModel && (
+                                  <div className="text-[10px] text-slate-400 truncate max-w-[180px]">{row.machineType}</div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[180px]">{row.dealerName || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{row.deliveryDate ? fmtDateShort(row.deliveryDate) : "—"}</td>
+                              <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">{row.operatingHours != null ? row.operatingHours : "—"}</td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[220px]">{row.latestActivityLabel || "—"}</td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {row.sources.map(s => (
+                                    <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
+                                      {sourceLabels[s] ?? s}
+                                    </span>
+                                  ))}
+                                  {openItems.map(o => (
+                                    <span key={o} className="inline-flex items-center rounded-full bg-red-50 text-red-700 px-1.5 py-0.5 text-[9px] font-semibold">
+                                      {o}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                                  className="inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f] whitespace-nowrap"
+                                >
+                                  Min Maskine →
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile / narrow: compact cards */}
+                  <ul className="lg:hidden divide-y divide-slate-100">
+                    {pageRows.map(row => {
+                      const meta = healthMeta(row.health);
+                      const openItems: string[] = [];
+                      if (row.openTickets > 0) openItems.push(`Ticket ${row.openTickets}`);
+                      if (row.openClaims > 0) openItems.push(`Claim ${row.openClaims}`);
+                      if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
+                      return (
+                        <li key={row.normalizedSerial}
+                          onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                          className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>{meta.label}</span>
+                              <span className="font-mono text-sm font-semibold text-slate-900 truncate">{row.serial}</span>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                              className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f]"
+                            >Min Maskine →</button>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-600 truncate">
+                            {row.machineModel || "—"}{row.dealerName ? ` · ${row.dealerName}` : ""}
+                          </div>
+                          <div className="mt-1 text-[11px] text-slate-500 truncate">
+                            {row.latestActivityLabel || "—"}
+                          </div>
+                          {(row.sources.length > 0 || openItems.length > 0) && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {row.sources.map(s => (
+                                <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">{sourceLabels[s] ?? s}</span>
+                              ))}
+                              {openItems.map(o => (
+                                <span key={o} className="inline-flex items-center rounded-full bg-red-50 text-red-700 px-1.5 py-0.5 text-[9px] font-semibold">{o}</span>
+                              ))}
+                            </div>
                           )}
-                          <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${healthClasses}`}>
-                            {healthLabel}
-                          </span>
-                        </div>
-                        <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs text-slate-600">
-                          {row.dealerName && (
-                            <div><dt className="text-slate-400">Forhandler</dt><dd className="font-medium text-slate-800 truncate">{row.dealerName}</dd></div>
-                          )}
-                          {row.deliveryDate && (
-                            <div><dt className="text-slate-400">Leveringsdato</dt><dd className="font-medium text-slate-800">{fmtDateShort(row.deliveryDate)}</dd></div>
-                          )}
-                          {row.operatingHours != null && (
-                            <div><dt className="text-slate-400">Driftstimer</dt><dd className="font-medium text-slate-800">{row.operatingHours}</dd></div>
-                          )}
-                          {row.latestActivityLabel && (
-                            <div className="sm:col-span-2 lg:col-span-1"><dt className="text-slate-400">Seneste aktivitet</dt><dd className="font-medium text-slate-800 truncate">{row.latestActivityLabel}</dd></div>
-                          )}
-                        </dl>
-                        <div className="mt-2 flex flex-wrap items-center gap-1">
-                          {row.sources.map(s => (
-                            <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                              {sourceLabels[s] ?? s}
-                            </span>
-                          ))}
-                          {openItems.length > 0 && (
-                            <span className="ml-2 inline-flex items-center rounded-full bg-red-50 text-red-700 px-2 py-0.5 text-[10px] font-semibold">
-                              {openItems.join(" · ")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
-                        className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
-                      >
-                        Min Maskine →
-                      </button>
-                    </li>
-                  );
-                })}
-            </ul>
-          )}
-        </section>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </section>
+          );
+        })()}
 
         {/* Cross-source results: serials found only in warranty/service/ticket/claim/TSB. */}
 
