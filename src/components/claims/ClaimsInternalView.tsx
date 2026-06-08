@@ -58,11 +58,21 @@ interface Props { lang: Language }
 
 export default function ClaimsInternalView({ lang }: Props) {
   const navigate = useNavigate();
+  const { scope: teknikScope } = useTeknikScope();
   const [claims, setClaims] = useState<ServiceClaim[]>([]);
   const [source, setSource] = useState<'supabase' | 'mock' | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ClaimStatus | 'all'>('all');
+
+  // Apply seller / dealer scope (Backend/Service see everything).
+  const scopedClaims = useMemo(
+    () => applyScopeFilter(teknikScope, claims, (c) => ({
+      dealer_number: (c as { dealer_account_number?: string | null }).dealer_account_number ?? null,
+      dealer_name: c.dealer_company ?? null,
+    })),
+    [teknikScope, claims],
+  );
 
   useEffect(() => {
     let active = true;
