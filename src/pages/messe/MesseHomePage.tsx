@@ -54,6 +54,16 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const navigate = useNavigate();
   const { realUser, shouldRenderMesseLayout } = useMesseMode(appUser, location.pathname);
 
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug('[messe] MesseHomePage render', {
+      path: location.pathname,
+      hasRealUser: !!realUser,
+      shouldRenderMesseLayout,
+      isEntry,
+    });
+  }
+
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
     window.addEventListener('timan:messe-enabled-changed', refresh);
@@ -143,10 +153,16 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
             <Link
               key={tile.to}
               to={tile.to}
+              onClick={() => {
+                if (import.meta.env.DEV) {
+                  // eslint-disable-next-line no-console
+                  console.debug('[messe] tile click', { to: tile.to, title: tile.title });
+                }
+              }}
               className={`group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[180px] sm:min-h-[220px] flex flex-col justify-end p-6 sm:p-8`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} opacity-90`} />
-              <div className="relative text-white">
+              <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} opacity-90 pointer-events-none`} />
+              <div className="relative text-white pointer-events-none">
                 <div className="mb-4 opacity-95">{tile.icon}</div>
                 <div className="text-2xl sm:text-3xl font-bold leading-tight">{T[tile.title][lang]}</div>
                 <div className="text-sm sm:text-base text-white/85 mt-1">{T[tile.desc][lang]}</div>
