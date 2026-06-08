@@ -222,7 +222,7 @@ function Sidebar() {
   const pillClass =
     'w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center';
   return (
-    <aside className="bg-white rounded-2xl border border-slate-200 shadow-md p-4 lg:sticky lg:top-24">
+    <aside className="lg:sticky lg:top-24">
       <section className="mb-6">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
           Basismaskine
@@ -286,7 +286,7 @@ function Stage() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-2 lg:p-3">
+      <div>
         <ProductImageViewer key={imageKey} configuration={configuration} />
       </div>
 
