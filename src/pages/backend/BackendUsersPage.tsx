@@ -675,6 +675,32 @@ function EditUserModal({
             />
           </Section>
 
+          {/* Portal variant — locks user to /messe layout when 'messe'. */}
+          <Section title="Portal variant">
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: "standard", label: "Standard Portal" },
+                { value: "messe", label: "Messe Portal" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, portal_variant: opt.value })}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${
+                    (draft.portal_variant ?? "standard") === opt.value
+                      ? "bg-amber-100 text-amber-900 border-amber-300"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Dealer User.
+            </p>
+          </Section>
+
 
           {/* Status */}
           <Section title="Status">
