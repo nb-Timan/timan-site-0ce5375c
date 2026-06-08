@@ -105,10 +105,10 @@ const PART_CONTENT: Record<PartId, PartContent> = {
     bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
   },
   v_plow: {
-    title: 'V-plov',
+    title: 'Dozer blad',
     subtitle: 'Effektiv snerydning',
     description:
-      'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
+      'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
     bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
   },
   salt_spreader: {
