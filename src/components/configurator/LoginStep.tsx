@@ -51,6 +51,7 @@ interface LoginStepProps {
     dealer_number?: string | null;
     permissions?: Record<string, boolean> | null;
     quick_actions?: string[] | null;
+    portal_variant?: string | null;
   }) => void;
 }
 
@@ -241,6 +242,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         // so direct login matches Backend "Vis som" behavior.
         permissions: (appUserRow.permissions as Record<string, boolean> | null) ?? null,
         quick_actions: (appUserRow.quick_actions as string[] | null) ?? null,
+        portal_variant: (appUserRow.portal_variant as string | null) ?? 'standard',
       });
     } catch (err) {
       setError(tx('loginError', language));

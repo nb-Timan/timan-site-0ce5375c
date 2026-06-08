@@ -18,6 +18,8 @@ export type SessionUser = AppUser & {
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
   quick_actions?: string[] | null;
+  /** Phase 59 — 'standard' (default) or 'messe' (locked to /messe layout). */
+  portal_variant?: string | null;
 };
 
 export interface DealerAccessStatus {
@@ -75,6 +77,7 @@ export const EXHIBITION_SESSION_USER: SessionUser = {
   dealer_number: null,
   permissions: null,
   quick_actions: [],
+  portal_variant: 'messe',
 };
 
 function isExhibitionFlagSet(): boolean {
@@ -275,6 +278,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
     quick_actions: (row.quick_actions as string[] | null) ?? null,
+    portal_variant: (row.portal_variant as string | null) ?? 'standard',
   };
 }
 

@@ -173,6 +173,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     last_invited_at: (row.last_invited_at as string | null) ?? null,
     last_password_reset_at: (row.last_password_reset_at as string | null) ?? null,
     quick_actions,
+    portal_variant: ((row.portal_variant as string | null) === 'messe' ? 'messe' : 'standard') as BackendUser['portal_variant'],
     created_at: (row.created_at as string) || new Date().toISOString(),
     updated_at: (row.updated_at as string) || new Date().toISOString(),
   };
@@ -330,6 +331,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     account_owner_initials: draft.account_owner_initials,
     account_owner_email: draft.account_owner_email,
     quick_actions: draft.quick_actions, // jsonb; null = role defaults
+    portal_variant: draft.portal_variant === 'messe' ? 'messe' : 'standard',
     updated_at: new Date().toISOString(),
   };
 
@@ -430,6 +432,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
         ? null
         : [...draft.quick_actions].sort(),
     ],
+    ["portal_variant", (row.portal_variant as string | null) ?? 'standard', draft.portal_variant === 'messe' ? 'messe' : 'standard'],
   ];
   // Permissions: only compare keys we actually sent, since the DB row may
   // hold extra keys from older edits we don't want to overwrite logic on.

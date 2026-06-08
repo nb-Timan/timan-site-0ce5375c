@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -44,6 +45,14 @@ export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+
+  // Phase 59 — Messe-variant users are locked to /messe. If we land on
+  // /portal with a Messe user already in session, immediately bounce.
+  if (appUser && isMesseVariantUser(appUser)) {
+    return <Navigate to="/messe" replace />;
+  }
 
   const prefLangApplied = useRef(false);
   useEffect(() => {
@@ -100,7 +109,20 @@ export default function PortalPage() {
         </div>
         <LoginStep
           language={lang}
-          onResolved={(user) => { setAppUser(user); navigate('/portal', { replace: true }); }}
+          onResolved={(user) => {
+            setAppUser(user);
+            // Phase 59 — Messe Portal users always land on /messe.
+            if (isMesseVariantUser(user)) {
+              navigate('/messe', { replace: true });
+              return;
+            }
+            // Honor ?redirect=… (e.g. QR-code login flow) when safe.
+            if (redirectParam && redirectParam.startsWith('/')) {
+              navigate(redirectParam, { replace: true });
+              return;
+            }
+            navigate('/portal', { replace: true });
+          }}
         />
       </div>
     );

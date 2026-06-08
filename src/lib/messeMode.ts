@@ -1,27 +1,20 @@
 /**
  * Single source of truth for Timan Messe / exhibition mode + role preview.
  *
- * Replaces the previous tangle of guards/caches/localStorage probes spread
- * across ExhibitionRedirector, ExhibitionGuard, PortalHeader, MesseHomePage,
- * MesseNewsPage, MesseVideoPage and MiscPageShell.
- *
  * Concepts:
- *  - realUser            — the real authenticated Timan Backend / Service
- *                          user. NEVER overwritten by the synthetic
- *                          exhibition_user.
- *  - activePreviewRole   — selected "Vis som" preview (backend / seller
- *                          initials / role:* including role:exhibition_user).
- *  - isPublicMesseVisitor — true only when there is no realUser and route is
- *                          /messe (public QR booth visit).
+ *  - realUser              — backend/service user previewing a role.
+ *  - appUserIsMesseVariant — real authenticated app_users row with
+ *                            portal_variant = 'messe' (Phase 59).
+ *  - activePreviewRole     — selected "Vis som" preview for backend users.
+ *  - isExhibitionPreview   — activePreviewRole === 'role:exhibition_user'.
  *
- * Derived booleans:
- *  - isExhibitionPreview      — activePreviewRole === 'role:exhibition_user'
- *  - shouldRenderMesseLayout  — on /messe AND (exhibition preview OR public)
- *  - shouldRenderPortalHeader — there is a realUser to show controls for
- *  - redirectTarget           — where the route guard must navigate to, or null
- *
- * One function to switch preview role + route consistently:
- *  - switchPreviewRole(email, mode)
+ * Routing rules:
+ *  - /messe requires login. Either a Messe variant user, or a backend
+ *    user previewing Timan Messe. No more anonymous public access.
+ *  - Messe variant users are locked to /messe; navigation away is bounced
+ *    back to /messe.
+ *  - Backend users in non-exhibition preview on /messe are bounced to
+ *    their portal home.
  */
 import { useSyncExternalStore } from 'react';
 import {
@@ -37,6 +30,7 @@ import {
   getCachedRealBackendUser,
   getRealBackendUserFromAppUser,
 } from './cachedRealUser';
+import { isMesseVariantUser } from './portalAccess';
 import type { SessionUser } from '@/context/AppUserContext';
 
 export type { ActiveMode };
@@ -56,8 +50,10 @@ function subscribe(cb: () => void) {
 
 export interface MesseModeState {
   realUser: SessionUser | null;
+  appUserIsMesseVariant: boolean;
   activePreviewRole: ActiveMode;
   isExhibitionPreview: boolean;
+  /** Public visitor on /messe with no login — must be sent to /portal?redirect=/messe. */
   isPublicMesseVisitor: boolean;
   shouldRenderMesseLayout: boolean;
   shouldRenderPortalHeader: boolean;
@@ -72,6 +68,8 @@ function portalDestinationFor(realUser: SessionUser | null, mode: ActiveMode): s
   return '/portal';
 }
 
+const ALLOW_WITHOUT_LOGIN = new Set(['/update-password', '/reset-password']);
+
 export function computeMesseMode(
   appUser: SessionUser | null,
   pathname: string,
@@ -83,23 +81,35 @@ export function computeMesseMode(
     ? getActiveMode(realUser.email)
     : 'backend';
   const isExhibitionPreview = activePreviewRole === 'role:exhibition_user';
-  const isPublicMesseVisitor = !realUser && onMesse;
+  const appUserIsMesseVariant = isMesseVariantUser(appUser);
 
-  const shouldRenderMesseLayout =
-    onMesse && (isExhibitionPreview || isPublicMesseVisitor);
+  const canViewMesseLayout = isExhibitionPreview || appUserIsMesseVariant;
+  const isPublicMesseVisitor = !appUser && onMesse;
+  const shouldRenderMesseLayout = onMesse && canViewMesseLayout;
   const shouldRenderPortalHeader = !!realUser;
 
   let redirectTarget: string | null = null;
-  if (realUser) {
-    if (onMesse && !isExhibitionPreview) {
+  if (onMesse) {
+    if (!appUser) {
+      redirectTarget = '/portal?redirect=/messe';
+    } else if (realUser && !isExhibitionPreview && !appUserIsMesseVariant) {
+      // Backend user in non-exhibition preview — back to portal.
       redirectTarget = portalDestinationFor(realUser, activePreviewRole);
-    } else if (!onMesse && isExhibitionPreview) {
+    } else if (!realUser && !appUserIsMesseVariant) {
+      // Logged-in regular user landed on /messe by accident — go home.
+      redirectTarget = '/portal';
+    }
+  } else {
+    if (appUserIsMesseVariant && !ALLOW_WITHOUT_LOGIN.has(pathname)) {
+      redirectTarget = '/messe';
+    } else if (realUser && isExhibitionPreview) {
       redirectTarget = '/messe';
     }
   }
 
   return {
     realUser,
+    appUserIsMesseVariant,
     activePreviewRole,
     isExhibitionPreview,
     isPublicMesseVisitor,
@@ -118,10 +128,9 @@ export function useMesseMode(
 }
 
 /**
- * Centralized "Vis som rolle" handler. Switch preview role and navigate to
- * the matching route in one place. Restores the real backend user into
- * sessionStorage so the destination page doesn't boot under the synthetic
- * exhibition_user.
+ * Centralized "Vis som rolle" handler for backend users. Switch preview
+ * role and navigate to the matching route. The synthetic exhibition_user
+ * is in-memory only — never persisted to Supabase.
  */
 export function switchPreviewRole(realUserEmail: string, mode: ActiveMode): void {
   try {

@@ -110,6 +110,8 @@ export interface BackendUser {
    * Empty array = explicitly hide all quick actions.
    */
   quick_actions: QuickActionKey[] | null;
+  /** Phase 59 — 'standard' (default) or 'messe' (locked to /messe layout). */
+  portal_variant: "standard" | "messe";
   created_at: string;
   updated_at: string;
 }
@@ -164,6 +166,7 @@ function seedUser(
     account_owner_email: null,
     last_login_at: null,
     quick_actions: [...(DEFAULT_QUICK_ACTIONS[role] ?? [])],
+    portal_variant: "standard",
     created_at: nowIso(),
     updated_at: nowIso(),
   };

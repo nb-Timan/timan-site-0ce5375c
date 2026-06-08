@@ -50,5 +50,7 @@ export function setMesseEnabled(enabled: boolean): void {
 
 export function getMesseUrl(): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://timan-site.lovable.app';
-  return `${origin}/messe`;
+  // Phase 59 — /messe now requires login. QR points at the portal login
+  // with a redirect back to /messe after authentication.
+  return `${origin}/portal?redirect=/messe`;
 }

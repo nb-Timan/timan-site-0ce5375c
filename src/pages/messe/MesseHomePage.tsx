@@ -3,8 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
-import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
-import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
 import { Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
@@ -53,7 +52,7 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const location = useLocation();
   const navigate = useNavigate();
-  const { realUser, shouldRenderMesseLayout, isPublicMesseVisitor } = useMesseMode(appUser, location.pathname);
+  const { realUser, shouldRenderMesseLayout } = useMesseMode(appUser, location.pathname);
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
@@ -65,18 +64,9 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     };
   }, []);
 
-  // Public visitor on /messe: create the synthetic exhibition session.
-  // Real backend/service users are NEVER overwritten — they only render
-  // the Messe layout when their activePreviewRole is exhibition_user.
-  useEffect(() => {
-    if (!isEntry || !enabled) return;
-    if (realUser) return;
-    if (!isPublicMesseVisitor) return;
-    enterExhibitionMode();
-    if (!appUser || appUser.email !== EXHIBITION_SESSION_USER.email) {
-      setAppUser(EXHIBITION_SESSION_USER);
-    }
-  }, [isEntry, enabled, realUser, isPublicMesseVisitor, appUser, setAppUser]);
+  // Phase 59 — /messe now requires login. No more synthetic exhibition
+  // session for anonymous visitors. The MesseRouteGuard redirects
+  // unauthenticated visitors to /portal?redirect=/messe.
 
   if (!enabled) {
     return (
@@ -87,11 +77,9 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     );
   }
 
-  // Single guard: if not allowed to render Messe layout, MesseRouteGuard
-  // will redirect — render nothing in the meantime.
+  // Sub-page reached without entry → bounce to /messe to bootstrap header.
   if (!shouldRenderMesseLayout) {
-    // Sub-page reached without entry → bounce to /messe to bootstrap session.
-    if (!isEntry && !realUser) return <Navigate to="/messe" replace />;
+    if (!isEntry) return <Navigate to="/messe" replace />;
     return null;
   }
 
