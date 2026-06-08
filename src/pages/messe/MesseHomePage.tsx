@@ -89,32 +89,50 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link to="/messe" className="flex items-center gap-3">
-            <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-            <DemoModeBadge />
-          </Link>
-          <div className="flex items-center gap-2">
-            <BackendRolePreviewSwitcher />
-            <BackendExitButton />
+      {realUser ? (
+        <>
+          <PortalHeader
+            user={realUser}
+            language={lang}
+            onLanguageChange={setLanguage}
+            onLogout={async () => {
+              leaveExhibitionMode();
+              try { await supabase.auth.signOut(); } catch { /* ignore */ }
+              setAppUser(null);
+              navigate('/portal', { replace: true });
+            }}
+          />
+          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+              <DemoModeBadge />
+              <span className="opacity-80">— Du forhåndsviser Timan Messe</span>
+            </div>
           </div>
+        </>
+      ) : (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <Link to="/messe" className="flex items-center gap-3">
+              <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
+              <DemoModeBadge />
+            </Link>
 
-          <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
-            {PORTAL_LANGUAGES.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
-                title={l.label}
-                aria-label={l.code}
-              >
-                {l.emoji}
-              </button>
-            ))}
+            <div className="flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 p-1">
+              {PORTAL_LANGUAGES.map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => setLanguage(l.code)}
+                  className={`px-2 py-1 rounded-md text-base leading-none ${uiLanguage === l.code ? 'bg-white shadow-sm border border-emerald-700/30' : 'border border-transparent hover:bg-white'}`}
+                  title={l.label}
+                  aria-label={l.code}
+                >
+                  {l.emoji}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-10">
         <div className="text-center mb-10">
