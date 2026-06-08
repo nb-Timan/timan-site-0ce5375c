@@ -17,7 +17,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -107,10 +107,14 @@ export default function ConfiguratorPage() {
   const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   // Timan Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
-  const isExhibition = isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
+  // Treat ANY render of the configurator under /messe/* as Messe mode too,
+  // so the back button + demo guards work even before context resolves.
+  const isMessePath = location.pathname.startsWith('/messe');
+  const isExhibition = isMessePath || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
   // Keep the configurator's internal language in sync with the global portal
@@ -1974,7 +1978,7 @@ export default function ConfiguratorPage() {
                 className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Tilbage til Messe</span>
+                <span>Tilbage til Timan Messe</span>
               </button>
             );
           }
