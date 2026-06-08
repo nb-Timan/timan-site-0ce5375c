@@ -33,8 +33,6 @@ import type { ViewerConfiguration, ViewerHotspot } from './types';
 
 interface Props {
   configuration: ViewerConfiguration;
-  /** Optional aspect ratio for the image stage (default 4/3). */
-  aspectRatio?: number;
   /** Optional className for the outer wrapper. */
   className?: string;
 }
