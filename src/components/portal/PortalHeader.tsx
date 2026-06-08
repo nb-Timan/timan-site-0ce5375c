@@ -98,11 +98,30 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     // cached real user gives us the right key for activeMode storage.
     const real = getCachedRealBackendUser();
     const emailKey = real?.email || user.email;
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[messe] chooseMode click', { mode, emailKey });
+    }
     setActiveModeState(mode);
     setModeMenuOpen(false);
     // Delegate role-switch + routing to the single source of truth.
     switchPreviewRole(emailKey, mode);
   }
+
+  // Close the role menu when clicking anywhere outside it. Using a
+  // capturing pointerdown listener avoids the classic onBlur-before-onClick
+  // race that was swallowing menu-item clicks.
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    function onDown(e: PointerEvent) {
+      const root = document.getElementById('timan-mode-menu-root');
+      if (root && e.target instanceof Node && root.contains(e.target)) return;
+      setModeMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [modeMenuOpen]);
+
 
   useEffect(() => {
     if (!isBackend) { setPendingCount(0); return; }
