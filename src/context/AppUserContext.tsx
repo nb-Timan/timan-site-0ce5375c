@@ -77,6 +77,7 @@ export const EXHIBITION_SESSION_USER: SessionUser = {
   dealer_number: null,
   permissions: null,
   quick_actions: [],
+  portal_variant: 'messe',
 };
 
 function isExhibitionFlagSet(): boolean {
