@@ -14,6 +14,7 @@ import {
   ROLE_PREVIEWS,
   type ActiveMode,
 } from '@/lib/activeMode';
+import { enterExhibitionMode, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
