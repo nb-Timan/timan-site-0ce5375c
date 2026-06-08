@@ -45,6 +45,14 @@ export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+
+  // Phase 59 — Messe-variant users are locked to /messe. If we land on
+  // /portal with a Messe user already in session, immediately bounce.
+  if (appUser && isMesseVariantUser(appUser)) {
+    return <Navigate to="/messe" replace />;
+  }
 
   const prefLangApplied = useRef(false);
   useEffect(() => {
