@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LifeBuoy, AlertCircle, Search, Layers, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Language } from '@/types/configurator';
 import { loadClaims, ServiceClaim, ClaimStatus } from '@/lib/claimsService';
+import { useTeknikScope, applyScopeFilter } from '@/lib/useTeknikScope';
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: 'Service / Claims — Intern', en: 'Service / Claims — Internal', de: 'Service / Reklamationen — Intern', it: 'Assistenza / Reclami — Interno', hu: 'Szerviz / Reklamációk — Belső' },
@@ -57,11 +58,21 @@ interface Props { lang: Language }
 
 export default function ClaimsInternalView({ lang }: Props) {
   const navigate = useNavigate();
+  const { scope: teknikScope } = useTeknikScope();
   const [claims, setClaims] = useState<ServiceClaim[]>([]);
   const [source, setSource] = useState<'supabase' | 'mock' | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ClaimStatus | 'all'>('all');
+
+  // Apply seller / dealer scope (Backend/Service see everything).
+  const scopedClaims = useMemo(
+    () => applyScopeFilter(teknikScope, claims, (c) => ({
+      dealer_number: (c as { dealer_account_number?: string | null }).dealer_account_number ?? null,
+      dealer_name: c.dealer_company ?? null,
+    })),
+    [teknikScope, claims],
+  );
 
   useEffect(() => {
     let active = true;
@@ -83,23 +94,23 @@ export default function ClaimsInternalView({ lang }: Props) {
   }, []);
 
   const stats = useMemo(() => {
-    const total = claims.length;
-    const open = claims.filter(c => c.status === 'open' || c.status === 'in_review' || c.status === 'submitted').length;
-    const approved = claims.filter(c => c.status === 'approved').length;
-    const rejected = claims.filter(c => c.status === 'rejected').length;
+    const total = scopedClaims.length;
+    const open = scopedClaims.filter(c => c.status === 'open' || c.status === 'in_review' || c.status === 'submitted').length;
+    const approved = scopedClaims.filter(c => c.status === 'approved').length;
+    const rejected = scopedClaims.filter(c => c.status === 'rejected').length;
     return { total, open, approved, rejected };
-  }, [claims]);
+  }, [scopedClaims]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return claims.filter(c => {
+    return scopedClaims.filter(c => {
       if (filter !== 'all' && c.status !== filter) return false;
       if (!q) return true;
       const blob = [c.claim_number, c.dealer_company, c.machine_model, c.machine_serial, c.customer_name, c.description]
         .filter(Boolean).join(' ').toLowerCase();
       return blob.includes(q);
     });
-  }, [claims, query, filter]);
+  }, [scopedClaims, query, filter]);
 
   return (
     <>

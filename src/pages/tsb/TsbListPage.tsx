@@ -9,11 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   daysUntil, deadlineLabel, formatDate, getProcessStatus, PROCESS_STATUS_LABEL,
   PROCESS_STATUS_OPTIONS, setTsbProcessStatus, totalMachineCount, useTsbs,
+  getDealer,
   type ProcessStatus, type Tsb,
 } from "@/lib/tsb-store";
 import { canCreateTsb } from "@/components/tsb/TsbAccessGuard";
 import { useAppUser } from "@/context/AppUserContext";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { useTeknikScope } from "@/lib/useTeknikScope";
+import { dealerScopeAllows } from "@/lib/machineJournalService";
 
 type AdminTab = "all" | "aktive" | "kladder" | "afventer" | "near" | "overdue" | "lukkede";
 
@@ -53,10 +56,27 @@ const STATUS_FILTERS: { value: "all" | ProcessStatus; label: string }[] = [
 
 export default function TsbListPage() {
   const navigate = useNavigate();
-  const tsbs = useTsbs();
+  const tsbsAll = useTsbs();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser ?? null);
   const mayCreate = canCreateTsb(portalRole, appUser ?? null);
+  const { scope: teknikScope } = useTeknikScope();
+
+  // Filter TSBs whose linked dealers fall inside the seller / dealer scope.
+  const tsbs = useMemo(() => {
+    if (teknikScope.unrestricted) return tsbsAll;
+    return tsbsAll.filter((t) =>
+      t.dealers.some((link) => {
+        const d = getDealer(link.dealerId);
+        if (!d) return false;
+        return dealerScopeAllows(teknikScope, {
+          dealer_number: d.sharepointAccount ?? null,
+          dealer_name: d.name,
+        });
+      }),
+    );
+  }, [tsbsAll, teknikScope]);
+
   const [tab, setTab] = useState<AdminTab>("all");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ProcessStatus>("all");

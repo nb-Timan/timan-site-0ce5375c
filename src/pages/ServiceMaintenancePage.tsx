@@ -30,6 +30,7 @@ import {
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
 import { ServiceMaintenanceSidebarLayout, type ServiceMaintView } from '@/components/service/ServiceMaintenanceSidebarLayout';
+import { useTeknikScope, applyScopeFilter } from '@/lib/useTeknikScope';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
@@ -129,6 +130,9 @@ export default function ServiceMaintenancePage() {
   const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
+  // Treat sellers like backend in UI (dealer selector, registration form),
+  // but apply CRM-scope filter on returned rows so they only see their own
+  // assigned dealers' data.
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -214,6 +218,8 @@ export default function ServiceMaintenancePage() {
   const kitTotal = selectedStep?.stepTotal ?? 0;
   const grandTotal = kitTotal + extraTotal;
 
+  const { scope: teknikScope } = useTeknikScope();
+
   const reload = useMemo(() => async () => {
     try {
       const m = await listServiceMachines({
@@ -221,15 +227,23 @@ export default function ServiceMaintenancePage() {
         machineType: fType || null,
         search: fSerial || null,
       });
-      setMachines(m);
+      const mScoped = applyScopeFilter(teknikScope, m, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      }));
+      setMachines(mScoped);
       const r = await listServiceRegistrations({
         dealerNumber: isBackend ? (fDealer || undefined) : dealerNumber ?? undefined,
       });
-      setRegistrations(r);
+      const rScoped = applyScopeFilter(teknikScope, r, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      }));
+      setRegistrations(rScoped);
     } catch (e) {
       console.error('[service-maintenance] load failed', e);
     }
-  }, [isBackend, dealerNumber, fDealer, fType, fSerial]);
+  }, [isBackend, dealerNumber, fDealer, fType, fSerial, teknikScope]);
 
   useEffect(() => { if (appUser) reload(); }, [appUser, reload]);
 
@@ -240,7 +254,10 @@ export default function ServiceMaintenancePage() {
   const historyOpen = async (m: ServiceMachine) => {
     setHistoryFor(m);
     const rows = await listServiceRegistrations({ serialNumber: m.serial_number });
-    setHistoryRows(rows);
+    setHistoryRows(applyScopeFilter(teknikScope, rows, (row) => ({
+      dealer_number: row.dealer_number,
+      dealer_name: row.dealer_name,
+    })));
   };
 
   async function handleSubmit(e: React.FormEvent) {

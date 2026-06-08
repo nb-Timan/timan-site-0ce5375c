@@ -30,6 +30,7 @@ import {
   NewServiceTicketInput,
 } from "@/lib/machineLifecycleService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
 
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -209,6 +210,7 @@ export default function ServiceTicketsPage() {
   // Phase 51 — fælles dealer-scope helper. Eksterne roller låses automatisk
   // til egen forhandler. Interne Timan-roller kan fortsat vælge i dropdown.
   const dealerScope = useDealerScope();
+  const { scope: teknikScope } = useTeknikScope();
 
   const [tickets, setTickets] = useState<ServiceTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,7 +228,11 @@ export default function ServiceTicketsPage() {
     setLoadErr(null);
     try {
       const list = await fetchVisibleServiceTickets();
-      setTickets(list);
+      const scoped = applyScopeFilter(teknikScope, list, (r) => ({
+        dealer_number: (r as { dealer_number?: string | null }).dealer_number ?? null,
+        dealer_name: (r as { dealer_name?: string | null }).dealer_name ?? null,
+      }));
+      setTickets(scoped);
     } catch (e) {
       console.error("[ServiceTickets] load error", e);
       setLoadErr(pickT(T.loadErr, uiLang));
@@ -235,7 +241,7 @@ export default function ServiceTicketsPage() {
     }
   };
 
-  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [teknikScope]);
 
   // Auto-open create dialog when navigating from maintenance page
   useEffect(() => {
