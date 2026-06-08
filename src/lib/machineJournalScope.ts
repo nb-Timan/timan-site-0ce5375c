@@ -130,24 +130,43 @@ export async function buildJournalScope(
     };
   }
 
-  // Seller: CRM-assigned accounts + child dealers under any importer in that list.
+  // Seller: CRM-assigned accounts + dealer_accounts assigned to the seller
+  // (via dealer_accounts.assigned_seller_email) + child dealers under any
+  // importer in either list.
   if (SELLER.has(role)) {
     const sellerId = await resolveSellerId(appUser.email);
     const scope = emptyScope(role, dealerLabel);
-    if (!sellerId) return scope;
+    const importerAccountNumbers: string[] = [];
     try {
-      const res = await listCrmAccounts({ role, sellerId });
-      const importerAccountNumbers: string[] = [];
-      for (const a of res.accounts) {
-        addAccountToScope(scope, a);
-        if ((a.portal_role || "").toLowerCase() === "timan_importer" && a.dealer_number) {
-          importerAccountNumbers.push(a.dealer_number);
+      if (sellerId) {
+        const res = await listCrmAccounts({ role, sellerId });
+        for (const a of res.accounts) {
+          addAccountToScope(scope, a);
+          if ((a.portal_role || "").toLowerCase() === "timan_importer" && a.dealer_number) {
+            importerAccountNumbers.push(a.dealer_number);
+          }
+        }
+      }
+      // Additive: include dealer_accounts where this seller is assigned.
+      // This covers dealers (e.g. Escomel → BP) where the relation lives on
+      // dealer_accounts only and not on a matching app_users row.
+      const sellerEmail = norm(appUser.email);
+      if (sellerEmail) {
+        const { data: assigned } = await supabase
+          .from("dealer_accounts")
+          .select("account_number, company_name, parent_account_number, customer_type")
+          .eq("assigned_seller_email", sellerEmail);
+        for (const a of (assigned ?? []) as Array<{ account_number: string | null; company_name: string | null; parent_account_number: string | null; customer_type: string | null }>) {
+          addAccountToScope(scope, { account_number: a.account_number, company_name: a.company_name });
+          if ((a.customer_type || "").toLowerCase() === "importer" && a.account_number) {
+            importerAccountNumbers.push(a.account_number);
+          }
         }
       }
       // Expand child dealers under every importer in the seller's book.
       if (importerAccountNumbers.length > 0) {
         await Promise.all(
-          importerAccountNumbers.map(async (acct) => {
+          Array.from(new Set(importerAccountNumbers)).map(async (acct) => {
             const kids = await fetchChildDealers(acct);
             for (const k of kids) addAccountToScope(scope, k);
           }),
