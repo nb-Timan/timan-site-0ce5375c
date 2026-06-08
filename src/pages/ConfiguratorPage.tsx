@@ -1964,6 +1964,17 @@ export default function ConfiguratorPage() {
         </div>
         {(() => {
           const portalRole = (appUser as { portal_role?: string | null } | null)?.portal_role ?? null;
+          if (isExhibition) {
+            return (
+              <button
+                onClick={() => navigate('/messe')}
+                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Tilbage til Messe</span>
+              </button>
+            );
+          }
           const dealerSidePortalRoles = new Set([
             'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
             'timan_backend', 'timan_seller', 'timan_service',
@@ -1993,6 +2004,7 @@ export default function ConfiguratorPage() {
             <div className="hidden lg:block w-[116px]" />
           );
         })()}
+
       </header>
 
       <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>
