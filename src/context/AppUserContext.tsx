@@ -144,11 +144,18 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         // Exhibition mode short-circuits any Supabase session lookup —
-        // the public Messe session never authenticates against the DB.
+        // but ONLY for public visitors. If a real Supabase session exists
+        // (backend/service user), the real user wins and we clear the
+        // stale exhibition flag so admins can navigate the normal portal.
         if (isExhibitionFlagSet()) {
-          setAppUserState(EXHIBITION_SESSION_USER);
-          setLoading(false);
-          return;
+          const { data: sessionProbe } = await supabase.auth.getSession();
+          if (!sessionProbe.session?.user?.email) {
+            setAppUserState(EXHIBITION_SESSION_USER);
+            setLoading(false);
+            return;
+          }
+          // Real auth session present — drop the stale flag and continue.
+          try { localStorage.removeItem(EXHIBITION_FLAG); } catch { /* ignore */ }
         }
         const { data } = await supabase.auth.getSession();
         const session = data.session;
