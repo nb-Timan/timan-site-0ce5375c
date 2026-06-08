@@ -1,122 +1,65 @@
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, isExhibitionRole } from '@/lib/portalAccess';
-import { getCachedRealBackendUser, getRealBackendUserFromAppUser } from '@/lib/cachedRealUser';
-import { getActiveMode, type ActiveMode } from '@/lib/activeMode';
-import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { useMesseMode } from '@/lib/messeMode';
+import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 
-let modeSnapshotVersion = 0;
-
-export function getPortalDestinationForActiveMode(
-  mode: ActiveMode | null,
-  realUser?: { portal_role?: string | null } | null,
-): '/portal/backend' | '/portal' {
-  return mode === 'backend' && (realUser?.portal_role || '').toLowerCase() === 'timan_backend'
-    ? '/portal/backend'
-    : '/portal';
-}
-
-function subscribeToModeChanges(callback: () => void) {
-  const onChange = () => {
-    modeSnapshotVersion += 1;
-    callback();
-  };
-  window.addEventListener('storage', onChange);
-  window.addEventListener('timan:active-mode-changed', onChange);
-  window.addEventListener('timan:exhibition-mode-changed', onChange);
-  return () => {
-    window.removeEventListener('storage', onChange);
-    window.removeEventListener('timan:active-mode-changed', onChange);
-    window.removeEventListener('timan:exhibition-mode-changed', onChange);
-  };
-}
-
-export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['appUser']) {
-  useSyncExternalStore(subscribeToModeChanges, () => modeSnapshotVersion, () => 0);
-  const realUser = getRealBackendUserFromAppUser(appUser) || getCachedRealBackendUser();
-  const activeMode = realUser?.email ? getActiveMode(realUser.email) : null;
-  const isExhibitionPreview = activeMode === 'role:exhibition_user';
-  return {
-    realUser,
-    activeMode,
-    isExhibitionPreview,
-    shouldLeaveMesse: !!realUser && !isExhibitionPreview,
-    destination: getPortalDestinationForActiveMode(activeMode, realUser),
-  };
-}
-
+/**
+ * Route guard for /messe paths. If a real backend/service user has a
+ * non-exhibition preview active, leave /messe and route them home.
+ * If a public visitor with no real user → render the public Messe page.
+ */
 export function MesseRouteGuard({ children }: { children: ReactNode }) {
   const { appUser } = useAppUser();
-  const { shouldLeaveMesse, destination } = useMesseRouteGuardState(appUser);
+  const { realUser, isExhibitionPreview, redirectTarget } = useMesseMode(
+    appUser,
+    typeof window !== 'undefined' ? window.location.pathname : '/messe',
+  );
 
-  if (shouldLeaveMesse) {
+  if (realUser && !isExhibitionPreview && redirectTarget) {
     leaveExhibitionMode();
-    return <Navigate to={destination} replace />;
+    return <Navigate to={redirectTarget} replace />;
   }
   return <>{children}</>;
 }
 
 /**
- * Global redirector for the public Timan Messe / exhibition session.
+ * Global redirector. Two responsibilities only:
+ *   1. Public exhibition_user (no real auth) → trapped on /messe.
+ *   2. Real backend/service user with a stale exhibition flag outside
+ *      /messe → clear the flag (no navigation, they may freely roam).
  *
- * - Public visitors on the exhibition session are bounced back to /messe
- *   whenever they hit any non-/messe path.
- * - A REAL authenticated Timan Backend / Timan Service user is NEVER
- *   trapped here — they may freely navigate to /portal/backend etc. If
- *   they land here with a stale exhibition flag, we clear it.
+ * The /messe → portal redirect for real users is handled by MesseRouteGuard.
  */
 export default function ExhibitionRedirector() {
   const { appUser } = useAppUser();
-  const guard = useMesseRouteGuardState(appUser);
   const location = useLocation();
   const navigate = useNavigate();
+  const { realUser, redirectTarget } = useMesseMode(appUser, location.pathname);
   const role = derivePortalRole(appUser);
   const isExhibition = isExhibitionRole(role);
 
   useEffect(() => {
-    const exhibitionActive = isExhibitionActive();
-    const { realUser, activeMode, shouldLeaveMesse, destination } = guard;
-
-    // DEV log — temporary, helps diagnose stuck exhibition issues.
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug('[ExhibitionRedirector]', {
-        path: location.pathname,
-        realUserExists: !!realUser,
-        realPortalRole: realUser?.portal_role ?? null,
-        exhibitionActive,
-        activeMode,
-        derivedRole: role,
-        isExhibition,
-        redirectDecision: shouldLeaveMesse && location.pathname.startsWith('/messe') ? destination : null,
-      });
-    }
-
-    const onMesse = location.pathname.startsWith('/messe');
-
-    // Real backend/service user
+    // Real backend/service user → ensure no stale exhibition flag lingers
+    // when they navigate away from /messe.
     if (realUser) {
-      // If on /messe but active preview is NOT exhibition_user → leave /messe
-      // and route to the correct portal for the selected mode.
-      if (onMesse) {
-        if (shouldLeaveMesse) {
-          leaveExhibitionMode();
-          navigate(destination, { replace: true });
-        }
-        return;
+      if (!location.pathname.startsWith('/messe')) {
+        leaveExhibitionMode();
+      } else if (redirectTarget) {
+        // Belt-and-braces — MesseRouteGuard already handles this synchronously.
+        navigate(redirectTarget, { replace: true });
       }
-      // Outside /messe: clear stale exhibition flag if it lingers.
-      if (exhibitionActive) leaveExhibitionMode();
       return;
     }
 
+    // Public exhibition session → bounce back to /messe.
     if (!isExhibition) return;
     const p = location.pathname;
     if (p.startsWith('/messe')) return;
     if (p === '/update-password' || p === '/reset-password') return;
     navigate('/messe', { replace: true });
-  }, [guard, isExhibition, location.pathname, navigate, role]);
+  }, [realUser, redirectTarget, isExhibition, location.pathname, navigate]);
 
   return null;
 }
