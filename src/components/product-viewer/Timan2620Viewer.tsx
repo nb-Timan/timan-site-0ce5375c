@@ -95,7 +95,7 @@ export default function Timan2620Viewer() {
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 leading-tight">
               Basismaskine
             </div>
-            <div className="flex flex-col items-start gap-1.5" role="radiogroup" aria-label="Basismaskine">
+            <div className="inline-flex flex-col items-stretch gap-1.5" role="radiogroup" aria-label="Basismaskine">
               {TIMAN_2620_BASE_OPTIONS.map(o => {
                 const active = base === o.key;
                 return (
