@@ -2,18 +2,24 @@
  * Timan2620Viewer — base machine + equipment configurator wrapping
  * ProductImageViewer for the Timan 2620.
  *
- * UI sections:
- *   1. Basismaskine — single-select (Standard | Kabine)
- *   2. Udstyr       — multi-select (V-plov, Saltspreder, Kost)
- *      · Kost cannot be combined with V-plov. Selecting Kost while V-plov is
- *        active opens a confirm dialog offering to replace V-plov with Kost.
- *   3. Callout hotspots — large round chips on the image. Visibility depends
- *      on base + equipment (e.g. Kabine chip only when Kabine is active).
+ * The viewer is split into two subcomponents that share state via context:
+ *   - <Timan2620Viewer.Sidebar /> — base + equipment selection (compact pills)
+ *   - <Timan2620Viewer.Stage />   — machine image with callout hotspots
  *
- * The image shown is derived from the base + equipment combination via
- * `deriveTiman2620ImageKey` and resolved against `TIMAN_2620_IMAGES`.
+ * Default export still renders a self-contained "sidebar + stage" layout for
+ * any caller that hasn't migrated to the split layout yet.
+ *
+ * Selection rules:
+ *   - Basismaskine: single-select (Standard | Kabine)
+ *   - Udstyr:       multi-select (V-plov, Saltspreder, Kost)
+ *                   Kost cannot be combined with V-plov; selecting Kost while
+ *                   V-plov is active opens a confirm dialog.
+ *
+ * Hotspot visibility is identical to the previous implementation: Motor and
+ * Affjedring are always visible; Kabine, Redskaber, V-plov and Saltspreder
+ * appear when their corresponding selection is active.
  */
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import ProductImageViewer from './ProductImageViewer';
 import {
   TIMAN_2620_BASE_OPTIONS,
@@ -37,12 +43,6 @@ function findConflict(
   return null;
 }
 
-/**
- * Build the set of callout hotspots for the current base + equipment.
- * Positions are expressed in percent of the image stage (object-fit: contain).
- * Coordinates are approximate visual anchors on the machine and are tuned
- * so the callout cards float beside the relevant area without covering it.
- */
 function buildHotspots(
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
@@ -50,23 +50,17 @@ function buildHotspots(
   const hasAnyEquipment = equipment.size > 0;
   const list: ViewerHotspot[] = [];
 
-  // Always visible
   list.push({
     id: 'motor',
     frame: 0,
-    x: 58,
-    y: 38,
+    x: 58, y: 38,
     title: 'Motor',
     subtitle: 'Kraftfuld og driftssikker',
     variant: 'callout',
     calloutPlacement: 'right',
     description:
       'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
-    bullets: [
-      'Lavt brændstofforbrug',
-      'Nem adgang til service',
-      'Stabil ydelse hele året',
-    ],
+    bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
     technical: [
       { label: 'Effekt', value: '26 hk' },
       { label: 'Cylindere', value: '3' },
@@ -76,37 +70,26 @@ function buildHotspots(
   list.push({
     id: 'affjedring',
     frame: 0,
-    x: 38,
-    y: 78,
+    x: 38, y: 78,
     title: 'Affjedring',
     subtitle: 'Stabilitet og komfort',
     variant: 'callout',
     calloutPlacement: 'bottom',
     description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
-    bullets: [
-      'Stort hjuldiameter',
-      'Optimal vægtfordeling',
-      'Mindre slitage på føreren',
-    ],
+    bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
   });
 
   if (base === 'cab') {
     list.push({
       id: 'kabine',
       frame: 0,
-      x: 48,
-      y: 22,
+      x: 48, y: 22,
       title: 'Kabine',
       subtitle: 'Komfort og godt udsyn',
       variant: 'callout',
       calloutPlacement: 'top',
-      description:
-        'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
-      bullets: [
-        'Varme og defrost',
-        '360° udsyn',
-        'Støjdæmpet førerplads',
-      ],
+      description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
+      bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
     });
   }
 
@@ -114,19 +97,14 @@ function buildHotspots(
     list.push({
       id: 'redskaber',
       frame: 0,
-      x: 18,
-      y: 58,
+      x: 18, y: 58,
       title: 'Redskaber',
       subtitle: 'Nem montering af udstyr',
       variant: 'callout',
       calloutPlacement: 'left',
       description:
         'Hurtigkobling i fronten gør det muligt at skifte mellem redskaber på under et minut.',
-      bullets: [
-        'Værktøjsfri skift',
-        'Bredt udvalg af tilbehør',
-        'Hydraulisk tilslutning',
-      ],
+      bullets: ['Værktøjsfri skift', 'Bredt udvalg af tilbehør', 'Hydraulisk tilslutning'],
     });
   }
 
@@ -134,19 +112,14 @@ function buildHotspots(
     list.push({
       id: 'v_plow',
       frame: 0,
-      x: 12,
-      y: 68,
+      x: 12, y: 68,
       title: 'V-plov',
       subtitle: 'Effektiv snerydning',
       variant: 'callout',
       calloutPlacement: 'left',
       description:
         'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
-      bullets: [
-        'Hydraulisk justering',
-        'Slidstærke skær',
-        'Robust ophæng',
-      ],
+      bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
     });
   }
 
@@ -154,39 +127,48 @@ function buildHotspots(
     list.push({
       id: 'salt_spreader',
       frame: 0,
-      x: 86,
-      y: 52,
+      x: 86, y: 52,
       title: 'Saltspreder',
       subtitle: 'Præcis vinterbekæmpelse',
       variant: 'callout',
       calloutPlacement: 'right',
       description:
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
-      bullets: [
-        'Justerbar spredebredde',
-        'Stor beholder',
-        'Hurtig påfyldning',
-      ],
+      bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
     });
   }
 
   return list;
 }
 
-export default function Timan2620Viewer() {
+interface Timan2620Ctx {
+  base: Timan2620Base;
+  setBase: (b: Timan2620Base) => void;
+  equipment: Set<Timan2620Equipment>;
+  toggleEquipment: (e: Timan2620Equipment) => void;
+  conflict: { candidate: Timan2620Equipment; conflictsWith: Timan2620Equipment } | null;
+  cancelConflict: () => void;
+  confirmReplace: () => void;
+  imageKey: string;
+  configuration: ViewerConfiguration;
+}
+
+const Ctx = createContext<Timan2620Ctx | null>(null);
+
+function useTiman2620() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('Timan2620 subcomponent must be used inside <Timan2620Provider>');
+  return ctx;
+}
+
+function Timan2620Provider({ children }: { children: ReactNode }) {
   const [base, setBase] = useState<Timan2620Base>('standard');
   const [equipment, setEquipment] = useState<Set<Timan2620Equipment>>(() => new Set());
-  const [conflict, setConflict] = useState<{
-    candidate: Timan2620Equipment;
-    conflictsWith: Timan2620Equipment;
-  } | null>(null);
+  const [conflict, setConflict] = useState<Timan2620Ctx['conflict']>(null);
 
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
   const hotspots = useMemo(() => buildHotspots(base, equipment), [base, equipment]);
-
-  const labelOfEquipment = (eq: Timan2620Equipment) =>
-    TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
 
   function toggleEquipment(eq: Timan2620Equipment) {
     const next = new Set(equipment);
@@ -222,77 +204,89 @@ export default function Timan2620Viewer() {
     enabled: true,
   };
 
+  const value: Timan2620Ctx = {
+    base, setBase,
+    equipment, toggleEquipment,
+    conflict, cancelConflict: () => setConflict(null), confirmReplace,
+    imageKey, configuration,
+  };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/* ------------------------- Subcomponents ------------------------- */
+
+function Sidebar() {
+  const { base, setBase, equipment, toggleEquipment } = useTiman2620();
   return (
-    <div className="w-full">
-      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
-        {/* Left control panel */}
-        <aside className="w-full lg:w-[260px] lg:flex-shrink-0 lg:sticky lg:top-4 bg-white rounded-2xl border border-slate-200 shadow-md p-5 lg:self-start">
-          {/* Section 1 — Base machine */}
-          <section className="mb-5">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-              Basismaskine
-            </div>
-            <div className="inline-flex flex-col items-stretch gap-2 w-full" role="radiogroup" aria-label="Basismaskine">
-              {TIMAN_2620_BASE_OPTIONS.map(o => {
-                const active = base === o.key;
-                return (
-                  <button
-                    key={o.key}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setBase(o.key)}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition text-center ${
-                      active
-                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Section 2 — Equipment */}
-          <section>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-              Udstyr
-            </div>
-            <div className="inline-flex flex-col items-stretch gap-2 w-full" role="group" aria-label="Udstyr">
-              {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
-                const active = equipment.has(o.key);
-                return (
-                  <button
-                    key={o.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleEquipment(o.key)}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition text-center ${
-                      active
-                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        </aside>
-
-        {/* Right viewer column */}
-        <div className="flex-1 min-w-0 w-full">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-3 lg:p-4">
-            <ProductImageViewer key={imageKey} configuration={configuration} />
-          </div>
+    <aside className="bg-white rounded-2xl border border-slate-200 shadow-md p-4 lg:sticky lg:top-20">
+      <section className="mb-4">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
+          Basismaskine
         </div>
+        <div className="inline-flex flex-col items-stretch gap-2.5 w-full" role="radiogroup" aria-label="Basismaskine">
+          {TIMAN_2620_BASE_OPTIONS.map(o => {
+            const active = base === o.key;
+            return (
+              <button
+                key={o.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setBase(o.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                  active
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
+          Udstyr
+        </div>
+        <div className="inline-flex flex-col items-stretch gap-2.5 w-full" role="group" aria-label="Udstyr">
+          {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
+            const active = equipment.has(o.key);
+            return (
+              <button
+                key={o.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => toggleEquipment(o.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                  active
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </aside>
+  );
+}
+
+function Stage() {
+  const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
+  const labelOfEquipment = (eq: Timan2620Equipment) =>
+    TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-2 lg:p-3">
+        <ProductImageViewer key={imageKey} configuration={configuration} />
       </div>
 
-
-      {/* Incompatibility confirm dialog */}
       {conflict && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -312,7 +306,7 @@ export default function Timan2620Viewer() {
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setConflict(null)}
+                onClick={cancelConflict}
                 className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
               >
                 Annuller
@@ -329,6 +323,35 @@ export default function Timan2620Viewer() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
+
+/* ------------------------- Default layout ------------------------- */
+
+function Timan2620Viewer() {
+  return (
+    <Timan2620Provider>
+      <div className="w-full flex flex-col lg:flex-row lg:items-start gap-5">
+        <div className="w-full lg:w-[260px] lg:flex-shrink-0">
+          <Sidebar />
+        </div>
+        <div className="flex-1 min-w-0 w-full">
+          <Stage />
+        </div>
+      </div>
+    </Timan2620Provider>
+  );
+}
+
+/**
+ * Subcomponents are exposed for kiosk layouts (e.g. MesseTiman2620Page) that
+ * need to position the configuration panel and machine stage independently
+ * while still sharing selection state. Wrap them in <Timan2620Viewer.Provider>.
+ */
+Timan2620Viewer.Provider = Timan2620Provider;
+Timan2620Viewer.Sidebar = Sidebar;
+Timan2620Viewer.Stage = Stage;
+
+
+export default Timan2620Viewer;
