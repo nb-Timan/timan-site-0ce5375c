@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, X } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { MESSE_VIDEOS, MESSE_VIDEO_CATEGORY_LABEL, extractYouTubeId, youtubeThumbnail, type MesseVideo, type MesseVideoCategory } from '@/data/messeVideos';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { useMesseMode } from '@/lib/messeMode';
 import { useAppUser } from '@/context/AppUserContext';
-import { leaveExhibitionMode } from '@/lib/exhibitionMode';
-import { supabase } from '@/lib/supabase';
-import timanLogo from '@/assets/timan-logo.png';
-
-
+import { canSwitchMode } from '@/lib/activeMode';
 
 const T: Record<string, Record<Language, string>> = {
   back:   { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -26,10 +21,9 @@ const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service'
 export default function MesseVideoPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
-  const { appUser, setAppUser } = useAppUser();
-  const location = useLocation();
-  const { realUser } = useMesseMode(appUser, location.pathname);
+  const { appUser, logout } = useAppUser();
   const navigate = useNavigate();
+  const isBackendPreview = !!appUser && canSwitchMode(appUser);
 
   useEffect(() => {
     if (!active) return;
@@ -48,43 +42,24 @@ export default function MesseVideoPage() {
     return m;
   }, []);
 
+  if (!appUser) return null;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {realUser ? (
-        <>
-          <PortalHeader
-            user={realUser}
-            language={lang}
-            onLanguageChange={setLanguage}
-            onLogout={async () => {
-              leaveExhibitionMode();
-              try { await supabase.auth.signOut(); } catch { /* ignore */ }
-              setAppUser(null);
-              navigate('/portal', { replace: true });
-            }}
-          />
-          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-              <DemoModeBadge />
-              <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {T.back[lang]}
-              </Link>
-            </div>
-          </div>
-        </>
-      ) : (
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <Link to="/messe" className="flex items-center gap-3">
-              <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-              <DemoModeBadge />
-            </Link>
-            <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
-              <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
-            </Link>
-          </div>
-        </header>
-      )}
+      <PortalHeader
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+      />
+      <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+          {isBackendPreview && <DemoModeBadge />}
+          <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {T.back[lang]}
+          </Link>
+        </div>
+      </div>
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
         <h1 className="text-3xl font-bold text-slate-900">{T.title[lang]}</h1>
