@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import { getRealBackendUserFromAppUser, useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { useMesseMode } from '@/lib/messeMode';
 import { useAppUser } from '@/context/AppUserContext';
 import { leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { supabase } from '@/lib/supabase';
 import timanLogo from '@/assets/timan-logo.png';
+
 
 
 const T: Record<string, Record<Language, string>> = {
@@ -28,9 +29,9 @@ const PLACEHOLDER: NewsPost[] = [
 export default function MesseNewsPage() {
   const { language: lang, setLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
-  const cachedRealUser = useCachedRealBackendUser();
   const { appUser, setAppUser } = useAppUser();
-  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
+  const location = useLocation();
+  const { realUser } = useMesseMode(appUser, location.pathname);
   const navigate = useNavigate();
 
   useEffect(() => {
