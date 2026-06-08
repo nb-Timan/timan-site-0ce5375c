@@ -7,8 +7,8 @@
  *   2. Udstyr       — multi-select (V-plov, Saltspreder, Kost)
  *      · Kost cannot be combined with V-plov. Selecting Kost while V-plov is
  *        active opens a confirm dialog offering to replace V-plov with Kost.
- *   3. Active badges — current equipment chips, with an automatic
- *      "Fuldt vintersæt" badge when V-plov + Saltspreder are both selected.
+ *   3. Callout hotspots — large round chips on the image. Visibility depends
+ *      on base + equipment (e.g. Kabine chip only when Kabine is active).
  *
  * The image shown is derived from the base + equipment combination via
  * `deriveTiman2620ImageKey` and resolved against `TIMAN_2620_IMAGES`.
@@ -24,7 +24,7 @@ import {
   type Timan2620Base,
   type Timan2620Equipment,
 } from '@/data/timan2620Viewer';
-import type { ViewerConfiguration } from './types';
+import type { ViewerConfiguration, ViewerHotspot } from './types';
 
 function findConflict(
   equipment: ReadonlySet<Timan2620Equipment>,
@@ -37,6 +37,142 @@ function findConflict(
   return null;
 }
 
+/**
+ * Build the set of callout hotspots for the current base + equipment.
+ * Positions are expressed in percent of the image stage (object-fit: contain).
+ * Coordinates are approximate visual anchors on the machine and are tuned
+ * so the callout cards float beside the relevant area without covering it.
+ */
+function buildHotspots(
+  base: Timan2620Base,
+  equipment: ReadonlySet<Timan2620Equipment>,
+): ViewerHotspot[] {
+  const hasAnyEquipment = equipment.size > 0;
+  const list: ViewerHotspot[] = [];
+
+  // Always visible
+  list.push({
+    id: 'motor',
+    frame: 0,
+    x: 58,
+    y: 38,
+    title: 'Motor',
+    subtitle: 'Kraftfuld og driftssikker',
+    variant: 'callout',
+    calloutPlacement: 'right',
+    description:
+      'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
+    bullets: [
+      'Lavt brændstofforbrug',
+      'Nem adgang til service',
+      'Stabil ydelse hele året',
+    ],
+    technical: [
+      { label: 'Effekt', value: '26 hk' },
+      { label: 'Cylindere', value: '3' },
+      { label: 'Brændstof', value: 'Diesel' },
+    ],
+  });
+  list.push({
+    id: 'affjedring',
+    frame: 0,
+    x: 38,
+    y: 78,
+    title: 'Affjedring',
+    subtitle: 'Stabilitet og komfort',
+    variant: 'callout',
+    calloutPlacement: 'bottom',
+    description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
+    bullets: [
+      'Stort hjuldiameter',
+      'Optimal vægtfordeling',
+      'Mindre slitage på føreren',
+    ],
+  });
+
+  if (base === 'cab') {
+    list.push({
+      id: 'kabine',
+      frame: 0,
+      x: 48,
+      y: 22,
+      title: 'Kabine',
+      subtitle: 'Komfort og godt udsyn',
+      variant: 'callout',
+      calloutPlacement: 'top',
+      description:
+        'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
+      bullets: [
+        'Varme og defrost',
+        '360° udsyn',
+        'Støjdæmpet førerplads',
+      ],
+    });
+  }
+
+  if (hasAnyEquipment) {
+    list.push({
+      id: 'redskaber',
+      frame: 0,
+      x: 18,
+      y: 58,
+      title: 'Redskaber',
+      subtitle: 'Nem montering af udstyr',
+      variant: 'callout',
+      calloutPlacement: 'left',
+      description:
+        'Hurtigkobling i fronten gør det muligt at skifte mellem redskaber på under et minut.',
+      bullets: [
+        'Værktøjsfri skift',
+        'Bredt udvalg af tilbehør',
+        'Hydraulisk tilslutning',
+      ],
+    });
+  }
+
+  if (equipment.has('v_plow')) {
+    list.push({
+      id: 'v_plow',
+      frame: 0,
+      x: 12,
+      y: 68,
+      title: 'V-plov',
+      subtitle: 'Effektiv snerydning',
+      variant: 'callout',
+      calloutPlacement: 'left',
+      description:
+        'Hydraulisk V-plov rydder sne i smalle som brede passager — perfekt til byområder.',
+      bullets: [
+        'Hydraulisk justering',
+        'Slidstærke skær',
+        'Robust ophæng',
+      ],
+    });
+  }
+
+  if (equipment.has('salt_spreader')) {
+    list.push({
+      id: 'salt_spreader',
+      frame: 0,
+      x: 86,
+      y: 52,
+      title: 'Saltspreder',
+      subtitle: 'Præcis vinterbekæmpelse',
+      variant: 'callout',
+      calloutPlacement: 'right',
+      description:
+        'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
+      bullets: [
+        'Justerbar spredebredde',
+        'Stor beholder',
+        'Hurtig påfyldning',
+      ],
+    });
+  }
+
+  return list;
+}
+
 export default function Timan2620Viewer() {
   const [base, setBase] = useState<Timan2620Base>('standard');
   const [equipment, setEquipment] = useState<Set<Timan2620Equipment>>(() => new Set());
@@ -47,6 +183,7 @@ export default function Timan2620Viewer() {
 
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
+  const hotspots = useMemo(() => buildHotspots(base, equipment), [base, equipment]);
 
   const labelOfEquipment = (eq: Timan2620Equipment) =>
     TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
@@ -81,21 +218,21 @@ export default function Timan2620Viewer() {
     label: imageKey,
     badges: [],
     imageSequence: entry.imageSequence,
-    hotspots: entry.hotspots,
+    hotspots,
     enabled: true,
   };
 
   return (
     <div className="w-full">
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-5">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
         {/* Left control panel */}
-        <aside className="w-full lg:w-[200px] xl:w-[220px] lg:flex-shrink-0 lg:sticky lg:top-4 lg:bg-white lg:rounded-lg lg:border lg:border-slate-200 lg:shadow-sm lg:p-3 lg:self-start">
+        <aside className="w-full lg:w-[260px] lg:flex-shrink-0 lg:sticky lg:top-4 bg-white rounded-2xl border border-slate-200 shadow-md p-5 lg:self-start">
           {/* Section 1 — Base machine */}
-          <section className="mb-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 leading-tight">
+          <section className="mb-5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Basismaskine
             </div>
-            <div className="inline-flex flex-col items-stretch gap-1.5" role="radiogroup" aria-label="Basismaskine">
+            <div className="inline-flex flex-col items-stretch gap-2 w-full" role="radiogroup" aria-label="Basismaskine">
               {TIMAN_2620_BASE_OPTIONS.map(o => {
                 const active = base === o.key;
                 return (
@@ -105,9 +242,9 @@ export default function Timan2620Viewer() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => setBase(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
+                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition text-center ${
                       active
-                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                     }`}
                   >
@@ -119,11 +256,11 @@ export default function Timan2620Viewer() {
           </section>
 
           {/* Section 2 — Equipment */}
-          <section className="mb-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 leading-tight">
+          <section>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Udstyr
             </div>
-            <div className="inline-flex flex-col items-stretch gap-1.5" role="group" aria-label="Udstyr">
+            <div className="inline-flex flex-col items-stretch gap-2 w-full" role="group" aria-label="Udstyr">
               {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
                 const active = equipment.has(o.key);
                 return (
@@ -132,9 +269,9 @@ export default function Timan2620Viewer() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleEquipment(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
+                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition text-center ${
                       active
-                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                     }`}
                   >
@@ -144,15 +281,19 @@ export default function Timan2620Viewer() {
               })}
             </div>
           </section>
-
         </aside>
 
         {/* Right viewer column */}
         <div className="flex-1 min-w-0 w-full">
-          <ProductImageViewer key={imageKey} configuration={configuration} />
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-5 lg:p-6">
+            <h2 className="text-2xl lg:text-3xl font-bold text-slate-900">Timan 2620</h2>
+            <p className="text-slate-600 mt-1 mb-4">
+              Udforsk Timan 2620 og se forskellige konfigurationer.
+            </p>
+            <ProductImageViewer key={imageKey} configuration={configuration} />
+          </div>
         </div>
       </div>
-
 
       {/* Incompatibility confirm dialog */}
       {conflict && (
