@@ -18,6 +18,8 @@ export type SessionUser = AppUser & {
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
   quick_actions?: string[] | null;
+  /** Phase 59 — 'standard' (default) or 'messe' (locked to /messe layout). */
+  portal_variant?: string | null;
 };
 
 export interface DealerAccessStatus {
