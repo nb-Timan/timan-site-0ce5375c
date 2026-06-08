@@ -161,6 +161,14 @@ const T: Record<string, Record<Language, string>> = {
   cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver" },
   cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság" },
   cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb" },
+  // Health labels
+  healthy: { da: "Healthy", en: "Healthy", de: "Healthy", it: "Healthy", hu: "Healthy" },
+  needs_attention: { da: "Needs attention", en: "Needs attention", de: "Needs attention", it: "Needs attention", hu: "Needs attention" },
+  critical: { da: "Critical", en: "Critical", de: "Critical", it: "Critical", hu: "Critical" },
+  // Color legend
+  legend_green: { da: "Grøn", en: "Green", de: "Grün", it: "Verde", hu: "Zöld" },
+  legend_yellow: { da: "Gul", en: "Yellow", de: "Gelb", it: "Giallo", hu: "Sárga" },
+  legend_red: { da: "Rød", en: "Red", de: "Rot", it: "Rosso", hu: "Piros" },
 };
 
 function statusBadgeClasses(status: string): string {
@@ -597,9 +605,9 @@ export default function MachineSearchPage() {
           };
 
           const healthMeta = (h: string) => {
-            if (h === "critical") return { chip: "bg-red-100 text-red-700", border: "border-l-red-500", label: "Critical" };
-            if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: "Needs Attention" };
-            return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: "Healthy" };
+            if (h === "critical") return { chip: "bg-red-100 text-red-700", border: "border-l-red-500", label: T.critical[lang], dot: "bg-red-500", text: "text-red-600" };
+            if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: T.needs_attention[lang], dot: "bg-amber-500", text: "text-amber-600" };
+            return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: T.healthy[lang], dot: "bg-emerald-500", text: "text-emerald-600" };
           };
 
           return (
@@ -633,7 +641,7 @@ export default function MachineSearchPage() {
                     ? "Indlæser maskiner…"
                     : totalMachines === 0
                       ? "0 maskiner"
-                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
+                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"} · ● ${T.legend_green[lang]} = ${T.healthy[lang]} · ● ${T.legend_yellow[lang]} = ${T.needs_attention[lang]} · ● ${T.legend_red[lang]} = ${T.critical[lang]}`}
                 </div>
                 {!overviewLoading && totalMachines > 0 && (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -691,7 +699,6 @@ export default function MachineSearchPage() {
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                         <tr>
-                          <th className="text-left font-semibold px-3 py-2 w-[120px]">Status</th>
                           <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Garanti ID</th>
                           <th className="text-left font-semibold px-3 py-2">Serienummer</th>
                           <th className="text-left font-semibold px-3 py-2">Model</th>
@@ -714,13 +721,13 @@ export default function MachineSearchPage() {
                             <tr key={row.normalizedSerial}
                               onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
                               className={`cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
-                              <td className="px-3 py-2">
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>
-                                  {meta.label}
-                                </span>
-                              </td>
                               <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
-                              <td className="px-3 py-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
+                              <td className={`px-3 py-2 font-mono font-semibold whitespace-nowrap ${meta.text}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`inline-block h-2 w-2 rounded-full ${meta.dot}`} />
+                                  {row.serial}
+                                </div>
+                              </td>
                               <td className="px-3 py-2 text-slate-700">
                                 <div className="truncate max-w-[180px]">{row.machineModel || "—"}</div>
                                 {row.machineType && row.machineType !== row.machineModel && (
@@ -774,11 +781,13 @@ export default function MachineSearchPage() {
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>{meta.label}</span>
                               {row.warrantyId && (
                                 <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
                               )}
-                              <span className="font-mono text-sm font-semibold text-slate-900 truncate">{row.serial}</span>
+                              <span className={`font-mono text-sm font-semibold truncate flex items-center gap-1 ${meta.text}`}>
+                                <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
+                                {row.serial}
+                              </span>
                             </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
