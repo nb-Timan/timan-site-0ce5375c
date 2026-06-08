@@ -460,7 +460,7 @@ export default function ProductImageViewer({
       )}
 
       {/* Toolbar */}
-      {hasImage && (
+      {hasImage && !hideControls && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setZoom(z => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
