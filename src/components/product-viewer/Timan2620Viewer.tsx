@@ -48,8 +48,6 @@ export default function Timan2620Viewer() {
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
 
-  const hasFullWinter = equipment.has('v_plow') && equipment.has('salt_spreader');
-
   const labelOfEquipment = (eq: Timan2620Equipment) =>
     TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
 
