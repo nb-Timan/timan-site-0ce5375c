@@ -83,7 +83,7 @@ export default function MesseTiman2620Page() {
         <Timan2620Viewer.Provider>
           <div className="flex flex-col lg:flex-row lg:items-start gap-5">
             {/* Left column: title + configuration panel */}
-            <div className="w-full lg:w-[260px] lg:flex-shrink-0">
+            <div className="w-full lg:w-[180px] lg:flex-shrink-0">
               <div className="mb-4">
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
                   Timan 2620
