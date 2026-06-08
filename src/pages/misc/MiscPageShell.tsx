@@ -35,8 +35,7 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const cachedRealUser = useCachedRealBackendUser();
-  const realUser = getRealBackendUserFromAppUser(appUser) || cachedRealUser;
+  const { realUser } = useMesseMode(appUser, location.pathname);
 
   if (loading) {
     return (
