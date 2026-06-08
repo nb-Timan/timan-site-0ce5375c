@@ -31,6 +31,18 @@ import {
   type Timan2620Equipment,
 } from '@/data/timan2620Viewer';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
+import { useLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
+
+const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
+  standard: 'm2620_base_standard',
+  cab: 'm2620_base_cab',
+};
+const EQUIPMENT_LABEL_KEY: Record<Timan2620Equipment, string> = {
+  v_plow: 'm2620_eq_v_plow',
+  salt_spreader: 'm2620_eq_salt_spreader',
+  brush: 'm2620_eq_brush',
+};
 
 function findConflict(
   equipment: ReadonlySet<Timan2620Equipment>,
@@ -79,53 +91,55 @@ interface PosEntry {
   frame?: number;
 }
 
-const PART_CONTENT: Record<PartId, PartContent> = {
-  motor: {
-    title: 'Motor',
-    subtitle: 'Kraftfuld og driftssikker',
-    description:
-      'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
-    bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
-    technical: [
-      { label: 'Effekt', value: '26 hk' },
-      { label: 'Cylindere', value: '3' },
-      { label: 'Brændstof', value: 'Diesel' },
-    ],
-  },
-  kabine: {
-    title: 'Kabine',
-    subtitle: 'Komfort og godt udsyn',
-    description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
-    bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
-  },
-  affjedring: {
-    title: 'Affjedring',
-    subtitle: 'Stabilitet og komfort',
-    description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
-    bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
-  },
-  v_plow: {
-    title: 'Dozer blad',
-    subtitle: 'Effektiv snerydning',
-    description:
-      'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
-    bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
-  },
-  salt_spreader: {
-    title: 'Saltspreder',
-    subtitle: 'Præcis vinterbekæmpelse',
-    description:
-      'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
-    bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
-  },
-  brush: {
-    title: 'Kost',
-    subtitle: 'Effektiv fejning',
-    description:
-      'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
-    bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
-  },
-};
+function buildPartContent(lang: string): Record<PartId, PartContent> {
+  return {
+    motor: {
+      title: t('m2620_hot_motor_title', lang),
+      subtitle: t('m2620_hot_motor_sub', lang),
+      description:
+        'Timan 2620 drives af en robust dieselmotor designet til lange driftstimer i krævende miljøer.',
+      bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
+      technical: [
+        { label: 'Effekt', value: '26 hk' },
+        { label: 'Cylindere', value: '3' },
+        { label: 'Brændstof', value: 'Diesel' },
+      ],
+    },
+    kabine: {
+      title: t('m2620_hot_kabine_title', lang),
+      subtitle: t('m2620_hot_kabine_sub', lang),
+      description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
+      bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
+    },
+    affjedring: {
+      title: t('m2620_hot_affjedring_title', lang),
+      subtitle: t('m2620_hot_affjedring_sub', lang),
+      description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
+      bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
+    },
+    v_plow: {
+      title: t('m2620_hot_vplow_title', lang),
+      subtitle: t('m2620_hot_vplow_sub', lang),
+      description:
+        'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
+      bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
+    },
+    salt_spreader: {
+      title: t('m2620_hot_salt_title', lang),
+      subtitle: t('m2620_hot_salt_sub', lang),
+      description:
+        'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
+      bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
+    },
+    brush: {
+      title: t('m2620_hot_brush_title', lang),
+      subtitle: t('m2620_hot_brush_sub', lang),
+      description:
+        'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
+      bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
+    },
+  };
+}
 
 /**
  * Per-view part positions. Coordinates are in percent of the rendered
@@ -213,8 +227,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
-      // frame 2 intentionally omitted — DS-250 cannot be reached cleanly
-      // on the rear/mirrored view without the connector crossing the body.
+      // frame 2: anchor on the DS-250 spreader (rear of machine = LEFT
+      // side in this mirrored view), bubble pushed up to the top-left
+      // corner — connector stays in empty sky, never crosses the body.
+      { anchor: { x: 22, y: 40 }, callout: { cx: 4,  cy: 18 }, frame: 2 },
     ],
   },
 };
@@ -223,11 +239,13 @@ function buildHotspots(
   imageKey: string,
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
+  lang: string,
 ): ViewerHotspot[] {
   void base; // base is encoded in imageKey
   const view = VIEW_POSITIONS[imageKey];
   if (!view) return [];
 
+  const partContent = buildPartContent(lang);
   const visibleParts = new Set<PartId>(['motor', 'affjedring']);
   if (imageKey.startsWith('cab')) visibleParts.add('kabine');
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
@@ -247,7 +265,7 @@ function buildHotspots(
         y: pos.anchor.y,
         variant: 'callout',
         calloutCenter: { cx: pos.callout.cx, cy: pos.callout.cy },
-        ...PART_CONTENT[part],
+        ...partContent[part],
       });
     });
   }
@@ -276,13 +294,17 @@ function useTiman2620() {
 }
 
 function Timan2620Provider({ children }: { children: ReactNode }) {
+  const { uiLanguage } = useLanguage();
   const [base, setBase] = useState<Timan2620Base>('standard');
   const [equipment, setEquipment] = useState<Set<Timan2620Equipment>>(() => new Set());
   const [conflict, setConflict] = useState<Timan2620Ctx['conflict']>(null);
 
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
-  const hotspots = useMemo(() => buildHotspots(imageKey, base, equipment), [imageKey, base, equipment]);
+  const hotspots = useMemo(
+    () => buildHotspots(imageKey, base, equipment, uiLanguage),
+    [imageKey, base, equipment, uiLanguage],
+  );
 
   function toggleEquipment(eq: Timan2620Equipment) {
     const next = new Set(equipment);
@@ -332,6 +354,9 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
+  const { uiLanguage } = useLanguage();
+  const baseLabel = t('m2620_basismaskine', uiLanguage);
+  const equipmentLabel = t('m2620_udstyr', uiLanguage);
   // Fixed width sized to longest label "Saltspreder"
   const pillClass =
     'w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center';
@@ -339,9 +364,9 @@ function Sidebar() {
     <aside className="lg:sticky lg:top-24">
       <section className="mb-6">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Basismaskine
+          {baseLabel}
         </div>
-        <div className="flex flex-col items-start gap-4" role="radiogroup" aria-label="Basismaskine">
+        <div className="flex flex-col items-start gap-4" role="radiogroup" aria-label={baseLabel}>
           {TIMAN_2620_BASE_OPTIONS.map(o => {
             const active = base === o.key;
             return (
@@ -357,7 +382,7 @@ function Sidebar() {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {o.label}
+                {t(BASE_LABEL_KEY[o.key], uiLanguage)}
               </button>
             );
           })}
@@ -366,9 +391,9 @@ function Sidebar() {
 
       <section>
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Udstyr
+          {equipmentLabel}
         </div>
-        <div className="flex flex-col items-start gap-4" role="group" aria-label="Udstyr">
+        <div className="flex flex-col items-start gap-4" role="group" aria-label={equipmentLabel}>
           {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
             const active = equipment.has(o.key);
             return (
@@ -383,7 +408,7 @@ function Sidebar() {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {o.label}
+                {t(EQUIPMENT_LABEL_KEY[o.key], uiLanguage)}
               </button>
             );
           })}
@@ -395,8 +420,9 @@ function Sidebar() {
 
 function Stage() {
   const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
+  const { uiLanguage } = useLanguage();
   const labelOfEquipment = (eq: Timan2620Equipment) =>
-    TIMAN_2620_EQUIPMENT_OPTIONS.find(o => o.key === eq)?.label ?? eq;
+    t(EQUIPMENT_LABEL_KEY[eq], uiLanguage);
 
   return (
     <>
@@ -413,11 +439,14 @@ function Stage() {
         >
           <div className="bg-white rounded-xl shadow-xl p-5 max-w-sm w-full">
             <div id="timan-2620-conflict-title" className="text-base font-bold text-slate-900 mb-2">
-              {labelOfEquipment(conflict.candidate)} kan ikke kombineres med{' '}
+              {labelOfEquipment(conflict.candidate)}{' '}
+              {t('m2620_conflict_cannot_combine_with', uiLanguage)}{' '}
               {labelOfEquipment(conflict.conflictsWith)}.
             </div>
             <p className="text-sm text-slate-600 mb-4">
-              Vil du erstatte {labelOfEquipment(conflict.conflictsWith)} med{' '}
+              {t('m2620_conflict_replace_prefix', uiLanguage)}{' '}
+              {labelOfEquipment(conflict.conflictsWith)}{' '}
+              {t('m2620_conflict_with', uiLanguage)}{' '}
               {labelOfEquipment(conflict.candidate)}?
             </p>
             <div className="flex flex-wrap justify-end gap-2">
@@ -426,15 +455,15 @@ function Stage() {
                 onClick={cancelConflict}
                 className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
               >
-                Annuller
+                {t('cancel', uiLanguage)}
               </button>
               <button
                 type="button"
                 onClick={confirmReplace}
                 className="px-3 py-1.5 rounded-md bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800"
               >
-                Erstat {labelOfEquipment(conflict.conflictsWith)} med{' '}
-                {labelOfEquipment(conflict.candidate)}
+                {t('m2620_replace', uiLanguage)} {labelOfEquipment(conflict.conflictsWith)}{' '}
+                {t('m2620_conflict_with', uiLanguage)} {labelOfEquipment(conflict.candidate)}
               </button>
             </div>
           </div>

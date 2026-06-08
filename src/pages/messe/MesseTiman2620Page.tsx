@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import timanLogo from '@/assets/timan-logo.png';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import { t } from '@/lib/i18n/translations';
 
 /**
  * Timan 2620 Messe page — premium touchscreen kiosk layout.
@@ -30,18 +31,18 @@ export default function MesseTiman2620Page() {
   const benefits = [
     {
       icon: Cog,
-      title: 'Kompakt og stærk',
-      text: 'Timan 2620 kombinerer kompakt design med stor ydeevne.',
+      title: t('m2620_benefit1_title', uiLanguage),
+      text: t('m2620_benefit1_text', uiLanguage),
     },
     {
       icon: Snowflake,
-      title: 'Kan bruges hele året',
-      text: 'Fra sne og salt om vinteren til fejning og vedligehold om sommeren.',
+      title: t('m2620_benefit2_title', uiLanguage),
+      text: t('m2620_benefit2_text', uiLanguage),
     },
     {
       icon: Wrench,
-      title: 'Utrolig nem at skifte redskaber',
-      text: 'Hurtigt skift af udstyr uden værktøj — mere tid på opgaven, mindre tid på skift.',
+      title: t('m2620_benefit3_title', uiLanguage),
+      text: t('m2620_benefit3_text', uiLanguage),
     },
   ];
 
@@ -95,7 +96,7 @@ export default function MesseTiman2620Page() {
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
                   Timan 2620
                 </h1>
-                <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
+                <p className="text-sm lg:text-base text-slate-600 mt-1">{t('m2620_explore', uiLanguage)}</p>
               </div>
               <Timan2620Viewer.Sidebar />
             </div>
@@ -116,7 +117,7 @@ export default function MesseTiman2620Page() {
                   className="inline-flex items-center gap-2 px-6 min-h-[52px] rounded-full bg-emerald-700 text-white shadow hover:bg-emerald-800 font-semibold text-base transition"
                 >
                   <ArrowLeft className="h-5 w-5" />
-                  Til forsiden
+                  {t('m2620_back_home', uiLanguage)}
                 </button>
               </div>
               <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
