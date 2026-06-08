@@ -12,6 +12,7 @@ import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
 import { supabase } from '@/lib/supabase';
+import BackendExitButton from '@/components/messe/BackendExitButton';
 
 
 const T: Record<string, Record<Language, string>> = {
