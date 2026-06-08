@@ -112,9 +112,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     }
     leaveExhibitionMode();
     // Force a full reload so all role-derived UI (areas, CRM scope,
-    // navigation guards) picks up the new mode cleanly.
+    // navigation guards) picks up the new mode cleanly. When leaving
+    // /messe we MUST navigate away — a plain reload would re-trigger
+    // the Messe entry effect and trap the user in exhibition layout.
+    const onMesse = typeof window !== 'undefined' && window.location.pathname.startsWith('/messe');
     if (mode === 'backend') {
       window.location.href = '/portal/backend';
+    } else if (onMesse) {
+      window.location.href = '/portal';
     } else {
       window.location.reload();
     }
