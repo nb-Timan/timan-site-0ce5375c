@@ -110,6 +110,8 @@ export interface BackendUser {
    * Empty array = explicitly hide all quick actions.
    */
   quick_actions: QuickActionKey[] | null;
+  /** Phase 59 — 'standard' (default) or 'messe' (locked to /messe layout). */
+  portal_variant: "standard" | "messe";
   created_at: string;
   updated_at: string;
 }
