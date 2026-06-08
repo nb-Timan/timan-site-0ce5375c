@@ -65,18 +65,9 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     };
   }, []);
 
-  // Public visitor on /messe: create the synthetic exhibition session.
-  // Real backend/service users are NEVER overwritten — they only render
-  // the Messe layout when their activePreviewRole is exhibition_user.
-  useEffect(() => {
-    if (!isEntry || !enabled) return;
-    if (realUser) return;
-    if (!isPublicMesseVisitor) return;
-    enterExhibitionMode();
-    if (!appUser || appUser.email !== EXHIBITION_SESSION_USER.email) {
-      setAppUser(EXHIBITION_SESSION_USER);
-    }
-  }, [isEntry, enabled, realUser, isPublicMesseVisitor, appUser, setAppUser]);
+  // Phase 59 — /messe now requires login. No more synthetic exhibition
+  // session for anonymous visitors. The MesseRouteGuard redirects
+  // unauthenticated visitors to /portal?redirect=/messe.
 
   if (!enabled) {
     return (
