@@ -166,6 +166,7 @@ function seedUser(
     account_owner_email: null,
     last_login_at: null,
     quick_actions: [...(DEFAULT_QUICK_ACTIONS[role] ?? [])],
+    portal_variant: "standard",
     created_at: nowIso(),
     updated_at: nowIso(),
   };
