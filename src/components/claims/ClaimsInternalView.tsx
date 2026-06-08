@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LifeBuoy, AlertCircle, Search, Layers, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Language } from '@/types/configurator';
 import { loadClaims, ServiceClaim, ClaimStatus } from '@/lib/claimsService';
+import { useTeknikScope, applyScopeFilter } from '@/lib/useTeknikScope';
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: 'Service / Claims — Intern', en: 'Service / Claims — Internal', de: 'Service / Reklamationen — Intern', it: 'Assistenza / Reclami — Interno', hu: 'Szerviz / Reklamációk — Belső' },
