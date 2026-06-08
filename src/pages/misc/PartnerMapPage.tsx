@@ -1239,7 +1239,7 @@ export default function PartnerMapPage() {
                       maxZoom={MAP_STYLES[mapStyle].maxZoom}
                     />
                     <CtrlWheelZoom />
-                    <MapResizer trigger={`${selectedId}-${resultsOpen}`} />
+                    <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     {showPartnerLayer && (
                       <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
