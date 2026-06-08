@@ -260,7 +260,8 @@ export default function MachineSearchPage() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewPage, setOverviewPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE_OPTIONS: Array<number | "all"> = [50, 100, 200, 300, 400, "all"];
+  const [pageSize, setPageSize] = useState<number | "all">(50);
 
   useEffect(() => {
     if (!appUser) return;
@@ -583,9 +584,12 @@ export default function MachineSearchPage() {
           const healthyCount = overview.filter(r => r.health === "healthy").length;
           const attentionCount = overview.filter(r => r.health === "needs_attention").length;
           const criticalCount = overview.filter(r => r.health === "critical").length;
-          const totalPages = Math.max(1, Math.ceil(totalMachines / PAGE_SIZE));
+          const effectivePageSize = pageSize === "all" ? Math.max(1, totalMachines) : pageSize;
+          const totalPages = Math.max(1, Math.ceil(totalMachines / effectivePageSize));
           const page = Math.min(overviewPage, totalPages);
-          const pageRows = overview.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+          const sliceStart = (page - 1) * effectivePageSize;
+          const sliceEnd = Math.min(totalMachines, sliceStart + effectivePageSize);
+          const pageRows = overview.slice(sliceStart, sliceEnd);
 
           const sourceLabels: Record<string, string> = {
             warranty: "Warranty", service: "Service", ticket: "Ticket",
@@ -627,21 +631,45 @@ export default function MachineSearchPage() {
                 <div className="text-xs font-semibold text-slate-700">
                   {overviewLoading
                     ? "Indlæser maskiner…"
-                    : `${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
+                    : totalMachines === 0
+                      ? "0 maskiner"
+                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
                 </div>
-                {!overviewLoading && totalMachines > PAGE_SIZE && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <button onClick={() => setOverviewPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
-                    <span>Side {page} / {totalPages}</span>
-                    <button onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
-                    <select value={page} onChange={e => setOverviewPage(Number(e.target.value))}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
+                {!overviewLoading && totalMachines > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <label className="flex items-center gap-1">
+                      <span className="text-slate-500">Pr. side:</span>
+                      <select
+                        value={pageSize === "all" ? "all" : String(pageSize)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setPageSize(v === "all" ? "all" : Number(v));
+                          setOverviewPage(1);
+                        }}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+                      >
+                        {PAGE_SIZE_OPTIONS.map(opt => (
+                          <option key={String(opt)} value={opt === "all" ? "all" : String(opt)}>
+                            {opt === "all" ? "Alle" : opt}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {totalPages > 1 && (
+                      <>
+                        <button onClick={() => setOverviewPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                          className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
+                        <span>Side {page} / {totalPages}</span>
+                        <button onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                          className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
+                        <select value={page} onChange={e => setOverviewPage(Number(e.target.value))}
+                          className="rounded-md border border-slate-200 px-2 py-1 text-xs">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -664,6 +692,7 @@ export default function MachineSearchPage() {
                       <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="text-left font-semibold px-3 py-2 w-[120px]">Status</th>
+                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Garanti ID</th>
                           <th className="text-left font-semibold px-3 py-2">Serienummer</th>
                           <th className="text-left font-semibold px-3 py-2">Model</th>
                           <th className="text-left font-semibold px-3 py-2">Forhandler</th>
@@ -690,6 +719,7 @@ export default function MachineSearchPage() {
                                   {meta.label}
                                 </span>
                               </td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
                               <td className="px-3 py-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                               <td className="px-3 py-2 text-slate-700">
                                 <div className="truncate max-w-[180px]">{row.machineModel || "—"}</div>
@@ -745,6 +775,9 @@ export default function MachineSearchPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>{meta.label}</span>
+                              {row.warrantyId && (
+                                <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
+                              )}
                               <span className="font-mono text-sm font-semibold text-slate-900 truncate">{row.serial}</span>
                             </div>
                             <button

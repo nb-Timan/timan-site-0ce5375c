@@ -319,6 +319,10 @@ export interface MachineOverviewRow {
   openClaims: number;
   openTsb: number;
   health: HealthLevel;
+  /** Highest warranty certificate number for this serial, e.g. "SP-222". */
+  warrantyId: string | null;
+  /** Numeric portion used for sorting (e.g. 222 from "SP-222"); null if no warranty. */
+  warrantyIdNumeric: number | null;
 }
 
 function fmtDateDk(iso: string | null | undefined): string | null {
@@ -374,6 +378,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
         latestActivityDate: null, latestActivityLabel: null,
         sources: [], openTickets: 0, openClaims: 0, openTsb: 0,
         health: "healthy",
+        warrantyId: null, warrantyIdNumeric: null,
       };
       map.set(norm, row);
     }
@@ -427,7 +432,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
 
   for (const w of warranties) {
     const d = w.registrationDate || w.deliveryDate || w.createdAt;
-    touch(w.machineSerial, "warranty", {
+    const row = touch(w.machineSerial, "warranty", {
       machineModel: w.machineType ?? null,
       machineType: w.machineType ?? null,
       dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
@@ -436,6 +441,20 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       activityDate: d,
       activityLabel: d ? `${fmtDateDk(d)} · Garantiregistrering` : null,
     });
+    if (row) {
+      // Prefer sharepoint_form_id when present (gives numeric SP-### IDs),
+      // otherwise fall back to the certificateNumber string.
+      const numeric = w.sharepointFormId ?? null;
+      const label = w.certificateNumber ?? (numeric != null ? `SP-${numeric}` : null);
+      if (numeric != null) {
+        if (row.warrantyIdNumeric == null || numeric > row.warrantyIdNumeric) {
+          row.warrantyIdNumeric = numeric;
+          row.warrantyId = label;
+        }
+      } else if (!row.warrantyId && label) {
+        row.warrantyId = label;
+      }
+    }
   }
 
   for (const s of serviceRegs) {
@@ -518,9 +537,16 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
     else row.health = "healthy";
   }
   out.sort((a, b) => {
+    // 1. Highest warranty registration ID first (e.g. SP-222 above SP-221)
+    const wa = a.warrantyIdNumeric ?? -Infinity;
+    const wb = b.warrantyIdNumeric ?? -Infinity;
+    if (wa !== wb) return wb - wa;
+    // 2. Then latest activity date descending
     const da = a.latestActivityDate ? new Date(a.latestActivityDate).getTime() : 0;
     const db = b.latestActivityDate ? new Date(b.latestActivityDate).getTime() : 0;
-    return db - da;
+    if (db !== da) return db - da;
+    // 3. Then serial number
+    return a.normalizedSerial.localeCompare(b.normalizedSerial);
   });
   return out;
 }
