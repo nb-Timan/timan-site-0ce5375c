@@ -65,22 +65,31 @@ export default function MesseTiman2620Page() {
             Tilbage til maskiner
           </button>
 
-          <div className="justify-self-end flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-white/90 border border-slate-200 shadow-sm">
-            {PORTAL_LANGUAGES.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                className={`px-2 py-1 rounded-md transition ${
-                  uiLanguage === l.code
-                    ? 'bg-white shadow-sm border border-[#2d5a27]/30'
-                    : 'border border-transparent hover:bg-white'
-                }`}
-                aria-label={l.code}
-                title={l.label}
-              >
-                <span className="text-lg leading-none">{l.emoji}</span>
-              </button>
-            ))}
+          <div className="justify-self-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-6 min-h-[48px] rounded-full bg-white border border-slate-300 shadow-sm hover:shadow hover:border-emerald-600 text-slate-700 hover:text-emerald-800 font-semibold text-base transition cursor-pointer"
+                >
+                  {PORTAL_LANGUAGES.find(l => l.code === uiLanguage)?.flag ?? 'DK'}
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[100px]">
+                {PORTAL_LANGUAGES.map(l => (
+                  <DropdownMenuItem
+                    key={l.code}
+                    onClick={() => setLanguage(l.code)}
+                    className={`justify-center font-semibold cursor-pointer ${
+                      uiLanguage === l.code ? 'bg-emerald-50 text-emerald-800' : ''
+                    }`}
+                  >
+                    {l.flag}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
