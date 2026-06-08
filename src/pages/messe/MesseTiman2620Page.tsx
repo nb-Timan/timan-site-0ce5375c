@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import timanLogo from '@/assets/timan-logo.png';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import { t } from '@/lib/i18n/translations';
 
 /**
  * Timan 2620 Messe page — premium touchscreen kiosk layout.
