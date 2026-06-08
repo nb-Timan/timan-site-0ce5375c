@@ -45,11 +45,10 @@ export function MesseRouteGuard({ children }: { children: ReactNode }) {
   const { appUser } = useAppUser();
   const { shouldLeaveMesse, destination } = useMesseRouteGuardState(appUser);
 
-  useEffect(() => {
-    if (shouldLeaveMesse) leaveExhibitionMode();
-  }, [shouldLeaveMesse]);
-
-  if (shouldLeaveMesse) return <Navigate to={destination} replace />;
+  if (shouldLeaveMesse) {
+    leaveExhibitionMode();
+    return <Navigate to={destination} replace />;
+  }
   return <>{children}</>;
 }
 
