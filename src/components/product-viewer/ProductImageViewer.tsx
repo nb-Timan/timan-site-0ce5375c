@@ -200,52 +200,50 @@ export default function ProductImageViewer({
         {hasImage && frameHotspots.map(h => {
           if (h.variant === 'callout') {
             const placement = h.calloutPlacement ?? 'right';
-            // Card offset from the anchor point. Connector line spans the gap.
+            const GAP = 72; // longer connector — keeps callouts off the machine
             const cardStyle: CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
             const cardTransform =
-              placement === 'right' ? 'translate(24px, -50%)'
-              : placement === 'left' ? 'translate(calc(-100% - 24px), -50%)'
-              : placement === 'top' ? 'translate(-50%, calc(-100% - 24px))'
-              : 'translate(-50%, 24px)';
+              placement === 'right' ? `translate(${GAP}px, -50%)`
+              : placement === 'left' ? `translate(calc(-100% - ${GAP}px), -50%)`
+              : placement === 'top' ? `translate(-50%, calc(-100% - ${GAP}px))`
+              : `translate(-50%, ${GAP}px)`;
             return (
               <div key={h.id} className="absolute z-[5]" style={cardStyle}>
                 {/* Connector line */}
                 <span
                   aria-hidden
-                  className="absolute bg-emerald-600/70"
+                  className="absolute bg-emerald-600/80"
                   style={
                     placement === 'right'
-                      ? { left: 0, top: '50%', width: 24, height: 2, transform: 'translateY(-50%)' }
+                      ? { left: 0, top: '50%', width: GAP, height: 2, transform: 'translateY(-50%)' }
                       : placement === 'left'
-                      ? { right: 0, top: '50%', width: 24, height: 2, transform: 'translateY(-50%)' }
+                      ? { right: 0, top: '50%', width: GAP, height: 2, transform: 'translateY(-50%)' }
                       : placement === 'top'
-                      ? { left: '50%', bottom: 0, width: 2, height: 24, transform: 'translateX(-50%)' }
-                      : { left: '50%', top: 0, width: 2, height: 24, transform: 'translateX(-50%)' }
+                      ? { left: '50%', bottom: 0, width: 2, height: GAP, transform: 'translateX(-50%)' }
+                      : { left: '50%', top: 0, width: 2, height: GAP, transform: 'translateX(-50%)' }
                   }
                 />
-                {/* Anchor dot */}
+                {/* Anchor dot on the machine */}
                 <span
                   aria-hidden
-                  className="absolute h-3 w-3 rounded-full bg-emerald-600 border-2 border-white shadow"
+                  className="absolute h-3.5 w-3.5 rounded-full bg-emerald-600 border-2 border-white shadow"
                   style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
                 />
-                {/* Callout card */}
+                {/* Round callout card */}
                 <button
                   type="button"
                   onClick={() => setActiveHotspot(h)}
-                  className="flex items-center gap-2 bg-white border-2 border-emerald-600 rounded-full pl-1.5 pr-4 py-1.5 shadow-md hover:shadow-lg hover:scale-[1.03] transition text-left min-h-[56px] min-w-[160px] max-w-[240px]"
+                  className="flex flex-col items-center justify-center bg-white border-2 border-emerald-600 rounded-full shadow-md hover:shadow-lg hover:scale-[1.04] transition text-center h-[104px] w-[104px] p-2 relative"
                   style={{ transform: cardTransform }}
                   aria-label={`${h.title}${h.subtitle ? ` – ${h.subtitle}` : ''}`}
                 >
-                  <span className="flex-shrink-0 h-9 w-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold leading-none">
+                  <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-bold leading-none shadow">
                     +
                   </span>
-                  <span className="flex flex-col leading-tight">
-                    <span className="text-[13px] font-bold text-slate-900">{h.title}</span>
-                    {h.subtitle && (
-                      <span className="text-[11px] text-slate-600">{h.subtitle}</span>
-                    )}
-                  </span>
+                  <span className="text-[12px] font-bold text-slate-900 leading-tight">{h.title}</span>
+                  {h.subtitle && (
+                    <span className="text-[10px] text-slate-600 leading-tight mt-0.5 px-1">{h.subtitle}</span>
+                  )}
                 </button>
               </div>
             );
