@@ -1040,20 +1040,22 @@ export default function ConfiguratorPage() {
     html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
         <span>${T('confirmSubtotal')}</span>
-        <span class="price-col">${formatMoney(calcResult.subtotal, lang)}</span>
+        <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
       </div>`;
-    calcResult.discountDetails.filter(d => d.amount > 0).forEach(d => {
+    displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
       const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
     });
-    html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
-        <span>${T('confirmTotalDiscount')} (${calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
-        <span class="price-col">-${formatMoney(calcResult.totalDiscount, lang)}</span>
-      </div>
-      <div class="flex justify-between w-full text-base font-bold mt-2">
+    if (!isDealerUserPricing) {
+      html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
+        <span>${T('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+        <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
+      </div>`;
+    }
+    html += `<div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${T('confirmTotal')}</span>
-        <span class="price-col">${formatMoney(calcResult.currentPrice, lang)}</span>
+        <span class="price-col">${formatMoney(displayCalc!.currentPrice, lang)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
