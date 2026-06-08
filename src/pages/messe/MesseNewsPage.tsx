@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import BackendExitButton from '@/components/messe/BackendExitButton';
-import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
+import PortalHeader from '@/components/portal/PortalHeader';
+import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { useAppUser } from '@/context/AppUserContext';
+import { leaveExhibitionMode } from '@/lib/exhibitionMode';
+import { supabase } from '@/lib/supabase';
 import timanLogo from '@/assets/timan-logo.png';
 
 
