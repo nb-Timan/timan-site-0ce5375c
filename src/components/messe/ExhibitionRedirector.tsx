@@ -8,8 +8,13 @@ import { isExhibitionActive, leaveExhibitionMode } from '@/lib/exhibitionMode';
 
 let modeSnapshotVersion = 0;
 
-export function getPortalDestinationForActiveMode(mode: ActiveMode | null): '/portal/backend' | '/portal' {
-  return mode === 'backend' ? '/portal/backend' : '/portal';
+export function getPortalDestinationForActiveMode(
+  mode: ActiveMode | null,
+  realUser?: { portal_role?: string | null } | null,
+): '/portal/backend' | '/portal' {
+  return mode === 'backend' && (realUser?.portal_role || '').toLowerCase() === 'timan_backend'
+    ? '/portal/backend'
+    : '/portal';
 }
 
 function subscribeToModeChanges(callback: () => void) {
@@ -37,7 +42,7 @@ export function useMesseRouteGuardState(appUser: ReturnType<typeof useAppUser>['
     activeMode,
     isExhibitionPreview,
     shouldLeaveMesse: !!realUser && !isExhibitionPreview,
-    destination: getPortalDestinationForActiveMode(activeMode),
+    destination: getPortalDestinationForActiveMode(activeMode, realUser),
   };
 }
 
