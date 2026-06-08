@@ -2991,20 +2991,22 @@ export default function ConfiguratorPage() {
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>{T('subtotal')}</span>
-                      <span className="font-medium price-col">{formatMoney(calcResult.subtotal, lang)}</span>
+                      <span className="font-medium price-col">{formatMoney(displayCalc!.subtotal, lang)}</span>
                     </div>
-                    <div className="text-red-600 text-sm space-y-1">
-                      {calcResult.discountDetails.filter(d => d.amount > 0).map((d, i) => (
-                        <div key={i} className="flex justify-between">
-                          <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
-                          <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                    {!isDealerUserPricing && (
+                      <div className="text-red-600 text-sm space-y-1">
+                        {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
+                          <div key={i} className="flex justify-between">
+                            <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
+                            <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-bold">
+                          <span>{T('totalDiscount')} ({displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+                          <span className="price-col">-{formatMoney(displayCalc!.totalDiscount, lang)}</span>
                         </div>
-                      ))}
-                      <div className="flex justify-between font-bold">
-                        <span>{T('totalDiscount')} ({calcResult.totalPct.toFixed(2).replace('.', ',')}%)</span>
-                        <span className="price-col">-{formatMoney(calcResult.totalDiscount, lang)}</span>
                       </div>
-                    </div>
+                    )}
                     {/* Dealer discount - only for permitted roles */}
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
