@@ -96,7 +96,7 @@ import MesseVideoPage from "./pages/messe/MesseVideoPage";
 import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import ExhibitionGuard from "./components/messe/ExhibitionGuard";
-import ExhibitionRedirector from "./components/messe/ExhibitionRedirector";
+import ExhibitionRedirector, { MesseRouteGuard } from "./components/messe/ExhibitionRedirector";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -115,11 +115,11 @@ const App = () => (
           <LanguageProvider>
             <Routes>
               {/* Public Timan Messe / exhibition routes (no auth required) */}
-              <Route path="/messe" element={<MesseHomePage isEntry />} />
-              <Route path="/messe/konfigurator" element={<MesseConfiguratorPage />} />
-              <Route path="/messe/partner-map" element={<MessePartnerMapPage />} />
-              <Route path="/messe/video" element={<MesseVideoPage />} />
-              <Route path="/messe/nyt" element={<MesseNewsPage />} />
+              <Route path="/messe" element={<MesseRouteGuard><MesseHomePage isEntry /></MesseRouteGuard>} />
+              <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
+              <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
+              <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
+              <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
 
               {/* Portal is the new landing page after login */}
               <Route path="/" element={<ExhibitionGuard><Navigate to="/portal" replace /></ExhibitionGuard>} />
