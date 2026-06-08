@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
