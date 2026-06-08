@@ -96,8 +96,7 @@ import MesseVideoPage from "./pages/messe/MesseVideoPage";
 import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
-import ExhibitionGuard from "./components/messe/ExhibitionGuard";
-import ExhibitionRedirector, { MesseRouteGuard } from "./components/messe/ExhibitionRedirector";
+import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -116,7 +115,7 @@ const App = () => (
           <LanguageProvider>
             <Routes>
               {/* Public Timan Messe / exhibition routes (no auth required) */}
-              <Route path="/messe" element={<MesseRouteGuard><MesseHomePage isEntry /></MesseRouteGuard>} />
+              <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
@@ -125,10 +124,10 @@ const App = () => (
 
 
               {/* Portal is the new landing page after login */}
-              <Route path="/" element={<ExhibitionGuard><Navigate to="/portal" replace /></ExhibitionGuard>} />
+              <Route path="/" element={<PortalLockGuard><Navigate to="/portal" replace /></PortalLockGuard>} />
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
-              <Route path="/portal" element={<ExhibitionGuard><PortalPage /></ExhibitionGuard>} />
+              <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
               <Route path="/portal/teknik-service" element={<PortalAreaPage areaId="teknik_service" />} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
@@ -206,13 +205,12 @@ const App = () => (
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
-              <Route path="/configurator" element={<ExhibitionGuard><ConfiguratorPage /></ExhibitionGuard>} />
+              <Route path="/configurator" element={<PortalLockGuard><ConfiguratorPage /></PortalLockGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
-            <ExhibitionRedirector />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>
