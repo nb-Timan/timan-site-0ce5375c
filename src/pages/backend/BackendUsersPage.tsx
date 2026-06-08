@@ -669,7 +669,9 @@ function EditUserModal({
                 };
                 setDraft(sanitizeAccessForRole(intermediate));
               }}
-              options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
+              options={PORTAL_ROLES
+                .filter((r) => r !== "exhibition_user")
+                .map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
 
