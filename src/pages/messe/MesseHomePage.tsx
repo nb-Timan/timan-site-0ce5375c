@@ -92,6 +92,14 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     );
   }
 
+  // Real backend/service user with a non-exhibition active preview must
+  // not see the Messe layout. ExhibitionRedirector will navigate away;
+  // render nothing in the meantime to avoid a flash of Messe UI.
+  if (realUser) {
+    const mode = getActiveMode(realUser.email);
+    if (mode !== 'role:exhibition_user') return null;
+  }
+
   // If user landed on / direct messe sub-page without first being upgraded
   // (e.g. middle-click), bounce through /messe entry to activate the session.
   if (!isEntry && (!appUser || appUser.portal_role !== 'exhibition_user')) {
