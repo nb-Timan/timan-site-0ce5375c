@@ -48,7 +48,9 @@ import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
 import { RecommendationInfoPopover } from '@/components/configurator/RecommendationInfoPopover';
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
-import { derivePortalRole } from '@/lib/portalAccess';
+import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
+import { isMessePreviewActive } from '@/lib/messePreview';
+
 import { toast } from 'sonner';
 import {
   PAYMENT_TERMS_OPTIONS,
@@ -108,7 +110,8 @@ export default function ConfiguratorPage() {
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   // Timan Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
-  const isExhibition = (appUser as { portal_role?: string | null } | null)?.portal_role === 'exhibition_user';
+  const isExhibition = isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
+
 
   // Keep the configurator's internal language in sync with the global portal
   // language so the top-bar selector controls every page consistently.
