@@ -105,7 +105,7 @@ export default function Timan2620Viewer() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => setBase(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
@@ -132,7 +132,7 @@ export default function Timan2620Viewer() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleEquipment(o.key)}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition text-left ${
                       active
                         ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-1 ring-emerald-700/20'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
