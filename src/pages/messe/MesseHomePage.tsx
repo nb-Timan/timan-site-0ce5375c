@@ -78,11 +78,9 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
     );
   }
 
-  // Single guard: if not allowed to render Messe layout, MesseRouteGuard
-  // will redirect — render nothing in the meantime.
+  // Sub-page reached without entry → bounce to /messe to bootstrap header.
   if (!shouldRenderMesseLayout) {
-    // Sub-page reached without entry → bounce to /messe to bootstrap session.
-    if (!isEntry && !realUser) return <Navigate to="/messe" replace />;
+    if (!isEntry) return <Navigate to="/messe" replace />;
     return null;
   }
 
