@@ -47,9 +47,13 @@ export default function MesseVideoPage() {
             <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
             <DemoModeBadge />
           </Link>
-          <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
-            <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
+              <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
+            </Link>
+            <BackendExitButton />
+          </div>
+
         </div>
       </header>
 
