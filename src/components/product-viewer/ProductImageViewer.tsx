@@ -184,9 +184,9 @@ export default function ProductImageViewer({
             alt={`${config.label} – billede ${frame + 1}/${total}`}
             draggable={false}
             className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-all duration-300 ${
-              hasCalloutHotspot ? 'scale-110 blur-sm brightness-75' : ''
+              hasCalloutHotspot ? 'scale-110 blur-sm brightness-75' : 'scale-[1.2]'
             }`}
-            style={hasCalloutHotspot ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+            style={hasCalloutHotspot ? undefined : { transform: `scale(${1.2 * zoom})`, transformOrigin: 'center center' }}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
@@ -196,45 +196,47 @@ export default function ProductImageViewer({
           </div>
         )}
 
+        {/* Hotspot connector lines (single SVG overlay so lines never escape the canvas) */}
+        {hasImage && (
+          <svg
+            aria-hidden
+            className="absolute inset-0 w-full h-full pointer-events-none z-[4]"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            {frameHotspots.filter(h => h.variant === 'callout').map(h => {
+              const p = computeCalloutPosition(h);
+              return (
+                <line
+                  key={`line-${h.id}`}
+                  x1={h.x} y1={h.y} x2={p.cx} y2={p.cy}
+                  stroke="rgb(5 150 105 / 0.85)"
+                  strokeWidth={1.2}
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </svg>
+        )}
+
         {/* Hotspots */}
         {hasImage && frameHotspots.map(h => {
           if (h.variant === 'callout') {
-            const placement = h.calloutPlacement ?? 'right';
-            const GAP = 220; // long brochure-style connector — keeps callouts well off the machine
-            const cardStyle: CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
-            const cardTransform =
-              placement === 'right' ? `translate(${GAP}px, -50%)`
-              : placement === 'left' ? `translate(calc(-100% - ${GAP}px), -50%)`
-              : placement === 'top' ? `translate(-50%, calc(-100% - ${GAP}px))`
-              : `translate(-50%, ${GAP}px)`;
+            const p = computeCalloutPosition(h);
             return (
-              <div key={h.id} className="absolute z-[5]" style={cardStyle}>
-                {/* Connector line */}
-                <span
-                  aria-hidden
-                  className="absolute bg-emerald-600/80"
-                  style={
-                    placement === 'right'
-                      ? { left: 0, top: '50%', width: GAP, height: 2, transform: 'translateY(-50%)' }
-                      : placement === 'left'
-                      ? { right: 0, top: '50%', width: GAP, height: 2, transform: 'translateY(-50%)' }
-                      : placement === 'top'
-                      ? { left: '50%', bottom: 0, width: 2, height: GAP, transform: 'translateX(-50%)' }
-                      : { left: '50%', top: 0, width: 2, height: GAP, transform: 'translateX(-50%)' }
-                  }
-                />
+              <div key={h.id} className="absolute inset-0 pointer-events-none z-[5]">
                 {/* Anchor dot on the machine */}
                 <span
                   aria-hidden
                   className="absolute h-3.5 w-3.5 rounded-full bg-emerald-600 border-2 border-white shadow"
-                  style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${h.x}%`, top: `${h.y}%`, transform: 'translate(-50%, -50%)' }}
                 />
-                {/* Round callout card */}
+                {/* Round callout card — clamped inside the canvas */}
                 <button
                   type="button"
                   onClick={() => setActiveHotspot(h)}
-                  className="flex flex-col items-center justify-center bg-white border-2 border-emerald-600 rounded-full shadow-md hover:shadow-lg hover:scale-[1.04] transition text-center h-[104px] w-[104px] p-2 relative"
-                  style={{ transform: cardTransform }}
+                  className="absolute pointer-events-auto flex flex-col items-center justify-center bg-white border-2 border-emerald-600 rounded-full shadow-md hover:shadow-lg hover:scale-[1.04] transition text-center h-[104px] w-[104px] p-2"
+                  style={{ left: `${p.cx}%`, top: `${p.cy}%`, transform: 'translate(-50%, -50%)' }}
                   aria-label={`${h.title}${h.subtitle ? ` – ${h.subtitle}` : ''}`}
                 >
                   <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-bold leading-none shadow">
