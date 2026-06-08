@@ -81,15 +81,26 @@ function isExhibitionFlagSet(): boolean {
   try { return localStorage.getItem(EXHIBITION_FLAG) === '1'; } catch { return false; }
 }
 
-function loadFromStorage(): SessionUser | null {
+const REAL_AUTH_ROLES = new Set(['timan_backend', 'timan_service']);
+
+function readCachedSessionUser(): SessionUser | null {
   try {
-    if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as SessionUser;
-  } catch {
-    return null;
+  } catch { return null; }
+}
+
+function loadFromStorage(): SessionUser | null {
+  const cached = readCachedSessionUser();
+  // Real authenticated backend/service user ALWAYS wins over a stale
+  // exhibition flag — otherwise admins get trapped in /messe demo mode.
+  const cachedRole = (cached?.portal_role || '').toLowerCase();
+  if (cached && REAL_AUTH_ROLES.has(cachedRole)) {
+    return cached;
   }
+  if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
+  return cached;
 }
 
 export function AppUserProvider({ children }: { children: ReactNode }) {
