@@ -11,6 +11,7 @@ import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useCachedRealBackendUser } from '@/lib/cachedRealUser';
+import { getActiveMode } from '@/lib/activeMode';
 import { supabase } from '@/lib/supabase';
 import BackendExitButton from '@/components/messe/BackendExitButton';
 
@@ -90,6 +91,14 @@ export default function MesseHomePage({ isEntry = false }: { isEntry?: boolean }
         <h1 className="text-2xl font-bold text-slate-900">{T.disabled[lang]}</h1>
       </div>
     );
+  }
+
+  // Real backend/service user with a non-exhibition active preview must
+  // not see the Messe layout. ExhibitionRedirector will navigate away;
+  // render nothing in the meantime to avoid a flash of Messe UI.
+  if (realUser) {
+    const mode = getActiveMode(realUser.email);
+    if (mode !== 'role:exhibition_user') return null;
   }
 
   // If user landed on / direct messe sub-page without first being upgraded
