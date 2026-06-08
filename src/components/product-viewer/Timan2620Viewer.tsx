@@ -347,25 +347,11 @@ function Timan2620Viewer() {
 /**
  * Subcomponents are exposed for kiosk layouts (e.g. MesseTiman2620Page) that
  * need to position the configuration panel and machine stage independently
- * while still sharing selection state. Both must be rendered inside the
- * provider — the default <Timan2620Viewer /> already sets one up.
+ * while still sharing selection state. Wrap them in <Timan2620Viewer.Provider>.
  */
-Timan2620Viewer.Sidebar = function SidebarWithProvider() {
-  return (
-    <Timan2620Provider>
-      <Sidebar />
-    </Timan2620Provider>
-  );
-};
-Timan2620Viewer.Stage = function StageWithProvider() {
-  return (
-    <Timan2620Provider>
-      <Stage />
-    </Timan2620Provider>
-  );
-};
 Timan2620Viewer.Provider = Timan2620Provider;
-Timan2620Viewer.RawSidebar = Sidebar;
-Timan2620Viewer.RawStage = Stage;
+Timan2620Viewer.Sidebar = Sidebar;
+Timan2620Viewer.Stage = Stage;
+
 
 export default Timan2620Viewer;
