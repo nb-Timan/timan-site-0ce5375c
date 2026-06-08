@@ -129,7 +129,11 @@ export default function ServiceMaintenancePage() {
   const navigate = useNavigate();
 
   const portalRole = derivePortalRole(appUser);
-  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
+  // Only true Timan backend/service see all dealers. Sellers are scope-filtered
+  // to their assigned dealers and must NOT be treated as "backend".
+  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_service';
+  const isSeller = portalRole === 'timan_seller';
+  const showDealerSelector = isBackend || isSeller;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('view'), 'dashboard');
