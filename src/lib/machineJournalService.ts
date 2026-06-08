@@ -432,7 +432,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
 
   for (const w of warranties) {
     const d = w.registrationDate || w.deliveryDate || w.createdAt;
-    touch(w.machineSerial, "warranty", {
+    const row = touch(w.machineSerial, "warranty", {
       machineModel: w.machineType ?? null,
       machineType: w.machineType ?? null,
       dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
@@ -441,6 +441,20 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       activityDate: d,
       activityLabel: d ? `${fmtDateDk(d)} · Garantiregistrering` : null,
     });
+    if (row) {
+      // Prefer sharepoint_form_id when present (gives numeric SP-### IDs),
+      // otherwise fall back to the certificateNumber string.
+      const numeric = w.sharepointFormId ?? null;
+      const label = w.certificateNumber ?? (numeric != null ? `SP-${numeric}` : null);
+      if (numeric != null) {
+        if (row.warrantyIdNumeric == null || numeric > row.warrantyIdNumeric) {
+          row.warrantyIdNumeric = numeric;
+          row.warrantyId = label;
+        }
+      } else if (!row.warrantyId && label) {
+        row.warrantyId = label;
+      }
+    }
   }
 
   for (const s of serviceRegs) {
