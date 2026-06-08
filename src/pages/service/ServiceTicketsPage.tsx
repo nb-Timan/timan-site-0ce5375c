@@ -30,6 +30,7 @@ import {
   NewServiceTicketInput,
 } from "@/lib/machineLifecycleService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
 
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
