@@ -31,6 +31,18 @@ import {
   type Timan2620Equipment,
 } from '@/data/timan2620Viewer';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
+import { useLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
+
+const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
+  standard: 'm2620_base_standard',
+  cab: 'm2620_base_cab',
+};
+const EQUIPMENT_LABEL_KEY: Record<Timan2620Equipment, string> = {
+  v_plow: 'm2620_eq_v_plow',
+  salt_spreader: 'm2620_eq_salt_spreader',
+  brush: 'm2620_eq_brush',
+};
 
 function findConflict(
   equipment: ReadonlySet<Timan2620Equipment>,
