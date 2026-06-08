@@ -631,21 +631,45 @@ export default function MachineSearchPage() {
                 <div className="text-xs font-semibold text-slate-700">
                   {overviewLoading
                     ? "Indlæser maskiner…"
-                    : `${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
+                    : totalMachines === 0
+                      ? "0 maskiner"
+                      : `Viser ${sliceStart + 1}–${sliceEnd} af ${totalMachines} ${totalMachines === 1 ? "maskine" : "maskiner"}`}
                 </div>
-                {!overviewLoading && totalMachines > PAGE_SIZE && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <button onClick={() => setOverviewPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
-                    <span>Side {page} / {totalPages}</span>
-                    <button onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                      className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
-                    <select value={page} onChange={e => setOverviewPage(Number(e.target.value))}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
+                {!overviewLoading && totalMachines > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <label className="flex items-center gap-1">
+                      <span className="text-slate-500">Pr. side:</span>
+                      <select
+                        value={pageSize === "all" ? "all" : String(pageSize)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setPageSize(v === "all" ? "all" : Number(v));
+                          setOverviewPage(1);
+                        }}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+                      >
+                        {PAGE_SIZE_OPTIONS.map(opt => (
+                          <option key={String(opt)} value={opt === "all" ? "all" : String(opt)}>
+                            {opt === "all" ? "Alle" : opt}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {totalPages > 1 && (
+                      <>
+                        <button onClick={() => setOverviewPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                          className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
+                        <span>Side {page} / {totalPages}</span>
+                        <button onClick={() => setOverviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                          className="rounded-md border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
+                        <select value={page} onChange={e => setOverviewPage(Number(e.target.value))}
+                          className="rounded-md border border-slate-200 px-2 py-1 text-xs">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
