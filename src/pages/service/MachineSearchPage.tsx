@@ -692,6 +692,7 @@ export default function MachineSearchPage() {
                       <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="text-left font-semibold px-3 py-2 w-[120px]">Status</th>
+                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Garanti ID</th>
                           <th className="text-left font-semibold px-3 py-2">Serienummer</th>
                           <th className="text-left font-semibold px-3 py-2">Model</th>
                           <th className="text-left font-semibold px-3 py-2">Forhandler</th>
