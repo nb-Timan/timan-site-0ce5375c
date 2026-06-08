@@ -6,14 +6,30 @@ import {
 } from "lucide-react";
 import { TsbSidebarLayout } from "@/components/tsb/TsbSidebarLayout";
 import {
-  daysUntil, formatDate, getDealers, getMachines, getProcessStatus,
+  daysUntil, formatDate, getDealer, getDealers, getMachines, getProcessStatus,
   totalMachineCount, useTsbs, type Tsb,
 } from "@/lib/tsb-store";
+import { useTeknikScope } from "@/lib/useTeknikScope";
+import { dealerScopeAllows } from "@/lib/machineJournalService";
 
 interface Kpi { label: string; value: number | string; icon: LucideIcon; }
 
 export default function TsbDashboardPage() {
-  const tsbs = useTsbs();
+  const tsbsAll = useTsbs();
+  const { scope: teknikScope } = useTeknikScope();
+  const tsbs = useMemo(() => {
+    if (teknikScope.unrestricted) return tsbsAll;
+    return tsbsAll.filter((t) =>
+      t.dealers.some((link) => {
+        const d = getDealer(link.dealerId);
+        if (!d) return false;
+        return dealerScopeAllows(teknikScope, {
+          dealer_number: d.sharepointAccount ?? null,
+          dealer_name: d.name,
+        });
+      }),
+    );
+  }, [tsbsAll, teknikScope]);
   const dealers = getDealers();
   const machines = getMachines();
 
