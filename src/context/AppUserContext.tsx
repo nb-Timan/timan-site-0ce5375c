@@ -50,41 +50,6 @@ const AppUserContext = createContext<AppUserContextValue | undefined>(undefined)
 
 const STORAGE_KEY = 'timan.appUser';
 const SESSION_CACHE_VERSION = 2;
-const EXHIBITION_FLAG = 'timan.exhibitionMode';
-
-/** Synthetic user used for the public Timan Messe (exhibition) session. */
-export const EXHIBITION_SESSION_USER: SessionUser = {
-  email: 'messe@timan.local',
-  role: 'slutkunde',
-  partner_type: null,
-  approved: true,
-  is_active: true,
-  start_step: 1,
-  max_step: 4,
-  can_view_prices: true,
-  can_submit_order: false,
-  can_edit_discount: false,
-  can_switch_customer_mode: false,
-  display_name: 'Timan Messe',
-  portal_role: 'exhibition_user',
-  preferred_language: null,
-  preferred_currency: null,
-  company_dealer: null,
-  module_access: [],
-  allowed_areas: [],
-  allowed_modules: [],
-  status: 'exhibition',
-  dealer_number: null,
-  permissions: null,
-  quick_actions: [],
-  portal_variant: 'messe',
-};
-
-function isExhibitionFlagSet(): boolean {
-  try { return localStorage.getItem(EXHIBITION_FLAG) === '1'; } catch { return false; }
-}
-
-const REAL_AUTH_ROLES = new Set(['timan_backend', 'timan_service']);
 
 function readCachedSessionUser(): SessionUser | null {
   try {
@@ -95,16 +60,9 @@ function readCachedSessionUser(): SessionUser | null {
 }
 
 function loadFromStorage(): SessionUser | null {
-  const cached = readCachedSessionUser();
-  // Real authenticated backend/service user ALWAYS wins over a stale
-  // exhibition flag — otherwise admins get trapped in /messe demo mode.
-  const cachedRole = (cached?.portal_role || '').toLowerCase();
-  if (cached && REAL_AUTH_ROLES.has(cachedRole)) {
-    return cached;
-  }
-  if (isExhibitionFlagSet()) return EXHIBITION_SESSION_USER;
-  return cached;
+  return readCachedSessionUser();
 }
+
 
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
@@ -146,26 +104,13 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        // Exhibition mode short-circuits any Supabase session lookup —
-        // but ONLY for public visitors. If a real Supabase session exists
-        // (backend/service user), the real user wins and we clear the
-        // stale exhibition flag so admins can navigate the normal portal.
-        if (isExhibitionFlagSet()) {
-          const { data: sessionProbe } = await supabase.auth.getSession();
-          if (!sessionProbe.session?.user?.email) {
-            setAppUserState(EXHIBITION_SESSION_USER);
-            setLoading(false);
-            return;
-          }
-          // Real auth session present — drop the stale flag and continue.
-          try { localStorage.removeItem(EXHIBITION_FLAG); } catch { /* ignore */ }
-        }
         const { data } = await supabase.auth.getSession();
         const session = data.session;
         if (!session?.user?.email) {
           setLoading(false);
           return;
         }
+
         const cached = loadFromStorage();
         // Refresh from DB if cache is missing portal_role or dealer_number (stale cache).
         const cacheIsFresh = cached
@@ -216,10 +161,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   const logout = useCallback(async () => {
-    try { localStorage.removeItem(EXHIBITION_FLAG); } catch { /* ignore */ }
     await supabase.auth.signOut();
     setAppUser(null);
   }, [setAppUser]);
+
 
   /**
    * Re-fetch the logged-in user from Supabase and REPLACE the cached
