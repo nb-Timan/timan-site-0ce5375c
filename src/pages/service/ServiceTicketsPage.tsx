@@ -222,7 +222,6 @@ export default function ServiceTicketsPage() {
     return null;
   }
 
-  const reload = async () => {
   const { scope: teknikScope } = useTeknikScope();
   const reload = async () => {
     setLoading(true);
