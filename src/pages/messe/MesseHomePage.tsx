@@ -6,7 +6,7 @@ import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { EXHIBITION_SESSION_USER } from '@/context/AppUserContext';
 import { enterExhibitionMode, isMesseEnabled, leaveExhibitionMode } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
-import { Wrench, MapPin, Play, Newspaper } from 'lucide-react';
+import { Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
