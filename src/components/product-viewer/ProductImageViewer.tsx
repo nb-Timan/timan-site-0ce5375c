@@ -1,17 +1,20 @@
 /**
- * ProductImageViewer — reusable, configuration-driven, exhibition-friendly
- * Timan product image viewer.
+ * ProductImageViewer — reusable, exhibition-friendly Timan product image viewer.
+ *
+ * Renders a single configuration (one image set + optional hotspots).
+ * Selection UI (base machine, equipment, badges) lives in the wrapper that
+ * picks the active configuration.
  *
  * Features:
- *   - Drag-to-rotate (mouse + touch) when a configuration has ≥ 2 frames.
+ *   - Drag-to-rotate (mouse + touch) when the configuration has ≥ 2 frames.
  *   - Pinch-to-zoom on touch, mouse-wheel zoom on desktop.
  *   - Zoom in / zoom out / reset zoom buttons.
- *   - Auto-rotate toggle.
- *   - Prev / next frame arrows.
+ *   - Auto-rotate toggle (only when there are ≥ 2 frames).
+ *   - Prev / next frame arrows (only when there are ≥ 2 frames).
  *   - Preloads every image of the active configuration before allowing
  *     interaction (prevents flicker / drag lag).
  *   - Hotspot overlay with title / description / optional image + link.
- *   - Responsive: works on desktop, tablet and exhibition touch displays.
+ *   - Friendly placeholder when the image set is empty.
  *
  * IMPORTANT: images are rendered as-is, with object-fit: contain. We never
  * recolor, crop, upscale or recompress the originals.
@@ -25,13 +28,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, RotateCw, Pause } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, RotateCw, Pause, ImageOff } from 'lucide-react';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
 
 interface Props {
-  configurations: ViewerConfiguration[];
-  /** Optional initial configuration key. Defaults to the first enabled one. */
-  initialConfigKey?: string;
+  configuration: ViewerConfiguration;
   /** Optional aspect ratio for the image stage (default 4/3). */
   aspectRatio?: number;
   /** Optional className for the outer wrapper. */
@@ -46,18 +47,10 @@ const DRAG_PX_PER_FRAME = 30;
 const AUTO_ROTATE_INTERVAL_MS = 120;
 
 export default function ProductImageViewer({
-  configurations,
-  initialConfigKey,
+  configuration: config,
   aspectRatio = 4 / 3,
   className,
 }: Props) {
-  const enabled = useMemo(() => configurations.filter(c => c.enabled), [configurations]);
-  const [configKey, setConfigKey] = useState<string>(() => initialConfigKey || enabled[0]?.key || '');
-  const config = useMemo(
-    () => enabled.find(c => c.key === configKey) || enabled[0],
-    [enabled, configKey],
-  );
-
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -71,8 +64,9 @@ export default function ProductImageViewer({
   const pinchStateRef = useRef<{ startDist: number; startZoom: number } | null>(null);
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
 
-  const total = config?.imageSequence.length ?? 0;
+  const total = config.imageSequence.length;
   const canRotate = total > 1;
+  const hasImage = total > 0;
 
   // Reset transient state when the configuration changes.
   useEffect(() => {
@@ -81,11 +75,11 @@ export default function ProductImageViewer({
     setActiveHotspot(null);
     setAutoRotate(false);
     setPreloaded(false);
-  }, [configKey]);
+  }, [config.key]);
 
   // Preload every image of the active configuration.
   useEffect(() => {
-    if (!config) return;
+    if (!hasImage) { setPreloaded(true); return; }
     let cancelled = false;
     let loaded = 0;
     const onDone = () => {
@@ -99,7 +93,7 @@ export default function ProductImageViewer({
       img.src = src;
     });
     return () => { cancelled = true; };
-  }, [config]);
+  }, [config, hasImage]);
 
   // Auto-rotate.
   useEffect(() => {
@@ -121,7 +115,6 @@ export default function ProductImageViewer({
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (activePointersRef.current.size === 2) {
-      // Begin pinch.
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       pinchStateRef.current = { startDist: dist, startZoom: zoom };
@@ -169,51 +162,11 @@ export default function ProductImageViewer({
     setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +(z + delta).toFixed(2))));
   }
 
-  if (!config) {
-    return <div className="p-8 text-sm text-slate-500">Ingen visning tilgængelig.</div>;
-  }
-
-  const currentSrc = config.imageSequence[frame] || config.imageSequence[0];
+  const currentSrc = hasImage ? (config.imageSequence[frame] || config.imageSequence[0]) : '';
   const frameHotspots = config.hotspots.filter(h => h.frame === frame + 1);
 
   return (
     <div className={`w-full select-none ${className ?? ''}`}>
-      {/* Configuration buttons */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {configurations.map(c => {
-          const isActive = c.key === config.key;
-          return (
-            <button
-              key={c.key}
-              type="button"
-              disabled={!c.enabled}
-              onClick={() => setConfigKey(c.key)}
-              className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${
-                isActive
-                  ? 'bg-emerald-700 text-white border-emerald-700 shadow'
-                  : c.enabled
-                    ? 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
-                    : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-              }`}
-              aria-pressed={isActive}
-            >
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Equipment badges */}
-      {config.badges.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {config.badges.map(b => (
-            <span key={b.id} className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200">
-              {b.label}
-            </span>
-          ))}
-        </div>
-      )}
-
       {/* Image stage */}
       <div
         ref={stageRef}
@@ -226,16 +179,24 @@ export default function ProductImageViewer({
         onPointerLeave={onPointerUp}
         onWheel={onWheel}
       >
-        <img
-          src={currentSrc}
-          alt={`${config.label} – frame ${frame + 1}/${total}`}
-          draggable={false}
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-transform duration-75"
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-        />
+        {hasImage ? (
+          <img
+            src={currentSrc}
+            alt={`${config.label} – billede ${frame + 1}/${total}`}
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-transform duration-75"
+            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+            <ImageOff className="h-10 w-10 mb-2" />
+            <div className="text-sm font-medium text-slate-500">Billede mangler endnu</div>
+            <div className="text-xs text-slate-400 mt-1">Denne kombination er ikke fotograferet endnu.</div>
+          </div>
+        )}
 
         {/* Hotspots */}
-        {frameHotspots.map(h => (
+        {hasImage && frameHotspots.map(h => (
           <button
             key={h.id}
             type="button"
@@ -277,7 +238,7 @@ export default function ProductImageViewer({
           </div>
         )}
 
-        {!preloaded && (
+        {hasImage && !preloaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-sm">
             <div className="text-xs text-slate-600 font-medium">Indlæser billeder…</div>
           </div>
@@ -320,34 +281,36 @@ export default function ProductImageViewer({
       </div>
 
       {/* Toolbar */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => setZoom(z => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
-          <ZoomIn className="h-4 w-4" /> Zoom ind
-        </button>
-        <button type="button" onClick={() => setZoom(z => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(2)))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
-          <ZoomOut className="h-4 w-4" /> Zoom ud
-        </button>
-        <button type="button" onClick={() => setZoom(1)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
-          <Maximize2 className="h-4 w-4" /> Nulstil zoom
-        </button>
-        {canRotate && (
-          <button type="button" onClick={() => setAutoRotate(a => !a)}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-sm font-medium ${
-                    autoRotate
-                      ? 'bg-emerald-700 text-white border-emerald-700'
-                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                  }`}>
-            {autoRotate ? <Pause className="h-4 w-4" /> : <RotateCw className="h-4 w-4" />}
-            {autoRotate ? 'Stop rotation' : 'Auto-rotér'}
+      {hasImage && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setZoom(z => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
+            <ZoomIn className="h-4 w-4" /> Zoom ind
           </button>
-        )}
-        <span className="ml-auto text-xs text-slate-500">
-          {canRotate ? 'Træk for at rotere · Knib eller scroll for at zoome' : 'Knib eller scroll for at zoome'}
-        </span>
-      </div>
+          <button type="button" onClick={() => setZoom(z => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(2)))}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
+            <ZoomOut className="h-4 w-4" /> Zoom ud
+          </button>
+          <button type="button" onClick={() => setZoom(1)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">
+            <Maximize2 className="h-4 w-4" /> Nulstil zoom
+          </button>
+          {canRotate && (
+            <button type="button" onClick={() => setAutoRotate(a => !a)}
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-sm font-medium ${
+                      autoRotate
+                        ? 'bg-emerald-700 text-white border-emerald-700'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}>
+              {autoRotate ? <Pause className="h-4 w-4" /> : <RotateCw className="h-4 w-4" />}
+              {autoRotate ? 'Stop rotation' : 'Auto-rotér'}
+            </button>
+          )}
+          <span className="ml-auto text-xs text-slate-500">
+            {canRotate ? 'Træk for at rotere · Knib eller scroll for at zoome' : 'Knib eller scroll for at zoome'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
