@@ -193,11 +193,10 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               </span>
 
               {showModeSwitch && (
-                <div className="relative ml-1">
+                <div className="relative ml-1" id="timan-mode-menu-root">
                   <button
                     type="button"
                     onClick={() => setModeMenuOpen(o => !o)}
-                    onBlur={() => setTimeout(() => setModeMenuOpen(false), 120)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
                       activeRolePreview
                         ? 'bg-purple-50 border-purple-300 text-purple-800 hover:bg-purple-100'
