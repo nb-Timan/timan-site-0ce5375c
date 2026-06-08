@@ -26,8 +26,11 @@ const PLACEHOLDER: NewsPost[] = [
 ];
 
 export default function MesseNewsPage() {
-  const { language: lang } = useLanguage();
+  const { language: lang, setLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
+  const realUser = useCachedRealBackendUser();
+  const { setAppUser } = useAppUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -40,22 +43,41 @@ export default function MesseNewsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link to="/messe" className="flex items-center gap-3">
-            <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
-            <DemoModeBadge />
-          </Link>
-          <div className="flex items-center gap-3">
+      {realUser ? (
+        <>
+          <PortalHeader
+            user={realUser}
+            language={lang}
+            onLanguageChange={setLanguage}
+            onLogout={async () => {
+              leaveExhibitionMode();
+              try { await supabase.auth.signOut(); } catch { /* ignore */ }
+              setAppUser(null);
+              navigate('/portal', { replace: true });
+            }}
+          />
+          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
+              <DemoModeBadge />
+              <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {T.back[lang]}
+              </Link>
+            </div>
+          </div>
+        </>
+      ) : (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <Link to="/messe" className="flex items-center gap-3">
+              <img src={timanLogo} alt="Timan" className="h-10 sm:h-12 w-auto" />
+              <DemoModeBadge />
+            </Link>
             <Link to="/messe" className="inline-flex items-center text-sm font-semibold text-emerald-800 hover:underline">
               <ArrowLeft className="h-4 w-4 mr-1" /> {T.back[lang]}
             </Link>
-            <BackendRolePreviewSwitcher />
-            <BackendExitButton />
           </div>
-
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">{T.title[lang]}</h1>
