@@ -331,6 +331,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     account_owner_initials: draft.account_owner_initials,
     account_owner_email: draft.account_owner_email,
     quick_actions: draft.quick_actions, // jsonb; null = role defaults
+    portal_variant: draft.portal_variant === 'messe' ? 'messe' : 'standard',
     updated_at: new Date().toISOString(),
   };
 
