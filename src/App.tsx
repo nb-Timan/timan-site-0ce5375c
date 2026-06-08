@@ -96,6 +96,7 @@ import MesseVideoPage from "./pages/messe/MesseVideoPage";
 import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import ExhibitionGuard from "./components/messe/ExhibitionGuard";
+import ExhibitionRedirector from "./components/messe/ExhibitionRedirector";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -199,14 +200,16 @@ const App = () => (
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
               <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
+              <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
-              <Route path="/configurator" element={<ConfiguratorPage />} />
+              <Route path="/configurator" element={<ExhibitionGuard><ConfiguratorPage /></ExhibitionGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
+            <ExhibitionRedirector />
           </LanguageProvider>
         </AppUserProvider>
       </BrowserRouter>
