@@ -9,6 +9,7 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import BackendExitButton from '@/components/messe/BackendExitButton';
+import BackendRolePreviewSwitcher from '@/components/messe/BackendRolePreviewSwitcher';
 
 import { derivePortalRole, hasModuleAccess, isExhibitionRole } from '@/lib/portalAccess';
 import timanLogo from '@/assets/timan-logo.png';
