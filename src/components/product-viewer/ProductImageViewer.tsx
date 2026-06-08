@@ -199,7 +199,7 @@ export default function ProductImageViewer({
           if (h.variant === 'callout') {
             const placement = h.calloutPlacement ?? 'right';
             // Card offset from the anchor point. Connector line spans the gap.
-            const cardStyle: React.CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
+            const cardStyle: CSSProperties = { left: `${h.x}%`, top: `${h.y}%` };
             const cardTransform =
               placement === 'right' ? 'translate(24px, -50%)'
               : placement === 'left' ? 'translate(calc(-100% - 24px), -50%)'
