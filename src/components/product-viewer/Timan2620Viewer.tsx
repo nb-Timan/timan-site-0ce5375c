@@ -93,18 +93,18 @@ function buildHotspots(
     });
   }
 
-  if (hasAnyEquipment) {
+  if (equipment.has('brush')) {
     list.push({
-      id: 'redskaber',
+      id: 'brush',
       frame: 0,
-      x: 30, y: 70,
-      title: 'Redskaber',
-      subtitle: 'Nem montering af udstyr',
+      x: 32, y: 68,
+      title: 'Kost',
+      subtitle: 'Effektiv fejning',
       variant: 'callout',
-      calloutCenter: { cx: 50, cy: 95 },
+      calloutCenter: { cx: 35, cy: 95 },
       description:
-        'Hurtigkobling i fronten gør det muligt at skifte mellem redskaber på under et minut.',
-      bullets: ['Værktøjsfri skift', 'Bredt udvalg af tilbehør', 'Hydraulisk tilslutning'],
+        'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
+      bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
     });
   }
 
