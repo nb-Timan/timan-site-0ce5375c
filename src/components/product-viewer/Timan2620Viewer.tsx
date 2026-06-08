@@ -47,7 +47,6 @@ function buildHotspots(
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
 ): ViewerHotspot[] {
-  const hasAnyEquipment = equipment.size > 0;
   const list: ViewerHotspot[] = [];
 
   list.push({
