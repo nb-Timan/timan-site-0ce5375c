@@ -107,10 +107,14 @@ export default function ConfiguratorPage() {
   const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   // Timan Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
-  const isExhibition = isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
+  // Treat ANY render of the configurator under /messe/* as Messe mode too,
+  // so the back button + demo guards work even before context resolves.
+  const isMessePath = location.pathname.startsWith('/messe');
+  const isExhibition = isMessePath || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
   // Keep the configurator's internal language in sync with the global portal
