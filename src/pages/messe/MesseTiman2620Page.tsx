@@ -4,8 +4,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
-import ProductImageViewer from '@/components/product-viewer/ProductImageViewer';
-import { TIMAN_2620_CONFIGS } from '@/data/timan2620Viewer';
+import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
 import { canSwitchMode } from '@/lib/activeMode';
 
 /**
@@ -43,7 +42,7 @@ export default function MesseTiman2620Page() {
           Udforsk Timan 2620 i 360° og se forskellige konfigurationer.
         </p>
 
-        <ProductImageViewer configurations={TIMAN_2620_CONFIGS} />
+        <Timan2620Viewer />
       </main>
     </div>
   );
