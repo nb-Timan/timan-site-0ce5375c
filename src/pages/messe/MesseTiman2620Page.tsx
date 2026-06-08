@@ -96,7 +96,7 @@ export default function MesseTiman2620Page() {
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
                   Timan 2620
                 </h1>
-                <p className="text-sm lg:text-base text-slate-600 mt-1">Udforsk maskinen</p>
+                <p className="text-sm lg:text-base text-slate-600 mt-1">{t('m2620_explore', uiLanguage)}</p>
               </div>
               <Timan2620Viewer.Sidebar />
             </div>
