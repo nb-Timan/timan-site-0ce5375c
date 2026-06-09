@@ -40,6 +40,8 @@ interface Props {
   hideControls?: boolean;
   /** Lock zoom at 1 and ignore wheel/pinch zoom (kiosk mode). */
   disableZoom?: boolean;
+  /** Enlarge prev/next arrow buttons for touchscreen use. */
+  largeArrows?: boolean;
 }
 
 
@@ -85,6 +87,7 @@ export default function ProductImageViewer({
   className,
   hideControls = false,
   disableZoom = false,
+  largeArrows = false,
 }: Props) {
 
   const [frame, setFrame] = useState(0);
