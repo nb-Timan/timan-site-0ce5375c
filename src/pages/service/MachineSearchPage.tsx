@@ -861,8 +861,7 @@ export default function MachineSearchPage() {
                         <li key={row.normalizedSerial}
                           onClick={() => openMachine(row.serial)}
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
                               {row.warrantyId && (
                                 <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
                               )}
