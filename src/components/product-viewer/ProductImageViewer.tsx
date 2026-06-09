@@ -205,7 +205,7 @@ export default function ProductImageViewer({
       {/* Image stage — kiosk-friendly large stage on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[16/9]"
+        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

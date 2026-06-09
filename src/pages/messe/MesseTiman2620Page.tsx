@@ -91,19 +91,17 @@ export default function MesseTiman2620Page() {
 
       <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8 flex flex-col">
         <Timan2620Viewer.Provider>
-          {/* Title above the sidebar */}
-          <div className="mb-5 lg:mb-6">
-            <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 leading-tight">
-              Timan 2620
-            </h1>
-            <p className="text-base lg:text-lg text-slate-600 mt-1">
-              {t('m2620_explore', uiLanguage)}
-            </p>
-          </div>
-
-          {/* Sidebar + stage */}
+          {/* Title + sidebar in left column, stage on right — stage aligns to title top */}
           <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8">
             <div className="w-full lg:w-[220px] lg:flex-shrink-0">
+              <div className="mb-5 lg:mb-6">
+                <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 leading-tight">
+                  Timan 2620
+                </h1>
+                <p className="text-base lg:text-lg text-slate-600 mt-1">
+                  {t('m2620_explore', uiLanguage)}
+                </p>
+              </div>
               <Timan2620Viewer.Sidebar />
             </div>
             <div className="flex-1 min-w-0 w-full">
