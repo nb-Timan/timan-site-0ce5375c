@@ -442,6 +442,15 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       activityLabel: d ? `${fmtDateDk(d)} · Garantiregistrering` : null,
     });
     if (row) {
+      // Forhandler must come from the linked dealer account (account number),
+      // not the free-text dealer name typed in the warranty form. When the
+      // warranty row is matched to a dealer_account, overwrite any name/
+      // number previously set by the bare `machines` row (which can carry
+      // stale or manual values).
+      if (w.dealerAccountId && w.dealerOfficialName) {
+        row.dealerName = w.dealerOfficialName;
+        if (w.dealerAccountNumber) row.dealerNumber = w.dealerAccountNumber;
+      }
       // Prefer sharepoint_form_id when present (gives numeric SP-### IDs),
       // otherwise fall back to the certificateNumber string.
       const numeric = w.sharepointFormId ?? null;
@@ -1330,7 +1339,10 @@ export async function loadMachineJournal(
   journal.related.warranties = warranties.map((w) => ({
     id: w.id, kind: "warranty", label: w.certificateNumber,
     sublabel: w.dealerName || undefined, date: w.registrationDate,
-    href: "/portal/service/warranty/registrations",
+    // Deep-link to the exact warranty registration so the list page opens
+    // pre-filtered to this certificate (e.g. SP-224) instead of the full
+    // unfiltered registrations list.
+    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}`,
   }));
   journal.related.serviceRegistrations = serviceRegs.map((s) => ({
     id: s.id, kind: "service", label: `${s.service_interval_hours}-timers service`,

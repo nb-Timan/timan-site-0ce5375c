@@ -117,8 +117,16 @@ export function WarrantyRegistrationsTable({
   const records = localRecords ?? all;
 
   const [searchParams] = useSearchParams();
-  const initialDealer = searchParams.get("dealer") ?? "";
-  const [q, setQ] = useState(initialDealer);
+  // Deep-link from Machine Journal: ?certificate=SP-224 or ?serial=… should
+  // preseed the search box so the result list focuses on that registration.
+  // ?dealer=… is the legacy seed kept for backward compatibility.
+  const initialSearch =
+    searchParams.get("certificate") ??
+    searchParams.get("registrationId") ??
+    searchParams.get("serial") ??
+    searchParams.get("dealer") ??
+    "";
+  const [q, setQ] = useState(initialSearch);
   const [machine, setMachine] = useState("");
   const [dealer, setDealer] = useState("");
   const [language, setLanguage] = useState("");
@@ -201,6 +209,7 @@ export function WarrantyRegistrationsTable({
         r.machineSerial.toLowerCase().includes(ql) ||
         r.confirmationEmail.toLowerCase().includes(ql) ||
         r.certificateNumber.toLowerCase().includes(ql) ||
+        r.id.toLowerCase().includes(ql) ||
         (r.sharepointItemId ?? "").toLowerCase().includes(ql)
       );
     });
