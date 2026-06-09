@@ -55,7 +55,7 @@ export default function MesseTiman2620Page() {
     >
       {/* Kiosk top bar: logo (aligned above left column) · language */}
       <header className="sticky top-0 z-40 bg-transparent">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 flex items-center justify-between gap-4">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-5 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center lg:w-[220px] lg:justify-center">
             <img src={timanLogo} alt="Timan" className="h-12 sm:h-14 lg:h-16 w-auto object-contain" />
           </div>
@@ -90,7 +90,7 @@ export default function MesseTiman2620Page() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8 flex flex-col">
+      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-5 py-6 lg:py-8 flex flex-col">
         <Timan2620Viewer.Provider>
           {/* Title + sidebar in left column, stage on right — stage aligns to title top */}
           <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8">
