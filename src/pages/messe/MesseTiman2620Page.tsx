@@ -112,11 +112,8 @@ export default function MesseTiman2620Page() {
                   machine fills the entire stage (no empty bands) and the
                   percent-based hotspots stay perfectly aligned. */}
               <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
-                <div className="relative w-full h-full max-h-full flex items-center justify-center">
-                  <div className="w-full h-full max-w-full max-h-full aspect-[16/9] mx-auto"
-                       style={{ maxHeight: '100%' }}>
-                    <Timan2620Viewer.Stage />
-                  </div>
+                <div className="h-full max-w-full aspect-[16/9]">
+                  <Timan2620Viewer.Stage />
                 </div>
               </div>
             </div>
