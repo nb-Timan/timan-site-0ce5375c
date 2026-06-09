@@ -38,6 +38,8 @@ interface Props {
   className?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
+  /** Lock zoom at 1 and ignore wheel/pinch zoom (kiosk mode). */
+  disableZoom?: boolean;
 }
 
 
@@ -82,6 +84,7 @@ export default function ProductImageViewer({
   configuration: config,
   className,
   hideControls = false,
+  disableZoom = false,
 }: Props) {
 
   const [frame, setFrame] = useState(0);
@@ -147,7 +150,7 @@ export default function ProductImageViewer({
     (e.target as Element).setPointerCapture?.(e.pointerId);
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    if (activePointersRef.current.size === 2) {
+    if (!disableZoom && activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       pinchStateRef.current = { startDist: dist, startZoom: zoom };
@@ -165,7 +168,7 @@ export default function ProductImageViewer({
     if (!activePointersRef.current.has(e.pointerId)) return;
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    if (pinchStateRef.current && activePointersRef.current.size === 2) {
+    if (!disableZoom && pinchStateRef.current && activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const ratio = dist / pinchStateRef.current.startDist;
@@ -189,6 +192,7 @@ export default function ProductImageViewer({
   }
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
+    if (disableZoom) return;
     if (e.deltaY === 0) return;
     e.preventDefault();
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;

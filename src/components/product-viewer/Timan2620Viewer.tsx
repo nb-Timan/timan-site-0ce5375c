@@ -418,7 +418,7 @@ function Sidebar() {
   );
 }
 
-function Stage() {
+function Stage({ disableZoom = false }: { disableZoom?: boolean } = {}) {
   const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
   const { uiLanguage } = useLanguage();
   const labelOfEquipment = (eq: Timan2620Equipment) =>
@@ -431,8 +431,10 @@ function Stage() {
           key={imageKey}
           configuration={configuration}
           hideControls
+          disableZoom={disableZoom}
         />
       </div>
+
 
 
       {conflict && (

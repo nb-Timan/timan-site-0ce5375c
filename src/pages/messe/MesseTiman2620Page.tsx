@@ -106,7 +106,7 @@ export default function MesseTiman2620Page() {
               <Timan2620Viewer.Sidebar />
             </div>
             <div className="flex-1 min-w-0 w-full">
-              <Timan2620Viewer.Stage />
+              <Timan2620Viewer.Stage disableZoom />
             </div>
           </div>
 
