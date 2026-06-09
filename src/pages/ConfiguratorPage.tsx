@@ -268,6 +268,11 @@ export default function ConfiguratorPage() {
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
   // localisation, which only have 5-language coverage.
   const T = (key: string) => t(key, uiLanguage);
+  // Modal/HTML "content language" — collapses sv/fr/pl/cs to 'en' so chrome
+  // inside modals matches the product/accessory data (which is only available
+  // in da/en/de/it/hu). Prevents mixed-language modals.
+  const contentUiLang = resolveContentUiLanguage(uiLanguage);
+  const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
