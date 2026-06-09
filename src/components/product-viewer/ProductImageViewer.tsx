@@ -150,7 +150,7 @@ export default function ProductImageViewer({
     (e.target as Element).setPointerCapture?.(e.pointerId);
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    if (activePointersRef.current.size === 2) {
+    if (!disableZoom && activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       pinchStateRef.current = { startDist: dist, startZoom: zoom };
