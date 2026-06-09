@@ -344,3 +344,30 @@ html, body {
   --status-neutral-bg: #E5E7EB;
   --status-neutral-fg: #374151;
 }
+
+/* ============================================
+   Scoped visual scale for Machine Search /
+   Machine Journal pages only. Bumps headings,
+   body text, table cells, inputs and badges by
+   ~10-15% without affecting other modules.
+   ============================================ */
+.tk-scale-up { font-size: 16px; }
+.tk-scale-up h1 { font-size: 2.25rem; line-height: 1.15; }
+.tk-scale-up h2 { font-size: 1.375rem; }
+.tk-scale-up h3 { font-size: 1.125rem; }
+.tk-scale-up .text-xs { font-size: 0.8125rem; }
+.tk-scale-up .text-sm { font-size: 0.9375rem; }
+.tk-scale-up .text-base { font-size: 1.0625rem; }
+.tk-scale-up .text-lg { font-size: 1.25rem; }
+.tk-scale-up .text-xl { font-size: 1.5rem; }
+.tk-scale-up .text-2xl { font-size: 1.75rem; }
+.tk-scale-up .text-3xl { font-size: 2.25rem; }
+.tk-scale-up .text-\[11px\] { font-size: 12px; }
+.tk-scale-up table { font-size: 0.9375rem; }
+.tk-scale-up table th { padding-top: 0.625rem; padding-bottom: 0.625rem; font-size: 12px; }
+.tk-scale-up table td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.tk-scale-up input[type="text"],
+.tk-scale-up input[type="search"],
+.tk-scale-up select,
+.tk-scale-up textarea { font-size: 0.9375rem; }
+.tk-scale-up button { font-size: 0.9375rem; }
