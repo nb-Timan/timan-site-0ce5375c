@@ -935,12 +935,6 @@ export default function MachineSearchPage() {
                         ))}
                       </div>
                     </div>
-                    <button
-                      onClick={() => openMachine(h.serial)}
-                      className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
-                    >
-                      Min Maskine →
-                    </button>
                   </li>
                 );
               })}
