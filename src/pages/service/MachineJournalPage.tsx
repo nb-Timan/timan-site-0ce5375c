@@ -130,6 +130,13 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
+  const cameFromSearch = useMemo(() => hasMachineSearchContext(), []);
+  const breadcrumbCurrent = useMemo(() => {
+    if (journal?.summary) {
+      return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
+    }
+    return serial;
+  }, [journal, serial]);
 
   useEffect(() => {
     if (!appUser) {
