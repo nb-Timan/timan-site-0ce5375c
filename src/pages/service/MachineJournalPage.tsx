@@ -190,16 +190,38 @@ export default function MachineJournalPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
           <button
-            onClick={() => goBackOrFallback(navigate, location)}
+            onClick={() => {
+              if (cameFromSearch) {
+                navigate('/portal/service/machines');
+              } else {
+                goBackOrFallback(navigate, location);
+              }
+            }}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            {tt('backToTechnicalService', uiLanguage)}
+            {cameFromSearch ? T.backToSearch[lang] : tt('backToTechnicalService', uiLanguage)}
           </button>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+            <button
+              onClick={() => navigate('/portal/teknik-service')}
+              className="font-semibold text-slate-600 hover:text-[#2d5a27] hover:underline"
+            >{T.crumbService[lang]}</button>
+            <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+            <button
+              onClick={() => navigate('/portal/service/machines')}
+              className="font-semibold text-slate-600 hover:text-[#2d5a27] hover:underline"
+            >{T.crumbSearch[lang]}</button>
+            <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-900 truncate max-w-[260px]" title={breadcrumbCurrent}>
+              {breadcrumbCurrent}
+            </span>
+          </nav>
         </div>
       </div>
+
 
       <main className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{T.pageTitle[lang]}</div>
