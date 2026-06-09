@@ -84,6 +84,7 @@ export default function ProductImageViewer({
   configuration: config,
   className,
   hideControls = false,
+  disableZoom = false,
 }: Props) {
 
   const [frame, setFrame] = useState(0);
