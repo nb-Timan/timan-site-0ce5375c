@@ -432,6 +432,7 @@ function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boo
           configuration={configuration}
           hideControls
           disableZoom={disableZoom}
+          largeArrows={largeArrows}
         />
       </div>
 
