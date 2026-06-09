@@ -40,6 +40,8 @@ interface Props {
   hideControls?: boolean;
   /** Lock zoom at 1 and ignore wheel/pinch zoom (kiosk mode). */
   disableZoom?: boolean;
+  /** Enlarge prev/next arrow buttons for touchscreen use. */
+  largeArrows?: boolean;
 }
 
 
@@ -85,6 +87,7 @@ export default function ProductImageViewer({
   className,
   hideControls = false,
   disableZoom = false,
+  largeArrows = false,
 }: Props) {
 
   const [frame, setFrame] = useState(0);
@@ -313,18 +316,18 @@ export default function ProductImageViewer({
             <button
               type="button"
               onClick={() => advance(-1)}
-              className="absolute left-7 top-1/2 -translate-y-1/2 z-[3] h-10 w-10 rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center"
+              className={`absolute left-7 top-1/2 -translate-y-1/2 z-[3] rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center ${largeArrows ? 'h-14 w-14' : 'h-10 w-10'}`}
               aria-label="Forrige billede"
             >
-              <ChevronLeft className="h-5 w-5 text-slate-500" />
+              <ChevronLeft className={`text-slate-500 ${largeArrows ? 'h-7 w-7' : 'h-5 w-5'}`} />
             </button>
             <button
               type="button"
               onClick={() => advance(1)}
-              className="absolute right-7 top-1/2 -translate-y-1/2 z-[3] h-10 w-10 rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center"
+              className={`absolute right-7 top-1/2 -translate-y-1/2 z-[3] rounded-full bg-white/50 hover:bg-white/70 border border-slate-200/50 shadow-sm backdrop-blur-sm flex items-center justify-center ${largeArrows ? 'h-14 w-14' : 'h-10 w-10'}`}
               aria-label="Næste billede"
             >
-              <ChevronRight className="h-5 w-5 text-slate-500" />
+              <ChevronRight className={`text-slate-500 ${largeArrows ? 'h-7 w-7' : 'h-5 w-5'}`} />
             </button>
           </>
         )}
