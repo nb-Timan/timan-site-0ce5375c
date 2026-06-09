@@ -844,13 +844,13 @@ export default function ConfiguratorPage() {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
       techSpecs.forEach(s => {
         const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[lang] || (s.value as any)?.da || '');
-        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, uiLanguage)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, contentUiLang)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
       });
       html += '</div>';
     }
     if (descEntry) {
       const val = typeof descEntry.value === 'string' ? descEntry.value : ((descEntry.value as any)?.[lang] || (descEntry.value as any)?.da || '');
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
     }
     setInfoModal({ title: getLocalizedName(acc.name, lang), content: html });
   };
