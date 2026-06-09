@@ -842,14 +842,6 @@ export default function MachineSearchPage() {
                                   ))}
                                 </div>
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
-                                  className="inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f] whitespace-nowrap"
-                                >
-                                  Min Maskine →
-                                </button>
-                              </td>
                             </tr>
                           );
                         })}
