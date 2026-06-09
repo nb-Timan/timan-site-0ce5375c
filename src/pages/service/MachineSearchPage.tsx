@@ -798,7 +798,6 @@ export default function MachineSearchPage() {
                           <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Timer</th>
                           <th className="text-left font-semibold px-3 py-2">Seneste aktivitet</th>
                           <th className="text-left font-semibold px-3 py-2">Historik</th>
-                          <th className="text-right font-semibold px-3 py-2">Handling</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
