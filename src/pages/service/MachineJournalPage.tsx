@@ -9,7 +9,7 @@
  * scope-filtered by dealer label for non-internal users.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
@@ -17,7 +17,6 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
