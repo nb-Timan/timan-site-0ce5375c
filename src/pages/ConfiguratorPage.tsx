@@ -727,11 +727,11 @@ export default function ConfiguratorPage() {
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
+    const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
-    const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
-    setInfoModal({ title: T('autoAddedTitle'), content: msg });
-  }, [lang, isEURCurrency]);
+    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
+    setInfoModal({ title: TC('autoAddedTitle'), content: msg });
+  }, [lang, isEURCurrency, contentUiLang]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
