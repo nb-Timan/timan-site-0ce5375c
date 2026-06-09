@@ -812,25 +812,25 @@ export default function ConfiguratorPage() {
     const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
     const bullets = md.bullets[lang] || md.bullets.da || [];
     const dims = md.dimensions || [];
-    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${T('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
+    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${TC('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
       bullets.forEach(b => { html += `<li>${b}</li>`; });
       html += '</ul></div>';
     }
     if (dims.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, uiLanguage)}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, contentUiLang)}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, uiLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, contentUiLang)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
     }
-    setInfoModal({ title: `${T('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
+    setInfoModal({ title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
   const showSpecs = (accId: string, machineType: string) => {
