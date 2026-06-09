@@ -31,6 +31,9 @@ import { hasMachineSearchContext } from "@/lib/machineSearchState";
 const T: Record<string, Record<Language, string>> = {
   pageTitle:        { da: "Min Maskine", en: "My Machine", de: "Meine Maschine", it: "La mia macchina", hu: "Saját gép" },
   back:             { da: "Tilbage", en: "Back", de: "Zurück", it: "Indietro", hu: "Vissza" },
+  backToSearch:     { da: "Tilbage til Søg Maskine", en: "Back to Search Machine", de: "Zurück zur Maschinensuche", it: "Torna a Cerca macchina", hu: "Vissza a gépkereséshez" },
+  crumbService:     { da: "Teknik & Service", en: "Technical & Service", de: "Technik & Service", it: "Tecnico & Assistenza", hu: "Műszaki & Szerviz" },
+  crumbSearch:      { da: "Søg Maskine", en: "Search Machine", de: "Maschine suchen", it: "Cerca macchina", hu: "Gép keresése" },
   loading:          { da: "Indlæser…", en: "Loading…", de: "Lädt…", it: "Caricamento…", hu: "Betöltés…" },
   notFound:         { da: "Ingen data for denne maskine.", en: "No data for this machine.", de: "Keine Daten zu dieser Maschine.", it: "Nessun dato per questa macchina.", hu: "Nincs adat ehhez a géphez." },
   serial:           { da: "Serienr.", en: "Serial no.", de: "Seriennr.", it: "N. di serie", hu: "Gyári sz." },
