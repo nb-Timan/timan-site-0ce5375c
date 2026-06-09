@@ -192,6 +192,7 @@ export default function ProductImageViewer({
   }
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
+    if (disableZoom) return;
     if (e.deltaY === 0) return;
     e.preventDefault();
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
