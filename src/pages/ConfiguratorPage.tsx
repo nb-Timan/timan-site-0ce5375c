@@ -1848,18 +1848,18 @@ export default function ConfiguratorPage() {
                 onClick={() => setConfirmModalOpen(false)}
                 disabled={submitting}
                 className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                {T('close')}
+                {TC('close')}
               </button>
               <button
                 onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
                 disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? T('orderCannotResendTitle') : undefined}
+                title={state.flowType === 'order' && orderLocked ? TC('orderCannotResendTitle') : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {state.flowType === 'order' && orderLocked
-                  ? T('orderSubmittedBadge')
+                  ? TC('orderSubmittedBadge')
                   : submitting
-                    ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                    : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
+                    ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
+                    : (state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
               </button>
             </div>
           </div>
