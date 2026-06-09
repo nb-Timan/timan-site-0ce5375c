@@ -99,7 +99,7 @@ export default function MesseTiman2620Page() {
           </div>
 
           {/* Sidebar + stage */}
-          <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8 flex-grow">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8">
             <div className="w-full lg:w-[220px] lg:flex-shrink-0">
               <Timan2620Viewer.Sidebar />
             </div>
@@ -109,7 +109,7 @@ export default function MesseTiman2620Page() {
           </div>
 
           {/* Unified footer row: back button + 3 benefits */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
+          <div className="mt-4 pt-4 border-t border-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6 md:divide-x md:divide-slate-200 items-center">
               <div className="flex items-center py-2">
                 <button
