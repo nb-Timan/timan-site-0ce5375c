@@ -90,7 +90,7 @@ export default function MesseTiman2620Page() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8 flex flex-col">
+      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-5 py-6 lg:py-8 flex flex-col">
         <Timan2620Viewer.Provider>
           {/* Title + sidebar in left column, stage on right — stage aligns to title top */}
           <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8">
