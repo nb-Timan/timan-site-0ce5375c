@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import timanLogo from '@/assets/timan-logo.png';
+import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
