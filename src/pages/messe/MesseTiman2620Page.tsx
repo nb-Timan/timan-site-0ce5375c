@@ -131,7 +131,7 @@ export default function MesseTiman2620Page() {
                   photo background. */}
               <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
                 <div className="h-full max-w-full aspect-[16/9] timan-2620-stage">
-                  <Timan2620Viewer.Stage contentScale={typeof window !== 'undefined' && window.innerWidth >= 1024 ? 1.55 : window !== undefined && window.innerWidth >= 640 ? 1.3 : 1.1} />
+                  <Timan2620Viewer.Stage contentScale={stageScale} />
                 </div>
               </div>
             </div>
