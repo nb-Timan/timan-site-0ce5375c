@@ -198,7 +198,7 @@ export default function MachineJournalPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={() => {
               // Re-check at click time so the decision is based on the
@@ -233,7 +233,7 @@ export default function MachineJournalPage() {
       </div>
 
 
-      <main className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+      <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{T.pageTitle[lang]}</div>
 
         {loading ? (
