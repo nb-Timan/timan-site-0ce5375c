@@ -47,8 +47,11 @@ export default function MesseTiman2620Page() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100"
-      style={{ fontFamily: "'Inter', sans-serif" }}
+      className="min-h-screen flex flex-col"
+      style={{
+        fontFamily: "'Inter', sans-serif",
+        background: 'linear-gradient(135deg, #f4f7f9 0%, #eef3f7 45%, #e9eef4 100%)',
+      }}
     >
       {/* Kiosk top bar: logo · language */}
       <header className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-slate-200/70">
