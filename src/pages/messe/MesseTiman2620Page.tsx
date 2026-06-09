@@ -90,10 +90,10 @@ export default function MesseTiman2620Page() {
         <Timan2620Viewer.Provider>
           {/* One unified showroom card */}
           <section
-            className="bg-slate-100/80 border border-slate-200 rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8 flex flex-col"
-            style={{ maxHeight: 'min(850px, calc(100vh - 140px))' }}
+            className="bg-slate-100/80 border border-slate-200 rounded-3xl shadow-sm p-4 sm:p-5 lg:p-6 flex flex-col"
+            style={{ maxHeight: 'min(920px, calc(100vh - 130px))' }}
           >
-            <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-8 flex-1 min-h-0">
+            <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-6 flex-1 min-h-0">
               {/* Left column: title + configuration */}
               <div className="w-full lg:w-[200px] lg:flex-shrink-0 flex flex-col">
                 <div className="mb-4">
@@ -107,10 +107,16 @@ export default function MesseTiman2620Page() {
                 <Timan2620Viewer.Sidebar />
               </div>
 
-              {/* Right/main: product image with hotspots */}
+              {/* Right/main: product image with hotspots.
+                  The wrapper uses the photos' native 16:9 aspect so the
+                  machine fills the entire stage (no empty bands) and the
+                  percent-based hotspots stay perfectly aligned. */}
               <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
-                <div className="w-full h-full max-h-[640px]">
-                  <Timan2620Viewer.Stage />
+                <div className="relative w-full h-full max-h-full flex items-center justify-center">
+                  <div className="w-full h-full max-w-full max-h-full aspect-[16/9] mx-auto"
+                       style={{ maxHeight: '100%' }}>
+                    <Timan2620Viewer.Stage />
+                  </div>
                 </div>
               </div>
             </div>
