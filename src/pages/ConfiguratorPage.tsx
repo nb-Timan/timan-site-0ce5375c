@@ -16,7 +16,7 @@ import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
