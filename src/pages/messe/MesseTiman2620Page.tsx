@@ -109,7 +109,7 @@ export default function MesseTiman2620Page() {
           </div>
 
           {/* Unified footer row: back button + 3 benefits */}
-          <div className="mt-5 pt-5 border-t border-slate-200">
+          <div className="mt-4 pt-4 border-t border-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6 md:divide-x md:divide-slate-200 items-center">
               <div className="flex items-center py-2">
                 <button
