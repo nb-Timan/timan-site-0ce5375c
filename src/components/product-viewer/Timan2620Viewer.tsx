@@ -418,7 +418,7 @@ function Sidebar() {
   );
 }
 
-function Stage({ disableZoom = false }: { disableZoom?: boolean } = {}) {
+function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boolean; largeArrows?: boolean } = {}) {
   const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
   const { uiLanguage } = useLanguage();
   const labelOfEquipment = (eq: Timan2620Equipment) =>
