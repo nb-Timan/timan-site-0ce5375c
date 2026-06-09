@@ -1767,7 +1767,7 @@ export default function ConfiguratorPage() {
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-gray-900">{infoModal.title}</h3>
             <div dangerouslySetInnerHTML={{ __html: infoModal.content }} />
             <div className="mt-6 text-center">
-              <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
+              <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('close')}</button>
             </div>
           </div>
         </div>
