@@ -1777,15 +1777,15 @@ export default function ConfiguratorPage() {
       {oilModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setOilModalOpen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 text-center text-gray-900">{T('oilTitle')}</h3>
-            {oilError && <p className="text-red-600 font-bold text-center mb-3">{T('oilError')}</p>}
+            <h3 className="text-xl font-bold mb-4 text-center text-gray-900">{TC('oilTitle')}</h3>
+            {oilError && <p className="text-red-600 font-bold text-center mb-3">{TC('oilError')}</p>}
             <div className="space-y-3">
               {/* Normal oil */}
               <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'normal' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                 <input type="radio" name="oil-choice" value="normal" checked={oilChoice === 'normal'} onChange={() => { setOilChoice('normal'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
-                  <div className="font-medium text-gray-900">{T('oilNormal')} - Texaco HDZ46</div>
-                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_NORMAL}</div>
+                  <div className="font-medium text-gray-900">{TC('oilNormal')} - Texaco HDZ46</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(contentUiLang)}: {ACC_ID_OIL_NORMAL}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1799,9 +1799,9 @@ export default function ConfiguratorPage() {
               <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'bio' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                 <input type="radio" name="oil-choice" value="bio" checked={oilChoice === 'bio'} onChange={() => { setOilChoice('bio'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
-                  <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
-                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_BIO}</div>
-                  <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
+                  <div className="font-medium text-gray-900">{TC('oilBio')} - Biohydran TMP 46</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(contentUiLang)}: {ACC_ID_OIL_BIO}</div>
+                  <div className="text-xs text-gray-500">{TC('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1813,8 +1813,8 @@ export default function ConfiguratorPage() {
               </label>
             </div>
             <div className="flex justify-between mt-6">
-              <button onClick={() => setOilModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('oilCancel')}</button>
-              <button onClick={applyOilChoice} className="px-4 py-2 bg-emerald-600 rounded-lg text-white font-medium hover:bg-emerald-700">{T('oilChoose')}</button>
+              <button onClick={() => setOilModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('oilCancel')}</button>
+              <button onClick={applyOilChoice} className="px-4 py-2 bg-emerald-600 rounded-lg text-white font-medium hover:bg-emerald-700">{TC('oilChoose')}</button>
             </div>
           </div>
         </div>
