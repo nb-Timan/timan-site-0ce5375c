@@ -116,24 +116,24 @@ export default function MesseTiman2620Page() {
                 <button
                   type="button"
                   onClick={() => navigate('/messe')}
-                  className="inline-flex items-center gap-2 px-5 h-10 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-sm lg:text-base transition"
+                  className="inline-flex items-center gap-2 px-5 h-12 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-base transition"
                 >
-                  <ArrowLeft className="h-4 w-4 lg:h-5 lg:w-5" />
+                  <ArrowLeft className="h-5 w-5" />
                   {t('m2620_back_home', uiLanguage)}
                 </button>
               </div>
               {benefits.map((b, i) => {
                 const Icon = b.icon;
                 return (
-                  <div key={i} className="flex items-start gap-3 py-2 md:pl-6 lg:pl-8">
-                    <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
-                      <Icon className="h-5 w-5" />
+                  <div key={i} className="flex items-center gap-4 py-2 md:pl-6 lg:pl-8">
+                    <span className="flex-shrink-0 inline-flex h-14 w-14 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
+                      <Icon className="h-7 w-7" />
                     </span>
                     <div className="min-w-0">
-                      <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
+                      <h3 className="text-lg lg:text-xl font-bold text-slate-900 leading-tight">
                         {b.title}
                       </h3>
-                      <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                      <p className="text-sm lg:text-base text-slate-600 mt-1.5 leading-relaxed">
                         {b.text}
                       </p>
                     </div>
