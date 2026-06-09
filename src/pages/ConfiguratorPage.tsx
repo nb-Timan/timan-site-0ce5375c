@@ -1730,7 +1730,7 @@ export default function ConfiguratorPage() {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
       if (!printWin) return;
-      printWin.document.write(`<!DOCTYPE html><html><head><title>${T('confirmTitle')}</title>
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${TC('confirmTitle')}</title>
         <style>body{font-family:Arial,sans-serif;margin:20mm;font-size:14px;color:#333}
         .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}.font-bold{font-weight:700}
         @media print{body{margin:10mm}}</style></head><body>${el.innerHTML}</body></html>`);
