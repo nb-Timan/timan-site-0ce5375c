@@ -72,3 +72,27 @@ export function mapUiLanguageToLegacy(ui: PortalUiLanguage | string | null | und
   // sv / fr / pl / cs — and any unknown value — fall back to English.
   return 'en';
 }
+
+/**
+ * Identity-like cast from a legacy `Language` back to a `PortalUiLanguage`.
+ * All legacy codes (da/en/de/it/hu) are valid `PortalUiLanguage` values, so
+ * this is just a typed pass-through used by `resolveContentUiLanguage`.
+ */
+export function legacyToUi(lang: Language): PortalUiLanguage {
+  return lang as PortalUiLanguage;
+}
+
+/**
+ * Resolve a "content language" for modals/HTML builders that mix UI chrome
+ * with product/accessory data. Product data is only available in the legacy
+ * 5 languages, so for sv/fr/pl/cs we collapse the chrome to English too —
+ * preventing mixed-language modals (e.g. French heading + English body).
+ *
+ * - da/en/de/it/hu → unchanged
+ * - sv/fr/pl/cs → 'en'
+ */
+export function resolveContentUiLanguage(
+  ui: PortalUiLanguage | string | null | undefined,
+): PortalUiLanguage {
+  return legacyToUi(mapUiLanguageToLegacy(ui));
+}

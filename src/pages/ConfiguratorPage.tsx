@@ -16,7 +16,7 @@ import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -268,6 +268,11 @@ export default function ConfiguratorPage() {
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
   // localisation, which only have 5-language coverage.
   const T = (key: string) => t(key, uiLanguage);
+  // Modal/HTML "content language" — collapses sv/fr/pl/cs to 'en' so chrome
+  // inside modals matches the product/accessory data (which is only available
+  // in da/en/de/it/hu). Prevents mixed-language modals.
+  const contentUiLang = resolveContentUiLanguage(uiLanguage);
+  const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
 
@@ -722,11 +727,11 @@ export default function ConfiguratorPage() {
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
+    const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
     const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
-    const msg = `${T('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${lang === 'da' ? 'Pris' : 'Price'}: ${price}`;
-    setInfoModal({ title: T('autoAddedTitle'), content: msg });
-  }, [lang, isEURCurrency]);
+    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
+    setInfoModal({ title: TC('autoAddedTitle'), content: msg });
+  }, [lang, isEURCurrency, contentUiLang]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
@@ -783,7 +788,7 @@ export default function ConfiguratorPage() {
       }
       // Packaging popup for loose tool
       if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
-        setInfoModal({ title: T('packagingCostTitle'), content: T('packagingCostBody') });
+        setInfoModal({ title: TC('packagingCostTitle'), content: TC('packagingCostBody') });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
@@ -807,25 +812,25 @@ export default function ConfiguratorPage() {
     const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
     const bullets = md.bullets[lang] || md.bullets.da || [];
     const dims = md.dimensions || [];
-    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${T('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
+    let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${TC('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
       bullets.forEach(b => { html += `<li>${b}</li>`; });
       html += '</ul></div>';
     }
     if (dims.length > 0) {
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('dimSpecs')}</h4>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, uiLanguage)}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, contentUiLang)}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, uiLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, contentUiLang)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
     }
-    setInfoModal({ title: `${T('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
+    setInfoModal({ title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
   const showSpecs = (accId: string, machineType: string) => {
@@ -839,13 +844,13 @@ export default function ConfiguratorPage() {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
       techSpecs.forEach(s => {
         const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[lang] || (s.value as any)?.da || '');
-        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, uiLanguage)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, contentUiLang)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
       });
       html += '</div>';
     }
     if (descEntry) {
       const val = typeof descEntry.value === 'string' ? descEntry.value : ((descEntry.value as any)?.[lang] || (descEntry.value as any)?.da || '');
-      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${T('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
+      html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
     }
     setInfoModal({ title: getLocalizedName(acc.name, lang), content: html });
   };
@@ -937,8 +942,8 @@ export default function ConfiguratorPage() {
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
-    const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
-    const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
+    const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
+    const pdfTitle = state.flowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
     const effQuoteNumber = overrides?.quoteNumber ?? savedQuoteNumber;
     const effOrderNumber = overrides?.orderNumber ?? savedOrderNumber;
@@ -970,26 +975,26 @@ export default function ConfiguratorPage() {
         <h1 class="text-3xl font-bold text-gray-900">${pdfTitle}</h1>
         ${refNumbersHtml}
         <p class="mt-3 text-xl">
-          <span class="block text-lg">${T('confirmDate')} ${today}</span>
-          <span class="block text-base">${T('confirmDelivery')} ${delDate}</span>
-          <span class="block text-base">${T('deliveryMethod')}: ${deliveryMethodText}</span>
+          <span class="block text-lg">${TC('confirmDate')} ${today}</span>
+          <span class="block text-base">${TC('confirmDelivery')} ${delDate}</span>
+          <span class="block text-base">${TC('deliveryMethod')}: ${deliveryMethodText}</span>
         </p>
       </div>
       <div class="mt-6 text-sm text-gray-700">
-        <h2 class="font-bold text-base mb-2">${T('confirmCustInfo')}</h2>
+        <h2 class="font-bold text-base mb-2">${TC('confirmCustInfo')}</h2>
         <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          <span class="font-medium">${T('confirmFirm')}</span><span>${state.firmanavn || '-'}</span>
-          <span class="font-medium">${T('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
-          <span class="font-medium">${T('confirmPhone')}</span><span>${state.telefon || '-'}</span>
-          <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
-          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+          <span class="font-medium">${TC('confirmFirm')}</span><span>${state.firmanavn || '-'}</span>
+          <span class="font-medium">${TC('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
+          <span class="font-medium">${TC('confirmPhone')}</span><span>${state.telefon || '-'}</span>
+          <span class="font-medium">${TC('confirmEmailSender')}</span><span>${state.email || '-'}</span>
+          <span class="font-medium">${TC('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
 
-          ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
+          ${state.comment ? `<span class="font-medium">${TC('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
         </div>
       </div>
-      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${T('confirmDescription')}</h2>`;
+      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>`;
 
     // Line items
     calcResult.lineItems.forEach(i => {
@@ -1023,11 +1028,11 @@ export default function ConfiguratorPage() {
           </div>`;
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
-            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${T('reqNrLabel')}: ${reqVal}</div>`;
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('reqNrLabel')}: ${reqVal}</div>`;
           }
         }
       } else {
-        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${T('autoAdded')}</span>` : '';
+        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
           <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
@@ -1039,7 +1044,7 @@ export default function ConfiguratorPage() {
     // Totals
     html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
-        <span>${T('confirmSubtotal')}</span>
+        <span>${TC('confirmSubtotal')}</span>
         <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
@@ -1049,19 +1054,19 @@ export default function ConfiguratorPage() {
     });
     if (!isDealerUserPricing) {
       html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
-        <span>${T('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+        <span>${TC('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
         <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
       </div>`;
     }
     html += `<div class="flex justify-between w-full text-base font-bold mt-2">
-        <span>${T('confirmTotal')}</span>
+        <span>${TC('confirmTotal')}</span>
         <span class="price-col">${formatMoney(displayCalc!.currentPrice, lang)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
         <span>${resolvePaymentTerms(state.paymentTerms)}</span>
       </div>
-      <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
+      <p class="text-xs text-gray-500 mt-1">${TC('confirmExVat')}</p>
     </div></div></div>`;
 
     if (includeSalesArgs && salesArgsData) {
@@ -1725,7 +1730,7 @@ export default function ConfiguratorPage() {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
       if (!printWin) return;
-      printWin.document.write(`<!DOCTYPE html><html><head><title>${T('confirmTitle')}</title>
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${TC('confirmTitle')}</title>
         <style>body{font-family:Arial,sans-serif;margin:20mm;font-size:14px;color:#333}
         .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}.font-bold{font-weight:700}
         @media print{body{margin:10mm}}</style></head><body>${el.innerHTML}</body></html>`);
@@ -1762,7 +1767,7 @@ export default function ConfiguratorPage() {
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-gray-900">{infoModal.title}</h3>
             <div dangerouslySetInnerHTML={{ __html: infoModal.content }} />
             <div className="mt-6 text-center">
-              <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('close')}</button>
+              <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('close')}</button>
             </div>
           </div>
         </div>
@@ -1772,15 +1777,15 @@ export default function ConfiguratorPage() {
       {oilModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setOilModalOpen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 text-center text-gray-900">{T('oilTitle')}</h3>
-            {oilError && <p className="text-red-600 font-bold text-center mb-3">{T('oilError')}</p>}
+            <h3 className="text-xl font-bold mb-4 text-center text-gray-900">{TC('oilTitle')}</h3>
+            {oilError && <p className="text-red-600 font-bold text-center mb-3">{TC('oilError')}</p>}
             <div className="space-y-3">
               {/* Normal oil */}
               <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'normal' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                 <input type="radio" name="oil-choice" value="normal" checked={oilChoice === 'normal'} onChange={() => { setOilChoice('normal'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
-                  <div className="font-medium text-gray-900">{T('oilNormal')} - Texaco HDZ46</div>
-                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_NORMAL}</div>
+                  <div className="font-medium text-gray-900">{TC('oilNormal')} - Texaco HDZ46</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(contentUiLang)}: {ACC_ID_OIL_NORMAL}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1794,9 +1799,9 @@ export default function ConfiguratorPage() {
               <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${oilChoice === 'bio' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                 <input type="radio" name="oil-choice" value="bio" checked={oilChoice === 'bio'} onChange={() => { setOilChoice('bio'); setOilError(false); }} className="accent-emerald-600" />
                 <div className="flex-grow">
-                  <div className="font-medium text-gray-900">{T('oilBio')} - Biohydran TMP 46</div>
-                  <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {ACC_ID_OIL_BIO}</div>
-                  <div className="text-xs text-gray-500">{T('oilTaxNote')}</div>
+                  <div className="font-medium text-gray-900">{TC('oilBio')} - Biohydran TMP 46</div>
+                  <div className="text-xs text-gray-500">{itemNoLabel(contentUiLang)}: {ACC_ID_OIL_BIO}</div>
+                  <div className="text-xs text-gray-500">{TC('oilTaxNote')}</div>
                 </div>
                 <div className="font-bold text-emerald-700">
                   {(() => {
@@ -1808,8 +1813,8 @@ export default function ConfiguratorPage() {
               </label>
             </div>
             <div className="flex justify-between mt-6">
-              <button onClick={() => setOilModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{T('oilCancel')}</button>
-              <button onClick={applyOilChoice} className="px-4 py-2 bg-emerald-600 rounded-lg text-white font-medium hover:bg-emerald-700">{T('oilChoose')}</button>
+              <button onClick={() => setOilModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('oilCancel')}</button>
+              <button onClick={applyOilChoice} className="px-4 py-2 bg-emerald-600 rounded-lg text-white font-medium hover:bg-emerald-700">{TC('oilChoose')}</button>
             </div>
           </div>
         </div>
@@ -1843,18 +1848,18 @@ export default function ConfiguratorPage() {
                 onClick={() => setConfirmModalOpen(false)}
                 disabled={submitting}
                 className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                {T('close')}
+                {TC('close')}
               </button>
               <button
                 onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
                 disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? T('orderCannotResendTitle') : undefined}
+                title={state.flowType === 'order' && orderLocked ? TC('orderCannotResendTitle') : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                 {state.flowType === 'order' && orderLocked
-                  ? T('orderSubmittedBadge')
+                  ? TC('orderSubmittedBadge')
                   : submitting
-                    ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                    : (state.flowType === 'order' ? T('submitOrderBtn') : T('submitQuoteBtn'))}
+                    ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
+                    : (state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
               </button>
             </div>
           </div>

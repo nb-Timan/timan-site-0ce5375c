@@ -1,150 +1,86 @@
-# Timan Messe — Exhibition Mode
+## Goal
 
-A new public, login-free portal mode for fairs. Visitors scan a QR → land on `/messe` → use a touch-friendly front page with Configurator (demo), Partner Map, Video, News. No CRM/backend/service/dealer-data access. Backend admins can toggle access on/off and copy the QR.
+Eliminate "FR heading + EN body" style mixed-language modals across the configurator. Every modal must be 100% in one language: the selected language if its content exists, otherwise English as the documented fallback.
 
-## 1. Role + access model
+## Root cause
 
-- Add new role: `exhibition_user` (display: "Timan Messe").
-- Extend `PortalRole` union and `derivePortalRole` so a synthetic exhibition session resolves to this role.
-- New AppUser stub `EXHIBITION_USER` (no Supabase auth). Stored in `AppUserContext` via a new `enterExhibitionMode()` action that:
-  - clears any existing session,
-  - sets `appUser = exhibitionStub`,
-  - persists `localStorage["timan.exhibitionMode"] = true` so refresh on `/messe/...` keeps the mode,
-  - is reverted by `leaveExhibitionMode()` / normal login.
+The configurator uses two parallel translation channels:
 
-Allowed routes (whitelist):
-```text
-/messe
-/messe/konfigurator           → wraps /configurator with demoMode flag
-/messe/partner-map            → wraps existing Partner Map
-/messe/video                  → new VideoPage
-/messe/video/:category
-/messe/nyt                    → new MessenewsPage
+1. **UI chrome labels** — `T(key) = t(key, uiLanguage)` from `src/data/translations.ts`. Has entries for all 9 portal languages (da, en, de, it, hu, sv, fr, pl, cs), though some keys are still only translated for the 5 legacy languages.
+2. **Product / accessory data** (names, `main`, `bullets`, spec values, descriptions) in `src/data/machines.ts` and friends. These are typed as `Record<Language, string>` where `Language = 'da'|'en'|'de'|'it'|'hu'` only. For sv/fr/pl/cs the configurator passes `lang = mapUiLanguageToLegacy(ui) = 'en'`, so data renders in English while chrome renders in French/Swedish/Polish/Czech → mixed modal.
+
+Additionally `getLocalizedName(name, lang)` falls back to `name.da`, not `name.en`, which can leak Danish into otherwise-English modals.
+
+## Strategy
+
+Introduce a single "modal/content language" derived from the legacy `Language`:
+
 ```
-Everything else for `exhibition_user` redirects to `/messe`.
-
-## 2. Public entry route
-
-`/messe` (public, no auth gate):
-1. Reads backend setting `messe_enabled` (Supabase `app_settings` row, key `messe_enabled`, default `true`).
-2. If disabled → renders centered card with: "Messeadgang er ikke aktiv lige nu."
-3. If enabled → calls `enterExhibitionMode()` and renders the **Messe front page** with 4 large tiles:
-   - Konfigurator → `/messe/konfigurator`
-   - Find forhandler → `/messe/partner-map`
-   - Video Akademi → `/messe/video`
-   - Seneste nyt → `/messe/nyt`
-4. Tiles styled as large touch targets (min-h 180px, big icon + label), 2×2 grid on tablet, 1-col on phone, language switcher in header, no portal header chrome that exposes user/CRM menus.
-
-## 3. Route guard
-
-New `<ExhibitionGuard>` wrapper used on protected app routes (CRM/backend/service/etc). If `portalRole === "exhibition_user"`, it `<Navigate to="/messe" replace />`. Mounted alongside the existing portal layout so it covers every non-`/messe` route in one place.
-
-Direct API calls are already gated by Supabase RLS; the exhibition stub has no Supabase session, so any authenticated query fails closed — no data leak even if a guard is bypassed.
-
-## 4. Configurator demo mode
-
-`ConfiguratorPage` reads `isExhibition = portalRole === "exhibition_user"` and a new `demoMode` prop on `useConfigurator`. When demo:
-- hides Save / Send quote / Send order / "Mit account" / saved-cases buttons,
-- hides internal assignment fields (seller, dealer override),
-- forces `language` selectable + prices visible,
-- shows persistent small badge in header: "Demo mode".
-
-The existing save/send handlers short-circuit when `demoMode` is true so even direct invocation is a no-op.
-
-## 5. Partner Map visibility
-
-`PartnerMapPage` already lists dealers. Add filter when `isExhibition`:
-- include dealer_accounts where `is_active = true` AND type in (`dealer`, `importer`, `service_partner`),
-- exclude rows flagged `is_internal_test`, `is_hidden`, `deleted_at not null`,
-- never load warranty_registrations.
-
-## 6. Video page (simple)
-
-New file `src/data/messeVideos.ts`:
-```ts
-export interface MesseVideo {
-  id: string; title: Record<Language,string>; description: Record<Language,string>;
-  youtubeUrl: string; category: "maskiner"|"redskaber"|"service"|"salg";
-  language: Language[]; thumbnail?: string; publishedAt: string;
-}
+contentLang  = mapUiLanguageToLegacy(uiLanguage)   // da|en|de|it|hu
+contentUiLang = legacyToUi(contentLang)            // dk|gb|de|it|hu (same code in PortalUiLanguage)
 ```
-`/messe/video` renders sections: Seneste videoer (top 6 by publishedAt) + one section per category, each card uses YouTube thumbnail + opens in modal lite-embed.
 
-## 7. News page (simple)
+Inside every modal builder (`buildConfirmationHtml`, machine info modal, accessory info modal, oil modal body, packaging cost modal, auto-added modal, demo machine modal, etc.) use `contentUiLang` for `T()` instead of `uiLanguage`. That way when the user picks FR:
 
-New Supabase table reuse: extend existing `news_posts` (already used by `LatestFromTiman`) with optional `messe_visible boolean default true, link_url text, active boolean default true`. `/messe/nyt` queries `active = true AND messe_visible = true`, renders cards (image, title, short text, link).
+- Product/accessory data resolves to English (already the case).
+- Chrome inside the modal (titles, "Main information", "Key features", "Dimensions & technical specifications", "Item no.", "Ref.", "Description", spec labels) also resolves to English.
+- Result: the entire modal is English. No mixing.
 
-Migration: `db/sql/20260609_news_posts_messe_fields.sql`.
+For DK/GB/DE/IT/HU nothing changes — `contentUiLang === uiLanguage`.
 
-## 8. Backend setting + QR
+## Scope of code changes
 
-New backend card in `BackendDataIntegrationsPage` (or new `BackendMessePage`):
-- toggle `Messe-adgang aktiv`,
-- shows full public URL `https://<host>/messe`,
-- "Kopiér link" button,
-- "Download QR" button using `qrcode` npm package (already small, ~20kb) — renders a 512×512 PNG client-side from the live URL.
+All edits live in the configurator and translation helpers — no data migration, no new translations required.
 
-Setting persisted in `app_settings` (key/value JSON table). Migration: `db/sql/20260609_app_settings_messe.sql` creates the table if missing and seeds the row + GRANTs.
+### `src/lib/portalLanguages.ts`
+- Add `legacyToUi(lang: Language): PortalUiLanguage` (identity, since 'da'/'en'/'de'/'it'/'hu' are valid `PortalUiLanguage`s). Export.
+- Add `resolveContentUiLanguage(ui)`= `legacyToUi(mapUiLanguageToLegacy(ui))`.
 
-## 9. Backend "Vis som rolle"
+### `src/data/machines.ts`
+- `getLocalizedName`: fall back `name[lang] || name.en || name.da || ''` (English first, Danish last). Matches the documented fallback chain.
 
-Add `exhibition_user` / "Timan Messe" to the existing role preview dropdown in `BackendRolesPage` (or wherever `viewAsUser` is selected). Selecting it sets the preview role; the existing `useEffectivePortalUser` already drives UI from that role, so guards + Messe front page render automatically for backend testers.
+### `src/pages/ConfiguratorPage.tsx`
+- Compute `const contentUiLang = resolveContentUiLanguage(uiLanguage);` next to `T`.
+- Introduce `const TC = (key: string) => t(key, contentUiLang);` for use inside modal/HTML builders.
+- Replace `T(...)` with `TC(...)` inside:
+  - machine info modal HTML builder (lines ~805–828)
+  - accessory info modal HTML builder (lines ~835–850)
+  - auto-add toast/modal (`showAutoAddModal`)
+  - packaging cost modal trigger (`setInfoModal({ title: T('packagingCostTitle'), content: T('packagingCostBody') })`)
+  - demo machine modal title/body (lines ~868–872)
+  - `buildConfirmationHtml` chrome (`reqNrLabel`, totals, warranty/oil notice blocks)
+  - oil modal body (`OilModalBody` if it uses `T`)
+- Replace `translateSpecLabel(label, uiLanguage)` with `translateSpecLabel(label, contentUiLang)` inside the same modal builders.
+- Replace `itemNoLabel(uiLanguage)` similarly where it appears inside modal/PDF HTML.
+- Use `contentUiLang` for the modal-internal "Cancel/Close" labels and for any inline `Record<Language, string>` lookups already keyed by `lang` (no functional change but keeps the rule consistent).
 
-## 10. Future lead capture (prep only)
+### `src/components/configurator/*` modal-like components
+Audit and apply the same `contentUiLang`-vs-`uiLanguage` split where the component renders product/accessory data inside a Dialog/Popover:
+- `RecommendationInfoPopover.tsx`
+- `GuestVisitorPopup.tsx` (if it surfaces product copy)
+- `DeliveryStep.tsx` info dialogs
+- `AccountPanel.tsx` confirmation dialog
 
-Create empty module `src/lib/messeLeadCapture.ts` exporting a typed `MesseLeadDraft` interface (name/company/email/phone/country/machine interest) and a `submitMesseLead(draft)` stub that currently `console.warn`s "not implemented". No UI, no DB writes yet — just clean architecture so a popup can be wired later.
+For components that only show plain UI chrome (no product data), keep `uiLanguage` — those are not mixed.
 
-## Files changed / added
+### `src/components/ui` shared dialogs
+No changes; they are language-agnostic primitives.
 
-Added:
-- `src/pages/messe/MesseEntryPage.tsx`
-- `src/pages/messe/MesseHomePage.tsx`
-- `src/pages/messe/MesseVideoPage.tsx`
-- `src/pages/messe/MesseNewsPage.tsx`
-- `src/pages/messe/MesseConfiguratorPage.tsx` (thin wrapper passing `demoMode`)
-- `src/pages/messe/MessePartnerMapPage.tsx` (wrapper with exhibition filter)
-- `src/components/messe/ExhibitionGuard.tsx`
-- `src/components/messe/DemoModeBadge.tsx`
-- `src/data/messeVideos.ts`
-- `src/lib/exhibitionMode.ts` (enter/leave helpers + storage key)
-- `src/lib/messeLeadCapture.ts` (interface + stub)
-- `src/lib/appSettings.ts` (generic key/value reader)
-- `src/pages/backend/BackendMesseSettingsPage.tsx`
-- `db/sql/20260609_app_settings_messe.sql`
-- `db/sql/20260609_news_posts_messe_fields.sql`
+## Verification
 
-Edited:
-- `src/App.tsx` — register `/messe/*` routes + `ExhibitionGuard` on portal routes.
-- `src/context/AppUserContext.tsx` — exhibition stub + enter/leave actions, restore from `localStorage`.
-- `src/lib/portalAccess.ts` — add `"exhibition_user"` to `PortalRole`, derive helper, permission matrix.
-- `src/components/portal/PortalHeader.tsx` — hide user/CRM menus, show "Demo mode" badge when exhibition.
-- `src/hooks/useConfigurator.ts` + `src/pages/ConfiguratorPage.tsx` — `demoMode` flag, no-op save/send.
-- `src/pages/backend/BackendRolesPage.tsx` (or current "Vis som rolle" host) — add Timan Messe option.
-- `src/pages/misc/PartnerMapPage.tsx` — exhibition filter.
-- `src/components/portal/LatestFromTiman.tsx` — respect new `messe_visible` flag is unchanged on /portal; query unchanged.
-- `package.json` — add `qrcode` + `@types/qrcode`.
+Manual smoke test for FR, SE, PL, CZ on `/configurator`:
+1. Open machine info modal (each of RC-1000s, RC-751, Timan 2620, Timan 3330, Loader-Line) → entire modal English.
+2. Open accessory info modal for items with `Beskrivelse` and tech specs → entire modal English (spec labels translated via `SPEC_LABEL_MAP` already cover FR/SE/PL/CZ — they will still render in those languages; if mixing reappears we tighten by passing `contentUiLang` to `translateSpecLabel` too — already in the plan).
+3. Trigger auto-add modal (e.g. toggle V-plow → rust protection auto-add) → fully English in FR/SE/PL/CZ.
+4. Trigger packaging-cost modal (LOOSE_TOOL flow) → fully English.
+5. Trigger oil selector modal → fully English body + buttons.
+6. Open confirmation modal → English content; the surrounding page chrome stays in FR (this is expected because it's outside the modal).
+7. Re-test DK, GB, DE, IT, HU → unchanged behavior (modals stay in the selected language because `contentUiLang === uiLanguage`).
 
-## Access rules summary
+Add a Vitest unit test for `resolveContentUiLanguage` covering all 9 codes.
 
-| Capability | exhibition_user |
-|---|---|
-| CRM / backend / service / dealer data / saved/sent offers / orders / account | blocked (guard + RLS) |
-| Language switch | allowed |
-| See prices | allowed |
-| Configurator | demo only (no save/send) |
-| Partner Map | active dealers/importers/service partners only |
-| Video page | allowed |
-| News page | allowed |
+## Out of scope
 
-## Test steps
-
-1. SQL: run both migrations; confirm `app_settings.messe_enabled = true` row exists.
-2. Open incognito `/messe` → front page with 4 tiles renders, header has "Demo mode" badge, no user menu.
-3. Click Konfigurator → demo configurator opens, Save/Send hidden, prices visible, language switch works.
-4. Click Find forhandler → only active dealers/importers/service partners shown; warranty data not requested in network tab.
-5. Click Video → sections render; clicking a card plays YouTube.
-6. Click Seneste nyt → only `active && messe_visible` news shown.
-7. Try `/portal/crm/leads` directly while in exhibition mode → redirects to `/messe`.
-8. Backend → Messe settings: toggle off → reload `/messe` → "Messeadgang er ikke aktiv lige nu." message.
-9. Backend → Vis som rolle → "Timan Messe" → app reflects exhibition_user UI/permissions.
-10. Copy link + download QR PNG buttons work; scanning QR opens `/messe` on phone.
+- Translating product names, descriptions, bullets and spec values into FR/SE/PL/CZ (would require content from product owners; we keep English fallback per the user's explicit instruction).
+- Widening the `Language` type to all 9 codes (a much larger refactor, breaks every existing `Record<Language, string>`).
+- Changes outside the configurator (portal, service, claims, warranty modals).

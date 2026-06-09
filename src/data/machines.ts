@@ -724,7 +724,9 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
 // Helper to get localized text
 export function getLocalizedName(name: string | { da: string; en: string; [key: string]: string | undefined }, lang: Language = 'da'): string {
   if (typeof name === 'string') return name;
-  return name[lang] || name.da || '';
+  // English fallback before Danish so mixed-language modals don't leak DA text
+  // when a non-DA language is selected but the value isn't translated.
+  return name[lang] || name.en || name.da || '';
 }
 
 // Get price based on language/currency
