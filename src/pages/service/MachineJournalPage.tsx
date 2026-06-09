@@ -9,7 +9,7 @@
  * scope-filtered by dealer label for non-internal users.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
@@ -17,7 +17,6 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -118,7 +117,6 @@ export default function MachineJournalPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const params = useParams<{ serialNumber: string }>();
   const effective = useEffectivePortalUser(appUser);
   const role = derivePortalRole(effective);
@@ -130,7 +128,10 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
-  const cameFromSearch = useMemo(() => hasMachineSearchContext(), []);
+  // Re-evaluate on every render so freshly-saved state (e.g. when the user
+  // opens the journal via openMachine in MachineSearchPage) is picked up
+  // immediately, and so navigating back/forward inside the SPA stays in sync.
+  const cameFromSearch = hasMachineSearchContext();
   const breadcrumbCurrent = useMemo(() => {
     if (journal?.summary) {
       return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
@@ -200,10 +201,12 @@ export default function MachineJournalPage() {
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={() => {
-              if (cameFromSearch) {
+              // Re-check at click time so the decision is based on the
+              // freshest sessionStorage value, not a captured snapshot.
+              if (hasMachineSearchContext()) {
                 navigate('/portal/service/machines');
               } else {
-                goBackOrFallback(navigate, location);
+                navigate('/portal/teknik-service');
               }
             }}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
