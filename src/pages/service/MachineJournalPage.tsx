@@ -130,7 +130,10 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
-  const cameFromSearch = useMemo(() => hasMachineSearchContext(), []);
+  // Re-evaluate on every render so freshly-saved state (e.g. when the user
+  // opens the journal via openMachine in MachineSearchPage) is picked up
+  // immediately, and so navigating back/forward inside the SPA stays in sync.
+  const cameFromSearch = hasMachineSearchContext();
   const breadcrumbCurrent = useMemo(() => {
     if (journal?.summary) {
       return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
