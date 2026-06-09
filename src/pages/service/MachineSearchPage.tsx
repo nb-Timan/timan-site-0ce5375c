@@ -810,7 +810,7 @@ export default function MachineSearchPage() {
                           if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
                           return (
                             <tr key={row.normalizedSerial}
-                              onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                              onClick={() => openMachine(row.serial)}
                               className={`cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                               <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
                               <td className={`px-3 py-2 font-mono font-semibold whitespace-nowrap ${meta.text}`}>
@@ -845,7 +845,7 @@ export default function MachineSearchPage() {
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                                  onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
                                   className="inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f] whitespace-nowrap"
                                 >
                                   Min Maskine →
@@ -868,7 +868,7 @@ export default function MachineSearchPage() {
                       if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
                       return (
                         <li key={row.normalizedSerial}
-                          onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                          onClick={() => openMachine(row.serial)}
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -881,7 +881,7 @@ export default function MachineSearchPage() {
                               </span>
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                              onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
                               className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f]"
                             >Min Maskine →</button>
                           </div>
@@ -951,7 +951,7 @@ export default function MachineSearchPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
+                      onClick={() => openMachine(h.serial)}
                       className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
                     >
                       Min Maskine →
@@ -981,7 +981,7 @@ export default function MachineSearchPage() {
                 )}
                 {machine.serial_number && (
                   <button
-                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(machine.serial_number!)}`)}
+                    onClick={() => openMachine(machine.serial_number!)}
                     className="ml-auto inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
                   >
                     Min Maskine →
