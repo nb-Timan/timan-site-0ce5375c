@@ -547,7 +547,7 @@ export default function MachineSearchPage() {
     m.dealer_name || m.dealer_number || dash;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
+    <div className="tk-scale-up min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
         user={appUser}
         language={lang}
