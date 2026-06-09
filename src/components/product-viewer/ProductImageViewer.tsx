@@ -38,6 +38,12 @@ interface Props {
   className?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
+  /**
+   * Visual scale applied to the image + hotspot layer so the product
+   * dominates the stage. Image and hotspots share the same transform so
+   * hotspot anchors stay aligned. Defaults to 1.
+   */
+  contentScale?: number;
 }
 
 const MIN_ZOOM = 1;
@@ -81,6 +87,7 @@ export default function ProductImageViewer({
   configuration: config,
   className,
   hideControls = false,
+  contentScale = 1,
 }: Props) {
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -211,6 +218,15 @@ export default function ProductImageViewer({
         onPointerLeave={onPointerUp}
         onWheel={onWheel}
       >
+        {/* Transform layer — scales image + hotspots together so the
+            product dominates the stage and hotspot anchors stay aligned. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: `scale(${contentScale})`,
+            transformOrigin: 'center center',
+          }}
+        >
         {hasImage ? (
           <img
             src={currentSrc}
@@ -297,6 +313,9 @@ export default function ProductImageViewer({
             </button>
           );
         })}
+        </div>
+
+
 
         {/* Prev/next arrows */}
         {canRotate && (

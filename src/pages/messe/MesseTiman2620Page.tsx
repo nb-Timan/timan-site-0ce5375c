@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
@@ -24,6 +25,22 @@ export default function MesseTiman2620Page() {
   const { uiLanguage, setLanguage } = useLanguage();
   const { appUser } = useAppUser();
   const navigate = useNavigate();
+
+  // Responsive scale for the product hero — the image content is scaled
+  // up so the machine dominates the stage instead of floating in the
+  // empty 16:9 photo background. Hotspots scale together with the image.
+  const [stageScale, setStageScale] = useState(1.5);
+  useEffect(() => {
+    function compute() {
+      const w = window.innerWidth;
+      if (w >= 1024) setStageScale(1.55);
+      else if (w >= 640) setStageScale(1.3);
+      else setStageScale(1.1);
+    }
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
 
   if (!appUser) return null;
 
@@ -108,12 +125,13 @@ export default function MesseTiman2620Page() {
               </div>
 
               {/* Right/main: product image with hotspots.
-                  The wrapper uses the photos' native 16:9 aspect so the
-                  machine fills the entire stage (no empty bands) and the
-                  percent-based hotspots stay perfectly aligned. */}
+                  The wrapper uses the photos' native 16:9 aspect; the viewer
+                  scales the image + hotspot layer together so the machine
+                  dominates the stage instead of floating in the empty
+                  photo background. */}
               <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
-                <div className="h-full max-w-full aspect-[16/9]">
-                  <Timan2620Viewer.Stage />
+                <div className="h-full max-w-full aspect-[16/9] timan-2620-stage">
+                  <Timan2620Viewer.Stage contentScale={stageScale} />
                 </div>
               </div>
             </div>
