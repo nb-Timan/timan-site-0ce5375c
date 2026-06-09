@@ -1339,7 +1339,10 @@ export async function loadMachineJournal(
   journal.related.warranties = warranties.map((w) => ({
     id: w.id, kind: "warranty", label: w.certificateNumber,
     sublabel: w.dealerName || undefined, date: w.registrationDate,
-    href: "/portal/service/warranty/registrations",
+    // Deep-link to the exact warranty registration so the list page opens
+    // pre-filtered to this certificate (e.g. SP-224) instead of the full
+    // unfiltered registrations list.
+    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}`,
   }));
   journal.related.serviceRegistrations = serviceRegs.map((s) => ({
     id: s.id, kind: "service", label: `${s.service_interval_hours}-timers service`,
