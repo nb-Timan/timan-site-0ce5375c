@@ -788,7 +788,7 @@ export default function ConfiguratorPage() {
       }
       // Packaging popup for loose tool
       if (currentUnit.modelType === LOOSE_TOOL_KEY && !currentAccIds.includes(accId) && PACKAGING_TRIGGER_IDS.includes(accId)) {
-        setInfoModal({ title: T('packagingCostTitle'), content: T('packagingCostBody') });
+        setInfoModal({ title: TC('packagingCostTitle'), content: TC('packagingCostBody') });
       }
     }, 50);
   }, [state, toggleAcc, getGlobalMachineUnits, showAutoAddModal]);
