@@ -861,19 +861,14 @@ export default function MachineSearchPage() {
                         <li key={row.normalizedSerial}
                           onClick={() => openMachine(row.serial)}
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
-                            <div className="flex items-center justify-between gap-2">
-                              {row.warrantyId && (
-                                <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
-                              )}
-                              <span className={`font-mono text-sm font-semibold truncate flex items-center gap-1 ${meta.text}`}>
-                                <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
-                                {row.serial}
-                              </span>
-                            </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
-                              className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f]"
-                            >Min Maskine →</button>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {row.warrantyId && (
+                              <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
+                            )}
+                            <span className={`font-mono text-sm font-semibold truncate flex items-center gap-1 ${meta.text}`}>
+                              <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
+                              {row.serial}
+                            </span>
                           </div>
                           <div className="mt-1 text-xs text-slate-600 truncate">
                             {row.machineModel || "—"}{row.dealerName ? ` · ${row.dealerName}` : ""}
