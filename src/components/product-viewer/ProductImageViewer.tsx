@@ -168,7 +168,7 @@ export default function ProductImageViewer({
     if (!activePointersRef.current.has(e.pointerId)) return;
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    if (pinchStateRef.current && activePointersRef.current.size === 2) {
+    if (!disableZoom && pinchStateRef.current && activePointersRef.current.size === 2) {
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const ratio = dist / pinchStateRef.current.startDist;
