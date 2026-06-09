@@ -38,6 +38,12 @@ interface Props {
   className?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
+  /**
+   * Visual scale applied to the image + hotspot layer so the product
+   * dominates the stage. Image and hotspots share the same transform so
+   * hotspot anchors stay aligned. Defaults to 1.
+   */
+  contentScale?: number;
 }
 
 const MIN_ZOOM = 1;
