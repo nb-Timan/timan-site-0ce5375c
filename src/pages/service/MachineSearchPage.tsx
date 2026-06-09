@@ -824,10 +824,10 @@ export default function MachineSearchPage() {
                                   <div className="text-[10px] text-slate-400 truncate max-w-[180px]">{row.machineType}</div>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-slate-700 truncate max-w-[180px]">{row.dealerNumber && row.dealerName ? `${row.dealerNumber} - ${row.dealerName}` : (row.dealerName || "—")}</td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[280px]">{row.dealerNumber && row.dealerName ? `${row.dealerNumber} - ${row.dealerName}` : (row.dealerName || "—")}</td>
                               <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{row.deliveryDate ? fmtDateShort(row.deliveryDate) : "—"}</td>
                               <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">{row.operatingHours != null ? row.operatingHours : "—"}</td>
-                              <td className="px-3 py-2 text-slate-700 truncate max-w-[220px]">{row.latestActivityLabel || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{row.latestActivityLabel || "—"}</td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap gap-1">
                                   {row.sources.map(s => (
