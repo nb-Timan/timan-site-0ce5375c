@@ -26,6 +26,22 @@ export default function MesseTiman2620Page() {
   const { appUser } = useAppUser();
   const navigate = useNavigate();
 
+  // Responsive scale for the product hero — the image content is scaled
+  // up so the machine dominates the stage instead of floating in the
+  // empty 16:9 photo background. Hotspots scale together with the image.
+  const [stageScale, setStageScale] = useState(1.5);
+  useEffect(() => {
+    function compute() {
+      const w = window.innerWidth;
+      if (w >= 1024) setStageScale(1.55);
+      else if (w >= 640) setStageScale(1.3);
+      else setStageScale(1.1);
+    }
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+
   if (!appUser) return null;
 
   const benefits = [
