@@ -313,6 +313,9 @@ export default function ProductImageViewer({
             </button>
           );
         })}
+        </div>
+
+
 
         {/* Prev/next arrows */}
         {canRotate && (
