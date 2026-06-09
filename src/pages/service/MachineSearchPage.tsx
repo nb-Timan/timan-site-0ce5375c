@@ -16,6 +16,7 @@ import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, listAccessibleMachines, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
+import { readMachineSearchState, saveMachineSearchState, clearMachineSearchState } from "@/lib/machineSearchState";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -267,10 +268,25 @@ export default function MachineSearchPage() {
   const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [overviewPage, setOverviewPage] = useState(1);
+
+  // Restore persisted UI state (filters, page, scroll) so users returning
+  // from Min Maskine land back exactly where they left off.
+  const initialSaved = React.useRef(readMachineSearchState()).current;
+  const [overviewPage, setOverviewPage] = useState(initialSaved?.page ?? 1);
   const PAGE_SIZE_OPTIONS: Array<number | "all"> = [50, 100, 200, 300, 400, "all"];
-  const [pageSize, setPageSize] = useState<number | "all">(50);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'needs_attention' | 'critical'>('all');
+  const [pageSize, setPageSize] = useState<number | "all">(initialSaved?.pageSize ?? 50);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'needs_attention' | 'critical'>(
+    initialSaved?.statusFilter ?? 'all'
+  );
+  const pendingScrollRestore = React.useRef<number | null>(initialSaved?.scrollY ?? null);
+
+  useEffect(() => {
+    if (initialSaved?.query) setQuery(initialSaved.query);
+    // We intentionally do NOT re-run handleSearch — the search input drives
+    // the registry filter on its own, and re-running the lookup would change
+    // the view (e.g. open a single machine card).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!appUser) return;
@@ -291,6 +307,28 @@ export default function MachineSearchPage() {
     })();
     return () => { cancelled = true; };
   }, [appUser, portalRole]);
+
+  // After the overview has rendered the first time, restore scroll position.
+  useEffect(() => {
+    if (overviewLoading) return;
+    const y = pendingScrollRestore.current;
+    if (y == null) return;
+    pendingScrollRestore.current = null;
+    // Wait one frame so the rows are committed to the DOM.
+    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+  }, [overviewLoading]);
+
+  const openMachine = React.useCallback((serial: string) => {
+    saveMachineSearchState({
+      query,
+      statusFilter,
+      page: overviewPage,
+      pageSize,
+      scrollY: window.scrollY || 0,
+      lastOpenedSerial: serial,
+    });
+    navigate(`/portal/service/machines/${encodeURIComponent(serial)}`);
+  }, [query, statusFilter, overviewPage, pageSize, navigate]);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -772,7 +810,7 @@ export default function MachineSearchPage() {
                           if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
                           return (
                             <tr key={row.normalizedSerial}
-                              onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                              onClick={() => openMachine(row.serial)}
                               className={`cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                               <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
                               <td className={`px-3 py-2 font-mono font-semibold whitespace-nowrap ${meta.text}`}>
@@ -807,7 +845,7 @@ export default function MachineSearchPage() {
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                                  onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
                                   className="inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f] whitespace-nowrap"
                                 >
                                   Min Maskine →
@@ -830,7 +868,7 @@ export default function MachineSearchPage() {
                       if (row.openTsb > 0) openItems.push(`TSB ${row.openTsb}`);
                       return (
                         <li key={row.normalizedSerial}
-                          onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`)}
+                          onClick={() => openMachine(row.serial)}
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -843,7 +881,7 @@ export default function MachineSearchPage() {
                               </span>
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/portal/service/machines/${encodeURIComponent(row.serial)}`); }}
+                              onClick={(e) => { e.stopPropagation(); openMachine(row.serial); }}
                               className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#234a1f]"
                             >Min Maskine →</button>
                           </div>
@@ -913,7 +951,7 @@ export default function MachineSearchPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(h.serial)}`)}
+                      onClick={() => openMachine(h.serial)}
                       className="shrink-0 inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
                     >
                       Min Maskine →
@@ -943,7 +981,7 @@ export default function MachineSearchPage() {
                 )}
                 {machine.serial_number && (
                   <button
-                    onClick={() => navigate(`/portal/service/machines/${encodeURIComponent(machine.serial_number!)}`)}
+                    onClick={() => openMachine(machine.serial_number!)}
                     className="ml-auto inline-flex items-center rounded-md bg-[#2d5a27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#234a1f]"
                   >
                     Min Maskine →

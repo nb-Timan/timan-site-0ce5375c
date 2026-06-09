@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import { ArrowLeft, ArrowUpDown, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
@@ -26,10 +26,14 @@ import {
 } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
+import { hasMachineSearchContext } from "@/lib/machineSearchState";
 
 const T: Record<string, Record<Language, string>> = {
   pageTitle:        { da: "Min Maskine", en: "My Machine", de: "Meine Maschine", it: "La mia macchina", hu: "Saját gép" },
   back:             { da: "Tilbage", en: "Back", de: "Zurück", it: "Indietro", hu: "Vissza" },
+  backToSearch:     { da: "Tilbage til Søg Maskine", en: "Back to Search Machine", de: "Zurück zur Maschinensuche", it: "Torna a Cerca macchina", hu: "Vissza a gépkereséshez" },
+  crumbService:     { da: "Teknik & Service", en: "Technical & Service", de: "Technik & Service", it: "Tecnico & Assistenza", hu: "Műszaki & Szerviz" },
+  crumbSearch:      { da: "Søg Maskine", en: "Search Machine", de: "Maschine suchen", it: "Cerca macchina", hu: "Gép keresése" },
   loading:          { da: "Indlæser…", en: "Loading…", de: "Lädt…", it: "Caricamento…", hu: "Betöltés…" },
   notFound:         { da: "Ingen data for denne maskine.", en: "No data for this machine.", de: "Keine Daten zu dieser Maschine.", it: "Nessun dato per questa macchina.", hu: "Nincs adat ehhez a géphez." },
   serial:           { da: "Serienr.", en: "Serial no.", de: "Seriennr.", it: "N. di serie", hu: "Gyári sz." },
@@ -126,6 +130,13 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
+  const cameFromSearch = useMemo(() => hasMachineSearchContext(), []);
+  const breadcrumbCurrent = useMemo(() => {
+    if (journal?.summary) {
+      return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
+    }
+    return serial;
+  }, [journal, serial]);
 
   useEffect(() => {
     if (!appUser) {
@@ -186,16 +197,38 @@ export default function MachineJournalPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
           <button
-            onClick={() => goBackOrFallback(navigate, location)}
+            onClick={() => {
+              if (cameFromSearch) {
+                navigate('/portal/service/machines');
+              } else {
+                goBackOrFallback(navigate, location);
+              }
+            }}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            {tt('backToTechnicalService', uiLanguage)}
+            {cameFromSearch ? T.backToSearch[lang] : tt('backToTechnicalService', uiLanguage)}
           </button>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+            <button
+              onClick={() => navigate('/portal/teknik-service')}
+              className="font-semibold text-slate-600 hover:text-[#2d5a27] hover:underline"
+            >{T.crumbService[lang]}</button>
+            <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+            <button
+              onClick={() => navigate('/portal/service/machines')}
+              className="font-semibold text-slate-600 hover:text-[#2d5a27] hover:underline"
+            >{T.crumbSearch[lang]}</button>
+            <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-900 truncate max-w-[260px]" title={breadcrumbCurrent}>
+              {breadcrumbCurrent}
+            </span>
+          </nav>
         </div>
       </div>
+
 
       <main className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{T.pageTitle[lang]}</div>
