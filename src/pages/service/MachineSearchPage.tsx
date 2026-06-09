@@ -556,7 +556,7 @@ export default function MachineSearchPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6">
           <button
             onClick={() => goBackOrFallback(navigate, location)}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
@@ -567,7 +567,7 @@ export default function MachineSearchPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
+      <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6 py-10 flex-1 w-full">
         <div className="mb-8 flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">
             <Search className="h-6 w-6" />
@@ -580,7 +580,7 @@ export default function MachineSearchPage() {
 
         {/* Search bar */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
-          <div className="max-w-2xl mx-auto flex gap-3">
+          <div className="max-w-4xl mx-auto flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
