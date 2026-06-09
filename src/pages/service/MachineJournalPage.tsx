@@ -117,7 +117,6 @@ export default function MachineJournalPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const params = useParams<{ serialNumber: string }>();
   const effective = useEffectivePortalUser(appUser);
   const role = derivePortalRole(effective);
