@@ -203,10 +203,12 @@ export default function MachineJournalPage() {
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={() => {
-              if (cameFromSearch) {
+              // Re-check at click time so the decision is based on the
+              // freshest sessionStorage value, not a captured snapshot.
+              if (hasMachineSearchContext()) {
                 navigate('/portal/service/machines');
               } else {
-                goBackOrFallback(navigate, location);
+                navigate('/portal/teknik-service');
               }
             }}
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
