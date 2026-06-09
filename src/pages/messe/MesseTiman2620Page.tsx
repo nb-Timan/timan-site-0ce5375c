@@ -14,12 +14,11 @@ import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
 /**
- * Timan 2620 Messe page — premium touchscreen kiosk layout.
+ * Timan 2620 Messe page — single unified showroom card.
  *
- * Scope: this page only. Hides the normal portal header. The kiosk top bar
- * shows the Timan logo (left), a large back pill button (centre/left) and
- * the language selector (right). Title sits above the left configuration
- * panel; the benefit bar is aligned to the machine column only.
+ * Everything (title, sidebar, image, hotspots, back button, USP bar) lives
+ * inside one light-grey rounded container so the experience reads as one
+ * premium product showcase rather than separate sections.
  */
 export default function MesseTiman2620Page() {
   const { uiLanguage, setLanguage } = useLanguage();
@@ -87,63 +86,71 @@ export default function MesseTiman2620Page() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 lg:py-7 flex flex-col">
+      <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 lg:py-6 flex flex-col">
         <Timan2620Viewer.Provider>
-          <div className="flex flex-col lg:flex-row lg:items-start gap-5 flex-grow">
-            {/* Left column: title + configuration panel */}
-            <div className="w-full lg:w-[180px] lg:flex-shrink-0">
-              <div className="mb-4">
-                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
-                  Timan 2620
-                </h1>
-                <p className="text-sm lg:text-base text-slate-600 mt-1">{t('m2620_explore', uiLanguage)}</p>
+          {/* One unified showroom card */}
+          <section
+            className="bg-slate-100/80 border border-slate-200 rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8 flex flex-col"
+            style={{ maxHeight: 'min(850px, calc(100vh - 140px))' }}
+          >
+            <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-8 flex-1 min-h-0">
+              {/* Left column: title + configuration */}
+              <div className="w-full lg:w-[200px] lg:flex-shrink-0 flex flex-col">
+                <div className="mb-4">
+                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
+                    Timan 2620
+                  </h1>
+                  <p className="text-sm lg:text-base text-slate-600 mt-1">
+                    {t('m2620_explore', uiLanguage)}
+                  </p>
+                </div>
+                <Timan2620Viewer.Sidebar />
               </div>
-              <Timan2620Viewer.Sidebar />
+
+              {/* Right/main: product image with hotspots */}
+              <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center">
+                <div className="w-full h-full max-h-[640px]">
+                  <Timan2620Viewer.Stage />
+                </div>
+              </div>
             </div>
 
-            {/* Right column: machine area */}
-            <div className="flex-1 min-w-0">
-              <Timan2620Viewer.Stage />
-            </div>
-          </div>
-
-          {/* Unified footer row: back button + benefit bar */}
-          <section className="mt-8 pt-6 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 lg:gap-8 md:divide-x md:divide-slate-200">
-              {/* Back button */}
-              <div className="flex items-center py-2">
-                <button
-                  type="button"
-                  onClick={() => navigate('/messe')}
-                  className="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-sm lg:text-base transition"
-                >
-                  <ArrowLeft className="h-4 w-4 lg:h-5 lg:w-5" />
-                  {t('m2620_back_home', uiLanguage)}
-                </button>
-              </div>
-              {benefits.map((b, i) => {
-                const Icon = b.icon;
-                return (
-                  <div key={i} className="flex items-start gap-3 py-2 md:pl-6 lg:pl-8">
-                    <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
-                        {b.title}
-                      </h3>
-                      <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                        {b.text}
-                      </p>
+            {/* Bottom row: back button + USP bar, attached to the card */}
+            <div className="mt-4 lg:mt-5 pt-4 lg:pt-5 border-t border-slate-200">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6 md:divide-x md:divide-slate-200 items-center">
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/messe')}
+                    className="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-sm lg:text-base transition"
+                  >
+                    <ArrowLeft className="h-4 w-4 lg:h-5 lg:w-5" />
+                    {t('m2620_back_home', uiLanguage)}
+                  </button>
+                </div>
+                {benefits.map((b, i) => {
+                  const Icon = b.icon;
+                  return (
+                    <div key={i} className="flex items-start gap-3 md:pl-5 lg:pl-6">
+                      <span className="flex-shrink-0 inline-flex h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 items-center justify-center">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm lg:text-base font-bold text-slate-900 leading-tight">
+                          {b.title}
+                        </h3>
+                        <p className="text-xs lg:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                          {b.text}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </section>
         </Timan2620Viewer.Provider>
       </main>
-
     </div>
   );
 }
