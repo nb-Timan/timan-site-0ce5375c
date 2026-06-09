@@ -910,7 +910,7 @@ export default function MachineSearchPage() {
                   claim: "Claim", tsb: "TSB", comment: "Comment",
                 };
                 return (
-                  <li key={h.normalizedSerial} className="px-6 py-4 flex items-start justify-between gap-4">
+                  <li key={h.normalizedSerial} onClick={() => openMachine(h.serial)} className="px-6 py-4 flex items-start gap-4 cursor-pointer hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-mono text-sm font-semibold text-slate-900">{h.serial}</span>
