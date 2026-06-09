@@ -218,6 +218,15 @@ export default function ProductImageViewer({
         onPointerLeave={onPointerUp}
         onWheel={onWheel}
       >
+        {/* Transform layer — scales image + hotspots together so the
+            product dominates the stage and hotspot anchors stay aligned. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: `scale(${contentScale})`,
+            transformOrigin: 'center center',
+          }}
+        >
         {hasImage ? (
           <img
             src={currentSrc}
