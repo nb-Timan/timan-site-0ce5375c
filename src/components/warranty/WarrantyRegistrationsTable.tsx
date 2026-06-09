@@ -209,6 +209,7 @@ export function WarrantyRegistrationsTable({
         r.machineSerial.toLowerCase().includes(ql) ||
         r.confirmationEmail.toLowerCase().includes(ql) ||
         r.certificateNumber.toLowerCase().includes(ql) ||
+        r.id.toLowerCase().includes(ql) ||
         (r.sharepointItemId ?? "").toLowerCase().includes(ql)
       );
     });
