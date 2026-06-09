@@ -199,11 +199,11 @@ export default function ProductImageViewer({
   const hasCalloutHotspot = activeHotspot?.variant === 'callout';
 
   return (
-    <div className={`w-full select-none ${className ?? ''}`}>
-      {/* Image stage — responsive: fixed aspect on mobile, large height on desktop */}
+    <div className={`w-full h-full select-none ${className ?? ''}`}>
+      {/* Image stage — fills its container on desktop, fixed aspect on mobile */}
       <div
         ref={stageRef}
-        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
+        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[4/3] lg:aspect-auto lg:h-full lg:min-h-[420px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
