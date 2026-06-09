@@ -38,6 +38,8 @@ interface Props {
   className?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
+  /** Lock zoom at 1 and ignore wheel/pinch zoom (kiosk mode). */
+  disableZoom?: boolean;
 }
 
 
