@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
