@@ -53,12 +53,13 @@ export default function MesseTiman2620Page() {
         background: 'linear-gradient(135deg, #f4f7f9 0%, #eef3f7 45%, #e9eef4 100%)',
       }}
     >
-      {/* Kiosk top bar: logo · language */}
-      <header className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-slate-200/70">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 grid grid-cols-[1fr_auto] items-center gap-4">
-          <div className="flex items-center">
-            <img src={timanLogo} alt="Timan" className="h-14 sm:h-16 lg:h-[72px] w-auto object-contain" />
+      {/* Kiosk top bar: logo (aligned above left column) · language */}
+      <header className="sticky top-0 z-40 bg-transparent">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 h-20 flex items-center justify-between gap-4">
+          <div className="flex items-center lg:w-[220px] lg:justify-center">
+            <img src={timanLogo} alt="Timan" className="h-12 sm:h-14 lg:h-16 w-auto object-contain" />
           </div>
+
 
           <div className="justify-self-end">
             <DropdownMenu>
