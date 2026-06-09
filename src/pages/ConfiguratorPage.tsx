@@ -942,8 +942,8 @@ export default function ConfiguratorPage() {
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
-    const deliveryMethodText = state.deliveryMethod ? T(state.deliveryMethod) : 'N/A';
-    const pdfTitle = state.flowType === 'quote' ? T('quoteRequestTitle') : T('orderRequestTitle');
+    const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
+    const pdfTitle = state.flowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
     const effQuoteNumber = overrides?.quoteNumber ?? savedQuoteNumber;
     const effOrderNumber = overrides?.orderNumber ?? savedOrderNumber;
@@ -975,26 +975,26 @@ export default function ConfiguratorPage() {
         <h1 class="text-3xl font-bold text-gray-900">${pdfTitle}</h1>
         ${refNumbersHtml}
         <p class="mt-3 text-xl">
-          <span class="block text-lg">${T('confirmDate')} ${today}</span>
-          <span class="block text-base">${T('confirmDelivery')} ${delDate}</span>
-          <span class="block text-base">${T('deliveryMethod')}: ${deliveryMethodText}</span>
+          <span class="block text-lg">${TC('confirmDate')} ${today}</span>
+          <span class="block text-base">${TC('confirmDelivery')} ${delDate}</span>
+          <span class="block text-base">${TC('deliveryMethod')}: ${deliveryMethodText}</span>
         </p>
       </div>
       <div class="mt-6 text-sm text-gray-700">
-        <h2 class="font-bold text-base mb-2">${T('confirmCustInfo')}</h2>
+        <h2 class="font-bold text-base mb-2">${TC('confirmCustInfo')}</h2>
         <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          <span class="font-medium">${T('confirmFirm')}</span><span>${state.firmanavn || '-'}</span>
-          <span class="font-medium">${T('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
-          <span class="font-medium">${T('confirmPhone')}</span><span>${state.telefon || '-'}</span>
-          <span class="font-medium">${T('confirmEmailSender')}</span><span>${state.email || '-'}</span>
-          <span class="font-medium">${T('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+          <span class="font-medium">${TC('confirmFirm')}</span><span>${state.firmanavn || '-'}</span>
+          <span class="font-medium">${TC('confirmContact')}</span><span>${state.kontaktperson || '-'}</span>
+          <span class="font-medium">${TC('confirmPhone')}</span><span>${state.telefon || '-'}</span>
+          <span class="font-medium">${TC('confirmEmailSender')}</span><span>${state.email || '-'}</span>
+          <span class="font-medium">${TC('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
 
-          ${state.comment ? `<span class="font-medium">${T('confirmComment')}</span><span>${state.comment}</span>` : ''}
+          ${state.comment ? `<span class="font-medium">${TC('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
         </div>
       </div>
-      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${T('confirmDescription')}</h2>`;
+      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>`;
 
     // Line items
     calcResult.lineItems.forEach(i => {
@@ -1028,11 +1028,11 @@ export default function ConfiguratorPage() {
           </div>`;
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
-            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${T('reqNrLabel')}: ${reqVal}</div>`;
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('reqNrLabel')}: ${reqVal}</div>`;
           }
         }
       } else {
-        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${T('autoAdded')}</span>` : '';
+        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
           <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
@@ -1044,7 +1044,7 @@ export default function ConfiguratorPage() {
     // Totals
     html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
-        <span>${T('confirmSubtotal')}</span>
+        <span>${TC('confirmSubtotal')}</span>
         <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
@@ -1054,19 +1054,19 @@ export default function ConfiguratorPage() {
     });
     if (!isDealerUserPricing) {
       html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
-        <span>${T('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
+        <span>${TC('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
         <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
       </div>`;
     }
     html += `<div class="flex justify-between w-full text-base font-bold mt-2">
-        <span>${T('confirmTotal')}</span>
+        <span>${TC('confirmTotal')}</span>
         <span class="price-col">${formatMoney(displayCalc!.currentPrice, lang)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
         <span>${resolvePaymentTerms(state.paymentTerms)}</span>
       </div>
-      <p class="text-xs text-gray-500 mt-1">${T('confirmExVat')}</p>
+      <p class="text-xs text-gray-500 mt-1">${TC('confirmExVat')}</p>
     </div></div></div>`;
 
     if (includeSalesArgs && salesArgsData) {
