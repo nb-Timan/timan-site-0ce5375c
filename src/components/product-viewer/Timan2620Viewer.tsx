@@ -418,7 +418,7 @@ function Sidebar() {
   );
 }
 
-function Stage({ contentScale }: { contentScale?: number } = {}) {
+function Stage() {
   const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
   const { uiLanguage } = useLanguage();
   const labelOfEquipment = (eq: Timan2620Equipment) =>
@@ -431,9 +431,9 @@ function Stage({ contentScale }: { contentScale?: number } = {}) {
           key={imageKey}
           configuration={configuration}
           hideControls
-          contentScale={contentScale}
         />
       </div>
+
 
       {conflict && (
         <div

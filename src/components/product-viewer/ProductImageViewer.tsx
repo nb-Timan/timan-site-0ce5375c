@@ -38,13 +38,8 @@ interface Props {
   className?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
-  /**
-   * Visual scale applied to the image + hotspot layer so the product
-   * dominates the stage. Image and hotspots share the same transform so
-   * hotspot anchors stay aligned. Defaults to 1.
-   */
-  contentScale?: number;
 }
+
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
@@ -87,8 +82,8 @@ export default function ProductImageViewer({
   configuration: config,
   className,
   hideControls = false,
-  contentScale = 1,
 }: Props) {
+
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -207,10 +202,10 @@ export default function ProductImageViewer({
 
   return (
     <div className={`w-full h-full select-none ${className ?? ''}`}>
-      {/* Image stage — fills its container on desktop, fixed aspect on mobile */}
+      {/* Image stage — kiosk-friendly large stage on desktop */}
       <div
         ref={stageRef}
-        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[4/3] lg:aspect-auto lg:h-full lg:min-h-[420px]"
+        className="relative w-full bg-transparent overflow-hidden touch-none aspect-[4/3] lg:aspect-auto lg:h-[72vh] lg:max-h-[900px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -218,15 +213,6 @@ export default function ProductImageViewer({
         onPointerLeave={onPointerUp}
         onWheel={onWheel}
       >
-        {/* Transform layer — scales image + hotspots together so the
-            product dominates the stage and hotspot anchors stay aligned. */}
-        <div
-          className="absolute inset-0"
-          style={{
-            transform: `scale(${contentScale})`,
-            transformOrigin: 'center center',
-          }}
-        >
         {hasImage ? (
           <img
             src={currentSrc}
@@ -313,7 +299,7 @@ export default function ProductImageViewer({
             </button>
           );
         })}
-        </div>
+
 
 
 
