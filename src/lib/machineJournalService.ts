@@ -1379,27 +1379,27 @@ export async function loadMachineJournal(
     // Deep-link to the exact warranty registration so the list page opens
     // pre-filtered to this certificate (e.g. SP-224) instead of the full
     // unfiltered registrations list.
-    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}`,
+    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}&fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.serviceRegistrations = serviceRegs.map((s) => ({
     id: s.id, kind: "service", label: `${s.service_interval_hours}-timers service`,
     sublabel: s.technician_name || s.dealer_name || undefined, date: s.service_date,
-    href: "/portal/service/maintenance",
+    href: `/portal/service/maintenance/registrations/${s.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.tickets = ticketsForSerial.map((t) => ({
     id: t.id, kind: "ticket", label: t.ticket_number || t.title || t.id.slice(0, 8),
     sublabel: t.title || undefined, date: t.created_at,
-    href: `/portal/service/tickets/${t.id}`,
+    href: `/portal/service/tickets/${t.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.claims = claimsForSerial.map((c) => ({
     id: c.id, kind: "claim", label: `${c.groupId}${c.subIndex > 1 ? `/${c.subIndex}` : ""}`,
     sublabel: c.title || undefined, date: c.createdAt,
-    href: `/portal/service/claims/${c.id}`,
+    href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.tsb = tsbForSerial.map(({ tsb, status }) => ({
     id: `${tsb.id}-${status}`, kind: "tsb", label: tsb.id,
     sublabel: `${tsb.title} · ${status}`, date: tsb.activeFrom || tsb.createdAt,
-    href: `/portal/service/tsb/${tsb.id}`,
+    href: `/portal/service/tsb/${tsb.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
 
   // ---------- Documents & photos ----------
