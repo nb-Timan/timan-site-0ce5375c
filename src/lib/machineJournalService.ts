@@ -1271,7 +1271,7 @@ export async function loadMachineJournal(
       date: s.service_date,
       title: `Service registreret${s.operating_hours ? ` — ${s.operating_hours} timer` : ""}`,
       description: [s.technician_name, s.dealer_name].filter(Boolean).join(" · ") || undefined,
-      href: "/portal/service/maintenance",
+      href: `/portal/service/maintenance/registrations/${s.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "service",
     });
   }
