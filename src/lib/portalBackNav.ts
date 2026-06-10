@@ -85,8 +85,6 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   tsb:             { da: 'Tilbage til TSB',           en: 'Back to TSB',            de: 'Zurück zu TSB',             it: 'Torna a TSB',              hu: 'Vissza a TSB-hez' },
   warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
   service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
-  warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
-  service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
   machine_journal: { da: 'Tilbage til Min Maskine',   en: 'Back to My Machine',     de: 'Zurück zu Meine Maschine',  it: 'Torna a La mia macchina',  hu: 'Vissza: Saját gép' },
   machine_search:  { da: 'Tilbage til Søg på maskine',en: 'Back to Machine Search', de: 'Zurück zur Maschinensuche', it: 'Torna a Cerca macchina',   hu: 'Vissza a gépkereséshez' },
   service_maintenance: { da: 'Tilbage til Serviceregistreringer', en: 'Back to Service registrations', de: 'Zurück zu Serviceerfassungen', it: 'Torna alle registrazioni di servizio', hu: 'Vissza a szervizregisztrációkhoz' },
