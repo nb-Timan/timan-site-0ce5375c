@@ -63,7 +63,10 @@ type BackLabelKey =
   | 'claims'
   | 'tsb'
   | 'warranty'
-  | 'service_tickets';
+  | 'service_tickets'
+  | 'machine_journal'
+  | 'machine_search'
+  | 'service_maintenance';
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
