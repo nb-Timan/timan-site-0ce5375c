@@ -35,6 +35,9 @@ export interface ServiceTicket {
   priority: string;
   category: string | null;
   dealer_name: string | null;
+  dealer_number: string | null;
+  serial_number: string | null;
+  machine_type: string | null;
   created_at: string | null;
   assigned_name: string | null;
 }
@@ -68,7 +71,7 @@ export async function findMachineByIdentifier(rawQuery: string): Promise<Machine
 }
 
 const TICKET_COLS =
-  "id, ticket_number, title, status, priority, category, dealer_name, created_at, assigned_name";
+  "id, ticket_number, title, status, priority, category, dealer_name, dealer_number, serial_number, machine_type, created_at, assigned_name";
 
 /**
  * Fetch service tickets linked to a machine by machine_id OR serial_number.
