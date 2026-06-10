@@ -70,6 +70,7 @@ export default function ServiceRegistrationDetailPage() {
   const { uiLanguage } = useLanguage();
   const t = (k: keyof typeof T) => pickT(T[k], uiLanguage);
   const navigate = useNavigate();
+  const location = useLocation();
   const { registrationId } = useParams<{ registrationId: string }>();
 
   const [reg, setReg] = useState<ServiceRegistration | null>(null);
