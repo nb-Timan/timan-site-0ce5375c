@@ -184,6 +184,7 @@ const App = () => (
                 <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
                 <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
                 <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
+                <Route path="/portal/service/warranty/sync" element={<WarrantyPage page="sync" />} />
                 <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
                 <Route path="/portal/service/maintenance/registrations/:registrationId" element={<ServiceRegistrationDetailPage />} />
                 <Route path="/portal/service/tickets" element={<ServiceTicketsPage />} />
