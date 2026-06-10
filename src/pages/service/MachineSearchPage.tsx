@@ -326,6 +326,10 @@ export default function MachineSearchPage() {
   const openMachine = React.useCallback((serial: string) => {
     saveMachineSearchState({
       query,
+      dealerQuery,
+      dateFrom,
+      dateTo,
+      modelFilter,
       statusFilter,
       page: overviewPage,
       pageSize,
@@ -333,7 +337,7 @@ export default function MachineSearchPage() {
       lastOpenedSerial: serial,
     });
     navigate(`/portal/service/machines/${encodeURIComponent(serial)}`);
-  }, [query, statusFilter, overviewPage, pageSize, navigate]);
+  }, [query, dealerQuery, dateFrom, dateTo, modelFilter, statusFilter, overviewPage, pageSize, navigate]);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
