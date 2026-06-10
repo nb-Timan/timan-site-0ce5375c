@@ -6,9 +6,9 @@
  * No claims/TSB/warranty changes. No file upload. No internal notes here.
  * Standard supabase-js client only — RLS controls visibility.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Ticket, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Ticket, Plus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -119,6 +119,19 @@ const T = {
   cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver", sv: "Programvara", fr: "Logiciel", pl: "Oprogramowanie", cs: "Software" },
   cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság", sv: "Säkerhet", fr: "Sécurité", pl: "Bezpieczeństwo", cs: "Bezpečnost" },
   cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb", sv: "Annat", fr: "Autre", pl: "Inne", cs: "Jiné" },
+
+  // Filter bar
+  filterSerial: { da: "Maskinnr. / Serienr.", en: "Machine no. / Serial", de: "Masch.-Nr. / Seriennr.", it: "N. macchina / Serie", hu: "Gép sz. / Gyári sz.", sv: "Maskinnr. / Serienr.", fr: "N° machine / Série", pl: "Nr masz. / Seryjny", cs: "Strojní č. / Sériové č." },
+  filterDealer: { da: "Forhandler / Konto nr.", en: "Dealer / Account no.", de: "Händler / Kontonr.", it: "Rivenditore / N. conto", hu: "Forgalmazó / Számlasz.", sv: "Återförsäljare / Kontonr.", fr: "Concessionnaire / N° compte", pl: "Dealer / Nr konta", cs: "Prodejce / Č. účtu" },
+  filterFromDate: { da: "Fra dato", en: "From date", de: "Von Datum", it: "Da data", hu: "Kezdő dátum", sv: "Från datum", fr: "Date de début", pl: "Od daty", cs: "Od data" },
+  filterToDate: { da: "Til dato", en: "To date", de: "Bis Datum", it: "A data", hu: "Záró dátum", sv: "Till datum", fr: "Date de fin", pl: "Do daty", cs: "Do data" },
+  filterModel: { da: "Model", en: "Model", de: "Modell", it: "Modello", hu: "Modell", sv: "Modell", fr: "Modèle", pl: "Model", cs: "Model" },
+  filterStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz", sv: "Status", fr: "Statut", pl: "Status", cs: "Stav" },
+  filterAllModels: { da: "Alle modeller", en: "All models", de: "Alle Modelle", it: "Tutti i modelli", hu: "Minden modell", sv: "Alla modeller", fr: "Tous les modèles", pl: "Wszystkie modele", cs: "Všechny modely" },
+  filterAllStatuses: { da: "Alle statuser", en: "All statuses", de: "Alle Stati", it: "Tutti gli stati", hu: "Minden státusz", sv: "Alla statusar", fr: "Tous les statuts", pl: "Wszystkie statusy", cs: "Všechny stavy" },
+  resetFilters: { da: "Nulstil filtre", en: "Reset filters", de: "Filter zurücksetzen", it: "Reimposta filtri", hu: "Szűrők törlése", sv: "Återställ filter", fr: "Réinitialiser les filtres", pl: "Resetuj filtry", cs: "Obnovit filtry" },
+  noFilterMatch: { da: "Ingen service tickets matcher de valgte filtre.", en: "No service tickets match the selected filters.", de: "Keine Service-Tickets entsprechen den Filtern.", it: "Nessun ticket corrisponde ai filtri selezionati.", hu: "Egyetlen szervizjegy sem felel meg a szűrőknek.", sv: "Inga serviceärenden matchar de valda filtren.", fr: "Aucun ticket ne correspond aux filtres sélectionnés.", pl: "Żadne zgłoszenie nie pasuje do filtrów.", cs: "Žádný tiket neodpovídá vybraným filtrům." },
+  dateError: { da: "Fra dato skal være før Til dato.", en: "From date must be before To date.", de: "Von-Datum muss vor Bis-Datum liegen.", it: "La data iniziale deve essere precedente a quella finale.", hu: "A kezdő dátumnak a záró dátum előtt kell lennie.", sv: "Från-datum måste vara före Till-datum.", fr: "La date de début doit être antérieure à la date de fin.", pl: "Data początkowa musi być przed datą końcową.", cs: "Počáteční datum musí být před koncovým datem." },
 } as const;
 
 const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
@@ -192,6 +205,16 @@ function categoryLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `cat_${v}` as keyof typeof T;
   return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
+function toLocalIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function ticketLocalDate(createdAt: string | null | undefined): string {
+  if (!createdAt) return "";
+  return toLocalIsoDate(new Date(createdAt));
+}
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
@@ -217,6 +240,18 @@ export default function ServiceTicketsPage() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Filter state
+  const [serialQuery, setSerialQuery] = useState("");
+  const [dealerQuery, setDealerQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [modelFilter, setModelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  const serialDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dealerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -252,6 +287,52 @@ export default function ServiceTicketsPage() {
       navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
     }
   }, [location.search, location.pathname, navigate]);
+
+  const filteredTickets = useMemo(() => {
+    const sq = serialQuery.trim().toLowerCase();
+    const dq = dealerQuery.trim().toLowerCase();
+    const mq = modelFilter !== "all" ? modelFilter.trim().toLowerCase() : "";
+    const st = statusFilter !== "all" ? statusFilter.trim().toLowerCase() : "";
+    const fromIso = dateFrom || "";
+    const toIso = dateTo || "";
+
+    return tickets.filter(t => {
+      if (sq) {
+        const serial = (t.serial_number || "").toLowerCase();
+        const machineNo = (t.ticket_number || "").toLowerCase();
+        if (!(serial.includes(sq) || machineNo.includes(sq))) return false;
+      }
+      if (dq) {
+        const dName = (t.dealer_name || "").toLowerCase();
+        const dNum = (t.dealer_number || "").toLowerCase();
+        if (!(dName.includes(dq) || dNum.includes(dq))) return false;
+      }
+      if (mq) {
+        const mType = (t.machine_type || "").trim().toLowerCase();
+        if (mType !== mq) return false;
+      }
+      if (st) {
+        const s = (t.status || "").trim().toLowerCase();
+        if (s !== st) return false;
+      }
+      if (fromIso || toIso) {
+        const d = ticketLocalDate(t.created_at);
+        if (!d || (fromIso && d < fromIso) || (toIso && d > toIso)) return false;
+      }
+      return true;
+    });
+  }, [tickets, serialQuery, dealerQuery, dateFrom, dateTo, modelFilter, statusFilter]);
+
+  const modelOptions = useMemo(() => {
+    const set = new Set(
+      tickets
+        .map(t => (t.machine_type || "").trim())
+        .filter(m => m.length > 0)
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'da'));
+  }, [tickets]);
+
+  const hasActiveFilters = !!(serialQuery.trim() || dealerQuery.trim() || dateFrom || dateTo || (modelFilter && modelFilter !== "all") || (statusFilter && statusFilter !== "all"));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
@@ -294,6 +375,125 @@ export default function ServiceTicketsPage() {
           </Button>
         </div>
 
+        {/* Filter bar */}
+        {!loading && !loadErr && tickets.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterSerial, uiLang)}</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={serialQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSerialQuery(val);
+                      if (serialDebounceRef.current) clearTimeout(serialDebounceRef.current);
+                      serialDebounceRef.current = setTimeout(() => {}, 350);
+                    }}
+                    placeholder={pickT(T.filterSerial, uiLang)}
+                    className="w-full h-10 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                  />
+                </div>
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterDealer, uiLang)}</label>
+                <input
+                  type="text"
+                  value={dealerQuery}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDealerQuery(val);
+                    if (dealerDebounceRef.current) clearTimeout(dealerDebounceRef.current);
+                    dealerDebounceRef.current = setTimeout(() => {}, 350);
+                  }}
+                  placeholder="Navn eller konto nr."
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterFromDate, uiLang)}</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDateFrom(val);
+                    setDateError(null);
+                    if (val && dateTo && val > dateTo) {
+                      setDateError(pickT(T.dateError, uiLang));
+                    }
+                  }}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterToDate, uiLang)}</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDateTo(val);
+                    setDateError(null);
+                    if (dateFrom && val && dateFrom > val) {
+                      setDateError(pickT(T.dateError, uiLang));
+                    }
+                  }}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterModel, uiLang)}</label>
+                <select
+                  value={modelFilter}
+                  onChange={(e) => setModelFilter(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                >
+                  <option value="all">{pickT(T.filterAllModels, uiLang)}</option>
+                  {modelOptions.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterStatus, uiLang)}</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                >
+                  <option value="all">{pickT(T.filterAllStatuses, uiLang)}</option>
+                  {STATUS_OPTIONS.map(s => (
+                    <option key={s} value={s}>{statusLabel(s, uiLang)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 min-h-[20px]">
+              <div className="text-xs text-red-600">{dateError || ""}</div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setSerialQuery("");
+                    setDealerQuery("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setModelFilter("all");
+                    setStatusFilter("all");
+                    setDateError(null);
+                  }}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
+                >
+                  {pickT(T.resetFilters, uiLang)}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
@@ -303,6 +503,8 @@ export default function ServiceTicketsPage() {
             <div className="p-10 text-center text-sm text-red-600">{loadErr}</div>
           ) : tickets.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500">{pickT(T.empty, uiLang)}</div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="p-10 text-center text-sm text-slate-500">{pickT(T.noFilterMatch, uiLang)}</div>
           ) : (
             <Table>
               <TableHeader>
@@ -317,7 +519,7 @@ export default function ServiceTicketsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets.map((t) => (
+                {filteredTickets.map((t) => (
                   <TableRow
                     key={t.id}
                     className="cursor-pointer hover:bg-slate-50"
@@ -326,19 +528,16 @@ export default function ServiceTicketsPage() {
                     <TableCell className="font-mono text-xs">{t.ticket_number || "—"}</TableCell>
                     <TableCell className="font-medium">{t.title}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {(() => {
-                        const sn = (t as ServiceTicket & { serial_number?: string }).serial_number;
-                        return sn ? (
-                          <Link
-                            to={`/portal/service/machines/${encodeURIComponent(sn)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="hover:underline"
-                            title="Min Maskine"
-                          >
-                            {sn}
-                          </Link>
-                        ) : "—";
-                      })()}
+                      {t.serial_number ? (
+                        <Link
+                          to={`/portal/service/machines/${encodeURIComponent(t.serial_number)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline"
+                          title="Min Maskine"
+                        >
+                          {t.serial_number}
+                        </Link>
+                      ) : "—"}
                     </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
