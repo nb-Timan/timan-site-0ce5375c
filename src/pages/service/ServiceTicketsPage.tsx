@@ -6,9 +6,9 @@
  * No claims/TSB/warranty changes. No file upload. No internal notes here.
  * Standard supabase-js client only — RLS controls visibility.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Ticket, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Ticket, Plus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -119,6 +119,19 @@ const T = {
   cat_software: { da: "Software", en: "Software", de: "Software", it: "Software", hu: "Szoftver", sv: "Programvara", fr: "Logiciel", pl: "Oprogramowanie", cs: "Software" },
   cat_safety: { da: "Sikkerhed", en: "Safety", de: "Sicherheit", it: "Sicurezza", hu: "Biztonság", sv: "Säkerhet", fr: "Sécurité", pl: "Bezpieczeństwo", cs: "Bezpečnost" },
   cat_other: { da: "Andet", en: "Other", de: "Sonstiges", it: "Altro", hu: "Egyéb", sv: "Annat", fr: "Autre", pl: "Inne", cs: "Jiné" },
+
+  // Filter bar
+  filterSerial: { da: "Maskinnr. / Serienr.", en: "Machine no. / Serial", de: "Masch.-Nr. / Seriennr.", it: "N. macchina / Serie", hu: "Gép sz. / Gyári sz.", sv: "Maskinnr. / Serienr.", fr: "N° machine / Série", pl: "Nr masz. / Seryjny", cs: "Strojní č. / Sériové č." },
+  filterDealer: { da: "Forhandler / Konto nr.", en: "Dealer / Account no.", de: "Händler / Kontonr.", it: "Rivenditore / N. conto", hu: "Forgalmazó / Számlasz.", sv: "Återförsäljare / Kontonr.", fr: "Concessionnaire / N° compte", pl: "Dealer / Nr konta", cs: "Prodejce / Č. účtu" },
+  filterFromDate: { da: "Fra dato", en: "From date", de: "Von Datum", it: "Da data", hu: "Kezdő dátum", sv: "Från datum", fr: "Date de début", pl: "Od daty", cs: "Od data" },
+  filterToDate: { da: "Til dato", en: "To date", de: "Bis Datum", it: "A data", hu: "Záró dátum", sv: "Till datum", fr: "Date de fin", pl: "Do daty", cs: "Do data" },
+  filterModel: { da: "Model", en: "Model", de: "Modell", it: "Modello", hu: "Modell", sv: "Modell", fr: "Modèle", pl: "Model", cs: "Model" },
+  filterStatus: { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Státusz", sv: "Status", fr: "Statut", pl: "Status", cs: "Stav" },
+  filterAllModels: { da: "Alle modeller", en: "All models", de: "Alle Modelle", it: "Tutti i modelli", hu: "Minden modell", sv: "Alla modeller", fr: "Tous les modèles", pl: "Wszystkie modele", cs: "Všechny modely" },
+  filterAllStatuses: { da: "Alle statuser", en: "All statuses", de: "Alle Stati", it: "Tutti gli stati", hu: "Minden státusz", sv: "Alla statusar", fr: "Tous les statuts", pl: "Wszystkie statusy", cs: "Všechny stavy" },
+  resetFilters: { da: "Nulstil filtre", en: "Reset filters", de: "Filter zurücksetzen", it: "Reimposta filtri", hu: "Szűrők törlése", sv: "Återställ filter", fr: "Réinitialiser les filtres", pl: "Resetuj filtry", cs: "Obnovit filtry" },
+  noFilterMatch: { da: "Ingen service tickets matcher de valgte filtre.", en: "No service tickets match the selected filters.", de: "Keine Service-Tickets entsprechen den Filtern.", it: "Nessun ticket corrisponde ai filtri selezionati.", hu: "Egyetlen szervizjegy sem felel meg a szűrőknek.", sv: "Inga serviceärenden matchar de valda filtren.", fr: "Aucun ticket ne correspond aux filtres sélectionnés.", pl: "Żadne zgłoszenie nie pasuje do filtrów.", cs: "Žádný tiket neodpovídá vybraným filtrům." },
+  dateError: { da: "Fra dato skal være før Til dato.", en: "From date must be before To date.", de: "Von-Datum muss vor Bis-Datum liegen.", it: "La data iniziale deve essere precedente a quella finale.", hu: "A kezdő dátumnak a záró dátum előtt kell lennie.", sv: "Från-datum måste vara före Till-datum.", fr: "La date de début doit être antérieure à la date de fin.", pl: "Data początkowa musi być przed datą końcową.", cs: "Počáteční datum musí být před koncovým datem." },
 } as const;
 
 const MACHINE_TYPE_OPTIONS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
