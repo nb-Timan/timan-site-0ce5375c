@@ -288,6 +288,52 @@ export default function ServiceTicketsPage() {
     }
   }, [location.search, location.pathname, navigate]);
 
+  const filteredTickets = useMemo(() => {
+    const sq = serialQuery.trim().toLowerCase();
+    const dq = dealerQuery.trim().toLowerCase();
+    const mq = modelFilter !== "all" ? modelFilter.trim().toLowerCase() : "";
+    const st = statusFilter !== "all" ? statusFilter.trim().toLowerCase() : "";
+    const fromIso = dateFrom || "";
+    const toIso = dateTo || "";
+
+    return tickets.filter(t => {
+      if (sq) {
+        const serial = (t.serial_number || "").toLowerCase();
+        const machineNo = (t.ticket_number || "").toLowerCase();
+        if (!(serial.includes(sq) || machineNo.includes(sq))) return false;
+      }
+      if (dq) {
+        const dName = (t.dealer_name || "").toLowerCase();
+        const dNum = (t.dealer_number || "").toLowerCase();
+        if (!(dName.includes(dq) || dNum.includes(dq))) return false;
+      }
+      if (mq) {
+        const mType = (t.machine_type || "").trim().toLowerCase();
+        if (mType !== mq) return false;
+      }
+      if (st) {
+        const s = (t.status || "").trim().toLowerCase();
+        if (s !== st) return false;
+      }
+      if (fromIso || toIso) {
+        const d = ticketLocalDate(t.created_at);
+        if (!d || (fromIso && d < fromIso) || (toIso && d > toIso)) return false;
+      }
+      return true;
+    });
+  }, [tickets, serialQuery, dealerQuery, dateFrom, dateTo, modelFilter, statusFilter]);
+
+  const modelOptions = useMemo(() => {
+    const set = new Set(
+      tickets
+        .map(t => (t.machine_type || "").trim())
+        .filter(m => m.length > 0)
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'da'));
+  }, [tickets]);
+
+  const hasActiveFilters = !!(serialQuery.trim() || dealerQuery.trim() || dateFrom || dateTo || (modelFilter && modelFilter !== "all") || (statusFilter && statusFilter !== "all"));
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
