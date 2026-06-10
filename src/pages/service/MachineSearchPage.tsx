@@ -522,9 +522,9 @@ export default function MachineSearchPage() {
     }
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  void ((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch();
-  };
+  });
 
   const dash = "—";
   const fmt = (v: string | number | null | undefined) =>
