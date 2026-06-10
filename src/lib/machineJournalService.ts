@@ -1132,6 +1132,7 @@ export async function loadMachineJournal(
   let warrantyTone: StatusTone = "neutral";
   let warrantyValue = "Ukendt";
   let warrantySub: string | undefined;
+  let warrantyTooltip: string | undefined;
   if (warrantyEnd) {
     const we = new Date(warrantyEnd).getTime();
     if (!Number.isNaN(we)) {
@@ -1151,11 +1152,15 @@ export async function loadMachineJournal(
         warrantyValue = `Udløber: ${dateStr}`;
         warrantySub = `Om ${daysLeft} dage`;
       }
+      if (deliveryDate) {
+        const deliveryStr = fmtDateDk(deliveryDate) ?? deliveryDate;
+        warrantyTooltip = `Garanti beregnes som 1 år fra garantibevisregistreringens leveringsdato.\n\nLeveringsdato: ${deliveryStr}`;
+      }
     }
   }
 
   const statusItems: JournalStatusItem[] = [
-    { key: "warranty", label: "Garanti", value: warrantyValue, sub: warrantySub, tone: warrantyTone },
+    { key: "warranty", label: "Garanti", value: warrantyValue, sub: warrantySub, tone: warrantyTone, tooltip: warrantyTooltip },
     { key: "tickets", label: "Åbne tickets", value: String(openTickets), tone: openTickets > 0 ? "yellow" : "green" },
     { key: "claims", label: "Åbne claims", value: String(openClaims), tone: openClaims > 0 ? "red" : "green" },
     { key: "tsb", label: "Åbne TSB", value: String(tsbPending), tone: tsbPending > 0 ? "red" : "green" },
