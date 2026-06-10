@@ -521,34 +521,61 @@ const HEALTH_META: Record<HealthLevel, { label: string; cls: string; dot: string
 function HealthDashboard({ summary }: { summary: JournalSummary }) {
   const meta = HEALTH_META[summary.health.level];
   return (
-    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Maskinestatus</h2>
-        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${meta.cls}`}>
-          <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
-          {meta.label}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        {summary.statusItems.map((it) => (
-          <div key={it.key} className={`rounded-lg border px-2.5 py-2 ${TONE_CLASS[it.tone]}`}>
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider opacity-75">
-              <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[it.tone]}`} />
-              {it.label}
-            </div>
-            <div className="mt-0.5 text-sm font-semibold truncate" title={it.value}>{it.value}</div>
-            {it.sub && (
-              <div className="text-[11px] font-medium opacity-80 truncate" title={it.sub}>{it.sub}</div>
-            )}
-          </div>
-        ))}
-      </div>
-      {summary.health.reasons.length > 0 && (
-        <div className="mt-2 text-xs text-slate-600">
-          <span className="font-semibold">Begrundelse:</span> {summary.health.reasons.join(" · ")}
+    <TooltipProvider delayDuration={200}>
+      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Maskinestatus</h2>
+          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${meta.cls}`}>
+            <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+            {meta.label}
+          </span>
         </div>
-      )}
-    </section>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {summary.statusItems.map((it) => {
+            const card = (
+              <div
+                key={it.key}
+                className={`rounded-lg border px-2.5 py-2 ${TONE_CLASS[it.tone]}`}
+              >
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider opacity-75">
+                  <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[it.tone]}`} />
+                  {it.label}
+                </div>
+                <div className="mt-0.5 text-sm font-semibold truncate" title={it.value}>{it.value}</div>
+                {it.sub && (
+                  <div className="text-[11px] font-medium opacity-80 truncate" title={it.sub}>{it.sub}</div>
+                )}
+              </div>
+            );
+            if (!it.tooltip) return card;
+            return (
+              <Tooltip key={it.key}>
+                <TooltipTrigger asChild>
+                  <div className={`rounded-lg border px-2.5 py-2 ${TONE_CLASS[it.tone]} cursor-help`}>
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider opacity-75">
+                      <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[it.tone]}`} />
+                      {it.label}
+                    </div>
+                    <div className="mt-0.5 text-sm font-semibold truncate" title={it.value}>{it.value}</div>
+                    {it.sub && (
+                      <div className="text-[11px] font-medium opacity-80 truncate" title={it.sub}>{it.sub}</div>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-line">
+                  {it.tooltip}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+        {summary.health.reasons.length > 0 && (
+          <div className="mt-2 text-xs text-slate-600">
+            <span className="font-semibold">Begrundelse:</span> {summary.health.reasons.join(" · ")}
+          </div>
+        )}
+      </section>
+    </TooltipProvider>
   );
 }
 
