@@ -375,6 +375,20 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
                       dot={{ r: 2.5, stroke: "#6366f1", fill: "#fff", strokeWidth: 2 }}
                       activeDot={{ r: 4 }}
                     />
+                    <ReferenceLine
+                      y={avg}
+                      stroke="#ef4444"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.25}
+                      ifOverflow="extendDomain"
+                      label={{
+                        value: "Gennemsnit",
+                        position: "right",
+                        fill: "#ef4444",
+                        fontSize: 11,
+                        opacity: 0.6,
+                      }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
