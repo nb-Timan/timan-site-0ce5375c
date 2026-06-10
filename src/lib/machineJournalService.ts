@@ -1159,6 +1159,7 @@ export async function loadMachineJournal(
     }
   } else if (!deliveryDate) {
     warrantyTooltip = "Garanti kan ikke beregnes, fordi leveringsdato mangler.";
+  }
 
   const statusItems: JournalStatusItem[] = [
     { key: "warranty", label: "Garanti", value: warrantyValue, sub: warrantySub, tone: warrantyTone, tooltip: warrantyTooltip },
