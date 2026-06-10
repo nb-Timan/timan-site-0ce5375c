@@ -27,6 +27,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
   sharepointItemId: string | null;
   sharepointFormId: number | null;
   sharepointModifiedAt: string | null;
+  sharepointCreatedAt: string | null;
   registrationDate: string | null;
   isActiveInSource: boolean;
 }
@@ -36,6 +37,7 @@ interface Row {
   sharepoint_item_id: string | null;
   sharepoint_form_id: number | null;
   sharepoint_modified_at: string | null;
+  sharepoint_created_at: string | null;
   machine_serial_number: string | null;
   machine_model: string | null;
   tool_serials: string[] | null;
@@ -74,7 +76,11 @@ function buildCertificateNumber(row: Row): string {
 }
 
 function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistration {
+  // "Oprettet" must always be the immutable SharePoint createdDateTime when
+  // available. Fall back only when the column is genuinely empty (legacy rows
+  // before the column existed).
   const submitted =
+    row.sharepoint_created_at ??
     row.registration_date ??
     row.sharepoint_modified_at ??
     row.created_at;
@@ -112,6 +118,7 @@ function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistrat
     sharepointItemId: row.sharepoint_item_id,
     sharepointFormId: row.sharepoint_form_id ?? null,
     sharepointModifiedAt: row.sharepoint_modified_at,
+    sharepointCreatedAt: row.sharepoint_created_at,
     registrationDate: row.registration_date,
     isActiveInSource: row.is_active_in_source,
   };
@@ -122,7 +129,7 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
     supabase
       .from("warranty_registrations")
       .select(
-        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
+        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
       )
       .eq("is_active_in_source", true)
       .order("registration_date", { ascending: false, nullsFirst: false })

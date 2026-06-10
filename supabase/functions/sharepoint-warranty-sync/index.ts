@@ -63,6 +63,7 @@ interface MappedRow {
   customer_email: string;
   tool_serials: string[];
   source_modified_at: string | null;
+  source_created_at: string | null;
 }
 
 function parseFormId(raw: unknown): number | null {
@@ -315,6 +316,7 @@ Deno.serve(async (req) => {
         customer_email: readField(f, displayToInternal, FIELD_DISPLAY.customer_email, ["E_x002d_mail_x0020_til_x0020_bek"]).trim(),
         tool_serials: tools,
         source_modified_at: it.lastModifiedDateTime ?? null,
+        source_created_at: it.createdDateTime ?? null,
       };
     });
 
@@ -373,7 +375,7 @@ Deno.serve(async (req) => {
         const slice = ids.slice(i, i + chunk);
         const { data, error } = await admin
           .from("warranty_registrations")
-          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_postal_code, customer_city, customer_country, dealer_account_id, dealer_account_number, dealer_match_status, dealer_match_method, dealer_match_confidence, dealer_match_reviewed_by, dealer_match_reviewed_at, is_active_in_source")
+          .select("id, sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, customer_address, customer_phone, customer_postal_code, customer_city, customer_country, dealer_account_id, dealer_account_number, dealer_match_status, dealer_match_method, dealer_match_confidence, dealer_match_reviewed_by, dealer_match_reviewed_at, is_active_in_source, sharepoint_created_at")
           .in("sharepoint_item_id", slice);
         if (error) {
           warnings.push(`Kunne ikke læse warranty_registrations: ${error.message}`);
@@ -494,12 +496,21 @@ Deno.serve(async (req) => {
     for (const r of resolved) {
       const ex = existingById.get(r.m.sharepoint_item_id);
       const zipCity = splitZipCity(r.m.customer_zip_city);
+      // Preserve the original SharePoint Created date. SharePoint's
+      // createdDateTime is immutable, but defensively we NEVER overwrite an
+      // existing non-null value with null — fall back to the existing DB
+      // value if SP somehow omits it.
+      const preservedSpCreated =
+        r.m.source_created_at ?? (ex?.sharepoint_created_at as string | null | undefined) ?? null;
+
       const payload: Record<string, unknown> = {
         // Source / identity
         sharepoint_item_id: r.m.sharepoint_item_id,
         sharepoint_form_id: r.m.sharepoint_form_id,
         source: "sharepoint",
         sharepoint_modified_at: r.m.source_modified_at,
+        sharepoint_created_at: preservedSpCreated,
+
 
         // Machine
         machine_serial_number: r.m.machine_serial_number,
