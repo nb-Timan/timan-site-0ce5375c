@@ -115,6 +115,8 @@ const T: Record<string, Dict> = {
   createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása', sv: 'Skapa serviceregistrering', fr: 'Créer un enregistrement de service', pl: 'Utwórz rejestrację serwisową', cs: 'Vytvořit servisní záznam' },
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk', sv: 'Serviceregistreringar', fr: 'Enregistrements de service', pl: 'Rejestracje serwisowe', cs: 'Servisní záznamy' },
   newServiceReg: { da: 'Ny service registrering', en: 'New service registration', de: 'Neue Serviceerfassung', it: 'Nuova registrazione servizio', hu: 'Új szervizregisztráció', sv: 'Ny serviceregistrering', fr: 'Nouvel enregistrement de service', pl: 'Nowa rejestracja serwisowa', cs: 'Nový servisní záznam' },
+  openRegistration: { da: 'Åbn registrering', en: 'Open registration', de: 'Erfassung öffnen', it: 'Apri registrazione', hu: 'Regisztráció megnyitása', sv: 'Öppna registrering', fr: "Ouvrir l'enregistrement", pl: 'Otwórz rejestrację', cs: 'Otevřít záznam' },
+  colAction: { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet', sv: 'Åtgärd', fr: 'Action', pl: 'Akcja', cs: 'Akce' },
 };
 
 const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines'];
