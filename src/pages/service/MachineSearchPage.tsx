@@ -278,6 +278,11 @@ export default function MachineSearchPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'needs_attention' | 'critical'>(
     initialSaved?.statusFilter ?? 'all'
   );
+  const [dealerQuery, setDealerQuery] = useState<string>(initialSaved?.dealerQuery ?? "");
+  const [dateFrom, setDateFrom] = useState<string>(initialSaved?.dateFrom ?? "");
+  const [dateTo, setDateTo] = useState<string>(initialSaved?.dateTo ?? "");
+  const [modelFilter, setModelFilter] = useState<string>(initialSaved?.modelFilter ?? "all");
+  const [dateError, setDateError] = useState<string | null>(null);
   const pendingScrollRestore = React.useRef<number | null>(initialSaved?.scrollY ?? null);
 
   useEffect(() => {
@@ -321,6 +326,10 @@ export default function MachineSearchPage() {
   const openMachine = React.useCallback((serial: string) => {
     saveMachineSearchState({
       query,
+      dealerQuery,
+      dateFrom,
+      dateTo,
+      modelFilter,
       statusFilter,
       page: overviewPage,
       pageSize,
@@ -328,7 +337,7 @@ export default function MachineSearchPage() {
       lastOpenedSerial: serial,
     });
     navigate(`/portal/service/machines/${encodeURIComponent(serial)}`);
-  }, [query, statusFilter, overviewPage, pageSize, navigate]);
+  }, [query, dealerQuery, dateFrom, dateTo, modelFilter, statusFilter, overviewPage, pageSize, navigate]);
 
   if (!appUser) {
     navigate("/portal", { replace: true });
@@ -513,9 +522,6 @@ export default function MachineSearchPage() {
     }
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleSearch();
-  };
 
   const dash = "—";
   const fmt = (v: string | number | null | undefined) =>
@@ -578,35 +584,131 @@ export default function MachineSearchPage() {
           </div>
         </div>
 
-        {/* Search bar */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
-          <div className="max-w-4xl mx-auto flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder={T.placeholder[lang]}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
-              />
-            </div>
-            <button
-              onClick={handleSearch}
-              disabled={loading || !query.trim()}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] px-5 py-3 text-sm font-semibold text-white hover:bg-[#234a1f] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              {loading ? T.searching[lang] : T.searchBtn[lang]}
-            </button>
-          </div>
+        {/* Filter bar */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm mb-6">
+          {(() => {
+            const modelOptions = Array.from(
+              new Set(
+                overview
+                  .map(r => (r.machineModel || "").trim())
+                  .filter(m => m.length > 0)
+              )
+            ).sort((a, b) => a.localeCompare(b, 'da'));
+            const hasActive = !!(query.trim() || dealerQuery.trim() || dateFrom || dateTo || (modelFilter && modelFilter !== 'all'));
+            const resetFilters = () => {
+              setQuery("");
+              setDealerQuery("");
+              setDateFrom("");
+              setDateTo("");
+              setModelFilter("all");
+              setDateError(null);
+              setOverviewPage(1);
+            };
+            const applyFilters = () => {
+              if (dateFrom && dateTo && dateFrom > dateTo) {
+                setDateError("Fra dato skal være før Til dato.");
+                return;
+              }
+              setDateError(null);
+              setOverviewPage(1);
+              if (query.trim()) {
+                handleSearch();
+              }
+            };
+            const onFilterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "Enter") applyFilters();
+            };
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                  <div className="lg:col-span-3">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Serienr. / Maskinnr.</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={onFilterKeyDown}
+                        placeholder={T.placeholder[lang]}
+                        className="w-full h-10 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                      />
+                    </div>
+                  </div>
+                  <div className="lg:col-span-3">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Forhandler / Konto nr.</label>
+                    <input
+                      type="text"
+                      value={dealerQuery}
+                      onChange={(e) => setDealerQuery(e.target.value)}
+                      onKeyDown={onFilterKeyDown}
+                      placeholder="Navn eller konto nr."
+                      className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                    />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Fra dato</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => { setDateFrom(e.target.value); setDateError(null); }}
+                      className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                    />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Til dato</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => { setDateTo(e.target.value); setDateError(null); }}
+                      className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                    />
+                  </div>
+                  <div className="lg:col-span-1">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Model</label>
+                    <select
+                      value={modelFilter}
+                      onChange={(e) => setModelFilter(e.target.value)}
+                      className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                    >
+                      <option value="all">Alle modeller</option>
+                      {modelOptions.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="lg:col-span-1">
+                    <button
+                      onClick={applyFilters}
+                      disabled={loading}
+                      className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-[#2d5a27] px-3 text-sm font-semibold text-white hover:bg-[#234a1f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      {loading ? T.searching[lang] : T.searchBtn[lang]}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 min-h-[20px]">
+                  <div className="text-xs text-red-600">{dateError || ""}</div>
+                  {hasActive && (
+                    <button
+                      onClick={resetFilters}
+                      className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
+                    >
+                      Nulstil filtre
+                    </button>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           {error && (
-            <div className="mt-4 text-center text-sm text-red-600">{error}</div>
+            <div className="mt-3 text-center text-sm text-red-600">{error}</div>
           )}
           {!loading && !error && searched && !machine && crossHits.length === 0 && (
-            <div className="mt-4 text-center text-sm text-slate-500">{T.notFound[lang]}</div>
+            <div className="mt-3 text-center text-sm text-slate-500">{T.notFound[lang]}</div>
           )}
 
           {/* DEV-only debug HUD. Remove once "Søg på maskine" is verified. */}
@@ -633,14 +735,32 @@ export default function MachineSearchPage() {
           const criticalCount = overview.filter(r => r.health === "critical").length;
 
           const q = query.trim().toLowerCase();
+          const dq = dealerQuery.trim().toLowerCase();
+          const mq = modelFilter && modelFilter !== 'all' ? modelFilter.trim().toLowerCase() : '';
+          const fromIso = dateFrom || '';
+          const toIso = dateTo || '';
           const filteredOverview = overview.filter(row => {
-            const matchesStatus = statusFilter === 'all' || row.health === statusFilter;
-            if (!q) return matchesStatus;
-            const s = row.serial.toLowerCase();
-            const m = (row.machineModel || '').toLowerCase();
-            const d = (row.dealerName || '').toLowerCase();
-            const w = (row.warrantyId || '').toLowerCase();
-            return matchesStatus && (s.includes(q) || m.includes(q) || d.includes(q) || w.includes(q));
+            if (!(statusFilter === 'all' || row.health === statusFilter)) return false;
+            if (q) {
+              const s = row.serial.toLowerCase();
+              const w = (row.warrantyId || '').toLowerCase();
+              if (!(s.includes(q) || w.includes(q))) return false;
+            }
+            if (dq) {
+              const dn = (row.dealerName || '').toLowerCase();
+              const da = (row.dealerNumber || '').toLowerCase();
+              if (!(dn.includes(dq) || da.includes(dq))) return false;
+            }
+            if (mq) {
+              if ((row.machineModel || '').trim().toLowerCase() !== mq) return false;
+            }
+            if (fromIso || toIso) {
+              const d = row.deliveryDate ? row.deliveryDate.slice(0, 10) : '';
+              if (!d) return false;
+              if (fromIso && d < fromIso) return false;
+              if (toIso && d > toIso) return false;
+            }
+            return true;
           });
           const displayedTotal = filteredOverview.length;
           const effectivePageSize = pageSize === "all" ? Math.max(1, displayedTotal) : pageSize;
