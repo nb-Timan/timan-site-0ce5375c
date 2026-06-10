@@ -146,6 +146,12 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
     };
   }, [records, chartRange]);
 
+  const avg = useMemo(() => {
+    if (!stats.series.length) return 0;
+    const sum = stats.series.reduce((acc, s) => acc + s.count, 0);
+    return Math.round((sum / stats.series.length) * 10) / 10;
+  }, [stats.series]);
+
   const monthDelta = stats.prevMonth
     ? Math.round(((stats.month - stats.prevMonth) / stats.prevMonth) * 100)
     : null;
