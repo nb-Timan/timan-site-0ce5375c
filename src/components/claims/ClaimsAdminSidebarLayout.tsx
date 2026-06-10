@@ -109,6 +109,8 @@ export function ClaimsAdminSidebarLayout({
 
   if (!appUser) return null;
 
+  const backInfo = getPortalBackInfo(location.pathname, lang, location.search);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <PortalHeader
@@ -118,7 +120,7 @@ export function ClaimsAdminSidebarLayout({
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
 
-      {/* Back-to-portal link, kept in this project's style */}
+      {/* Back link — resolves to the parent route or originating Min Maskine */}
       <div className="bg-white border-b border-slate-200 py-3">
         <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
           <button
@@ -126,7 +128,7 @@ export function ClaimsAdminSidebarLayout({
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tilbage til Teknik &amp; Service
+            {backInfo.label}
           </button>
         </div>
       </div>
