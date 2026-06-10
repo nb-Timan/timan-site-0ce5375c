@@ -85,6 +85,7 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   claims:          { da: 'Tilbage til Reklamationer', en: 'Back to Claims',         de: 'Zurück zu Reklamationen',   it: 'Torna ai Reclami',         hu: 'Vissza a Reklamációkhoz' },
   tsb:             { da: 'Tilbage til TSB',           en: 'Back to TSB',            de: 'Zurück zu TSB',             it: 'Torna a TSB',              hu: 'Vissza a TSB-hez' },
   warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
+  warranty_dashboard: { da: 'Tilbage til Dashboard',  en: 'Back to Dashboard',      de: 'Zurück zum Dashboard',      it: 'Torna alla Dashboard',     hu: 'Vissza az irányítópultra' },
   service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
   machine_journal: { da: 'Tilbage til Min Maskine',   en: 'Back to My Machine',     de: 'Zurück zu Meine Maschine',  it: 'Torna a La mia macchina',  hu: 'Vissza: Saját gép' },
   machine_search:  { da: 'Tilbage til Søg på maskine',en: 'Back to Machine Search', de: 'Zurück zur Maschinensuche', it: 'Torna a Cerca macchina',   hu: 'Vissza a gépkereséshez' },
