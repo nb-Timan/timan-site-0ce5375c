@@ -150,8 +150,30 @@ const RULES: ParentRule[] = [
   { match: () => true,                                    to: '/portal', labelKey: 'portal' },
 ];
 
-function resolve(pathname: string): { to: string; labelKey: BackLabelKey } {
+function resolve(pathname: string, search?: string): { to: string; labelKey: BackLabelKey } {
   const clean = pathname.split('?')[0].split('#')[0];
+
+  // Navigation context overrides — when a detail page was opened from
+  // Min Maskine, the back button should return to that exact machine.
+  // Detail pages forward `?fromMachine=<serial>` (and optionally
+  // `?fromSearch=1`) so we can rebuild the correct breadcrumb.
+  if (search) {
+    const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const fromMachine = q.get('fromMachine');
+    if (fromMachine && !clean.startsWith('/portal/service/machines/' + fromMachine)) {
+      return {
+        to: `/portal/service/machines/${encodeURIComponent(fromMachine)}`,
+        labelKey: 'machine_journal',
+      };
+    }
+    if (q.get('fromSearch') === '1' && clean === '/portal/service/machines') {
+      // no-op: machine search itself
+    }
+    if (q.get('fromSearch') === '1' && clean.startsWith('/portal/service/machines/')) {
+      return { to: '/portal/service/machines', labelKey: 'machine_search' };
+    }
+  }
+
   for (const rule of RULES) {
     if (rule.match(clean)) return { to: rule.to, labelKey: rule.labelKey };
   }
@@ -159,16 +181,17 @@ function resolve(pathname: string): { to: string; labelKey: BackLabelKey } {
 }
 
 /** Parent route for the given pathname. */
-export function getPortalBackTarget(pathname: string): PortalBackTarget {
-  return resolve(pathname).to;
+export function getPortalBackTarget(pathname: string, search?: string): PortalBackTarget {
+  return resolve(pathname, search).to;
 }
 
 /** Parent route + localized label for the given pathname. */
 export function getPortalBackInfo(
   pathname: string,
   language: Language = 'da',
+  search?: string,
 ): { to: string; label: string } {
-  const { to, labelKey } = resolve(pathname);
+  const { to, labelKey } = resolve(pathname, search);
   return { to, label: LABELS[labelKey][language] ?? LABELS[labelKey].da };
 }
 
@@ -183,8 +206,9 @@ export function getPortalBackInfo(
  */
 export function goBackOrFallback(
   navigate: NavigateFunction,
-  location: { key?: string; pathname: string },
+  location: { key?: string; pathname: string; search?: string },
   fallback?: string,
 ): void {
-  navigate(fallback ?? getPortalBackTarget(location.pathname));
+  navigate(fallback ?? getPortalBackTarget(location.pathname, location.search));
 }
+
