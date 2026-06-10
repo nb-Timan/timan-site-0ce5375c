@@ -278,6 +278,11 @@ export default function MachineSearchPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'needs_attention' | 'critical'>(
     initialSaved?.statusFilter ?? 'all'
   );
+  const [dealerQuery, setDealerQuery] = useState<string>(initialSaved?.dealerQuery ?? "");
+  const [dateFrom, setDateFrom] = useState<string>(initialSaved?.dateFrom ?? "");
+  const [dateTo, setDateTo] = useState<string>(initialSaved?.dateTo ?? "");
+  const [modelFilter, setModelFilter] = useState<string>(initialSaved?.modelFilter ?? "all");
+  const [dateError, setDateError] = useState<string | null>(null);
   const pendingScrollRestore = React.useRef<number | null>(initialSaved?.scrollY ?? null);
 
   useEffect(() => {
