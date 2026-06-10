@@ -184,6 +184,8 @@ export interface JournalStatusItem {
   /** Optional secondary line (e.g. countdown under expiry date). */
   sub?: string;
   tone: StatusTone;
+  /** Optional tooltip shown on hover (e.g. warranty calculation rule). */
+  tooltip?: string;
 }
 
 export interface JournalSummary {
