@@ -141,6 +141,8 @@ const RULES: ParentRule[] = [
   { match: p => startsWith(p, '/portal/service/warranty/'), to: '/portal/service/warranty', labelKey: 'warranty' },
   { match: p => eq(p, '/portal/service/warranty'),        to: '/portal/teknik-service', labelKey: 'service_area' },
   { match: p => startsWith(p, '/portal/service/tickets/'),to: '/portal/service/tickets', labelKey: 'service_tickets' },
+  { match: p => startsWith(p, '/portal/service/maintenance/registrations/'), to: '/portal/service/maintenance', labelKey: 'service_maintenance' },
+  { match: p => /^\/portal\/service\/machines\/[^/]+/.test(p), to: '/portal/service/machines', labelKey: 'machine_search' },
   { match: p => startsWith(p, '/portal/service/'),        to: '/portal/teknik-service', labelKey: 'service_area' },
 
   // Configurator
