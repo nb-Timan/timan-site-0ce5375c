@@ -18,6 +18,7 @@ import {
   FileBadge,
   LayoutDashboard,
   PlusCircle,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -38,6 +39,7 @@ interface NavItem {
 const ADMIN_NAV: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty" },
   { to: "/portal/service/warranty/registrations", label: "Registrerede garantibeviser", icon: FileBadge, match: "/portal/service/warranty/registrations" },
+  { to: "/portal/service/warranty/sync", label: "Synkronisering", icon: RefreshCw, match: "/portal/service/warranty/sync" },
 ];
 
 const DEALER_NAV: NavItem[] = [
