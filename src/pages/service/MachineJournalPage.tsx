@@ -315,9 +315,6 @@ export default function MachineJournalPage() {
               {journal.summary.currentHours != null && (
                 <StatCard label={T.hours[lang]} value={String(journal.summary.currentHours)} />
               )}
-              {journal.summary.warrantyEnd && (
-                <StatCard label={T.warrantyUntil[lang]} value={fmtDate(journal.summary.warrantyEnd)} />
-              )}
               {journal.summary.latestServiceDate && (
                 <StatCard label={T.latestService[lang]} value={fmtDate(journal.summary.latestServiceDate)} />
               )}
