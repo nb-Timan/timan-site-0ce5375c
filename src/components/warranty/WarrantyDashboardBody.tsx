@@ -27,6 +27,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -144,6 +145,12 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
       series: monthlySeries(records, chartRange),
     };
   }, [records, chartRange]);
+
+  const avg = useMemo(() => {
+    if (!stats.series.length) return 0;
+    const sum = stats.series.reduce((acc, s) => acc + s.count, 0);
+    return Math.round((sum / stats.series.length) * 10) / 10;
+  }, [stats.series]);
 
   const monthDelta = stats.prevMonth
     ? Math.round(((stats.month - stats.prevMonth) / stats.prevMonth) * 100)
@@ -367,6 +374,20 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
                       strokeWidth={2}
                       dot={{ r: 2.5, stroke: "#6366f1", fill: "#fff", strokeWidth: 2 }}
                       activeDot={{ r: 4 }}
+                    />
+                    <ReferenceLine
+                      y={avg}
+                      stroke="#ef4444"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.25}
+                      ifOverflow="extendDomain"
+                      label={{
+                        value: "Gennemsnit",
+                        position: "right",
+                        fill: "#ef4444",
+                        fontSize: 11,
+                        opacity: 0.6,
+                      }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
