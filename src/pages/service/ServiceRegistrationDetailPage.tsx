@@ -125,19 +125,18 @@ export default function ServiceRegistrationDetailPage() {
   }
   if (!appUser) return <Navigate to="/portal" replace />;
 
+  const backInfo = getPortalBackInfo(location.pathname, 'da', location.search);
   const back = (
     <Button
       variant="ghost"
       size="sm"
-      onClick={() => {
-        if (window.history.length > 1) navigate(-1);
-        else navigate('/portal/service/maintenance');
-      }}
+      onClick={() => goBackOrFallback(navigate, location)}
     >
       <ArrowLeft className="h-4 w-4 mr-1" />
-      {t('back')}
+      {backInfo.label}
     </Button>
   );
+
 
   if (loading) {
     return (
