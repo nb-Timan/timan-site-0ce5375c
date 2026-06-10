@@ -63,6 +63,7 @@ type BackLabelKey =
   | 'claims'
   | 'tsb'
   | 'warranty'
+  | 'warranty_dashboard'
   | 'service_tickets'
   | 'machine_journal'
   | 'machine_search'
