@@ -155,9 +155,9 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
   const allLink = "/portal/service/warranty/registrations";
 
   return (
-    <div className="space-y-6">
-      {/* Row 1 — KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="flex flex-col gap-4 h-[calc(100vh-260px)] min-h-[640px]">
+      {/* Row 1 — KPIs (compact) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 shrink-0">
         <Kpi
           label="Total registreringer"
           value={stats.total}
@@ -189,7 +189,7 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
           icon={Factory}
           accent="text-amber-600"
           accentBg="bg-amber-50"
-          valueClass="text-2xl"
+          valueClass="text-xl"
         />
         {scope === "admin" ? (
           <Kpi
@@ -208,7 +208,7 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
             icon={CalendarRange}
             accent="text-sky-600"
             accentBg="bg-sky-50"
-            valueClass="text-2xl"
+            valueClass="text-xl"
           />
         )}
         <MatchStatusKpi
@@ -218,162 +218,187 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
         />
       </div>
 
-      {/* Row 2 — Latest + Top dealers */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-10">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-7">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-lg font-black">Seneste registreringer</h2>
-            <Link
-              to={allLink}
-              className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-700"
-            >
-              Se alle registreringer <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          {stats.latest.length === 0 ? (
-            <EmptyState text="Der er endnu ingen garantiregistreringer." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-xs font-black uppercase tracking-widest text-slate-500">
-                    <th className="px-6 py-3">Certifikat</th>
-                    <th className="px-3 py-3">Kunde / Maskine</th>
-                    <th className="px-3 py-3">Forhandler</th>
-                    <th className="px-3 py-3">Registreret</th>
-                    <th className="px-6 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.latest.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                    >
-                      <td className="px-6 py-3 align-top">
-                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-black tracking-widest text-slate-600">
-                          {r.certificateNumber}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <div className="font-bold text-slate-900">{r.customer || "—"}</div>
-                        <div className="mt-0.5 text-xs text-slate-500">
-                          {r.machineType}{r.machineSerial ? ` • ${r.machineSerial}` : ""}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <div className="font-medium text-slate-700">{r.dealerName}</div>
-                        {r.dealerAccountNumber && (
-                          <div className="mt-0.5 text-xs text-slate-500">
-                            #{r.dealerAccountNumber}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 align-top text-slate-600">
-                        {formatDate(r.submittedAt)}
-                      </td>
-                      <td className="px-6 py-3 align-top">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                          Aktiv
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-3">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-lg font-black">Top forhandlere</h2>
-            <Link
-              to={allLink}
-              className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-700"
-            >
-              Se alle <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          {stats.topDealers.length === 0 ? (
-            <EmptyState text="Ingen forhandleraktivitet endnu." />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {stats.topDealers.map((d, i) => {
-                const w = topDealerMax > 0 ? Math.max(6, Math.round((d.count / topDealerMax) * 100)) : 0;
-                return (
-                  <li key={d.dealer} className="px-6 py-3">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600">
-                          {i + 1}
-                        </span>
-                        <span className="truncate font-bold text-slate-700">{d.dealer}</span>
-                      </div>
-                      <span className="shrink-0 text-xs font-black text-slate-900">{d.count}</span>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-indigo-500"
-                        style={{ width: `${w}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Row 3 — Trend chart */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-violet-600" />
-            <h2 className="text-lg font-black">Registreringer over tid</h2>
-          </div>
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-bold">
-            {([6, 12] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setChartRange(n)}
-                className={`rounded-md px-3 py-1 ${
-                  chartRange === n ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-                }`}
+      {/* Main grid — fills remaining viewport */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-10 flex-1 min-h-0">
+        {/* Left column: Latest (scroll) + compact chart */}
+        <div className="flex min-h-0 flex-col gap-4 xl:col-span-7">
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-3">
+              <h2 className="text-base font-black">Seneste registreringer</h2>
+              <Link
+                to={allLink}
+                className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-700"
               >
-                Sidste {n} mdr.
-              </button>
-            ))}
+                Se alle registreringer <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            {stats.latest.length === 0 ? (
+              <EmptyState text="Der er endnu ingen garantiregistreringer." />
+            ) : (
+              <div className="min-h-0 flex-1 overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
+                    <tr className="border-b border-slate-100 text-left text-xs font-black uppercase tracking-widest text-slate-500">
+                      <th className="px-6 py-2.5">Certifikat</th>
+                      <th className="px-3 py-2.5">Kunde / Maskine</th>
+                      <th className="px-3 py-2.5">Forhandler</th>
+                      <th className="px-3 py-2.5">Registreret</th>
+                      <th className="px-6 py-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.latest.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                      >
+                        <td className="px-6 py-2.5 align-top">
+                          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-black tracking-widest text-slate-600">
+                            {r.certificateNumber}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 align-top">
+                          <div className="font-bold text-slate-900">{r.customer || "—"}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {r.machineType}{r.machineSerial ? ` • ${r.machineSerial}` : ""}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 align-top">
+                          <div className="font-medium text-slate-700">{r.dealerName}</div>
+                          {r.dealerAccountNumber && (
+                            <div className="mt-0.5 text-xs text-slate-500">
+                              #{r.dealerAccountNumber}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 align-top text-slate-600">
+                          {formatDate(r.submittedAt)}
+                        </td>
+                        <td className="px-6 py-2.5 align-top">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                            Aktiv
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Compact trend widget */}
+          <div className="shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
+              <div className="flex items-center gap-2">
+                <CalendarRange className="h-4 w-4 text-violet-600" />
+                <h2 className="text-sm font-black">Registreringer over tid</h2>
+              </div>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-bold">
+                {([6, 12] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setChartRange(n)}
+                    className={`rounded-md px-2.5 py-0.5 ${
+                      chartRange === n ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                    }`}
+                  >
+                    {n} mdr.
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="px-3 py-2">
+              <div className="h-24 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats.series} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid stroke="#eef2f7" vertical={false} />
+                    <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} />
+                    <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} allowDecimals={false} width={28} />
+                    <Tooltip
+                      contentStyle={{ border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ fontWeight: 700 }}
+                      formatter={(v: number) => [v, "Registreringer"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      dot={{ r: 2.5, stroke: "#6366f1", fill: "#fff", strokeWidth: 2 }}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="px-4 py-4">
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.series} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={12} />
-                <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={12} allowDecimals={false} width={32} />
-                <Tooltip
-                  contentStyle={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ fontWeight: 700 }}
-                  formatter={(v: number) => [v, "Registreringer"]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#6366f1"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, stroke: "#6366f1", fill: "#fff", strokeWidth: 2 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+
+        {/* Right column: Top dealers (compact) + All dealers (scroll) */}
+        <div className="flex min-h-0 flex-col gap-4 xl:col-span-3">
+          <div className="shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2.5">
+              <h2 className="text-sm font-black">Top forhandlere</h2>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Top 5
+              </span>
+            </div>
+            {stats.topDealers.length === 0 ? (
+              <EmptyState text="Ingen aktivitet endnu." />
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {stats.topDealers.map((d, i) => {
+                  const w = topDealerMax > 0 ? Math.max(6, Math.round((d.count / topDealerMax) * 100)) : 0;
+                  return (
+                    <li key={d.dealer} className="px-5 py-2">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600">
+                            {i + 1}
+                          </span>
+                          <span className="truncate font-bold text-slate-700">{d.dealer}</span>
+                        </div>
+                        <span className="shrink-0 text-xs font-black text-slate-900">{d.count}</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-indigo-500"
+                          style={{ width: `${w}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2.5">
+              <h2 className="text-sm font-black">Alle forhandlere</h2>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600">
+                {stats.allDealers.length}
+              </span>
+            </div>
+            {stats.allDealers.length === 0 ? (
+              <EmptyState text="Ingen forhandlere." />
+            ) : (
+              <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-auto">
+                {stats.allDealers.map((d) => (
+                  <li
+                    key={d.dealer}
+                    className="flex items-center justify-between gap-3 px-5 py-2 text-sm"
+                  >
+                    <span className="truncate font-medium text-slate-700">{d.dealer}</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-700">
+                      {d.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
