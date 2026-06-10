@@ -1259,7 +1259,7 @@ export async function loadMachineJournal(
       date,
       title: "Garanti registreret",
       description: w.dealerName ? `${w.dealerName}${w.customer ? ` · ${w.customer}` : ""}` : undefined,
-      href: "/portal/service/warranty/registrations",
+      href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}&fromMachine=${encodeURIComponent(display)}`,
       source: "warranty",
     });
   }
