@@ -285,7 +285,7 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
         {/* Right column: Top dealers scrollable + chart below */}
         <div className="flex min-h-0 flex-col gap-4 xl:col-span-3">
           {/* Merged dealer panel — all dealers, top 10 visible, rest scrollable */}
-          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex h-[480px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2.5">
               <div>
                 <h2 className="text-sm font-black">Top forhandlere</h2>
@@ -327,7 +327,7 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
           </div>
 
           {/* Compact trend widget — moved below dealer panel */}
-          <div className="shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
               <div className="flex items-center gap-2">
                 <CalendarRange className="h-4 w-4 text-violet-600" />
@@ -348,8 +348,8 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
                 ))}
               </div>
             </div>
-            <div className="px-3 py-2">
-              <div className="h-24 w-full">
+            <div className="min-h-0 flex-1 px-3 py-2">
+              <div className="h-full w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.series} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#eef2f7" vertical={false} />
