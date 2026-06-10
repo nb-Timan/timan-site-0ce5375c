@@ -773,9 +773,10 @@ export default function ServiceMaintenancePage() {
                 <TableHead>{t('fInterval')}</TableHead>
                 <TableHead>{t('fTech')}</TableHead>
                 <TableHead>{t('fNotes')}</TableHead>
+                <TableHead className="w-44">{t('colAction')}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {historyRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500">{t('none')}</TableCell></TableRow>}
+                {historyRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-slate-500">{t('none')}</TableCell></TableRow>}
                 {historyRows.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>{r.service_date}</TableCell>
@@ -783,6 +784,19 @@ export default function ServiceMaintenancePage() {
                     <TableCell>{r.service_interval_hours} h</TableCell>
                     <TableCell>{r.technician_name ?? '—'}</TableCell>
                     <TableCell className="max-w-xs truncate" title={r.notes ?? ''}>{r.notes ?? '—'}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setHistoryFor(null);
+                          navigate(`/portal/service/maintenance/registrations/${r.id}`);
+                        }}
+                      >
+                        <Search className="h-3 w-3 mr-1" />
+                        {t('openRegistration')}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
