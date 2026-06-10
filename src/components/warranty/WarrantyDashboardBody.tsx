@@ -138,7 +138,9 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
       prevMonth,
       top,
       dealers,
-      latest: records.slice(0, 60),
+      latest: [...records]
+        .sort((a, b) => (b.sharepointFormId ?? -1) - (a.sharepointFormId ?? -1))
+        .slice(0, 60),
       matched,
       unmatched,
       review,
