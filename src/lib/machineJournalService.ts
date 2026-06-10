@@ -1113,21 +1113,47 @@ export async function loadMachineJournal(
     const t = new Date(latestServiceDate).getTime();
     if (!Number.isNaN(t)) serviceDays = Math.floor((Date.now() - t) / 86400000);
   }
-  const warrantyEnd = machine?.warranty_end_date ?? null;
+  // Warranty expiry:
+  //   - Prefer delivery_date from warranty registration + 12 months.
+  //   - Fall back to machine.warranty_end_date if no registration delivery date.
+  //   - Demo-specific rules will arrive later.
+  const deliveryDate = firstWarranty?.deliveryDate ?? null;
+  let computedWarrantyEnd: string | null = null;
+  if (deliveryDate) {
+    const d = new Date(deliveryDate);
+    if (!Number.isNaN(d.getTime())) {
+      d.setMonth(d.getMonth() + 12);
+      computedWarrantyEnd = d.toISOString();
+    }
+  }
+  const warrantyEnd = computedWarrantyEnd ?? machine?.warranty_end_date ?? null;
   let warrantyTone: StatusTone = "neutral";
   let warrantyValue = "Ukendt";
+  let warrantySub: string | undefined;
   if (warrantyEnd) {
     const we = new Date(warrantyEnd).getTime();
     if (!Number.isNaN(we)) {
       const daysLeft = Math.floor((we - Date.now()) / 86400000);
-      if (daysLeft < 0) { warrantyTone = "neutral"; warrantyValue = "Udløbet"; }
-      else if (daysLeft < 60) { warrantyTone = "yellow"; warrantyValue = `Udløber om ${daysLeft} dage`; }
-      else { warrantyTone = "green"; warrantyValue = "Aktiv"; }
+      const dd = new Date(warrantyEnd);
+      const dateStr = `${String(dd.getDate()).padStart(2, "0")}-${String(dd.getMonth() + 1).padStart(2, "0")}-${dd.getFullYear()}`;
+      if (daysLeft < 0) {
+        warrantyTone = "red";
+        warrantyValue = `Udløbet: ${dateStr}`;
+        warrantySub = `${Math.abs(daysLeft)} dage siden`;
+      } else if (daysLeft <= 60) {
+        warrantyTone = "yellow";
+        warrantyValue = `Udløber: ${dateStr}`;
+        warrantySub = `Om ${daysLeft} dage`;
+      } else {
+        warrantyTone = "green";
+        warrantyValue = `Udløber: ${dateStr}`;
+        warrantySub = `Om ${daysLeft} dage`;
+      }
     }
   }
 
   const statusItems: JournalStatusItem[] = [
-    { key: "warranty", label: "Garanti", value: warrantyValue, tone: warrantyTone },
+    { key: "warranty", label: "Garanti", value: warrantyValue, sub: warrantySub, tone: warrantyTone },
     { key: "tickets", label: "Åbne tickets", value: String(openTickets), tone: openTickets > 0 ? "yellow" : "green" },
     { key: "claims", label: "Åbne claims", value: String(openClaims), tone: openClaims > 0 ? "red" : "green" },
     { key: "tsb", label: "Åbne TSB", value: String(tsbPending), tone: tsbPending > 0 ? "red" : "green" },
