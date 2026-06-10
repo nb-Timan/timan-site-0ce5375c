@@ -496,12 +496,12 @@ Deno.serve(async (req) => {
     for (const r of resolved) {
       const ex = existingById.get(r.m.sharepoint_item_id);
       const zipCity = splitZipCity(r.m.customer_zip_city);
-      // Preserve the original SharePoint Created date. SharePoint's
-      // createdDateTime is immutable, but defensively we NEVER overwrite an
-      // existing non-null value with null — fall back to the existing DB
-      // value if SP somehow omits it.
+      // Preserve the original SharePoint Created date. Existing DB value
+      // always wins so Excel-restored / manually corrected dates can never
+      // be overwritten by a later SharePoint sync. Only fall back to the
+      // SP createdDateTime when the DB column is genuinely empty.
       const preservedSpCreated =
-        r.m.source_created_at ?? (ex?.sharepoint_created_at as string | null | undefined) ?? null;
+        (ex?.sharepoint_created_at as string | null | undefined) ?? r.m.source_created_at ?? null;
 
       const payload: Record<string, unknown> = {
         // Source / identity
