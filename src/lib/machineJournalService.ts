@@ -1157,7 +1157,8 @@ export async function loadMachineJournal(
         warrantyTooltip = `Garanti beregnes som 1 år fra garantibevisregistreringens leveringsdato.\n\nLeveringsdato: ${deliveryStr}`;
       }
     }
-  }
+  } else if (!deliveryDate) {
+    warrantyTooltip = "Garanti kan ikke beregnes, fordi leveringsdato mangler.";
 
   const statusItems: JournalStatusItem[] = [
     { key: "warranty", label: "Garanti", value: warrantyValue, sub: warrantySub, tone: warrantyTone, tooltip: warrantyTooltip },
