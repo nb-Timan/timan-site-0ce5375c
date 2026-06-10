@@ -468,7 +468,7 @@ export function WarrantyRegistrationsTable({
                     </td>
                     {scope === "admin" && (
                       <td className="whitespace-nowrap px-6 py-3 text-slate-600">
-                        {formatDate(r.registrationDate ?? r.sharepointModifiedAt ?? r.createdAt)}
+                        {formatDate(r.sharepointCreatedAt ?? r.registrationDate ?? r.sharepointModifiedAt ?? r.createdAt)}
                       </td>
                     )}
                     <td className="px-6 py-3">
