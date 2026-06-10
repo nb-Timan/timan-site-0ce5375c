@@ -1305,7 +1305,7 @@ export async function loadMachineJournal(
         date: c.approvedDate,
         title: "Claim godkendt",
         description: c.groupId,
-        href: `/portal/service/claims/${c.id}`,
+        href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
         source: "claim",
       });
     }
