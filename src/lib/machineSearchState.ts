@@ -12,6 +12,10 @@ export type MachineSearchPageSize = number | 'all';
 
 export interface MachineSearchSavedState {
   query: string;
+  dealerQuery?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  modelFilter?: string;
   statusFilter: MachineSearchStatusFilter;
   page: number;
   pageSize: MachineSearchPageSize;
