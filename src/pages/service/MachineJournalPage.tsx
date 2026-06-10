@@ -531,6 +531,9 @@ function HealthDashboard({ summary }: { summary: JournalSummary }) {
               {it.label}
             </div>
             <div className="mt-0.5 text-sm font-semibold truncate" title={it.value}>{it.value}</div>
+            {it.sub && (
+              <div className="text-[11px] font-medium opacity-80 truncate" title={it.sub}>{it.sub}</div>
+            )}
           </div>
         ))}
       </div>
