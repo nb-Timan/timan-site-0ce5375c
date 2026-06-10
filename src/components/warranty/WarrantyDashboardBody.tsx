@@ -348,8 +348,8 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
                 ))}
               </div>
             </div>
-            <div className="px-3 py-2">
-              <div className="h-24 w-full">
+            <div className="min-h-0 flex-1 px-3 py-2">
+              <div className="h-full w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.series} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#eef2f7" vertical={false} />
