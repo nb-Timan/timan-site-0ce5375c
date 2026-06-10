@@ -1283,7 +1283,7 @@ export async function loadMachineJournal(
       date: t.created_at || new Date().toISOString(),
       title: "Service ticket oprettet",
       description: `${t.ticket_number || ""}${t.title ? ` · ${t.title}` : ""}`.trim(),
-      href: `/portal/service/tickets/${t.id}`,
+      href: `/portal/service/tickets/${t.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "ticket",
     });
   }
