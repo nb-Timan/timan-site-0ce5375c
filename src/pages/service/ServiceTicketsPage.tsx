@@ -241,6 +241,18 @@ export default function ServiceTicketsPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Filter state
+  const [serialQuery, setSerialQuery] = useState("");
+  const [dealerQuery, setDealerQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [modelFilter, setModelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  const serialDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dealerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   if (!appUser) {
     navigate("/portal", { replace: true });
     return null;
