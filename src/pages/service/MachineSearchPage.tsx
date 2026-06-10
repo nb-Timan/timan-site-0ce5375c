@@ -269,6 +269,10 @@ export default function MachineSearchPage() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
 
+  // Debounce timers for automatic text filtering
+  const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dealerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Restore persisted UI state (filters, page, scroll) so users returning
   // from Min Maskine land back exactly where they left off.
   const initialSaved = React.useRef(readMachineSearchState()).current;
