@@ -1259,7 +1259,7 @@ export async function loadMachineJournal(
       date,
       title: "Garanti registreret",
       description: w.dealerName ? `${w.dealerName}${w.customer ? ` · ${w.customer}` : ""}` : undefined,
-      href: "/portal/service/warranty/registrations",
+      href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}&fromMachine=${encodeURIComponent(display)}`,
       source: "warranty",
     });
   }
@@ -1271,7 +1271,7 @@ export async function loadMachineJournal(
       date: s.service_date,
       title: `Service registreret${s.operating_hours ? ` — ${s.operating_hours} timer` : ""}`,
       description: [s.technician_name, s.dealer_name].filter(Boolean).join(" · ") || undefined,
-      href: "/portal/service/maintenance",
+      href: `/portal/service/maintenance/registrations/${s.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "service",
     });
   }
@@ -1283,7 +1283,7 @@ export async function loadMachineJournal(
       date: t.created_at || new Date().toISOString(),
       title: "Service ticket oprettet",
       description: `${t.ticket_number || ""}${t.title ? ` · ${t.title}` : ""}`.trim(),
-      href: `/portal/service/tickets/${t.id}`,
+      href: `/portal/service/tickets/${t.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "ticket",
     });
   }
@@ -1295,7 +1295,7 @@ export async function loadMachineJournal(
       date: c.createdAt,
       title: "Claim oprettet",
       description: `${c.groupId}${c.title ? ` · ${c.title}` : ""}`,
-      href: `/portal/service/claims/${c.id}`,
+      href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "claim",
     });
     if (c.approvedDate) {
@@ -1305,7 +1305,7 @@ export async function loadMachineJournal(
         date: c.approvedDate,
         title: "Claim godkendt",
         description: c.groupId,
-        href: `/portal/service/claims/${c.id}`,
+        href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
         source: "claim",
       });
     }
@@ -1318,7 +1318,7 @@ export async function loadMachineJournal(
       date: tsb.activeFrom || tsb.createdAt,
       title: status === "accepteret" ? "TSB udført" : "TSB tildelt",
       description: `${tsb.id} · ${tsb.title}`,
-      href: `/portal/service/tsb/${tsb.id}`,
+      href: `/portal/service/tsb/${tsb.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "tsb",
     });
   }
@@ -1379,27 +1379,27 @@ export async function loadMachineJournal(
     // Deep-link to the exact warranty registration so the list page opens
     // pre-filtered to this certificate (e.g. SP-224) instead of the full
     // unfiltered registrations list.
-    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}`,
+    href: `/portal/service/warranty/registrations?certificate=${encodeURIComponent(w.certificateNumber)}&fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.serviceRegistrations = serviceRegs.map((s) => ({
     id: s.id, kind: "service", label: `${s.service_interval_hours}-timers service`,
     sublabel: s.technician_name || s.dealer_name || undefined, date: s.service_date,
-    href: "/portal/service/maintenance",
+    href: `/portal/service/maintenance/registrations/${s.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.tickets = ticketsForSerial.map((t) => ({
     id: t.id, kind: "ticket", label: t.ticket_number || t.title || t.id.slice(0, 8),
     sublabel: t.title || undefined, date: t.created_at,
-    href: `/portal/service/tickets/${t.id}`,
+    href: `/portal/service/tickets/${t.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.claims = claimsForSerial.map((c) => ({
     id: c.id, kind: "claim", label: `${c.groupId}${c.subIndex > 1 ? `/${c.subIndex}` : ""}`,
     sublabel: c.title || undefined, date: c.createdAt,
-    href: `/portal/service/claims/${c.id}`,
+    href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
   journal.related.tsb = tsbForSerial.map(({ tsb, status }) => ({
     id: `${tsb.id}-${status}`, kind: "tsb", label: tsb.id,
     sublabel: `${tsb.title} · ${status}`, date: tsb.activeFrom || tsb.createdAt,
-    href: `/portal/service/tsb/${tsb.id}`,
+    href: `/portal/service/tsb/${tsb.id}?fromMachine=${encodeURIComponent(display)}`,
   }));
 
   // ---------- Documents & photos ----------

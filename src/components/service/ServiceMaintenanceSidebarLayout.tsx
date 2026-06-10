@@ -137,7 +137,7 @@ export function ServiceMaintenanceSidebarLayout({
   if (!appUser) return null;
 
   const items = NAV.filter((n) => isInternal || !n.internalOnly);
-  const back = getPortalBackInfo(location.pathname, lang);
+  const back = getPortalBackInfo(location.pathname, lang, location.search);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">

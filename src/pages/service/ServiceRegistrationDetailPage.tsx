@@ -5,7 +5,8 @@
 // returns null and we show "ikke fundet".
 
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getPortalBackInfo, goBackOrFallback } from '@/lib/portalBackNav';
 import { ArrowLeft, ClipboardList, FileText, Wrench, Paperclip } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -69,6 +70,7 @@ export default function ServiceRegistrationDetailPage() {
   const { uiLanguage } = useLanguage();
   const t = (k: keyof typeof T) => pickT(T[k], uiLanguage);
   const navigate = useNavigate();
+  const location = useLocation();
   const { registrationId } = useParams<{ registrationId: string }>();
 
   const [reg, setReg] = useState<ServiceRegistration | null>(null);
@@ -123,19 +125,18 @@ export default function ServiceRegistrationDetailPage() {
   }
   if (!appUser) return <Navigate to="/portal" replace />;
 
+  const backInfo = getPortalBackInfo(location.pathname, 'da', location.search);
   const back = (
     <Button
       variant="ghost"
       size="sm"
-      onClick={() => {
-        if (window.history.length > 1) navigate(-1);
-        else navigate('/portal/service/maintenance');
-      }}
+      onClick={() => goBackOrFallback(navigate, location)}
     >
       <ArrowLeft className="h-4 w-4 mr-1" />
-      {t('back')}
+      {backInfo.label}
     </Button>
   );
+
 
   if (loading) {
     return (

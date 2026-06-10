@@ -63,7 +63,10 @@ type BackLabelKey =
   | 'claims'
   | 'tsb'
   | 'warranty'
-  | 'service_tickets';
+  | 'service_tickets'
+  | 'machine_journal'
+  | 'machine_search'
+  | 'service_maintenance';
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
@@ -82,6 +85,9 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   tsb:             { da: 'Tilbage til TSB',           en: 'Back to TSB',            de: 'Zurück zu TSB',             it: 'Torna a TSB',              hu: 'Vissza a TSB-hez' },
   warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
   service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
+  machine_journal: { da: 'Tilbage til Min Maskine',   en: 'Back to My Machine',     de: 'Zurück zu Meine Maschine',  it: 'Torna a La mia macchina',  hu: 'Vissza: Saját gép' },
+  machine_search:  { da: 'Tilbage til Søg på maskine',en: 'Back to Machine Search', de: 'Zurück zur Maschinensuche', it: 'Torna a Cerca macchina',   hu: 'Vissza a gépkereséshez' },
+  service_maintenance: { da: 'Tilbage til Serviceregistreringer', en: 'Back to Service registrations', de: 'Zurück zu Serviceerfassungen', it: 'Torna alle registrazioni di servizio', hu: 'Vissza a szervizregisztrációkhoz' },
 };
 
 const eq = (path: string, p: string) => path === p;
@@ -135,6 +141,8 @@ const RULES: ParentRule[] = [
   { match: p => startsWith(p, '/portal/service/warranty/'), to: '/portal/service/warranty', labelKey: 'warranty' },
   { match: p => eq(p, '/portal/service/warranty'),        to: '/portal/teknik-service', labelKey: 'service_area' },
   { match: p => startsWith(p, '/portal/service/tickets/'),to: '/portal/service/tickets', labelKey: 'service_tickets' },
+  { match: p => startsWith(p, '/portal/service/maintenance/registrations/'), to: '/portal/service/maintenance', labelKey: 'service_maintenance' },
+  { match: p => /^\/portal\/service\/machines\/[^/]+/.test(p), to: '/portal/service/machines', labelKey: 'machine_search' },
   { match: p => startsWith(p, '/portal/service/'),        to: '/portal/teknik-service', labelKey: 'service_area' },
 
   // Configurator
@@ -144,8 +152,30 @@ const RULES: ParentRule[] = [
   { match: () => true,                                    to: '/portal', labelKey: 'portal' },
 ];
 
-function resolve(pathname: string): { to: string; labelKey: BackLabelKey } {
+function resolve(pathname: string, search?: string): { to: string; labelKey: BackLabelKey } {
   const clean = pathname.split('?')[0].split('#')[0];
+
+  // Navigation context overrides — when a detail page was opened from
+  // Min Maskine, the back button should return to that exact machine.
+  // Detail pages forward `?fromMachine=<serial>` (and optionally
+  // `?fromSearch=1`) so we can rebuild the correct breadcrumb.
+  if (search) {
+    const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const fromMachine = q.get('fromMachine');
+    if (fromMachine && !clean.startsWith('/portal/service/machines/' + fromMachine)) {
+      return {
+        to: `/portal/service/machines/${encodeURIComponent(fromMachine)}`,
+        labelKey: 'machine_journal',
+      };
+    }
+    if (q.get('fromSearch') === '1' && clean === '/portal/service/machines') {
+      // no-op: machine search itself
+    }
+    if (q.get('fromSearch') === '1' && clean.startsWith('/portal/service/machines/')) {
+      return { to: '/portal/service/machines', labelKey: 'machine_search' };
+    }
+  }
+
   for (const rule of RULES) {
     if (rule.match(clean)) return { to: rule.to, labelKey: rule.labelKey };
   }
@@ -153,16 +183,17 @@ function resolve(pathname: string): { to: string; labelKey: BackLabelKey } {
 }
 
 /** Parent route for the given pathname. */
-export function getPortalBackTarget(pathname: string): PortalBackTarget {
-  return resolve(pathname).to;
+export function getPortalBackTarget(pathname: string, search?: string): PortalBackTarget {
+  return resolve(pathname, search).to;
 }
 
 /** Parent route + localized label for the given pathname. */
 export function getPortalBackInfo(
   pathname: string,
   language: Language = 'da',
+  search?: string,
 ): { to: string; label: string } {
-  const { to, labelKey } = resolve(pathname);
+  const { to, labelKey } = resolve(pathname, search);
   return { to, label: LABELS[labelKey][language] ?? LABELS[labelKey].da };
 }
 
@@ -177,8 +208,9 @@ export function getPortalBackInfo(
  */
 export function goBackOrFallback(
   navigate: NavigateFunction,
-  location: { key?: string; pathname: string },
+  location: { key?: string; pathname: string; search?: string },
   fallback?: string,
 ): void {
-  navigate(fallback ?? getPortalBackTarget(location.pathname));
+  navigate(fallback ?? getPortalBackTarget(location.pathname, location.search));
 }
+

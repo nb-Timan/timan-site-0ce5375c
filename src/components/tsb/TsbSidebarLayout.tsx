@@ -13,7 +13,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { goBackOrFallback } from "@/lib/portalBackNav";
+import { goBackOrFallback, getPortalBackInfo } from "@/lib/portalBackNav";
 
 interface NavItem {
   to: string;
@@ -71,6 +71,8 @@ export function TsbSidebarLayout({ intro, children }: TsbSidebarLayoutProps) {
 
   if (!appUser) return null;
 
+  const backInfo = getPortalBackInfo(location.pathname, lang, location.search);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <PortalHeader
@@ -87,7 +89,7 @@ export function TsbSidebarLayout({ intro, children }: TsbSidebarLayoutProps) {
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tilbage til Teknik &amp; Service
+            {backInfo.label}
           </button>
         </div>
       </div>
