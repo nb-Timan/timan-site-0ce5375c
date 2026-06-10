@@ -327,7 +327,7 @@ export function WarrantyDashboardBody({ scope, dealerName }: Props) {
           </div>
 
           {/* Compact trend widget — moved below dealer panel */}
-          <div className="shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
               <div className="flex items-center gap-2">
                 <CalendarRange className="h-4 w-4 text-violet-600" />
