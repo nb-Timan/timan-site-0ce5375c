@@ -46,6 +46,7 @@ import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import WarrantyPage from "./pages/WarrantyPage";
 
 import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
+import ServiceRegistrationDetailPage from "./pages/service/ServiceRegistrationDetailPage";
 import ServiceTicketsPage from "./pages/service/ServiceTicketsPage";
 import ServiceTicketDetailPage from "./pages/service/ServiceTicketDetailPage";
 import MachineSearchPage from "./pages/service/MachineSearchPage";
