@@ -1295,7 +1295,7 @@ export async function loadMachineJournal(
       date: c.createdAt,
       title: "Claim oprettet",
       description: `${c.groupId}${c.title ? ` · ${c.title}` : ""}`,
-      href: `/portal/service/claims/${c.id}`,
+      href: `/portal/service/claims/${c.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "claim",
     });
     if (c.approvedDate) {
