@@ -63,6 +63,7 @@ type BackLabelKey =
   | 'claims'
   | 'tsb'
   | 'warranty'
+  | 'warranty_dashboard'
   | 'service_tickets'
   | 'machine_journal'
   | 'machine_search'
@@ -84,6 +85,7 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   claims:          { da: 'Tilbage til Reklamationer', en: 'Back to Claims',         de: 'Zurück zu Reklamationen',   it: 'Torna ai Reclami',         hu: 'Vissza a Reklamációkhoz' },
   tsb:             { da: 'Tilbage til TSB',           en: 'Back to TSB',            de: 'Zurück zu TSB',             it: 'Torna a TSB',              hu: 'Vissza a TSB-hez' },
   warranty:        { da: 'Tilbage til Garantier',     en: 'Back to Warranty',       de: 'Zurück zu Garantie',        it: 'Torna a Garanzia',         hu: 'Vissza a Garanciához' },
+  warranty_dashboard: { da: 'Tilbage til Dashboard',  en: 'Back to Dashboard',      de: 'Zurück zum Dashboard',      it: 'Torna alla Dashboard',     hu: 'Vissza az irányítópultra' },
   service_tickets: { da: 'Tilbage til Servicesager',  en: 'Back to Service tickets',de: 'Zurück zu Service-Tickets', it: 'Torna ai Ticket di servizio', hu: 'Vissza a Szerviz-jegyekhez' },
   machine_journal: { da: 'Tilbage til Min Maskine',   en: 'Back to My Machine',     de: 'Zurück zu Meine Maschine',  it: 'Torna a La mia macchina',  hu: 'Vissza: Saját gép' },
   machine_search:  { da: 'Tilbage til Søg på maskine',en: 'Back to Machine Search', de: 'Zurück zur Maschinensuche', it: 'Torna a Cerca macchina',   hu: 'Vissza a gépkereséshez' },
@@ -138,6 +140,8 @@ const RULES: ParentRule[] = [
   { match: p => eq(p, '/portal/service/claims'),          to: '/portal/teknik-service', labelKey: 'service_area' },
   { match: p => startsWith(p, '/portal/service/tsb/'),    to: '/portal/service/tsb', labelKey: 'tsb' },
   { match: p => eq(p, '/portal/service/tsb'),             to: '/portal/teknik-service', labelKey: 'service_area' },
+  { match: p => eq(p, '/portal/service/warranty/registrations'), to: '/portal/service/warranty', labelKey: 'warranty_dashboard' },
+  { match: p => eq(p, '/portal/service/warranty/sync'),   to: '/portal/service/warranty', labelKey: 'warranty_dashboard' },
   { match: p => startsWith(p, '/portal/service/warranty/'), to: '/portal/service/warranty', labelKey: 'warranty' },
   { match: p => eq(p, '/portal/service/warranty'),        to: '/portal/teknik-service', labelKey: 'service_area' },
   { match: p => startsWith(p, '/portal/service/tickets/'),to: '/portal/service/tickets', labelKey: 'service_tickets' },
