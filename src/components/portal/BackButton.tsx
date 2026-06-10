@@ -22,7 +22,7 @@ export default function BackButton({ to, label, className }: BackButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
-  const info = getPortalBackInfo(location.pathname, language);
+  const info = getPortalBackInfo(location.pathname, language, location.search);
   const target = to ?? info.to;
   const text = label ?? info.label;
 
