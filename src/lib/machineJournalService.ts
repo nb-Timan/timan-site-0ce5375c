@@ -1216,7 +1216,7 @@ export async function loadMachineJournal(
     servicePartnerName,
     sellerLabel: effectiveSellerLabel,
     warrantyStart: machine?.warranty_start_date ?? firstWarranty?.deliveryDate ?? null,
-    warrantyEnd: machine?.warranty_end_date ?? null,
+    warrantyEnd,
     registrationDate: firstWarranty?.registrationDate ?? null,
     currentHours: machine?.current_hours ?? (latestService?.operating_hours ?? null),
     latestServiceDate,
