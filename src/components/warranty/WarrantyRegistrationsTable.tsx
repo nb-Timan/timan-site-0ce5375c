@@ -196,7 +196,7 @@ export function WarrantyRegistrationsTable({
       if (dFrom !== null && dd < dFrom) return false;
       if (dTo !== null && dd > dTo) return false;
       const cd = dateNum(
-        r.registrationDate ?? r.sharepointModifiedAt ?? r.createdAt,
+        r.sharepointCreatedAt ?? r.registrationDate ?? r.sharepointModifiedAt ?? r.createdAt,
       );
       if (cFrom !== null && cd < cFrom) return false;
       if (cTo !== null && cd > cTo) return false;
@@ -250,8 +250,8 @@ export function WarrantyRegistrationsTable({
           return (dateNum(a.deliveryDate) - dateNum(b.deliveryDate)) * dir;
         case "createdDate":
           return (
-            (dateNum(a.registrationDate ?? a.sharepointModifiedAt ?? a.createdAt) -
-              dateNum(b.registrationDate ?? b.sharepointModifiedAt ?? b.createdAt)) *
+            (dateNum(a.sharepointCreatedAt ?? a.registrationDate ?? a.sharepointModifiedAt ?? a.createdAt) -
+              dateNum(b.sharepointCreatedAt ?? b.registrationDate ?? b.sharepointModifiedAt ?? b.createdAt)) *
             dir
           );
         case "status":
