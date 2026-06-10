@@ -375,6 +375,125 @@ export default function ServiceTicketsPage() {
           </Button>
         </div>
 
+        {/* Filter bar */}
+        {!loading && !loadErr && tickets.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterSerial, uiLang)}</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={serialQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSerialQuery(val);
+                      if (serialDebounceRef.current) clearTimeout(serialDebounceRef.current);
+                      serialDebounceRef.current = setTimeout(() => {}, 350);
+                    }}
+                    placeholder={pickT(T.filterSerial, uiLang)}
+                    className="w-full h-10 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                  />
+                </div>
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterDealer, uiLang)}</label>
+                <input
+                  type="text"
+                  value={dealerQuery}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDealerQuery(val);
+                    if (dealerDebounceRef.current) clearTimeout(dealerDebounceRef.current);
+                    dealerDebounceRef.current = setTimeout(() => {}, 350);
+                  }}
+                  placeholder="Navn eller konto nr."
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterFromDate, uiLang)}</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDateFrom(val);
+                    setDateError(null);
+                    if (val && dateTo && val > dateTo) {
+                      setDateError(pickT(T.dateError, uiLang));
+                    }
+                  }}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterToDate, uiLang)}</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDateTo(val);
+                    setDateError(null);
+                    if (dateFrom && val && dateFrom > val) {
+                      setDateError(pickT(T.dateError, uiLang));
+                    }
+                  }}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterModel, uiLang)}</label>
+                <select
+                  value={modelFilter}
+                  onChange={(e) => setModelFilter(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                >
+                  <option value="all">{pickT(T.filterAllModels, uiLang)}</option>
+                  {modelOptions.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{pickT(T.filterStatus, uiLang)}</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
+                >
+                  <option value="all">{pickT(T.filterAllStatuses, uiLang)}</option>
+                  {STATUS_OPTIONS.map(s => (
+                    <option key={s} value={s}>{statusLabel(s, uiLang)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 min-h-[20px]">
+              <div className="text-xs text-red-600">{dateError || ""}</div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setSerialQuery("");
+                    setDealerQuery("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setModelFilter("all");
+                    setStatusFilter("all");
+                    setDateError(null);
+                  }}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
+                >
+                  {pickT(T.resetFilters, uiLang)}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
@@ -384,6 +503,8 @@ export default function ServiceTicketsPage() {
             <div className="p-10 text-center text-sm text-red-600">{loadErr}</div>
           ) : tickets.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500">{pickT(T.empty, uiLang)}</div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="p-10 text-center text-sm text-slate-500">{pickT(T.noFilterMatch, uiLang)}</div>
           ) : (
             <Table>
               <TableHeader>
@@ -398,7 +519,7 @@ export default function ServiceTicketsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets.map((t) => (
+                {filteredTickets.map((t) => (
                   <TableRow
                     key={t.id}
                     className="cursor-pointer hover:bg-slate-50"
@@ -407,19 +528,16 @@ export default function ServiceTicketsPage() {
                     <TableCell className="font-mono text-xs">{t.ticket_number || "—"}</TableCell>
                     <TableCell className="font-medium">{t.title}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {(() => {
-                        const sn = (t as ServiceTicket & { serial_number?: string }).serial_number;
-                        return sn ? (
-                          <Link
-                            to={`/portal/service/machines/${encodeURIComponent(sn)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="hover:underline"
-                            title="Min Maskine"
-                          >
-                            {sn}
-                          </Link>
-                        ) : "—";
-                      })()}
+                      {t.serial_number ? (
+                        <Link
+                          to={`/portal/service/machines/${encodeURIComponent(t.serial_number)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline"
+                          title="Min Maskine"
+                        >
+                          {t.serial_number}
+                        </Link>
+                      ) : "—"}
                     </TableCell>
                     <TableCell>
                       <span className={"inline-block rounded-full px-2 py-0.5 text-xs font-semibold " + statusClass(t.status)}>
