@@ -126,6 +126,26 @@ export async function listServiceRegistrations(opts?: {
   }));
 }
 
+/**
+ * Fetch a single service registration by id. RLS enforces dealer scoping at
+ * the DB level — unauthorised users get null (not an error).
+ */
+export async function getServiceRegistration(id: string): Promise<ServiceRegistration | null> {
+  const { data, error } = await supabase
+    .from('service_registrations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error && error.code !== 'PGRST116') throw error;
+  if (!data) return null;
+  return {
+    ...(data as ServiceRegistration),
+    attachment_urls: Array.isArray((data as { attachment_urls?: unknown }).attachment_urls)
+      ? ((data as { attachment_urls: unknown[] }).attachment_urls as string[])
+      : [],
+  };
+}
+
 /** Find-or-create the machine row keyed by serial_number (case-insensitive). */
 async function ensureMachine(payload: NewServiceRegistration, createdByEmail: string | null): Promise<ServiceMachine> {
   const { data: existing, error: selErr } = await supabase

@@ -115,6 +115,8 @@ const T: Record<string, Dict> = {
   createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása', sv: 'Skapa serviceregistrering', fr: 'Créer un enregistrement de service', pl: 'Utwórz rejestrację serwisową', cs: 'Vytvořit servisní záznam' },
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk', sv: 'Serviceregistreringar', fr: 'Enregistrements de service', pl: 'Rejestracje serwisowe', cs: 'Servisní záznamy' },
   newServiceReg: { da: 'Ny service registrering', en: 'New service registration', de: 'Neue Serviceerfassung', it: 'Nuova registrazione servizio', hu: 'Új szervizregisztráció', sv: 'Ny serviceregistrering', fr: 'Nouvel enregistrement de service', pl: 'Nowa rejestracja serwisowa', cs: 'Nový servisní záznam' },
+  openRegistration: { da: 'Åbn registrering', en: 'Open registration', de: 'Erfassung öffnen', it: 'Apri registrazione', hu: 'Regisztráció megnyitása', sv: 'Öppna registrering', fr: "Ouvrir l'enregistrement", pl: 'Otwórz rejestrację', cs: 'Otevřít záznam' },
+  colAction: { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet', sv: 'Åtgärd', fr: 'Action', pl: 'Akcja', cs: 'Akce' },
 };
 
 const VIEWS: ServiceMaintView[] = ['dashboard', 'registrations', 'create', 'dealers', 'machines'];
@@ -771,9 +773,10 @@ export default function ServiceMaintenancePage() {
                 <TableHead>{t('fInterval')}</TableHead>
                 <TableHead>{t('fTech')}</TableHead>
                 <TableHead>{t('fNotes')}</TableHead>
+                <TableHead className="w-44">{t('colAction')}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {historyRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500">{t('none')}</TableCell></TableRow>}
+                {historyRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-slate-500">{t('none')}</TableCell></TableRow>}
                 {historyRows.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>{r.service_date}</TableCell>
@@ -781,6 +784,19 @@ export default function ServiceMaintenancePage() {
                     <TableCell>{r.service_interval_hours} h</TableCell>
                     <TableCell>{r.technician_name ?? '—'}</TableCell>
                     <TableCell className="max-w-xs truncate" title={r.notes ?? ''}>{r.notes ?? '—'}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setHistoryFor(null);
+                          navigate(`/portal/service/maintenance/registrations/${r.id}`);
+                        }}
+                      >
+                        <Search className="h-3 w-3 mr-1" />
+                        {t('openRegistration')}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
