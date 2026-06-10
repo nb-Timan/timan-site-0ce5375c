@@ -181,6 +181,8 @@ export interface JournalStatusItem {
   key: string;
   label: string;
   value: string;
+  /** Optional secondary line (e.g. countdown under expiry date). */
+  sub?: string;
   tone: StatusTone;
 }
 
