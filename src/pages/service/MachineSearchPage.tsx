@@ -738,14 +738,32 @@ export default function MachineSearchPage() {
           const criticalCount = overview.filter(r => r.health === "critical").length;
 
           const q = query.trim().toLowerCase();
+          const dq = dealerQuery.trim().toLowerCase();
+          const mq = modelFilter && modelFilter !== 'all' ? modelFilter.trim().toLowerCase() : '';
+          const fromIso = dateFrom || '';
+          const toIso = dateTo || '';
           const filteredOverview = overview.filter(row => {
-            const matchesStatus = statusFilter === 'all' || row.health === statusFilter;
-            if (!q) return matchesStatus;
-            const s = row.serial.toLowerCase();
-            const m = (row.machineModel || '').toLowerCase();
-            const d = (row.dealerName || '').toLowerCase();
-            const w = (row.warrantyId || '').toLowerCase();
-            return matchesStatus && (s.includes(q) || m.includes(q) || d.includes(q) || w.includes(q));
+            if (!(statusFilter === 'all' || row.health === statusFilter)) return false;
+            if (q) {
+              const s = row.serial.toLowerCase();
+              const w = (row.warrantyId || '').toLowerCase();
+              if (!(s.includes(q) || w.includes(q))) return false;
+            }
+            if (dq) {
+              const dn = (row.dealerName || '').toLowerCase();
+              const da = (row.dealerNumber || '').toLowerCase();
+              if (!(dn.includes(dq) || da.includes(dq))) return false;
+            }
+            if (mq) {
+              if ((row.machineModel || '').trim().toLowerCase() !== mq) return false;
+            }
+            if (fromIso || toIso) {
+              const d = row.deliveryDate ? row.deliveryDate.slice(0, 10) : '';
+              if (!d) return false;
+              if (fromIso && d < fromIso) return false;
+              if (toIso && d > toIso) return false;
+            }
+            return true;
           });
           const displayedTotal = filteredOverview.length;
           const effectivePageSize = pageSize === "all" ? Math.max(1, displayedTotal) : pageSize;
