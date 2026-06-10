@@ -29,7 +29,7 @@ import {
   getWarrantyViewVariant,
 } from "@/lib/portalAccess";
 
-type Page = "dashboard" | "registrations" | "new";
+type Page = "dashboard" | "registrations" | "new" | "sync";
 
 export default function WarrantyPage({ page }: { page: Page }) {
   const { appUser, loading } = useAppUser();
@@ -62,6 +62,11 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return <Navigate to="/portal/service/warranty" replace />;
   }
 
+  // /sync is admin-only (Timan Backend / Service / Sælger)
+  if (page === "sync" && variant !== "admin") {
+    return <Navigate to="/portal/service/warranty" replace />;
+  }
+
   if (page === "dashboard") {
     return (
       <WarrantyAdminSidebarLayout
@@ -69,9 +74,27 @@ export default function WarrantyPage({ page }: { page: Page }) {
         readOnly={readOnly}
         intro={<WarrantyDashboardIntro scope={variant} showCreate={canCreate} />}
       >
-        {variant === "admin" && <WarrantySharePointSyncPanel />}
-        {variant === "admin" && <WarrantyDealerLinkBackfillPanel />}
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
+      </WarrantyAdminSidebarLayout>
+    );
+  }
+
+  if (page === "sync") {
+    return (
+      <WarrantyAdminSidebarLayout
+        scope="admin"
+        readOnly={false}
+        intro={
+          <div>
+            <h1 className="text-3xl font-black tracking-tight">Synkronisering</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              SharePoint-synkronisering og match til forhandlere.
+            </p>
+          </div>
+        }
+      >
+        <WarrantySharePointSyncPanel />
+        <WarrantyDealerLinkBackfillPanel />
       </WarrantyAdminSidebarLayout>
     );
   }
