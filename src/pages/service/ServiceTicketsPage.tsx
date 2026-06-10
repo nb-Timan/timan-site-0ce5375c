@@ -205,6 +205,16 @@ function categoryLabel(v: string, uiLang: PortalUiLanguage | string): string {
   const key = `cat_${v}` as keyof typeof T;
   return pickT(T[key] as Record<string, string> | undefined, uiLang) || v;
 }
+function toLocalIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function ticketLocalDate(createdAt: string | null | undefined): string {
+  if (!createdAt) return "";
+  return toLocalIsoDate(new Date(createdAt));
+}
 
 export default function ServiceTicketsPage() {
   const { appUser, logout } = useAppUser();
