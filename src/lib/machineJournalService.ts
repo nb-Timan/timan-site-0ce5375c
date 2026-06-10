@@ -1318,7 +1318,7 @@ export async function loadMachineJournal(
       date: tsb.activeFrom || tsb.createdAt,
       title: status === "accepteret" ? "TSB udført" : "TSB tildelt",
       description: `${tsb.id} · ${tsb.title}`,
-      href: `/portal/service/tsb/${tsb.id}`,
+      href: `/portal/service/tsb/${tsb.id}?fromMachine=${encodeURIComponent(display)}`,
       source: "tsb",
     });
   }
