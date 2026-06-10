@@ -3,7 +3,7 @@
  * Search by serial_number or machine_number against public.machines (RLS).
  * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -268,6 +268,10 @@ export default function MachineSearchPage() {
   const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  // Debounce timers for automatic text filtering
+  const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dealerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Restore persisted UI state (filters, page, scroll) so users returning
   // from Min Maskine land back exactly where they left off.
@@ -604,19 +608,9 @@ export default function MachineSearchPage() {
               setDateError(null);
               setOverviewPage(1);
             };
-            const applyFilters = () => {
-              if (dateFrom && dateTo && dateFrom > dateTo) {
-                setDateError("Fra dato skal være før Til dato.");
-                return;
-              }
-              setDateError(null);
-              setOverviewPage(1);
-              if (query.trim()) {
-                handleSearch();
-              }
-            };
-            const onFilterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "Enter") applyFilters();
+            const debouncedSetPage = (ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) => {
+              if (ref.current) clearTimeout(ref.current);
+              ref.current = setTimeout(() => setOverviewPage(1), 300);
             };
             return (
               <>
@@ -628,8 +622,10 @@ export default function MachineSearchPage() {
                       <input
                         type="text"
                         value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={onFilterKeyDown}
+                        onChange={(e) => {
+                          setQuery(e.target.value);
+                          debouncedSetPage(queryDebounceRef);
+                        }}
                         placeholder={T.placeholder[lang]}
                         className="w-full h-10 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                       />
@@ -640,8 +636,10 @@ export default function MachineSearchPage() {
                     <input
                       type="text"
                       value={dealerQuery}
-                      onChange={(e) => setDealerQuery(e.target.value)}
-                      onKeyDown={onFilterKeyDown}
+                      onChange={(e) => {
+                        setDealerQuery(e.target.value);
+                        debouncedSetPage(dealerDebounceRef);
+                      }}
                       placeholder="Navn eller konto nr."
                       className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                     />
@@ -651,7 +649,15 @@ export default function MachineSearchPage() {
                     <input
                       type="date"
                       value={dateFrom}
-                      onChange={(e) => { setDateFrom(e.target.value); setDateError(null); }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDateFrom(val);
+                        setDateError(null);
+                        if (val && dateTo && val > dateTo) {
+                          setDateError("Fra dato skal være før Til dato.");
+                        }
+                        setOverviewPage(1);
+                      }}
                       className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                     />
                   </div>
@@ -661,15 +667,26 @@ export default function MachineSearchPage() {
                       type="date"
                       value={dateTo}
                       min={dateFrom || undefined}
-                      onChange={(e) => { setDateTo(e.target.value); setDateError(null); }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDateTo(val);
+                        setDateError(null);
+                        if (dateFrom && val && dateFrom > val) {
+                          setDateError("Fra dato skal være før Til dato.");
+                        }
+                        setOverviewPage(1);
+                      }}
                       className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                     />
                   </div>
-                  <div className="lg:col-span-1">
+                  <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Model</label>
                     <select
                       value={modelFilter}
-                      onChange={(e) => setModelFilter(e.target.value)}
+                      onChange={(e) => {
+                        setModelFilter(e.target.value);
+                        setOverviewPage(1);
+                      }}
                       className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                     >
                       <option value="all">Alle modeller</option>
@@ -677,16 +694,6 @@ export default function MachineSearchPage() {
                         <option key={m} value={m}>{m}</option>
                       ))}
                     </select>
-                  </div>
-                  <div className="lg:col-span-1">
-                    <button
-                      onClick={applyFilters}
-                      disabled={loading}
-                      className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-[#2d5a27] px-3 text-sm font-semibold text-white hover:bg-[#234a1f] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      {loading ? T.searching[lang] : T.searchBtn[lang]}
-                    </button>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 min-h-[20px]">
