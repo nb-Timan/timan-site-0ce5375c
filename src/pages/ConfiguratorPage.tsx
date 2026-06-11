@@ -1487,7 +1487,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
