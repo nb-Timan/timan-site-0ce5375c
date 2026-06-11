@@ -34,6 +34,7 @@ import {
   CrmConfigurationRow,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
+import { logActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
 
 interface Props { mode: CrmDocumentType }
