@@ -1043,7 +1043,7 @@ export default function ConfiguratorPage() {
     });
 
     // Totals
-    html += `<div class="mt-8 border-t-2 pt-4 flex flex-col items-end">
+    html += `<div data-pdf-keep="1" class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
         <span>${TC('confirmSubtotal')}</span>
         <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
