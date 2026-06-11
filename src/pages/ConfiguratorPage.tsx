@@ -40,6 +40,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
+import { buildMainCategories } from '@/lib/mainCategories';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 
@@ -1414,6 +1415,7 @@ export default function ConfiguratorPage() {
             machines: contentSummary.machines,
             totals: contentSummary.totals,
             state_summary: contentSummary,
+            main_categories: buildMainCategories(state),
           };
 
           const orderWebhookUrl = getOrderWebhookUrl();
@@ -1629,6 +1631,7 @@ export default function ConfiguratorPage() {
             machines: contentSummary.machines,
             totals: contentSummary.totals,
             state_summary: contentSummary,
+            main_categories: buildMainCategories(state),
           };
 
           const quoteWebhookUrl = getQuoteWebhookUrl();
