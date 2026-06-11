@@ -217,15 +217,24 @@ export async function listCrmConfigurations(
 }
 
 /**
- * CRM visibility gate: drafts saved with "Gem sag"/"Gem ændringer" must NOT
- * appear in CRM → Tilbud / Ordrer. Only show rows where the quote or order
- * has actually been sent/submitted.
+ * CRM visibility gate.
  *
- * Quote sent  → quote_sent_at is not null
- * Order sent  → order_sent_at is not null OR case_status/status = 'ordre_afgivet'
+ * Quotes (CRM → Tilbud):
+ *   Show every row whose document_type='quote' AND a quote_number is
+ *   assigned, UNLESS it has been converted to an order
+ *   (case_status/status = 'ordre_afgivet'). The base list query already
+ *   excludes case_status='deleted'. We deliberately do NOT require
+ *   quote_sent_at — historically that hid quotes whose send-stamp never
+ *   persisted (e.g. column stripped by legacy DB retry, or the send-flow
+ *   wrote the CRM activity but the row update was rejected). Drafts
+ *   without a quote_number are still filtered out.
  *
- * Saved-but-not-sent rows remain in "Min konto" (configurationsService loads
- * those independently and is NOT affected by this filter).
+ * Orders (CRM → Ordrer):
+ *   Visible when order_sent_at / submitted_at is set, OR
+ *   case_status/status = 'ordre_afgivet'.
+ *
+ * Saved drafts (no quote/order number assigned yet) remain in "Min konto"
+ * via configurationsService and are NOT touched by this gate.
  */
 export function isSentForCrm(row: CrmConfigurationRow, docType: CrmDocumentType): boolean {
   if (docType === 'order') {
@@ -235,8 +244,11 @@ export function isSentForCrm(row: CrmConfigurationRow, docType: CrmDocumentType)
     if ((row.status || '').toLowerCase() === 'ordre_afgivet') return true;
     return false;
   }
-  // quote
-  return Boolean(row.quote_sent_at);
+  // quote — must have a quote_number AND not be converted to an order.
+  if (!row.quote_number) return false;
+  if ((row.case_status || '').toLowerCase() === 'ordre_afgivet') return false;
+  if ((row.status || '').toLowerCase() === 'ordre_afgivet') return false;
+  return true;
 }
 
 /**
