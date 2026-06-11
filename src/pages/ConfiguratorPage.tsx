@@ -1270,13 +1270,16 @@ export default function ConfiguratorPage() {
     let activeOrderNumber: string | null = savedOrderNumber;
     const ownershipPayload = await getRequiredOwnershipPayload();
     if (!ownershipPayload) return;
+    // Resolve "Opret nyt lead" picker selection into a real lead now so
+    // the save/send flow links the configuration to the new lead.
+    const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
 
     if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
         if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
