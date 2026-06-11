@@ -1619,29 +1619,29 @@ export default function ConfiguratorPage() {
           }
         }
 
-        // Quote recipients (Krav 1):
-        //  - If "E-mail modtager" is filled → it is the primary (and only)
-        //    recipient. Multiple addresses may be separated by , or ;.
-        //  - "E-mail på udfylder" is ONLY used as fallback when modtager is
-        //    empty; it must never override an explicit modtager.
+        // Quote recipients:
+        //  - Always include "E-mail på udfylder".
+        //  - Also include "E-mail modtager" if filled (may contain multiple
+        //    addresses separated by , or ;).
+        //  - Deduplicate if both fields contain the same address.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
         const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
         const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
         const modtagerList = splitAddrs(emailModtagerRaw);
-        const baseList = modtagerList.length > 0 ? modtagerList : (emailUdfylder ? [emailUdfylder] : []);
-        const invalid = baseList.filter(e => !emailRe.test(e));
+        const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
+        const invalid = allEmails.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
           toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
             description: invalid.join(', '),
           });
           return;
         }
-        if (baseList.length === 0) {
+        if (allEmails.length === 0) {
           toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.');
           return;
         }
-        const recipients = Array.from(new Set(baseList));
+        const recipients = Array.from(new Set(allEmails));
         const emailModtager = modtagerList.join(', ');
 
         // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
