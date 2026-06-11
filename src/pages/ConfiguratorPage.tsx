@@ -320,6 +320,11 @@ export default function ConfiguratorPage() {
   // and is selected automatically.
   const [leadPickerKey, setLeadPickerKey] = useState(0);
   const [savingAsLead, setSavingAsLead] = useState(false);
+  // When the user picks "Opret nyt lead" in LeadLinkPicker, we defer the
+  // actual CRM lead creation until the configuration is saved or the
+  // quote is sent — at that moment ensurePendingLeadCreated() runs and
+  // links the new lead to the row.
+  const [pendingNewLead, setPendingNewLead] = useState(false);
 
   const canSaveConfiguratorAsLead = (() => {
     const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
@@ -347,6 +352,104 @@ export default function ConfiguratorPage() {
     return () => { cancelled = true; };
   }, [savedConfigurationId]);
 
+  /**
+   * Create a CRM lead from the current configurator state. Used by both
+   * the "Gem som lead" button (handleSaveAsLead) and by the new
+   * "Opret nyt lead" picker option (ensurePendingLeadCreated). The lead
+   * inherits company, contact, dealer, seller, machines, accessories,
+   * comment and the running quote/order numbers + sent-PDF link when
+   * available. Returns the created lead id, or null on failure.
+   */
+  const createLeadFromCurrentState = useCallback(async (): Promise<string | null> => {
+    try {
+      const { createLead } = await import('@/lib/crmLeadsService');
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const { resolveSellerId: resolveSid } = await import('@/lib/resolveSellerId');
+      const totals = calcConfigurationTotals(state);
+
+      let notes = '';
+      try {
+        const summary = buildQuoteContentSummary(state);
+        const lines: string[] = [];
+        for (const g of summary.machines) {
+          lines.push(`${g.qty} × ${g.model_name}`);
+          const accNames = new Set<string>();
+          for (const u of g.units) for (const a of u.accessories) accNames.add(a.name);
+          if (accNames.size > 0) lines.push('  • ' + Array.from(accNames).join(', '));
+        }
+        notes = lines.join('\n');
+      } catch { /* */ }
+      if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const quoteRef = savedQuoteNumber || savedOrderNumber;
+      if (quoteRef) notes = (notes ? notes + '\n\n' : '') + `Tilbud: ${quoteRef}`;
+
+      const sellerId = ownership.sellerEmail
+        ? await resolveSid(ownership.sellerEmail)
+        : await resolveSid(appUser?.email);
+
+      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
+      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
+        .filter(Boolean).join(' · ') || null;
+
+      const created = await createLead({
+        title,
+        owner_user_id: sellerId,
+        owner_name: ownership.sellerName || appUser?.display_name || null,
+        owner_email: ownership.sellerEmail || appUser?.email || null,
+        linked_dealer_id: ownership.dealerNumber || null,
+        first_contact_date: new Date().toISOString().slice(0, 10),
+        expected_close_date: null,
+        next_followup_date: null,
+        machine_types: machineTypes,
+        next_activity: 'Konfigurator-lead',
+        demo_has_run: null,
+        contact_type: null,
+        customer_type: null,
+        contact_information: contactInfo,
+        trade_fair: null,
+        country: null,
+        notes: notes || null,
+        estimated_value: Math.round(totals.finalPrice || 0),
+        probability: 10,
+        pipeline_stage: 'Lead',
+        lost_competitor: null,
+        lost_reason: null,
+        lost_comment: null,
+        attachments: [],
+        status: 'open',
+        incomplete_from_configurator: true,
+      });
+      return created.id;
+    } catch (err) {
+      console.error('[createLeadFromCurrentState] failed:', err);
+      return null;
+    }
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber]);
+
+  /**
+   * If the user selected "Opret nyt lead" in the picker, create the lead
+   * now and link it to the active configuration. Returns the effective
+   * lead id (newly created OR the previously linked one OR null).
+   * Idempotent — clears pendingNewLead after a successful create so
+   * subsequent save/send calls don't spawn duplicate leads.
+   */
+  const ensurePendingLeadCreated = useCallback(async (): Promise<string | null> => {
+    if (linkedLeadId) return linkedLeadId;
+    if (!pendingNewLead) return null;
+    const newId = await createLeadFromCurrentState();
+    if (!newId) {
+      toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      return null;
+    }
+    setLinkedLeadId(newId);
+    setPendingNewLead(false);
+    setLeadPickerKey(k => k + 1);
+    toast.success({ da: 'Nyt lead oprettet i CRM', en: 'New lead created in CRM', de: 'Neuer Lead im CRM erstellt', it: 'Nuovo lead creato nel CRM', hu: 'Új lead létrehozva a CRM-ben' }[lang]);
+    return newId;
+  }, [linkedLeadId, pendingNewLead, createLeadFromCurrentState, lang]);
+
+
   const handleSaveChanges = useCallback(async () => {
     if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
@@ -359,6 +462,9 @@ export default function ConfiguratorPage() {
     try {
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
+      // If the user picked "Opret nyt lead" in the picker, create the
+      // lead now so the saved row carries the lead_id link from the start.
+      const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
 
       if (savedConfigurationId) {
         const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
@@ -400,7 +506,7 @@ export default function ConfiguratorPage() {
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
         const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
           ownership: ownershipPayload,
-          leadId: linkedLeadId,
+          leadId: effectiveLeadId,
         });
         if (saveRes.error) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
@@ -440,7 +546,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
@@ -1164,13 +1270,16 @@ export default function ConfiguratorPage() {
     let activeOrderNumber: string | null = savedOrderNumber;
     const ownershipPayload = await getRequiredOwnershipPayload();
     if (!ownershipPayload) return;
+    // Resolve "Opret nyt lead" picker selection into a real lead now so
+    // the save/send flow links the configuration to the new lead.
+    const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
 
     if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
         if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
@@ -1378,7 +1487,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -1593,7 +1702,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -2748,8 +2857,16 @@ export default function ConfiguratorPage() {
                     <LeadLinkPicker
                       key={leadPickerKey}
                       appUser={appUser}
-                      value={linkedLeadId}
-                      onChange={setLinkedLeadId}
+                      value={linkedLeadId ? linkedLeadId : (pendingNewLead ? '__new__' : null)}
+                      onChange={(val) => {
+                        if (val === '__new__') {
+                          setPendingNewLead(true);
+                          setLinkedLeadId(null);
+                        } else {
+                          setPendingNewLead(false);
+                          setLinkedLeadId(val);
+                        }
+                      }}
                       dealerNumber={ownership.dealerNumber || null}
                       language={lang}
                     />
@@ -3173,7 +3290,8 @@ export default function ConfiguratorPage() {
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const ownershipPayload = await getRequiredOwnershipPayload();
                 if (!ownershipPayload) { setSavingBeforeReset(false); return; }
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+                const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
