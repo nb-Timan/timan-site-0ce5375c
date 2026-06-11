@@ -30,15 +30,16 @@ interface Props {
 
 const L = {
   label:    { da: 'Knyt til lead (CRM)', en: 'Link to CRM lead', de: 'Mit CRM-Lead verknüpfen', it: 'Collega a lead CRM', hu: 'CRM leadhez kapcsolás' },
-  none:     { da: 'Ingen — gem uden lead', en: 'None — save without lead', de: 'Keiner — ohne Lead speichern', it: 'Nessuno — senza lead', hu: 'Egyik sem' },
+  none:     { da: 'Gem uden lead', en: 'Save without lead', de: 'Ohne Lead speichern', it: 'Salva senza lead', hu: 'Mentés lead nélkül' },
+  createNew:{ da: 'Opret nyt lead', en: 'Create new lead', de: 'Neuen Lead erstellen', it: 'Crea nuovo lead', hu: 'Új lead létrehozása' },
   loading:  { da: 'Indlæser leads…', en: 'Loading leads…', de: 'Leads laden…', it: 'Caricamento…', hu: 'Betöltés…' },
   prefer:   { da: 'Foreslået for valgt forhandler', en: 'Suggested for selected dealer', de: 'Vorgeschlagen', it: 'Suggeriti', hu: 'Javasolt' },
   others:   { da: 'Andre åbne leads', en: 'Other open leads', de: 'Andere Leads', it: 'Altri lead', hu: 'Egyéb leadek' },
-  hint:     { da: 'Når du sender tilbuddet, opdateres leadets stage til "Offer sent" og en aktivitet logges.',
-              en: 'When the quote is sent the lead moves to "Offer sent" and an activity is logged.',
-              de: 'Beim Senden wechselt der Lead zu "Offer sent".',
-              it: 'All\'invio il lead passa a "Offer sent".',
-              hu: 'Küldéskor a lead "Offer sent" állapotba kerül.' },
+  hint:     { da: 'Vælg "Opret nyt lead" for at oprette et CRM-lead automatisk når du gemmer eller sender tilbuddet. Eksisterende leads opdateres til "Offer sent" ved afsendelse.',
+              en: 'Pick "Create new lead" to auto-create a CRM lead when you save or send the quote. Existing leads move to "Offer sent" on send.',
+              de: 'Mit "Neuen Lead erstellen" wird beim Speichern/Senden automatisch ein CRM-Lead angelegt. Bestehende Leads wechseln beim Senden zu "Offer sent".',
+              it: 'Scegli "Crea nuovo lead" per creare automaticamente un lead CRM al salvataggio o invio. I lead esistenti passano a "Offer sent".',
+              hu: 'Válaszd az "Új lead létrehozása" lehetőséget az automatikus CRM lead létrehozásához mentéskor/küldéskor.' },
 };
 
 export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber, language = 'da' }: Props) {
