@@ -1206,9 +1206,11 @@ export default function ConfiguratorPage() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentW = pageW - margin * 2;
-      const contentH = pageH - margin * 2;
+      const marginTop = 10;
+      const marginBottom = 15; // extra bottom margin to prevent clipping
+      const marginX = 10;
+      const contentW = pageW - marginX * 2;
+      const contentH = pageH - marginTop - marginBottom;
       const pxPerMm = 96 / 25.4;
       const renderW = Math.round(contentW * pxPerMm);
 
@@ -1219,9 +1221,6 @@ export default function ConfiguratorPage() {
 
       const clone = el.cloneNode(true) as HTMLElement;
       clone.style.cssText = 'width:100%;max-width:none;margin:0;padding:0;background:#fff;overflow:visible;';
-      // Re-render confirmation HTML with the freshly created reference numbers,
-      // so the PDF content shows the order/quote number even if React state
-      // hasn't propagated yet (single-submit flow).
       try {
         clone.innerHTML = buildConfirmationHtml({
           quoteNumber: activeQuoteNumber,
@@ -1233,19 +1232,71 @@ export default function ConfiguratorPage() {
 
       await new Promise(r => requestAnimationFrame(r));
 
+      // Capture geometry BEFORE rasterising: we need DOM rects to compute safe
+      // slice boundaries that don't clip text or split the price summary.
+      const rootRect = renderRoot.getBoundingClientRect();
+      const cssH = renderRoot.scrollHeight;
+
+      // Candidate break boundaries (CSS px relative to renderRoot top):
+      // bottoms of every leaf block + top of every "keep-together" section.
+      const breakPointsCss = new Set<number>([0, cssH]);
+      const keepRanges: Array<{ top: number; bottom: number }> = [];
+      const allEls = clone.querySelectorAll<HTMLElement>('*');
+      allEls.forEach(node => {
+        const r = node.getBoundingClientRect();
+        const top = r.top - rootRect.top;
+        const bottom = r.bottom - rootRect.top;
+        if (node.hasAttribute('data-pdf-keep')) {
+          keepRanges.push({ top, bottom });
+          breakPointsCss.add(top);
+        }
+        // Use bottoms of small block elements as safe split points.
+        if (r.height > 0 && r.height < 200 && node.children.length === 0) {
+          breakPointsCss.add(bottom);
+        }
+      });
+
       const canvas = await html2canvas(renderRoot, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
       document.body.removeChild(renderRoot);
 
       const canvasW = canvas.width;
       const canvasH = canvas.height;
+      const cssToCanvas = canvasH / cssH;
       const canvasPxPerMm = canvasW / contentW;
       const maxSliceH = Math.floor(contentH * canvasPxPerMm);
 
+      // Sorted break points in canvas pixels.
+      const breaks = Array.from(breakPointsCss)
+        .map(v => Math.round(v * cssToCanvas))
+        .filter(v => v >= 0 && v <= canvasH)
+        .sort((a, b) => a - b);
+      const keepRangesCanvas = keepRanges.map(k => ({
+        top: Math.round(k.top * cssToCanvas),
+        bottom: Math.round(k.bottom * cssToCanvas),
+      }));
+
       let yOffset = 0;
       let pageNum = 0;
-      while (yOffset < canvasH) {
+      while (yOffset < canvasH - 1) {
         if (pageNum > 0) pdf.addPage();
-        const sliceH = Math.min(maxSliceH, canvasH - yOffset);
+        const hardLimit = Math.min(yOffset + maxSliceH, canvasH);
+
+        // Find the largest break point > yOffset and <= hardLimit.
+        let cut = hardLimit;
+        for (let i = breaks.length - 1; i >= 0; i--) {
+          if (breaks[i] > yOffset && breaks[i] <= hardLimit) { cut = breaks[i]; break; }
+        }
+
+        // If any keep-together block straddles the cut, move the cut to its top
+        // (provided the whole block fits in one page; otherwise fall back to hardLimit).
+        for (const k of keepRangesCanvas) {
+          if (k.top > yOffset && k.top < cut && k.bottom > cut) {
+            if (k.bottom - k.top <= maxSliceH) cut = k.top;
+          }
+        }
+
+        if (cut <= yOffset) cut = hardLimit; // safety
+        const sliceH = cut - yOffset;
 
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvasW;
@@ -1255,11 +1306,12 @@ export default function ConfiguratorPage() {
 
         const imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
         const imgH = (sliceH / canvasPxPerMm);
-        pdf.addImage(imgData, 'JPEG', margin, margin, contentW, imgH);
+        pdf.addImage(imgData, 'JPEG', marginX, marginTop, contentW, imgH);
 
-        yOffset += sliceH;
+        yOffset = cut;
         pageNum++;
       }
+
 
       const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
