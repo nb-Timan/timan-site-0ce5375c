@@ -40,6 +40,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
+import { buildMainCategories } from '@/lib/mainCategories';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 
