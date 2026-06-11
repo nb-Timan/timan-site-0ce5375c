@@ -352,6 +352,104 @@ export default function ConfiguratorPage() {
     return () => { cancelled = true; };
   }, [savedConfigurationId]);
 
+  /**
+   * Create a CRM lead from the current configurator state. Used by both
+   * the "Gem som lead" button (handleSaveAsLead) and by the new
+   * "Opret nyt lead" picker option (ensurePendingLeadCreated). The lead
+   * inherits company, contact, dealer, seller, machines, accessories,
+   * comment and the running quote/order numbers + sent-PDF link when
+   * available. Returns the created lead id, or null on failure.
+   */
+  const createLeadFromCurrentState = useCallback(async (): Promise<string | null> => {
+    try {
+      const { createLead } = await import('@/lib/crmLeadsService');
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const { resolveSellerId: resolveSid } = await import('@/lib/resolveSellerId');
+      const totals = calcConfigurationTotals(state);
+
+      let notes = '';
+      try {
+        const summary = buildQuoteContentSummary(state);
+        const lines: string[] = [];
+        for (const g of summary.machines) {
+          lines.push(`${g.qty} × ${g.model_name}`);
+          const accNames = new Set<string>();
+          for (const u of g.units) for (const a of u.accessories) accNames.add(a.name);
+          if (accNames.size > 0) lines.push('  • ' + Array.from(accNames).join(', '));
+        }
+        notes = lines.join('\n');
+      } catch { /* */ }
+      if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const quoteRef = savedQuoteNumber || savedOrderNumber;
+      if (quoteRef) notes = (notes ? notes + '\n\n' : '') + `Tilbud: ${quoteRef}`;
+
+      const sellerId = ownership.sellerEmail
+        ? await resolveSid(ownership.sellerEmail)
+        : await resolveSid(appUser?.email);
+
+      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
+      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
+        .filter(Boolean).join(' · ') || null;
+
+      const created = await createLead({
+        title,
+        owner_user_id: sellerId,
+        owner_name: ownership.sellerName || appUser?.display_name || null,
+        owner_email: ownership.sellerEmail || appUser?.email || null,
+        linked_dealer_id: ownership.dealerNumber || null,
+        first_contact_date: new Date().toISOString().slice(0, 10),
+        expected_close_date: null,
+        next_followup_date: null,
+        machine_types: machineTypes,
+        next_activity: 'Konfigurator-lead',
+        demo_has_run: null,
+        contact_type: null,
+        customer_type: null,
+        contact_information: contactInfo,
+        trade_fair: null,
+        country: null,
+        notes: notes || null,
+        estimated_value: Math.round(totals.finalPrice || 0),
+        probability: 10,
+        pipeline_stage: 'Lead',
+        lost_competitor: null,
+        lost_reason: null,
+        lost_comment: null,
+        attachments: [],
+        status: 'open',
+        incomplete_from_configurator: true,
+      });
+      return created.id;
+    } catch (err) {
+      console.error('[createLeadFromCurrentState] failed:', err);
+      return null;
+    }
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber]);
+
+  /**
+   * If the user selected "Opret nyt lead" in the picker, create the lead
+   * now and link it to the active configuration. Returns the effective
+   * lead id (newly created OR the previously linked one OR null).
+   * Idempotent — clears pendingNewLead after a successful create so
+   * subsequent save/send calls don't spawn duplicate leads.
+   */
+  const ensurePendingLeadCreated = useCallback(async (): Promise<string | null> => {
+    if (linkedLeadId) return linkedLeadId;
+    if (!pendingNewLead) return null;
+    const newId = await createLeadFromCurrentState();
+    if (!newId) {
+      toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      return null;
+    }
+    setLinkedLeadId(newId);
+    setPendingNewLead(false);
+    setLeadPickerKey(k => k + 1);
+    toast.success({ da: 'Nyt lead oprettet i CRM', en: 'New lead created in CRM', de: 'Neuer Lead im CRM erstellt', it: 'Nuovo lead creato nel CRM', hu: 'Új lead létrehozva a CRM-ben' }[lang]);
+    return newId;
+  }, [linkedLeadId, pendingNewLead, createLeadFromCurrentState, lang]);
+
+
   const handleSaveChanges = useCallback(async () => {
     if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
