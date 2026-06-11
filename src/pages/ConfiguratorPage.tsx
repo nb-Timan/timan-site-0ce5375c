@@ -546,7 +546,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
