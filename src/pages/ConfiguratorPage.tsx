@@ -1207,20 +1207,21 @@ export default function ConfiguratorPage() {
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
       const marginTop = 10;
-      const marginBottom = 15; // extra bottom margin to prevent clipping
+      const marginBottom = 18; // generous bottom margin so footer text never clips
       const marginX = 10;
       const contentW = pageW - marginX * 2;
       const contentH = pageH - marginTop - marginBottom;
       const pxPerMm = 96 / 25.4;
       const renderW = Math.round(contentW * pxPerMm);
 
-      // Clone into offscreen container
+      // Clone into offscreen container — no max-height / overflow:hidden so the
+      // full content height is measurable and rasterisable.
       const renderRoot = document.createElement('div');
-      renderRoot.style.cssText = `position:fixed;left:-99999px;top:0;width:${renderW}px;background:#fff;overflow:visible;`;
+      renderRoot.style.cssText = `position:fixed;left:-99999px;top:0;width:${renderW}px;background:#fff;overflow:visible;max-height:none;height:auto;`;
       document.body.appendChild(renderRoot);
 
       const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.cssText = 'width:100%;max-width:none;margin:0;padding:0;background:#fff;overflow:visible;';
+      clone.style.cssText = 'width:100%;max-width:none;max-height:none;height:auto;margin:0;padding:0 0 24px 0;background:#fff;overflow:visible;';
       try {
         clone.innerHTML = buildConfirmationHtml({
           quoteNumber: activeQuoteNumber,
@@ -1230,15 +1231,25 @@ export default function ConfiguratorPage() {
       } catch { /* fallback to original cloned DOM */ }
       renderRoot.appendChild(clone);
 
+      // Inject page-break CSS for keep-together blocks (totals + machine blocks).
+      // Marks: data-pdf-keep="1" (totals), data-pdf-block (machine groups).
+      const pdfStyle = document.createElement('style');
+      pdfStyle.textContent = `
+        [data-pdf-keep], [data-pdf-block] {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        * { overflow: visible !important; max-height: none !important; }
+      `;
+      renderRoot.appendChild(pdfStyle);
+
       await new Promise(r => requestAnimationFrame(r));
 
-      // Capture geometry BEFORE rasterising: we need DOM rects to compute safe
-      // slice boundaries that don't clip text or split the price summary.
+      // Capture geometry BEFORE rasterising so we can choose safe slice
+      // boundaries that don't clip text or split the price summary.
       const rootRect = renderRoot.getBoundingClientRect();
-      const cssH = renderRoot.scrollHeight;
+      const cssH = Math.max(renderRoot.scrollHeight, clone.scrollHeight);
 
-      // Candidate break boundaries (CSS px relative to renderRoot top):
-      // bottoms of every leaf block + top of every "keep-together" section.
       const breakPointsCss = new Set<number>([0, cssH]);
       const keepRanges: Array<{ top: number; bottom: number }> = [];
       const allEls = clone.querySelectorAll<HTMLElement>('*');
@@ -1250,13 +1261,19 @@ export default function ConfiguratorPage() {
           keepRanges.push({ top, bottom });
           breakPointsCss.add(top);
         }
-        // Use bottoms of small block elements as safe split points.
         if (r.height > 0 && r.height < 200 && node.children.length === 0) {
           breakPointsCss.add(bottom);
         }
       });
 
-      const canvas = await html2canvas(renderRoot, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await html2canvas(renderRoot, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        windowWidth: renderW,
+        windowHeight: cssH,
+        height: cssH,
+      });
       document.body.removeChild(renderRoot);
 
       const canvasW = canvas.width;
@@ -1265,7 +1282,6 @@ export default function ConfiguratorPage() {
       const canvasPxPerMm = canvasW / contentW;
       const maxSliceH = Math.floor(contentH * canvasPxPerMm);
 
-      // Sorted break points in canvas pixels.
       const breaks = Array.from(breakPointsCss)
         .map(v => Math.round(v * cssToCanvas))
         .filter(v => v >= 0 && v <= canvasH)
@@ -1279,25 +1295,28 @@ export default function ConfiguratorPage() {
       let pageNum = 0;
       while (yOffset < canvasH - 1) {
         if (pageNum > 0) pdf.addPage();
-        const hardLimit = Math.min(yOffset + maxSliceH, canvasH);
+        const remaining = canvasH - yOffset;
 
-        // Find the largest break point > yOffset and <= hardLimit.
-        let cut = hardLimit;
-        for (let i = breaks.length - 1; i >= 0; i--) {
-          if (breaks[i] > yOffset && breaks[i] <= hardLimit) { cut = breaks[i]; break; }
-        }
-
-        // If any keep-together block straddles the cut, move the cut to its top
-        // (provided the whole block fits in one page; otherwise fall back to hardLimit).
-        for (const k of keepRangesCanvas) {
-          if (k.top > yOffset && k.top < cut && k.bottom > cut) {
-            if (k.bottom - k.top <= maxSliceH) cut = k.top;
+        // If everything that's left fits on this page, take it all.
+        let cut: number;
+        if (remaining <= maxSliceH) {
+          cut = canvasH;
+        } else {
+          const hardLimit = yOffset + maxSliceH;
+          cut = hardLimit;
+          for (let i = breaks.length - 1; i >= 0; i--) {
+            if (breaks[i] > yOffset && breaks[i] <= hardLimit) { cut = breaks[i]; break; }
           }
+          // Don't split a keep-together block: move cut to its top if possible.
+          for (const k of keepRangesCanvas) {
+            if (k.top > yOffset && k.top < cut && k.bottom > cut) {
+              if (k.bottom - k.top <= maxSliceH) cut = k.top;
+            }
+          }
+          if (cut <= yOffset) cut = hardLimit;
         }
 
-        if (cut <= yOffset) cut = hardLimit; // safety
         const sliceH = cut - yOffset;
-
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvasW;
         sliceCanvas.height = sliceH;
@@ -1311,6 +1330,7 @@ export default function ConfiguratorPage() {
         yOffset = cut;
         pageNum++;
       }
+
 
 
       const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
