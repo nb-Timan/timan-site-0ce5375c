@@ -1415,6 +1415,7 @@ export default function ConfiguratorPage() {
             machines: contentSummary.machines,
             totals: contentSummary.totals,
             state_summary: contentSummary,
+            main_categories: buildMainCategories(state),
           };
 
           const orderWebhookUrl = getOrderWebhookUrl();
