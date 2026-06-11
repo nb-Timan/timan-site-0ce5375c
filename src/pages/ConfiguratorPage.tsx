@@ -3282,7 +3282,8 @@ export default function ConfiguratorPage() {
                   : state.machineConfigs.map(m => m.type).join(', ') || T('newConfigTitle');
                 const ownershipPayload = await getRequiredOwnershipPayload();
                 if (!ownershipPayload) { setSavingBeforeReset(false); return; }
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: linkedLeadId });
+                const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {
