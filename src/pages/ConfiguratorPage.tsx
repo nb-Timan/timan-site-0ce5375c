@@ -2857,8 +2857,16 @@ export default function ConfiguratorPage() {
                     <LeadLinkPicker
                       key={leadPickerKey}
                       appUser={appUser}
-                      value={linkedLeadId}
-                      onChange={setLinkedLeadId}
+                      value={linkedLeadId ? linkedLeadId : (pendingNewLead ? '__new__' : null)}
+                      onChange={(val) => {
+                        if (val === '__new__') {
+                          setPendingNewLead(true);
+                          setLinkedLeadId(null);
+                        } else {
+                          setPendingNewLead(false);
+                          setLinkedLeadId(val);
+                        }
+                      }}
                       dealerNumber={ownership.dealerNumber || null}
                       language={lang}
                     />
