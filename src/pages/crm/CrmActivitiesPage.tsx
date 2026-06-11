@@ -18,8 +18,10 @@ const T: Record<string, Record<Language, string>> = {
 const TYPE_BADGE: Record<string, string> = {
   quote_created: 'bg-sky-50 text-sky-700 border-sky-200',
   quote_sent: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  quote_deleted: 'bg-red-50 text-red-700 border-red-200',
   order_created: 'bg-amber-50 text-amber-800 border-amber-200',
   order_sent: 'bg-purple-50 text-purple-700 border-purple-200',
+  order_deleted: 'bg-red-50 text-red-700 border-red-200',
   login: 'bg-gray-100 text-gray-700 border-gray-200',
 };
 
