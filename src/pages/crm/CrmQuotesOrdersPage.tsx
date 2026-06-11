@@ -34,6 +34,7 @@ import {
   CrmConfigurationRow,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
+import { logActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
 
 interface Props { mode: CrmDocumentType }
@@ -164,11 +165,52 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       toast.error('Kunne ikke slette. Prøv igen.');
       return;
     }
+
+    // Audit trail: log the deletion as a CRM activity. Activities are stored
+    // in a separate table and are not affected by the soft-delete on the
+    // configuration row, so the entry remains visible in CRM → Aktiviteter.
+    const isOrder = mode === 'order';
+    const docNumber = isOrder
+      ? (deletingRow.order_number || deletingRow.quote_number || deletingRow.id)
+      : (deletingRow.quote_number || deletingRow.id);
+    const company = deletingRow.dealer_company_name || deletingRow.dealer_name || null;
+    const actorName = appUser?.display_name || appUser?.email || null;
+    try {
+      await logActivity({
+        activity_type: isOrder ? 'order_deleted' : 'quote_deleted',
+        title: `${isOrder ? 'Ordre' : 'Tilbud'} slettet: ${docNumber}${company ? ` · ${company}` : ''}`,
+        description: `Slettet af ${actorName || 'ukendt bruger'}`,
+        configuration_id: deletingRow.id,
+        quote_id: isOrder ? null : (deletingRow.quote_number || null),
+        order_id: isOrder ? (deletingRow.order_number || null) : null,
+        dealer_account_id: deletingRow.dealer_account_id,
+        dealer_number: deletingRow.dealer_number,
+        dealer_name: company,
+        seller_user_id: deletingRow.assigned_seller_id,
+        seller_email: deletingRow.seller_email,
+        seller_initials: deletingRow.seller_initials,
+        seller_name: deletingRow.seller_name,
+        account_name: company,
+        created_by_email: appUser?.email ?? null,
+        created_by_name: actorName,
+        meta: {
+          deleted_number: docNumber,
+          deleted_document_type: isOrder ? 'order' : 'quote',
+          deleted_at: new Date().toISOString(),
+          deleted_by_email: appUser?.email ?? null,
+          deleted_by_name: actorName,
+          dealer_company_name: company,
+        },
+      });
+    } catch (e) {
+      console.warn('[CrmQuotesOrdersPage] activity log failed (delete still applied)', e);
+    }
+
     setRows((prev) => prev.filter((x) => x.id !== deletingRow.id));
-    toast.success(mode === 'order' ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
+    toast.success(isOrder ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
     setDeletingRow(null);
     setReloadKey((k) => k + 1);
-  }, [deletingRow, mode]);
+  }, [deletingRow, mode, appUser?.display_name, appUser?.email]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
