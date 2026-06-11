@@ -96,6 +96,7 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
         disabled={loading}
       >
         <option value="">{loading ? L.loading[language] : L.none[language]}</option>
+        <option value="__new__">+ {L.createNew[language]}</option>
         {suggested.length > 0 && (
           <optgroup label={L.prefer[language]}>
             {suggested.map(l => (
