@@ -506,7 +506,7 @@ export default function ConfiguratorPage() {
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
         const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
           ownership: ownershipPayload,
-          leadId: linkedLeadId,
+          leadId: effectiveLeadId,
         });
         if (saveRes.error) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
