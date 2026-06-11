@@ -320,6 +320,11 @@ export default function ConfiguratorPage() {
   // and is selected automatically.
   const [leadPickerKey, setLeadPickerKey] = useState(0);
   const [savingAsLead, setSavingAsLead] = useState(false);
+  // When the user picks "Opret nyt lead" in LeadLinkPicker, we defer the
+  // actual CRM lead creation until the configuration is saved or the
+  // quote is sent — at that moment ensurePendingLeadCreated() runs and
+  // links the new lead to the row.
+  const [pendingNewLead, setPendingNewLead] = useState(false);
 
   const canSaveConfiguratorAsLead = (() => {
     const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
