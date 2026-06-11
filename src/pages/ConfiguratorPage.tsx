@@ -462,6 +462,9 @@ export default function ConfiguratorPage() {
     try {
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
+      // If the user picked "Opret nyt lead" in the picker, create the
+      // lead now so the saved row carries the lead_id link from the start.
+      const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
 
       if (savedConfigurationId) {
         const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
