@@ -235,6 +235,56 @@ export default function ConfiguratorPage() {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
 
+  // Phase 63 — Importør standard-rabat (30%).
+  // Slår op på den valgte forhandler (eller den auto-låste dealer for
+  // eksterne brugere) og afgør basisrabatten:
+  //   • 30% når effektiv bruger ELLER valgt forhandler er importør
+  //   • 25% ellers
+  // Skriver resultatet ind i state.baseDiscountPct, så calc, PDF, payload,
+  // gemte cases og CRM-synkronisering alle bruger samme værdi.
+  const [selectedDealerCustomerType, setSelectedDealerCustomerType] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const dealerId = ownership.dealerAccountId;
+    if (!dealerId) {
+      setSelectedDealerCustomerType(null);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('dealer_accounts')
+          .select('customer_type, customer_type_label, dealer_type')
+          .eq('id', dealerId)
+          .maybeSingle();
+        if (cancelled) return;
+        const ct =
+          (data?.customer_type as string | null) ??
+          (data?.customer_type_label as string | null) ??
+          (data?.dealer_type as string | null) ??
+          null;
+        setSelectedDealerCustomerType(ct);
+      } catch {
+        if (!cancelled) setSelectedDealerCustomerType(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ownership.dealerAccountId]);
+
+  useEffect(() => {
+    const userIsImporter = isImporterAppUser(effectiveUser);
+    const dealerCt = selectedDealerCustomerType;
+    const pct = resolveBaseDiscountPct({
+      appUser: effectiveUser,
+      dealer: dealerCt ? { customer_type: dealerCt } : null,
+    });
+    const target = userIsImporter ? IMPORTER_BASE_DISCOUNT_PCT : pct;
+    const current = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : DEFAULT_BASE_DISCOUNT_PCT;
+    if (Math.abs(target - current) > 1e-6) {
+      setState((s) => ({ ...s, baseDiscountPct: target }));
+    }
+  }, [effectiveUser?.portal_role, effectiveUser?.partner_type, selectedDealerCustomerType, state.baseDiscountPct, setState]);
+
   // Build the ownership payload sent to saveConfiguration / order webhook.
   // Picker selections override active "view as" mode when the internal
   // user explicitly chose a different seller / dealer.
