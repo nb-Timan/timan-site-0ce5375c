@@ -43,6 +43,7 @@ import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
+import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
