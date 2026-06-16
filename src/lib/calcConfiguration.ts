@@ -108,14 +108,16 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
   }
 
   if (nonDemoSubtotal > 0) {
-    const d1 = nonDemoSubtotal * 0.25;
+    // Phase 63 — base/standard discount: 25% default, 30% for importør.
+    const baseDiscountPct = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : 0.25;
+    const d1 = nonDemoSubtotal * baseDiscountPct;
     price -= d1;
     disc += d1;
 
     const qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
     let qtyDiscountAmount = 0;
     if (qtyPct > 0) {
-      const eligibleBaseDiscount = discountEligibleSubtotal * 0.25;
+      const eligibleBaseDiscount = discountEligibleSubtotal * baseDiscountPct;
       const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
       qtyDiscountAmount = d2;
       price -= d2;
