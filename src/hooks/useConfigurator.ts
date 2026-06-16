@@ -392,17 +392,23 @@ export function useConfigurator() {
 
     // --- Non-demo machines: normal discount chain ---
     if (nonDemoSubtotal > 0) {
-      // 1. Base discount 25%
-      const d1 = nonDemoSubtotal * 0.25;
+      // 1. Base discount (25% default, 30% for importør — Phase 63).
+      const baseDiscountPct = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : 0.25;
+      const basePctLabel = Math.round(baseDiscountPct * 1000) / 10; // 25, 30, 27.5 ...
+      const d1 = nonDemoSubtotal * baseDiscountPct;
       price -= d1;
       disc += d1;
-      details.push({ txt: T('baseDiscountLabel'), amount: d1 });
+      const baseLabelRaw = T('baseDiscountLabel');
+      const baseLabel = /\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/.test(baseLabelRaw)
+        ? baseLabelRaw.replace(/\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, `(${basePctLabel}%)`)
+        : `${baseLabelRaw} (${basePctLabel}%)`;
+      details.push({ txt: baseLabel, amount: d1 });
 
       // 2. Qty discount (based only on non-demo discount-eligible real machines)
       let qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
       let qtyDiscountAmount = 0;
       if (qtyPct > 0) {
-        const eligibleBaseDiscount = discountEligibleSubtotal * 0.25;
+        const eligibleBaseDiscount = discountEligibleSubtotal * baseDiscountPct;
         const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
         qtyDiscountAmount = d2;
         price -= d2;

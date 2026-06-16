@@ -142,6 +142,14 @@ export interface ConfiguratorState {
   deliveryMethod: DeliveryMethod | '';
   deliveryDeliverStartup: string | null;
   manualDealerDiscountPct: number;
+  /**
+   * Phase 63 — Standard/base-rabat for konfigurationen. Sættes automatisk:
+   *   • 0.30 når den aktive bruger eller den valgte forhandler er importør
+   *   • 0.25 ellers (default for forhandler / service partner / dealer user)
+   * Gemmes på den persistede konfiguration, så genåbnede tilbud / ordrer
+   * bruger samme basisrabat som da de blev oprettet.
+   */
+  baseDiscountPct?: number;
   demoMachines: Record<string, boolean>;
   reqNumbers: Record<string, string>;
   currentMachineIndex: number;
