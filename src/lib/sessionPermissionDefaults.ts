@@ -19,7 +19,6 @@ const PRICE_VISIBLE_PORTAL_ROLES = new Set([
   "timan_dealer",
   "timan_importer",
   "timan_service_partner",
-  "dealer_user",
 ]);
 
 const ORDER_ALLOWED_PORTAL_ROLES = new Set([
@@ -28,7 +27,6 @@ const ORDER_ALLOWED_PORTAL_ROLES = new Set([
   "timan_dealer",
   "timan_importer",
   "timan_service_partner",
-  "dealer_user",
 ]);
 
 function isDealerSideLegacy(role: unknown, partnerType: unknown): boolean {

@@ -20,7 +20,11 @@ import { t } from '@/lib/i18n/translations';
  * Body: title above the configuration sidebar, large product stage to the right.
  * Footer: 4-column row — "← Til forsiden" + 3 benefit cards sharing the same baseline.
  */
-export default function MesseTiman2620Page() {
+interface MesseTiman2620PageProps {
+  backTo?: string;
+}
+
+export default function MesseTiman2620Page({ backTo = '/messe' }: MesseTiman2620PageProps) {
   const { uiLanguage, setLanguage } = useLanguage();
   const { appUser } = useAppUser();
   const navigate = useNavigate();
@@ -115,7 +119,7 @@ export default function MesseTiman2620Page() {
             <div className="w-full lg:w-[220px] lg:flex-shrink-0 flex items-center">
               <button
                 type="button"
-                onClick={() => navigate('/messe')}
+                onClick={() => navigate(backTo)}
                 className="inline-flex items-center gap-2 px-5 h-12 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-base transition"
               >
                 <ArrowLeft className="h-5 w-5" />

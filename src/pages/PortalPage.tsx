@@ -10,6 +10,7 @@ import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import LatestChanges from '@/components/portal/LatestChanges';
 import QuickActions from '@/components/portal/QuickActions';
+import DealerUserHome from '@/components/portal/DealerUserHome';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
@@ -17,6 +18,7 @@ import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
+import { derivePortalRole } from '@/lib/portalAccess';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -182,6 +184,18 @@ export default function PortalPage() {
   }
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
+  const portalRole = derivePortalRole(effectiveUser);
+
+  if (portalRole === 'dealer_user') {
+    return (
+      <DealerUserHome
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={logout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

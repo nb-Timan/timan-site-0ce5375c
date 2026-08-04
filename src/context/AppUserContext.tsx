@@ -49,7 +49,7 @@ interface AppUserContextValue {
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'timan.appUser';
-const SESSION_CACHE_VERSION = 2;
+const SESSION_CACHE_VERSION = 3;
 
 function readCachedSessionUser(): SessionUser | null {
   try {
@@ -61,6 +61,23 @@ function readCachedSessionUser(): SessionUser | null {
 
 function loadFromStorage(): SessionUser | null {
   return readCachedSessionUser();
+}
+
+function createLimitedDealerUser(email: string): SessionUser {
+  return {
+    ...SLUTKUNDE_DEFAULTS,
+    email,
+    display_name: undefined,
+    portal_role: 'dealer_user',
+    module_access: ['byg_din_timan', 'resources', 'sales_tools', 'videos'],
+    allowed_areas: ['salg_marketing'],
+    allowed_modules: ['byg_din_timan', 'resources', 'sales_tools', 'videos'],
+    status: 'pending',
+    dealer_number: null,
+    permissions: null,
+    quick_actions: null,
+    portal_variant: 'standard',
+  };
 }
 
 
@@ -142,8 +159,8 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           linkAuthUserIdIfNeeded();
           setAppUser(rowToSessionUser(row));
         } else {
-          // Session present but not approved → treat as guest with limited access
-          setAppUser({ ...SLUTKUNDE_DEFAULTS, email, display_name: undefined });
+          // Session present but not approved -> limited Dealer User access.
+          setAppUser(createLimitedDealerUser(email));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -185,7 +202,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
       setAppUser(fresh);
       return fresh;
     }
-    const guest: SessionUser = { ...SLUTKUNDE_DEFAULTS, email: sessionEmail, display_name: undefined };
+    const guest: SessionUser = createLimitedDealerUser(sessionEmail);
     setAppUser(guest);
     return guest;
   }, [setAppUser]);
