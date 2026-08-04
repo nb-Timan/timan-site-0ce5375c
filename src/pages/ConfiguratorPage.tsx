@@ -2233,10 +2233,12 @@ export default function ConfiguratorPage() {
               </button>
             );
           }
+          const isDealerUser = portalRole === 'dealer_user';
           const dealerSidePortalRoles = new Set([
             'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
             'timan_backend', 'timan_seller', 'timan_service',
           ]);
+          const backTarget = isDealerUser ? '/portal' : '/portal/salg-marketing';
           const showBackToPortal = !!appUser && (appUser.role !== 'slutkunde' || (portalRole ? dealerSidePortalRoles.has(portalRole) : false));
           return showBackToPortal ? (
           <button
@@ -2245,17 +2247,17 @@ export default function ConfiguratorPage() {
               if (hasUnsaved) {
                 setShowLeavePortalConfirm(true);
               } else {
-                navigate('/portal/salg-marketing');
+                navigate(backTarget);
               }
             }}
             className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {tPortal('backToSalesMarketing', uiLanguage)}
+              {isDealerUser ? (uiLanguage === 'da' ? 'Tilbage til forside' : 'Back to front page') : tPortal('backToSalesMarketing', uiLanguage)}
             </span>
             <span className="sm:hidden">
-              {lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales')}
+              {isDealerUser ? (uiLanguage === 'da' ? 'Forside' : 'Home') : (lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales'))}
             </span>
           </button>
           ) : (

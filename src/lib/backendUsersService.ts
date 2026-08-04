@@ -300,8 +300,21 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
                : "active";
   const approved = typeof draft.approved === "boolean" ? draft.approved : fromStatus.approved;
   const is_active = typeof draft.is_active === "boolean" ? draft.is_active : fromStatus.is_active;
+  const portalRoleForDb = draft.role === "pending"
+    ? (status === "active" ? "dealer_user" : null)
+    : draft.role;
+  const roleForAccess = (portalRoleForDb ?? draft.role) as PortalRole;
+  const dealerUserDefaults = draft.role === "pending" && portalRoleForDb === "dealer_user"
+    ? DEFAULT_MODULE_ACCESS.dealer_user
+    : null;
+  const allowedAreasForDb = dealerUserDefaults
+    ? dealerUserDefaults.filter((m): m is AreaKey => (ALL_AREAS as string[]).includes(m))
+    : draft.allowed_areas;
+  const allowedModulesForDb = dealerUserDefaults
+    ? dealerUserDefaults.filter((m) => !(ALL_AREAS as string[]).includes(m))
+    : draft.allowed_modules;
 
-  const safePerms = sanitizePermsForRole(draft.role, draft.perms);
+  const safePerms = sanitizePermsForRole(roleForAccess, draft.perms);
 
   const fullPatch: Record<string, unknown> = {
     full_name: draft.name,
@@ -316,12 +329,12 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     seller_initials: draft.seller_initials,
     seller_email: draft.seller_email,
     notes: draft.notes,
-    portal_role: draft.role,
+    portal_role: portalRoleForDb,
     status,
     approved,
     is_active,
-    allowed_areas: draft.allowed_areas,
-    allowed_modules: draft.allowed_modules,
+    allowed_areas: allowedAreasForDb,
+    allowed_modules: allowedModulesForDb,
     backend_modules: draft.backend_modules,
     can_view_prices: safePerms.can_view_prices,
     can_submit_order: safePerms.can_submit_order,
@@ -415,12 +428,12 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["full_name", row.full_name, draft.name],
     ["email", (row.email as string)?.toLowerCase(), draft.email.toLowerCase()],
     ["preferred_language", row.preferred_language, draft.language],
-    ["portal_role", row.portal_role, draft.role],
+    ["portal_role", row.portal_role, portalRoleForDb],
     ["status", row.status, status],
     ["approved", row.approved, approved],
     ["is_active", row.is_active, is_active],
-    ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...draft.allowed_areas].sort()],
-    ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...draft.allowed_modules].sort()],
+    ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...allowedAreasForDb].sort()],
+    ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...allowedModulesForDb].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
     ["can_view_prices", row.can_view_prices, safePerms.can_view_prices],
     ["can_submit_order", row.can_submit_order, safePerms.can_submit_order],

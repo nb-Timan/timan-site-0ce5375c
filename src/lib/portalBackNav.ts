@@ -31,6 +31,8 @@
  *   /portal/service/tickets/*         → /portal/service/tickets ("Service tickets")
  *   /portal/service/*                 → /portal/teknik-service  ("Teknik & Service")
  *   /portal/dealer-data               → /portal                 ("portal")
+ *   /messe/resources/driftberegner    → /messe                  ("Timan Messe")
+ *   /messe/resources/co2              → /messe                  ("Timan Messe")
  *   /configurator                     → /portal/salg-marketing  ("Salg & Marketing")
  *   default                           → /portal                 ("portal")
  */
@@ -49,6 +51,7 @@ interface ParentRule {
 
 type BackLabelKey =
   | 'portal'
+  | 'messe'
   | 'sales_marketing'
   | 'service_area'
   | 'backend_area'
@@ -71,6 +74,7 @@ type BackLabelKey =
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
+  messe:           { da: 'Tilbage til Timan Messe',   en: 'Back to Timan Exhibition', de: 'Zurück zu Timan Messe',   it: 'Torna a Timan Fiera',      hu: 'Vissza a Timan kiállításhoz' },
   sales_marketing: { da: 'Tilbage til Salg & Marketing', en: 'Back to Sales & Marketing', de: 'Zurück zu Vertrieb & Marketing', it: 'Torna a Vendite & Marketing', hu: 'Vissza: Értékesítés & Marketing' },
   service_area:    { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza: Műszaki & Szerviz' },
   backend_area:    { da: 'Tilbage til Backend',       en: 'Back to Backend',        de: 'Zurück zum Backend',        it: 'Torna al Backend',         hu: 'Vissza a Backendhez' },
@@ -98,6 +102,10 @@ const startsWith = (path: string, p: string) =>
 
 // Order matters — first match wins. List the deepest routes first.
 const RULES: ParentRule[] = [
+  // Messe quick actions
+  { match: p => eq(p, '/messe/resources/driftberegner'), to: '/messe', labelKey: 'messe' },
+  { match: p => eq(p, '/messe/resources/co2'),           to: '/messe', labelKey: 'messe' },
+
   // Resources
   { match: p => eq(p, '/portal/resources/driftberegner'), to: '/portal/resources', labelKey: 'resources' },
   { match: p => eq(p, '/portal/resources/co2'),           to: '/portal/resources', labelKey: 'resources' },

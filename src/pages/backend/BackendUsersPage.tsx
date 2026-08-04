@@ -25,6 +25,7 @@ import {
   getPortalPermissions,
   PORTAL_ROLES,
   PORTAL_ROLE_LABELS,
+  DEFAULT_MODULE_ACCESS,
   PortalRole,
   ModuleAccessKey,
 } from "@/lib/portalAccess";
@@ -346,7 +347,18 @@ export default function BackendUsersPage() {
                           type="button"
                           onClick={async () => {
                             setSaveError(null);
-                            const patch: BackendUser = { ...u, approved: true, is_active: true, status: "active" };
+                            const dealerUserDefaults = DEFAULT_MODULE_ACCESS.dealer_user;
+                            const patch: BackendUser = {
+                              ...u,
+                              role: u.role === "pending" ? "dealer_user" : u.role,
+                              allowed_areas: u.role === "pending" ? ["salg_marketing"] : u.allowed_areas,
+                              allowed_modules: u.role === "pending"
+                                ? dealerUserDefaults.filter((m): m is ModuleAccessKey => m !== "salg_marketing")
+                                : u.allowed_modules,
+                              approved: true,
+                              is_active: true,
+                              status: "active",
+                            };
                             const res = await saveBackendUser(u.id, patch);
                             if (!res.ok) setSaveError(res.error ?? "Kunne ikke godkende.");
                             // Bust any cached sellerId for this email and refresh the

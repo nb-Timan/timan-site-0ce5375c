@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { isMesseEnabled } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
-import { Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
+import { Gauge, Leaf, Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -24,6 +24,9 @@ const T: Record<string, Record<Language, string>> = {
   newsDesc:    { da: 'Nyt fra Timan-verdenen', en: 'News from the Timan world', de: 'Neues aus der Timan-Welt', it: 'Notizie dal mondo Timan', hu: 'Hírek a Timan világából' },
   timan2620:     { da: 'Timan 2620', en: 'Timan 2620', de: 'Timan 2620', it: 'Timan 2620', hu: 'Timan 2620' },
   timan2620Desc: { da: 'Udforsk maskinen i 360° med udstyrsvalg', en: 'Explore the machine in 360° with equipment options', de: 'Erkunden Sie die Maschine in 360° mit Ausstattungsoptionen', it: 'Esplora la macchina in 360° con opzioni di equipaggiamento', hu: 'Fedezze fel a gépet 360°-ban felszereltség-választással' },
+  quickActions: { da: 'Hurtige handlinger', en: 'Quick actions', de: 'Schnellaktionen', it: 'Azioni rapide', hu: 'Gyors műveletek' },
+  drift:      { da: 'Driftberegner', en: 'Operating cost calculator', de: 'Betriebskostenrechner', it: 'Calcolatore costi', hu: 'Üzemköltség kalkulátor' },
+  co2:        { da: 'CO2 Kalkulator', en: 'CO2 Calculator', de: 'CO2-Rechner', it: 'Calcolatore CO2', hu: 'CO2 kalkulátor' },
   preview:    { da: 'Du forhåndsviser Timan Messe', en: 'Previewing Timan Exhibition', de: 'Vorschau Timan Messe', it: 'Anteprima Timan Fiera', hu: 'Timan Kiállítás előnézet' },
   disabled:    { da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.', de: 'Messe-Zugang ist derzeit nicht aktiv.', it: 'Accesso fiera attualmente disattivato.', hu: 'A kiállítási hozzáférés jelenleg nem aktív.' },
 };
@@ -42,6 +45,11 @@ const TILES: Tile[] = [
   { to: '/messe/partner-map',  icon: <MapPin className="h-14 w-14" />,    title: 'partnerMap',   desc: 'partnerMapDesc',   accent: 'from-sky-500 to-sky-700' },
   { to: '/messe/video',        icon: <Play className="h-14 w-14" />,      title: 'video',        desc: 'videoDesc',        accent: 'from-rose-500 to-rose-700' },
   { to: '/messe/nyt',          icon: <Newspaper className="h-14 w-14" />, title: 'news',         desc: 'newsDesc',         accent: 'from-amber-500 to-amber-700' },
+];
+
+const QUICK_ACTIONS = [
+  { to: '/messe/resources/driftberegner', icon: Gauge, label: 'drift' as const },
+  { to: '/messe/resources/co2', icon: Leaf, label: 'co2' as const },
 ];
 
 /**
@@ -121,6 +129,27 @@ export default function MesseHomePage() {
             </Link>
           ))}
         </div>
+
+        <section className="mt-10">
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">{T.quickActions[lang]}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+            {QUICK_ACTIONS.map(action => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  className="flex items-center gap-4 rounded-xl bg-white border border-slate-200 shadow-sm px-5 py-4 hover:shadow-md hover:-translate-y-0.5 transition"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="font-bold text-slate-900">{T[action.label][lang]}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       </main>
 
       <footer className="text-center text-xs text-slate-500 py-4">
