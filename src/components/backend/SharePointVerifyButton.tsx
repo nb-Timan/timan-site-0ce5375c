@@ -170,6 +170,11 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
       account_number: cmp.account_number,
       country: getSpValue(cmp, "country") as string | null,
       dealer_type: getSpValue(cmp, "dealer_type") as string | null,
+      address_line_1: getSpValue(cmp, "address_line_1") as string | null,
+      address_line_2: getSpValue(cmp, "address_line_2") as string | null,
+      postal_code: getSpValue(cmp, "postal_code") as string | null,
+      city: getSpValue(cmp, "city") as string | null,
+      zip_city_raw: getSpValue(cmp, "zip_city_raw") as string | null,
     };
   }
 
@@ -183,7 +188,7 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
     const matchesSearch = (c: Comparison) => {
       if (!q) return true;
       const h = getHeaderValues(c);
-      return [h.company_name, h.account_number, h.country]
+      return [h.company_name, h.account_number, h.country, h.address_line_1, h.address_line_2, h.postal_code, h.city, h.zip_city_raw]
         .some((v) => v != null && String(v).toLowerCase().includes(q));
     };
 
@@ -395,6 +400,12 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
                               <span className="text-slate-400">·</span>
                               <span>{dealerTypeLabel}</span>
                             </div>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                              <DataPill label="Adresse 1" value={h.address_line_1} />
+                              <DataPill label="Adresse 2" value={h.address_line_2} />
+                              <DataPill label="Postnr./by" value={formatPostCity(h.postal_code, h.city, h.zip_city_raw)} />
+                              <DataPill label="Land" value={h.country} />
+                            </div>
                           </div>
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1 text-xs font-bold whitespace-nowrap shadow-sm">
                             {st.kind === "match" && <Check className="h-3.5 w-3.5 text-emerald-600" />}
@@ -475,6 +486,24 @@ function displayValue(field: string, v: unknown): string {
     return DEALER_TYPE_LABELS[key] ?? key;
   }
   return String(v);
+}
+
+function formatPostCity(postalCode: unknown, city: unknown, raw: unknown): string {
+  const postal = display(postalCode);
+  const cityText = display(city);
+  if (postal !== "â€”" && cityText !== "â€”") return `${postal} ${cityText}`;
+  if (postal !== "â€”") return postal;
+  if (cityText !== "â€”") return cityText;
+  return display(raw);
+}
+
+function DataPill({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="rounded-lg border border-sky-200/80 bg-white/70 px-3 py-2 min-w-0">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">{label}</div>
+      <div className="mt-0.5 text-xs font-semibold text-slate-900 break-words">{display(value)}</div>
+    </div>
+  );
 }
 
 function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "green" | "blue" | "amber" }) {
