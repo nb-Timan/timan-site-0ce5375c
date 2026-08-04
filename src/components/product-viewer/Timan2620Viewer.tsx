@@ -190,8 +190,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
     v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    motor:         { anchor: { x: 66, y: 72 }, callout: { cx: 90, cy: 82 } },
-    affjedring:    { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 95 } },
+    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
@@ -211,7 +211,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
     motor: [
-      { anchor: { x: 68, y: 72 }, callout: { cx: 91, cy: 82 }, frame: 1 },
+      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
       // frame 2: anchor on the rear/engine body (left side of the
       // mirrored view), bubble pushed out to the left margin.
       { anchor: { x: 28, y: 58 }, callout: { cx: 6,  cy: 72 }, frame: 2 },
@@ -223,7 +223,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
       // frame 2: anchor on rear wheel/suspension area, bubble lower-left
       // along the bottom margin so it doesn't collide with the dozer bubble.
       { anchor: { x: 44, y: 78 }, callout: { cx: 22, cy: 96 }, frame: 2 },
