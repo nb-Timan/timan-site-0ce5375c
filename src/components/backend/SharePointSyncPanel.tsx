@@ -161,7 +161,7 @@ export default function SharePointSyncPanel() {
 
         <div className="flex items-start justify-between gap-4 bg-emerald-50/50 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-slate-900">Rigtig SharePoint sync</h3>
+            <h3 className="text-base font-bold text-slate-900">Synkronisér forhandlere fra SharePoint</h3>
             <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
               Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares.
             </p>
@@ -173,7 +173,7 @@ export default function SharePointSyncPanel() {
             className="inline-flex h-10 flex-shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
           >
             {realSyncBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            Synkroniser nu
+            Synkronisér forhandlere fra SharePoint
           </button>
         </div>
       </div>

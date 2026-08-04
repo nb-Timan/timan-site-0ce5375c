@@ -199,48 +199,48 @@ export default function WarrantySharePointSyncPanel() {
 
         {/* Tool rows */}
         <div className="divide-y divide-slate-100">
-          <div className="px-5 py-4 flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4 px-5 py-4">
+            <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-slate-900">Verificér SharePoint</h3>
               <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
-                Tjekker at listen kan læses, viser præcise interne feltnavne, antal rækker, manglende obligatoriske felter og ukendte felter.
+                Tjekker at listen kan læses, viser præcise interne feltnavne, antal rækker og manglende felter.
               </p>
             </div>
             <button
               type="button"
               onClick={runVerify}
               disabled={modal.kind === "verify" && modal.busy}
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-5 py-2.5 h-10 text-sm font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60 flex-shrink-0"
+              className="inline-flex min-h-10 flex-shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
               {modal.kind === "verify" && modal.busy
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <ScanSearch className="h-4 w-4" />}
-              Verificér SharePoint
+              Verificér - skriver intet
             </button>
           </div>
 
-          <div className="px-5 py-4 flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4 px-5 py-4">
+            <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-slate-900">Dry-run</h3>
               <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
-                Henter alle rækker, mapper dem in-memory og viser hvad en fremtidig sync ville gøre — inkl. sikre dealer-matches, kræver gennemgang og unmatched.
+                Henter alle rækker og viser hvad en fremtidig sync ville gøre. Skriver intet.
               </p>
             </div>
             <button
               type="button"
               onClick={runDryRun}
               disabled={modal.kind === "dryrun" && modal.busy}
-              className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-5 py-2.5 h-10 text-sm font-bold text-sky-700 hover:bg-sky-50 disabled:opacity-60 flex-shrink-0"
+              className="inline-flex min-h-10 flex-shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
               {modal.kind === "dryrun" && modal.busy
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <CloudDownload className="h-4 w-4" />}
-              Dry-run
+              Dry-run - forhåndsvisning før sync
             </button>
           </div>
 
-          <div className="px-5 py-4 flex items-start justify-between gap-4 bg-emerald-50/40">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4 bg-emerald-50/50 px-5 py-4">
+            <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-slate-900">Synkronisér Warranty fra SharePoint</h3>
               <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
                 Importerer alle rækker. Sikre matches kobles til forhandler. Rækker uden sikkert match importeres uden forhandlerkobling og er kun synlige for Timan Backend / Service indtil de matches. Ingen hard delete — rækker der mangler i SharePoint markeres som inaktive.
