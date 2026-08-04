@@ -169,14 +169,14 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
-    motor:         { anchor: { x: 48, y: 55 }, callout: { cx: 15, cy: 65 } },
-    affjedring:    { anchor: { x: 56, y: 74 }, callout: { cx: 15, cy: 92 } },
+    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
   cab_salt_spreader: {
-    motor:         { anchor: { x: 50, y: 55 }, callout: { cx: 15, cy: 70 } },
+    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
-    affjedring:    { anchor: { x: 58, y: 74 }, callout: { cx: 50, cy: 95 } },
+    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
 
