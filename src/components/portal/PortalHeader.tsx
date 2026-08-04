@@ -5,7 +5,7 @@ import { SessionUser } from '@/context/AppUserContext';
 import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
-import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
+import { derivePortalRole, getPortalPermissions, isMesseVariantUser } from '@/lib/portalAccess';
 import {
   canSwitchMode,
   getActiveMode,
@@ -93,6 +93,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   const navigate = useNavigate();
 
+  function homeTarget(): string {
+    if (isMesseVariantUser(user)) return '/messe';
+    if (activeMode === 'role:exhibition_user') return '/messe';
+    return '/portal';
+  }
+
   function chooseMode(mode: ActiveMode) {
     setActiveModeState(mode);
     setModeMenuOpen(false);
@@ -146,11 +152,19 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         <div className="flex justify-between h-20 items-center">
           {/* Left: TIMAN logo + subtitle */}
           <div className="flex items-center">
-            <img
-              src={timanLogo}
-              alt="Timan"
-              className="h-12 sm:h-14 w-auto object-contain"
-            />
+            <button
+              type="button"
+              onClick={() => navigate(homeTarget())}
+              className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
+              aria-label={language === 'da' ? 'Gå til forside' : 'Go to home'}
+              title={language === 'da' ? 'Gå til forside' : 'Go to home'}
+            >
+              <img
+                src={timanLogo}
+                alt="Timan"
+                className="h-12 sm:h-14 w-auto object-contain"
+              />
+            </button>
           </div>
 
           {/* Right: language flags + bell + user chip + logout */}
