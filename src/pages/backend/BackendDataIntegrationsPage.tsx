@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import GeocodeWarrantyCustomersPanel from "@/components/backend/GeocodeWarrantyCustomersPanel";
+import SharePointWarrantyProbeButton from "@/components/backend/SharePointWarrantyProbeButton";
 import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
 import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
 import SyncSection from "@/components/backend/SyncSection";
@@ -124,13 +125,6 @@ function DealerTab() {
         <GeocodeDealersPanel />
       </SyncSection>
 
-      <SyncSection
-        title="Geocode garantiregistreringer"
-        description="Slår kundeadresser fra garantiregistreringer op server-side og gemmer customer_latitude/customer_longitude. Bruges til gule pins på Partnerkort."
-      >
-        <GeocodeWarrantyCustomersPanel />
-      </SyncSection>
-
       <ComingSoonCard
         title="Import firma- og kontaktinformation"
         description="Importér firma- og kontaktinformation fra Excel. Tilgængelig på siden Forhandlere — åbn for at uploade."
@@ -155,6 +149,21 @@ function WarrantyTab() {
         description="Importér garantiregistreringer fra SharePoint og match til forhandler. Manuelle portalrettelser og manuelle dealer-matches bevares."
       >
         <WarrantySharePointSyncPanel />
+      </SyncSection>
+
+      <SyncSection
+        title="Test SharePoint Warranty"
+        description="Read-only test af listen Warranty registration. Viser kolonner, de første rækker og foreslået mapping. Skriver intet."
+      >
+        <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-bold text-slate-900">Read-only SharePoint test</h3>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
+              Bruges til fejlfinding af Warranty registration-listen. Den tester kun adgang og felter.
+            </p>
+          </div>
+          <SharePointWarrantyProbeButton />
+        </div>
       </SyncSection>
 
       <SyncSection
