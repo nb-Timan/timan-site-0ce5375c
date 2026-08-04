@@ -64,6 +64,8 @@ const T: Record<string, Record<string, string>> = {
   guestContinue: { da: 'Fortsæt uden login', en: 'Continue without login', de: 'Ohne Login fortfahren', it: 'Continua senza login', hu: 'Folytatás bejelentkezés nélkül' },
   createAccount: { da: 'Opret bruger', en: 'Create user', de: 'Benutzer erstellen', it: 'Crea utente', hu: 'Felhasználó létrehozása' },
   forgotPassword: { da: 'Glemt adgangskode?', en: 'Forgot password?', de: 'Passwort vergessen?', it: 'Password dimenticata?', hu: 'Elfelejtette a jelszavát?' },
+  googleLogin: { da: 'Log ind med Google', en: 'Log in with Google', de: 'Mit Google einloggen', it: 'Accedi con Google', hu: 'Bejelentkezes Google-lel' },
+  googleLoginError: { da: 'Google-login kunne ikke startes', en: 'Could not start Google login', de: 'Google-Anmeldung konnte nicht gestartet werden', it: 'Impossibile avviare il login Google', hu: 'Nem sikerult elinditani a Google bejelentkezest' },
   emailPlaceholder: { da: 'din@email.dk', en: 'your@email.com', de: 'ihre@email.de', it: 'tua@email.it', hu: 'email@pelda.hu' },
   enterEmailFirst: { da: 'Indtast din email først', en: 'Please enter your email first', de: 'Bitte zuerst E-Mail eingeben', it: 'Inserisci prima la tua email', hu: 'Először adja meg az e-mail címét' },
   resetLinkSent: { da: 'Vi har sendt en email med et link til nulstilling.', en: 'We have sent you an email with a reset link.', de: 'Wir haben Ihnen eine E-Mail mit einem Zurücksetzungslink gesendet.', it: 'Ti abbiamo inviato un\'email con un link per il ripristino.', hu: 'Elküldtünk egy e-mailt a visszaállítási linkkel.' },
@@ -361,6 +363,31 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     setShowGuestPopup(true);
   };
 
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/portal`,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (oauthError) {
+        setError(oauthError.message || tx('googleLoginError', language));
+        setLoading(false);
+      }
+    } catch {
+      setError(tx('googleLoginError', language));
+      setLoading(false);
+    }
+  };
+
   const finalizeGuestEntry = (guestEmailFromPopup: string) => {
     const guestEmailLc = guestEmailFromPopup.toLowerCase();
     setShowGuestPopup(false);
@@ -569,6 +596,16 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
             <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-gray-400">{tx('orDivider', language)}</span></div>
           </div>
+
+          {/* Google login */}
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-gray-700 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold shadow-sm">G</span>
+            {tx('googleLogin', language)}
+          </button>
 
           {/* Guest continue */}
           <button
