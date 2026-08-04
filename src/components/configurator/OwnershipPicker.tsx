@@ -63,6 +63,8 @@ interface Props {
   language: Language | string;
   /** 'compact' for the sticky basket panel, 'full' for step 4 form. */
   variant?: 'compact' | 'full';
+  /** Messe lead flow only needs Timan seller selection, not dealer assignment. */
+  hideDealer?: boolean;
 }
 
 const T = {
@@ -141,7 +143,7 @@ export function deriveInitialOwnership(
   };
 }
 
-export default function OwnershipPicker({ value, onChange, language, variant = 'full' }: Props) {
+export default function OwnershipPicker({ value, onChange, language, variant = 'full', hideDealer = false }: Props) {
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
   // Phase 51 — fælles dealer-scope helper.
@@ -294,12 +296,12 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
     );
   }
 
-  // Internal users: show both pickers.
+  // Internal users: show seller, and optionally dealer.
   return (
     <div className={wrapClass}>
       <div className={titleClass}>{tx(isCompact ? 'block_compact' : 'block_title', language)}</div>
 
-      <div className={isCompact ? 'space-y-2' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
+      <div className={isCompact || hideDealer ? 'space-y-2' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
         {/* Seller */}
         <div>
           <label className={labelClass}>{tx('seller', language)}</label>
@@ -316,6 +318,7 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
         </div>
 
         {/* Dealer */}
+        {!hideDealer && (
         <div className="relative" ref={popoverRef}>
           <label className={labelClass}>{tx('dealer', language)}</label>
           <button
@@ -386,6 +389,7 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
             <div className="mt-1 text-[10px] text-amber-600">{dealerError}</div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

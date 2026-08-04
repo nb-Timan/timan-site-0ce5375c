@@ -177,17 +177,28 @@ export default function ConfiguratorPage() {
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: canApplyExtraDealerDiscount && activePortalRole !== 'dealer_user',
+    canSetDiscount: (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
-  // Dealer User pricing rule: see gross list price only. No automatic dealer
-  // discount, no quantity discount, no extra dealer discount, no demo discount.
-  // total incl. discount === gross subtotal. Discount rows are hidden in the
-  // price overview and in the generated PDF/email HTML.
+  // Dealer User + Messe pricing rule: see gross list price. Messe may add
+  // one manual discount in step 4, but no base/quantity/delivery/demo discounts.
   const isDealerUserPricing = activePortalRole === 'dealer_user';
-  const displayCalc = calcResult && isDealerUserPricing
-    ? { ...calcResult, discountDetails: [], totalDiscount: 0, totalPct: 0, currentPrice: calcResult.subtotal }
+  const isGrossPriceMode = isDealerUserPricing || isExhibition;
+  const displayCalc = calcResult && isGrossPriceMode
+    ? (() => {
+        const manualPct = isExhibition ? (state.manualDealerDiscountPct || 0) : 0;
+        const manualAmount = calcResult.subtotal * (manualPct / 100);
+        return {
+          ...calcResult,
+          discountDetails: manualAmount > 0
+            ? [{ txt: `Ekstra rabat (${manualPct}%)`, amount: manualAmount, varenr: '795042' }]
+            : [],
+          totalDiscount: manualAmount,
+          totalPct: manualPct,
+          currentPrice: calcResult.subtotal - manualAmount,
+        };
+      })()
     : calcResult;
 
   // Phase 38 — security: when the user is not allowed to apply an extra
@@ -195,10 +206,10 @@ export default function ConfiguratorPage() {
   // PDF, the order/quote payload, the email and any persisted state cannot
   // include it. Runs on every change to permission or state.
   useEffect(() => {
-    if (!canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
+    if (!isExhibition && !canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
       setState((s) => ({ ...s, manualDealerDiscountPct: 0 }));
     }
-  }, [canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
+  }, [isExhibition, canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
 
   // Phase 27 — Payment terms: visible only when the ACTIVE mode/role is
   // Backend or Timan Sælger AND the user has `can_manage_payment_terms`.
@@ -304,13 +315,32 @@ export default function ConfiguratorPage() {
   }, [appUser, ownership]);
 
   const getRequiredOwnershipPayload = useCallback(async () => {
+    if (isExhibition) {
+      if (!ownership.sellerInitials || !ownership.sellerEmail) {
+        toast.error('Vælg Timan-sælger før du gemmer lead.');
+        return null;
+      }
+      return {
+        seller_initials: ownership.sellerInitials,
+        seller_email: ownership.sellerEmail.toLowerCase(),
+        seller_name: ownership.sellerName,
+        assigned_seller_id: await resolveSellerId(ownership.sellerEmail),
+        dealer_number: null,
+        dealer_name: null,
+        dealer_account_id: null,
+        created_by_email: appUser?.email?.toLowerCase() ?? null,
+        created_by_role: activePortalRole ?? null,
+        active_mode: 'role:exhibition_user',
+        owner_status: 'aktiv',
+      };
+    }
     try {
       return await buildOwnershipPayload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Vælg sælger og forhandler før gem.');
       return null;
     }
-  }, [buildOwnershipPayload]);
+  }, [isExhibition, ownership, appUser?.email, activePortalRole, buildOwnershipPayload]);
 
   const [savingChanges, setSavingChanges] = useState(false);
 
@@ -417,6 +447,9 @@ export default function ConfiguratorPage() {
       const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
       const { resolveSellerId: resolveSid } = await import('@/lib/resolveSellerId');
       const totals = calcConfigurationTotals(state);
+      const estimatedValue = isExhibition && displayCalc
+        ? displayCalc.currentPrice
+        : totals.finalPrice;
 
       let notes = '';
       try {
@@ -461,7 +494,7 @@ export default function ConfiguratorPage() {
         trade_fair: null,
         country: null,
         notes: notes || null,
-        estimated_value: Math.round(totals.finalPrice || 0),
+        estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
         pipeline_stage: 'Lead',
         lost_competitor: null,
@@ -476,7 +509,7 @@ export default function ConfiguratorPage() {
       console.error('[createLeadFromCurrentState] failed:', err);
       return null;
     }
-  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber]);
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc]);
 
   /**
    * If the user selected "Opret nyt lead" in the picker, create the lead
@@ -603,7 +636,6 @@ export default function ConfiguratorPage() {
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async () => {
-    if (isExhibition) { toast.info('Demo mode — lead-oprettelse er deaktiveret.'); return; }
     if (savingAsLead) return;
     // Duplicate protection: configuration already linked to a lead.
     if (linkedLeadId) {
@@ -622,6 +654,9 @@ export default function ConfiguratorPage() {
       const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
       const { resolveSellerId: resolveSid } = await import('@/lib/resolveSellerId');
       const totals = calcConfigurationTotals(state);
+      const estimatedValue = isExhibition && displayCalc
+        ? displayCalc.currentPrice
+        : totals.finalPrice;
 
       // Build a short notes string with selected machines + accessories so
       // the seller can see what was configured before finishing the lead.
@@ -666,7 +701,7 @@ export default function ConfiguratorPage() {
         trade_fair: null,
         country: null,
         notes: notes || null,
-        estimated_value: Math.round(totals.finalPrice || 0),
+        estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
         pipeline_stage: 'Lead',
         lost_competitor: null,
@@ -737,7 +772,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId, getRequiredOwnershipPayload]);
+  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId, getRequiredOwnershipPayload, isExhibition, displayCalc]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -854,6 +889,11 @@ export default function ConfiguratorPage() {
   // Auto-fill delivery date when entering step 2 (15 business days from today, skip weekends)
   useEffect(() => {
     if (state.step !== 2) return;
+    if (isExhibition) {
+      setState(s => ({ ...s, currentMachineIndex: 0 }));
+      setStep(3);
+      return;
+    }
     if (state.date) return;
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -866,19 +906,27 @@ export default function ConfiguratorPage() {
     // Safety: if landed on weekend, push to Monday
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     setDate(format(d, 'yyyy-MM-dd'));
-  }, [state.step, state.date, setDate]);
+  }, [state.step, state.date, isExhibition, setDate, setStep]);
+
+  useEffect(() => {
+    if (isExhibition && state.flowType !== 'quote') {
+      setFlowType('quote');
+    }
+  }, [isExhibition, state.flowType, setFlowType]);
 
   // Auto-fill email fields when entering step 4
   useEffect(() => {
     if (state.step === 4) {
-      if (appUser?.email && !state.email) {
+      if (isExhibition && ownership.sellerEmail && state.email !== ownership.sellerEmail) {
+        setCustomerField('email', ownership.sellerEmail);
+      } else if (!isExhibition && appUser?.email && !state.email) {
         setCustomerField('email', appUser.email);
       }
       if (state.flowType === 'order' && !state.emailRecipient) {
         setCustomerField('emailRecipient', 'NB@Timan.dk');
       }
     }
-  }, [state.step]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.step, isExhibition, ownership.sellerEmail, state.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
 
@@ -1210,7 +1258,7 @@ export default function ConfiguratorPage() {
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
     });
-    if (!isDealerUserPricing) {
+    if (displayCalc!.totalDiscount > 0) {
       html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
         <span>${TC('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
         <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
@@ -2312,7 +2360,7 @@ export default function ConfiguratorPage() {
       {/* Step Tabs */}
       <div className="max-w-6xl mx-auto mb-4">
         <div className="flex space-x-1 border-b border-gray-200">
-          {[1, 2, 3, 4].map(step => {
+          {(isExhibition ? [1, 3, 4] : [1, 2, 3, 4]).map(step => {
             const maxStep = appUser?.max_step ?? 4;
             const allowed = step <= maxStep;
             return (
@@ -2409,7 +2457,7 @@ export default function ConfiguratorPage() {
                         </div>
 
                         {/* Qty discount status per card — only shown for discount-eligible real machines */}
-                        {currentQty >= 1 && p.isDiscountEligible && (
+                        {!isExhibition && currentQty >= 1 && p.isDiscountEligible && (
                           <div className={`text-xs text-center mt-1 ${discountEligibleQty >= 2 ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}
                             dangerouslySetInnerHTML={{ __html: discountEligibleQty >= 4 ? `✅ ${T('qtyStatus4')}` : discountEligibleQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
                         )}
@@ -2437,16 +2485,23 @@ export default function ConfiguratorPage() {
                 </div>
 
                 <div className="flex justify-center pt-6 border-t mt-8">
-                  <button onClick={() => setStep(2)} disabled={!flowSelected || totalQty === 0}
+                  <button onClick={() => {
+                    if (isExhibition) {
+                      setState(s => ({ ...s, currentMachineIndex: 0 }));
+                      setStep(3);
+                      return;
+                    }
+                    setStep(2);
+                  }} disabled={!flowSelected || totalQty === 0}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
-                    {T('goToDelivery')}
+                    {isExhibition ? T('goToEquipment') : T('goToDelivery')}
                   </button>
                 </div>
               </div>
             )}
 
             {/* Step 2: Delivery */}
-            {state.step === 2 && (
+            {!isExhibition && state.step === 2 && (
               <div className="bg-white rounded-2xl shadow p-6 text-center">
                 <h2 className="text-xl font-bold mb-4">{T('step2Title')}</h2>
                 <p className="text-gray-600 font-medium mb-6">{T('step2Desc')}</p>
@@ -2843,7 +2898,7 @@ export default function ConfiguratorPage() {
 
                     return (
                       <div className="flex justify-between pt-4 border-t">
-                        <button onClick={() => setStep(2)} className="text-gray-600">{T('back')}</button>
+                        <button onClick={() => setStep(isExhibition ? 1 : 2)} className="text-gray-600">{T('back')}</button>
                         {!allMandatoryMet && (
                           <p className="text-red-500 text-xs self-center">{T('requiredGroupsHint')}</p>
                         )}
@@ -2903,9 +2958,9 @@ export default function ConfiguratorPage() {
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
                 <div className="max-w-lg mx-auto mb-5">
-                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" />
+                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" hideDealer={isExhibition} />
                 </div>
-                {state.flowType === 'quote' && (
+                {state.flowType === 'quote' && !isExhibition && (
                   <div className="max-w-lg mx-auto mb-5">
                     <LeadLinkPicker
                       key={leadPickerKey}
@@ -2982,6 +3037,16 @@ export default function ConfiguratorPage() {
                     </button>
                   </div>
                   {isExhibition ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveAsLead()}
+                      disabled={savingAsLead || !ownership.sellerEmail || !state.firmanavn.trim() || !state.kontaktperson.trim() || !state.email.trim()}
+                      title={!ownership.sellerEmail ? 'Vaelg Timan-saelger foerst.' : ''}
+                      className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {savingAsLead ? 'Gemmer...' : 'Gem som lead'}
+                    </button>
+                  ) : false ? (
                     <span className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold uppercase tracking-wide">
                       Demo mode — ordrer er deaktiveret
                     </span>
@@ -3017,7 +3082,7 @@ export default function ConfiguratorPage() {
                 {T('orderLockedReadonly')}
               </div>
             )}
-            {isExhibition && (
+            {false && isExhibition && (
               <div className="w-full mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold uppercase tracking-wide text-center">
                 Demo mode — Timan Messe
               </div>
@@ -3047,8 +3112,8 @@ export default function ConfiguratorPage() {
                 )}
               </button>
             )}
-            {!isExhibition && state.step === 4 && state.flowType === 'quote' && canSaveConfiguratorAsLead && (() => {
-              const hasRequired = !!(ownership.dealerNumber && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim());
+            {state.step === 4 && state.flowType === 'quote' && (isExhibition || canSaveConfiguratorAsLead) && (() => {
+              const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
               const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
               const disabledTitle = !hasRequired
                 ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
@@ -3080,7 +3145,7 @@ export default function ConfiguratorPage() {
               );
             })()}
             <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
-              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" />
+              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
             </fieldset>
             <AccountPanel
               appUser={appUser}
@@ -3144,7 +3209,7 @@ export default function ConfiguratorPage() {
             <div className="flex items-center justify-between gap-3 mb-4 border-b border-emerald-200 pb-2">
               <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
               <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
-                {(['quote', 'order'] as const).map(ft => {
+                {(isExhibition ? (['quote'] as const) : (['quote', 'order'] as const)).map(ft => {
                   const active = state.flowType === ft;
                   return (
                     <button
@@ -3221,7 +3286,7 @@ export default function ConfiguratorPage() {
                             <span className="mr-2">{item.varenr}</span>
                           </div>
                         )}
-                        {state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
+                        {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
                             <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">
                               <input type="checkbox"
@@ -3243,7 +3308,7 @@ export default function ConfiguratorPage() {
                       <span>{T('subtotal')}</span>
                       <span className="font-medium price-col">{formatMoney(displayCalc!.subtotal, lang)}</span>
                     </div>
-                    {!isDealerUserPricing && (
+                    {displayCalc!.totalDiscount > 0 && (
                       <div className="text-red-600 text-sm space-y-1">
                         {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                           <div key={i} className="flex justify-between">
