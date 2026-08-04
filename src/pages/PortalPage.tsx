@@ -16,7 +16,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
-import { Wrench, ShoppingBag, Settings, Users, Building2 } from 'lucide-react';
+import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
 import { derivePortalRole } from '@/lib/portalAccess';
 
@@ -41,6 +41,22 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
   timan_crm:      { to: '/portal/crm',            icon: Users,       accent: 'primary' },
   timan_backend:  { to: '/portal/backend',        icon: Settings,    accent: 'violet' },
   dealer_data:    { to: '/portal/dealer-data',    icon: Building2,   accent: 'sky' },
+};
+
+const MESSE_TITLE: Record<Language, string> = {
+  da: 'Timan Messe',
+  en: 'Timan Exhibition',
+  de: 'Timan Messe',
+  it: 'Timan Fiera',
+  hu: 'Timan Kiállítás',
+};
+
+const MESSE_DESC: Record<Language, string> = {
+  da: 'Åbn messe-portalen med konfigurator, Timan 2620, forhandlerkort og videoakademi.',
+  en: 'Open the exhibition portal with configurator, Timan 2620, dealer map and video academy.',
+  de: 'Öffnen Sie das Messe-Portal mit Konfigurator, Timan 2620, Händlerkarte und Video-Akademie.',
+  it: 'Apri il portale fiera con configuratore, Timan 2620, mappa rivenditori e video academy.',
+  hu: 'Nyissa meg a kiállítási portált konfigurátorral, Timan 2620-al, kereskedőtérképpel és videó akadémiával.',
 };
 
 export default function PortalPage() {
@@ -185,6 +201,12 @@ export default function PortalPage() {
 
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
   const portalRole = derivePortalRole(effectiveUser);
+  const realPortalRole = derivePortalRole(appUser);
+  const showMesseCard = (
+    realPortalRole === 'timan_backend' ||
+    realPortalRole === 'timan_seller' ||
+    portalRole === 'timan_seller'
+  );
 
   if (portalRole === 'dealer_user') {
     return (
@@ -259,6 +281,16 @@ export default function PortalPage() {
               />
             );
           })}
+          {showMesseCard && (
+            <AreaCard
+              title={MESSE_TITLE[lang] ?? MESSE_TITLE.da}
+              description={MESSE_DESC[lang] ?? MESSE_DESC.da}
+              cta={t('openArea', uiLanguage)}
+              to="/messe"
+              icon={Sparkles}
+              accent="violet"
+            />
+          )}
         </div>
 
         <QuickActions />
