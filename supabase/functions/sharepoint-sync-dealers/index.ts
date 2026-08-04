@@ -3,7 +3,7 @@
 // SharePoint → Supabase sync for dealer_accounts.
 //
 // Source list:  https://timandk.sharepoint.com/sites/SalgMarketingTiman
-//               List: DebitorFiltered (98 rows expected)
+//               List: Debitor-Filtered (internal name DebitorFiltered)
 //
 // Mapping (SharePoint field → dealer_accounts column):
 //   Titel       → company_name
@@ -36,7 +36,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const SP_HOSTNAME = "timandk.sharepoint.com";
 const SP_SITE_PATH = "sites/SalgMarketingTiman";
-const SP_LIST_NAME = "DebitorFiltered";
+const SP_LIST_DISPLAY_NAME = "Debitor-Filtered";
+const SP_LIST_INTERNAL_NAME = "DebitorFiltered";
 
 type DealerType = "dealer" | "service_partner" | "importer";
 
@@ -119,10 +120,27 @@ async function fetchAllSharePointRows(token: string): Promise<any[]> {
   );
   const lists = await graphGet(
     token,
-    `https://graph.microsoft.com/v1.0/sites/${site.id}/lists?$filter=displayName eq '${SP_LIST_NAME}'`,
+    `https://graph.microsoft.com/v1.0/sites/${site.id}/lists?$select=id,name,displayName,webUrl`,
   );
-  const list = lists.value?.[0];
-  if (!list) throw new Error(`SharePoint list '${SP_LIST_NAME}' not found on site.`);
+  const allLists = lists.value ?? [];
+  const list = allLists.find((l: any) => {
+    const displayName = (l.displayName ?? "").toString().toLowerCase();
+    const internalName = (l.name ?? "").toString().toLowerCase();
+    return (
+      displayName === SP_LIST_DISPLAY_NAME.toLowerCase() ||
+      internalName === SP_LIST_INTERNAL_NAME.toLowerCase()
+    );
+  });
+  if (!list) {
+    const available = allLists
+      .map((l: any) => l.displayName ?? l.name)
+      .filter(Boolean)
+      .slice(0, 25)
+      .join(", ");
+    throw new Error(
+      `SharePoint list '${SP_LIST_DISPLAY_NAME}' not found on site. Available lists: ${available}`,
+    );
+  }
   const rows: any[] = [];
   let next: string | null =
     `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${list.id}/items?$expand=fields&$top=1000`;

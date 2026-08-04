@@ -122,7 +122,7 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
         if (/Missing Microsoft secrets/i.test(raw)) friendly = "Manglende secrets i Supabase (MICROSOFT_TENANT_ID/CLIENT_ID/CLIENT_SECRET).";
         else if (/Forbidden/i.test(raw)) friendly = "Adgang nægtet — kun Timan Backend.";
         else if (/Unauthorized/i.test(raw)) friendly = "Ugyldig session. Log ud og ind igen.";
-        else if (/not found|404/i.test(raw)) friendly = "Edge Function 'sharepoint-sync-dealers' blev ikke fundet.";
+        else if (/Failed to send a request to the Edge Function/i.test(raw)) friendly = "Edge Function 'sharepoint-sync-dealers' blev ikke fundet.";
         setError(friendly); return;
       }
       if ((data as any)?.error) { setError(String((data as any).error)); return; }

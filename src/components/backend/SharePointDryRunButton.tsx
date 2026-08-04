@@ -87,7 +87,7 @@ const SharePointDryRunButton = forwardRef<SharePointDryRunHandle, Props>(functio
           friendly = "Adgang nægtet — kun Timan Backend.";
         } else if (/Unauthorized/i.test(raw)) {
           friendly = "Ugyldig session. Log ud og ind igen.";
-        } else if (/Failed to send a request to the Edge Function|not found|404/i.test(raw)) {
+        } else if (/Failed to send a request to the Edge Function/i.test(raw)) {
           friendly = "Edge Function 'sharepoint-sync-dealers' blev ikke fundet.";
         }
         setError(friendly);
