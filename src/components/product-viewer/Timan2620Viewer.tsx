@@ -44,6 +44,8 @@ const EQUIPMENT_LABEL_KEY: Record<Timan2620Equipment, string> = {
   brush: 'm2620_eq_brush',
 };
 
+const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
+
 function findConflict(
   equipment: ReadonlySet<Timan2620Equipment>,
   candidate: Timan2620Equipment,
@@ -116,6 +118,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       subtitle: t('m2620_hot_affjedring_sub', lang),
       description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
       bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
+      imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
     v_plow: {
       title: t('m2620_hot_vplow_title', lang),
@@ -156,39 +159,39 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Bare machines — front faces LEFT
   standard: {
     motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 88, cy: 65 } },
-    affjedring: { anchor: { x: 40, y: 75 }, callout: { cx: 15, cy: 90 } },
+    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
   cab: {
     motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
-    affjedring: { anchor: { x: 40, y: 75 }, callout: { cx: 15, cy: 90 } },
+    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
     motor:         { anchor: { x: 48, y: 55 }, callout: { cx: 15, cy: 65 } },
-    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 15, cy: 92 } },
+    affjedring:    { anchor: { x: 56, y: 74 }, callout: { cx: 15, cy: 92 } },
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 50, y: 55 }, callout: { cx: 15, cy: 70 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
-    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 50, cy: 95 } },
+    affjedring:    { anchor: { x: 58, y: 74 }, callout: { cx: 50, cy: 95 } },
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
 
   // V-plov only — MIRRORED view, machine faces RIGHT, v-plov at right
   standard_v_plow: {
     motor:      { anchor: { x: 40, y: 55 }, callout: { cx: 12, cy: 65 } },
-    affjedring: { anchor: { x: 50, y: 75 }, callout: { cx: 50, cy: 95 } },
+    affjedring: { anchor: { x: 38, y: 74 }, callout: { cx: 50, cy: 95 } },
     v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
   },
 
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
     v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    motor:         { anchor: { x: 50, y: 55 }, callout: { cx: 50, cy: 95 } },
-    affjedring:    { anchor: { x: 42, y: 75 }, callout: { cx: 15, cy: 92 } },
+    motor:         { anchor: { x: 66, y: 72 }, callout: { cx: 90, cy: 82 } },
+    affjedring:    { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 95 } },
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
@@ -208,7 +211,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
     motor: [
-      { anchor: { x: 58, y: 55 }, callout: { cx: 92, cy: 70 }, frame: 1 },
+      { anchor: { x: 68, y: 72 }, callout: { cx: 91, cy: 82 }, frame: 1 },
       // frame 2: anchor on the rear/engine body (left side of the
       // mirrored view), bubble pushed out to the left margin.
       { anchor: { x: 28, y: 58 }, callout: { cx: 6,  cy: 72 }, frame: 2 },
@@ -220,10 +223,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 45, y: 75 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 95 }, frame: 1 },
       // frame 2: anchor on rear wheel/suspension area, bubble lower-left
       // along the bottom margin so it doesn't collide with the dozer bubble.
-      { anchor: { x: 42, y: 80 }, callout: { cx: 22, cy: 96 }, frame: 2 },
+      { anchor: { x: 44, y: 78 }, callout: { cx: 22, cy: 96 }, frame: 2 },
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
