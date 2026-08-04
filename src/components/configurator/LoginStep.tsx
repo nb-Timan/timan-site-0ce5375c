@@ -66,6 +66,8 @@ const T: Record<string, Record<string, string>> = {
   forgotPassword: { da: 'Glemt adgangskode?', en: 'Forgot password?', de: 'Passwort vergessen?', it: 'Password dimenticata?', hu: 'Elfelejtette a jelszavát?' },
   googleLogin: { da: 'Log ind med Google', en: 'Log in with Google', de: 'Mit Google einloggen', it: 'Accedi con Google', hu: 'Bejelentkezes Google-lel' },
   googleLoginError: { da: 'Google-login kunne ikke startes', en: 'Could not start Google login', de: 'Google-Anmeldung konnte nicht gestartet werden', it: 'Impossibile avviare il login Google', hu: 'Nem sikerult elinditani a Google bejelentkezest' },
+  facebookLogin: { da: 'Log ind med Facebook', en: 'Log in with Facebook', de: 'Mit Facebook einloggen', it: 'Accedi con Facebook', hu: 'Bejelentkezes Facebookkal' },
+  facebookLoginError: { da: 'Facebook-login kunne ikke startes', en: 'Could not start Facebook login', de: 'Facebook-Anmeldung konnte nicht gestartet werden', it: 'Impossibile avviare il login Facebook', hu: 'Nem sikerult elinditani a Facebook bejelentkezest' },
   emailPlaceholder: { da: 'din@email.dk', en: 'your@email.com', de: 'ihre@email.de', it: 'tua@email.it', hu: 'email@pelda.hu' },
   enterEmailFirst: { da: 'Indtast din email først', en: 'Please enter your email first', de: 'Bitte zuerst E-Mail eingeben', it: 'Inserisci prima la tua email', hu: 'Először adja meg az e-mail címét' },
   resetLinkSent: { da: 'Vi har sendt en email med et link til nulstilling.', en: 'We have sent you an email with a reset link.', de: 'Wir haben Ihnen eine E-Mail mit einem Zurücksetzungslink gesendet.', it: 'Ti abbiamo inviato un\'email con un link per il ripristino.', hu: 'Elküldtünk egy e-mailt a visszaállítási linkkel.' },
@@ -388,6 +390,28 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     }
   };
 
+  const handleFacebookLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: `${window.location.origin}/portal`,
+        },
+      });
+
+      if (oauthError) {
+        setError(oauthError.message || tx('facebookLoginError', language));
+        setLoading(false);
+      }
+    } catch {
+      setError(tx('facebookLoginError', language));
+      setLoading(false);
+    }
+  };
+
   const finalizeGuestEntry = (guestEmailFromPopup: string) => {
     const guestEmailLc = guestEmailFromPopup.toLowerCase();
     setShowGuestPopup(false);
@@ -605,6 +629,16 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
           >
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold shadow-sm">G</span>
             {tx('googleLogin', language)}
+          </button>
+
+          {/* Facebook login */}
+          <button
+            onClick={handleFacebookLogin}
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-blue-600">f</span>
+            {tx('facebookLogin', language)}
           </button>
 
           {/* Guest continue */}
