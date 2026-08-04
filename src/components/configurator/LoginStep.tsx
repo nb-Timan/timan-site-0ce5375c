@@ -627,7 +627,18 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
             disabled={loading}
             className="w-full py-3 rounded-xl text-sm font-semibold text-gray-700 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold shadow-sm">G</span>
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold shadow-sm">
+              <span
+                style={{
+                  background: 'conic-gradient(#4285F4 0 25%, #34A853 25% 45%, #FBBC05 45% 65%, #EA4335 65% 82%, #4285F4 82% 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                G
+              </span>
+            </span>
             {tx('googleLogin', language)}
           </button>
 
