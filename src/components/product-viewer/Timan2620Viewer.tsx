@@ -132,8 +132,21 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
     affjedring: {
       title: t('m2620_hot_affjedring_title', lang),
       subtitle: t('m2620_hot_affjedring_sub', lang),
-      description: 'Affjedret undervogn giver godt vejgreb og komfort på ujævnt underlag.',
-      bullets: ['Stort hjuldiameter', 'Optimal vægtfordeling', 'Mindre slitage på føreren'],
+      description: t('m2620_susp_desc', lang),
+      bullets: [
+        t('m2620_susp_b1', lang),
+        t('m2620_susp_b2', lang),
+        t('m2620_susp_b3', lang),
+      ],
+      technical: [
+        // Left column
+        { label: t('m2620_spec_frontaxle', lang), value: t('m2620_specv_suspended', lang) },
+        { label: t('m2620_spec_articulation', lang), value: t('m2620_specv_suspended', lang) },
+        // Right column
+        { label: t('m2620_spec_comfort', lang), value: t('m2620_specv_comfort', lang) },
+        { label: t('m2620_spec_surface', lang), value: t('m2620_specv_surface', lang) },
+      ],
+      technicalSplitAt: 2,
       imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
     v_plow: {
