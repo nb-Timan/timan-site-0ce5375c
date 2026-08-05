@@ -395,7 +395,7 @@ export default function ProductImageViewer({
           onClick={() => setActiveHotspot(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-[70rem] max-h-[90vh] overflow-hidden animate-scale-in flex flex-col"
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-[70rem] max-h-[97vh] overflow-hidden animate-scale-in flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 overflow-y-auto">
