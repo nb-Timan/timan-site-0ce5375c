@@ -21,6 +21,9 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 const PAGE_BASE =
   'relative h-full aspect-[1/1.414] overflow-hidden bg-white text-slate-800';
 
+/** Root font-size of a page, in container-height units (set on the inner box). */
+const PAGE_FONT = { fontSize: '2.15cqh' } as const;
+
 /** Diagonal red/green ribbon backdrop from the printed flyer. */
 const stripes =
   'repeating-linear-gradient(115deg, rgba(148,163,184,0.16) 0 10px, transparent 10px 34px)';
@@ -31,10 +34,8 @@ interface Props {
 
 function FrontPage({ lang }: Props) {
   return (
-    <div
-      className={PAGE_BASE}
-      style={{ containerType: 'size', fontSize: '2.15cqh' }}
-    >
+    <div className={PAGE_BASE} style={{ containerType: 'size' }}>
+      <div className="absolute inset-0" style={PAGE_FONT}>
       {/* background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100" />
       <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
@@ -109,6 +110,7 @@ function FrontPage({ lang }: Props) {
           <div className="text-balance">{t('messe_flyer_front_comfort', lang)}</div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -144,10 +146,8 @@ function Feature({
 
 function BackPage({ lang }: Props) {
   return (
-    <div
-      className={PAGE_BASE}
-      style={{ containerType: 'size', fontSize: '2.15cqh' }}
-    >
+    <div className={PAGE_BASE} style={{ containerType: 'size' }}>
+      <div className="absolute inset-0" style={PAGE_FONT}>
       <div className="absolute inset-0 bg-gradient-to-br from-white via-slate-50 to-white" />
       <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
@@ -180,6 +180,7 @@ function BackPage({ lang }: Props) {
           <div className="text-balance">{t('messe_flyer_specs_speed', lang)}</div>
           <div className="text-balance">{t('messe_flyer_specs_width', lang)}</div>
         </div>
+      </div>
       </div>
     </div>
   );
