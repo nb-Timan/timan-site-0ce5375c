@@ -98,27 +98,31 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
     motor: {
       title: t('m2620_hot_motor_title', lang),
       subtitle: t('m2620_hot_motor_sub', lang),
-      description:
-        'Timan 2620 drives af en robust Perkins 403J-11 dieselmotor udviklet til professionel helårsdrift. Motoren leverer høj driftssikkerhed, lavt brændstofforbrug og overholder Stage V emissionskrav.',
-      bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
+      description: t('m2620_motor_desc', lang),
+      bullets: [
+        t('m2620_motor_b1', lang),
+        t('m2620_motor_b2', lang),
+        t('m2620_motor_b3', lang),
+      ],
       technical: [
         // Left column
-        { label: 'Motor', value: 'Perkins 403J-11' },
-        { label: 'Effekt', value: '25 hk / 18,4 kW' },
-        { label: 'Cylindre', value: '3' },
-        { label: 'Slagvolumen', value: '1131 cc' },
-        { label: 'Tophastighed', value: '20 km/t' },
-        { label: 'Dieseltank', value: '21 liter' },
+        { label: t('m2620_spec_engine', lang), value: 'Perkins 403J-11' },
+        { label: t('m2620_spec_power', lang), value: t('m2620_specv_power', lang) },
+        { label: t('m2620_spec_cylinders', lang), value: '3' },
+        { label: t('m2620_spec_displacement', lang), value: '1131 cc' },
+        { label: t('m2620_spec_topspeed', lang), value: t('m2620_specv_topspeed', lang) },
+        { label: t('m2620_spec_fueltank', lang), value: t('m2620_specv_fueltank', lang) },
         // Right column — longest values last so they can wrap freely
-        { label: 'EU Norm', value: 'Stage V' },
-        { label: 'Transmission', value: 'Stempelpumpe' },
-        { label: 'Bremser', value: 'På forreste aksel' },
-        { label: 'Hjulmotorer', value: '4 stk. orbitmotorer' },
-        { label: 'Kølesystem', value: 'Vandkølet (43° udetemperatur)' },
+        { label: t('m2620_spec_eustandard', lang), value: 'Stage V' },
+        { label: t('m2620_spec_transmission', lang), value: t('m2620_specv_transmission', lang) },
+        { label: t('m2620_spec_brakes', lang), value: t('m2620_specv_brakes', lang) },
+        { label: t('m2620_spec_wheelmotors', lang), value: t('m2620_specv_wheelmotors', lang) },
+        { label: t('m2620_spec_cooling', lang), value: t('m2620_specv_cooling', lang) },
       ],
       technicalSplitAt: 6,
 
     },
+
     kabine: {
       title: t('m2620_hot_kabine_title', lang),
       subtitle: t('m2620_hot_kabine_sub', lang),
