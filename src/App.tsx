@@ -1,3 +1,4 @@
+import FlyerQa from '@/pages/messe/__FlyerQa';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -121,6 +122,7 @@ const App = () => (
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
+              <Route path="/__flyer-qa" element={<FlyerQa />} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseTiman2620Page /></MesseRouteGuard>} />
               <Route path="/messe/resources/driftberegner" element={<MesseRouteGuard><DriftberegnerPage /></MesseRouteGuard>} />
