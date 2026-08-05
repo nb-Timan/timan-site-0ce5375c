@@ -61,6 +61,19 @@ function fmtDate(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString("da-DK"); } catch { return "—"; }
 }
 
+function readableError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object") {
+    const obj = e as { message?: unknown; error?: unknown; details?: unknown; hint?: unknown };
+    const parts = [obj.message, obj.error, obj.details, obj.hint]
+      .filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+    if (parts.length) return parts.join(" · ");
+    try { return JSON.stringify(e); } catch { return "Ukendt fejl"; }
+  }
+  return "Ukendt fejl";
+}
+
 export default function BackendDealerAccountsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -882,6 +895,9 @@ function EditDealerModal({
   const [name, setName] = useState(dealer.assigned_seller_name ?? "");
   const [email, setEmail] = useState(dealer.assigned_seller_email ?? "");
   const [companyName, setCompanyName] = useState<string>(dealer.company_name ?? "");
+  const [dealerCustomerType, setDealerCustomerType] = useState<string>(
+    dealer.customer_type_label ?? dealer.customer_type ?? "",
+  );
   const [parent, setParent] = useState<string>(dealer.parent_account_number ?? "");
   const [isMain, setIsMain] = useState<boolean>(dealer.is_main_account);
   const [branchName, setBranchName] = useState<string>(dealer.branch_name ?? "");
@@ -906,6 +922,14 @@ function EditDealerModal({
   const inheritedSeller = !initials && parent
     ? resolveEffectiveSeller({ ...dealer, parent_account_number: parent, assigned_seller_initials: null, assigned_seller_email: null, assigned_seller_name: null }, dealersByAcct)
     : null;
+  const customerTypeOptions = useMemo(() => {
+    const current = dealerCustomerType.trim();
+    const options = DEALER_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+    if (current && !options.some((o) => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [dealerCustomerType]);
 
   async function save() {
     setErr(null); setBusy(true);
@@ -926,7 +950,18 @@ function EditDealerModal({
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme forhandlernavn");
       }
 
-      // 3. Branch name
+      // 3. Customer type
+      const nextCustomerType = dealerCustomerType.trim();
+      const currentCustomerType = (dealer.customer_type_label ?? dealer.customer_type ?? "").trim();
+      if (nextCustomerType !== currentCustomerType) {
+        const r = await updateDealerAccount(dealer.id, {
+          customer_type: nextCustomerType || null,
+          customer_type_label: nextCustomerType || null,
+        });
+        if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme kundetype");
+      }
+
+      // 4. Branch name
       if ((dealer.branch_name ?? "") !== branchName) {
         const r = await updateDealerBranchName(dealer.id, branchName.trim() || null);
         if (!r.ok) throw new Error(r.error ?? "Kunne ikke gemme branch_name");
@@ -960,7 +995,7 @@ function EditDealerModal({
       }
       await onSaved();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = readableError(e);
       setErr(msg); onError(msg);
     } finally {
       setBusy(false);
@@ -1083,6 +1118,23 @@ function EditDealerModal({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
             <p className="mt-1 text-[10px] text-slate-500">
               Vises i forhandlerlister, CRM, leads og tilbud. Forhandler-id ({dealer.account_number}) ændres ikke.
+            </p>
+          </label>
+
+          <label className="block">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Kundetype</span>
+            <select
+              value={dealerCustomerType}
+              onChange={(e) => setDealerCustomerType(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">— ingen kundetype —</option>
+              {customerTypeOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[10px] text-slate-500">
+              Vises i kolonnen Kundetype og bruges til filtrering, kort og forhandlerdata.
             </p>
           </label>
 

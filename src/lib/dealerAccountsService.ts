@@ -308,8 +308,7 @@ export async function updateDealerSeller(
     if (error) throw error;
     return { ok: true, row: data ? rowToDealer(data) : undefined };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg };
+    return { ok: false, error: describeSupabaseError("Kunne ikke gemme sælger", e) };
   }
 }
 
@@ -396,8 +395,7 @@ export async function updateDealerAccount(
     }
     return { ok: true, row: data ? rowToDealer(data) : undefined };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg };
+    return { ok: false, error: describeSupabaseError("Kunne ikke gemme forhandler", e) };
   }
 }
 
@@ -1158,6 +1156,11 @@ export const DEALER_TYPE_OPTIONS = [
   { value: "Forhandler",     label: "Forhandler (Dealer)" },
   { value: "Service partner", label: "Service Partner" },
   { value: "Importør",        label: "Importør" },
+  { value: "Lukket forhandler", label: "Lukket forhandler" },
+  { value: "Forhandler kunde", label: "Forhandler kunde" },
+  { value: "ServicePartner", label: "ServicePartner" },
+  { value: "Kunde", label: "Kunde" },
+  { value: "Andet", label: "Andet" },
 ] as const;
 
 /** Map CSV A_B_KUNDE numeric value to dealer type label. */
