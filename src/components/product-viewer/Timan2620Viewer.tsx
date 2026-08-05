@@ -204,6 +204,14 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  *   standard_v_plow / cab_full_winter_setup (frame 2)
  *     → machine faces RIGHT (front = right, rear = left)
  */
+// Shared layout for the Standard + dozerblad views (with or without
+// saltspreder) so both configurations stay perfectly synchronized.
+const STANDARD_DOZER_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
+  v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+  motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+  affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+};
+
 const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
   // Bare machines — front faces LEFT
   standard: {
