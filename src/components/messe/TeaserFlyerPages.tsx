@@ -1,9 +1,11 @@
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
-import machineImg from '@/assets/flyer/f_machine.jpg.asset.json';
-import b1 from '@/assets/flyer/b1.jpg.asset.json';
-import b2 from '@/assets/flyer/b2.jpg.asset.json';
-import b3 from '@/assets/flyer/b3.jpg.asset.json';
-import b4 from '@/assets/flyer/b4.jpg.asset.json';
+const FLYER_IMG = '/images/timan-2620/flyer';
+const machineImg = { url: `${FLYER_IMG}/f_machine.jpg` };
+const b1 = { url: `${FLYER_IMG}/b1.jpg` };
+const b2 = { url: `${FLYER_IMG}/b2.jpg` };
+const b3 = { url: `${FLYER_IMG}/b3.jpg` };
+const b4 = { url: `${FLYER_IMG}/b4.jpg` };
+
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
