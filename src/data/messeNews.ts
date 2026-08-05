@@ -1,3 +1,7 @@
+import flyerPdf from '@/assets/flyer/teaser.pdf.asset.json';
+import flyerPage1 from '@/assets/flyer/page-1.jpg.asset.json';
+import flyerPage2 from '@/assets/flyer/page-2.jpg.asset.json';
+
 /**
  * Curated Messe news items shown on /messe/nyt.
  *
@@ -23,13 +27,10 @@ export interface MesseNewsItem {
 }
 
 /** First page of the Timan 2620 teaser flyer, used as card thumbnail. */
-export const FLYER_PAGES = [
-  '/docs/timan-2620-teaser/page-1.jpg',
-  '/docs/timan-2620-teaser/page-2.jpg',
-];
+export const FLYER_PAGES = [flyerPage1.url, flyerPage2.url];
 
 /** Original PDF (download / open in new tab). */
-export const FLYER_PDF = '/docs/TeaserFlyerMaskine1.pdf';
+export const FLYER_PDF = flyerPdf.url;
 
 /** Route of the interactive Timan 2620 machine experience. */
 export const TIMAN_2620_ROUTE = '/messe/timan-2620';
