@@ -146,7 +146,6 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         { label: t('m2620_spec_comfort', lang), value: t('m2620_specv_comfort', lang) },
         { label: t('m2620_spec_surface', lang), value: t('m2620_specv_surface', lang) },
       ],
-      technicalSplitAt: 2,
       imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
     v_plow: {
