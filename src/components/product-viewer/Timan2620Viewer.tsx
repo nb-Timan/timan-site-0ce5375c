@@ -240,7 +240,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Saltspreder is intentionally absent: this image only shows the
   // dozer-blade configuration.
   cab_v_plow: {
-    kabine:     { anchor: { x: 46, y: 32 }, callout: { cx: 88, cy: 7 } },
+    kabine:     { anchor: { x: 50, y: 34 }, callout: { cx: 80, cy: 7 } },
     motor:      { anchor: { x: 71, y: 60 }, callout: { cx: 94, cy: 44 } },
     affjedring: { anchor: { x: 63, y: 70 }, callout: { cx: 62, cy: 95 } },
     v_plow:     { anchor: { x: 28, y: 76 }, callout: { cx: 10, cy: 52 } },
