@@ -924,7 +924,7 @@ function EditDealerModal({
     : null;
   const customerTypeOptions = useMemo(() => {
     const current = dealerCustomerType.trim();
-    const options = DEALER_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+    const options: Array<{ value: string; label: string }> = DEALER_TYPE_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }));
     if (current && !options.some((o) => o.value === current)) {
       options.push({ value: current, label: current });
     }

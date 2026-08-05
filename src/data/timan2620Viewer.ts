@@ -90,7 +90,7 @@ const IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
 export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
   // Base machine only
   standard: { imageSequence: [IMG(3)], hotspots: [] },
-  cab: { imageSequence: [IMG(7)], hotspots: [] },
+  cab: { imageSequence: [`${BASE}/cab/01.jpg`], hotspots: [] },
 
   // Saltspreder only
   standard_salt_spreader: { imageSequence: [IMG(2)], hotspots: [] },
