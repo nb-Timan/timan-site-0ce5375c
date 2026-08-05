@@ -599,6 +599,7 @@ const en: Dict = {
 // German
 // ---------------------------------------------------------------------------
 const de: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NEU!',
@@ -619,7 +620,6 @@ const de: Dict = {
   messe_flyer_specs_drive: 'Allradantrieb',
   messe_flyer_specs_speed: '20 km/h Fahrgeschwindigkeit',
   messe_flyer_specs_width: '1.020 mm Maschinenbreite',
-  ...en,
   save: 'Speichern', cancel: 'Abbrechen', edit: 'Bearbeiten', delete: 'Löschen',
   loading: 'Wird geladen…', search: 'Suchen', back: 'Zurück', next: 'Weiter',
   previous: 'Vorherige', close: 'Schließen', yes: 'Ja', no: 'Nein', open: 'Öffnen',
@@ -830,6 +830,7 @@ const de: Dict = {
 // Italian
 // ---------------------------------------------------------------------------
 const it: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOVITÀ!',
@@ -850,7 +851,6 @@ const it: Dict = {
   messe_flyer_specs_drive: 'Trazione integrale',
   messe_flyer_specs_speed: 'Velocità 20 km/h',
   messe_flyer_specs_width: 'Larghezza macchina 1.020 mm',
-  ...en,
   save: 'Salva', cancel: 'Annulla', edit: 'Modifica', delete: 'Elimina',
   loading: 'Caricamento…', search: 'Cerca', back: 'Indietro', next: 'Avanti',
   previous: 'Precedente', close: 'Chiudi', yes: 'Sì', no: 'No', open: 'Apri',
@@ -1058,6 +1058,7 @@ const it: Dict = {
 // Hungarian
 // ---------------------------------------------------------------------------
 const hu: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'ÚJDONSÁG!',
@@ -1078,7 +1079,6 @@ const hu: Dict = {
   messe_flyer_specs_drive: 'Összkerékhajtás',
   messe_flyer_specs_speed: '20 km/h haladási sebesség',
   messe_flyer_specs_width: '1020 mm gépszélesség',
-  ...en,
   save: 'Mentés', cancel: 'Mégse', edit: 'Szerkesztés', delete: 'Törlés',
   loading: 'Betöltés…', search: 'Keresés', back: 'Vissza', next: 'Tovább',
   previous: 'Előző', close: 'Bezárás', yes: 'Igen', no: 'Nem', open: 'Megnyitás',
@@ -1286,6 +1286,7 @@ const hu: Dict = {
 // Swedish
 // ---------------------------------------------------------------------------
 const sv: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NYHET!',
@@ -1306,7 +1307,6 @@ const sv: Dict = {
   messe_flyer_specs_drive: 'Fyrhjulsdrift',
   messe_flyer_specs_speed: '20 km/h körhastighet',
   messe_flyer_specs_width: '1 020 mm maskinbredd',
-  ...en,
   save: 'Spara', cancel: 'Avbryt', edit: 'Redigera', delete: 'Ta bort',
   loading: 'Laddar…', search: 'Sök', back: 'Tillbaka', next: 'Nästa',
   previous: 'Föregående', close: 'Stäng', yes: 'Ja', no: 'Nej', open: 'Öppna',
@@ -1515,6 +1515,7 @@ const sv: Dict = {
 // French
 // ---------------------------------------------------------------------------
 const fr: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOUVEAU !',
@@ -1535,7 +1536,6 @@ const fr: Dict = {
   messe_flyer_specs_drive: '4 roues motrices',
   messe_flyer_specs_speed: 'Vitesse de 20 km/h',
   messe_flyer_specs_width: 'Largeur machine 1 020 mm',
-  ...en,
   save: 'Enregistrer', cancel: 'Annuler', edit: 'Modifier', delete: 'Supprimer',
   loading: 'Chargement…', search: 'Rechercher', back: 'Retour', next: 'Suivant',
   previous: 'Précédent', close: 'Fermer', yes: 'Oui', no: 'Non', open: 'Ouvrir',
@@ -1744,6 +1744,7 @@ const fr: Dict = {
 // Polish
 // ---------------------------------------------------------------------------
 const pl: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOWOŚĆ!',
@@ -1764,7 +1765,6 @@ const pl: Dict = {
   messe_flyer_specs_drive: 'Napęd na 4 koła',
   messe_flyer_specs_speed: 'Prędkość jazdy 20 km/h',
   messe_flyer_specs_width: 'Szerokość maszyny 1020 mm',
-  ...en,
   save: 'Zapisz', cancel: 'Anuluj', edit: 'Edytuj', delete: 'Usuń',
   loading: 'Ładowanie…', search: 'Szukaj', back: 'Wstecz', next: 'Dalej',
   previous: 'Poprzedni', close: 'Zamknij', yes: 'Tak', no: 'Nie', open: 'Otwórz',
@@ -1973,6 +1973,7 @@ const pl: Dict = {
 // Czech
 // ---------------------------------------------------------------------------
 const cs: Dict = {
+  ...en,
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOVINKA!',
@@ -1993,7 +1994,6 @@ const cs: Dict = {
   messe_flyer_specs_drive: 'Pohon všech kol',
   messe_flyer_specs_speed: 'Rychlost jízdy 20 km/h',
   messe_flyer_specs_width: 'Šířka stroje 1020 mm',
-  ...en,
   save: 'Uložit', cancel: 'Zrušit', edit: 'Upravit', delete: 'Smazat',
   loading: 'Načítání…', search: 'Hledat', back: 'Zpět', next: 'Další',
   previous: 'Předchozí', close: 'Zavřít', yes: 'Ano', no: 'Ne', open: 'Otevřít',
