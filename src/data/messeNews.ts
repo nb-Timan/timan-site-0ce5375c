@@ -18,19 +18,15 @@ export interface MesseNewsItem {
   /** Translation keys for the card. */
   titleKey: string;
   descKey: string;
-  /** Card thumbnail (public path). */
-  image: string;
+  /** Card thumbnail (public path). Omit when `thumb` renders a component. */
+  image?: string;
+  /** Live, localized thumbnail rendered instead of a static image. */
+  thumb?: 'flyer-front';
   /** Fallback image used if the thumbnail fails to load. */
   imageFallback?: string;
   /** Optional object-position override for the thumbnail crop. */
   imagePositionClass?: string;
 }
-
-/** First page of the Timan 2620 teaser flyer, used as card thumbnail. */
-export const FLYER_PAGES = [
-  '/images/timan-2620/flyer/page-1.jpg',
-  '/images/timan-2620/flyer/page-2.jpg',
-];
 
 /** Original PDF (download / open in new tab). */
 export const FLYER_PDF = flyerPdf.url;
@@ -53,10 +49,9 @@ export const MESSE_NEWS_ITEMS: MesseNewsItem[] = [
     categoryKey: 'messe_news_cat_news',
     titleKey: 'messe_news_flyer_card_title',
     descKey: 'messe_news_flyer_card_desc',
-    image: FLYER_PAGES[0],
-    imageFallback: '/images/timan-2620/cab/01.jpg',
-    // Crop to the flyer headline (NYHED! / TIMAN 2620) instead of the machine.
-    imagePositionClass: 'object-top',
+    // Localized live render of the flyer front page (same component + strings
+    // as the full teaser flyer modal) — never a static Danish image.
+    thumb: 'flyer-front',
   },
 ];
 
