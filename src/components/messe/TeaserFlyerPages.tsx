@@ -153,17 +153,17 @@ function BackPage({ lang }: Props) {
       <div className="absolute inset-0 bg-gradient-to-br from-white via-slate-50 to-white" />
       <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
-        className="absolute -left-[8%] -top-[6%] h-[34%] w-[30%] -skew-x-[25deg]"
+        className="absolute -left-[7%] -top-[8%] h-[30%] w-[16%] -skew-x-[22deg]"
         style={{
           background:
-            'repeating-linear-gradient(0deg, #dc2626 0 34%, #ffffff 34% 44%, #f87171 44% 70%, transparent 70% 100%)',
+            'linear-gradient(90deg, #dc2626 0 40%, #ffffff 40% 54%, #f87171 54% 100%)',
         }}
       />
       <div
-        className="absolute -bottom-[6%] -right-[8%] h-[26%] w-[26%] -skew-x-[25deg]"
+        className="absolute -bottom-[8%] -right-[7%] h-[26%] w-[14%] -skew-x-[22deg]"
         style={{
           background:
-            'repeating-linear-gradient(0deg, #15803d 0 40%, #ffffff 40% 50%, #22c55e 50% 80%, transparent 80% 100%)',
+            'linear-gradient(90deg, #22c55e 0 42%, #ffffff 42% 56%, #15803d 56% 100%)',
         }}
       />
 
