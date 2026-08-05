@@ -35,6 +35,8 @@ export interface ViewerHotspot {
   technical?: ViewerHotspotTechnical[];
   /** Optional explicit number of spec rows in the left column (default: balanced). */
   technicalSplitAt?: number;
+  /** Force a specific column count for the technical grid (default: automatic). */
+  technicalColumns?: 1 | 2;
   /** Optional secondary spec section (e.g. optional equipment), same layout. */
   extra?: ViewerHotspotTechnical[];
   /** Heading for the secondary spec section. */

@@ -450,6 +450,7 @@ export default function ProductImageViewer({
                     title={t('m2620_spec_heading', uiLanguage)}
                     items={activeHotspot.technical}
                     splitAt={activeHotspot.technicalSplitAt}
+                    columns={activeHotspot.technicalColumns}
                   />
                 )}
                 {activeHotspot.extra && activeHotspot.extra.length > 0 && (

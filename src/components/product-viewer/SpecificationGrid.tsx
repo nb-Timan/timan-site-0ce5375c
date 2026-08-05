@@ -23,6 +23,8 @@ export interface SpecificationGridProps {
   splitAt?: number;
   /** Optional small label rendered next to the heading (e.g. "Tilvalg"). */
   badge?: string;
+  /** Force the column count. Overrides the automatic layout. */
+  columns?: 1 | 2;
   className?: string;
 }
 
@@ -42,14 +44,20 @@ export default function SpecificationGrid({
   items,
   splitAt,
   badge,
+  columns,
   className = '',
 }: SpecificationGridProps) {
   if (!items || items.length === 0) return null;
 
   // Automatic layout: dense lists (6+) split into two columns, short lists
   // stay in one full-width column. An explicit `splitAt` always wins.
-  const twoColumns = splitAt !== undefined || items.length >= 6;
-  const cut = splitAt ?? (twoColumns ? Math.ceil(items.length / 2) : items.length);
+  const twoColumns =
+    columns !== undefined
+      ? columns === 2
+      : splitAt !== undefined || items.length >= 6;
+  const cut = twoColumns
+    ? splitAt ?? Math.ceil(items.length / 2)
+    : items.length;
   const left = items.slice(0, cut);
   const right = items.slice(cut);
 
