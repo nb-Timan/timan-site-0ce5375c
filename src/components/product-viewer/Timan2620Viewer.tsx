@@ -271,9 +271,9 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     motor: [
       { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
-      // frame 2: anchor on the rear/engine body (left side of the
-      // mirrored view), bubble pushed out to the left margin.
-      { anchor: { x: 28, y: 58 }, callout: { cx: 6,  cy: 72 }, frame: 2 },
+      // frame 2: anchor on the engine compartment mid-body (behind the
+      // driver area, under the cargo body), bubble down in the lower-left.
+      { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
     ],
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
