@@ -226,6 +226,17 @@ const da: Dict = {
   m2620_specv_brakes: 'På forreste aksel',
   m2620_specv_wheelmotors: '4 stk. orbitmotorer',
   m2620_specv_cooling: 'Vandkølet (43 °C udetemperatur)',
+  m2620_susp_desc: 'Timan 2620 er udstyret med affjedring i både forakslen og knækleddet. Det reducerer vibrationer, øger komforten og sikrer en mere stabil kørsel – selv på ujævne underlag.',
+  m2620_susp_b1: 'Affjedret foraksel og knækled',
+  m2620_susp_b2: 'Mindre vibrationer og førertræthed',
+  m2620_susp_b3: 'Stabil og komfortabel kørsel året rundt',
+  m2620_spec_frontaxle: 'Foraksel',
+  m2620_spec_articulation: 'Knækled',
+  m2620_spec_comfort: 'Komfort',
+  m2620_spec_surface: 'Underlag',
+  m2620_specv_suspended: 'Affjedret',
+  m2620_specv_comfort: 'Reducerer helkropsvibrationer',
+  m2620_specv_surface: 'Stabil på ujævnt terræn',
 };
 
 // ---------------------------------------------------------------------------
@@ -423,6 +434,17 @@ const en: Dict = {
   m2620_specv_brakes: 'Front axle',
   m2620_specv_wheelmotors: '4 orbit motors',
   m2620_specv_cooling: 'Water cooled (43 °C ambient temperature)',
+  m2620_susp_desc: 'The Timan 2620 features suspension on both the front axle and the articulated joint. This reduces vibration, increases comfort and ensures more stable driving – even on uneven surfaces.',
+  m2620_susp_b1: 'Suspended front axle and articulated joint',
+  m2620_susp_b2: 'Less vibration and operator fatigue',
+  m2620_susp_b3: 'Stable and comfortable driving all year round',
+  m2620_spec_frontaxle: 'Front axle',
+  m2620_spec_articulation: 'Articulated joint',
+  m2620_spec_comfort: 'Comfort',
+  m2620_spec_surface: 'Surface',
+  m2620_specv_suspended: 'Suspended',
+  m2620_specv_comfort: 'Reduces whole-body vibration',
+  m2620_specv_surface: 'Stable on uneven terrain',
 };
 
 // ---------------------------------------------------------------------------
@@ -569,6 +591,17 @@ const de: Dict = {
   m2620_specv_brakes: 'An der Vorderachse',
   m2620_specv_wheelmotors: '4 Orbitmotoren',
   m2620_specv_cooling: 'Wassergekühlt (43 °C Umgebungstemperatur)',
+  m2620_susp_desc: 'Der Timan 2620 verfügt über eine Federung an Vorderachse und Knickgelenk. Das reduziert Vibrationen, erhöht den Komfort und sorgt für eine stabilere Fahrt – auch auf unebenem Untergrund.',
+  m2620_susp_b1: 'Gefederte Vorderachse und Knickgelenk',
+  m2620_susp_b2: 'Weniger Vibrationen und Fahrerermüdung',
+  m2620_susp_b3: 'Stabile und komfortable Fahrt das ganze Jahr',
+  m2620_spec_frontaxle: 'Vorderachse',
+  m2620_spec_articulation: 'Knickgelenk',
+  m2620_spec_comfort: 'Komfort',
+  m2620_spec_surface: 'Untergrund',
+  m2620_specv_suspended: 'Gefedert',
+  m2620_specv_comfort: 'Reduziert Ganzkörpervibrationen',
+  m2620_specv_surface: 'Stabil auf unebenem Gelände',
 };
 
 // ---------------------------------------------------------------------------
@@ -712,6 +745,17 @@ const it: Dict = {
   m2620_specv_brakes: 'Sull’assale anteriore',
   m2620_specv_wheelmotors: '4 motori orbitali',
   m2620_specv_cooling: 'Raffreddato ad acqua (43 °C temperatura ambiente)',
+  m2620_susp_desc: 'Il Timan 2620 è dotato di sospensioni sull’assale anteriore e sullo snodo articolato. Ciò riduce le vibrazioni, aumenta il comfort e garantisce una guida più stabile, anche su superfici irregolari.',
+  m2620_susp_b1: 'Assale anteriore e snodo articolato ammortizzati',
+  m2620_susp_b2: 'Meno vibrazioni e affaticamento dell’operatore',
+  m2620_susp_b3: 'Guida stabile e confortevole tutto l’anno',
+  m2620_spec_frontaxle: 'Assale anteriore',
+  m2620_spec_articulation: 'Snodo articolato',
+  m2620_spec_comfort: 'Comfort',
+  m2620_spec_surface: 'Superficie',
+  m2620_specv_suspended: 'Ammortizzato',
+  m2620_specv_comfort: 'Riduce le vibrazioni al corpo intero',
+  m2620_specv_surface: 'Stabile su terreni irregolari',
 };
 
 // ---------------------------------------------------------------------------
@@ -855,6 +899,17 @@ const hu: Dict = {
   m2620_specv_brakes: 'Első tengelyen',
   m2620_specv_wheelmotors: '4 db orbitmotor',
   m2620_specv_cooling: 'Vízhűtéses (43 °C külső hőmérséklet)',
+  m2620_susp_desc: 'A Timan 2620 mind az első tengelyen, mind a csuklós kapcsolatnál rugózással rendelkezik. Ez csökkenti a rezgéseket, növeli a kényelmet és stabilabb vezetést biztosít – még egyenetlen talajon is.',
+  m2620_susp_b1: 'Rugózott első tengely és csuklós kapcsolat',
+  m2620_susp_b2: 'Kevesebb rezgés és vezetői fáradtság',
+  m2620_susp_b3: 'Stabil és kényelmes vezetés egész évben',
+  m2620_spec_frontaxle: 'Első tengely',
+  m2620_spec_articulation: 'Csuklós kapcsolat',
+  m2620_spec_comfort: 'Kényelem',
+  m2620_spec_surface: 'Talaj',
+  m2620_specv_suspended: 'Rugózott',
+  m2620_specv_comfort: 'Csökkenti az egésztest-rezgést',
+  m2620_specv_surface: 'Stabil egyenetlen terepen',
 };
 
 // ---------------------------------------------------------------------------
@@ -999,6 +1054,17 @@ const sv: Dict = {
   m2620_specv_brakes: 'På framaxeln',
   m2620_specv_wheelmotors: '4 st. orbitmotorer',
   m2620_specv_cooling: 'Vattenkyld (43 °C utomhustemperatur)',
+  m2620_susp_desc: 'Timan 2620 är utrustad med fjädring i både framaxeln och midjeleden. Det minskar vibrationer, ökar komforten och ger en stabilare körning – även på ojämnt underlag.',
+  m2620_susp_b1: 'Fjädrad framaxel och midjeled',
+  m2620_susp_b2: 'Mindre vibrationer och förartrötthet',
+  m2620_susp_b3: 'Stabil och bekväm körning året om',
+  m2620_spec_frontaxle: 'Framaxel',
+  m2620_spec_articulation: 'Midjeled',
+  m2620_spec_comfort: 'Komfort',
+  m2620_spec_surface: 'Underlag',
+  m2620_specv_suspended: 'Fjädrad',
+  m2620_specv_comfort: 'Minskar helkroppsvibrationer',
+  m2620_specv_surface: 'Stabil på ojämn terräng',
 };
 
 // ---------------------------------------------------------------------------
@@ -1143,6 +1209,17 @@ const fr: Dict = {
   m2620_specv_brakes: 'Sur l’essieu avant',
   m2620_specv_wheelmotors: '4 moteurs orbitaux',
   m2620_specv_cooling: 'Refroidi par eau (43 °C température ambiante)',
+  m2620_susp_desc: 'Le Timan 2620 est équipé d’une suspension sur l’essieu avant et sur l’articulation centrale. Cela réduit les vibrations, améliore le confort et assure une conduite plus stable, même sur sol irrégulier.',
+  m2620_susp_b1: 'Essieu avant et articulation suspendus',
+  m2620_susp_b2: 'Moins de vibrations et de fatigue pour l’opérateur',
+  m2620_susp_b3: 'Conduite stable et confortable toute l’année',
+  m2620_spec_frontaxle: 'Essieu avant',
+  m2620_spec_articulation: 'Articulation centrale',
+  m2620_spec_comfort: 'Confort',
+  m2620_spec_surface: 'Surface',
+  m2620_specv_suspended: 'Suspendu',
+  m2620_specv_comfort: 'Réduit les vibrations du corps entier',
+  m2620_specv_surface: 'Stable sur terrain irrégulier',
 };
 
 // ---------------------------------------------------------------------------
@@ -1287,6 +1364,17 @@ const pl: Dict = {
   m2620_specv_brakes: 'Na osi przedniej',
   m2620_specv_wheelmotors: '4 silniki orbitalne',
   m2620_specv_cooling: 'Chłodzony cieczą (43 °C temperatury otoczenia)',
+  m2620_susp_desc: 'Timan 2620 wyposażony jest w zawieszenie zarówno przedniej osi, jak i przegubu. Zmniejsza to wibracje, zwiększa komfort i zapewnia stabilniejszą jazdę – nawet na nierównym podłożu.',
+  m2620_susp_b1: 'Amortyzowana oś przednia i przegub',
+  m2620_susp_b2: 'Mniej wibracji i zmęczenia operatora',
+  m2620_susp_b3: 'Stabilna i komfortowa jazda przez cały rok',
+  m2620_spec_frontaxle: 'Oś przednia',
+  m2620_spec_articulation: 'Przegub',
+  m2620_spec_comfort: 'Komfort',
+  m2620_spec_surface: 'Podłoże',
+  m2620_specv_suspended: 'Amortyzowany',
+  m2620_specv_comfort: 'Redukuje drgania całego ciała',
+  m2620_specv_surface: 'Stabilność na nierównym terenie',
 };
 
 // ---------------------------------------------------------------------------
@@ -1431,6 +1519,17 @@ const cs: Dict = {
   m2620_specv_brakes: 'Na přední nápravě',
   m2620_specv_wheelmotors: '4 orbitální motory',
   m2620_specv_cooling: 'Chlazeno vodou (43 °C okolní teplota)',
+  m2620_susp_desc: 'Timan 2620 je vybaven odpružením přední nápravy i kloubového spojení. Snižuje to vibrace, zvyšuje komfort a zajišťuje stabilnější jízdu – i na nerovném povrchu.',
+  m2620_susp_b1: 'Odpružená přední náprava a kloub',
+  m2620_susp_b2: 'Méně vibrací a únavy obsluhy',
+  m2620_susp_b3: 'Stabilní a pohodlná jízda po celý rok',
+  m2620_spec_frontaxle: 'Přední náprava',
+  m2620_spec_articulation: 'Kloubové spojení',
+  m2620_spec_comfort: 'Komfort',
+  m2620_spec_surface: 'Povrch',
+  m2620_specv_suspended: 'Odpružené',
+  m2620_specv_comfort: 'Snižuje vibrace celého těla',
+  m2620_specv_surface: 'Stabilní v nerovném terénu',
 };
 
 // ---------------------------------------------------------------------------
