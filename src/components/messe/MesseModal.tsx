@@ -9,6 +9,8 @@ interface Props {
   children: ReactNode;
   /** Tailwind max-width class for the panel. */
   widthClass?: string;
+  /** Padding override for the scrollable body. */
+  bodyClass?: string;
 }
 
 /**
@@ -23,6 +25,7 @@ export default function MesseModal({
   closeLabel,
   children,
   widthClass = 'max-w-3xl',
+  bodyClass = 'px-5 sm:px-7 py-5',
 }: Props) {
   useEffect(() => {
     if (!open) return;
@@ -57,7 +60,7 @@ export default function MesseModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 sm:px-7 py-5">{children}</div>
+        <div className={`overflow-y-auto ${bodyClass}`}>{children}</div>
       </div>
     </div>
   );
