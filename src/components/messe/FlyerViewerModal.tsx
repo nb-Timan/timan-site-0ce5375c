@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import MesseModal from './MesseModal';
-import { FLYER_PAGES, FLYER_PDF } from '@/data/messeNews';
+import { FLYER_PAGES } from '@/data/messeNews';
 
 interface Props {
   open: boolean;
@@ -12,31 +11,19 @@ interface Props {
 }
 
 /**
- * Two-page flyer viewer. Pages are pre-rendered images of the source PDF, so
- * the aspect ratio is preserved (object-contain) and the flyer always fits the
- * available height. The original PDF stays available via open/download.
+ * Opened-brochure flyer view. Both pre-rendered pages are shown side by side
+ * (front page left, back page right) with a soft centre fold, so it reads as a
+ * printed A4 brochure lying open rather than a PDF viewer.
  */
 export default function FlyerViewerModal({ open, onClose, lang }: Props) {
-  const [page, setPage] = useState(0);
   const [failed, setFailed] = useState(false);
-  const total = FLYER_PAGES.length;
 
   useEffect(() => {
-    if (open) {
-      setPage(0);
-      setFailed(false);
-    }
+    if (open) setFailed(false);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setPage((p) => Math.min(p + 1, total - 1));
-      if (e.key === 'ArrowLeft') setPage((p) => Math.max(p - 1, 0));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, total]);
+  const pageClass =
+    'bg-white p-1.5 shadow-[0_10px_30px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-200';
 
   return (
     <MesseModal
@@ -44,70 +31,39 @@ export default function FlyerViewerModal({ open, onClose, lang }: Props) {
       onClose={onClose}
       title={t('messe_news_flyer_modal_title', lang)}
       closeLabel={t('close', lang)}
-      widthClass="max-w-4xl"
+      widthClass="max-w-[68rem]"
     >
-      <div className="flex items-center gap-2 sm:gap-4">
-        <button
-          type="button"
-          aria-label={t('messe_news_flyer_prev', lang)}
-          disabled={page === 0}
-          onClick={() => setPage((p) => Math.max(p - 1, 0))}
-          className="shrink-0 rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-
-        <div className="flex-grow flex items-center justify-center bg-slate-100 rounded-xl overflow-hidden">
-          {failed ? (
-            <div className="py-16 px-6 text-center text-sm text-slate-500">
-              {t('messe_news_flyer_missing', lang)}
-            </div>
-          ) : (
+      {failed ? (
+        <div className="py-16 px-6 text-center text-sm text-slate-500">
+          {t('messe_news_flyer_missing', lang)}
+        </div>
+      ) : (
+        <div className="relative flex items-stretch justify-center gap-2 sm:gap-3 rounded-xl bg-slate-100 px-3 py-5 sm:px-6 sm:py-7">
+          <div className={`${pageClass} rounded-l-sm`}>
             <img
-              key={FLYER_PAGES[page]}
-              src={FLYER_PAGES[page]}
-              alt={`${t('messe_news_flyer_modal_title', lang)} — ${t('messe_news_flyer_page', lang)} ${page + 1}`}
+              src={FLYER_PAGES[0]}
+              alt={`${t('messe_news_flyer_modal_title', lang)} — 1`}
               onError={() => setFailed(true)}
-              className="max-h-[60vh] w-auto max-w-full object-contain"
+              className="h-[62vh] w-auto max-w-full object-contain"
             />
-          )}
-        </div>
+          </div>
 
-        <button
-          type="button"
-          aria-label={t('messe_news_flyer_next', lang)}
-          disabled={page >= total - 1}
-          onClick={() => setPage((p) => Math.min(p + 1, total - 1))}
-          className="shrink-0 rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+          <div className={`${pageClass} rounded-r-sm`}>
+            <img
+              src={FLYER_PAGES[1]}
+              alt={`${t('messe_news_flyer_modal_title', lang)} — 2`}
+              onError={() => setFailed(true)}
+              className="h-[62vh] w-auto max-w-full object-contain"
+            />
+          </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-500">
-          {t('messe_news_flyer_page', lang)} {page + 1} {t('messe_news_flyer_of', lang)} {total}
+          {/* Soft centre fold */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-5 left-1/2 w-16 -translate-x-1/2 sm:inset-y-7 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={FLYER_PDF}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {t('messe_news_flyer_open', lang)}
-          </a>
-          <a
-            href={FLYER_PDF}
-            download
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            {t('messe_news_flyer_download', lang)}
-          </a>
-        </div>
-      </div>
+      )}
     </MesseModal>
   );
 }
