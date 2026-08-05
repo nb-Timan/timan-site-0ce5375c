@@ -253,9 +253,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
-    v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
-    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+    ...STANDARD_DOZER_LAYOUT,
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
