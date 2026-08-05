@@ -144,10 +144,10 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       technicalColumns: 1,
       extraTitle: t('m2620_extra_heading', lang),
       extra: [
-        { label: t('m2620_extra_comfortseat', lang), value: t('m2620_extrav_comfortseat', lang) },
-        { label: t('m2620_extra_deluxeseat', lang), value: t('m2620_extrav_deluxeseat', lang) },
         { label: t('m2620_extra_sunshade', lang), value: t('m2620_extrav_sunshade', lang) },
         { label: t('m2620_extra_radio', lang), value: t('m2620_extrav_radio', lang) },
+        { label: t('m2620_extra_comfortseat', lang), value: t('m2620_extrav_comfortseat', lang) },
+        { label: t('m2620_extra_deluxeseat', lang), value: t('m2620_extrav_deluxeseat', lang) },
       ],
     },
     affjedring: {
