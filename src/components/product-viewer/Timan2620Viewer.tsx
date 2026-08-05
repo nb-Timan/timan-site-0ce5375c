@@ -102,17 +102,19 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         'Timan 2620 drives af en robust Perkins 403J-11 dieselmotor udviklet til professionel helårsdrift. Motoren leverer høj driftssikkerhed, lavt brændstofforbrug og overholder Stage V emissionskrav.',
       bullets: ['Lavt brændstofforbrug', 'Nem adgang til service', 'Stabil ydelse hele året'],
       technical: [
+        // Left column
         { label: 'Motor', value: 'Perkins 403J-11' },
         { label: 'Effekt', value: '25 hk / 18,4 kW' },
         { label: 'Cylindre', value: '3' },
         { label: 'Slagvolumen', value: '1131 cc' },
-        { label: 'EU Norm', value: 'Stage V' },
-        { label: 'Kølesystem', value: 'Vandkølet (43° udetemperatur)' },
-        { label: 'Transmission', value: 'Stempelpumpe' },
-        { label: 'Hjulmotorer', value: '4 stk. orbitmotorer' },
         { label: 'Tophastighed', value: '20 km/t' },
         { label: 'Dieseltank', value: '21 liter' },
+        // Right column — longest values last so they can wrap freely
+        { label: 'EU Norm', value: 'Stage V' },
+        { label: 'Transmission', value: 'Stempelpumpe' },
         { label: 'Bremser', value: 'På forreste aksel' },
+        { label: 'Hjulmotorer', value: '4 stk. orbitmotorer' },
+        { label: 'Kølesystem', value: 'Vandkølet (43° udetemperatur)' },
       ],
       technicalSplitAt: 6,
 
