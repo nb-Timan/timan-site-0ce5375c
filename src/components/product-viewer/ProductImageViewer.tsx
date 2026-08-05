@@ -452,6 +452,14 @@ export default function ProductImageViewer({
                     splitAt={activeHotspot.technicalSplitAt}
                   />
                 )}
+                {activeHotspot.extra && activeHotspot.extra.length > 0 && (
+                  <SpecificationGrid
+                    className="mt-5 border-t border-slate-200 pt-4"
+                    title={activeHotspot.extraTitle ?? t('m2620_extra_heading', uiLanguage)}
+                    items={activeHotspot.extra}
+                    splitAt={activeHotspot.extraSplitAt}
+                  />
+                )}
 
               </div>
             </div>
