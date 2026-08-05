@@ -93,7 +93,7 @@ export default function ProductImageViewer({
   disableZoom = false,
   largeArrows = false,
 }: Props) {
-
+  const { uiLanguage } = useLanguage();
   const [frame, setFrame] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [autoRotate, setAutoRotate] = useState(false);
