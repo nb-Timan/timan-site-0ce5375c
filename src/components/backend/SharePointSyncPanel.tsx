@@ -86,6 +86,11 @@ export default function SharePointSyncPanel() {
     setTimeout(() => setRealSyncBusy(false), 600);
   }
 
+  function handleRealSyncCompleted() {
+    verifyRef.current?.clear();
+    void loadLatest();
+  }
+
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -180,7 +185,7 @@ export default function SharePointSyncPanel() {
 
       <SharePointVerifyButton ref={verifyRef} resultOnly />
       <SharePointDryRunButton ref={dryRunRef} hideTrigger onRequestRealSync={() => realSyncRef.current?.start()} />
-      <SharePointRealSyncButton ref={realSyncRef} hideTrigger onSynced={() => void loadLatest()} />
+      <SharePointRealSyncButton ref={realSyncRef} hideTrigger onSynced={handleRealSyncCompleted} />
     </div>
   );
 }
