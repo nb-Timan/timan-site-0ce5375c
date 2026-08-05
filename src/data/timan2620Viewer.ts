@@ -98,7 +98,7 @@ export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
 
   // V-plov only
   standard_v_plow: { imageSequence: [IMG(4)], hotspots: [] },
-  cab_v_plow: { imageSequence: [], hotspots: [] },
+  cab_v_plow: { imageSequence: [`${BASE}/cab_v_plow/01.jpg`], hotspots: [] },
 
   // Fuldt vintersæt (V-plov + Saltspreder)
   standard_full_winter_setup: { imageSequence: [IMG(5)], hotspots: [] },
