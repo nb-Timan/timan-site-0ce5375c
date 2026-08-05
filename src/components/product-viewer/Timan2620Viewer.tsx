@@ -229,12 +229,9 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
 
-  // V-plov only — MIRRORED view, machine faces RIGHT, v-plov at right
-  standard_v_plow: {
-    motor:      { anchor: { x: 40, y: 55 }, callout: { cx: 12, cy: 65 } },
-    affjedring: { anchor: { x: 38, y: 74 }, callout: { cx: 50, cy: 95 } },
-    v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
-  },
+  // V-plov only — same layout as Standard + dozerblad + saltspreder,
+  // just without the saltspreder hotspot (shared source of truth).
+  standard_v_plow: { ...STANDARD_DOZER_LAYOUT },
 
   // Cab + dozer blade — machine faces LEFT, blade front-left.
   // Saltspreder is intentionally absent: this image only shows the
