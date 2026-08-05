@@ -114,9 +114,9 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         { label: t('m2620_spec_fueltank', lang), value: t('m2620_specv_fueltank', lang) },
         // Right column — longest values last so they can wrap freely
         { label: t('m2620_spec_eustandard', lang), value: 'Stage V' },
-        { label: t('m2620_spec_transmission', lang), value: t('m2620_specv_transmission', lang) },
         { label: t('m2620_spec_brakes', lang), value: t('m2620_specv_brakes', lang) },
         { label: t('m2620_spec_wheelmotors', lang), value: t('m2620_specv_wheelmotors', lang) },
+        { label: t('m2620_spec_transmission', lang), value: t('m2620_specv_transmission', lang) },
         { label: t('m2620_spec_cooling', lang), value: t('m2620_specv_cooling', lang) },
       ],
       technicalSplitAt: 6,
