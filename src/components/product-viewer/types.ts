@@ -33,6 +33,9 @@ export interface ViewerHotspot {
   bullets?: string[];
   /** Optional technical specs shown in the detail modal. */
   technical?: ViewerHotspotTechnical[];
+  /** Optional explicit number of spec rows in the left column (default: balanced). */
+  technicalSplitAt?: number;
+
   /** Optional thumbnail shown in the hotspot popover/modal. */
   imageUrl?: string;
   /** Optional outbound link from the popover. */

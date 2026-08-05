@@ -31,6 +31,8 @@ import {
 } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, RotateCw, Pause, ImageOff } from 'lucide-react';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
+import SpecificationGrid from './SpecificationGrid';
+
 
 interface Props {
   configuration: ViewerConfiguration;
@@ -441,20 +443,13 @@ export default function ProductImageViewer({
                   </ul>
                 )}
                 {activeHotspot.technical && activeHotspot.technical.length > 0 && (
-                  <div className="mt-5 border-t border-slate-200 pt-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                      Tekniske data
-                    </div>
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      {activeHotspot.technical.map((t, i) => (
-                        <div key={i} className="contents">
-                          <dt className="text-slate-500">{t.label}</dt>
-                          <dd className="text-slate-900 font-semibold text-right">{t.value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
+                  <SpecificationGrid
+                    className="mt-5 border-t border-slate-200 pt-4"
+                    items={activeHotspot.technical}
+                    splitAt={activeHotspot.technicalSplitAt}
+                  />
                 )}
+
               </div>
             </div>
             <div className="border-t border-slate-200 p-4 lg:p-5 bg-slate-50 flex justify-end">
