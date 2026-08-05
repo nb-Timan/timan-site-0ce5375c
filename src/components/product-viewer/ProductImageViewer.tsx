@@ -456,6 +456,7 @@ export default function ProductImageViewer({
                   <SpecificationGrid
                     className="mt-5 border-t border-slate-200 pt-4"
                     title={activeHotspot.extraTitle ?? t('m2620_extra_heading', uiLanguage)}
+                    badge={t('m2620_extra_badge', uiLanguage)}
                     items={activeHotspot.extra}
                     splitAt={activeHotspot.extraSplitAt}
                   />
