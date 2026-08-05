@@ -108,6 +108,23 @@ function fmtMoney(n: number | null | undefined, lang: Language = 'da'): string {
   catch { return String(n); }
 }
 
+function toErrorText(error: unknown): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const e = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts: string[] = [];
+    if (typeof e.message === 'string' && e.message.trim()) parts.push(e.message);
+    if (typeof e.details === 'string' && e.details.trim()) parts.push(e.details);
+    if (typeof e.hint === 'string' && e.hint.trim()) parts.push(e.hint);
+    if (e.code != null) parts.push(`code=${String(e.code)}`);
+    if (parts.length) return parts.join(' - ');
+    try { return JSON.stringify(error); } catch { return 'Ukendt fejl'; }
+  }
+  return String(error);
+}
+
 // Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
@@ -169,7 +186,7 @@ export default function DealerDataPage() {
         ]);
         if (cancelled) return;
 
-        if (dealerRes.error) setError(dealerRes.error);
+        if (dealerRes.error) setError(toErrorText(dealerRes.error));
         setDealer(dealerRes.row);
 
         setQuotes(configsQuoteRes.rows.filter((r) => r.dealer_number === dealerNumber));
@@ -193,7 +210,7 @@ export default function DealerDataPage() {
         }
 
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) setError(toErrorText(e));
       } finally {
         if (!cancelled) setLoadingData(false);
       }

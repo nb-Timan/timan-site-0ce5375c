@@ -267,13 +267,20 @@ export default function PortalPage() {
             }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
+            const cardTo = area.id === 'dealer_data' && (
+              portalRole === 'timan_backend'
+              || portalRole === 'timan_seller'
+              || portalRole === 'timan_service'
+            )
+              ? '/portal/crm/my-dealers'
+              : meta.to;
             return (
               <AreaCard
                 key={area.id}
                 title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
                 description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
                 cta={t('openArea', uiLanguage)}
-                to={meta.to}
+                to={cardTo}
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' ? dealerBadge : null}
