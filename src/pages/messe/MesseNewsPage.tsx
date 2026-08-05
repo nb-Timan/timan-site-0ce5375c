@@ -12,6 +12,7 @@ import { t } from '@/lib/i18n/translations';
 import { MESSE_NEWS_ITEMS, type MesseNewsItem } from '@/data/messeNews';
 import Timan2620NewsModal from '@/components/messe/Timan2620NewsModal';
 import FlyerViewerModal from '@/components/messe/FlyerViewerModal';
+import { FlyerFrontPage } from '@/components/messe/TeaserFlyerPages';
 
 const T: Record<string, Record<Language, string>> = {
   back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -50,7 +51,12 @@ export default function MesseNewsPage() {
       onClick={() => setOpenModal(item.kind === 'flyer' ? 'flyer' : 'article')}
       className={cardClass}
     >
-      <div className="aspect-video bg-slate-100 overflow-hidden">
+      <div className="aspect-video bg-slate-100 overflow-hidden relative">
+        {item.thumb === 'flyer-front' ? (
+          <div className="absolute left-1/2 top-0 w-[72%] -translate-x-1/2 aspect-[1/1.414] transition-transform duration-300 group-hover:scale-[1.03]">
+            <FlyerFrontPage lang={uiLanguage} />
+          </div>
+        ) : (
         <img
           src={item.image}
           alt={t(item.titleKey, uiLanguage)}
@@ -59,6 +65,7 @@ export default function MesseNewsPage() {
           }}
           className={`w-full h-full object-cover ${item.imagePositionClass ?? 'object-center'} transition-transform duration-300 group-hover:scale-[1.03]`}
         />
+        )}
       </div>
       <div className="p-4 flex-grow flex flex-col">
         <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700 mb-1">
