@@ -42,14 +42,14 @@ function FrontPage({ lang }: Props) {
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100" />
       <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
-        className="absolute -left-[9%] -top-[6%] h-[112%] w-[13%] -skew-x-[22deg]"
+        className="absolute -left-[14%] -top-[6%] h-[112%] w-[11%] -skew-x-[22deg]"
         style={{
           background:
             'linear-gradient(90deg, #15803d 0 42%, #ffffff 42% 56%, #16a34a 56% 100%)',
         }}
       />
       <div
-        className="absolute -right-[9%] -top-[6%] h-[112%] w-[15%] -skew-x-[22deg]"
+        className="absolute -right-[12%] -top-[6%] h-[112%] w-[12%] -skew-x-[22deg]"
         style={{
           background:
             'linear-gradient(90deg, #ef4444 0 34%, #ffffff 34% 46%, #dc2626 46% 100%)',
