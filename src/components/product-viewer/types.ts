@@ -35,6 +35,12 @@ export interface ViewerHotspot {
   technical?: ViewerHotspotTechnical[];
   /** Optional explicit number of spec rows in the left column (default: balanced). */
   technicalSplitAt?: number;
+  /** Optional secondary spec section (e.g. optional equipment), same layout. */
+  extra?: ViewerHotspotTechnical[];
+  /** Heading for the secondary spec section. */
+  extraTitle?: string;
+  /** Optional explicit column split for the secondary section. */
+  extraSplitAt?: number;
 
   /** Optional thumbnail shown in the hotspot popover/modal. */
   imageUrl?: string;

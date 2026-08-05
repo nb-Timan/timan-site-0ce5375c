@@ -126,8 +126,27 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
     kabine: {
       title: t('m2620_hot_kabine_title', lang),
       subtitle: t('m2620_hot_kabine_sub', lang),
-      description: 'Lukket kabine med opvarmning og fuldt rundtomudsyn — ideel til vinterarbejde.',
-      bullets: ['Varme og defrost', '360° udsyn', 'Støjdæmpet førerplads'],
+      description: t('m2620_cab_desc', lang),
+      bullets: [
+        t('m2620_cab_b1', lang),
+        t('m2620_cab_b2', lang),
+        t('m2620_cab_b3', lang),
+      ],
+      technical: [
+        { label: t('m2620_spec_steering', lang), value: t('m2620_specv_steering', lang) },
+        { label: t('m2620_spec_roofhatch', lang), value: t('m2620_specv_standard', lang) },
+        { label: t('m2620_spec_cabheater', lang), value: t('m2620_specv_cabheater', lang) },
+        { label: t('m2620_spec_rearwindows', lang), value: t('m2620_specv_rearwindows', lang) },
+        { label: t('m2620_spec_worklights', lang), value: t('m2620_specv_worklights', lang) },
+        { label: t('m2620_spec_wiper', lang), value: t('m2620_specv_wiper', lang) },
+      ],
+      extraTitle: t('m2620_extra_heading', lang),
+      extra: [
+        { label: t('m2620_extra_comfortseat', lang), value: t('m2620_extrav_comfortseat', lang) },
+        { label: t('m2620_extra_deluxeseat', lang), value: t('m2620_extrav_deluxeseat', lang) },
+        { label: t('m2620_extra_sunshade', lang), value: t('m2620_extrav_sunshade', lang) },
+        { label: t('m2620_extra_radio', lang), value: t('m2620_extrav_radio', lang) },
+      ],
     },
     affjedring: {
       title: t('m2620_hot_affjedring_title', lang),
