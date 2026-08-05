@@ -283,9 +283,9 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     affjedring: [
       { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      // frame 2: anchor on rear wheel/suspension area, bubble lower-left
-      // along the bottom margin so it doesn't collide with the dozer bubble.
-      { anchor: { x: 44, y: 78 }, callout: { cx: 22, cy: 96 }, frame: 2 },
+      // frame 2: anchor on the front wheel / front-axle suspension,
+      // bubble in the lower-right area beneath the machine.
+      { anchor: { x: 62, y: 78 }, callout: { cx: 74, cy: 96 }, frame: 2 },
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
