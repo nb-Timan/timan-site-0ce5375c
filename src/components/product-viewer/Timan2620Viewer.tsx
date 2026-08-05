@@ -236,6 +236,16 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
   },
 
+  // Cab + dozer blade — machine faces LEFT, blade front-left.
+  // Saltspreder is intentionally absent: this image only shows the
+  // dozer-blade configuration.
+  cab_v_plow: {
+    kabine:     { anchor: { x: 52, y: 11 }, callout: { cx: 80, cy: 10 } },
+    motor:      { anchor: { x: 71, y: 60 }, callout: { cx: 94, cy: 44 } },
+    affjedring: { anchor: { x: 63, y: 70 }, callout: { cx: 62, cy: 95 } },
+    v_plow:     { anchor: { x: 28, y: 76 }, callout: { cx: 10, cy: 52 } },
+  },
+
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
     v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
