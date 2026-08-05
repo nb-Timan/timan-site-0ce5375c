@@ -204,6 +204,14 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  *   standard_v_plow / cab_full_winter_setup (frame 2)
  *     → machine faces RIGHT (front = right, rear = left)
  */
+// Shared layout for the Standard + dozerblad views (with or without
+// saltspreder) so both configurations stay perfectly synchronized.
+const STANDARD_DOZER_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
+  v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+  motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+  affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+};
+
 const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
   // Bare machines — front faces LEFT
   standard: {
@@ -229,12 +237,9 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
 
-  // V-plov only — MIRRORED view, machine faces RIGHT, v-plov at right
-  standard_v_plow: {
-    motor:      { anchor: { x: 40, y: 55 }, callout: { cx: 12, cy: 65 } },
-    affjedring: { anchor: { x: 38, y: 74 }, callout: { cx: 50, cy: 95 } },
-    v_plow:     { anchor: { x: 68, y: 65 }, callout: { cx: 90, cy: 50 } },
-  },
+  // V-plov only — same layout as Standard + dozerblad + saltspreder,
+  // just without the saltspreder hotspot (shared source of truth).
+  standard_v_plow: { ...STANDARD_DOZER_LAYOUT },
 
   // Cab + dozer blade — machine faces LEFT, blade front-left.
   // Saltspreder is intentionally absent: this image only shows the
@@ -248,9 +253,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
-    v_plow:        { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
-    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+    ...STANDARD_DOZER_LAYOUT,
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
