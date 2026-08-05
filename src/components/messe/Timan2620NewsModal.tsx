@@ -29,7 +29,7 @@ export default function Timan2620NewsModal({ open, onClose, lang }: Props) {
     >
       <div className="rounded-xl overflow-hidden bg-slate-100 mb-5">
         <img
-          src="/images/timan-2620/standard/01.jpg"
+          src="/images/timan-2620/standard/06.jpg"
           alt={t('messe_news_2620_card_title', lang)}
           className="w-full h-56 sm:h-72 object-contain"
         />
