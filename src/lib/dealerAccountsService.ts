@@ -1153,26 +1153,46 @@ export const TIMAN_SELLERS = [
 export type TimanSeller = (typeof TIMAN_SELLERS)[number];
 
 export const DEALER_TYPE_OPTIONS = [
-  { value: "Forhandler",     label: "Forhandler (Dealer)" },
-  { value: "Service partner", label: "Service Partner" },
-  { value: "Importør",        label: "Importør" },
+  { value: "Diverse", label: "Diverse" },
+  { value: "Forhandler", label: "Forhandler" },
+  { value: "Service Partner", label: "Service Partner" },
+  { value: "Importør", label: "Importør" },
+  { value: "Reservedele", label: "Reservedele" },
+  { value: "Forhandlerkunde", label: "Forhandlerkunde" },
+  { value: "Slutkunde", label: "Slutkunde" },
+  { value: "Leverandør mv.", label: "Leverandør mv." },
+  { value: "Lukket kunde", label: "Lukket kunde" },
+  { value: "Ansat person enkel", label: "Ansat person enkel" },
   { value: "Lukket forhandler", label: "Lukket forhandler" },
   { value: "Forhandler kunde", label: "Forhandler kunde" },
-  { value: "ServicePartner", label: "ServicePartner" },
-  { value: "Kunde", label: "Kunde" },
   { value: "Andet", label: "Andet" },
 ] as const;
 
-/** Map CSV A_B_KUNDE numeric value to dealer type label. */
+/** Map SharePoint/CSV A_B_KUNDE value to the visible customer type label. */
 export function mapDealerTypeFromCode(raw: string | null | undefined): string | null {
   const v = (raw ?? "").trim();
-  if (v === "1") return "Forhandler";
-  if (v === "2") return "Service partner";
-  if (v === "3") return "Importør";
+  const normalized = v.toUpperCase();
+  if (normalized === "0" || normalized === "X") return "Diverse";
+  if (normalized === "1" || normalized === "A") return "Forhandler";
+  if (normalized === "2" || normalized === "B") return "Service Partner";
+  if (normalized === "3" || normalized === "C") return "Importør";
+  if (normalized === "D") return "Reservedele";
+  if (normalized === "E") return "Forhandlerkunde";
+  if (normalized === "F") return "Slutkunde";
+  if (normalized === "G") return "Leverandør mv.";
+  if (normalized === "H") return "Lukket kunde";
+  if (normalized === "I") return "Ansat person enkel";
   // Allow text passthrough if already a label
+  if (/diverse/i.test(v)) return "Diverse";
+  if (/forhandler\s*kunde|forhandlerkunde/i.test(v)) return "Forhandlerkunde";
+  if (/lukket/i.test(v)) return "Lukket kunde";
   if (/forhandler/i.test(v)) return "Forhandler";
-  if (/service/i.test(v))   return "Service partner";
+  if (/service/i.test(v))   return "Service Partner";
   if (/import/i.test(v))    return "Importør";
+  if (/reserve/i.test(v))   return "Reservedele";
+  if (/slutkunde|kunde/i.test(v)) return "Slutkunde";
+  if (/leverand/i.test(v)) return "Leverandør mv.";
+  if (/ansat/i.test(v)) return "Ansat person enkel";
   return null;
 }
 

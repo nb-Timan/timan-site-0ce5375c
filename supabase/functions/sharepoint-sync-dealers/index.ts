@@ -76,12 +76,28 @@ function splitZipCity(raw: string | null | undefined): { postal_code: string | n
   return { postal_code: null, city: cleaned || null };
 }
 
-function mapDealerType(code: string | null | undefined): { type: DealerType; warn: boolean } {
-  const c = (code ?? "").toString().trim();
-  if (c === "1") return { type: "dealer", warn: false };
-  if (c === "2") return { type: "service_partner", warn: false };
-  if (c === "3") return { type: "importer", warn: false };
-  return { type: "dealer", warn: true };
+function mapCustomerType(code: string | null | undefined): string | null {
+  const c = (code ?? "").toString().trim().toUpperCase();
+  if (c === "0" || c === "X") return "Diverse";
+  if (c === "1" || c === "A") return "Forhandler";
+  if (c === "2" || c === "B") return "Service Partner";
+  if (c === "3" || c === "C") return "Importør";
+  if (c === "D") return "Reservedele";
+  if (c === "E") return "Forhandlerkunde";
+  if (c === "F") return "Slutkunde";
+  if (c === "G") return "Leverandør mv.";
+  if (c === "H") return "Lukket kunde";
+  if (c === "I") return "Ansat person enkel";
+  return null;
+}
+
+function mapDealerType(code: string | null | undefined): { type: DealerType; customerType: string | null; warn: boolean } {
+  const c = (code ?? "").toString().trim().toUpperCase();
+  const customerType = mapCustomerType(c);
+  if (c === "1" || c === "A") return { type: "dealer", customerType, warn: false };
+  if (c === "2" || c === "B") return { type: "service_partner", customerType, warn: false };
+  if (c === "3" || c === "C") return { type: "importer", customerType, warn: false };
+  return { type: "dealer", customerType, warn: !!c && !customerType };
 }
 
 async function getGraphToken(): Promise<string> {
@@ -156,6 +172,8 @@ type MappedRow = {
   account_number: string;
   company_name: string;
   dealer_type: DealerType;
+  customer_type: string | null;
+  customer_type_label: string | null;
   country: string | null;
   address_line_1: string | null;
   address_line_2: string | null;
@@ -179,7 +197,7 @@ function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: str
     return { row: null, warn: null, skipReason: `Missing Account/Titel (sp id=${item.id})` };
   }
   const code = f.A_B_KUNDE != null ? String(f.A_B_KUNDE) : null;
-  const { type, warn } = mapDealerType(code);
+  const { type, customerType, warn } = mapDealerType(code);
   const addr1 = (f.ADDRESS1 ?? "").toString().trim() || null;
   const addr2 = (f.ADDRESS2 ?? "").toString().trim() || null;
   const zipCityRaw = (f.ZIPCITY ?? "").toString().trim() || null;
@@ -189,6 +207,8 @@ function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: str
       account_number: account,
       company_name: company,
       dealer_type: type,
+      customer_type: customerType,
+      customer_type_label: customerType,
       country: (f.COUNTRY ?? null) || null,
       address_line_1: addr1,
       address_line_2: addr2,
@@ -272,6 +292,9 @@ Deno.serve(async (req) => {
       "account_number",
       "company_name",
       "dealer_type",
+      "customer_type",
+      "customer_type_label",
+      "source_customer_type_code",
       "country",
       "address_line_1",
       "address_line_2",
@@ -438,6 +461,8 @@ Deno.serve(async (req) => {
     const MASTERDATA_PATCH_FIELDS = [
       "company_name",
       "dealer_type",
+      "customer_type",
+      "customer_type_label",
       "country",
       "address_line_1",
       "address_line_2",
