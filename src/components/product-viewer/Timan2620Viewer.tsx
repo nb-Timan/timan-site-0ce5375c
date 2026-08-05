@@ -133,15 +133,15 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         t('m2620_cab_b3', lang),
       ],
       technical: [
-        // Left column
         { label: t('m2620_spec_steering', lang), value: t('m2620_specv_steering', lang) },
         { label: t('m2620_spec_roofhatch', lang), value: t('m2620_specv_standard', lang) },
-        { label: t('m2620_spec_rearwindows', lang), value: t('m2620_specv_rearwindows', lang) },
-        // Right column
         { label: t('m2620_spec_cabheater', lang), value: t('m2620_specv_cabheater', lang) },
+        { label: t('m2620_spec_rearwindows', lang), value: t('m2620_specv_rearwindows', lang) },
         { label: t('m2620_spec_worklights', lang), value: t('m2620_specv_worklights', lang) },
         { label: t('m2620_spec_wiper', lang), value: t('m2620_specv_wiper', lang) },
       ],
+      // Cabin: single full-width column, even though there are 6 rows.
+      technicalColumns: 1,
       extraTitle: t('m2620_extra_heading', lang),
       extra: [
         { label: t('m2620_extra_comfortseat', lang), value: t('m2620_extrav_comfortseat', lang) },
