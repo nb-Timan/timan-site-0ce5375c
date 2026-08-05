@@ -43,7 +43,10 @@ export default function SpecificationGrid({
 }: SpecificationGridProps) {
   if (!items || items.length === 0) return null;
 
-  const cut = splitAt ?? Math.ceil(items.length / 2);
+  // Automatic layout: dense lists (6+) split into two columns, short lists
+  // stay in one full-width column. An explicit `splitAt` always wins.
+  const twoColumns = splitAt !== undefined || items.length >= 6;
+  const cut = splitAt ?? (twoColumns ? Math.ceil(items.length / 2) : items.length);
   const left = items.slice(0, cut);
   const right = items.slice(cut);
 
@@ -52,7 +55,9 @@ export default function SpecificationGrid({
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
         {title}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-0">
+      <div
+        className={`grid grid-cols-1 gap-x-10 gap-y-0 ${twoColumns ? 'sm:grid-cols-2' : ''}`}
+      >
         <dl className="min-w-0">
           {left.map((it, i) => (
             <SpecRow key={`l-${i}`} item={it} />
