@@ -208,7 +208,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Bare machines — front faces LEFT
   standard: {
     motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 88, cy: 65 } },
-    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
+    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 94 } },
   },
   cab: {
     motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
