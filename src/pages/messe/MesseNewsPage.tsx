@@ -57,7 +57,7 @@ export default function MesseNewsPage() {
           onError={(e) => {
             if (item.imageFallback) (e.currentTarget as HTMLImageElement).src = item.imageFallback;
           }}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          className={`w-full h-full object-cover ${item.imagePositionClass ?? 'object-center'} transition-transform duration-300 group-hover:scale-[1.03]`}
         />
       </div>
       <div className="p-4 flex-grow flex flex-col">

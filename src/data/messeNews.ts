@@ -24,6 +24,8 @@ export interface MesseNewsItem {
   image: string;
   /** Fallback image used if the thumbnail fails to load. */
   imageFallback?: string;
+  /** Optional object-position override for the thumbnail crop. */
+  imagePositionClass?: string;
 }
 
 /** First page of the Timan 2620 teaser flyer, used as card thumbnail. */
@@ -42,7 +44,7 @@ export const MESSE_NEWS_ITEMS: MesseNewsItem[] = [
     categoryKey: 'messe_news_cat_news',
     titleKey: 'messe_news_2620_card_title',
     descKey: 'messe_news_2620_card_desc',
-    image: '/images/timan-2620/standard/01.jpg',
+    image: '/images/timan-2620/cab_v_plow/01.jpg',
   },
   {
     id: 'timan-2620-teaser-flyer',
@@ -52,6 +54,8 @@ export const MESSE_NEWS_ITEMS: MesseNewsItem[] = [
     descKey: 'messe_news_flyer_card_desc',
     image: FLYER_PAGES[0],
     imageFallback: '/images/timan-2620/cab/01.jpg',
+    // Crop to the flyer headline (NYHED! / TIMAN 2620) instead of the machine.
+    imagePositionClass: 'object-top',
   },
 ];
 
