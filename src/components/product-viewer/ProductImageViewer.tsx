@@ -32,6 +32,8 @@ import {
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, RotateCw, Pause, ImageOff } from 'lucide-react';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
 import SpecificationGrid from './SpecificationGrid';
+import { useLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
 
 
 interface Props {
@@ -408,8 +410,8 @@ export default function ProductImageViewer({
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">
                     <ImageOff className="h-12 w-12 mb-3" />
-                    <div className="text-sm font-medium text-slate-500">Detaljebillede / video</div>
-                    <div className="text-xs text-slate-400 mt-1">Kommer snart</div>
+                    <div className="text-sm font-medium text-slate-500">{t('m2620_media_placeholder_title', uiLanguage)}</div>
+                    <div className="text-xs text-slate-400 mt-1">{t('m2620_media_placeholder_sub', uiLanguage)}</div>
                   </div>
                 )}
               </div>
@@ -445,6 +447,7 @@ export default function ProductImageViewer({
                 {activeHotspot.technical && activeHotspot.technical.length > 0 && (
                   <SpecificationGrid
                     className="mt-5 border-t border-slate-200 pt-4"
+                    title={t('m2620_spec_heading', uiLanguage)}
                     items={activeHotspot.technical}
                     splitAt={activeHotspot.technicalSplitAt}
                   />
@@ -459,7 +462,7 @@ export default function ProductImageViewer({
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm lg:text-base font-semibold shadow"
               >
                 <ChevronLeft className="h-5 w-5" />
-                Tilbage til maskinen
+                {t('m2620_back_to_machine', uiLanguage)}
               </button>
             </div>
           </div>
