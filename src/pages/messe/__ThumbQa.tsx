@@ -7,7 +7,7 @@ export default function ThumbQa() {
       {langs.map(l => (
         <div key={l} className="bg-white rounded-2xl overflow-hidden border">
           <div className="aspect-video bg-slate-100 overflow-hidden relative">
-            <div className="absolute inset-x-0 top-0 aspect-[1/1.414]">
+            <div className="absolute left-1/2 top-0 w-[72%] -translate-x-1/2 aspect-[1/1.414]">
               <FlyerFrontPage lang={l} />
             </div>
           </div>

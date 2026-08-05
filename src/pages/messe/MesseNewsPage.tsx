@@ -53,7 +53,7 @@ export default function MesseNewsPage() {
     >
       <div className="aspect-video bg-slate-100 overflow-hidden relative">
         {item.thumb === 'flyer-front' ? (
-          <div className="absolute inset-x-0 top-0 aspect-[1/1.414] transition-transform duration-300 group-hover:scale-[1.03]">
+          <div className="absolute left-1/2 top-0 w-[72%] -translate-x-1/2 aspect-[1/1.414] transition-transform duration-300 group-hover:scale-[1.03]">
             <FlyerFrontPage lang={uiLanguage} />
           </div>
         ) : (
