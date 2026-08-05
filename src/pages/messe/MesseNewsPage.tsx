@@ -8,6 +8,10 @@ import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
 import { canSwitchMode } from '@/lib/activeMode';
+import { t } from '@/lib/i18n/translations';
+import { MESSE_NEWS_ITEMS, type MesseNewsItem } from '@/data/messeNews';
+import Timan2620NewsModal from '@/components/messe/Timan2620NewsModal';
+import FlyerViewerModal from '@/components/messe/FlyerViewerModal';
 
 const T: Record<string, Record<Language, string>> = {
   back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -16,10 +20,6 @@ const T: Record<string, Record<Language, string>> = {
   read:  { da: 'Læs mere', en: 'Read more', de: 'Mehr lesen', it: 'Leggi di più', hu: 'Tovább' },
 };
 
-const PLACEHOLDER: NewsPost[] = [
-  { id: 'p1', title: 'Velkommen til Timan på messen', excerpt: 'Vi viser hele maskinprogrammet — kom forbi og prøv konfiguratoren.', image_url: null, link_url: null, category: 'NYHED', published_at: new Date().toISOString(), is_active: true, source: null },
-  { id: 'p2', title: 'Ny generation af redskaber', excerpt: 'Lær om de nye redskaber til Timan-maskinerne.', image_url: null, link_url: null, category: 'NYHED', published_at: new Date().toISOString(), is_active: true, source: null },
-];
 
 export default function MesseNewsPage() {
   const { language: lang, setLanguage } = useLanguage();
