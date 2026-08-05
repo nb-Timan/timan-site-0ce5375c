@@ -87,29 +87,26 @@ const IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
  * Empty `imageSequence` means the photo set has not been shot yet — the
  * viewer shows a friendly placeholder instead of a broken image.
  */
-/** Shared base photo for every Kabine (cab) configuration. */
-const CAB_BASE = `${BASE}/cab/01.jpg`;
-
 export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
   // Base machine only
   standard: { imageSequence: [IMG(3)], hotspots: [] },
-  cab: { imageSequence: [CAB_BASE], hotspots: [] },
+  cab: { imageSequence: [`${BASE}/cab/01.jpg`], hotspots: [] },
 
   // Saltspreder only
   standard_salt_spreader: { imageSequence: [IMG(2)], hotspots: [] },
-  cab_salt_spreader: { imageSequence: [CAB_BASE], hotspots: [] },
+  cab_salt_spreader: { imageSequence: [IMG(1)], hotspots: [] },
 
   // V-plov only
   standard_v_plow: { imageSequence: [IMG(4)], hotspots: [] },
-  cab_v_plow: { imageSequence: [CAB_BASE], hotspots: [] },
+  cab_v_plow: { imageSequence: [], hotspots: [] },
 
   // Fuldt vintersæt (V-plov + Saltspreder)
   standard_full_winter_setup: { imageSequence: [IMG(5)], hotspots: [] },
-  cab_full_winter_setup: { imageSequence: [CAB_BASE], hotspots: [] },
+  cab_full_winter_setup: { imageSequence: [IMG(6), IMG(8)], hotspots: [] },
 
-  // Kost
+  // Kost — not photographed yet
   standard_brush: { imageSequence: [], hotspots: [] },
-  cab_brush: { imageSequence: [CAB_BASE], hotspots: [] },
+  cab_brush: { imageSequence: [], hotspots: [] },
 };
 
 /**
