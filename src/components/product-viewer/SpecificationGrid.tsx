@@ -21,6 +21,8 @@ export interface SpecificationGridProps {
    * Defaults to a balanced split (ceil(items / 2)).
    */
   splitAt?: number;
+  /** Optional small label rendered next to the heading (e.g. "Tilvalg"). */
+  badge?: string;
   className?: string;
 }
 
@@ -39,6 +41,7 @@ export default function SpecificationGrid({
   title = 'Tekniske data',
   items,
   splitAt,
+  badge,
   className = '',
 }: SpecificationGridProps) {
   if (!items || items.length === 0) return null;
@@ -52,8 +55,15 @@ export default function SpecificationGrid({
 
   return (
     <section className={className}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
-        {title}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          {title}
+        </span>
+        {badge && (
+          <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 leading-none">
+            {badge}
+          </span>
+        )}
       </div>
       <div
         className={`grid grid-cols-1 gap-x-10 gap-y-0 ${twoColumns ? 'sm:grid-cols-2' : ''}`}
