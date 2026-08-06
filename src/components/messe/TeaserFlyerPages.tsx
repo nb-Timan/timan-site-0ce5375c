@@ -147,7 +147,6 @@ function BackPage({ lang }: Props) {
     <div className={PAGE_BASE} style={{ containerType: 'size' }}>
       <div className="absolute inset-0" style={PAGE_FONT}>
       <div className="absolute inset-0 bg-gradient-to-br from-white via-slate-50 to-white" />
-      <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
         className="absolute -left-[7%] -top-[8%] h-[30%] w-[16%] -skew-x-[22deg]"
         style={{
