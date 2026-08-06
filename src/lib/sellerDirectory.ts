@@ -93,10 +93,23 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const { data, error } = await supabase
-        .from("app_users")
-        .select("id,email,initials,full_name,portal_role,company")
-        .not("initials", "is", null);
+      // SECURITY (phase63): broad SELECT on app_users is restricted to Timan
+      // staff. The directory reads the minimal, purpose-built view
+      // public.app_user_directory (display fields only — no permissions,
+      // approval/active status or dealer links).
+      let { data, error } = await supabase
+        .from("app_user_directory")
+        .select("id,email,initials,full_name,portal_role,company");
+      if (error) {
+        // Older databases without the phase63 view: fall back to app_users
+        // (staff-only under the new policies).
+        const legacy = await supabase
+          .from("app_users")
+          .select("id,email,initials,full_name,portal_role,company")
+          .not("initials", "is", null);
+        data = legacy.data;
+        error = legacy.error;
+      }
       if (error) throw error;
       const list: SellerDirectoryEntry[] = (data || [])
         .map((r) => ({
