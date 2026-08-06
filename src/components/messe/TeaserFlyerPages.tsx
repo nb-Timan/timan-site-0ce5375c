@@ -37,7 +37,6 @@ function FrontPage({ lang }: Props) {
       <div className="absolute inset-0" style={PAGE_FONT}>
       {/* background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100" />
-      <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
         className="absolute -left-[14%] -top-[6%] h-[112%] w-[11%] -skew-x-[22deg]"
         style={{
