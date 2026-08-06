@@ -17,6 +17,7 @@ import type { ModuleKey } from '@/lib/portalChangelog';
 interface Props {
   title: string;
   intro?: string;
+  hideHeader?: boolean;
   /** Optional override for back link target. */
   backTo?: string;
   /** Optional changelog module key — renders "Senest ændret …" under the title. */
@@ -24,7 +25,7 @@ interface Props {
   children: ReactNode;
 }
 
-export default function MiscPageShell({ title, intro, backTo, changelogModule, children }: Props) {
+export default function MiscPageShell({ title, intro, hideHeader = false, backTo, changelogModule, children }: Props) {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -61,13 +62,15 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
             </Link>
           </div>
         </div>
-        <header className="bg-white border-b border-slate-200 py-6">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
-            {intro && <p className="text-slate-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        {!hideHeader && (
+          <header className="bg-white border-b border-slate-200 py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
+              {intro && <p className="text-slate-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
+            </div>
+          </header>
+        )}
+        <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-grow w-full ${hideHeader ? 'py-3' : 'py-8'}`}>
           {children}
         </main>
       </div>
@@ -106,15 +109,17 @@ export default function MiscPageShell({ title, intro, backTo, changelogModule, c
         </div>
       </div>
 
-      <header className="bg-white border-b border-gray-200 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-          {intro && <p className="text-gray-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
-          {changelogModule && <LastChangedLine moduleKey={changelogModule} className="mt-3" />}
-        </div>
-      </header>
+      {!hideHeader && (
+        <header className="bg-white border-b border-gray-200 py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+            {intro && <p className="text-gray-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
+            {changelogModule && <LastChangedLine moduleKey={changelogModule} className="mt-3" />}
+          </div>
+        </header>
+      )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-grow w-full ${hideHeader ? 'py-4' : 'py-12'}`}>
         {children}
       </main>
 

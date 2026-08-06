@@ -960,7 +960,7 @@ export default function PartnerMapPage() {
   }, [countryCounts]);
 
   return (
-    <MiscPageShell title={T.title[lang]} intro={T.intro[lang]} changelogModule="partner_map">
+    <MiscPageShell title={T.title[lang]} hideHeader changelogModule="partner_map">
       <style>{`
         .pm-pin-wrap { background:transparent !important; border:none !important; }
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }
@@ -1004,7 +1004,8 @@ export default function PartnerMapPage() {
         .pm-tt-cluster-more { margin-top:4px; padding-top:4px; border-top:1px dashed #e5e7eb; font-size:10px; color:#6b7280; font-style:italic; }
       `}</style>
 
-      <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-12 -mb-12 bg-gray-50 px-3 sm:px-5 py-4">
+      <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-4 -mb-4 bg-gray-50 px-3 sm:px-5 py-3">
+        <h1 className="mb-2 text-lg sm:text-xl font-bold text-slate-900">{T.title[lang]}</h1>
         <div className="flex gap-3">
           {/* Legend */}
 
