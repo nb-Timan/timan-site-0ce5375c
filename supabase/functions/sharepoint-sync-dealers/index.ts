@@ -333,6 +333,21 @@ Deno.serve(async (req) => {
       const daFullMap = new Map<string, any>();
       (daAll ?? []).forEach((r: any) => daFullMap.set(r.account_number, r));
       const spAllSet = new Set(allAccountNumbers);
+      const missingInSharePointAccounts = (daAll ?? [])
+        .filter((r: any) => !spAllSet.has(r.account_number))
+        .map((r: any) => ({
+          account_number: r.account_number,
+          company_name: r.company_name ?? null,
+          dealer_type: r.dealer_type ?? null,
+          customer_type: r.customer_type ?? null,
+          customer_type_label: r.customer_type_label ?? null,
+          country: r.country ?? null,
+          address_line_1: r.address_line_1 ?? null,
+          address_line_2: r.address_line_2 ?? null,
+          zip_city_raw: r.zip_city_raw ?? null,
+          postal_code: r.postal_code ?? null,
+          city: r.city ?? null,
+        }));
 
       function compareOne(sp: MappedRow, da: any | null) {
         const fieldResults = COMPARE_FIELDS.map((f) => {
@@ -379,6 +394,7 @@ Deno.serve(async (req) => {
         mismatches,
         missing_in_dealer_accounts,
         missing_in_sharepoint,
+        missing_in_sharepoint_accounts: missingInSharePointAccounts,
         sample_size: comparisons.length,
         comparisons,
         durationMs: Date.now() - t0,

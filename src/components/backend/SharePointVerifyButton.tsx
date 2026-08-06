@@ -27,6 +27,19 @@ interface Comparison {
   all_match: boolean;
   fields: FieldResult[];
 }
+interface MissingInSharePointAccount {
+  account_number: string;
+  company_name: string | null;
+  dealer_type: string | null;
+  customer_type: string | null;
+  customer_type_label: string | null;
+  country: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  zip_city_raw: string | null;
+  postal_code: string | null;
+  city: string | null;
+}
 interface VerifyResult {
   mode: "verify";
   dryRun: boolean;
@@ -37,6 +50,7 @@ interface VerifyResult {
   mismatches: number;
   missing_in_dealer_accounts: number;
   missing_in_sharepoint: number;
+  missing_in_sharepoint_accounts?: MissingInSharePointAccount[];
   sample_size: number;
   comparisons: Comparison[];
   durationMs: number;
@@ -60,12 +74,13 @@ const DEALER_TYPE_LABELS: Record<string, string> = {
   importer: "Importør",
 };
 
-type FilterMode = "diff_and_missing" | "diff_only" | "missing_only" | "matches_only" | "all";
+type FilterMode = "diff_and_missing" | "diff_only" | "missing_only" | "missing_in_sp" | "matches_only" | "all";
 
 const FILTER_OPTIONS: { id: FilterMode; label: string }[] = [
   { id: "diff_and_missing", label: "Afvigelser og mangler" },
   { id: "diff_only", label: "Kun afvigelser" },
   { id: "missing_only", label: "Kun nye" },
+  { id: "missing_in_sp", label: "Mangler i SP" },
   { id: "matches_only", label: "Kun matcher" },
   { id: "all", label: "Vis alle" },
 ];
@@ -179,10 +194,15 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
   }
 
   const filteredAndCounts = useMemo(() => {
-    if (!result) return { rows: [] as Comparison[], counts: { mismatch: 0, missing: 0, match: 0 } };
+    if (!result) return {
+      rows: [] as Comparison[],
+      missingInSharePointRows: [] as MissingInSharePointAccount[],
+      counts: { mismatch: 0, missing: 0, missingInSharePoint: 0, match: 0 },
+    };
     const counts = { mismatch: 0, missing: 0, match: 0 };
     const withState = result.comparisons.map((c) => ({ c, st: rowState(c) }));
     for (const { st } of withState) counts[st.kind]++;
+    const missingInSharePoint = result.missing_in_sharepoint_accounts ?? [];
 
     const q = search.trim().toLowerCase();
     const matchesSearch = (c: Comparison) => {
@@ -191,18 +211,42 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
       return [h.company_name, h.account_number, h.country, h.address_line_1, h.address_line_2, h.postal_code, h.city, h.zip_city_raw]
         .some((v) => v != null && String(v).toLowerCase().includes(q));
     };
+    const missingInSharePointMatchesSearch = (row: MissingInSharePointAccount) => {
+      if (!q) return true;
+      return [
+        row.company_name,
+        row.account_number,
+        row.country,
+        row.address_line_1,
+        row.address_line_2,
+        row.postal_code,
+        row.city,
+        row.zip_city_raw,
+        row.customer_type_label,
+        row.customer_type,
+        row.dealer_type,
+      ].some((v) => v != null && String(v).toLowerCase().includes(q));
+    };
 
-    let kept = withState.filter(({ st }) => {
+    let kept = filter === "missing_in_sp" ? [] : withState.filter(({ st }) => {
       switch (filter) {
         case "diff_and_missing": return st.kind === "mismatch" || st.kind === "missing";
         case "diff_only": return st.kind === "mismatch";
         case "missing_only": return st.kind === "missing";
+        case "missing_in_sp": return false;
         case "matches_only": return st.kind === "match";
         case "all": return true;
       }
     });
     kept = kept.filter(({ c }) => matchesSearch(c));
-    return { rows: kept.map((x) => x.c), counts };
+    return {
+      rows: kept.map((x) => x.c),
+      missingInSharePointRows: missingInSharePoint.filter(missingInSharePointMatchesSearch),
+      counts: {
+        ...counts,
+        missingInSharePoint: missingInSharePoint.length || result.missing_in_sharepoint,
+      },
+    };
   }, [result, filter, search]);
 
   const headerNode = compact ? (
@@ -301,7 +345,7 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
           ? summaryParts.join(" ")
           : "Alle kontrollerede rækker matcher SharePoint.";
 
-        const { rows, counts } = filteredAndCounts;
+        const { rows, missingInSharePointRows, counts } = filteredAndCounts;
 
         return (
           <div className="mt-4 space-y-4">
@@ -321,7 +365,13 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
                 <Metric label="matcher" value={result.matches} tone="green" />
                 <Metric label="afviger" value={result.mismatches} tone={result.mismatches ? "amber" : undefined} />
                 <Metric label="mangler i portal" value={result.missing_in_dealer_accounts} tone={result.missing_in_dealer_accounts ? "blue" : undefined} />
-                <Metric label="mangler i SP" value={result.missing_in_sharepoint} tone={result.missing_in_sharepoint ? "amber" : undefined} />
+                <Metric
+                  label="mangler i SP"
+                  value={result.missing_in_sharepoint}
+                  tone={result.missing_in_sharepoint ? "amber" : undefined}
+                  active={filter === "missing_in_sp"}
+                  onClick={result.missing_in_sharepoint ? () => setFilter("missing_in_sp") : undefined}
+                />
                 <Metric label="portal total" value={result.total_dealer_accounts} />
               </div>
             </div>
@@ -334,8 +384,9 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
                   opt.id === "diff_and_missing" ? counts.mismatch + counts.missing
                   : opt.id === "diff_only" ? counts.mismatch
                   : opt.id === "missing_only" ? counts.missing
+                  : opt.id === "missing_in_sp" ? counts.missingInSharePoint
                   : opt.id === "matches_only" ? counts.match
-                  : counts.mismatch + counts.missing + counts.match;
+                  : counts.mismatch + counts.missing + counts.match + counts.missingInSharePoint;
                 return (
                   <button
                     key={opt.id}
@@ -368,10 +419,61 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
 
             <div>
               <p className="text-xs font-bold text-slate-700 mb-2">
-                Viser {rows.length} af {result.comparisons.length} kontrollerede rækker
+                {filter === "missing_in_sp"
+                  ? `Viser ${missingInSharePointRows.length} af ${counts.missingInSharePoint} portal-rækker som mangler i SharePoint`
+                  : `Viser ${rows.length} af ${result.comparisons.length} kontrollerede rækker`}
               </p>
 
-              {rows.length === 0 ? (
+              {filter === "missing_in_sp" ? (
+                missingInSharePointRows.length === 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-600">
+                    Ingen portal-rækker matcher det aktuelle filter / søgning.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                      Disse findes i portalen, men ikke i SharePoint. Sync sletter dem ikke automatisk.
+                    </div>
+                    {missingInSharePointRows.map((row) => {
+                      const dealerType = row.customer_type_label || row.customer_type || row.dealer_type;
+                      const dealerTypeLabel = dealerType
+                        ? (DEALER_TYPE_LABELS[String(dealerType)] ?? String(dealerType))
+                        : "—";
+                      return (
+                        <div
+                          key={row.account_number}
+                          className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 min-h-[130px] flex flex-col"
+                        >
+                          <div className="flex items-start justify-between gap-4 flex-wrap">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[17px] font-semibold text-slate-900 leading-tight">
+                                {row.company_name || "—"}
+                              </div>
+                              <div className="mt-1.5 text-sm text-slate-700 flex flex-wrap gap-x-2 gap-y-0.5 items-center">
+                                <span className="font-mono">Account {row.account_number}</span>
+                                <span className="text-slate-400">·</span>
+                                <span>{row.country || "—"}</span>
+                                <span className="text-slate-400">·</span>
+                                <span>{dealerTypeLabel}</span>
+                              </div>
+                              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                                <DataPill label="Adresse 1" value={row.address_line_1} />
+                                <DataPill label="Adresse 2" value={row.address_line_2} />
+                                <DataPill label="Postnr./by" value={formatPostCity(row.postal_code, row.city, row.zip_city_raw)} />
+                                <DataPill label="Land" value={row.country} />
+                              </div>
+                            </div>
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1 text-xs font-bold whitespace-nowrap shadow-sm">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                              Findes kun i portal
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : rows.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-600">
                   Ingen rækker matcher det aktuelle filter / søgning.
                 </div>
@@ -506,14 +608,37 @@ function DataPill({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "green" | "blue" | "amber" }) {
+function Metric({
+  label,
+  value,
+  tone,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number | string;
+  tone?: "green" | "blue" | "amber";
+  active?: boolean;
+  onClick?: () => void;
+}) {
   const toneCls =
     tone === "green" ? "bg-emerald-100 text-emerald-900"
     : tone === "blue" ? "bg-sky-100 text-sky-900"
     : tone === "amber" ? "bg-amber-100 text-amber-900"
     : "bg-white text-slate-900";
+  const cls = `rounded-md border px-3 py-2 text-left ${toneCls} ${
+    active ? "border-indigo-500 ring-2 ring-indigo-200" : "border-slate-200"
+  } ${onClick ? "cursor-pointer hover:ring-2 hover:ring-indigo-200 transition" : ""}`;
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
+        <div className="font-mono font-bold text-sm">{value}</div>
+      </button>
+    );
+  }
   return (
-    <div className={`rounded-md border border-slate-200 px-3 py-2 ${toneCls}`}>
+    <div className={cls}>
       <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
       <div className="font-mono font-bold text-sm">{value}</div>
     </div>
