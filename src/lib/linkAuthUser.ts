@@ -2,44 +2,26 @@
  * Link the currently authenticated Supabase Auth user to its matching
  * row in public.app_users by email.
  *
- * - Safe to call on every login / session rehydrate.
- * - Only writes when app_users.auth_user_id is NULL and the email matches.
- * - Never overwrites an existing auth_user_id, never changes id or email.
- * - Silent no-op when there is no session, when the column doesn't exist,
- *   or when RLS denies the update — login must keep working regardless.
+ * SECURITY: `auth_user_id` is a protected column — the browser can no longer
+ * write it (see docs/sql/phase63_app_users_rls_hardening.sql). The linking is
+ * performed by the `admin-user-actions` Edge Function (`link_self`), which
+ * derives the identity from the verified JWT, only ever links the caller's own
+ * row, and refuses to re-link a row that already belongs to another account.
+ *
+ * Safe to call on every login / session rehydrate. Never blocks login.
  */
 
 import { supabase } from "@/lib/supabase";
+import { linkSelfAppUser } from "@/lib/adminUserActions";
 
 export async function linkAuthUserIdIfNeeded(): Promise<void> {
   try {
     const { data: sessionData } = await supabase.auth.getSession();
-    const session = sessionData.session;
-    if (!session?.user?.email || !session.user.id) return;
+    if (!sessionData.session?.user?.id) return;
 
-    const email = session.user.email.toLowerCase();
-    const authUid = session.user.id;
-
-    const { data: row, error } = await supabase
-      .from("app_users")
-      .select("id, auth_user_id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (error || !row) return;
-    if (row.auth_user_id) return; // already linked
-
-    const { error: updErr } = await supabase
-      .from("app_users")
-      .update({ auth_user_id: authUid })
-      .eq("id", row.id)
-      .is("auth_user_id", null); // race-safe: only when still null
-
-    if (updErr) {
-      // Most common: missing column on older DB, or RLS denied. Either is fine.
-      console.warn("[linkAuthUserId] could not link (continuing):", updErr.message);
-    } else {
-      console.log("[linkAuthUserId] linked", email, "→", authUid);
+    const res = await linkSelfAppUser();
+    if (!res.ok) {
+      console.warn("[linkAuthUserId] could not link (continuing):", res.error);
     }
   } catch (err) {
     console.warn("[linkAuthUserId] unexpected error:", err);

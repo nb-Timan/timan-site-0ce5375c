@@ -146,18 +146,15 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       if (dbError || !appUserRow) {
         const userEmail = data.user.email!.toLowerCase();
-        // Sync new user to app_users
-        supabase.from('app_users').upsert({
-          email: userEmail,
-          full_name: data.user.user_metadata?.full_name || userEmail,
-          role: 'slutkunde',
-          is_active: true,
-          approved: false,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-          if (syncErr) console.error('[app_users sync] insert failed:', syncErr);
-          else console.log('[app_users sync] inserted new:', userEmail);
-        });
+        // Create the missing profile server-side. The browser may no longer
+        // insert app_users rows (RLS, phase63) — the Edge Function creates a
+        // locked-down pending row for the caller's own email only.
+        import('@/lib/adminUserActions').then(({ syncSelfAppUser }) => {
+          syncSelfAppUser().then((res) => {
+            if (!res.ok) console.error('[app_users sync] insert failed:', res.error);
+          });
+        }).catch(() => { /* ignore */ });
+
 
         trackLogin(userEmail, 'login');
 
@@ -186,18 +183,15 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       // Use fresh authenticated session email for all sync
       const authEmail = data.user.email!.toLowerCase();
       console.log('[app_users sync] Using authenticated email:', authEmail);
-      
-      // Sync user to app_users (update last activity)
-      supabase.from('app_users').upsert({
-        email: authEmail,
-        full_name: appUserRow.full_name || data.user.email,
-        role: appUserRow.role,
-        is_active: appUserRow.is_active,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-        if (syncErr) console.error('[app_users sync] update failed:', syncErr);
-        else console.log('[app_users sync] updated:', authEmail);
-      });
+
+      // Touch last activity server-side (protected columns are never sent —
+      // the Edge Function only updates the caller's own row).
+      import('@/lib/adminUserActions').then(({ syncSelfAppUser }) => {
+        syncSelfAppUser().then((res) => {
+          if (!res.ok) console.error('[app_users sync] update failed:', res.error);
+        });
+      }).catch(() => { /* ignore */ });
+
 
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
       trackLogin(authEmail, 'login');
@@ -417,19 +411,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     setShowGuestPopup(false);
 
     if (guestEmailLc) {
-      // Sync guest email to app_users (best-effort)
-      supabase.from('app_users').upsert({
-        email: guestEmailLc,
-        full_name: guestEmailLc,
-        role: 'slutkunde',
-        is_active: true,
-        approved: false,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-        if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
-      });
+      // SECURITY: guests are unauthenticated — they must not be able to create
+      // app_users rows (phase63 revokes anon INSERT). Guest identity is only
+      // tracked in the visitor/login tracking tables.
       trackLogin(guestEmailLc, 'guest');
     }
+
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,

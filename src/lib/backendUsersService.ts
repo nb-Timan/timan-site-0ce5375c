@@ -11,6 +11,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { adminUpdateAppUser } from "@/lib/adminUserActions";
 import {
   PortalRole,
   PORTAL_ROLES,
@@ -348,28 +349,20 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     updated_at: new Date().toISOString(),
   };
 
-  // Try a full update first. If Postgres complains about a missing column
-  // (PGRST204 from PostgREST schema cache, or "column ... does not exist"),
-  // drop that column and retry. This keeps the page working when the
-  // Phase 2 / Phase 3 SQL migrations haven't all been applied yet.
-  const droppedColumns: string[] = [];
-  let attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
+  // SECURITY (phase63): privileged app_users writes are no longer possible
+  // from the browser — RLS + a protected-column trigger block them. All
+  // changes go through the `admin-user-actions` Edge Function, which
+  // authenticates the caller, verifies timan_backend + approved + active,
+  // whitelists every column, rejects self-escalation and writes an audit
+  // entry. The function also performs the missing-column drop/retry fallback.
+  const fnResult = await adminUpdateAppUser(id, fullPatch, draft.email);
+  const droppedColumns: string[] = fnResult.dropped_columns ?? [];
+  for (const col of droppedColumns) delete fullPatch[col];
 
-  let safety = 0;
-  while (attempt.error && safety < 10) {
-    const msg = attempt.error.message || "";
-    const match =
-      msg.match(/Could not find the '([^']+)' column/i) ||
-      msg.match(/column "?([a-z0-9_]+)"? .* does not exist/i) ||
-      msg.match(/column ([a-z0-9_]+) of relation/i);
-    if (!match) break;
-    const col = match[1];
-    if (!(col in fullPatch)) break;
-    delete fullPatch[col];
-    droppedColumns.push(col);
-    safety++;
-    attempt = await supabase.from("app_users").update(fullPatch).eq("id", id).select("*").maybeSingle();
-  }
+  const attempt = {
+    error: fnResult.ok ? null : ({ message: fnResult.error ?? "Ukendt fejl", code: "" } as { message: string; code?: string }),
+    data: (fnResult.user ?? null) as Record<string, unknown> | null,
+  };
 
   if (attempt.error) {
     const msg = attempt.error.message || String(attempt.error);
@@ -377,7 +370,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
 
     // Translate common RLS / auth issues into clear Danish messages.
     let friendly = `Kunne ikke gemme i Supabase: ${msg}`;
-    if (code === "42501" || /row-level security|permission denied|policy/i.test(msg)) {
+    if (code === "42501" || /row-level security|permission denied|policy|Adgang nægtet/i.test(msg)) {
       friendly =
         "Du har ikke rettigheder til at opdatere brugere. Log ind som en Timan Backend bruger " +
         "(portal_role = 'timan_backend') hvis app_users-rækken har auth_user_id koblet til din Supabase Auth-konto. " +

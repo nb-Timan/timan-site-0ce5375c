@@ -1,3 +1,10 @@
+-- ⚠️ SUPERSEDED AND INSECURE — DO NOT RUN.
+-- Phase 36 restored fully permissive policies on public.app_users
+-- (select/update using (true) with check (true)). Combined with the public
+-- publishable key this allowed any anonymous visitor to enumerate all users
+-- and grant themselves timan_backend. It is replaced by
+-- docs/sql/phase63_app_users_rls_hardening.sql. Kept only for history.
+
 -- Phase 36 — Restore permissive UPDATE policy on public.app_users.
 --
 -- HOW TO RUN
