@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import { Search, ExternalLink, X, MapPin, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCountryFormatter } from '@/lib/formatCountry';
@@ -527,15 +527,17 @@ export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const { appUser } = useAppUser();
+  const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
   const portalRole = derivePortalRole(effectiveUser);
-  const canOpenCrm = portalRole === 'timan_backend' || portalRole === 'timan_seller';
+  const onMesseRoute = location.pathname.startsWith('/messe');
+  const canOpenCrm = !onMesseRoute && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   const canSeeAssignedSeller = canOpenCrm;
   // Internal roles get aggregate machine stats on partner cards. Dealer-side
   // roles do not (those cards are about other partners), but they can still
   // see the Garantiregistreringer-laget — scoped to their own dealer.
   const canSeeMachineStats =
-    portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller';
+    !onMesseRoute && (portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller');
   // Dealer-side users: forhandlere, importører, servicepartnere, dealer-users.
   // They MUST only see their own account/data — no Timan-wide partner browsing.
   const isDealerSide =
@@ -1369,9 +1371,9 @@ export default function PartnerMapPage() {
         <>
           <div className="fixed inset-0 z-[1000] bg-black/30 lg:hidden" onClick={() => setSelectedId(null)} />
           <aside className="fixed z-[1001] bg-white shadow-2xl border-gray-200
-                            inset-x-0 bottom-0 max-h-[88vh] rounded-t-2xl border-t
-                            lg:inset-y-0 lg:right-0 lg:bottom-auto lg:max-h-none lg:w-[400px] lg:rounded-none lg:rounded-l-2xl lg:border-l lg:border-t-0
-                            animate-in slide-in-from-bottom lg:slide-in-from-right duration-300 overflow-y-auto">
+                            inset-x-3 bottom-3 max-h-[88vh] rounded-2xl border
+                            sm:left-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[400px] sm:max-w-[calc(100vw-3rem)] sm:max-h-none
+                            animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 overflow-y-auto">
             <div className="relative">
               <div className="h-2" style={{ background: TYPE_COLORS[selected.type] }} />
               <div className="px-5 pt-4 pb-3 border-b border-gray-100">
