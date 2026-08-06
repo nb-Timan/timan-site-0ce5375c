@@ -1153,19 +1153,9 @@ export const TIMAN_SELLERS = [
 export type TimanSeller = (typeof TIMAN_SELLERS)[number];
 
 export const DEALER_TYPE_OPTIONS = [
-  { value: "Diverse", label: "Diverse" },
   { value: "Forhandler", label: "Forhandler" },
   { value: "Service Partner", label: "Service Partner" },
   { value: "Importør", label: "Importør" },
-  { value: "Reservedele", label: "Reservedele" },
-  { value: "Forhandlerkunde", label: "Forhandlerkunde" },
-  { value: "Slutkunde", label: "Slutkunde" },
-  { value: "Leverandør mv.", label: "Leverandør mv." },
-  { value: "Lukket kunde", label: "Lukket kunde" },
-  { value: "Ansat person enkel", label: "Ansat person enkel" },
-  { value: "Lukket forhandler", label: "Lukket forhandler" },
-  { value: "Forhandler kunde", label: "Forhandler kunde" },
-  { value: "Andet", label: "Andet" },
 ] as const;
 
 /** Map SharePoint/CSV A_B_KUNDE value to the visible customer type label. */
