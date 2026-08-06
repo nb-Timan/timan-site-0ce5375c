@@ -26,9 +26,6 @@ const PAGE_BASE =
 /** Root font-size of a page, in container-height units (set on the inner box). */
 const PAGE_FONT = { fontSize: '2.15cqh' } as const;
 
-/** Diagonal red/green ribbon backdrop from the printed flyer. */
-const stripes =
-  'repeating-linear-gradient(115deg, rgba(148,163,184,0.16) 0 10px, transparent 10px 34px)';
 
 interface Props {
   lang: PortalUiLanguage;
