@@ -35,7 +35,7 @@ interface Summary {
   geocoded: number;
   skipped: number;
   failed: number;
-  errors: { account: string | null; reason: string }[];
+  errors: { account: string | null; name: string | null; address: string; reason: string }[];
 }
 
 function buildAddress(d: DealerRow): string {
@@ -131,7 +131,12 @@ Deno.serve(async (req) => {
             geocoding_error: `Ingen match for: ${address}`,
           }).eq("id", r.id);
           summary.failed++;
-          summary.errors.push({ account: r.account_number, reason: "Ingen match" });
+          summary.errors.push({
+            account: r.account_number,
+            name: r.company_name,
+            address,
+            reason: "Ingen match",
+          });
         } else {
           await admin.from("dealer_accounts").update({
             latitude: hit.lat,
@@ -150,7 +155,12 @@ Deno.serve(async (req) => {
           geocoding_error: msg,
         }).eq("id", r.id);
         summary.failed++;
-        summary.errors.push({ account: r.account_number, reason: msg });
+        summary.errors.push({
+          account: r.account_number,
+          name: r.company_name,
+          address,
+          reason: msg,
+        });
       }
       await sleep(RATE_LIMIT_MS);
     }
