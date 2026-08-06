@@ -411,19 +411,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
     setShowGuestPopup(false);
 
     if (guestEmailLc) {
-      // Sync guest email to app_users (best-effort)
-      supabase.from('app_users').upsert({
-        email: guestEmailLc,
-        full_name: guestEmailLc,
-        role: 'slutkunde',
-        is_active: true,
-        approved: false,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-        if (syncErr) console.error('[app_users sync] guest insert failed:', syncErr);
-      });
+      // SECURITY: guests are unauthenticated — they must not be able to create
+      // app_users rows (phase63 revokes anon INSERT). Guest identity is only
+      // tracked in the visitor/login tracking tables.
       trackLogin(guestEmailLc, 'guest');
     }
+
 
     onResolved({
       ...SLUTKUNDE_DEFAULTS,
