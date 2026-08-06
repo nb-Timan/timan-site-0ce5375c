@@ -42,8 +42,51 @@ const corsHeaders = {
 const PORTAL_SITE_URL =
   Deno.env.get("PORTAL_SITE_URL") ?? "https://timan-portal.lovable.app";
 
+type Action =
+  | "invite"
+  | "reset"
+  | "signup"
+  | "admin_update_user"
+  | "admin_delete_user"
+  | "link_self"
+  | "sync_self";
+
+const ADMIN_ACTIONS: Action[] = ["invite", "reset", "admin_update_user", "admin_delete_user"];
+const SELF_ACTIONS: Action[] = ["link_self", "sync_self"];
+const ALL_ACTIONS: Action[] = ["signup", ...ADMIN_ACTIONS, ...SELF_ACTIONS];
+
+/**
+ * Columns an authorized Timan Backend administrator may write through this
+ * function. Anything not listed here is rejected — the client can never
+ * smuggle in an unknown/protected column.
+ */
+const ADMIN_WRITABLE_COLUMNS = new Set([
+  "full_name", "first_name", "last_name", "email", "initials", "company",
+  "address", "city", "postal_code", "country", "preferred_language",
+  "preferred_currency", "phone", "notes", "display_name",
+  "dealer_number", "company_dealer", "dealer_id",
+  "seller_initials", "seller_email",
+  "portal_role", "role", "partner_type", "status", "approved", "is_active",
+  "allowed_areas", "allowed_modules", "backend_modules", "module_access",
+  "permissions", "quick_actions", "portal_variant",
+  "can_view_prices", "can_submit_order", "can_edit_discount",
+  "can_switch_customer_mode", "start_step", "max_step",
+  "account_owner_user_id", "account_owner_name", "account_owner_initials",
+  "account_owner_email", "updated_at",
+]);
+
+/** Fields whose change is security-relevant and must be audited. */
+const PROTECTED_COLUMNS = [
+  "portal_role", "role", "partner_type", "permissions", "allowed_modules",
+  "allowed_areas", "backend_modules", "module_access", "is_active", "approved",
+  "status", "auth_user_id", "user_id", "dealer_id", "email",
+];
+
+/** Never writable through this function, by anyone. */
+const NEVER_WRITABLE = new Set(["id", "auth_user_id", "user_id", "created_at", "login_count"]);
+
 interface RequestBody {
-  action: "invite" | "reset" | "signup";
+  action: Action;
   email: string;
   app_user_id?: string | null;
   // Optional override for password-reset/invite redirect target. When the
@@ -63,6 +106,8 @@ interface RequestBody {
     country?: string;
     preferred_language?: string;
   };
+  // Only used for action === "admin_update_user":
+  patch?: Record<string, unknown>;
 }
 
 function json(body: unknown, status = 200): Response {
