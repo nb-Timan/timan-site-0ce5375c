@@ -8,8 +8,9 @@
  */
 
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, ArrowRight, Search,
+  Loader2, AlertTriangle, CheckCircle2, ScanSearch, Check, ArrowRight, Search, Pencil,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
@@ -467,6 +468,13 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
                               <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
                               Findes kun i portal
                             </span>
+                            <Link
+                              to={`/portal/crm/my-dealers/${encodeURIComponent(row.account_number)}?edit=1`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-amber-100 whitespace-nowrap"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Åbn/rediger
+                            </Link>
                           </div>
                         </div>
                       );

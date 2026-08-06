@@ -13,7 +13,7 @@
  * reach this route (see access guard below). Notes never leak.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
   FileText, ClipboardList, TrendingUp,
@@ -177,6 +177,26 @@ const L: Record<string, Record<Language, string>> = {
 };
 const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
 
+const CUSTOMER_TYPE_OPTIONS = [
+  "Diverse",
+  "Forhandler",
+  "Service Partner",
+  "Importør",
+  "Reservedele",
+  "Forhandlerkunde",
+  "Slutkunde",
+  "Leverandør mv.",
+  "Lukket kunde",
+  "Ansat person enkel",
+] as const;
+
+function dealerTypeFromCustomerType(label: string | null): string | null {
+  if (label === "Service Partner") return "service_partner";
+  if (label === "Importør") return "importer";
+  if (!label) return null;
+  return "dealer";
+}
+
 
 
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
@@ -205,6 +225,7 @@ export default function CrmDealerDetailPage() {
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -349,6 +370,14 @@ export default function CrmDealerDetailPage() {
     listDealerContacts(dealer.id).then((rows) => { if (!cancelled) setDealerContacts(rows); });
     return () => { cancelled = true; };
   }, [dealer?.id]);
+
+  useEffect(() => {
+    if (!dealer || !admin || searchParams.get("edit") !== "1") return;
+    setShowEditDealer(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("edit");
+    setSearchParams(next, { replace: true });
+  }, [dealer, admin, searchParams, setSearchParams]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -794,6 +823,12 @@ export default function CrmDealerDetailPage() {
       {showEditDealer && admin && (
         <EditDealerModal
           dealer={dealer}
+          sellers={users.filter((u) =>
+            u.is_active &&
+            u.approved &&
+            (u.role === "timan_seller" || u.role === "timan_backend") &&
+            Boolean(u.initials && u.email)
+          )}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
         />
@@ -1091,24 +1126,34 @@ function NoteModal({ dealerLabel, onCancel, onSave }: {
 
 function EditDealerModal({
   dealer,
+  sellers,
   onCancel,
   onSave,
 }: {
   dealer: DealerAccount;
+  sellers: BackendUser[];
   onCancel: () => void;
   onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const initialSeller = sellers.find((s) =>
+    (dealer.assigned_seller_email && s.email.toLowerCase() === dealer.assigned_seller_email.toLowerCase()) ||
+    (dealer.assigned_seller_initials && s.initials.toUpperCase() === dealer.assigned_seller_initials.toUpperCase())
+  );
+  const initialCustomerType = dealer.customer_type_label || dealer.customer_type || "";
   const [form, setForm] = useState({
     company_name: dealer.company_name || "",
     account_number: dealer.account_number || "",
     country: dealer.country || "",
-    address: dealer.address || "",
+    address: dealer.address || dealer.address_line_1 || "",
     postal_code: dealer.postal_code || "",
     city: dealer.city || "",
     email: dealer.email || "",
     phone: dealer.phone || "",
-    assigned_seller_initials: dealer.assigned_seller_initials || "",
-    customer_type_label: dealer.customer_type_label || "",
+    seller_id: initialSeller?.id || "",
+    assigned_seller_initials: initialSeller?.initials || dealer.assigned_seller_initials || "",
+    assigned_seller_name: initialSeller?.name || dealer.assigned_seller_name || "",
+    assigned_seller_email: initialSeller?.email || dealer.assigned_seller_email || "",
+    customer_type_label: initialCustomerType,
   });
   // Geo captured from Google Places when the user selects a suggestion.
   // Manual typing leaves these null; backend manual geocode panel handles backfill.
@@ -1121,6 +1166,30 @@ function EditDealerModal({
 
   const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setText = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  function applySeller(sellerId: string) {
+    if (!sellerId) {
+      setForm((f) => ({
+        ...f,
+        seller_id: "",
+        assigned_seller_initials: "",
+        assigned_seller_name: "",
+        assigned_seller_email: "",
+      }));
+      return;
+    }
+    const selected = sellers.find((s) => s.id === sellerId);
+    if (!selected) return;
+    setForm((f) => ({
+      ...f,
+      seller_id: selected.id,
+      assigned_seller_initials: selected.initials,
+      assigned_seller_name: selected.name,
+      assigned_seller_email: selected.email,
+    }));
+  }
 
   function applyResolved(r: ResolvedAddress) {
     setForm((f) => ({
@@ -1141,8 +1210,6 @@ function EditDealerModal({
     { label: "By", k: "city" },
     { label: "Email", k: "email", type: "email" },
     { label: "Telefon", k: "phone" },
-    { label: "Tildelt sælger (initialer)", k: "assigned_seller_initials" },
-    { label: "Forhandlertype", k: "customer_type_label" },
   ];
 
   return (
@@ -1184,6 +1251,40 @@ function EditDealerModal({
               />
             </label>
           ))}
+          <label className="block">
+            <span className="block text-xs font-bold text-slate-600 mb-1">Tildelt sælger</span>
+            <select
+              value={form.seller_id}
+              onChange={(e) => applySeller(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Ingen sælger</option>
+              {sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.initials} - {seller.name}
+                </option>
+              ))}
+            </select>
+            {form.assigned_seller_email && (
+              <span className="mt-1 block text-[10px] text-slate-500">{form.assigned_seller_email}</span>
+            )}
+          </label>
+          <label className="block">
+            <span className="block text-xs font-bold text-slate-600 mb-1">Forhandlertype</span>
+            <select
+              value={form.customer_type_label}
+              onChange={setText("customer_type_label")}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Ingen kundetype</option>
+              {CUSTOMER_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+              {form.customer_type_label && !CUSTOMER_TYPE_OPTIONS.includes(form.customer_type_label as typeof CUSTOMER_TYPE_OPTIONS[number]) && (
+                <option value={form.customer_type_label}>{form.customer_type_label}</option>
+              )}
+            </select>
+          </label>
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
@@ -1210,11 +1311,16 @@ function EditDealerModal({
                   account_number: form.account_number.trim(),
                   country: trim(form.country),
                   address: trim(form.address),
+                  address_line_1: trim(form.address),
                   postal_code: trim(form.postal_code),
                   city: trim(form.city),
                   email: trim(form.email),
                   phone: trim(form.phone),
                   assigned_seller_initials: trim(form.assigned_seller_initials),
+                  assigned_seller_name: trim(form.assigned_seller_name),
+                  assigned_seller_email: trim(form.assigned_seller_email),
+                  dealer_type: dealerTypeFromCustomerType(trim(form.customer_type_label)),
+                  customer_type: trim(form.customer_type_label),
                   customer_type_label: trim(form.customer_type_label),
                 };
                 // Persist Google geo only when present (selected from suggestion).

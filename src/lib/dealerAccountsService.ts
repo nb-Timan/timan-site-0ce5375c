@@ -331,6 +331,7 @@ export interface UpdateDealerAccountPatch {
   assigned_seller_initials?: string | null;
   assigned_seller_name?: string | null;
   assigned_seller_email?: string | null;
+  dealer_type?: string | null;
   customer_type?: string | null;
   customer_type_label?: string | null;
   // Phase 52 — self-service profile.
