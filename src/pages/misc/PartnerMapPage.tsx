@@ -13,9 +13,10 @@ import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole } from '@/lib/portalAccess';
+import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerInitials } from '@/lib/activeMode';
+import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
 import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
@@ -530,13 +531,24 @@ export default function PartnerMapPage() {
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
   const portalRole = derivePortalRole(effectiveUser);
-  const onMesseRoute = location.pathname.startsWith('/messe');
+  const messePreviewVersion = useMessePreviewVersion();
+  const isMessePreview = useMemo(
+    () => isMessePreviewActive(appUser?.email),
+    [appUser?.email, messePreviewVersion],
+  );
+  const onMesseRoute = location.pathname.includes('/messe');
+  const isMesseMapView =
+    onMesseRoute ||
+    portalRole === 'exhibition_user' ||
+    isMessePreview ||
+    isMesseVariantUser(appUser) ||
+    isMesseVariantUser(effectiveUser);
   const isInternalMapRole =
     portalRole === 'timan_backend' ||
     portalRole === 'timan_seller' ||
     portalRole === 'timan_service';
-  const canSeeInternalMapFeatures = !onMesseRoute && isInternalMapRole;
-  const canOpenCrm = !onMesseRoute && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
+  const canSeeInternalMapFeatures = !isMesseMapView && isInternalMapRole;
+  const canOpenCrm = !isMesseMapView && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   const canSeeAssignedSeller = canOpenCrm;
   // Internal roles get aggregate machine stats on partner cards. Dealer-side
   // roles do not (those cards are about other partners), but they can still
@@ -1039,7 +1051,7 @@ export default function PartnerMapPage() {
                   </button>
                 )}
               </div>
-              {!isDealerSide && (
+              {canSeeInternalMapFeatures && (
                 <>
                   <select
                     value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}
