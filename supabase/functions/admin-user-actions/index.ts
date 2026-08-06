@@ -633,3 +633,42 @@ async function touchAppUser(
   if (appUserId && (await runWithFallback("id", appUserId))) return;
   await runWithFallback("email", email);
 }
+
+/**
+ * Privileged-action audit trail. Records WHO changed WHAT on WHICH row and
+ * WHEN — names of changed protected fields only, never their values, and
+ * never secrets or full payloads.
+ */
+async function writeAudit(
+  admin: ReturnType<typeof createClient>,
+  entry: {
+    actor_email: string;
+    actor_name: string | null;
+    actor_role: string | null;
+    action: string;
+    module: string;
+    record_type: string;
+    record_id: string;
+    record_label: string;
+    changed: string[];
+    status: "success" | "failure";
+  },
+) {
+  try {
+    await admin.from("audit_log").insert({
+      actor_email: entry.actor_email,
+      actor_name: entry.actor_name,
+      actor_role: entry.actor_role,
+      action: entry.action,
+      module: entry.module,
+      record_type: entry.record_type,
+      record_id: entry.record_id,
+      record_label: entry.record_label,
+      old_value: null,
+      new_value: entry.changed.length ? `changed: ${entry.changed.join(", ")}` : null,
+      status: entry.status,
+    });
+  } catch {
+    /* audit must never block the action */
+  }
+}
