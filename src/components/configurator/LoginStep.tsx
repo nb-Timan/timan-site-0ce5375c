@@ -183,18 +183,15 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
       // Use fresh authenticated session email for all sync
       const authEmail = data.user.email!.toLowerCase();
       console.log('[app_users sync] Using authenticated email:', authEmail);
-      
-      // Sync user to app_users (update last activity)
-      supabase.from('app_users').upsert({
-        email: authEmail,
-        full_name: appUserRow.full_name || data.user.email,
-        role: appUserRow.role,
-        is_active: appUserRow.is_active,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-        if (syncErr) console.error('[app_users sync] update failed:', syncErr);
-        else console.log('[app_users sync] updated:', authEmail);
-      });
+
+      // Touch last activity server-side (protected columns are never sent —
+      // the Edge Function only updates the caller's own row).
+      import('@/lib/adminUserActions').then(({ syncSelfAppUser }) => {
+        syncSelfAppUser().then((res) => {
+          if (!res.ok) console.error('[app_users sync] update failed:', res.error);
+        });
+      }).catch(() => { /* ignore */ });
+
 
       console.log('[login_tracking sync] Using authenticated email:', authEmail);
       trackLogin(authEmail, 'login');
