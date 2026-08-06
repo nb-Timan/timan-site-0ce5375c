@@ -55,7 +55,10 @@ await probe("anon cannot read emails", "/app_users?select=email&limit=1");
 await probe("anon cannot insert", "/app_users", {
   method: "POST",
   headers: { ...H, Prefer: "return=representation" },
-  body: JSON.stringify({ email: FAKE_EMAIL, full_name: "rls probe", approved: true, portal_role: "timan_backend" }),
+  // Harmless payload on purpose: if the DB is insecure the probe must not
+  // create a privileged row. Clean up leftovers with the DELETE statement at
+  // the end of docs/sql/phase63_app_users_rls_hardening.sql.
+  body: JSON.stringify({ email: FAKE_EMAIL, full_name: "rls probe" }),
 });
 await probe("anon cannot update portal_role", `/app_users?id=eq.${FAKE_ID}`, {
   method: "PATCH",

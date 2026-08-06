@@ -234,3 +234,10 @@ grant select on public.app_user_directory to authenticated, service_role;
 --  where schemaname='public' and tablename='app_users';
 -- select grantee, privilege_type from information_schema.role_table_grants
 --  where table_schema='public' and table_name='app_users';
+
+-- 8) Cleanup of security-probe rows ----------------------------------------
+-- scripts/verify-app-users-rls.mjs proved the pre-migration hole by inserting
+-- a row as an anonymous visitor. Remove any such rows (and anything else that
+-- was created anonymously with an invalid domain).
+delete from public.app_users
+ where email like 'rls-probe-%@invalid.test';
