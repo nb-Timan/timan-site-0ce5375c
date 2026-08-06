@@ -1371,8 +1371,9 @@ export default function PartnerMapPage() {
         <>
           <div className="fixed inset-0 z-[1000] bg-black/30 lg:hidden" onClick={() => setSelectedId(null)} />
           <aside className="fixed z-[1001] bg-white shadow-2xl border-gray-200
-                            inset-x-3 bottom-3 max-h-[88vh] rounded-2xl border
-                            sm:left-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[400px] sm:max-w-[calc(100vw-3rem)] sm:max-h-none
+                            inset-x-3 bottom-3 max-h-[78vh] rounded-2xl border
+                            sm:inset-auto sm:right-6 sm:top-1/2 sm:-translate-y-1/2 sm:w-[380px] sm:max-w-[calc(100vw-3rem)] sm:max-h-[calc(100vh-8rem)]
+                            lg:right-8
                             animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 overflow-y-auto">
             <div className="relative">
               <div className="h-2" style={{ background: TYPE_COLORS[selected.type] }} />
@@ -1394,7 +1395,14 @@ export default function PartnerMapPage() {
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-4 space-y-3">
+              {!selected.coords && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <div>Denne forhandler mangler koordinater og kan derfor ikke vises som prik på kortet.</div>
+                </div>
+              )}
+
               {(() => {
                 const hasAddress = !!(selected.addressLine1 || selected.postal || selected.city);
                 const hasAnyLocation = hasAddress || !!selected.country;
