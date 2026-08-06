@@ -146,18 +146,15 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
 
       if (dbError || !appUserRow) {
         const userEmail = data.user.email!.toLowerCase();
-        // Sync new user to app_users
-        supabase.from('app_users').upsert({
-          email: userEmail,
-          full_name: data.user.user_metadata?.full_name || userEmail,
-          role: 'slutkunde',
-          is_active: true,
-          approved: false,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'email' }).then(({ error: syncErr }) => {
-          if (syncErr) console.error('[app_users sync] insert failed:', syncErr);
-          else console.log('[app_users sync] inserted new:', userEmail);
-        });
+        // Create the missing profile server-side. The browser may no longer
+        // insert app_users rows (RLS, phase63) — the Edge Function creates a
+        // locked-down pending row for the caller's own email only.
+        import('@/lib/adminUserActions').then(({ syncSelfAppUser }) => {
+          syncSelfAppUser().then((res) => {
+            if (!res.ok) console.error('[app_users sync] insert failed:', res.error);
+          });
+        }).catch(() => { /* ignore */ });
+
 
         trackLogin(userEmail, 'login');
 
