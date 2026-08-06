@@ -26,9 +26,6 @@ const PAGE_BASE =
 /** Root font-size of a page, in container-height units (set on the inner box). */
 const PAGE_FONT = { fontSize: '2.15cqh' } as const;
 
-/** Diagonal red/green ribbon backdrop from the printed flyer. */
-const stripes =
-  'repeating-linear-gradient(115deg, rgba(148,163,184,0.16) 0 10px, transparent 10px 34px)';
 
 interface Props {
   lang: PortalUiLanguage;
@@ -40,7 +37,6 @@ function FrontPage({ lang }: Props) {
       <div className="absolute inset-0" style={PAGE_FONT}>
       {/* background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100" />
-      <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
         className="absolute -left-[14%] -top-[6%] h-[112%] w-[11%] -skew-x-[22deg]"
         style={{
@@ -151,7 +147,6 @@ function BackPage({ lang }: Props) {
     <div className={PAGE_BASE} style={{ containerType: 'size' }}>
       <div className="absolute inset-0" style={PAGE_FONT}>
       <div className="absolute inset-0 bg-gradient-to-br from-white via-slate-50 to-white" />
-      <div className="absolute inset-0" style={{ backgroundImage: stripes }} />
       <div
         className="absolute -left-[7%] -top-[8%] h-[30%] w-[16%] -skew-x-[22deg]"
         style={{
