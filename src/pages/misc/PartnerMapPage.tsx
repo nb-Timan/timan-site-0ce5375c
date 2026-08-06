@@ -68,7 +68,7 @@ const T: Record<string, Record<Language, string>> = {
   users: { da: 'Brugere', en: 'Users', de: 'Benutzer', it: 'Utenti', hu: 'Felh.' },
   quotes: { da: 'Tilbud', en: 'Quotes', de: 'Angebote', it: 'Preventivi', hu: 'Ajánlatok' },
   orders: { da: 'Ordrer', en: 'Orders', de: 'Bestellungen', it: 'Ordini', hu: 'Rendelések' },
-  openCrm: { da: 'Åbn CRM', en: 'Open CRM', de: 'CRM öffnen', it: 'Apri CRM', hu: 'CRM' },
+  openCrm: { da: 'Forhandlerinformation', en: 'Dealer information', de: 'Händlerinformation', it: 'Informazioni rivenditore', hu: 'Kereskedői információ' },
   assignedSeller: { da: 'Tildelt sælger', en: 'Assigned seller', de: 'Verkäufer', it: 'Venditore', hu: 'Eladó' },
   pinLegend: { da: 'Partnertyper', en: 'Partner types', de: 'Typen', it: 'Tipi', hu: 'Típusok' },
   missing: { da: 'Mangler koordinater', en: 'Missing coordinates', de: 'Fehlende Koordinaten', it: 'Coordinate mancanti', hu: 'Hiányzó koordináták' },
@@ -531,13 +531,17 @@ export default function PartnerMapPage() {
   const effectiveUser = useEffectivePortalUser(appUser);
   const portalRole = derivePortalRole(effectiveUser);
   const onMesseRoute = location.pathname.startsWith('/messe');
+  const isInternalMapRole =
+    portalRole === 'timan_backend' ||
+    portalRole === 'timan_seller' ||
+    portalRole === 'timan_service';
+  const canSeeInternalMapFeatures = !onMesseRoute && isInternalMapRole;
   const canOpenCrm = !onMesseRoute && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   const canSeeAssignedSeller = canOpenCrm;
   // Internal roles get aggregate machine stats on partner cards. Dealer-side
   // roles do not (those cards are about other partners), but they can still
   // see the Garantiregistreringer-laget — scoped to their own dealer.
-  const canSeeMachineStats =
-    !onMesseRoute && (portalRole === 'timan_backend' || portalRole === 'timan_service' || portalRole === 'timan_seller');
+  const canSeeMachineStats = canSeeInternalMapFeatures;
   // Dealer-side users: forhandlere, importører, servicepartnere, dealer-users.
   // They MUST only see their own account/data — no Timan-wide partner browsing.
   const isDealerSide =
@@ -545,7 +549,8 @@ export default function PartnerMapPage() {
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
-  const canSeeMachineLayer = canSeeMachineStats || isDealerSide;
+  const canSeeMachineLayer = canSeeMachineStats;
+  const canSeeDemoLocations = canSeeInternalMapFeatures;
   const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
@@ -668,6 +673,7 @@ export default function PartnerMapPage() {
         if (d.is_deleted || d.is_blocked) return false;
         return true;
       }
+      if (!canSeeDemoLocations && normalizeType(d.dealer_type) === 'demo_location') return false;
       if (d.is_deleted && statusFilter === 'active') return false;
       if (d.is_blocked && statusFilter === 'active') return false;
       if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
@@ -698,7 +704,7 @@ export default function PartnerMapPage() {
         website: d.website ?? null,
         facebook: d.social_facebook ?? null,
       } as Partner;
-    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber]);
+    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber, canSeeDemoLocations]);
 
   // Machine pins visible to the current user.
   // - Backend / Service: all pins
@@ -1011,7 +1017,7 @@ export default function PartnerMapPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 {(['dealer','service_partner','importer','demo_location'] as PartnerType[])
-                  .filter((t) => !(isDealerSide && t === 'demo_location'))
+                  .filter((t) => t !== 'demo_location' || canSeeDemoLocations)
                   .map((t) => {
                   const on = activeTypes.has(t);
                   return (
