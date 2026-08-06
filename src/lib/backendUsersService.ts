@@ -11,6 +11,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { adminUpdateAppUser } from "@/lib/adminUserActions";
 import {
   PortalRole,
   PORTAL_ROLES,
