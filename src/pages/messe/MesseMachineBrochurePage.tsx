@@ -1,5 +1,7 @@
-import { ExternalLink, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, ExternalLink, FileText } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
+import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
@@ -7,7 +9,9 @@ import { Language } from '@/types/configurator';
 const T: Record<string, Record<Language, string>> = {
   back: { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
   brochure: { da: 'Brochure', en: 'Brochure', de: 'Broschüre', it: 'Brochure', hu: 'Brosúra' },
+  openBrochure: { da: 'Åbn brochure', en: 'Open brochure', de: 'Broschüre öffnen', it: 'Apri brochure', hu: 'Brosúra megnyitása' },
   openNew: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF öffnen', it: 'Apri PDF', hu: 'PDF megnyitása' },
+  close: { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Bezárás' },
 };
 
 interface MesseMachineBrochurePageProps {
@@ -18,6 +22,7 @@ interface MesseMachineBrochurePageProps {
 export default function MesseMachineBrochurePage({ title, pdfSrc }: MesseMachineBrochurePageProps) {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
+  const [brochureOpen, setBrochureOpen] = useState(false);
 
   if (!appUser) return null;
 
@@ -25,37 +30,86 @@ export default function MesseMachineBrochurePage({ title, pdfSrc }: MesseMachine
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <MesseSubpageHeader backLabel={T.back[lang]} />
 
-      <main className="flex-grow w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
-              <FileText className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
-              <p className="text-sm text-slate-500">{T.brochure[lang]}</p>
+      <main className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <h1 className="text-3xl font-bold text-slate-900 mb-6">{title}</h1>
+
+        <div className="mb-6 inline-flex rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-emerald-800 shadow-sm"
+          >
+            <BookOpen className="h-4 w-4" />
+            {T.brochure[lang]}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <button
+            type="button"
+            onClick={() => setBrochureOpen(true)}
+            className="group text-left bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-slate-300"
+          >
+            <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative p-5">
+              <div className="relative h-full w-full rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
+                <div className="absolute inset-y-5 left-1/2 w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
+                <div className="grid h-full grid-cols-2 overflow-hidden rounded-xl">
+                  <div className="flex flex-col items-center justify-center gap-3 border-r border-slate-100 bg-gradient-to-br from-white to-slate-50">
+                    <FileText className="h-12 w-12 text-emerald-700" />
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-white to-slate-50 px-4 text-center">
+                    <BookOpen className="h-10 w-10 text-slate-700" />
+                    <span className="text-sm font-bold text-slate-900">{T.brochure[lang]}</span>
+                  </div>
+                </div>
+              </div>
             </div>
+            <div className="p-4">
+              <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700 mb-1">
+                {T.brochure[lang]}
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+              <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 group-hover:underline">
+                {T.openBrochure[lang]}
+              </span>
+            </div>
+          </button>
+        </div>
+      </main>
+
+      <MesseModal
+        open={brochureOpen}
+        onClose={() => setBrochureOpen(false)}
+        title={`${title} ${T.brochure[lang]}`}
+        closeLabel={T.close[lang]}
+        widthClass="max-w-[92rem]"
+        bodyClass="px-3 sm:px-5 py-4"
+      >
+        <div className="relative rounded-xl bg-slate-100 p-3 sm:p-5">
+          <div className="h-[76vh] min-h-[620px] overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
+            <iframe
+              title={`${title} ${T.brochure[lang]}`}
+              src={`${pdfSrc}#view=FitH`}
+              className="h-full w-full bg-slate-100"
+            />
           </div>
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
+          />
 
           <a
             href={pdfSrc}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800"
+            className="absolute bottom-8 right-8 hidden items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 sm:inline-flex"
           >
             <ExternalLink className="h-4 w-4" />
             {T.openNew[lang]}
           </a>
         </div>
-
-        <div className="h-[calc(100vh-190px)] min-h-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <iframe
-            title={`${title} ${T.brochure[lang]}`}
-            src={`${pdfSrc}#view=FitH`}
-            className="h-full w-full bg-slate-100"
-          />
-        </div>
-      </main>
+      </MesseModal>
     </div>
   );
 }
