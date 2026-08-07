@@ -36,9 +36,11 @@ export default function CrmLayout({ children, pageTitle }: Props) {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
   const portalRole = derivePortalRole(appUser);
+  // Legacy `role` can still be "slutkunde" for real portal users that were
+  // later upgraded to Timan Seller/Backend/etc. Trust portal_role first.
+  if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
   // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
   // otherwise it falls back to module_access / role defaults.
   const allowedAreas = appUser.allowed_areas;
