@@ -18,7 +18,7 @@ import { t } from '@/lib/i18n/translations';
  *
  * Header: Timan logo + language dropdown.
  * Body: title above the configuration sidebar, large product stage to the right.
- * Footer: 4-column row — "← Til forsiden" + 3 benefit cards sharing the same baseline.
+ * Footer: benefit cards under the product stage.
  */
 interface MesseTiman2620PageProps {
   backTo?: string;
@@ -60,8 +60,20 @@ export default function MesseTiman2620Page({ backTo = '/messe' }: MesseTiman2620
       {/* Kiosk top bar: logo (aligned above left column) · language */}
       <header className="sticky top-0 z-40 bg-transparent">
         <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-5 h-20 flex items-center justify-between gap-4">
-          <div className="flex items-center lg:w-[220px] lg:justify-center">
-            <img src={timanLogo} alt="Timan" className="h-12 sm:h-14 lg:h-16 w-auto object-contain" />
+          <div className="flex flex-col items-start justify-center gap-1.5 lg:w-[220px] lg:items-center">
+            <img src={timanLogo} alt="Timan" className="h-8 sm:h-9 lg:h-10 w-auto object-contain" />
+            {backTo === '/messe' && (
+              <button
+                type="button"
+                onClick={() => navigate('/messe')}
+                className="inline-flex h-6 items-center gap-1 rounded-md bg-emerald-700 px-2.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+                aria-label={t('m2620_back_home', uiLanguage)}
+                title={t('m2620_back_home', uiLanguage)}
+              >
+                <ArrowLeft className="h-3 w-3" />
+                {t('m2620_back_home', uiLanguage)}
+              </button>
+            )}
           </div>
 
 
@@ -114,17 +126,19 @@ export default function MesseTiman2620Page({ backTo = '/messe' }: MesseTiman2620
             </div>
           </div>
 
-          {/* Footer row: back button under left menu, USP bar under stage */}
+          {/* Footer row: USP bar under stage */}
           <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-8">
             <div className="w-full lg:w-[220px] lg:flex-shrink-0 flex items-center">
-              <button
-                type="button"
-                onClick={() => navigate(backTo)}
-                className="inline-flex items-center gap-2 px-5 h-12 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-base transition"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                {t('m2620_back_home', uiLanguage)}
-              </button>
+              {backTo !== '/messe' ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(backTo)}
+                  className="inline-flex items-center gap-2 px-5 h-12 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-base transition"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                  {t('m2620_back_home', uiLanguage)}
+                </button>
+              ) : null}
             </div>
             <div className="flex-1 min-w-0 w-full">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 md:divide-x md:divide-slate-200 items-center">

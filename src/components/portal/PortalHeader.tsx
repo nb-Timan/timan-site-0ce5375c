@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
-import { Bell, LogOut, ChevronDown, Check } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Check, ArrowLeft } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getPortalPermissions, isMesseVariantUser } from '@/lib/portalAccess';
@@ -50,6 +50,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const location = useLocation();
 
   // Backend users see a notification badge when new users are awaiting
   // approval. Polled lightly every 60s.
@@ -92,6 +93,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }, [showModeSwitch, user.email]);
 
   const navigate = useNavigate();
+  const showMesseHomeShortcut = location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
 
   function homeTarget(): string {
     if (isMesseVariantUser(user)) return '/messe';
@@ -151,7 +153,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
           {/* Left: TIMAN logo + subtitle */}
-          <div className="flex items-center">
+          <div className="flex flex-col items-start justify-center gap-1.5">
             <button
               type="button"
               onClick={() => navigate(homeTarget())}
@@ -162,9 +164,21 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               <img
                 src={timanLogo}
                 alt="Timan"
-                className="h-12 sm:h-14 w-auto object-contain"
+                className={`${showMesseHomeShortcut ? 'h-8 sm:h-9' : 'h-12 sm:h-14'} w-auto object-contain`}
               />
             </button>
+            {showMesseHomeShortcut && (
+              <button
+                type="button"
+                onClick={() => navigate('/messe')}
+                className="inline-flex h-6 items-center gap-1 rounded-md bg-emerald-700 px-2.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+                aria-label="Til forsiden"
+                title="Til forsiden"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Til forsiden
+              </button>
+            )}
           </div>
 
           {/* Right: language flags + bell + user chip + logout */}
