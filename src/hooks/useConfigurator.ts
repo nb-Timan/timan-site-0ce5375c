@@ -160,33 +160,35 @@ export function useConfigurator() {
         const mc = newState.machineConfigs.find(c => c.id === unit.modelId);
         if (!mc) return s;
         accList = [...mc.acc];
-        const idx = accList.indexOf(accId);
+        const wasSelected = accList.includes(accId);
 
         // Group logic
         const flatAccs = getAccessoriesFlat(unit.modelType);
         const clickedItem = flatAccs.find(a => a.id === accId);
+        // Recursively remove all dependents (requires + parentId)
+        const removeDependents = (parentId: string) => {
+          flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
+            const di = accList.indexOf(dep.id);
+            if (di !== -1) {
+              accList.splice(di, 1);
+              removeDependents(dep.id);
+            }
+          });
+        };
         if (clickedItem?.group) {
-          // Remove other items in same group
+          // Remove items in same group and any hidden dependents they control.
           flatAccs.filter(a => a.group === clickedItem.group).forEach(a => {
             const gi = accList.indexOf(a.id);
-            if (gi !== -1) accList.splice(gi, 1);
+            if (gi !== -1) {
+              accList.splice(gi, 1);
+              removeDependents(a.id);
+            }
           });
         }
 
-        if (idx === -1) {
+        if (!wasSelected) {
           accList.push(accId);
         } else {
-          accList.splice(idx, 1);
-          // Recursively remove all dependents (requires + parentId)
-          const removeDependents = (parentId: string) => {
-            flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
-              const di = accList.indexOf(dep.id);
-              if (di !== -1) {
-                accList.splice(di, 1);
-                removeDependents(dep.id);
-              }
-            });
-          };
           removeDependents(accId);
         }
 
@@ -221,30 +223,32 @@ export function useConfigurator() {
           newState.individualUnitConfigs[configKey] = { acc: [] };
         }
         accList = [...newState.individualUnitConfigs[configKey].acc];
-        const idx = accList.indexOf(accId);
+        const wasSelected = accList.includes(accId);
 
         const flatAccs = getAccessoriesFlat(unit.modelType);
         const clickedItem = flatAccs.find(a => a.id === accId);
+        // Recursively remove all dependents (requires + parentId)
+        const removeDependents = (parentId: string) => {
+          flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
+            const di = accList.indexOf(dep.id);
+            if (di !== -1) {
+              accList.splice(di, 1);
+              removeDependents(dep.id);
+            }
+          });
+        };
         if (clickedItem?.group) {
           flatAccs.filter(a => a.group === clickedItem.group).forEach(a => {
             const gi = accList.indexOf(a.id);
-            if (gi !== -1) accList.splice(gi, 1);
+            if (gi !== -1) {
+              accList.splice(gi, 1);
+              removeDependents(a.id);
+            }
           });
         }
 
-        if (idx === -1) accList.push(accId);
+        if (!wasSelected) accList.push(accId);
         else {
-          accList.splice(idx, 1);
-          // Recursively remove all dependents (requires + parentId)
-          const removeDependents = (parentId: string) => {
-            flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
-              const di = accList.indexOf(dep.id);
-              if (di !== -1) {
-                accList.splice(di, 1);
-                removeDependents(dep.id);
-              }
-            });
-          };
           removeDependents(accId);
         }
 

@@ -73,6 +73,7 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
 const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 2620', 'Timan 3330', 'Loader Line', 'LOOSE_TOOL'];
 
 const REQUIRED_GROUPS_3330 = ['aircon', 'doors', 'seats', 'roof'];
+const REQUIRED_GROUPS_2620 = ['cabin_2620'];
 const REQUIRED_GROUPS_RC1000 = ['oil_1000'];
 const DANISH_ONLY_ITEM_IDS = new Set(['712527', '712528', 'S900205', 'S900025']);
 const EUR_ONLY_ITEM_IDS = new Set(['712188']);
@@ -2678,6 +2679,7 @@ export default function ConfiguratorPage() {
               const currentDisplayIdx = displayUnits.findIndex(u => u.globalIndex === state.currentMachineIndex);
 
               const mandatoryGroups = machineType === 'Timan 3330' ? REQUIRED_GROUPS_3330
+                : machineType === 'Timan 2620' ? REQUIRED_GROUPS_2620
                 : machineType === 'RC-1000S' ? REQUIRED_GROUPS_RC1000 : [];
 
               const groupHasSelection: Record<string, boolean> = {};
@@ -2878,6 +2880,7 @@ export default function ConfiguratorPage() {
                         if (du.globalIndex === state.currentMachineIndex) return;
                         const mt = du.modelType;
                         const groups = mt === 'Timan 3330' ? REQUIRED_GROUPS_3330
+                          : mt === 'Timan 2620' ? REQUIRED_GROUPS_2620
                           : mt === 'RC-1000S' ? REQUIRED_GROUPS_RC1000 : [];
                         if (groups.length === 0) return;
                         let ids: string[] = [];
