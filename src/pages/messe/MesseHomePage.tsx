@@ -44,6 +44,7 @@ interface Tile {
   accent: string;
   image?: string;
   imageClassName?: string;
+  imageWrapClassName?: string;
   imageMask?: string;
 }
 
@@ -52,7 +53,7 @@ const TILES: Tile[] = [
   { to: '/messe/partner-map', icon: <MapPin className="h-14 w-14" />, title: 'partnerMap', desc: 'partnerMapDesc', accent: 'from-sky-500 to-sky-700' },
   { to: '/messe/rc-751', title: 'rc751', desc: 'rc751Desc', accent: 'from-amber-400 to-amber-600', image: '/messe/machines/rc-751-sketch.png', imageClassName: 'scale-125 translate-x-10' },
   { to: '/messe/rc-1000s', title: 'rc1000s', desc: 'rc1000sDesc', accent: 'from-red-500 to-red-700', image: '/messe/machines/rc-1000s-sketch.png', imageClassName: 'scale-125 translate-x-8' },
-  { to: '/messe/timan-2620', title: 'timan2620', desc: 'timan2620Desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-sketch.png', imageClassName: 'scale-105 translate-x-5', imageMask: 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.08) 22%, rgba(0,0,0,0.45) 42%, black 66%)' },
+  { to: '/messe/timan-2620', title: 'timan2620', desc: 'timan2620Desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-sketch.png', imageClassName: 'scale-105 translate-x-5', imageWrapClassName: 'w-[78%]', imageMask: 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.04) 32%, rgba(0,0,0,0.35) 55%, black 78%)' },
   { to: '/messe/timan-3330', title: 'timan3330', desc: 'timan3330Desc', accent: 'from-indigo-500 to-indigo-700', image: '/messe/machines/timan-3330-sketch.png', imageClassName: 'scale-110 translate-x-4' },
   { to: '/messe/video', icon: <Play className="h-14 w-14" />, title: 'video', desc: 'videoDesc', accent: 'from-rose-500 to-rose-700' },
   { to: '/messe/nyt', icon: <Newspaper className="h-14 w-14" />, title: 'news', desc: 'newsDesc', accent: 'from-amber-500 to-amber-700' },
@@ -125,7 +126,7 @@ export default function MesseHomePage() {
               <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} opacity-90 pointer-events-none`} />
               {tile.image && (
                 <div
-                  className="pointer-events-none absolute inset-y-0 right-0 w-[64%] overflow-hidden opacity-45 transition-transform duration-300 group-hover:scale-[1.03]"
+                  className={`pointer-events-none absolute inset-y-0 right-0 ${tile.imageWrapClassName ?? 'w-[64%]'} overflow-hidden opacity-45 transition-transform duration-300 group-hover:scale-[1.03]`}
                   style={{
                     WebkitMaskImage: tile.imageMask ?? 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.2) 24%, black 48%)',
                     maskImage: tile.imageMask ?? 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.2) 24%, black 48%)',
