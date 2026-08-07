@@ -22,6 +22,7 @@ import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type Warra
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
+import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
 
@@ -48,6 +49,9 @@ interface Partner {
 }
 
 const TIMAN_GREEN = '#2d5a27';
+const TIMAN_GOLD = '#c9a227';
+const TIMAN_HQ_COORDS: [number, number] = [56.1986, 8.3032];
+const TIMAN_HQ_ADDRESS = 'Osvald Pedersens Vej 2A-D, 6980 Tim';
 
 const TYPE_COLORS: Record<PartnerType, string> = {
   dealer: '#dc2626',
@@ -235,6 +239,103 @@ function partnerPopupHtml(p: Partner, lang: Language, formatCountry: (country: s
         ${p.website ? `<a href="${normalizeExternalUrl(p.website.trim())}" target="_blank" rel="noreferrer">Hjemmeside</a>` : ''}
       </div>
     </div>`;
+}
+
+interface TimanContact {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+}
+
+const TIMAN_CONTACT_LABELS: Record<string, Record<Language, string>> = {
+  title: { da: 'Timan A/S', en: 'Timan A/S', de: 'Timan A/S', it: 'Timan A/S', hu: 'Timan A/S' },
+  badge: { da: 'Hovedkontor', en: 'Head office', de: 'Hauptsitz', it: 'Sede', hu: 'Kozpont' },
+  sales: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Ertekesites' },
+  route: { da: 'Rutevejledning', en: 'Directions', de: 'Route', it: 'Indicazioni', hu: 'Utvonal' },
+  website: { da: 'Hjemmeside', en: 'Website', de: 'Webseite', it: 'Sito web', hu: 'Weboldal' },
+};
+
+function timanContactsForLanguage(lang: Language): TimanContact[] {
+  if (lang === 'de') {
+    return [
+      { name: 'Alexander Kirschner', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'akr@timan.dk', phone: '+45 23 20 11 31' },
+      { name: 'Jakob', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'jtn@timan.dk', phone: '+45 93 63 68 62' },
+    ];
+  }
+  return [
+    { name: 'Birger Pedersen', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'bp@timan.dk', phone: '+45 23 20 68 31' },
+    { name: 'Esben Madsen', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'em@timan.dk', phone: '+45 93 63 68 62' },
+  ];
+}
+
+function timanPopupHtml(lang: Language): string {
+  const routeHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(TIMAN_HQ_ADDRESS)}`;
+  const contacts = timanContactsForLanguage(lang).map((c) => `
+    <div class="pm-timan-contact">
+      <div>
+        <div class="pm-timan-contact-name">${escapeHtml(c.name)}</div>
+        <div class="pm-timan-contact-role">${escapeHtml(c.role)}</div>
+      </div>
+      <div class="pm-timan-contact-links">
+        <a href="tel:${escapeHtml(c.phone.replace(/\s+/g, ''))}">${escapeHtml(c.phone)}</a>
+        <a href="mailto:${escapeHtml(c.email)}">${escapeHtml(c.email)}</a>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="pm-timan-popup-card">
+      <div class="pm-timan-popup-head">
+        <img src="${escapeHtml(timanLogo)}" alt="Timan" />
+        <span>${escapeHtml(TIMAN_CONTACT_LABELS.badge[lang])}</span>
+      </div>
+      <div class="pm-timan-popup-name">${escapeHtml(TIMAN_CONTACT_LABELS.title[lang])}</div>
+      <div class="pm-timan-popup-address">${escapeHtml(TIMAN_HQ_ADDRESS)}</div>
+      <div class="pm-timan-contacts">${contacts}</div>
+      <div class="pm-popup-actions">
+        <a href="${routeHref}" target="_blank" rel="noreferrer">${escapeHtml(TIMAN_CONTACT_LABELS.route[lang])}</a>
+        <a href="https://timan.dk/" target="_blank" rel="noreferrer">${escapeHtml(TIMAN_CONTACT_LABELS.website[lang])}</a>
+      </div>
+    </div>`;
+}
+
+function makeTimanHeadquartersIcon(): L.DivIcon {
+  const html = `
+    <div class="pm-timan-marker" title="Timan A/S">
+      <div class="pm-timan-marker-logo"><img src="${escapeHtml(timanLogo)}" alt="Timan" /></div>
+      <div class="pm-timan-marker-pin">
+        <span></span>
+      </div>
+    </div>`;
+  return L.divIcon({
+    html,
+    className: 'pm-timan-marker-wrap',
+    iconSize: [78, 64],
+    iconAnchor: [39, 58],
+    popupAnchor: [0, -58],
+  });
+}
+
+function TimanHeadquartersLayer({ lang }: { lang: Language }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const marker = L.marker(TIMAN_HQ_COORDS, {
+      icon: makeTimanHeadquartersIcon(),
+      zIndexOffset: 1200,
+    });
+    marker.bindPopup(timanPopupHtml(lang), {
+      closeButton: true,
+      className: 'pm-timan-popup',
+      autoPan: true,
+      autoPanPadding: [28, 28],
+      maxWidth: 320,
+    });
+    marker.addTo(map);
+    return () => { marker.removeFrom(map); };
+  }, [lang, map]);
+
+  return null;
 }
 
 
@@ -1162,6 +1263,17 @@ export default function PartnerMapPage() {
         .pm-machine-cluster-wrap { background:transparent !important; border:none !important; }
         .pm-machine-cluster { background:${MACHINE_PIN_COLOR}; color:white; border-radius:50%; text-align:center;
           font-weight:700; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,.2); border:2px solid white; }
+        .pm-timan-marker-wrap { background:transparent !important; border:none !important; }
+        .pm-timan-marker { position:relative; width:78px; height:64px; transform-origin:50% 90%; transition:transform .16s ease; cursor:pointer; }
+        .pm-timan-marker:hover { transform:translateY(-1px) scale(1.04); }
+        .pm-timan-marker-logo { position:absolute; left:50%; top:0; transform:translateX(-50%); width:68px; min-height:25px; padding:3px 6px;
+          border-radius:999px; background:rgba(255,255,255,.96); border:1px solid rgba(201,162,39,.42); box-shadow:0 7px 18px rgba(15,23,42,.22); }
+        .pm-timan-marker-logo img { display:block; width:100%; height:auto; }
+        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:29px; height:29px; border-radius:50%;
+          background:linear-gradient(145deg,#f6e7a6,#c9a227 56%,#8b6f12); border:3px solid white; box-shadow:0 8px 18px rgba(15,23,42,.32); }
+        .pm-timan-marker-pin:after { content:""; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%) rotate(45deg);
+          width:12px; height:12px; background:#c9a227; border-right:3px solid white; border-bottom:3px solid white; }
+        .pm-timan-marker-pin span { position:absolute; inset:7px; border-radius:50%; background:white; box-shadow:inset 0 1px 2px rgba(0,0,0,.18); }
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
@@ -1205,6 +1317,24 @@ export default function PartnerMapPage() {
         .pm-popup-actions { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 12px; }
         .pm-popup-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:30px; padding:6px 9px; border:1px solid #e2e8f0; border-radius:8px; color:#334155; background:#fff; font-size:12px; font-weight:700; text-decoration:none; }
         .pm-popup-actions a:hover { border-color:${TIMAN_GREEN}; color:${TIMAN_GREEN}; }
+        .leaflet-popup.pm-timan-popup { margin-bottom:24px; }
+        .leaflet-popup.pm-timan-popup .leaflet-popup-content-wrapper { border-radius:12px; box-shadow:0 12px 30px rgba(15,23,42,.24); padding:0; overflow:hidden; }
+        .leaflet-popup.pm-timan-popup .leaflet-popup-content { margin:0; width:300px !important; max-width:calc(100vw - 48px); }
+        .leaflet-popup.pm-timan-popup .leaflet-popup-tip { box-shadow:0 10px 24px rgba(15,23,42,.2); }
+        .pm-timan-popup-card { border-top:5px solid ${TIMAN_GOLD}; background:white; font-family:inherit; }
+        .pm-timan-popup-head { display:flex; align-items:center; gap:8px; padding:10px 12px 5px; }
+        .pm-timan-popup-head img { width:70px; height:auto; display:block; }
+        .pm-timan-popup-head span { margin-left:auto; color:#8b6f12; background:#fffbeb; border:1px solid #fde68a; border-radius:999px; padding:2px 7px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+        .pm-timan-popup-name { padding:0 12px; color:#111827; font-size:15px; font-weight:850; line-height:1.25; }
+        .pm-timan-popup-address { padding:4px 12px 8px; color:#64748b; font-size:12px; line-height:1.35; }
+        .pm-timan-contacts { margin:0 12px; border-top:1px solid #f1f5f9; border-bottom:1px solid #f1f5f9; }
+        .pm-timan-contact { display:grid; grid-template-columns:1fr auto; gap:8px; padding:8px 0; }
+        .pm-timan-contact + .pm-timan-contact { border-top:1px solid #f8fafc; }
+        .pm-timan-contact-name { font-size:12px; font-weight:800; color:#111827; line-height:1.2; }
+        .pm-timan-contact-role { margin-top:2px; font-size:10px; font-weight:700; color:#8b6f12; text-transform:uppercase; letter-spacing:.03em; }
+        .pm-timan-contact-links { display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:11px; font-weight:700; }
+        .pm-timan-contact-links a { color:#166534; text-decoration:none; }
+        .pm-timan-contact-links a:hover { text-decoration:underline; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-4 -mb-4 bg-gray-50 px-3 sm:px-5 py-3">
@@ -1466,6 +1596,7 @@ export default function PartnerMapPage() {
                     <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     <SelectedVisibilityGuard selected={selected} onHidden={() => setSelectedId(null)} />
+                    <TimanHeadquartersLayer lang={lang} />
                     {showPartnerLayer && (
                       <ClusterLayer
                         partners={withCoords}
