@@ -22,6 +22,7 @@ import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type Warra
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
@@ -38,6 +39,7 @@ interface Partner {
   addressLine2: string;
   seller: string | null;
   sellerName: string | null;
+  sellerEmail: string | null;
   coords: [number, number] | null;
   users: number;
   quotes: number;
@@ -242,36 +244,90 @@ function partnerPopupHtml(p: Partner, lang: Language, formatCountry: (country: s
 }
 
 interface TimanContact {
+  initials: string;
   name: string;
   role: string;
   email: string;
   phone: string;
 }
 
-const TIMAN_CONTACT_LABELS: Record<string, Record<Language, string>> = {
-  title: { da: 'Timan A/S', en: 'Timan A/S', de: 'Timan A/S', it: 'Timan A/S', hu: 'Timan A/S' },
-  badge: { da: 'Hovedkontor', en: 'Head office', de: 'Hauptsitz', it: 'Sede', hu: 'Kozpont' },
-  sales: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Ertekesites' },
-  route: { da: 'Rutevejledning', en: 'Directions', de: 'Route', it: 'Indicazioni', hu: 'Utvonal' },
-  website: { da: 'Hjemmeside', en: 'Website', de: 'Webseite', it: 'Sito web', hu: 'Weboldal' },
+const TIMAN_CONTACT_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> = {
+  title: { da: 'Timan A/S', en: 'Timan A/S', de: 'Timan A/S', it: 'Timan A/S', hu: 'Timan A/S', fr: 'Timan A/S' },
+  badge: { da: 'Hovedkontor', en: 'Head office', de: 'Hauptsitz', it: 'Sede', hu: 'Kozpont', fr: 'Siege social' },
+  sales: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Ertekesites', fr: 'Ventes' },
+  route: { da: 'Rutevejledning', en: 'Directions', de: 'Route', it: 'Indicazioni', hu: 'Utvonal', fr: 'Itineraire' },
+  website: { da: 'Hjemmeside', en: 'Website', de: 'Webseite', it: 'Sito web', hu: 'Weboldal', fr: 'Site web' },
 };
 
-function timanContactsForLanguage(lang: Language): TimanContact[] {
-  if (lang === 'de') {
-    return [
-      { name: 'Alexander Kirschner', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'akr@timan.dk', phone: '+45 23 20 11 31' },
-      { name: 'Jakob', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'jtn@timan.dk', phone: '+45 93 63 68 62' },
-    ];
-  }
-  return [
-    { name: 'Birger Pedersen', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'bp@timan.dk', phone: '+45 23 20 68 31' },
-    { name: 'Esben Madsen', role: TIMAN_CONTACT_LABELS.sales[lang], email: 'em@timan.dk', phone: '+45 93 63 68 62' },
-  ];
+const TIMAN_SELLER_CONTACTS: Record<string, Omit<TimanContact, 'role'>> = {
+  BP: { initials: 'BP', name: 'Birger Pedersen', email: 'bp@timan.dk', phone: '+45 23 20 68 31' },
+  EM: { initials: 'EM', name: 'Esben Madsen', email: 'em@timan.dk', phone: '+45 93 63 68 62' },
+  AKR: { initials: 'AKR', name: 'Alexander Kirschner', email: 'akr@timan.dk', phone: '+45 23 20 11 31' },
+  JTN: { initials: 'JTN', name: 'Jakob', email: 'jtn@timan.dk', phone: '+45 93 63 68 62' },
+};
+
+const TIMAN_LANGUAGE_COUNTRY: Partial<Record<PortalUiLanguage, string>> = {
+  da: 'denmark',
+  en: 'united kingdom',
+  de: 'germany',
+  it: 'italy',
+  hu: 'hungary',
+  sv: 'sweden',
+  fr: 'france',
+  pl: 'poland',
+  cs: 'czech republic',
+};
+
+const TIMAN_COUNTRY_CONTACT_INITIALS: Record<string, string[]> = {
+  denmark: ['BP', 'EM'],
+  danmark: ['BP', 'EM'],
+  germany: ['AKR', 'JTN'],
+  tyskland: ['AKR', 'JTN'],
+  deutschland: ['AKR', 'JTN'],
+  france: ['BP', 'AKR'],
+  frankrig: ['BP', 'AKR'],
+  italy: ['AKR'],
+  italien: ['AKR'],
+  italia: ['AKR'],
+};
+
+function timanLabel(key: keyof typeof TIMAN_CONTACT_LABELS, lang: PortalUiLanguage): string {
+  return TIMAN_CONTACT_LABELS[key][lang] ?? TIMAN_CONTACT_LABELS[key].en ?? '';
 }
 
-function timanPopupHtml(lang: Language): string {
+function normalizeTimanSellerInitials(value: string | null | undefined): string | null {
+  const initials = value?.trim().toUpperCase();
+  if (!initials) return null;
+  if (initials === 'AK') return 'AKR';
+  return initials;
+}
+
+function uniqueTimanContacts(initials: string[], lang: PortalUiLanguage): TimanContact[] {
+  const seen = new Set<string>();
+  const role = timanLabel('sales', lang);
+  return initials
+    .map(normalizeTimanSellerInitials)
+    .filter((i): i is string => !!i && !seen.has(i) && !!seen.add(i))
+    .map((i) => TIMAN_SELLER_CONTACTS[i])
+    .filter((c): c is Omit<TimanContact, 'role'> => !!c)
+    .map((c) => ({ ...c, role }));
+}
+
+function timanContactsForLanguage(lang: PortalUiLanguage, partners: Partner[]): TimanContact[] {
+  const country = TIMAN_LANGUAGE_COUNTRY[lang];
+  const fixedInitials = country ? TIMAN_COUNTRY_CONTACT_INITIALS[country] : undefined;
+  if (fixedInitials?.length) return uniqueTimanContacts(fixedInitials, lang);
+
+  const derivedInitials = partners
+    .filter((p) => country && countryKey(p.country) === country)
+    .map((p) => p.seller);
+  const derivedContacts = uniqueTimanContacts(derivedInitials.filter(Boolean) as string[], lang);
+  return derivedContacts.length ? derivedContacts : uniqueTimanContacts(['BP', 'AKR'], lang);
+}
+
+function timanPopupHtml(lang: PortalUiLanguage, partners: Partner[]): string {
   const routeHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(TIMAN_HQ_ADDRESS)}`;
-  const contacts = timanContactsForLanguage(lang).map((c) => `
+  const contacts = timanContactsForLanguage(lang, partners).map((c) => `
     <div class="pm-timan-contact">
       <div>
         <div class="pm-timan-contact-name">${escapeHtml(c.name)}</div>
@@ -287,14 +343,14 @@ function timanPopupHtml(lang: Language): string {
     <div class="pm-timan-popup-card">
       <div class="pm-timan-popup-head">
         <img src="${escapeHtml(timanLogo)}" alt="Timan" />
-        <span>${escapeHtml(TIMAN_CONTACT_LABELS.badge[lang])}</span>
+        <span>${escapeHtml(timanLabel('badge', lang))}</span>
       </div>
-      <div class="pm-timan-popup-name">${escapeHtml(TIMAN_CONTACT_LABELS.title[lang])}</div>
+      <div class="pm-timan-popup-name">${escapeHtml(timanLabel('title', lang))}</div>
       <div class="pm-timan-popup-address">${escapeHtml(TIMAN_HQ_ADDRESS)}</div>
       <div class="pm-timan-contacts">${contacts}</div>
       <div class="pm-popup-actions">
-        <a href="${routeHref}" target="_blank" rel="noreferrer">${escapeHtml(TIMAN_CONTACT_LABELS.route[lang])}</a>
-        <a href="https://timan.dk/" target="_blank" rel="noreferrer">${escapeHtml(TIMAN_CONTACT_LABELS.website[lang])}</a>
+        <a href="${routeHref}" target="_blank" rel="noreferrer">${escapeHtml(timanLabel('route', lang))}</a>
+        <a href="https://timan.dk/" target="_blank" rel="noreferrer">${escapeHtml(timanLabel('website', lang))}</a>
       </div>
     </div>`;
 }
@@ -318,7 +374,7 @@ function makeTimanHeadquartersIcon(): L.DivIcon {
   });
 }
 
-function TimanHeadquartersLayer({ lang }: { lang: Language }) {
+function TimanHeadquartersLayer({ lang, partners }: { lang: PortalUiLanguage; partners: Partner[] }) {
   const map = useMap();
 
   useEffect(() => {
@@ -326,7 +382,7 @@ function TimanHeadquartersLayer({ lang }: { lang: Language }) {
       icon: makeTimanHeadquartersIcon(),
       zIndexOffset: 1200,
     });
-    marker.bindPopup(timanPopupHtml(lang), {
+    marker.bindPopup(timanPopupHtml(lang, partners), {
       closeButton: true,
       className: 'pm-timan-popup',
       autoPan: true,
@@ -335,7 +391,7 @@ function TimanHeadquartersLayer({ lang }: { lang: Language }) {
     });
     marker.addTo(map);
     return () => { marker.removeFrom(map); };
-  }, [lang, map]);
+  }, [lang, map, partners]);
 
   return null;
 }
@@ -804,7 +860,7 @@ function SelectedVisibilityGuard({
 }
 
 export default function PartnerMapPage() {
-  const { language: lang } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const { appUser } = useAppUser();
   const location = useLocation();
@@ -996,6 +1052,7 @@ export default function PartnerMapPage() {
         addressLine2: d.address_line_2 ?? '',
         seller: d.assigned_seller_initials,
         sellerName: d.assigned_seller_name,
+        sellerEmail: d.assigned_seller_email,
         coords: hasCoords ? [d.latitude as number, d.longitude as number] : null,
         users: st?.user_count ?? 0,
         quotes: st?.quote_count ?? 0,
@@ -1598,7 +1655,7 @@ export default function PartnerMapPage() {
                     <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     <SelectedVisibilityGuard selected={selected} onHidden={() => setSelectedId(null)} />
-                    <TimanHeadquartersLayer lang={lang} />
+                    <TimanHeadquartersLayer lang={uiLanguage} partners={partners} />
                     {showPartnerLayer && (
                       <ClusterLayer
                         partners={withCoords}

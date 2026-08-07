@@ -23,7 +23,7 @@ export default function MesseSubpageHeader({
   const currentLanguage = PORTAL_LANGUAGES.find((l) => l.code === uiLanguage);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-[1200] border-b border-slate-200/80 bg-white/95 backdrop-blur">
       <div className="relative mx-auto flex h-20 max-w-[1800px] items-center justify-end gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           to={backTo}
@@ -53,7 +53,7 @@ export default function MesseSubpageHeader({
                 <ChevronDown className="h-4 w-4 opacity-70" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[110px]">
+            <DropdownMenuContent align="end" className="z-[1300] min-w-[110px]">
               {PORTAL_LANGUAGES.map((l) => (
                 <DropdownMenuItem
                   key={l.code}
