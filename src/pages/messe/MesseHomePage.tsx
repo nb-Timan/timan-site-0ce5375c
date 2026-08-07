@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { isMesseEnabled } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
-import { Gauge, Leaf, Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
+import { Gauge, Leaf, Wrench, MapPin, Play, Newspaper, Tractor, FileText, X } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -29,6 +29,9 @@ const T: Record<string, Record<Language, string>> = {
   co2:        { da: 'CO2 Kalkulator', en: 'CO2 Calculator', de: 'CO2-Rechner', it: 'Calcolatore CO2', hu: 'CO2 kalkulátor' },
   preview:    { da: 'Du forhåndsviser Timan Messe', en: 'Previewing Timan Exhibition', de: 'Vorschau Timan Messe', it: 'Anteprima Timan Fiera', hu: 'Timan Kiállítás előnézet' },
   disabled:    { da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.', de: 'Messe-Zugang ist derzeit nicht aktiv.', it: 'Accesso fiera attualmente disattivato.', hu: 'A kiállítási hozzáférés jelenleg nem aktív.' },
+  brochures:  { da: 'Maskinbrochurer', en: 'Machine brochures', de: 'Machine brochures', it: 'Brochure macchine', hu: 'Gepbrosurak' },
+  openBrochure: { da: 'Åbn brochure', en: 'Open brochure', de: 'Brochure oeffnen', it: 'Apri brochure', hu: 'Brosura megnyitasa' },
+  brochureMissing: { da: 'Brochure mangler', en: 'Brochure missing', de: 'Brochure fehlt', it: 'Brochure mancante', hu: 'Hianyzo brosura' },
 };
 
 interface Tile {
@@ -52,6 +55,13 @@ const QUICK_ACTIONS = [
   { to: '/messe/resources/co2', icon: Leaf, label: 'co2' as const },
 ];
 
+const BROCHURES = [
+  { title: 'Timan RC-751', href: '/brochures/rc-751-da.pdf' },
+  { title: 'Timan RC-1000s', href: '/brochures/rc-1000s-da.pdf' },
+  { title: 'Timan 2620', href: '' },
+  { title: 'Timan 3330', href: '/brochures/timan-3330-da.pdf' },
+];
+
 /**
  * Timan Messe entry page.
  *
@@ -64,6 +74,7 @@ export default function MesseHomePage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
+  const [activeBrochure, setActiveBrochure] = useState<{ title: string; href: string } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -131,6 +142,38 @@ export default function MesseHomePage() {
         </div>
 
         <section className="mt-10">
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">{T.brochures[lang]}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {BROCHURES.map((brochure) => {
+              const hasFile = !!brochure.href;
+              return (
+                <button
+                  key={brochure.title}
+                  type="button"
+                  disabled={!hasFile}
+                  onClick={() => hasFile && setActiveBrochure(brochure)}
+                  className={`flex min-h-[96px] items-center gap-4 rounded-xl border bg-white px-5 py-4 text-left shadow-sm transition ${
+                    hasFile
+                      ? 'border-slate-200 hover:-translate-y-0.5 hover:shadow-md'
+                      : 'cursor-not-allowed border-slate-200 opacity-55'
+                  }`}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span>
+                    <span className="block font-bold text-slate-900">{brochure.title}</span>
+                    <span className="text-sm text-slate-500">
+                      {hasFile ? T.openBrochure[lang] : T.brochureMissing[lang]}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-10">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">{T.quickActions[lang]}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
             {QUICK_ACTIONS.map(action => {
@@ -151,6 +194,38 @@ export default function MesseHomePage() {
           </div>
         </section>
       </main>
+
+      {activeBrochure && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-3 sm:p-6">
+          <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
+                  <FileText className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="font-bold text-slate-900">{activeBrochure.title}</div>
+                  <div className="text-xs text-slate-500">PDF</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveBrochure(null)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Luk"
+                title="Luk"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <iframe
+              title={activeBrochure.title}
+              src={`${activeBrochure.href}#view=FitH`}
+              className="h-full w-full flex-1 bg-slate-100"
+            />
+          </div>
+        </div>
+      )}
 
       <footer className="text-center text-xs text-slate-500 py-4">
         © {new Date().getFullYear()} Timan — Messe demo
