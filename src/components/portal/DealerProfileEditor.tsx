@@ -354,6 +354,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           finance_contact_phone: draft.finance_contact_phone,
           finance_contact_email: draft.finance_contact_email,
           invoice_email: draft.invoice_email,
+          payment_terms: draft.payment_terms,
+          currency_code: draft.currency_code,
         })}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -361,6 +363,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <Field id="finance_contact_email" label={t("financeEmail")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" required />
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
           <Field id="finance_contact_phone" label={t("financePhone")} value={draft.finance_contact_phone} onChange={(v) => set("finance_contact_phone", v)} disabled={!canEdit} />
+          <Field id="payment_terms" label={t("paymentTerms")} value={draft.payment_terms} onChange={(v) => set("payment_terms", v)} disabled={!canEdit} />
+          <Field id="currency_code" label={t("currencyCode")} value={draft.currency_code} onChange={(v) => set("currency_code", v)} disabled={!canEdit} />
         </div>
       </SectionShell>
 

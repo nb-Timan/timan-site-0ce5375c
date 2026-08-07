@@ -78,6 +78,10 @@ export const TARGET_FIELDS: TargetField[] = [
     aliases: ["økonomitelefon", "okonomitelefon", "bogholdertelefon", "financephone", "regnskabtelefon"] },
   { key: "invoice_email",        label: "Faktura e-mail",          role: "profile", sharepointMaster: false,
     aliases: ["faktura", "fakturaemail", "invoiceemail", "invoice", "ean", "fakturamail"] },
+  { key: "payment_terms",        label: "Betalingsbetingelser",    role: "profile", sharepointMaster: false,
+    aliases: ["betaling", "betalingsbetingelser", "payment", "paymentterms", "terms"] },
+  { key: "currency_code",        label: "Valuta",                  role: "profile", sharepointMaster: false,
+    aliases: ["valuta", "currency", "currencycode"] },
 
   { key: "sales_contact_name",   label: "Salg — kontaktperson",    role: "profile", sharepointMaster: false,
     aliases: ["salg", "salgskontakt", "sales", "salesname", "salescontact", "salgsansvarlig"] },
@@ -432,7 +436,7 @@ export function runDryRun(
 export const ALLOWED_UPDATE_KEYS: ReadonlyArray<keyof UpdateDealerAccountPatch> = [
   "director_name", "vat_number", "phone", "email", "website",
   "finance_contact_name", "finance_contact_email", "finance_contact_phone",
-  "invoice_email",
+  "invoice_email", "payment_terms", "currency_code",
   "sales_contact_name", "sales_contact_email", "sales_contact_phone",
   "workshop_contact_name", "workshop_contact_email", "workshop_contact_phone",
   "marketing_contact_name", "marketing_contact_email", "marketing_contact_phone",
