@@ -24,10 +24,10 @@ export default function MesseSubpageHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-20 max-w-[1800px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex h-20 max-w-[1800px] items-center justify-end gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           to={backTo}
-          className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          className="absolute left-1/2 top-1/2 inline-flex -translate-x-1/2 -translate-y-1/2 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
           aria-label="Timan forside"
           title="Timan forside"
         >
