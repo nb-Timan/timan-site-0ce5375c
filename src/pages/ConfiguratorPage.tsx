@@ -70,7 +70,7 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
   code: l.code, flag: l.emoji,
 }));
 
-const MACHINE_KEYS = ['RC-1000S', 'RC-751', 'Timan 3330', 'Timan 2620', 'Loader Line', 'LOOSE_TOOL'];
+const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 2620', 'Timan 3330', 'Loader Line', 'LOOSE_TOOL'];
 
 const REQUIRED_GROUPS_3330 = ['aircon', 'doors', 'seats', 'roof'];
 const REQUIRED_GROUPS_RC1000 = ['oil_1000'];
