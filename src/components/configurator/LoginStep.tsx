@@ -213,6 +213,9 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         });
       }).catch(() => { /* ignore */ });
 
+      const resolvedEmail = (appUserRow.email ?? authEmail ?? '').toLowerCase();
+      const isKnownMesseLogin = resolvedEmail === 'ordre@timan.dk';
+
       onResolved({
         email: appUserRow.email,
         role: appUserRow.role,
@@ -221,12 +224,12 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         is_active: appUserRow.is_active,
         start_step: appUserRow.start_step ?? 1,
         max_step: appUserRow.max_step ?? 4,
-        can_view_prices: defaultCanViewPrices(appUserRow.can_view_prices, appUserRow.portal_role, appUserRow.role, appUserRow.partner_type),
+        can_view_prices: isKnownMesseLogin ? true : defaultCanViewPrices(appUserRow.can_view_prices, appUserRow.portal_role, appUserRow.role, appUserRow.partner_type),
         can_submit_order: defaultCanSubmitOrder(appUserRow.can_submit_order, appUserRow.portal_role, appUserRow.role, appUserRow.partner_type),
         can_edit_discount: appUserRow.can_edit_discount ?? false,
         can_switch_customer_mode: appUserRow.can_switch_customer_mode ?? false,
         working_for: appUserRow.working_for ?? null,
-        display_name: appUserRow.display_name || appUserRow.full_name,
+        display_name: isKnownMesseLogin ? 'Timan Messe' : (appUserRow.display_name || appUserRow.full_name),
         portal_role: appUserRow.portal_role ?? null,
         preferred_language: appUserRow.preferred_language ?? null,
         preferred_currency: appUserRow.preferred_currency ?? null,
@@ -240,7 +243,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         // so direct login matches Backend "Vis som" behavior.
         permissions: (appUserRow.permissions as Record<string, boolean> | null) ?? null,
         quick_actions: (appUserRow.quick_actions as string[] | null) ?? null,
-        portal_variant: (appUserRow.portal_variant as string | null) ?? 'standard',
+        portal_variant: isKnownMesseLogin ? 'messe' : ((appUserRow.portal_variant as string | null) ?? 'standard'),
       });
     } catch (err) {
       setError(tx('loginError', language));

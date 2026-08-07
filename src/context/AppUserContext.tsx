@@ -55,7 +55,7 @@ function readCachedSessionUser(): SessionUser | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SessionUser;
+    return normalizeKnownSessionUser(JSON.parse(raw) as SessionUser);
   } catch { return null; }
 }
 
@@ -80,6 +80,16 @@ function createLimitedDealerUser(email: string): SessionUser {
   };
 }
 
+function normalizeKnownSessionUser(user: SessionUser): SessionUser {
+  if ((user.email || '').toLowerCase() !== 'ordre@timan.dk') return user;
+  return {
+    ...user,
+    display_name: 'Timan Messe',
+    can_view_prices: true,
+    portal_variant: 'messe',
+  };
+}
+
 
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
@@ -87,9 +97,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   const [dealerStatus, setDealerStatus] = useState<DealerAccessStatus | null>(null);
 
   const setAppUser = useCallback((user: SessionUser | null) => {
-    setAppUserState(user);
-    if (user) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...user, __permission_defaults_version: SESSION_CACHE_VERSION }));
+    const normalizedUser = user ? normalizeKnownSessionUser(user) : null;
+    setAppUserState(normalizedUser);
+    if (normalizedUser) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...normalizedUser, __permission_defaults_version: SESSION_CACHE_VERSION }));
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
       setDealerStatus(null);
@@ -215,20 +226,23 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
 }
 
 function rowToSessionUser(row: Record<string, unknown>): SessionUser {
+  const email = row.email as string;
+  const isKnownMesseLogin = email.toLowerCase() === 'ordre@timan.dk';
+
   return {
-    email: row.email as string,
+    email,
     role: row.role as SessionUser['role'],
     partner_type: (row.partner_type as SessionUser['partner_type']) ?? null,
     approved: row.approved as boolean,
     is_active: row.is_active as boolean,
     start_step: (row.start_step as number) ?? 1,
     max_step: (row.max_step as number) ?? 4,
-    can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
+    can_view_prices: isKnownMesseLogin ? true : defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
     can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
     can_edit_discount: (row.can_edit_discount as boolean) ?? false,
     can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
     working_for: (row.working_for as SessionUser['working_for']) ?? null,
-    display_name: (row.display_name as string) || (row.full_name as string),
+    display_name: isKnownMesseLogin ? 'Timan Messe' : ((row.display_name as string) || (row.full_name as string)),
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
@@ -240,7 +254,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
     quick_actions: (row.quick_actions as string[] | null) ?? null,
-    portal_variant: (row.portal_variant as string | null) ?? 'standard',
+    portal_variant: isKnownMesseLogin ? 'messe' : ((row.portal_variant as string | null) ?? 'standard'),
   };
 }
 

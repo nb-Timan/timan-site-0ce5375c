@@ -117,7 +117,8 @@ export default function ConfiguratorPage() {
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
   // so the back button + demo guards work even before context resolves.
   const isMessePath = location.pathname.startsWith('/messe');
-  const isExhibition = isMessePath || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
+  const isKnownMesseLogin = (appUser?.email || '').toLowerCase() === 'ordre@timan.dk';
+  const isExhibition = isMessePath || isKnownMesseLogin || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
   // Keep the configurator's internal language in sync with the global portal
