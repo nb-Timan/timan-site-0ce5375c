@@ -166,7 +166,7 @@ export default function ConfiguratorPage() {
     });
   }
   const permissions = {
-    canSeePrices: defaultCanViewPrices(
+    canSeePrices: isExhibition || defaultCanViewPrices(
       effectiveUser?.can_view_prices,
       effectiveUser?.portal_role,
       effectiveUser?.role,
