@@ -699,6 +699,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '9000-10', varenr: '9000-10', name: { da: 'Hydraulisk baglift (pris mangler)', en: 'Hydraulic rear lift (price missing)' }, priceDKK: 0, priceEUR: 0 },
     { id: '9000-11', varenr: '9000-11', name: { da: 'Skovl- og kosteholder', en: 'Bucket and broom holder' }, priceDKK: 650, priceEUR: 90 },
     { id: '9000-12', varenr: '9000-12', name: { da: 'Stænkskærm sæt, 4 stk.', en: 'Mudguard set, 4 pcs.' }, priceDKK: 550, priceEUR: 75 },
+    { id: '9000-13', varenr: '9000-13', name: { da: 'Undervognsbehandling (anbefales til vinterbrug)', en: 'Undercarriage treatment (recommended for winter use)' }, priceDKK: 4705, priceEUR: 630 },
 
     { id: '2620_SWEEP_HEADER', varenr: 'HEADER', name: { da: 'Feje-/sugeopgaver', en: 'Sweeping/suction tasks', de: 'Kehr-/Saugaufgaben', it: 'Spazzatura/aspirazione', hu: 'Sepro/szivo feladatok' }, priceDKK: 0, priceEUR: 0, isHeader: true },
     { id: '1000-01', varenr: '1000-01', name: { da: 'Sugetank', en: 'Suction tank' }, priceDKK: 75495, priceEUR: 10135 },
@@ -751,7 +752,6 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '4000-05', varenr: '4000-05', name: { da: 'Plastlad', en: 'Plastic body' }, priceDKK: 2790, priceEUR: 375 },
 
     { id: '2620_MISC_HEADER', varenr: 'HEADER', name: { da: 'Diverse', en: 'Miscellaneous', de: 'Sonstiges', it: 'Varie', hu: 'Egyeb' }, priceDKK: 0, priceEUR: 0, isHeader: true },
-    { id: '9000-13', varenr: '9000-13', name: { da: 'Undervognsbehandling (anbefales til vinterbrug)', en: 'Undercarriage treatment (recommended for winter use)' }, priceDKK: 4705, priceEUR: 630 },
     { id: '5000-01', varenr: '5000-01', name: { da: 'Undervognsbehandling pr. redskab', en: 'Undercarriage treatment per implement' }, priceDKK: 770, priceEUR: 105 },
   ],
   'Loader Line': [
