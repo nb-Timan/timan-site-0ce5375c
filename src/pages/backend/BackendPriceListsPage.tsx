@@ -41,6 +41,7 @@ import {
 import {
   buildConfiguratorSeed,
   buildVarenrGroupMap,
+  PRODUCT_GROUP_ORDER,
   groupOrderIndex,
   type ProductGroupKey,
 } from "@/lib/configuratorPriceSeed";
@@ -59,6 +60,11 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 type Tab = "list" | "import" | "export";
+type ProductScope = "all" | ProductGroupKey;
+
+const PRODUCT_SCOPE_GROUPS = PRODUCT_GROUP_ORDER.filter(
+  (g) => g !== "Options/accessories/other",
+);
 
 export default function BackendPriceListsPage() {
   const { appUser, loading, logout } = useAppUser();
@@ -82,6 +88,7 @@ export default function BackendPriceListsPage() {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [logs, setLogs] = useState<PriceListImportLog[]>([]);
   const [filter, setFilter] = useState<"all" | "create" | "update" | "skip" | "error">("all");
+  const [productScope, setProductScope] = useState<ProductScope>("all");
 
   async function reload() {
     setLoadingItems(true);
@@ -98,6 +105,21 @@ export default function BackendPriceListsPage() {
 
   // ---- ALL hooks must run before any early return ----
   const groupMap = useMemo(() => buildVarenrGroupMap(), []);
+
+  const configuratorSeedItems = useMemo(
+    () => buildConfiguratorSeed().map(seedToPriceListItem),
+    [],
+  );
+
+  const exportItems = useMemo(
+    () => mergeSeedAndStoredItems(configuratorSeedItems, items),
+    [configuratorSeedItems, items],
+  );
+
+  const scopedExportItems = useMemo(
+    () => filterItemsByScope(exportItems, productScope, groupMap),
+    [exportItems, productScope, groupMap],
+  );
 
   const filteredItems = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -154,8 +176,12 @@ export default function BackendPriceListsPage() {
       try {
         const text = String(reader.result ?? "");
         const { rows, parseErrors: pe } = parsePriceCsv(text);
+        const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
         setParseErrors(pe);
-        setPreview(buildPreview(rows, items));
+        setPreview(buildPreview(scopedRows, items));
+        if (scopedRows.length !== rows.length) {
+          toast.info(`${rows.length - scopedRows.length} rækker blev sprunget over pga. valgt maskine.`);
+        }
       } catch (err) {
         toast.error("Kunne ikke læse CSV: " + (err instanceof Error ? err.message : String(err)));
       }
@@ -163,10 +189,10 @@ export default function BackendPriceListsPage() {
     reader.readAsText(f, "utf-8");
   }
 
-  function loadFromConfigurator() {
+  function loadFromConfigurator(scope: ProductScope = "all") {
     setSummary(null); setParseErrors([]);
     try {
-      const seed = buildConfiguratorSeed();
+      const seed = buildConfiguratorSeed().filter((s) => scope === "all" || s.group === scope);
       const rows: CsvPriceRow[] = seed.map((s) => ({
         item_number: s.item_number,
         item_text_da: s.item_text_da,
@@ -202,12 +228,13 @@ export default function BackendPriceListsPage() {
 
 
   function downloadExport() {
-    const csv = exportCsv(items);
+    const csv = exportCsv(scopedExportItems);
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prisliste-${new Date().toISOString().slice(0, 10)}.csv`;
+    const scopeSlug = productScope === "all" ? "alle-maskiner" : slugify(productScope);
+    a.download = `prisliste-${scopeSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   }
@@ -274,7 +301,7 @@ export default function BackendPriceListsPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   type="button"
-                  onClick={loadFromConfigurator}
+                  onClick={() => loadFromConfigurator("all")}
                   className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
                   title="Bygger en forhåndsvisning fra konfiguratorens nuværende produkt- og tilbehørsdata. Konfiguratorens prislogik ændres ikke."
                 >
@@ -371,6 +398,7 @@ export default function BackendPriceListsPage() {
                 pris_dkk / price_dkk, pris_eur / price_eur, pris_sek / price_sek. Tomme felter overskriver
                 aldrig eksisterende værdier, og ingen varer slettes.
               </p>
+              <ProductScopeSelect value={productScope} onChange={setProductScope} />
               <div className="flex items-center gap-3 flex-wrap">
                 <input type="file" accept=".csv,text/csv" onChange={onFile} disabled={loadingItems} className="block text-sm" />
                 {fileName && (
@@ -563,13 +591,19 @@ export default function BackendPriceListsPage() {
             <p className="text-sm text-slate-600 mb-4">
               Download den nuværende prisliste som CSV (kolonner: varenr, varetekst_da, pris_dkk, pris_eur, pris_sek).
             </p>
+            <ProductScopeSelect value={productScope} onChange={setProductScope} />
             <button
               onClick={downloadExport}
-              disabled={loadingItems || items.length === 0}
+              disabled={loadingItems || scopedExportItems.length === 0}
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              <Download className="h-4 w-4" /> Eksportér prisliste ({items.length})
+              <Download className="h-4 w-4" /> Eksportér prisliste ({scopedExportItems.length})
             </button>
+            {items.length === 0 && scopedExportItems.length > 0 && (
+              <p className="mt-3 text-xs text-amber-700">
+                Backend-prislisten er tom lige nu. Eksporten viser derfor konfiguratorens nuværende standardpriser.
+              </p>
+            )}
           </section>
         )}
       </main>
@@ -595,6 +629,67 @@ export default function BackendPriceListsPage() {
       <PortalFooter language={lang} />
     </div>
   );
+}
+
+function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[number]): PriceListItem {
+  return {
+    id: `configurator-${seed.item_number}`,
+    item_number: seed.item_number,
+    item_text_da: seed.item_text_da,
+    price_dkk: seed.price_dkk,
+    price_eur: seed.price_eur,
+    price_sek: seed.price_sek,
+    updated_at: new Date(0).toISOString(),
+    updated_by_email: null,
+    is_dirty: false,
+    last_published_at: null,
+  };
+}
+
+function mergeSeedAndStoredItems(seedItems: PriceListItem[], storedItems: PriceListItem[]): PriceListItem[] {
+  const byItemNumber = new Map<string, PriceListItem>();
+  for (const item of seedItems) byItemNumber.set(item.item_number, item);
+  for (const item of storedItems) byItemNumber.set(item.item_number, item);
+  return [...byItemNumber.values()];
+}
+
+function filterItemsByScope(
+  items: PriceListItem[],
+  scope: ProductScope,
+  groupMap: Map<string, ProductGroupKey>,
+): PriceListItem[] {
+  const filtered = scope === "all"
+    ? items.filter((item) => groupMap.get(item.item_number) !== "Options/accessories/other")
+    : items.filter((item) => groupMap.get(item.item_number) === scope);
+
+  return [...filtered].sort((a, b) => {
+    const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
+    const gb = groupMap.get(b.item_number) ?? "Options/accessories/other";
+    const groupDiff = groupOrderIndex(ga) - groupOrderIndex(gb);
+    if (groupDiff !== 0) return groupDiff;
+    return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
+  });
+}
+
+function filterCsvRowsByScope(
+  rows: CsvPriceRow[],
+  scope: ProductScope,
+  groupMap: Map<string, ProductGroupKey>,
+): CsvPriceRow[] {
+  if (scope === "all") {
+    return rows.filter((row) => groupMap.get((row.item_number || "").trim()) !== "Options/accessories/other");
+  }
+  return rows.filter((row) => groupMap.get((row.item_number || "").trim()) === scope);
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/ø/g, "oe")
+    .replace(/å/g, "aa")
+    .replace(/æ/g, "ae")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function fmtPrice(n: number | null): string {
@@ -644,6 +739,30 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
     >
       {children}
     </button>
+  );
+}
+
+function ProductScopeSelect({
+  value,
+  onChange,
+}: {
+  value: ProductScope;
+  onChange: (value: ProductScope) => void;
+}) {
+  return (
+    <label className="mb-4 block max-w-sm">
+      <span className="mb-1 block text-xs font-semibold text-slate-700">Maskine</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value === "all" ? "all" : e.target.value as ProductGroupKey)}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800"
+      >
+        <option value="all">Alle maskiner (6)</option>
+        {PRODUCT_SCOPE_GROUPS.map((group) => (
+          <option key={group} value={group}>{group}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
