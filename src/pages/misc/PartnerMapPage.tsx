@@ -301,8 +301,10 @@ function timanPopupHtml(lang: Language): string {
 
 function makeTimanHeadquartersIcon(): L.DivIcon {
   const html = `
-    <div class="pm-timan-marker" title="Timan A/S">
-      <div class="pm-timan-marker-logo"><img src="${escapeHtml(timanLogo)}" alt="Timan" /></div>
+    <div class="pm-timan-marker" title="Timan A/S" style="width:46px;height:48px;">
+      <div class="pm-timan-marker-logo" style="width:42px;max-width:42px;">
+        <img src="${escapeHtml(timanLogo)}" alt="Timan" style="display:block;width:42px;max-width:42px;height:auto;" />
+      </div>
       <div class="pm-timan-marker-pin">
         <span></span>
       </div>
@@ -310,9 +312,9 @@ function makeTimanHeadquartersIcon(): L.DivIcon {
   return L.divIcon({
     html,
     className: 'pm-timan-marker-wrap',
-    iconSize: [78, 64],
-    iconAnchor: [39, 58],
-    popupAnchor: [0, -58],
+    iconSize: [46, 48],
+    iconAnchor: [23, 44],
+    popupAnchor: [0, -44],
   });
 }
 
@@ -1264,16 +1266,16 @@ export default function PartnerMapPage() {
         .pm-machine-cluster { background:${MACHINE_PIN_COLOR}; color:white; border-radius:50%; text-align:center;
           font-weight:700; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,.2); border:2px solid white; }
         .pm-timan-marker-wrap { background:transparent !important; border:none !important; }
-        .pm-timan-marker { position:relative; width:78px; height:64px; transform-origin:50% 90%; transition:transform .16s ease; cursor:pointer; }
+        .pm-timan-marker { position:relative; width:46px; height:48px; transform-origin:50% 90%; transition:transform .16s ease; cursor:pointer; }
         .pm-timan-marker:hover { transform:translateY(-1px) scale(1.04); }
-        .pm-timan-marker-logo { position:absolute; left:50%; top:0; transform:translateX(-50%); width:68px; min-height:25px; padding:3px 6px;
+        .pm-timan-marker-logo { position:absolute; left:50%; top:0; transform:translateX(-50%); width:42px; max-width:42px; min-height:17px; padding:2px 4px;
           border-radius:999px; background:rgba(255,255,255,.96); border:1px solid rgba(201,162,39,.42); box-shadow:0 7px 18px rgba(15,23,42,.22); }
-        .pm-timan-marker-logo img { display:block; width:100%; height:auto; }
-        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:29px; height:29px; border-radius:50%;
+        .pm-timan-marker-logo img { display:block; width:42px !important; max-width:42px !important; height:auto !important; }
+        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:24px; height:24px; border-radius:50%;
           background:linear-gradient(145deg,#f6e7a6,#c9a227 56%,#8b6f12); border:3px solid white; box-shadow:0 8px 18px rgba(15,23,42,.32); }
         .pm-timan-marker-pin:after { content:""; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%) rotate(45deg);
-          width:12px; height:12px; background:#c9a227; border-right:3px solid white; border-bottom:3px solid white; }
-        .pm-timan-marker-pin span { position:absolute; inset:7px; border-radius:50%; background:white; box-shadow:inset 0 1px 2px rgba(0,0,0,.18); }
+          width:10px; height:10px; background:#c9a227; border-right:3px solid white; border-bottom:3px solid white; }
+        .pm-timan-marker-pin span { position:absolute; inset:6px; border-radius:50%; background:white; box-shadow:inset 0 1px 2px rgba(0,0,0,.18); }
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
