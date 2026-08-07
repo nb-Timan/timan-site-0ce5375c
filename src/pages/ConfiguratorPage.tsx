@@ -936,7 +936,7 @@ export default function ConfiguratorPage() {
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
-    const price = isEURCurrency() ? `${item.priceEUR} €` : `${item.priceDKK} kr.`;
+    const price = formatMoney(getPrice(item, lang), lang);
     const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
   }, [lang, isEURCurrency, contentUiLang]);

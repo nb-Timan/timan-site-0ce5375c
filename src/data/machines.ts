@@ -830,7 +830,8 @@ export function formatMoney(amount: number, lang: Language = 'da', negative = fa
   const currencySuffix = isEUR ? ' €' : ' kr.';
   const locale = isEUR ? 'de-DE' : 'da-DK';
   const sign = negative && amount > 0 ? '-' : '';
-  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
+  const displayAmount = isEUR ? amount : Math.ceil(amount);
+  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: isEUR ? 2 : 0 }).format(displayAmount);
   return sign + formatted + currencySuffix;
 }
 
