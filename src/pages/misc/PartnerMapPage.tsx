@@ -289,6 +289,26 @@ const TIMAN_COUNTRY_CONTACT_INITIALS: Record<string, string[]> = {
   italy: ['AKR'],
   italien: ['AKR'],
   italia: ['AKR'],
+  hungary: ['AKR'],
+  ungarn: ['AKR'],
+  austria: ['AKR'],
+  østrig: ['AKR'],
+  oestrig: ['AKR'],
+  switzerland: ['AKR'],
+  schweiz: ['AKR'],
+  suisse: ['AKR'],
+};
+
+const TIMAN_COUNTRY_ALIASES: Record<string, string[]> = {
+  denmark: ['denmark', 'danmark'],
+  'united kingdom': ['united kingdom', 'england', 'great britain', 'storbritannien'],
+  germany: ['germany', 'tyskland', 'deutschland'],
+  italy: ['italy', 'italien', 'italia'],
+  hungary: ['hungary', 'ungarn'],
+  sweden: ['sweden', 'sverige'],
+  france: ['france', 'frankrig'],
+  poland: ['poland', 'polen'],
+  'czech republic': ['czech republic', 'czechia', 'tjekkiet', 'tsjekkiet', 'cesko'],
 };
 
 function timanLabel(key: keyof typeof TIMAN_CONTACT_LABELS, lang: PortalUiLanguage): string {
@@ -313,16 +333,22 @@ function uniqueTimanContacts(initials: string[], lang: PortalUiLanguage): TimanC
     .map((c) => ({ ...c, role }));
 }
 
+function timanCountryMatches(partnerCountry: string, targetCountry: string): boolean {
+  const partnerKey = countryKey(partnerCountry);
+  const aliases = TIMAN_COUNTRY_ALIASES[targetCountry] ?? [targetCountry];
+  return aliases.includes(partnerKey);
+}
+
 function timanContactsForLanguage(lang: PortalUiLanguage, partners: Partner[]): TimanContact[] {
   const country = TIMAN_LANGUAGE_COUNTRY[lang];
   const fixedInitials = country ? TIMAN_COUNTRY_CONTACT_INITIALS[country] : undefined;
   if (fixedInitials?.length) return uniqueTimanContacts(fixedInitials, lang);
 
   const derivedInitials = partners
-    .filter((p) => country && countryKey(p.country) === country)
+    .filter((p) => country && timanCountryMatches(p.country, country))
     .map((p) => p.seller);
   const derivedContacts = uniqueTimanContacts(derivedInitials.filter(Boolean) as string[], lang);
-  return derivedContacts.length ? derivedContacts : uniqueTimanContacts(['BP', 'AKR'], lang);
+  return derivedContacts.length ? derivedContacts : uniqueTimanContacts(['BP'], lang);
 }
 
 function timanPopupHtml(lang: PortalUiLanguage, partners: Partner[]): string {
