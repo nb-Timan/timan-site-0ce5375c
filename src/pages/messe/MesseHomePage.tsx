@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { isMesseEnabled } from '@/lib/exhibitionMode';
 import { Language } from '@/types/configurator';
-import { Gauge, Leaf, Wrench, MapPin, Play, Newspaper, Tractor } from 'lucide-react';
+import { Gauge, Leaf, Wrench, MapPin, Play, Newspaper } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -38,19 +38,21 @@ const T: Record<string, Record<Language, string>> = {
 
 interface Tile {
   to: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: keyof typeof T;
   desc: keyof typeof T;
   accent: string;
+  image?: string;
+  imageClassName?: string;
 }
 
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />, title: 'configurator', desc: 'configuratorDesc', accent: 'from-emerald-500 to-emerald-700' },
   { to: '/messe/partner-map', icon: <MapPin className="h-14 w-14" />, title: 'partnerMap', desc: 'partnerMapDesc', accent: 'from-sky-500 to-sky-700' },
-  { to: '/messe/rc-751', icon: <Tractor className="h-14 w-14" />, title: 'rc751', desc: 'rc751Desc', accent: 'from-amber-400 to-amber-600' },
-  { to: '/messe/rc-1000s', icon: <Tractor className="h-14 w-14" />, title: 'rc1000s', desc: 'rc1000sDesc', accent: 'from-red-500 to-red-700' },
-  { to: '/messe/timan-2620', icon: <Tractor className="h-14 w-14" />, title: 'timan2620', desc: 'timan2620Desc', accent: 'from-slate-600 to-slate-800' },
-  { to: '/messe/timan-3330', icon: <Tractor className="h-14 w-14" />, title: 'timan3330', desc: 'timan3330Desc', accent: 'from-indigo-500 to-indigo-700' },
+  { to: '/messe/rc-751', title: 'rc751', desc: 'rc751Desc', accent: 'from-amber-400 to-amber-600', image: '/messe/machines/rc-751-sketch.png', imageClassName: 'scale-125 translate-x-10' },
+  { to: '/messe/rc-1000s', title: 'rc1000s', desc: 'rc1000sDesc', accent: 'from-red-500 to-red-700', image: '/messe/machines/rc-1000s-sketch.png', imageClassName: 'scale-125 translate-x-8' },
+  { to: '/messe/timan-2620', title: 'timan2620', desc: 'timan2620Desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-sketch.png', imageClassName: 'scale-125 translate-x-8' },
+  { to: '/messe/timan-3330', title: 'timan3330', desc: 'timan3330Desc', accent: 'from-indigo-500 to-indigo-700', image: '/messe/machines/timan-3330-sketch.png', imageClassName: 'scale-125 translate-x-8' },
   { to: '/messe/video', icon: <Play className="h-14 w-14" />, title: 'video', desc: 'videoDesc', accent: 'from-rose-500 to-rose-700' },
   { to: '/messe/nyt', icon: <Newspaper className="h-14 w-14" />, title: 'news', desc: 'newsDesc', accent: 'from-amber-500 to-amber-700' },
 ];
@@ -120,8 +122,24 @@ export default function MesseHomePage() {
               className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[146px] sm:min-h-[178px] flex flex-col justify-end p-6 sm:p-8"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} opacity-90 pointer-events-none`} />
-              <div className="relative text-white pointer-events-none">
-                <div className="mb-4 opacity-95">{tile.icon}</div>
+              {tile.image && (
+                <div
+                  className="pointer-events-none absolute inset-y-0 right-0 w-[64%] overflow-hidden opacity-45 transition-transform duration-300 group-hover:scale-[1.03]"
+                  style={{
+                    WebkitMaskImage: 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.2) 24%, black 48%)',
+                    maskImage: 'linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.2) 24%, black 48%)',
+                  }}
+                >
+                  <img
+                    src={tile.image}
+                    alt=""
+                    aria-hidden="true"
+                    className={`h-full w-full object-contain object-right mix-blend-multiply ${tile.imageClassName ?? ''}`}
+                  />
+                </div>
+              )}
+              <div className={`relative text-white pointer-events-none ${tile.image ? 'max-w-[58%]' : ''}`}>
+                {tile.icon && <div className="mb-4 opacity-95">{tile.icon}</div>}
                 <div className="text-2xl sm:text-3xl font-bold leading-tight">{T[tile.title][lang]}</div>
                 <div className="text-sm sm:text-base text-white/85 mt-1">{T[tile.desc][lang]}</div>
               </div>
