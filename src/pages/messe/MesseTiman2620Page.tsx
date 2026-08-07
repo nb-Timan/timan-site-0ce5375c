@@ -1,17 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, Cog, Snowflake, Wrench } from 'lucide-react';
+import { ArrowLeft, Cog, Snowflake, Wrench } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import Timan2620Viewer from '@/components/product-viewer/Timan2620Viewer';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
-import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
+import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
 /**
  * Timan 2620 Messe page — premium kiosk layout.
@@ -25,7 +18,7 @@ interface MesseTiman2620PageProps {
 }
 
 export default function MesseTiman2620Page({ backTo = '/messe' }: MesseTiman2620PageProps) {
-  const { uiLanguage, setLanguage } = useLanguage();
+  const { uiLanguage } = useLanguage();
   const { appUser } = useAppUser();
   const navigate = useNavigate();
 
@@ -57,54 +50,7 @@ export default function MesseTiman2620Page({ backTo = '/messe' }: MesseTiman2620
         background: 'linear-gradient(135deg, #f4f7f9 0%, #eef3f7 45%, #e9eef4 100%)',
       }}
     >
-      {/* Kiosk top bar: logo (aligned above left column) · language */}
-      <header className="sticky top-0 z-40 bg-transparent">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-5 h-20 flex items-center justify-between gap-4">
-          <div className="flex flex-col items-start justify-center gap-1.5 lg:w-[220px] lg:items-center">
-            <img src={timanLogo} alt="Timan" className="h-8 sm:h-9 lg:h-10 w-auto object-contain" />
-            {backTo === '/messe' && (
-              <button
-                type="button"
-                onClick={() => navigate('/messe')}
-                className="inline-flex h-6 items-center gap-1 rounded-md bg-emerald-700 px-2.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
-                aria-label={t('m2620_back_home', uiLanguage)}
-                title={t('m2620_back_home', uiLanguage)}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                {t('m2620_back_home', uiLanguage)}
-              </button>
-            )}
-          </div>
-
-
-          <div className="justify-self-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 px-6 min-h-[48px] rounded-full bg-white border border-slate-300 shadow-sm hover:shadow hover:border-emerald-600 text-slate-700 hover:text-emerald-800 font-semibold text-base transition cursor-pointer"
-                >
-                  {PORTAL_LANGUAGES.find(l => l.code === uiLanguage)?.flag ?? 'DK'}
-                  <ChevronDown className="h-4 w-4 opacity-70" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[100px]">
-                {PORTAL_LANGUAGES.map(l => (
-                  <DropdownMenuItem
-                    key={l.code}
-                    onClick={() => setLanguage(l.code)}
-                    className={`justify-center font-semibold cursor-pointer ${
-                      uiLanguage === l.code ? 'bg-emerald-50 text-emerald-800' : ''
-                    }`}
-                  >
-                    {l.flag}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
+      <MesseSubpageHeader backTo={backTo} backLabel={t('m2620_back_home', uiLanguage)} />
 
       <main className="flex-grow max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-5 py-6 lg:py-8 flex flex-col">
         <Timan2620Viewer.Provider>

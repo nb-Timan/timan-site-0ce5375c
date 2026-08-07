@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, X } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { MESSE_VIDEOS, MESSE_VIDEO_CATEGORY_LABEL, extractYouTubeId, youtubeThumbnail, type MesseVideo, type MesseVideoCategory } from '@/data/messeVideos';
 import { Language } from '@/types/configurator';
-import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
-import { canSwitchMode } from '@/lib/activeMode';
+import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
 const T: Record<string, Record<Language, string>> = {
   back:   { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -19,11 +16,9 @@ const T: Record<string, Record<Language, string>> = {
 const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service', 'salg'];
 
 export default function MesseVideoPage() {
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
-  const { appUser, logout } = useAppUser();
-  const navigate = useNavigate();
-  const isBackendPreview = !!appUser && canSwitchMode(appUser);
+  const { appUser } = useAppUser();
 
   useEffect(() => {
     if (!active) return;
@@ -46,20 +41,7 @@ export default function MesseVideoPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader
-        user={appUser}
-        language={lang}
-        onLanguageChange={setLanguage}
-        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
-      />
-      <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-          {isBackendPreview && <DemoModeBadge />}
-          <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {T.back[lang]}
-          </Link>
-        </div>
-      </div>
+      <MesseSubpageHeader backLabel={T.back[lang]} />
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
         <h1 className="text-3xl font-bold text-slate-900">{T.title[lang]}</h1>

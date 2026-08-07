@@ -1,13 +1,11 @@
 import { ReactNode } from 'react';
-import { Navigate, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import BackButton from '@/components/portal/BackButton';
-import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import { canSwitchMode } from '@/lib/activeMode';
+import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 
@@ -39,29 +37,13 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
     );
   }
 
-  // /messe sub-routes share the simplified Messe layout — always full
-  // PortalHeader on top (MesseRouteGuard guarantees a real authenticated
-  // user is present), plus a green "Tilbage til Messe" strip below.
+  // /messe sub-routes share the simplified Messe layout.
   const onMesseRoute = location.pathname.startsWith('/messe');
   if (onMesseRoute) {
     if (!appUser) return null;
-    const isBackendPreview = canSwitchMode(appUser);
     return (
       <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-        <PortalHeader
-          user={appUser}
-          language={lang}
-          onLanguageChange={setLanguage}
-          onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
-        />
-        <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-            {isBackendPreview && <DemoModeBadge />}
-            <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
-              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Tilbage til Messe
-            </Link>
-          </div>
-        </div>
+        <MesseSubpageHeader backLabel="Til forsiden" />
         {!hideHeader && (
           <header className="bg-white border-b border-slate-200 py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

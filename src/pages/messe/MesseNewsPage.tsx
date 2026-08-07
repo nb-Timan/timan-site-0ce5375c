@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
 import { Language } from '@/types/configurator';
-import DemoModeBadge from '@/components/messe/DemoModeBadge';
-import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
-import { canSwitchMode } from '@/lib/activeMode';
 import { t } from '@/lib/i18n/translations';
 import { MESSE_NEWS_ITEMS, type MesseNewsItem } from '@/data/messeNews';
 import Timan2620NewsModal from '@/components/messe/Timan2620NewsModal';
 import FlyerViewerModal from '@/components/messe/FlyerViewerModal';
 import { FlyerFrontPage } from '@/components/messe/TeaserFlyerPages';
+import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
 const T: Record<string, Record<Language, string>> = {
   back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
@@ -23,12 +20,10 @@ const T: Record<string, Record<Language, string>> = {
 
 
 export default function MesseNewsPage() {
-  const { language: lang, uiLanguage, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
   const [openModal, setOpenModal] = useState<null | 'article' | 'flyer'>(null);
-  const { appUser, logout } = useAppUser();
-  const navigate = useNavigate();
-  const isBackendPreview = !!appUser && canSwitchMode(appUser);
+  const { appUser } = useAppUser();
 
   useEffect(() => {
     let cancelled = false;
@@ -82,20 +77,7 @@ export default function MesseNewsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader
-        user={appUser}
-        language={lang}
-        onLanguageChange={setLanguage}
-        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
-      />
-      <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
-          {isBackendPreview && <DemoModeBadge />}
-          <Link to="/messe" className="inline-flex items-center font-semibold text-emerald-800 hover:underline">
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {T.back[lang]}
-          </Link>
-        </div>
-      </div>
+      <MesseSubpageHeader backLabel={T.back[lang]} />
 
       <main className="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">{T.title[lang]}</h1>
