@@ -205,6 +205,38 @@ function escapeHtml(s: string | null | undefined): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function normalizeExternalUrl(u: string): string {
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`;
+}
+
+function partnerPopupHtml(p: Partner, lang: Language, formatCountry: (country: string) => string, canOpenCrm: boolean): string {
+  const color = TYPE_COLORS[p.type];
+  const cityLine = [p.postal, p.city].filter(Boolean).join(' ');
+  const addressLine = [p.addressLine1, cityLine, p.country ? formatCountry(p.country) : ''].filter(Boolean).join(', ');
+  const routeTarget = p.coords
+    ? `${p.coords[0]},${p.coords[1]}`
+    : addressLine;
+  const routeHref = routeTarget
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(routeTarget)}`
+    : '';
+  const crmHref = `/portal/crm/my-dealers/${encodeURIComponent(p.account)}`;
+
+  return `
+    <div class="pm-popup-card" style="border-top-color:${color}">
+      <div class="pm-popup-head">
+        <span class="pm-popup-type" style="background:${color}">${escapeHtml(T[p.type][lang])}</span>
+        ${p.account ? `<span class="pm-popup-account">#${escapeHtml(p.account)}</span>` : ''}
+      </div>
+      <div class="pm-popup-name">${escapeHtml(p.name)}</div>
+      ${addressLine ? `<div class="pm-popup-address">${escapeHtml(addressLine)}</div>` : ''}
+      <div class="pm-popup-actions">
+        ${routeHref ? `<a href="${routeHref}" target="_blank" rel="noreferrer">Rutevejledning</a>` : ''}
+        ${canOpenCrm ? `<a href="${crmHref}">Forhandlerinformation</a>` : ''}
+        ${p.website ? `<a href="${normalizeExternalUrl(p.website.trim())}" target="_blank" rel="noreferrer">Hjemmeside</a>` : ''}
+      </div>
+    </div>`;
+}
+
 
 function MapResizer({ trigger }: { trigger: unknown }) {
   const map = useMap();
@@ -232,11 +264,15 @@ function ClusterLayer({
   selectedId,
   onSelect,
   lang,
+  formatCountry,
+  canOpenCrm,
 }: {
   partners: Partner[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   lang: Language;
+  formatCountry: (country: string) => string;
+  canOpenCrm: boolean;
 }) {
   const map = useMap();
   const clusterRef = useRef<any>(null);
@@ -282,7 +318,23 @@ function ClusterLayer({
       const m = L.marker(p.coords, { icon: makePinDivIcon(p.type, selectedId === p.id) });
       // Attach partner ref so cluster hover handler can list child partners.
       (m as any).__pmPartner = p;
-      m.on('click', () => onSelect(p.id));
+      m.bindPopup(partnerPopupHtml(p, lang, formatCountry, canOpenCrm), {
+        closeButton: true,
+        className: 'pm-marker-popup',
+        autoPan: true,
+        autoPanPadding: [28, 28],
+        maxWidth: 280,
+      });
+      const openPartner = () => {
+        onSelect(p.id);
+        try { m.openPopup(); } catch { /* noop */ }
+      };
+      m.on('click', openPartner);
+      m.on('tap', openPartner as any);
+      m.on('touchstart', (e: any) => {
+        try { L.DomEvent.stopPropagation(e); } catch { /* noop */ }
+        openPartner();
+      });
 
       if (hoverCapable) {
         const color = TYPE_COLORS[p.type];
@@ -320,6 +372,11 @@ function ClusterLayer({
 
       cluster.addLayer(m);
       markersRef.current.set(p.id, m);
+      if (selectedId === p.id) {
+        window.setTimeout(() => {
+          try { m.openPopup(); } catch { /* noop */ }
+        }, 0);
+      }
     }
 
     // --- Cluster hover tooltip (lists partners within the cluster) ---
@@ -434,7 +491,7 @@ function ClusterLayer({
       // Click on cluster keeps default zoom-to-bounds; just dismiss tooltip.
       cluster.on('clusterclick', () => { hardClose(); });
     }
-  }, [partners, selectedId, onSelect, lang, map]);
+  }, [partners, selectedId, onSelect, lang, map, formatCountry, canOpenCrm]);
 
   return null;
 }
@@ -524,6 +581,34 @@ function MapView({
   return null;
 }
 
+function SelectedVisibilityGuard({
+  selected,
+  onHidden,
+}: {
+  selected: Partner | null;
+  onHidden: () => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!selected?.coords) return;
+    const selectedLatLng = L.latLng(selected.coords[0], selected.coords[1]);
+    const closeIfHidden = () => {
+      const bounds = map.getBounds().pad(0.06);
+      if (!bounds.contains(selectedLatLng)) {
+        onHidden();
+        try { map.closePopup(); } catch { /* noop */ }
+      }
+    };
+    map.on('moveend zoomend', closeIfHidden);
+    return () => {
+      map.off('moveend zoomend', closeIfHidden);
+    };
+  }, [map, selected?.id, selected?.coords, onHidden]);
+
+  return null;
+}
+
 export default function PartnerMapPage() {
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
@@ -580,6 +665,7 @@ export default function PartnerMapPage() {
   // Phase 60 — successor filter. Default: kun aktive forhandlere på kortet.
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isTouchLike, setIsTouchLike] = useState(false);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
 
@@ -641,6 +727,15 @@ export default function PartnerMapPage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [fitTo, setFitTo] = useState<[number, number][] | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(hover: none), (pointer: coarse)');
+    const update = () => setIsTouchLike(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -878,6 +973,7 @@ export default function PartnerMapPage() {
   // Fullscreen support for the map area
   const mapWrapperRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const useMapPopupOnly = isFullscreen || isTouchLike;
   const fullscreenSupported = typeof document !== 'undefined' && (
     document.fullscreenEnabled ||
     // @ts-ignore - vendor prefix
@@ -1002,6 +1098,19 @@ export default function PartnerMapPage() {
         .pm-tt-cluster-name { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
         .pm-tt-cluster-type { flex:0 0 auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
         .pm-tt-cluster-more { margin-top:4px; padding-top:4px; border-top:1px dashed #e5e7eb; font-size:10px; color:#6b7280; font-style:italic; }
+        .leaflet-popup.pm-marker-popup { margin-bottom:20px; }
+        .leaflet-popup.pm-marker-popup .leaflet-popup-content-wrapper { border-radius:10px; box-shadow:0 10px 28px rgba(15,23,42,.22); padding:0; overflow:hidden; }
+        .leaflet-popup.pm-marker-popup .leaflet-popup-content { margin:0; width:260px !important; max-width:calc(100vw - 48px); }
+        .leaflet-popup.pm-marker-popup .leaflet-popup-tip { box-shadow:0 10px 28px rgba(15,23,42,.18); }
+        .pm-popup-card { border-top:5px solid ${TIMAN_GREEN}; background:white; font-family:inherit; }
+        .pm-popup-head { display:flex; align-items:center; gap:6px; padding:10px 12px 4px; }
+        .pm-popup-type { display:inline-flex; align-items:center; height:18px; padding:0 7px; border-radius:999px; color:white; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+        .pm-popup-account { color:#94a3b8; background:#f1f5f9; border-radius:5px; padding:2px 5px; font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .pm-popup-name { padding:0 12px; color:#111827; font-size:14px; font-weight:800; line-height:1.25; }
+        .pm-popup-address { padding:7px 12px 0; color:#64748b; font-size:12px; line-height:1.35; }
+        .pm-popup-actions { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 12px; }
+        .pm-popup-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:30px; padding:6px 9px; border:1px solid #e2e8f0; border-radius:8px; color:#334155; background:#fff; font-size:12px; font-weight:700; text-decoration:none; }
+        .pm-popup-actions a:hover { border-color:${TIMAN_GREEN}; color:${TIMAN_GREEN}; }
       `}</style>
 
       <div className="relative left-1/2 right-1/2 w-screen -mx-[50vw] -mt-4 -mb-4 bg-gray-50 px-3 sm:px-5 py-3">
@@ -1262,8 +1371,16 @@ export default function PartnerMapPage() {
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
+                    <SelectedVisibilityGuard selected={selected} onHidden={() => setSelectedId(null)} />
                     {showPartnerLayer && (
-                      <ClusterLayer partners={withCoords} selectedId={selectedId} onSelect={setSelectedId} lang={lang} />
+                      <ClusterLayer
+                        partners={withCoords}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        lang={lang}
+                        formatCountry={formatCountry}
+                        canOpenCrm={canOpenCrm}
+                      />
                     )}
                     {canSeeMachineLayer && showMachineLayer && (
                       <MachineLayer pins={visibleMachinePins} />
@@ -1386,7 +1503,7 @@ export default function PartnerMapPage() {
       </div>
 
       {/* Popup / side panel */}
-      {selected && (
+      {selected && (!useMapPopupOnly || !selected.coords) && (
         <>
           <div className="fixed inset-0 z-[1000] bg-black/30 lg:hidden" onClick={() => setSelectedId(null)} />
           <aside className="fixed z-[1001] bg-white shadow-2xl border-gray-200
