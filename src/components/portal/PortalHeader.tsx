@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Language } from '@/types/configurator';
 import { SessionUser } from '@/context/AppUserContext';
-import { Bell, LogOut, ChevronDown, Check, ArrowLeft } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Check, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo.png';
 import { fetchPendingUserCount } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getPortalPermissions, isMesseVariantUser } from '@/lib/portalAccess';
@@ -29,6 +29,8 @@ const T: Record<string, Record<Language, string>> = {
   viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
   filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
   rolePreviewNote: { da: 'rolle-forhåndsvisning. Destruktive backend-handlinger er deaktiveret.', en: 'role preview. Destructive backend actions are disabled.', de: 'Rollenvorschau. Destruktive Backend-Aktionen sind deaktiviert.', it: 'anteprima ruolo. Le azioni distruttive sono disattivate.', hu: 'szerep-előnézet. A destruktív műveletek le vannak tiltva.' },
+  fullscreen:    { da: 'Fuld skærm', en: 'Fullscreen', de: 'Vollbild', it: 'Schermo intero', hu: 'Teljes képernyő' },
+  exitFullscreen:{ da: 'Afslut fuld skærm', en: 'Exit fullscreen', de: 'Vollbild beenden', it: 'Esci da schermo intero', hu: 'Kilépés teljes képernyőből' },
 };
 
 interface Props {
@@ -50,6 +52,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const location = useLocation();
 
   // Backend users see a notification badge when new users are awaiting
@@ -147,6 +150,36 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     const id = window.setInterval(tick, 60_000);
     return () => { cancelled = true; window.clearInterval(id); };
   }, [isBackend]);
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen(!!(document.fullscreenElement || doc.webkitFullscreenElement));
+    };
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreen);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+
+    if (document.fullscreenElement || doc.webkitFullscreenElement) {
+      void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
+      return;
+    }
+    void (root.requestFullscreen?.() ?? root.webkitRequestFullscreen?.());
+  };
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -330,6 +363,16 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden lg:inline">{T.logout[language]}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
+              aria-label={isFullscreen ? T.exitFullscreen[language] : T.fullscreen[language]}
+              title={isFullscreen ? T.exitFullscreen[language] : T.fullscreen[language]}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
           </div>
         </div>
