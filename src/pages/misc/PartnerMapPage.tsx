@@ -282,6 +282,7 @@ function ClusterLayer({
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
+      zoomToBoundsOnClick: false,
       disableClusteringAtZoom: 14,
       maxClusterRadius: 50,
       iconCreateFunction: (c: any) => {
@@ -384,8 +385,56 @@ function ClusterLayer({
     cluster.off('clustermouseout');
     cluster.off('clusterclick');
 
+    const MAX_CLUSTER_LIST = 8;
+    const getClusterPartners = (layer: any) => {
+      const children: any[] = layer.getAllChildMarkers();
+      return children
+        .map((c) => c.__pmPartner as Partner | undefined)
+        .filter((p): p is Partner => !!p);
+    };
+
+    const buildClusterListHtml = (partnersInCluster: Partner[]) => {
+      const total = partnersInCluster.length;
+      const shown = partnersInCluster.slice(0, MAX_CLUSTER_LIST);
+      const lookup = new Map<string, Partner>();
+      for (const p of shown) lookup.set(p.id, p);
+
+      const headerCount = lang === 'da' ? 'partnere' : lang === 'de' ? 'Partner' : lang === 'it' ? 'partner' : lang === 'hu' ? 'partner' : 'partners';
+      const moreLabel = lang === 'da' ? 'flere' : lang === 'de' ? 'weitere' : lang === 'it' ? 'altri' : lang === 'hu' ? 'további' : 'more';
+      const rows = shown.map((p) => {
+        const color = TYPE_COLORS[p.type];
+        const typeLabel = T[p.type][lang];
+        return `<button type="button" class="pm-tt-cluster-row" data-partner-id="${escapeHtml(p.id)}">
+          <span class="pm-tt-cluster-dot" style="background:${color}"></span>
+          <span class="pm-tt-cluster-name">${escapeHtml(p.name)}</span>
+          <span class="pm-tt-cluster-type" style="color:${color}">${escapeHtml(typeLabel)}</span>
+        </button>`;
+      }).join('');
+      const more = total > MAX_CLUSTER_LIST
+        ? `<div class="pm-tt-cluster-more">+ ${total - MAX_CLUSTER_LIST} ${escapeHtml(moreLabel)}</div>`
+        : '';
+      const html = `
+        <div class="pm-tt pm-tt-cluster">
+          <div class="pm-tt-cluster-header">${total} ${escapeHtml(headerCount)}</div>
+          ${rows}
+          ${more}
+        </div>`;
+
+      return { html, lookup };
+    };
+
+    const openPartnerFromCluster = (id: string, lookup: Map<string, Partner>, close: () => void) => {
+      const p = lookup.get(id);
+      close();
+      if (!p) return;
+      onSelect(p.id);
+      if (p.coords) {
+        try { map.flyTo(p.coords, Math.max(map.getZoom(), 14), { duration: 0.6 }); } catch { /* noop */ }
+      }
+    };
+
     if (hoverCapable) {
-      const MAX_LIST = 8;
+      const MAX_LIST = MAX_CLUSTER_LIST;
       let openTimer: any = null;
       let closeTimer: any = null;
       let clusterTooltip: L.Tooltip | null = null;
@@ -411,10 +460,7 @@ function ClusterLayer({
         if (clusterTooltip) return; // already open
         if (openTimer) clearTimeout(openTimer);
 
-        const children: any[] = e.layer.getAllChildMarkers();
-        const partnersInCluster: Partner[] = children
-          .map((c) => c.__pmPartner as Partner | undefined)
-          .filter((p): p is Partner => !!p);
+        const partnersInCluster = getClusterPartners(e.layer);
         if (partnersInCluster.length === 0) return;
 
         const total = partnersInCluster.length;
@@ -488,8 +534,53 @@ function ClusterLayer({
       });
 
       cluster.on('clustermouseout', () => { scheduleClose(); });
-      // Click on cluster keeps default zoom-to-bounds; just dismiss tooltip.
-      cluster.on('clusterclick', () => { hardClose(); });
+      cluster.on('clusterclick', (e: any) => {
+        hardClose();
+        try {
+          if (map.getZoom() >= 14 && typeof e.layer.spiderfy === 'function') e.layer.spiderfy();
+          else e.layer.zoomToBounds({ padding: [48, 48] });
+        } catch { /* noop */ }
+      });
+    } else {
+      cluster.on('clusterclick', (e: any) => {
+        const partnersInCluster = getClusterPartners(e.layer);
+        if (partnersInCluster.length === 0) return;
+
+        const { html, lookup } = buildClusterListHtml(partnersInCluster);
+        const popup = L.popup({
+          closeButton: true,
+          closeOnClick: true,
+          autoClose: true,
+          autoPan: true,
+          autoPanPadding: [28, 28],
+          className: 'pm-cluster-popup',
+          maxWidth: 320,
+        })
+          .setLatLng(e.layer.getLatLng())
+          .setContent(html);
+
+        popup.on('add', () => {
+          const el = popup.getElement();
+          if (!el) return;
+          try {
+            L.DomEvent.disableClickPropagation(el);
+            L.DomEvent.disableScrollPropagation(el);
+          } catch { /* noop */ }
+          el.addEventListener('click', (ev) => {
+            const target = ev.target as HTMLElement | null;
+            const row = target?.closest('[data-partner-id]') as HTMLElement | null;
+            if (!row) return;
+            ev.stopPropagation();
+            ev.preventDefault();
+            const id = row.getAttribute('data-partner-id') || '';
+            openPartnerFromCluster(id, lookup, () => {
+              try { map.closePopup(popup); } catch { /* noop */ }
+            });
+          });
+        });
+
+        try { map.openPopup(popup); } catch { /* noop */ }
+      });
     }
   }, [partners, selectedId, onSelect, lang, map, formatCountry, canOpenCrm]);
 
@@ -1094,6 +1185,9 @@ export default function PartnerMapPage() {
         .pm-tt-cluster-row:hover { background:#f3f4f6; }
         .pm-tt-cluster-row:focus-visible { outline:2px solid #2d5a27; outline-offset:1px; }
         .leaflet-tooltip.pm-tooltip-cluster { pointer-events:auto; }
+        .leaflet-popup.pm-cluster-popup .leaflet-popup-content-wrapper { border-radius:10px; box-shadow:0 10px 28px rgba(15,23,42,.22); padding:0; overflow:hidden; }
+        .leaflet-popup.pm-cluster-popup .leaflet-popup-content { margin:0; width:300px !important; max-width:calc(100vw - 48px); }
+        .leaflet-popup.pm-cluster-popup .leaflet-popup-tip { box-shadow:0 10px 28px rgba(15,23,42,.18); }
         .pm-tt-cluster-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
         .pm-tt-cluster-name { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
         .pm-tt-cluster-type { flex:0 0 auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
