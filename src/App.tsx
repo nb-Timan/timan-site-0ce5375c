@@ -123,10 +123,10 @@ const App = () => (
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
-              <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={7} /></MesseRouteGuard>} />
-              <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={7} /></MesseRouteGuard>} />
+              <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={13} /></MesseRouteGuard>} />
+              <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseTiman2620Page /></MesseRouteGuard>} />
-              <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={9} /></MesseRouteGuard>} />
+              <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={17} /></MesseRouteGuard>} />
               <Route path="/messe/resources/driftberegner" element={<MesseRouteGuard><DriftberegnerPage /></MesseRouteGuard>} />
               <Route path="/messe/resources/co2" element={<MesseRouteGuard><Co2CalculatorPage /></MesseRouteGuard>} />
 
