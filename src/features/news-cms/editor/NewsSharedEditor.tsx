@@ -210,7 +210,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             {!validation.valid && (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 {validation.issues.map((issue) => (
-                  <div key={`${issue.fieldKey}-${issue.messageKey}`}>{t(issue.messageKey, uiLanguage)}: {issue.fieldKey}</div>
+                  <div key={`${issue.fieldKey}-${issue.messageKey}`}>
+                    {t(issue.messageKey, uiLanguage)}: {t(template.fields.find((field) => field.key === issue.fieldKey)?.labelKey || issue.fieldKey, uiLanguage)}
+                  </div>
                 ))}
               </div>
             )}
@@ -226,7 +228,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             <p className="mt-1 text-sm text-slate-500">{t('newsCmsPreviewHelp', uiLanguage)}</p>
             <div className="mt-5 space-y-4 rounded-xl border border-slate-200 p-4 text-sm">
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnTemplate', uiLanguage)}</span>{t(template.nameKey, uiLanguage)}</div>
-              <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnLanguage', uiLanguage)}</span>{editLanguage.toUpperCase()}</div>
+              <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsContentLanguage', uiLanguage)}</span>{contentLanguageLabel}</div>
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnStatus', uiLanguage)}</span>{t('newsCmsStatusDraft', uiLanguage)}</div>
             </div>
           </aside>

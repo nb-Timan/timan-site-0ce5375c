@@ -45,7 +45,7 @@ export default function NewsFieldEditor({ lang, field, value, onChange }: Props)
           onChange={(event) => onChange(event.target.value)}
           className={commonClass}
           maxLength={field.maxLength}
-          placeholder={field.type === 'image' || field.type === 'file' ? 'Storage path / URL' : undefined}
+          placeholder={field.type === 'image' || field.type === 'file' ? t('newsCmsStoragePlaceholder', lang) : undefined}
         />
       )}
       {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
