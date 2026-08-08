@@ -3,6 +3,7 @@ import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'l
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
+import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
 import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
@@ -248,19 +249,60 @@ function Template03({ content, lang }: NewsRendererProps) {
 }
 
 function Template04({ content, lang }: NewsRendererProps) {
+  const blocks = normalizeTechBlocks(content.techBlocks);
+  const specs = filledSpecRows(content.specRows);
+  const body = text(content, 'body', '');
+  const productImage = text(content, 'productImage', '');
   return (
     <TemplateShell lang={lang}>
-      <div className="grid h-full grid-cols-[0.9fr_1.1fr] gap-7">
-        <ImageBox label={t('newsCmsWireProductImage', lang)} className="h-full" />
-        <div className="flex flex-col justify-center">
-          <h3 className="text-3xl font-black text-slate-950">{text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}</h3>
-          <p className="mt-2 text-slate-600">{text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}</p>
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((item) => <div key={item} className="h-20 rounded-lg bg-emerald-50 ring-1 ring-emerald-100" />)}
+      <div className="grid h-full min-w-0 grid-cols-[0.9fr_1.1fr] gap-7">
+        <TemplateImage url={productImage} label={t('newsCmsWireProductImage', lang)} className="h-full" />
+        <div className="flex min-w-0 flex-col pt-24">
+          <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
+          </h3>
+          <p className="mt-1.5 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            {text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}
+          </p>
+          {body ? (
+            <p className="mt-2.5 max-w-prose whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+              {body}
+            </p>
+          ) : null}
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {blocks.map((block, index) => (
+              <div key={index} className="flex min-w-0 items-start gap-2.5 rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-100">
+                <FeatureIconMark block={block} size="sm" />
+                <div className="min-w-0">
+                  <p className="text-[0.9rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
+                    {block.heading || t('newsCmsTechHeading', lang)}
+                  </p>
+                  {block.description ? (
+                    <p className="mt-0.5 text-[0.7rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+                      {block.description}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="mt-5 rounded-xl bg-slate-100 p-4">
-            <TextLines lines={5} />
-          </div>
+
+          {specs.length > 0 ? (
+            <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-100 p-3.5">
+              <p className="mb-2 text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-500">
+                {t('newsCmsSpecificationsTitle', lang)}
+              </p>
+              <dl className="grid grid-cols-2 gap-x-5 gap-y-1">
+                {specs.map((row, index) => (
+                  <div key={index} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
+                    <dt className="min-w-0 text-[0.72rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
+                    <dd className="min-w-0 text-right text-[0.72rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
         </div>
       </div>
     </TemplateShell>
@@ -375,7 +417,12 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate04Purpose',
     pageMode: 'single',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'specifications', labelKey: 'newsCmsFieldSpecifications', type: 'textarea' }],
+    fields: [
+      ...baseFields,
+      { key: 'productImage', labelKey: 'newsCmsWireProductImage', type: 'image' },
+      { key: 'techBlocks', labelKey: 'newsCmsFieldTechBlocks', type: 'techBlocks', helpKey: 'newsCmsFieldTechBlocksHelp' },
+      { key: 'specRows', labelKey: 'newsCmsFieldSpecRows', type: 'specRows', helpKey: 'newsCmsFieldSpecRowsHelp' },
+    ],
     validate: placeholderValidate,
     Renderer: RENDERERS['template-04-technical-feature'],
   },
