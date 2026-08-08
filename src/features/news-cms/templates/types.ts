@@ -9,7 +9,17 @@ export type NewsTemplateId =
   | 'template-05-story-layout'
   | 'template-06-flyer';
 
-export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages';
+export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks';
+
+export type NewsFeatureIconColor = 'green' | 'black' | 'grey' | 'red' | 'blue' | 'orange';
+
+export interface NewsFeatureBlock {
+  icon: string;
+  iconColor: NewsFeatureIconColor;
+  customIconUrl: string | null;
+  heading: string;
+  description: string;
+}
 
 export interface NewsFieldDefinition {
   key: string;
