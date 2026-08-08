@@ -384,28 +384,30 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
   const secondaryText = text(content, 'secondaryText', '');
   return (
     <div className="relative h-full min-w-0 overflow-hidden">
-      <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 46% 0, 64% 100%, 0 100%)' }}>
+      {/* Large photo: wide at the top, progressively narrower toward the bottom. */}
+      <div className="absolute inset-0 z-0" style={{ clipPath: 'polygon(0 0, 94% 0, 52% 100%, 0 100%)' }}>
         <TemplateImage
           url={productImage}
           label={t('newsCmsWireProductImage', lang)}
-          className="h-full w-full rounded-none border-0"
+          className="h-full w-full rounded-none border-0 object-cover"
         />
       </div>
       {/* Constant-thickness green separator, parallel to the photo edge. */}
       <div
-        className="absolute inset-0 bg-emerald-600"
-        style={{ clipPath: 'polygon(46% 0, 49.1% 0, 67.2% 100%, 64% 100%)' }}
+        className="absolute inset-0 z-10 bg-emerald-600"
+        style={{ clipPath: 'polygon(94% 0, 97.2% 0, 55.2% 100%, 52% 100%)' }}
       />
 
-      <div className="absolute bottom-[1.1rem] left-[8%] h-[8.4rem] w-[64%] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)]">
+      {/* Secondary image: overlaps the large photo by ~1/3 of its own width. */}
+      <div className="absolute bottom-[1.1rem] left-[39.5%] z-20 h-[7.6rem] w-[38%] overflow-hidden rounded-lg border border-white bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.55)]">
         <TemplateImage
           url={secondaryImage}
           label={t('newsCmsFieldSecondaryImage', lang)}
-          className="h-full w-full rounded-none border-0"
+          className="h-full w-full rounded-none border-0 object-cover"
         />
       </div>
 
-      <div className="absolute bottom-[1.1rem] right-0 flex h-[8.4rem] w-[24%] min-w-0 flex-col justify-center overflow-hidden">
+      <div className="absolute bottom-[1.1rem] right-0 z-20 flex h-[7.6rem] w-[20.5%] min-w-0 flex-col justify-center overflow-hidden">
         <p className="line-clamp-2 text-[0.68rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
           {secondaryHeading || t('newsCmsWireSecondaryHeading', lang)}
         </p>
