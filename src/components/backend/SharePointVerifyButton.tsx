@@ -234,7 +234,7 @@ const SharePointVerifyButton = forwardRef<SharePointVerifyHandle, VerifyProps>(f
         case "diff_and_missing": return st.kind === "mismatch" || st.kind === "missing";
         case "diff_only": return st.kind === "mismatch";
         case "missing_only": return st.kind === "missing";
-        case "missing_in_sp": return false;
+        
         case "matches_only": return st.kind === "match";
         case "all": return true;
       }
