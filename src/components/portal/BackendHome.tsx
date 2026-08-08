@@ -18,7 +18,7 @@ import {
   Users, ShieldCheck, KeyRound, ScrollText,
   Building2, Link2, Map, MapPin,
   Database, BarChart3, Upload, LineChart,
-  Mail, ListChecks, Activity, FileSearch, Sparkles, QrCode, LucideIcon,
+  Mail, ListChecks, Activity, FileSearch, Sparkles, QrCode, Newspaper, LucideIcon,
 } from "lucide-react";
 
 import PlaceholderCard from "@/components/portal/PlaceholderCard";
@@ -80,6 +80,7 @@ function buildGroups(): Group[] {
       title: "System",
       description: "Systemstatus, mail-log, job queue, change log og persistence audit.",
       items: [
+        { title: "Nyheder", icon: Newspaper, to: "/portal/backend/news", description: "Administrér nyheder, kladder, skabeloner og publicering til Seneste nyt." },
         { title: "Seneste ændringer", icon: Sparkles, to: "/portal/backend/changelog", description: "Administrér portalens change log — opret, redigér og slet ændringer som vises på forsiden og modulkort." },
         { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },

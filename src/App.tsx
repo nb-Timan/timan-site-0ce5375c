@@ -91,6 +91,7 @@ import BackendDataIntegrationsPage from "./pages/backend/BackendDataIntegrations
 import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
 import BackendPartnerRelationsPage from "./pages/backend/BackendPartnerRelationsPage";
 import BackendMesseSettingsPage from "./pages/backend/BackendMesseSettingsPage";
+import BackendNewsPage from "./pages/backend/BackendNewsPage";
 
 import MesseHomePage from "./pages/messe/MesseHomePage";
 import MesseVideoPage from "./pages/messe/MesseVideoPage";
@@ -214,6 +215,7 @@ const App = () => (
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
               <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
+              <Route path="/portal/backend/news" element={<BackendNewsPage />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
 

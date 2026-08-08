@@ -131,6 +131,8 @@ export interface PortalPermissions {
   canEditData: boolean;
   /** Has admin/backend access. */
   isBackend: boolean;
+  /** May manage News CMS drafts and publishing. */
+  canManageNews: boolean;
 }
 
 const READ_ONLY: PortalPermissions = {
@@ -139,6 +141,7 @@ const READ_ONLY: PortalPermissions = {
   canCreateWarranty: false,
   canEditData: false,
   isBackend: false,
+  canManageNews: false,
 };
 
 const FULL: PortalPermissions = {
@@ -147,13 +150,14 @@ const FULL: PortalPermissions = {
   canCreateWarranty: true,
   canEditData: true,
   isBackend: false,
+  canManageNews: false,
 };
 
 export function getPortalPermissions(role: PortalRole): PortalPermissions {
   switch (role) {
     // Internal/admin roles: can manage/view claims but CANNOT create new ones
     // (mirrors the old Service Portal where Timan Admin could not create claims).
-    case 'timan_backend':         return { ...FULL, canCreateClaim: false, isBackend: true };
+    case 'timan_backend':         return { ...FULL, canCreateClaim: false, isBackend: true, canManageNews: true };
     case 'timan_seller':          return { ...FULL, canCreateClaim: false };
     case 'timan_service':         return { ...FULL, canCreateClaim: false, canSubmitOrder: false };
     // Dealer-side roles: can create claims
@@ -166,6 +170,15 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
     case 'exhibition_user':       return READ_ONLY;
     default:                      return READ_ONLY;
   }
+}
+
+export function canManageNewsContent(
+  user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; module_access?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
+): boolean {
+  if (!user) return false;
+  const role = derivePortalRole(user);
+  if (role && getPortalPermissions(role).canManageNews) return true;
+  return user.permissions?.news_manage === true;
 }
 
 /** True when the active portal session is the public Messe demo. */

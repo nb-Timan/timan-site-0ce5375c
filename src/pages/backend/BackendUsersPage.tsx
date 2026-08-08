@@ -892,6 +892,7 @@ function EditUserModal({
                       { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
                       { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
                       { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
+                      { value: "news_manage", label: "Administrér nyheder / Manage news" },
                     ]}
                     checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
                       .filter(([, v]) => v)
