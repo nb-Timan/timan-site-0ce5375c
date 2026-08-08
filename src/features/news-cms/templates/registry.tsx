@@ -309,27 +309,54 @@ function Template04({ content, lang }: NewsRendererProps) {
   );
 }
 
+/**
+ * Template 05 uses fixed independent zones: the text column and the image
+ * column are separate fixed tracks, and headline/subtitle/body/quote each own
+ * a reserved row so long translations never move any other element.
+ */
 function Template05({ content, lang }: NewsRendererProps) {
+  const body = text(content, 'body', '');
+  const quote = text(content, 'quote', '');
   return (
     <TemplateShell lang={lang}>
-      <div className="grid h-full grid-cols-[1fr_1fr] gap-7">
-        <div className="flex flex-col justify-between">
-          <div>
-            <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}</h3>
-            <p className="mt-4 text-base leading-7 text-slate-600">{text(content, 'body', t('newsCmsWireStoryBody', lang))}</p>
+      <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
+        {/* Text column: fixed rows — header block, body zone, quote zone. */}
+        <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_9rem] overflow-hidden">
+          <div className="min-w-0 pt-24">
+            <h3 className="line-clamp-2 text-[2.1rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+              {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
+            </h3>
+            <p className="mt-2.5 line-clamp-2 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+              {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
+            </p>
           </div>
-          <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4 text-sm font-semibold text-slate-700">
-            {text(content, 'quote', t('newsCmsWireHighlightQuote', lang))}
+          <div className="mt-5 min-h-0 min-w-0 max-w-full overflow-hidden">
+            {body ? (
+              <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+                {body}
+              </p>
+            ) : (
+              <TextLines lines={5} />
+            )}
+          </div>
+          <div className="mt-4 min-h-0 min-w-0 overflow-hidden">
+            <div className="h-full overflow-hidden rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4">
+              <p className="line-clamp-4 text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+                {quote || t('newsCmsWireHighlightQuote', lang)}
+              </p>
+            </div>
           </div>
         </div>
-        <div className="grid h-full grid-rows-[1.25fr_0.75fr] gap-4">
-          <ImageBox label={t('newsCmsWireLargeImage', lang)} />
-          <ImageBox label={t('newsCmsWireSecondaryImage', lang)} />
+        {/* Image column: fixed rows, never affected by text length. */}
+        <div className="grid h-full min-w-0 grid-rows-[1.25fr_0.75fr] gap-4 overflow-hidden">
+          <TemplateImage url={text(content, 'mainImage', '')} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <TemplateImage url={text(content, 'secondaryImage', '')} label={t('newsCmsWireSecondaryImage', lang)} className="h-full" />
         </div>
       </div>
     </TemplateShell>
   );
 }
+
 
 function Template06({ content, lang }: NewsRendererProps) {
   return (
