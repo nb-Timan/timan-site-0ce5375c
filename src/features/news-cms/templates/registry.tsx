@@ -65,7 +65,13 @@ function Template01({ content }: NewsRendererProps) {
           </div>
           <h3 className="text-3xl font-black leading-tight text-slate-950">{text(content, 'headline', 'Headline')}</h3>
           <p className="mt-2 text-base text-slate-600">{text(content, 'subtitle', 'Subtitle')}</p>
-          <div className="mt-7 grid grid-cols-3 gap-3">
+          {text(content, 'body', '') ? (
+            <p className="mt-3 max-w-prose whitespace-pre-line text-sm leading-6 text-slate-600">
+              {text(content, 'body', '')}
+            </p>
+          ) : null}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+
             {[1, 2, 3].map((item) => (
               <div key={item} className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
                 <ListChecks className="mb-2 h-5 w-5 text-emerald-700" />
