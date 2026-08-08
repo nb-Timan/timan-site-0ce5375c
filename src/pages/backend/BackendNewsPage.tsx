@@ -1,19 +1,59 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Newspaper, RotateCcw } from 'lucide-react';
+import { Archive, ArrowLeft, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Undo2 } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import { Button } from '@/components/ui/button';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { getLocalizedNewsContent } from '@/features/news-cms/lib/newsContent';
+import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
+import { getNewsTemplate, NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
 import { t } from '@/lib/i18n/translations';
+import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
 import {
   adminListNewsPosts,
   adminPublishNewsPost,
   adminSaveNewsDraft,
+  adminUpdateNewsStatus,
   type NewsCmsPost,
+  type NewsStatus,
 } from '@/lib/newsService';
-import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
+
+type ViewMode = 'dashboard' | 'editor';
+type StatusFilter = 'all' | NewsStatus;
+type SortKey = 'title' | 'template' | 'status' | 'updated' | 'published';
+
+function effectiveStatus(row: NewsCmsPost): NewsStatus {
+  return row.status || (row.is_active ? 'published' : 'draft');
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString('da-DK', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+function statusClass(status: NewsStatus) {
+  if (status === 'published') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (status === 'archived') return 'bg-slate-100 text-slate-500 ring-slate-200';
+  return 'bg-amber-50 text-amber-700 ring-amber-200';
+}
+
+function getRowLanguage(row: NewsCmsPost) {
+  const keys = row.localized_content ? Object.keys(row.localized_content).filter(Boolean) : [];
+  return keys.length ? keys.map((key) => key.toUpperCase()).join(', ') : 'DA';
+}
+
+function getPreviewContent(row: NewsCmsPost, lang: PortalUiLanguage) {
+  const localized = row.localized_content ? getLocalizedNewsContent(row.localized_content, lang) : {};
+  return {
+    headline: row.title,
+    subtitle: row.excerpt || '',
+    mainImage: row.image_url || '',
+    ...localized,
+  };
+}
 
 export default function BackendNewsPage() {
   const { appUser, loading, logout } = useAppUser();
@@ -24,6 +64,14 @@ export default function BackendNewsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [editingPost, setEditingPost] = useState<NewsCmsPost | null>(null);
+  const [previewPost, setPreviewPost] = useState<NewsCmsPost | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [templateFilter, setTemplateFilter] = useState('all');
+  const [languageFilter, setLanguageFilter] = useState('all');
+  const [sortKey, setSortKey] = useState<SortKey>('updated');
 
   const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
 
@@ -39,6 +87,48 @@ export default function BackendNewsPage() {
   useEffect(() => {
     if (!loading && appUser && canManage) void reload();
   }, [loading, appUser?.email, canManage]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return [...rows]
+      .filter((row) => statusFilter === 'all' || effectiveStatus(row) === statusFilter)
+      .filter((row) => templateFilter === 'all' || row.template_id === templateFilter)
+      .filter((row) => {
+        if (languageFilter === 'all') return true;
+        if (!row.localized_content) return languageFilter === 'da';
+        return Object.prototype.hasOwnProperty.call(row.localized_content, languageFilter);
+      })
+      .filter((row) => !normalizedSearch || row.title.toLowerCase().includes(normalizedSearch))
+      .sort((a, b) => {
+        if (sortKey === 'title') return a.title.localeCompare(b.title, 'da');
+        if (sortKey === 'template') return String(a.template_id || '').localeCompare(String(b.template_id || ''), 'da');
+        if (sortKey === 'status') return effectiveStatus(a).localeCompare(effectiveStatus(b), 'da');
+        const aDate = sortKey === 'published' ? a.published_at : a.updated_at || a.published_at;
+        const bDate = sortKey === 'published' ? b.published_at : b.updated_at || b.published_at;
+        return new Date(bDate || 0).getTime() - new Date(aDate || 0).getTime();
+      });
+  }, [rows, searchTerm, sortKey, statusFilter, templateFilter, languageFilter]);
+
+  const counts = useMemo(() => ({
+    all: rows.length,
+    draft: rows.filter((row) => effectiveStatus(row) === 'draft').length,
+    published: rows.filter((row) => effectiveStatus(row) === 'published').length,
+    archived: rows.filter((row) => effectiveStatus(row) === 'archived').length,
+  }), [rows]);
+
+  const updateStatus = async (row: NewsCmsPost, status: NewsStatus) => {
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    const result = await adminUpdateNewsStatus(row.id, status);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setMessage(t(status === 'published' ? 'newsCmsPublished' : 'newsCmsStatusUpdated', uiLanguage));
+    await reload();
+  };
 
   if (loading) return <div className="min-h-screen bg-slate-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -56,7 +146,7 @@ export default function BackendNewsPage() {
         }}
       />
 
-      <main className="mx-auto w-full max-w-[1400px] flex-grow px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1500px] flex-grow px-4 py-10 sm:px-6 lg:px-8">
         <Link to="/portal/backend" className="mb-6 inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('newsCmsBackToBackend', uiLanguage)}
@@ -68,18 +158,22 @@ export default function BackendNewsPage() {
               <Newspaper className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">{t('newsCmsTitle', uiLanguage)}</h1>
+              <h1 className="text-3xl font-bold text-slate-900">{viewMode === 'editor' ? t('newsCmsCreateCardTitle', uiLanguage) : t('newsCmsTitle', uiLanguage)}</h1>
               <p className="mt-1 text-sm text-slate-500">{t('newsCmsSubtitle', uiLanguage)}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            {t('newsCmsReload', uiLanguage)}
-          </button>
+          {viewMode === 'dashboard' && (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => void reload()}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {t('newsCmsReload', uiLanguage)}
+              </Button>
+              <Button type="button" onClick={() => { setEditingPost(null); setViewMode('editor'); }}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t('newsCmsCreateButton', uiLanguage)}
+              </Button>
+            </div>
+          )}
         </div>
 
         {message && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{message}</div>}
@@ -90,86 +184,210 @@ export default function BackendNewsPage() {
           </div>
         )}
 
-        <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="text-base font-bold text-slate-900">{t('newsCmsOverview', uiLanguage)}</h2>
-            <p className="text-sm text-slate-500">{t('newsCmsOverviewHelp', uiLanguage)}</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTitle', uiLanguage)}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTemplate', uiLanguage)}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnStatus', uiLanguage)}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnUpdated', uiLanguage)}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-semibold text-slate-900">{row.title}</td>
-                    <td className="px-4 py-3 text-slate-600">{row.template_id || 'legacy'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${row.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {row.status || (row.is_active ? 'published' : 'draft')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">{row.updated_at ? new Date(row.updated_at).toLocaleString('da-DK') : '-'}</td>
-                  </tr>
-                ))}
-                {!loadingRows && rows.length === 0 && (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={4}>
-                      {t('newsCmsNoRows', uiLanguage)}
-                    </td>
-                  </tr>
-                )}
-                {loadingRows && (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={4}>{t('loading', uiLanguage)}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        {viewMode === 'editor' ? (
+          <NewsSharedEditor
+            uiLanguage={uiLanguage}
+            initialPost={editingPost}
+            saving={saving}
+            onCancel={() => {
+              setEditingPost(null);
+              setViewMode('dashboard');
+            }}
+            onSaveDraft={async (payload) => {
+              setSaving(true);
+              setMessage(null);
+              const result = await adminSaveNewsDraft({
+                id: payload.id,
+                template_id: payload.templateId,
+                localized_content: payload.localizedContent,
+              });
+              setSaving(false);
+              if (result.error) {
+                setError(result.error);
+                return;
+              }
+              setMessage(t('newsCmsDraftSaved', uiLanguage));
+              await reload();
+            }}
+            onPublish={async (payload) => {
+              setSaving(true);
+              setMessage(null);
+              const result = await adminPublishNewsPost({
+                id: payload.id,
+                template_id: payload.templateId,
+                localized_content: payload.localizedContent,
+              });
+              setSaving(false);
+              if (result.error) {
+                setError(result.error);
+                return;
+              }
+              setMessage(t('newsCmsPublished', uiLanguage));
+              setEditingPost(null);
+              setViewMode('dashboard');
+              await reload();
+            }}
+          />
+        ) : (
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">{t('newsCmsOverview', uiLanguage)}</h2>
+                  <p className="text-sm text-slate-500">{t('newsCmsDashboardHelp', uiLanguage)}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  {(['all', 'draft', 'published', 'archived'] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setStatusFilter(status)}
+                      className={`rounded-full px-3 py-2 font-bold ${statusFilter === status ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      {t(`newsCmsFilter${status[0].toUpperCase()}${status.slice(1)}`, uiLanguage)} ({counts[status]})
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        <NewsSharedEditor
-          uiLanguage={uiLanguage}
-          saving={saving}
-          onSaveDraft={async (payload) => {
-            setSaving(true);
-            setMessage(null);
-            const result = await adminSaveNewsDraft({
-              template_id: payload.templateId,
-              localized_content: payload.localizedContent,
-            });
-            setSaving(false);
-            if (result.error) {
-              setError(result.error);
-              return;
-            }
-            setMessage(t('newsCmsDraftSaved', uiLanguage));
-            await reload();
-          }}
-          onPublish={async (payload) => {
-            setSaving(true);
-            setMessage(null);
-            const result = await adminPublishNewsPost({
-              template_id: payload.templateId,
-              localized_content: payload.localizedContent,
-            });
-            setSaving(false);
-            if (result.error) {
-              setError(result.error);
-              return;
-            }
-            setMessage(t('newsCmsPublished', uiLanguage));
-            await reload();
-          }}
-        />
+              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_180px_180px]">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder={t('newsCmsSearchPlaceholder', uiLanguage)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </label>
+                <select value={templateFilter} onChange={(event) => setTemplateFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="all">{t('newsCmsAllTemplates', uiLanguage)}</option>
+                  {NEWS_TEMPLATE_REGISTRY.map((template) => (
+                    <option key={template.id} value={template.id}>Template {template.number}</option>
+                  ))}
+                  <option value="legacy">Legacy</option>
+                </select>
+                <select value={languageFilter} onChange={(event) => setLanguageFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="all">{t('newsCmsAllLanguages', uiLanguage)}</option>
+                  {PORTAL_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>{lang.label}</option>
+                  ))}
+                </select>
+                <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="updated">{t('newsCmsSortUpdated', uiLanguage)}</option>
+                  <option value="published">{t('newsCmsSortPublished', uiLanguage)}</option>
+                  <option value="title">{t('newsCmsSortTitle', uiLanguage)}</option>
+                  <option value="template">{t('newsCmsSortTemplate', uiLanguage)}</option>
+                  <option value="status">{t('newsCmsSortStatus', uiLanguage)}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTitle', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTemplate', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnStatus', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnLanguage', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnCreated', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnUpdated', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnPublished', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-right font-semibold">{t('newsCmsColumnActions', uiLanguage)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map((row) => {
+                    const status = effectiveStatus(row);
+                    const template = getNewsTemplate(row.template_id);
+                    return (
+                      <tr key={row.id} className="border-t border-slate-100 align-top hover:bg-slate-50/70">
+                        <td className="min-w-[260px] px-4 py-4">
+                          <div className="font-semibold text-slate-900">{row.title}</div>
+                          {row.excerpt && <div className="mt-1 line-clamp-2 max-w-md text-xs text-slate-500">{row.excerpt}</div>}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">{row.template_id === 'legacy' ? 'Legacy' : `Template ${template.number}`}</td>
+                        <td className="px-4 py-4">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusClass(status)}`}>
+                            {t(`newsCmsStatus${status[0].toUpperCase()}${status.slice(1)}`, uiLanguage)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">{getRowLanguage(row)}</td>
+                        <td className="px-4 py-4 text-slate-500">{formatDate(row.created_at)}</td>
+                        <td className="px-4 py-4 text-slate-500">{formatDate(row.updated_at || row.published_at)}</td>
+                        <td className="px-4 py-4 text-slate-500">{status === 'published' ? formatDate(row.published_at) : '-'}</td>
+                        <td className="min-w-[250px] px-4 py-4">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {status !== 'archived' && row.template_id !== 'legacy' && (
+                              <button type="button" onClick={() => { setEditingPost(row); setViewMode('editor'); }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                <FilePenLine className="h-3.5 w-3.5" /> {t('edit', uiLanguage)}
+                              </button>
+                            )}
+                            <button type="button" onClick={() => setPreviewPost(row)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                              <Eye className="h-3.5 w-3.5" /> {t('newsCmsPreview', uiLanguage)}
+                            </button>
+                            {status === 'draft' && (
+                              <button type="button" disabled={saving} onClick={() => void updateStatus(row, 'published')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                                <Send className="h-3.5 w-3.5" /> {t('newsCmsPublish', uiLanguage)}
+                              </button>
+                            )}
+                            {status === 'published' && (
+                              <button type="button" disabled={saving} onClick={() => void updateStatus(row, 'draft')} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+                                <Undo2 className="h-3.5 w-3.5" /> {t('newsCmsUnpublish', uiLanguage)}
+                              </button>
+                            )}
+                            {status !== 'archived' ? (
+                              <button type="button" disabled={saving} onClick={() => void updateStatus(row, 'archived')} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                <Archive className="h-3.5 w-3.5" /> {t('newsCmsArchive', uiLanguage)}
+                              </button>
+                            ) : (
+                              <button type="button" disabled={saving} onClick={() => void updateStatus(row, 'draft')} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
+                                <Undo2 className="h-3.5 w-3.5" /> {t('newsCmsRestore', uiLanguage)}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!loadingRows && filteredRows.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={8}>
+                        {t('newsCmsNoRows', uiLanguage)}
+                      </td>
+                    </tr>
+                  )}
+                  {loadingRows && (
+                    <tr>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={8}>{t('loading', uiLanguage)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </main>
+
+      {previewPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{previewPost.title}</h2>
+                <p className="text-sm text-slate-500">{t('newsCmsPreview', uiLanguage)}</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setPreviewPost(null)}>{t('close', uiLanguage)}</Button>
+            </div>
+            {(() => {
+              const template = getNewsTemplate(previewPost.template_id);
+              const Renderer = template.Renderer;
+              return <Renderer lang={uiLanguage} content={getPreviewContent(previewPost, uiLanguage)} mode="preview" />;
+            })()}
+          </div>
+        </div>
+      )}
 
       <PortalFooter language={language} />
     </div>

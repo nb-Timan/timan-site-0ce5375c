@@ -8,11 +8,12 @@ interface Props {
   lang: PortalUiLanguage;
   selectedId: NewsTemplateId;
   onSelect: (id: NewsTemplateId) => void;
+  compact?: boolean;
 }
 
-export default function NewsTemplatePicker({ lang, selectedId, onSelect }: Props) {
+export default function NewsTemplatePicker({ lang, selectedId, onSelect, compact = false }: Props) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={compact ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3'}>
       {NEWS_TEMPLATE_REGISTRY.map((template) => {
         const selected = template.id === selectedId;
         return (
@@ -20,7 +21,7 @@ export default function NewsTemplatePicker({ lang, selectedId, onSelect }: Props
             key={template.id}
             type="button"
             onClick={() => onSelect(template.id)}
-            className={`rounded-xl border p-4 text-left transition ${
+            className={`rounded-xl border text-left transition ${compact ? 'p-3' : 'p-4'} ${
               selected ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
             }`}
           >
@@ -28,7 +29,7 @@ export default function NewsTemplatePicker({ lang, selectedId, onSelect }: Props
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Template {template.number}</span>
               {selected && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
             </div>
-            <h3 className="mt-3 text-base font-bold text-slate-900">{t(template.nameKey, lang)}</h3>
+            <h3 className={`${compact ? 'mt-2 text-sm' : 'mt-3 text-base'} font-bold text-slate-900`}>{t(template.nameKey, lang)}</h3>
             <p className="mt-1 text-sm text-slate-500">{t(template.purposeKey, lang)}</p>
           </button>
         );

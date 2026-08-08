@@ -89,7 +89,32 @@ export async function adminListNewsPosts(): Promise<{ rows: NewsCmsPost[]; error
     .order('updated_at', { ascending: false })
     .limit(200);
 
-  if (error) return { rows: [], error: error.message };
+  if (error) {
+    const fallback = await supabase
+      .from('news_posts')
+      .select(LEGACY_NEWS_SELECT)
+      .order('published_at', { ascending: false })
+      .limit(200);
+
+    if (fallback.error) return { rows: [], error: error.message };
+
+    const legacyRows = (fallback.data || []).map((row) => ({
+      ...row,
+      template_id: 'legacy',
+      status: row.is_active ? 'published' : 'draft',
+      slug: null,
+      localized_content: null,
+      template_data: null,
+      assets: [],
+      created_at: null,
+      updated_at: row.published_at || null,
+      created_by: null,
+      updated_by: null,
+      published_by: null,
+    }));
+
+    return { rows: legacyRows as NewsCmsPost[], error: null };
+  }
   return { rows: (data || []) as NewsCmsPost[], error: null };
 }
 
@@ -119,4 +144,15 @@ export async function adminSaveNewsDraft(input: NewsCmsDraftInput): Promise<{ ro
 
 export async function adminPublishNewsPost(input: NewsCmsDraftInput): Promise<{ row: NewsCmsPost | null; error: string | null }> {
   return adminSaveNewsDraft({ ...input, status: 'published' });
+}
+
+export async function adminUpdateNewsStatus(id: string, status: NewsStatus): Promise<{ error: string | null }> {
+  const payload = {
+    status,
+    is_active: status === 'published',
+    published_at: status === 'published' ? new Date().toISOString() : null,
+  };
+
+  const { error } = await supabase.from('news_posts').update(payload).eq('id', id);
+  return { error: error?.message || null };
 }
