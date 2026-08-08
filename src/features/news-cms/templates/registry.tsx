@@ -63,6 +63,15 @@ function Template01({ content, lang }: NewsRendererProps) {
   return (
     <TemplateShell lang={lang}>
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
+        <div className="relative h-full min-w-0">
+          <ImageBox label="Large image" className="h-full" />
+          <span className="absolute left-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
+            {t('newsCmsBadgeNews', lang)}
+          </span>
+        </div>
+
+    <TemplateShell lang={lang}>
+      <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <ImageBox label="Large image" className="h-full" />
         <div className="flex min-w-0 flex-col justify-center">
           <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
