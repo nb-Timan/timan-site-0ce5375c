@@ -28,6 +28,29 @@ function template01Validate(content: Record<string, unknown>) {
   return { valid: issues.length === 0, issues };
 }
 
+/**
+ * Template 04 is a fixed A4 page: text must fit the reserved zones, so the
+ * editorial fields are hard-capped to the space actually rendered.
+ */
+const TPL04_HEADLINE_MAX = 70;
+const TPL04_SUBTITLE_MAX = 90;
+const TPL04_BODY_MAX = 350;
+
+function template04Validate(content: Record<string, unknown>) {
+  const base = placeholderValidate(content);
+  const limits: Array<[string, number]> = [
+    ['headline', TPL04_HEADLINE_MAX],
+    ['subtitle', TPL04_SUBTITLE_MAX],
+    ['body', TPL04_BODY_MAX],
+  ];
+  const tooLong = limits.flatMap(([fieldKey, max]) => {
+    const value = content[fieldKey];
+    return typeof value === 'string' && value.length > max ? [{ fieldKey, messageKey: 'newsCmsValidationTooLong' }] : [];
+  });
+  const issues = [...base.issues, ...tooLong];
+  return { valid: issues.length === 0, issues };
+}
+
 
 function text(content: Record<string, unknown>, key: string, fallback: string) {
   const value = content[key];
