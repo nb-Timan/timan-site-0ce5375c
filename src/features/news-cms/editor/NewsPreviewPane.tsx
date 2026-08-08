@@ -1,6 +1,7 @@
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { NewsTemplateDefinition } from '@/features/news-cms/templates/types';
+import NewsRenderSurface from './NewsRenderSurface';
 
 interface Props {
   lang: PortalUiLanguage;
@@ -9,7 +10,6 @@ interface Props {
 }
 
 export default function NewsPreviewPane({ lang, template, content }: Props) {
-  const Renderer = template.Renderer;
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-4">
@@ -19,7 +19,7 @@ export default function NewsPreviewPane({ lang, template, content }: Props) {
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{t('newsCmsFormatA4Landscape', lang)}</span>
       </div>
-      <Renderer lang={lang} content={content} mode="preview" />
+      <NewsRenderSurface lang={lang} template={template} content={content} mode="preview" />
     </section>
   );
 }

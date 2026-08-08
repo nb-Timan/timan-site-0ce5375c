@@ -1,3 +1,4 @@
+import NewsRenderSurface from '@/features/news-cms/editor/NewsRenderSurface';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Archive, ArrowLeft, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Undo2 } from 'lucide-react';
@@ -387,8 +388,14 @@ export default function BackendNewsPage() {
             </div>
             {(() => {
               const template = getNewsTemplate(previewPost.template_id);
-              const Renderer = template.Renderer;
-              return <Renderer lang={uiLanguage} content={getPreviewContent(previewPost, uiLanguage)} mode="preview" />;
+              return (
+                <NewsRenderSurface
+                  lang={uiLanguage}
+                  template={template}
+                  content={getPreviewContent(previewPost, uiLanguage)}
+                  mode="preview"
+                />
+              );
             })()}
           </div>
         </div>

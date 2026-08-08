@@ -15,11 +15,13 @@ import {
   updateSpecRowsField,
   updateLocalizedNewsField,
   updateSharedNewsField,
+  updateFlyerPagesField,
 } from '@/features/news-cms/lib/newsContent';
 import type { NewsCmsPost } from '@/lib/newsService';
 import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
 import NewsPreviewPane from './NewsPreviewPane';
+import NewsRenderSurface from './NewsRenderSurface';
 
 type StepId = 1 | 2 | 3 | 4 | 5;
 
@@ -98,7 +100,6 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   const contentLanguageLabel =
     PORTAL_LANGUAGES.find((option) => option.code === editLanguage)?.label || editLanguage.toUpperCase();
   const validation = template.validate(activeContent);
-  const Renderer = template.Renderer;
 
   const saveDraft = async () => {
     await onSaveDraft({ id: initialPost?.id, templateId, localizedContent });
@@ -154,7 +155,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 <span className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700">{t('newsCmsEditableContent', uiLanguage)}</span>
               </div>
             </div>
-            <Renderer lang={uiLanguage} content={activeContent} mode="editor" />
+            <NewsRenderSurface lang={uiLanguage} template={template} content={activeContent} mode="editor" />
           </section>
         </div>
       )}
@@ -199,6 +200,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   lang={uiLanguage}
                   field={field}
                   value={activeContent[field.key]}
+                  content={activeContent}
                   onChange={(value) =>
                     setLocalizedContent((current) => {
                       if (field.type === 'techBlocks') {
@@ -206,6 +208,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                       }
                       if (field.type === 'specRows') {
                         return updateSpecRowsField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                      }
+                      if (field.type === 'flyerPages') {
+                        return updateFlyerPagesField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
                       }
                       if (field.type === 'ctaLinks') {
                         return updateCtaLinksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);

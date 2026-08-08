@@ -5,17 +5,58 @@ import NewsFeatureBlocksEditor from './NewsFeatureBlocksEditor';
 import NewsCtaLinksEditor from './NewsCtaLinksEditor';
 import NewsTechBlocksEditor from './NewsTechBlocksEditor';
 import NewsSpecRowsEditor from './NewsSpecRowsEditor';
+import NewsFlyerPagesEditor from './NewsFlyerPagesEditor';
+import { FLYER_MAX_PAGES, clampFlyerPageCount } from '@/features/news-cms/lib/flyerPages';
+import type { NewsFlyerPage } from '@/features/news-cms/templates/types';
 
 interface Props {
   lang: PortalUiLanguage;
   field: NewsFieldDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
+  /** Full active content — needed by fields that depend on siblings (page count). */
+  content?: Record<string, unknown>;
 }
 
-export default function NewsFieldEditor({ lang, field, value, onChange }: Props) {
+export default function NewsFieldEditor({ lang, field, value, onChange, content = {} }: Props) {
   const commonClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
   const stringValue = typeof value === 'string' ? value : '';
+
+  if (field.type === 'pageCount') {
+    const current = clampFlyerPageCount(value);
+    return (
+      <label className="block">
+        <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{t(field.labelKey, lang)}</span>
+        <select
+          className={commonClass}
+          value={current}
+          onChange={(event) => onChange(clampFlyerPageCount(event.target.value))}
+        >
+          {Array.from({ length: FLYER_MAX_PAGES }, (_, index) => index + 1).map((count) => (
+            <option key={count} value={count}>
+              {count} {t(count === 1 ? 'newsCmsPageUnitOne' : 'newsCmsPageUnitMany', lang)}
+            </option>
+          ))}
+        </select>
+        {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
+      </label>
+    );
+  }
+
+  if (field.type === 'flyerPages') {
+    return (
+      <div>
+        <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">{t(field.labelKey, lang)}</span>
+        <NewsFlyerPagesEditor
+          lang={lang}
+          value={value}
+          pageCount={clampFlyerPageCount(content.pageCount)}
+          onChange={(pages: NewsFlyerPage[]) => onChange(pages)}
+        />
+        {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
+      </div>
+    );
+  }
 
   if (['featureBlocks', 'ctaLinks', 'techBlocks', 'specRows'].includes(field.type)) {
     return (
