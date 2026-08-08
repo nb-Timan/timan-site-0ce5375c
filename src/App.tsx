@@ -1,4 +1,3 @@
-import Tpl04Check from '@/pages/__Tpl04Check';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -217,7 +216,6 @@ const App = () => (
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
               <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
               <Route path="/portal/backend/news" element={<BackendNewsPage />} />
-              <Route path="/__tpl04" element={<Tpl04Check />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
 
