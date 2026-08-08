@@ -3,6 +3,8 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { NewsFieldDefinition } from '@/features/news-cms/templates/types';
 import NewsFeatureBlocksEditor from './NewsFeatureBlocksEditor';
 import NewsCtaLinksEditor from './NewsCtaLinksEditor';
+import NewsTechBlocksEditor from './NewsTechBlocksEditor';
+import NewsSpecRowsEditor from './NewsSpecRowsEditor';
 
 interface Props {
   lang: PortalUiLanguage;
@@ -15,15 +17,14 @@ export default function NewsFieldEditor({ lang, field, value, onChange }: Props)
   const commonClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
   const stringValue = typeof value === 'string' ? value : '';
 
-  if (field.type === 'featureBlocks' || field.type === 'ctaLinks') {
+  if (['featureBlocks', 'ctaLinks', 'techBlocks', 'specRows'].includes(field.type)) {
     return (
       <div>
         <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">{t(field.labelKey, lang)}</span>
-        {field.type === 'featureBlocks' ? (
-          <NewsFeatureBlocksEditor lang={lang} value={value} onChange={onChange} />
-        ) : (
-          <NewsCtaLinksEditor lang={lang} value={value} onChange={onChange} />
-        )}
+        {field.type === 'featureBlocks' && <NewsFeatureBlocksEditor lang={lang} value={value} onChange={onChange} />}
+        {field.type === 'ctaLinks' && <NewsCtaLinksEditor lang={lang} value={value} onChange={onChange} />}
+        {field.type === 'techBlocks' && <NewsTechBlocksEditor lang={lang} value={value} onChange={onChange} />}
+        {field.type === 'specRows' && <NewsSpecRowsEditor lang={lang} value={value} onChange={onChange} />}
         {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
       </div>
     );
