@@ -260,7 +260,10 @@ function Template04({ content, lang }: NewsRendererProps) {
     <TemplateShell lang={lang}>
       <div className="grid h-full min-w-0 grid-cols-[0.9fr_1.1fr] gap-7">
         <TemplateImage url={productImage} label={t('newsCmsWireProductImage', lang)} className="h-full" />
-        <div className="flex min-w-0 flex-col pt-24">
+        {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
+        <div className="grid min-w-0 grid-rows-[10.5rem_minmax(0,1fr)]">
+          <div aria-hidden />
+          <div className="flex min-h-0 min-w-0 flex-col">
           <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
             {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
           </h3>
@@ -306,6 +309,7 @@ function Template04({ content, lang }: NewsRendererProps) {
               </dl>
             </div>
           ) : null}
+          </div>
         </div>
       </div>
     </TemplateShell>
