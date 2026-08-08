@@ -25,12 +25,10 @@ function TemplateShell({ children, lang }: { children: ReactNode; lang?: NewsRen
         <img
           src={timanLogo}
           alt="TIMAN"
-          className="pointer-events-none absolute left-7 top-6 z-10 h-11 w-auto select-none object-contain"
+          className="pointer-events-none absolute right-7 top-6 z-10 h-11 w-auto select-none object-contain"
           draggable={false}
         />
-        <div className="absolute right-7 top-6 z-10 rounded-full border-2 border-rose-500 bg-rose-50 px-5 py-1.5 text-[13px] font-black uppercase tracking-[0.18em] text-rose-600">
-          {t('newsCmsBadgeNews', lang)}
-        </div>
+
         <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
         <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
         <div className="relative h-full p-7 pt-24">{children}</div>
