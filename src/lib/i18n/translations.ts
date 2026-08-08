@@ -12,6 +12,7 @@
  * (sv/fr/pl/cs → 'en'), so adoption can be incremental.
  */
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { NEWS_CMS_TRANSLATIONS } from '@/lib/i18n/newsCmsTranslations';
 
 type Dict = Record<string, string>;
 
@@ -442,6 +443,7 @@ const da: Dict = {
   messe_news_flyer_page: 'Side',
   messe_news_flyer_of: 'af',
   messe_news_flyer_missing: 'Flyeren er ikke tilgængelig lige nu.',
+  ...NEWS_CMS_TRANSLATIONS.da,
 };
 
 // ---------------------------------------------------------------------------
@@ -855,6 +857,7 @@ const en: Dict = {
   messe_news_flyer_page: 'Page',
   messe_news_flyer_of: 'of',
   messe_news_flyer_missing: 'The flyer is not available right now.',
+  ...NEWS_CMS_TRANSLATIONS.en,
 };
 
 // ---------------------------------------------------------------------------
@@ -1087,6 +1090,7 @@ const de: Dict = {
   messe_news_flyer_page: 'Seite',
   messe_news_flyer_of: 'von',
   messe_news_flyer_missing: 'Der Flyer ist derzeit nicht verfügbar.',
+  ...NEWS_CMS_TRANSLATIONS.de,
 };
 
 // ---------------------------------------------------------------------------
@@ -1316,6 +1320,7 @@ const it: Dict = {
   messe_news_flyer_page: 'Pagina',
   messe_news_flyer_of: 'di',
   messe_news_flyer_missing: 'Il flyer non è disponibile al momento.',
+  ...NEWS_CMS_TRANSLATIONS.it,
 };
 
 // ---------------------------------------------------------------------------
@@ -1545,6 +1550,7 @@ const hu: Dict = {
   messe_news_flyer_page: 'Oldal',
   messe_news_flyer_of: '/',
   messe_news_flyer_missing: 'A szórólap jelenleg nem érhető el.',
+  ...NEWS_CMS_TRANSLATIONS.hu,
 };
 
 // ---------------------------------------------------------------------------
@@ -1775,6 +1781,7 @@ const sv: Dict = {
   messe_news_flyer_page: 'Sida',
   messe_news_flyer_of: 'av',
   messe_news_flyer_missing: 'Foldern är inte tillgänglig just nu.',
+  ...NEWS_CMS_TRANSLATIONS.sv,
 };
 
 // ---------------------------------------------------------------------------
@@ -2005,6 +2012,7 @@ const fr: Dict = {
   messe_news_flyer_page: 'Page',
   messe_news_flyer_of: 'sur',
   messe_news_flyer_missing: 'Le flyer n’est pas disponible pour le moment.',
+  ...NEWS_CMS_TRANSLATIONS.fr,
 };
 
 // ---------------------------------------------------------------------------
@@ -2235,6 +2243,7 @@ const pl: Dict = {
   messe_news_flyer_page: 'Strona',
   messe_news_flyer_of: 'z',
   messe_news_flyer_missing: 'Ulotka jest obecnie niedostępna.',
+  ...NEWS_CMS_TRANSLATIONS.pl,
 };
 
 // ---------------------------------------------------------------------------
@@ -2465,6 +2474,7 @@ const cs: Dict = {
   messe_news_flyer_page: 'Strana',
   messe_news_flyer_of: 'z',
   messe_news_flyer_missing: 'Leták momentálně není k dispozici.',
+  ...NEWS_CMS_TRANSLATIONS.cs,
 };
 
 // ---------------------------------------------------------------------------

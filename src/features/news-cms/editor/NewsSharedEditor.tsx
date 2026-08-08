@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 import { NEWS_TEMPLATE_REGISTRY, getNewsTemplate, isNewsTemplateId } from '@/features/news-cms/templates/registry';
 import type { LocalizedNewsContent, NewsTemplateId } from '@/features/news-cms/templates/types';
-import { emptyLocalizedContent, getLocalizedNewsContent, updateLocalizedNewsField } from '@/features/news-cms/lib/newsContent';
+import {
+  emptyLocalizedContent,
+  mergeSharedNewsFields,
+  missingTranslationFields,
+  updateLocalizedNewsField,
+  updateSharedNewsField,
+} from '@/features/news-cms/lib/newsContent';
 import type { NewsCmsPost } from '@/lib/newsService';
 import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
@@ -65,7 +71,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   const [templateId, setTemplateId] = useState<NewsTemplateId>(
     isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id,
   );
-  const [editLanguage, setEditLanguage] = useState<PortalUiLanguage>(uiLanguage);
+  // The global portal language (top navigation) is the single source of truth
+  // for both the CMS interface and the content language being edited.
+  const editLanguage: PortalUiLanguage = uiLanguage;
   const [localizedContent, setLocalizedContent] = useState<LocalizedNewsContent>(() => initialPost?.localized_content || emptyLocalizedContent());
 
   useEffect(() => {
@@ -76,7 +84,16 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   }, [initialPost?.id]);
 
   const template = getNewsTemplate(templateId);
-  const activeContent = useMemo(() => getLocalizedNewsContent(localizedContent, editLanguage), [localizedContent, editLanguage]);
+  const activeContent = useMemo(
+    () => mergeSharedNewsFields(localizedContent, editLanguage, template.fields),
+    [localizedContent, editLanguage, template.fields],
+  );
+  const missingFields = useMemo(
+    () => missingTranslationFields(localizedContent, editLanguage, template.fields),
+    [localizedContent, editLanguage, template.fields],
+  );
+  const contentLanguageLabel =
+    PORTAL_LANGUAGES.find((option) => option.code === editLanguage)?.label || editLanguage.toUpperCase();
   const validation = template.validate(activeContent);
   const Renderer = template.Renderer;
 
@@ -147,15 +164,30 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 <h3 className="text-base font-bold text-slate-900">{t('newsCmsFillFields', uiLanguage)}</h3>
                 <p className="text-sm text-slate-500">Template {template.number} - {t(template.nameKey, uiLanguage)}</p>
               </div>
-              <label className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                 <Languages className="h-4 w-4 text-slate-400" />
-                <select value={editLanguage} onChange={(event) => setEditLanguage(event.target.value as PortalUiLanguage)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                  {PORTAL_LANGUAGES.map((language) => (
-                    <option key={language.code} value={language.code}>{language.label}</option>
-                  ))}
-                </select>
-              </label>
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{t('newsCmsContentLanguage', uiLanguage)}:</span>
+                <span className="font-semibold text-slate-900">{contentLanguageLabel}</span>
+              </div>
             </div>
+
+            <p className="mb-3 text-xs text-slate-500">{t('newsCmsContentLanguageHelp', uiLanguage)}</p>
+
+            {missingFields.length > 0 ? (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p className="flex items-center gap-2 font-bold">
+                  <AlertTriangle className="h-4 w-4" />
+                  {t('newsCmsTranslationMissing', uiLanguage)} {contentLanguageLabel}
+                </p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-800">{t('newsCmsTranslationMissingFields', uiLanguage)}</p>
+                <p className="mt-1 text-xs">{missingFields.map((field) => t(field.labelKey, uiLanguage)).join(', ')}</p>
+              </div>
+            ) : (
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800">
+                {t('newsCmsTranslationComplete', uiLanguage)}
+              </div>
+            )}
+            <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
 
             <div className="space-y-4">
               {template.fields.map((field) => (
@@ -164,7 +196,13 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   lang={uiLanguage}
                   field={field}
                   value={activeContent[field.key]}
-                  onChange={(value) => setLocalizedContent((current) => updateLocalizedNewsField(current, editLanguage, field.key, value))}
+                  onChange={(value) =>
+                    setLocalizedContent((current) =>
+                      ['text', 'textarea', 'richtext'].includes(field.type)
+                        ? updateLocalizedNewsField(current, editLanguage, field.key, value)
+                        : updateSharedNewsField(current, field.key, value),
+                    )
+                  }
                 />
               ))}
             </div>
@@ -172,7 +210,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             {!validation.valid && (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 {validation.issues.map((issue) => (
-                  <div key={`${issue.fieldKey}-${issue.messageKey}`}>{t(issue.messageKey, uiLanguage)}: {issue.fieldKey}</div>
+                  <div key={`${issue.fieldKey}-${issue.messageKey}`}>
+                    {t(issue.messageKey, uiLanguage)}: {t(template.fields.find((field) => field.key === issue.fieldKey)?.labelKey || issue.fieldKey, uiLanguage)}
+                  </div>
                 ))}
               </div>
             )}
@@ -188,7 +228,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             <p className="mt-1 text-sm text-slate-500">{t('newsCmsPreviewHelp', uiLanguage)}</p>
             <div className="mt-5 space-y-4 rounded-xl border border-slate-200 p-4 text-sm">
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnTemplate', uiLanguage)}</span>{t(template.nameKey, uiLanguage)}</div>
-              <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnLanguage', uiLanguage)}</span>{editLanguage.toUpperCase()}</div>
+              <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsContentLanguage', uiLanguage)}</span>{contentLanguageLabel}</div>
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnStatus', uiLanguage)}</span>{t('newsCmsStatusDraft', uiLanguage)}</div>
             </div>
           </aside>

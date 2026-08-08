@@ -29,9 +29,14 @@ function effectiveStatus(row: NewsCmsPost): NewsStatus {
   return row.status || (row.is_active ? 'published' : 'draft');
 }
 
-function formatDate(value: string | null | undefined) {
+const DATE_LOCALES: Record<string, string> = {
+  da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU',
+  sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ',
+};
+
+function formatDate(value: string | null | undefined, lang: PortalUiLanguage) {
   if (!value) return '-';
-  return new Date(value).toLocaleDateString('da-DK', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return new Date(value).toLocaleDateString(DATE_LOCALES[lang] || 'da-DK', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 function statusClass(status: NewsStatus) {
@@ -265,7 +270,7 @@ export default function BackendNewsPage() {
                   {NEWS_TEMPLATE_REGISTRY.map((template) => (
                     <option key={template.id} value={template.id}>Template {template.number}</option>
                   ))}
-                  <option value="legacy">Legacy</option>
+                  <option value="legacy">{t('newsCmsLegacy', uiLanguage)}</option>
                 </select>
                 <select value={languageFilter} onChange={(event) => setLanguageFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                   <option value="all">{t('newsCmsAllLanguages', uiLanguage)}</option>
@@ -307,16 +312,16 @@ export default function BackendNewsPage() {
                           <div className="font-semibold text-slate-900">{row.title}</div>
                           {row.excerpt && <div className="mt-1 line-clamp-2 max-w-md text-xs text-slate-500">{row.excerpt}</div>}
                         </td>
-                        <td className="px-4 py-4 text-slate-600">{row.template_id === 'legacy' ? 'Legacy' : `Template ${template.number}`}</td>
+                        <td className="px-4 py-4 text-slate-600">{row.template_id === 'legacy' ? t('newsCmsLegacy', uiLanguage) : `Template ${template.number}`}</td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusClass(status)}`}>
                             {t(`newsCmsStatus${status[0].toUpperCase()}${status.slice(1)}`, uiLanguage)}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-slate-600">{getRowLanguage(row)}</td>
-                        <td className="px-4 py-4 text-slate-500">{formatDate(row.created_at)}</td>
-                        <td className="px-4 py-4 text-slate-500">{formatDate(row.updated_at || row.published_at)}</td>
-                        <td className="px-4 py-4 text-slate-500">{status === 'published' ? formatDate(row.published_at) : '-'}</td>
+                        <td className="px-4 py-4 text-slate-500">{formatDate(row.created_at, uiLanguage)}</td>
+                        <td className="px-4 py-4 text-slate-500">{formatDate(row.updated_at || row.published_at, uiLanguage)}</td>
+                        <td className="px-4 py-4 text-slate-500">{status === 'published' ? formatDate(row.published_at, uiLanguage) : '-'}</td>
                         <td className="min-w-[250px] px-4 py-4">
                           <div className="flex flex-wrap justify-end gap-2">
                             {status !== 'archived' && row.template_id !== 'legacy' && (

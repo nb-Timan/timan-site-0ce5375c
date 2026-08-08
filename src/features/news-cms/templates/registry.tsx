@@ -64,7 +64,7 @@ function Template01({ content, lang }: NewsRendererProps) {
     <TemplateShell lang={lang}>
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <div className="relative h-full min-w-0">
-          <ImageBox label="Large image" className="h-full" />
+          <ImageBox label={t('newsCmsWireLargeImage', lang)} className="h-full" />
           <span className="absolute left-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
             {t('newsCmsBadgeNews', lang)}
           </span>
@@ -73,13 +73,13 @@ function Template01({ content, lang }: NewsRendererProps) {
 
           <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
             <Badge className="h-4 w-4" />
-            Product announcement
+            {t('newsCmsCategoryProductAnnouncement', lang)}
           </div>
           <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
-            {text(content, 'headline', 'Headline')}
+            {text(content, 'headline', t('newsCmsWireHeadline', lang))}
           </h3>
           <p className="mt-2 text-xl font-semibold not-italic leading-snug text-emerald-700 [overflow-wrap:anywhere]">
-            {text(content, 'subtitle', 'Subtitle')}
+            {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
           </p>
           {text(content, 'body', '') ? (
             <p className="mt-3 max-w-prose whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
@@ -114,7 +114,7 @@ function Template01({ content, lang }: NewsRendererProps) {
 
 function Template02({ content, lang }: NewsRendererProps) {
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="grid h-full grid-cols-2 gap-8">
         <div className="flex flex-col justify-center pr-3">
           <div className="mb-5 h-1.5 w-28 rounded-full bg-emerald-600" />
@@ -143,15 +143,15 @@ function Template02({ content, lang }: NewsRendererProps) {
   );
 }
 
-function Template03({ content }: NewsRendererProps) {
+function Template03({ content, lang }: NewsRendererProps) {
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="relative h-full overflow-hidden rounded-xl">
-        <ImageBox label="Full-width hero image" className="absolute inset-0 h-full border-none bg-slate-200" />
+        <ImageBox label={t('newsCmsWireHeroImage', lang)} className="absolute inset-0 h-full border-none bg-slate-200" />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
         <div className="relative flex h-full max-w-lg flex-col justify-center text-white">
-          <h3 className="text-4xl font-black leading-tight">{text(content, 'headline', 'Hero headline')}</h3>
-          <p className="mt-4 text-lg">{text(content, 'subtitle', 'Short introduction')}</p>
+          <h3 className="text-4xl font-black leading-tight">{text(content, 'headline', t('newsCmsWireHeroHeadline', lang))}</h3>
+          <p className="mt-4 text-lg">{text(content, 'subtitle', t('newsCmsWireIntro', lang))}</p>
           <div className="mt-7 flex gap-3">
             {[1, 2, 3].map((item) => <span key={item} className="h-12 w-28 rounded-lg bg-white/20" />)}
           </div>
@@ -161,14 +161,14 @@ function Template03({ content }: NewsRendererProps) {
   );
 }
 
-function Template04({ content }: NewsRendererProps) {
+function Template04({ content, lang }: NewsRendererProps) {
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="grid h-full grid-cols-[0.9fr_1.1fr] gap-7">
-        <ImageBox label="Product image" className="h-full" />
+        <ImageBox label={t('newsCmsWireProductImage', lang)} className="h-full" />
         <div className="flex flex-col justify-center">
-          <h3 className="text-3xl font-black text-slate-950">{text(content, 'headline', 'Technical feature')}</h3>
-          <p className="mt-2 text-slate-600">{text(content, 'subtitle', 'Machine function or equipment')}</p>
+          <h3 className="text-3xl font-black text-slate-950">{text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}</h3>
+          <p className="mt-2 text-slate-600">{text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((item) => <div key={item} className="h-20 rounded-lg bg-emerald-50 ring-1 ring-emerald-100" />)}
           </div>
@@ -181,40 +181,40 @@ function Template04({ content }: NewsRendererProps) {
   );
 }
 
-function Template05({ content }: NewsRendererProps) {
+function Template05({ content, lang }: NewsRendererProps) {
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="grid h-full grid-cols-[1fr_1fr] gap-7">
         <div className="flex flex-col justify-between">
           <div>
-            <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', 'Story headline')}</h3>
-            <p className="mt-4 text-base leading-7 text-slate-600">{text(content, 'body', 'Large body text for case, project or customer story.')}</p>
+            <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}</h3>
+            <p className="mt-4 text-base leading-7 text-slate-600">{text(content, 'body', t('newsCmsWireStoryBody', lang))}</p>
           </div>
           <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4 text-sm font-semibold text-slate-700">
-            {text(content, 'quote', 'Highlight quote')}
+            {text(content, 'quote', t('newsCmsWireHighlightQuote', lang))}
           </div>
         </div>
         <div className="grid h-full grid-rows-[1.25fr_0.75fr] gap-4">
-          <ImageBox label="Large image" />
-          <ImageBox label="Secondary image" />
+          <ImageBox label={t('newsCmsWireLargeImage', lang)} />
+          <ImageBox label={t('newsCmsWireSecondaryImage', lang)} />
         </div>
       </div>
     </TemplateShell>
   );
 }
 
-function Template06({ content }: NewsRendererProps) {
+function Template06({ content, lang }: NewsRendererProps) {
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="flex h-full items-center justify-center">
         <div className="grid w-full max-w-3xl grid-cols-2 gap-0 rounded-xl bg-slate-100 p-4 shadow-inner">
           <div className="h-72 rounded-l-lg bg-white p-6 shadow-sm">
             <Rows3 className="mb-4 h-7 w-7 text-emerald-700" />
-            <h3 className="text-2xl font-black text-slate-950">{text(content, 'headline', 'Flyer pages')}</h3>
+            <h3 className="text-2xl font-black text-slate-950">{text(content, 'headline', t('newsCmsWireFlyerPages', lang))}</h3>
             <TextLines lines={6} />
           </div>
           <div className="h-72 rounded-r-lg bg-white p-6 shadow-sm">
-            <ImageBox label="Page preview" className="h-full" />
+            <ImageBox label={t('newsCmsWirePagePreview', lang)} className="h-full" />
           </div>
         </div>
       </div>
