@@ -19,6 +19,7 @@ type Dict = Record<string, string>;
 // Danish (source of truth)
 // ---------------------------------------------------------------------------
 const da: Dict = {
+  newsCmsBadgeNews: 'NYHED',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NYHED!',
@@ -447,6 +448,7 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  newsCmsBadgeNews: 'NEWS',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NEW!',
@@ -860,6 +862,7 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NEUHEIT',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NEU!',
@@ -1091,6 +1094,7 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NOVITÀ',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOVITÀ!',
@@ -1319,6 +1323,7 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  newsCmsBadgeNews: 'ÚJDONSÁG',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'ÚJDONSÁG!',
@@ -1547,6 +1552,7 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NYHET',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NYHET!',
@@ -1776,6 +1782,7 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NOUVEAUTÉ',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOUVEAU !',
@@ -2005,6 +2012,7 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NOWOŚĆ',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOWOŚĆ!',
@@ -2234,6 +2242,7 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  newsCmsBadgeNews: 'NOVINKA',
 
   // Timan 2620 teaser flyer (digital)
   messe_flyer_front_badge: 'NOVINKA!',
