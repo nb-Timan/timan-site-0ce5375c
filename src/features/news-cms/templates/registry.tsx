@@ -82,12 +82,15 @@ function template06Validate(content: Record<string, unknown>) {
   const pages = flyerPagesFromContent(content);
   const issues: Array<{ fieldKey: string; messageKey: string }> = [];
   if (!pages[0]?.headline.trim()) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationRequired' });
-  const tooLong = pages.some(
-    (page) =>
-      page.headline.length > FLYER_HEADLINE_MAX ||
-      page.subtitle.length > FLYER_SUBTITLE_MAX ||
-      page.body.length > FLYER_BODY_MAX,
-  );
+  const tooLong = pages.some((page, index) => {
+    const limits = flyerTextLimits(index);
+    return (
+      page.headline.length > limits.headline ||
+      page.subtitle.length > limits.subtitle ||
+      page.body.length > limits.body
+    );
+  });
+
   if (tooLong) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationTooLong' });
   return { valid: issues.length === 0, issues };
 }
