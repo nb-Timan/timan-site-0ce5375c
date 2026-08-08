@@ -353,7 +353,7 @@ function Template04({ content, lang }: NewsRendererProps) {
               ))}
             </div>
 
-            <div className="mt-3 min-h-0 min-w-0 overflow-hidden">
+            <div className="mt-3 min-h-0 min-w-0 flex-[1_1_0%] overflow-hidden">
               {specs.length > 0 ? (
                 <div className="h-full overflow-hidden rounded-xl bg-slate-100 p-3.5">
                   <p className="mb-2 text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-500">
