@@ -71,7 +71,6 @@ function Template01({ content, lang }: NewsRendererProps) {
         </div>
         <div className="flex min-w-0 flex-col justify-center">
 
-        <div className="flex min-w-0 flex-col justify-center">
           <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
             <Badge className="h-4 w-4" />
             Product announcement
