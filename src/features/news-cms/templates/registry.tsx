@@ -17,17 +17,22 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
-function TemplateShell({ children }: { children: ReactNode }) {
+function TemplateShell({ children, lang }: { children: ReactNode; lang?: NewsRendererProps['lang'] }) {
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="absolute left-5 top-4 z-10 text-base font-black italic tracking-tight text-emerald-700">TIMAN</div>
-        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-rose-600">
-          NEWS
+        <img
+          src={timanLogo}
+          alt="TIMAN"
+          className="pointer-events-none absolute left-7 top-6 z-10 h-11 w-auto select-none object-contain"
+          draggable={false}
+        />
+        <div className="absolute right-7 top-6 z-10 rounded-full border-2 border-rose-500 bg-rose-50 px-5 py-1.5 text-[13px] font-black uppercase tracking-[0.18em] text-rose-600">
+          {t('newsCmsBadgeNews', lang)}
         </div>
         <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
         <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
-        <div className="relative h-full p-7 pt-14">{children}</div>
+        <div className="relative h-full p-7 pt-24">{children}</div>
       </div>
     </div>
   );
