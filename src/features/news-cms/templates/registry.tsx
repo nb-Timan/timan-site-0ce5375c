@@ -33,14 +33,24 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
-function TemplateShell({ children, lang }: { children: ReactNode; lang?: NewsRendererProps['lang'] }) {
+function TemplateShell({
+  children,
+  lang,
+  logoAlign = 'right',
+}: {
+  children: ReactNode;
+  lang?: NewsRendererProps['lang'];
+  logoAlign?: 'left' | 'right';
+}) {
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
         <img
           src={timanLogo}
           alt="TIMAN"
-          className="pointer-events-none absolute right-8 top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain"
+          className={`pointer-events-none absolute top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain ${
+            logoAlign === 'left' ? 'left-8' : 'right-8'
+          }`}
           draggable={false}
         />
 
@@ -157,29 +167,59 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
   );
 }
 
-function Template02({ content, lang }: NewsRendererProps) {
+function TemplateImage({ url, label, className = '' }: { url: string; label: string; className?: string }) {
+  if (!url) return <ImageBox label={label} className={className} />;
   return (
-    <TemplateShell lang={lang}>
-      <div className="grid h-full grid-cols-2 gap-8">
-        <div className="flex flex-col justify-center pr-3">
-          <div className="mb-5 h-1.5 w-28 rounded-full bg-emerald-600" />
-          <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', t('newsCmsWireHeadline', lang))}</h3>
-          <p className="mt-3 text-lg font-semibold text-slate-600">{text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}</p>
-          <div className="mt-6 rounded-xl border-l-4 border-rose-500 bg-rose-50 p-4">
-            <Quote className="mb-2 h-5 w-5 text-rose-500" />
-            <p className="text-sm font-semibold text-slate-700">{text(content, 'quote', t('newsCmsWireQuote', lang))}</p>
+    <div className={`overflow-hidden rounded-lg border border-slate-200 bg-slate-100 ${className}`}>
+      <img src={url} alt="" className="h-full w-full object-cover" draggable={false} />
+    </div>
+  );
+}
+
+function Template02({ content, lang }: NewsRendererProps) {
+  const body = text(content, 'body', '');
+  const caption = text(content, 'imageCaption', '');
+  const mainImage = text(content, 'mainImage', '');
+  const secondaryImage = text(content, 'secondaryImage', '');
+  return (
+    <TemplateShell lang={lang} logoAlign="left">
+      <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
+        <div className="flex min-w-0 flex-col pt-28">
+          <div className="mb-4 h-1.5 w-28 shrink-0 rounded-full bg-emerald-600" />
+          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            {text(content, 'headline', t('newsCmsWireHeadline', lang))}
+          </h3>
+          <p className="mt-2 text-lg font-semibold leading-snug text-slate-600 [overflow-wrap:anywhere]">
+            {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
+          </p>
+          <div className="mt-4 rounded-xl border-l-4 border-rose-500 bg-rose-50 p-3.5">
+            <Quote className="mb-1.5 h-4 w-4 text-rose-500" />
+            <p className="text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+              {text(content, 'quote', t('newsCmsWireQuote', lang))}
+            </p>
           </div>
-          <div className="mt-6">
-            <TextLines lines={5} />
+          <div className="mt-4 min-h-0 flex-1 overflow-hidden">
+            {body ? (
+              <p className="whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+                {body}
+              </p>
+            ) : (
+              <TextLines lines={5} />
+            )}
           </div>
         </div>
-        <div className="grid h-full grid-rows-[1.25fr_0.75fr] gap-4">
-          <ImageBox label={t('newsCmsWireLargeImage', lang)} />
-          <div className="grid grid-cols-[0.9fr_1.1fr] gap-4">
-            <ImageBox label={t('newsCmsWireSmallImage', lang)} />
-            <div className="flex flex-col justify-center rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="mb-3 text-xs font-black uppercase tracking-wide text-emerald-700">{t('newsCmsWireImageText', lang)}</p>
-              <p className="text-sm leading-6 text-slate-600">{text(content, 'imageCaption', t('newsCmsWireCaption', lang))}</p>
+        <div className="grid h-full min-w-0 grid-rows-[1.25fr_0.75fr] gap-4">
+          <TemplateImage url={mainImage} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <div className="grid min-w-0 grid-cols-[0.9fr_1.1fr] gap-4">
+            <TemplateImage url={secondaryImage} label={t('newsCmsWireSmallImage', lang)} className="h-full" />
+            <div className="flex min-w-0 flex-col justify-center border-l-2 border-emerald-500 pl-3">
+              {caption ? (
+                <p className="line-clamp-3 text-[0.78rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+                  {caption}
+                </p>
+              ) : (
+                <p className="text-[0.78rem] italic leading-[1.35] text-slate-400">{t('newsCmsWireCaption', lang)}</p>
+              )}
             </div>
           </div>
         </div>
@@ -187,6 +227,7 @@ function Template02({ content, lang }: NewsRendererProps) {
     </TemplateShell>
   );
 }
+
 
 function Template03({ content, lang }: NewsRendererProps) {
   return (
