@@ -457,12 +457,14 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     pageMode: 'single',
     orientation: 'a4-landscape',
     fields: [
-      ...baseFields,
+      { key: 'headline', labelKey: 'newsCmsFieldHeadline', type: 'text', required: true, maxLength: TPL04_HEADLINE_MAX },
+      { key: 'subtitle', labelKey: 'newsCmsFieldSubtitle', type: 'text', maxLength: TPL04_SUBTITLE_MAX },
+      { key: 'body', labelKey: 'newsCmsFieldBody', type: 'textarea', maxLength: TPL04_BODY_MAX },
       { key: 'productImage', labelKey: 'newsCmsWireProductImage', type: 'image' },
       { key: 'techBlocks', labelKey: 'newsCmsFieldTechBlocks', type: 'techBlocks', helpKey: 'newsCmsFieldTechBlocksHelp' },
       { key: 'specRows', labelKey: 'newsCmsFieldSpecRows', type: 'specRows', helpKey: 'newsCmsFieldSpecRowsHelp' },
     ],
-    validate: placeholderValidate,
+    validate: template04Validate,
     Renderer: RENDERERS['template-04-technical-feature'],
   },
   {
