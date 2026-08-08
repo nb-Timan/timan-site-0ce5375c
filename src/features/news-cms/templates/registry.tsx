@@ -1,6 +1,7 @@
 import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
+import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -53,7 +54,8 @@ function TextLines({ lines = 4 }: { lines?: number }) {
   );
 }
 
-function Template01({ content }: NewsRendererProps) {
+function Template01({ content, lang }: NewsRendererProps) {
+  const features = normalizeFeatureBlocks(content.features);
   return (
     <TemplateShell>
       <div className="grid h-full grid-cols-[1.1fr_0.9fr] gap-7">
@@ -63,19 +65,25 @@ function Template01({ content }: NewsRendererProps) {
             <Badge className="h-3.5 w-3.5" />
             Product announcement
           </div>
-          <h3 className="text-3xl font-black leading-tight text-slate-950">{text(content, 'headline', 'Headline')}</h3>
-          <p className="mt-2 text-base text-slate-600">{text(content, 'subtitle', 'Subtitle')}</p>
+          <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-950">{text(content, 'headline', 'Headline')}</h3>
+          <p className="mt-2 text-lg font-semibold not-italic leading-snug text-emerald-700">{text(content, 'subtitle', 'Subtitle')}</p>
           {text(content, 'body', '') ? (
-            <p className="mt-3 max-w-prose whitespace-pre-line text-sm leading-6 text-slate-600">
+            <p className="mt-3 max-w-prose whitespace-pre-line text-sm font-normal leading-6 text-slate-700">
               {text(content, 'body', '')}
             </p>
           ) : null}
           <div className="mt-6 grid grid-cols-3 gap-3">
-
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
-                <ListChecks className="mb-2 h-5 w-5 text-emerald-700" />
-                <div className="h-2 w-16 rounded-full bg-emerald-200" />
+            {features.map((feature, index) => (
+              <div key={index} className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                <FeatureIconMark block={feature} />
+                <p className="mt-2 text-xs font-bold leading-tight text-slate-950">
+                  {feature.heading || t('newsCmsFeatureHeading', lang)}
+                </p>
+                {feature.description ? (
+                  <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{feature.description}</p>
+                ) : (
+                  <div className="mt-2 h-2 w-16 rounded-full bg-emerald-200" />
+                )}
               </div>
             ))}
           </div>
@@ -218,7 +226,11 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate01Purpose',
     pageMode: 'single',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true }],
+    fields: [
+      ...baseFields,
+      { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true },
+      { key: 'features', labelKey: 'newsCmsFieldFeatures', type: 'featureBlocks', helpKey: 'newsCmsFieldFeaturesHelp' },
+    ],
     validate: placeholderValidate,
     Renderer: RENDERERS['template-01-product-announcement'],
   },
