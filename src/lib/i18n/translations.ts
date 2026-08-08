@@ -137,7 +137,6 @@ const da: Dict = {
   newsCmsIconColor: 'Farve',
   newsCmsUploadCustomIcon: '+ Upload eget ikon',
   newsCmsUploadCustomIconHelp: 'SVG, PNG eller WebP. Ikonet tilpasses automatisk til den faste ikonstørrelse.',
-  newsCmsUploadCustomIconUnavailableFallback: '',
   newsCmsIconUploadUnavailable: 'Upload er ikke muligt endnu – News CMS-lageret er ikke oprettet.',
   newsCmsRemoveCustomIcon: 'Fjern eget ikon',
   newsCmsIconGear: 'Mekanik',
