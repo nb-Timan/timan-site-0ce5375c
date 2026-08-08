@@ -70,6 +70,29 @@ export function mergeSharedNewsFields(
   const active = { ...getExactNewsContent(content, lang) };
   const sharedTypes = ['image', 'file', 'featureBlocks', 'iconBlocks', 'pages', 'url'];
   for (const field of fields) {
+    if (field.type === 'techBlocks') {
+      if (Array.isArray(active[field.key])) continue;
+      for (const code of NEWS_CONTENT_LANGUAGES) {
+        const candidate = content?.[code]?.[field.key];
+        if (Array.isArray(candidate)) {
+          // Icon/colour are shared, heading + value stay per language.
+          active[field.key] = candidate.map((item) => ({ ...(item as Record<string, unknown>), heading: '', description: '' }));
+          break;
+        }
+      }
+      continue;
+    }
+    if (field.type === 'specRows') {
+      if (Array.isArray(active[field.key])) continue;
+      for (const code of NEWS_CONTENT_LANGUAGES) {
+        const candidate = content?.[code]?.[field.key];
+        if (Array.isArray(candidate)) {
+          active[field.key] = candidate.map(() => ({ label: '', value: '' }));
+          break;
+        }
+      }
+      continue;
+    }
     if (field.type === 'ctaLinks') {
       if (Array.isArray(active[field.key])) continue;
       for (const code of NEWS_CONTENT_LANGUAGES) {
@@ -118,6 +141,49 @@ export function updateCtaLinksField(
   }, { ...content } as LocalizedNewsContent);
 }
 
+
+/**
+ * Technical highlight blocks: icon, colour and custom icon are shared across
+ * languages, while heading/description are stored per language.
+ */
+export function updateTechBlocksField(
+  content: LocalizedNewsContent,
+  lang: PortalUiLanguage,
+  fieldKey: string,
+  blocks: Array<Record<string, unknown>>,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
+    acc[code] = {
+      ...(content?.[code] || {}),
+      [fieldKey]: blocks.map((block, index) => ({
+        ...block,
+        heading: code === lang ? block.heading : (existing[index]?.heading ?? ''),
+        description: code === lang ? block.description : (existing[index]?.description ?? ''),
+      })),
+    };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
+
+/** Specification rows: row count is shared, label/value are per language. */
+export function updateSpecRowsField(
+  content: LocalizedNewsContent,
+  lang: PortalUiLanguage,
+  fieldKey: string,
+  rows: Array<Record<string, unknown>>,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
+    acc[code] = {
+      ...(content?.[code] || {}),
+      [fieldKey]: rows.map((row, index) =>
+        code === lang ? { ...row } : { label: existing[index]?.label ?? '', value: existing[index]?.value ?? '' },
+      ),
+    };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
 
 /** Writes a shared (non-text) field into every language version at once. */
 export function updateSharedNewsField(
