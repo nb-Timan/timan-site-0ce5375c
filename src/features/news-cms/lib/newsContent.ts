@@ -82,3 +82,15 @@ export function mergeSharedNewsFields(
   }
   return active;
 }
+
+/** Writes a shared (non-text) field into every language version at once. */
+export function updateSharedNewsField(
+  content: LocalizedNewsContent,
+  fieldKey: string,
+  value: unknown,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    acc[code] = { ...(content?.[code] || {}), [fieldKey]: value };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
