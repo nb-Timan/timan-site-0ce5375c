@@ -140,7 +140,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       )}
 
       {step === 2 && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(420px,0.9fr)_minmax(560px,1.1fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(380px,0.72fr)_minmax(640px,1.28fr)]">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -182,7 +182,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       )}
 
       {step === 3 && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-base font-bold text-slate-900">{t('newsCmsPreviewNews', uiLanguage)}</h3>
             <p className="mt-1 text-sm text-slate-500">{t('newsCmsPreviewHelp', uiLanguage)}</p>

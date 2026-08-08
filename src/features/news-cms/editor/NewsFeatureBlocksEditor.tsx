@@ -19,6 +19,9 @@ interface Props {
   onChange: (value: NewsFeatureBlock[]) => void;
 }
 
+const HEADING_MAX = 30;
+const DESCRIPTION_MAX = 80;
+
 const inputClass =
   'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
 
@@ -176,23 +179,33 @@ export default function NewsFeatureBlocksEditor({ lang, value, onChange }: Props
             </div>
 
             <label className="mb-3 block">
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{t('newsCmsFeatureHeading', lang)}</span>
+              <span className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{t('newsCmsFeatureHeading', lang)}</span>
+                <span className={`text-[11px] font-semibold ${block.heading.length >= HEADING_MAX ? 'text-rose-600' : 'text-slate-400'}`}>
+                  {block.heading.length}/{HEADING_MAX}
+                </span>
+              </span>
               <input
                 type="text"
                 value={block.heading}
-                maxLength={40}
-                onChange={(event) => patch(index, { heading: event.target.value })}
+                maxLength={HEADING_MAX}
+                onChange={(event) => patch(index, { heading: event.target.value.slice(0, HEADING_MAX) })}
                 className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{t('newsCmsFeatureDescription', lang)}</span>
+              <span className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{t('newsCmsFeatureDescription', lang)}</span>
+                <span className={`text-[11px] font-semibold ${block.description.length >= DESCRIPTION_MAX ? 'text-rose-600' : 'text-slate-400'}`}>
+                  {block.description.length}/{DESCRIPTION_MAX}
+                </span>
+              </span>
               <textarea
                 rows={2}
                 value={block.description}
-                maxLength={120}
-                onChange={(event) => patch(index, { description: event.target.value })}
+                maxLength={DESCRIPTION_MAX}
+                onChange={(event) => patch(index, { description: event.target.value.slice(0, DESCRIPTION_MAX) })}
                 className={inputClass}
               />
             </label>

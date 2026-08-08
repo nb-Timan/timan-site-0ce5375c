@@ -11,8 +11,8 @@ interface Props {
 export default function NewsPreviewPane({ lang, template, content }: Props) {
   const Renderer = template.Renderer;
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900">{t('newsCmsPreview', lang)}</h2>
           <p className="text-xs text-slate-500">{t(template.nameKey, lang)}</p>

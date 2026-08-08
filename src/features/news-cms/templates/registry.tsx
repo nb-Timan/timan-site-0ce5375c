@@ -19,15 +19,15 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
 
 function TemplateShell({ children }: { children: ReactNode }) {
   return (
-    <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="absolute left-5 top-4 z-10 text-sm font-black italic tracking-tight text-emerald-700">TIMAN</div>
-        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-rose-600">
+        <div className="absolute left-5 top-4 z-10 text-base font-black italic tracking-tight text-emerald-700">TIMAN</div>
+        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-rose-600">
           NEWS
         </div>
-        <div className="absolute -left-12 bottom-0 h-28 w-36 -skew-x-12 bg-emerald-600" />
-        <div className="absolute left-20 bottom-0 h-28 w-5 -skew-x-12 bg-rose-500" />
-        <div className="relative h-full p-9 pt-14">{children}</div>
+        <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
+        <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
+        <div className="relative h-full p-7 pt-14">{children}</div>
       </div>
     </div>
   );
@@ -58,29 +58,38 @@ function Template01({ content, lang }: NewsRendererProps) {
   const features = normalizeFeatureBlocks(content.features);
   return (
     <TemplateShell>
-      <div className="grid h-full grid-cols-[1.1fr_0.9fr] gap-7">
+      <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <ImageBox label="Large image" className="h-full" />
-        <div className="flex flex-col justify-center">
+        <div className="flex min-w-0 flex-col justify-center">
           <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
-            <Badge className="h-3.5 w-3.5" />
+            <Badge className="h-4 w-4" />
             Product announcement
           </div>
-          <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-950">{text(content, 'headline', 'Headline')}</h3>
-          <p className="mt-2 text-lg font-semibold not-italic leading-snug text-emerald-700">{text(content, 'subtitle', 'Subtitle')}</p>
+          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            {text(content, 'headline', 'Headline')}
+          </h3>
+          <p className="mt-2 text-xl font-semibold not-italic leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            {text(content, 'subtitle', 'Subtitle')}
+          </p>
           {text(content, 'body', '') ? (
-            <p className="mt-3 max-w-prose whitespace-pre-line text-sm font-normal leading-6 text-slate-700">
+            <p className="mt-3 max-w-prose whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
               {text(content, 'body', '')}
             </p>
           ) : null}
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-6 grid grid-cols-3 items-stretch gap-3">
             {features.map((feature, index) => (
-              <div key={index} className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+              <div
+                key={index}
+                className="flex min-h-[7.5rem] min-w-0 flex-col overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50 p-3"
+              >
                 <FeatureIconMark block={feature} />
-                <p className="mt-2 text-xs font-bold leading-tight text-slate-950">
+                <p className="mt-2 min-w-0 text-[0.8rem] font-bold leading-tight text-slate-950 [hyphens:auto] [overflow-wrap:anywhere]">
                   {feature.heading || t('newsCmsFeatureHeading', lang)}
                 </p>
                 {feature.description ? (
-                  <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{feature.description}</p>
+                  <p className="mt-1 min-w-0 text-[0.68rem] font-normal leading-[1.35] text-slate-600 [hyphens:auto] [overflow-wrap:anywhere]">
+                    {feature.description}
+                  </p>
                 ) : (
                   <div className="mt-2 h-2 w-16 rounded-full bg-emerald-200" />
                 )}
