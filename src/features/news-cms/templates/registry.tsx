@@ -1,6 +1,6 @@
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 import { Badge, FileText, Image as ImageIcon, ListChecks, Quote } from 'lucide-react';
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
 import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
@@ -40,10 +40,16 @@ function template01Validate(content: Record<string, unknown>) {
  */
 const TPL04_HEADLINE_MAX = 70;
 const TPL04_SUBTITLE_MAX = 90;
-// Measured against the real A4 layout: with worst-case two-line headline and
-// two-line subtitle, the body zone can grow to ~6 lines before the 2x2 tech
-// grid reaches its lowest safe position above the bottom margin (~67 chars/line).
-const TPL04_BODY_MAX = 400;
+// Measured on the intrinsic 1123x794 A4 canvas: with a worst-case two-line
+// headline and two-line subtitle, the body zone can grow to ~9.5 lines before
+// the 2x2 tech grid reaches its lowest safe position (48px bottom margin).
+const TPL04_BODY_MAX = 660;
+
+// Caption block beside the overlapping secondary photo: 2 clamped heading
+// lines and 6 clamped text lines in a fixed 8.4rem tall, ~24% wide zone.
+const TPL04_SECONDARY_HEADING_MAX = 26;
+const TPL04_SECONDARY_TEXT_MAX = 120;
+
 
 
 function template04Validate(content: Record<string, unknown>) {
@@ -52,6 +58,9 @@ function template04Validate(content: Record<string, unknown>) {
     ['headline', TPL04_HEADLINE_MAX],
     ['subtitle', TPL04_SUBTITLE_MAX],
     ['body', TPL04_BODY_MAX],
+    ['secondaryHeading', TPL04_SECONDARY_HEADING_MAX],
+    ['secondaryText', TPL04_SECONDARY_TEXT_MAX],
+
   ];
   const tooLong = limits.flatMap(([fieldKey, max]) => {
     const value = content[fieldKey];
@@ -82,37 +91,76 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
+/** Intrinsic A4 landscape design size (px) used by scale-to-fit templates. */
+const A4_BASE_WIDTH = 1123;
+const A4_BASE_HEIGHT = 794;
+
+/**
+ * Renders a fixed A4 design box and scales the whole composition down to the
+ * available width, so the geometry stays proportional at every preview size
+ * instead of reflowing. Opt-in: only templates that request it are affected.
+ */
+function ScaleToFit({ children }: { children: ReactNode }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const update = () => setScale((host.clientWidth || A4_BASE_WIDTH) / A4_BASE_WIDTH);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={hostRef} className="relative h-full w-full overflow-hidden">
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{ width: A4_BASE_WIDTH, height: A4_BASE_HEIGHT, transform: `scale(${scale})` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function TemplateShell({
   children,
   lang,
   logoAlign = 'right',
   logoSize = 'default',
+  scaleToFit = false,
 }: {
   children: ReactNode;
   lang?: NewsRendererProps['lang'];
   logoAlign?: 'left' | 'right';
   logoSize?: 'default' | 'sm';
+  scaleToFit?: boolean;
 }) {
+  const inner = (
+    <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <img
+        src={timanLogo}
+        alt="TIMAN"
+        className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
+          logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
+        } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
+        draggable={false}
+      />
+
+
+      <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
+      <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
+      <div className="relative h-full p-7">{children}</div>
+    </div>
+  );
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-      <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <img
-          src={timanLogo}
-          alt="TIMAN"
-          className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
-            logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
-          } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
-          draggable={false}
-        />
-
-
-        <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
-        <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
-        <div className="relative h-full p-7">{children}</div>
-      </div>
+      {scaleToFit ? <ScaleToFit>{inner}</ScaleToFit> : inner}
     </div>
   );
 }
+
 
 function ImageBox({ label, className = '' }: { label: string; className?: string }) {
   return (
@@ -299,15 +347,66 @@ function Template03({ content, lang }: NewsRendererProps) {
   );
 }
 
+/**
+ * Template 04 left composition: a large primary photo with a slanted right
+ * edge (top edge further left, bottom edge further right), a thin Timan-green
+ * stripe of constant thickness following that diagonal, and a smaller
+ * secondary photo near the bottom that overlaps the primary photo, crosses the
+ * green diagonal and reaches into the white area. The secondary caption sits
+ * to the right of that photo. Every element is absolutely positioned in
+ * percentages of the fixed A4 column, so the geometry scales as one
+ * composition and no text can move or resize it.
+ */
+function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'content' | 'lang'>) {
+  const productImage = text(content, 'productImage', '');
+  const secondaryImage = text(content, 'secondaryImage', '');
+  const secondaryHeading = text(content, 'secondaryHeading', '');
+  const secondaryText = text(content, 'secondaryText', '');
+  return (
+    <div className="relative h-full min-w-0 overflow-hidden">
+      <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 46% 0, 64% 100%, 0 100%)' }}>
+        <TemplateImage
+          url={productImage}
+          label={t('newsCmsWireProductImage', lang)}
+          className="h-full w-full rounded-none border-0"
+        />
+      </div>
+      {/* Constant-thickness green separator, parallel to the photo edge. */}
+      <div
+        className="absolute inset-0 bg-emerald-600"
+        style={{ clipPath: 'polygon(46% 0, 49.1% 0, 67.2% 100%, 64% 100%)' }}
+      />
+
+      <div className="absolute bottom-[1.1rem] left-[8%] h-[8.4rem] w-[64%] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)]">
+        <TemplateImage
+          url={secondaryImage}
+          label={t('newsCmsFieldSecondaryImage', lang)}
+          className="h-full w-full rounded-none border-0"
+        />
+      </div>
+
+      <div className="absolute bottom-[1.1rem] right-0 flex h-[8.4rem] w-[24%] min-w-0 flex-col justify-center overflow-hidden">
+        <p className="line-clamp-2 text-[0.68rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
+          {secondaryHeading || t('newsCmsWireSecondaryHeading', lang)}
+        </p>
+        <p className="mt-1 line-clamp-6 text-[0.6rem] font-normal leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+          {secondaryText || t('newsCmsWireSecondaryText', lang)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Template04({ content, lang }: NewsRendererProps) {
   const blocks = normalizeTechBlocks(content.techBlocks);
   const specs = filledSpecRows(content.specRows);
   const body = text(content, 'body', '');
-  const productImage = text(content, 'productImage', '');
   return (
-    <TemplateShell lang={lang}>
-      <div className="grid h-full min-w-0 grid-cols-[0.9fr_1.1fr] gap-7">
-        <TemplateImage url={productImage} label={t('newsCmsWireProductImage', lang)} className="h-full" />
+    <TemplateShell lang={lang} scaleToFit>
+
+      <div className="grid h-full min-w-0 grid-cols-[0.98fr_1.02fr] gap-6">
+        <Template04Composition content={content} lang={lang} />
+
         {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
         <div className="grid min-h-0 min-w-0 grid-rows-[10.5rem_minmax(0,1fr)] overflow-hidden">
           <div aria-hidden />
@@ -554,6 +653,20 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
       { key: 'subtitle', labelKey: 'newsCmsFieldSubtitle', type: 'text', maxLength: TPL04_SUBTITLE_MAX },
       { key: 'body', labelKey: 'newsCmsFieldBody', type: 'textarea', maxLength: TPL04_BODY_MAX },
       { key: 'productImage', labelKey: 'newsCmsWireProductImage', type: 'image' },
+      { key: 'secondaryImage', labelKey: 'newsCmsFieldSecondaryImage', type: 'image' },
+      {
+        key: 'secondaryHeading',
+        labelKey: 'newsCmsFieldSecondaryHeading',
+        type: 'text',
+        maxLength: TPL04_SECONDARY_HEADING_MAX,
+      },
+      {
+        key: 'secondaryText',
+        labelKey: 'newsCmsFieldSecondaryText',
+        type: 'textarea',
+        maxLength: TPL04_SECONDARY_TEXT_MAX,
+      },
+
       { key: 'techBlocks', labelKey: 'newsCmsFieldTechBlocks', type: 'techBlocks', helpKey: 'newsCmsFieldTechBlocksHelp' },
       { key: 'specRows', labelKey: 'newsCmsFieldSpecRows', type: 'specRows', helpKey: 'newsCmsFieldSpecRowsHelp' },
     ],
