@@ -9,7 +9,15 @@ export type NewsTemplateId =
   | 'template-05-story-layout'
   | 'template-06-flyer';
 
-export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks' | 'techBlocks' | 'specRows';
+export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks' | 'techBlocks' | 'specRows' | 'pageCount' | 'flyerPages';
+
+/** Template 06 flyer page. Text is per language, `image` is shared. */
+export interface NewsFlyerPage {
+  headline: string;
+  subtitle: string;
+  body: string;
+  image: string;
+}
 
 export type NewsCtaLinkType = 'website' | 'youtube' | 'pdf' | 'dealer' | 'external';
 
@@ -62,6 +70,8 @@ export interface NewsRendererProps {
   lang: PortalUiLanguage;
   content: Record<string, unknown>;
   mode: 'editor' | 'preview' | 'public';
+  /** 1-based page index for multi-page templates (Template 06). */
+  page?: number;
 }
 
 export interface NewsTemplateDefinition {
