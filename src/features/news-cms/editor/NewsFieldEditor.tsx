@@ -55,7 +55,11 @@ export default function NewsFieldEditor({ lang, field, value, onChange }: Props)
         />
       )}
       {field.maxLength ? (
-        <p className="mt-1 text-right text-xs tabular-nums text-slate-400">
+        <p
+          className={`mt-1 text-right text-xs font-semibold tabular-nums ${
+            stringValue.length >= field.maxLength ? 'text-rose-600' : 'text-slate-400'
+          }`}
+        >
           {stringValue.length}/{field.maxLength}
         </p>
       ) : null}
