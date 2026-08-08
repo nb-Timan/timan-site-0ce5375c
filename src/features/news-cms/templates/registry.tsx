@@ -3,6 +3,7 @@ import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'l
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
+import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -12,6 +13,20 @@ function placeholderValidate(content: Record<string, unknown>) {
   });
   return { valid: issues.length === 0, issues };
 }
+
+/** Template 01 additionally blocks save/publish on misconfigured CTA links. */
+function template01Validate(content: Record<string, unknown>) {
+  const base = placeholderValidate(content);
+  const ctaBroken =
+    invalidCtaLinks(content.ctaLinks).length > 0 ||
+    activeCtaLinks(content.ctaLinks).length !==
+      (Array.isArray(content.ctaLinks) ? content.ctaLinks.filter((item) => (item as { enabled?: boolean })?.enabled).length : 0);
+  const issues = ctaBroken
+    ? [...base.issues, { fieldKey: 'ctaLinks', messageKey: 'newsCmsValidationInvalidCta' }]
+    : base.issues;
+  return { valid: issues.length === 0, issues };
+}
+
 
 function text(content: Record<string, unknown>, key: string, fallback: string) {
   const value = content[key];
@@ -58,7 +73,36 @@ function TextLines({ lines = 4 }: { lines?: number }) {
   );
 }
 
-function Template01({ content, lang }: NewsRendererProps) {
+function CtaRow({ content, lang }: NewsRendererProps) {
+  const ctas = activeCtaLinks(content.ctaLinks);
+  if (ctas.length === 0) return null;
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3">
+      {ctas.map((cta, index) => {
+        const Icon = ctaTypeOption(cta.type).Icon;
+        const primary = index === 0;
+        return (
+          <a
+            key={index}
+            href={cta.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex max-w-[16rem] items-center gap-2 rounded-lg px-4 py-2 text-[0.8rem] font-bold leading-tight transition ${
+              primary
+                ? 'bg-[var(--timan-green)] text-white hover:opacity-90'
+                : 'border border-[var(--timan-green)] bg-white text-[var(--timan-green)] hover:bg-emerald-50'
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{cta.label}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+function Template01({ content, lang, mode }: NewsRendererProps) {
   const features = normalizeFeatureBlocks(content.features);
   return (
     <TemplateShell lang={lang}>
@@ -106,6 +150,7 @@ function Template01({ content, lang }: NewsRendererProps) {
               </div>
             ))}
           </div>
+          <CtaRow content={content} lang={lang} mode={mode} />
         </div>
       </div>
     </TemplateShell>
@@ -249,8 +294,9 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
       ...baseFields,
       { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true },
       { key: 'features', labelKey: 'newsCmsFieldFeatures', type: 'featureBlocks', helpKey: 'newsCmsFieldFeaturesHelp' },
+      { key: 'ctaLinks', labelKey: 'newsCmsFieldCtaLinks', type: 'ctaLinks', helpKey: 'newsCmsFieldCtaLinksHelp' },
     ],
-    validate: placeholderValidate,
+    validate: template01Validate,
     Renderer: RENDERERS['template-01-product-announcement'],
   },
   {

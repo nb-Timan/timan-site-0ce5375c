@@ -70,6 +70,18 @@ export function mergeSharedNewsFields(
   const active = { ...getExactNewsContent(content, lang) };
   const sharedTypes = ['image', 'file', 'featureBlocks', 'iconBlocks', 'pages', 'url'];
   for (const field of fields) {
+    if (field.type === 'ctaLinks') {
+      if (Array.isArray(active[field.key])) continue;
+      for (const code of NEWS_CONTENT_LANGUAGES) {
+        const candidate = content?.[code]?.[field.key];
+        if (Array.isArray(candidate)) {
+          // Structure (enabled/type/url) is shared, labels are per language.
+          active[field.key] = candidate.map((item) => ({ ...(item as Record<string, unknown>), label: '' }));
+          break;
+        }
+      }
+      continue;
+    }
     if (!sharedTypes.includes(field.type)) continue;
     if (active[field.key] !== undefined && active[field.key] !== null && active[field.key] !== '') continue;
     for (const code of NEWS_CONTENT_LANGUAGES) {
@@ -82,6 +94,30 @@ export function mergeSharedNewsFields(
   }
   return active;
 }
+
+/**
+ * CTA links: `label` is stored per language, while `enabled`, `type` and `url`
+ * are shared across every language version.
+ */
+export function updateCtaLinksField(
+  content: LocalizedNewsContent,
+  lang: PortalUiLanguage,
+  fieldKey: string,
+  links: Array<Record<string, unknown>>,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
+    acc[code] = {
+      ...(content?.[code] || {}),
+      [fieldKey]: links.map((link, index) => ({
+        ...link,
+        label: code === lang ? link.label : (existing[index]?.label ?? ''),
+      })),
+    };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
+
 
 /** Writes a shared (non-text) field into every language version at once. */
 export function updateSharedNewsField(

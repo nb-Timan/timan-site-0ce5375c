@@ -9,7 +9,18 @@ export type NewsTemplateId =
   | 'template-05-story-layout'
   | 'template-06-flyer';
 
-export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks';
+export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks';
+
+export type NewsCtaLinkType = 'website' | 'youtube' | 'pdf' | 'dealer' | 'external';
+
+export interface NewsCtaLink {
+  enabled: boolean;
+  type: NewsCtaLinkType;
+  /** Stored per language. */
+  label: string;
+  /** Shared across languages. */
+  url: string;
+}
 
 export type NewsFeatureIconColor = 'green' | 'black' | 'grey' | 'red' | 'blue' | 'orange';
 

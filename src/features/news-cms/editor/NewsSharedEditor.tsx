@@ -10,6 +10,7 @@ import {
   emptyLocalizedContent,
   mergeSharedNewsFields,
   missingTranslationFields,
+  updateCtaLinksField,
   updateLocalizedNewsField,
   updateSharedNewsField,
 } from '@/features/news-cms/lib/newsContent';
@@ -197,11 +198,14 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   field={field}
                   value={activeContent[field.key]}
                   onChange={(value) =>
-                    setLocalizedContent((current) =>
-                      ['text', 'textarea', 'richtext'].includes(field.type)
+                    setLocalizedContent((current) => {
+                      if (field.type === 'ctaLinks') {
+                        return updateCtaLinksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                      }
+                      return ['text', 'textarea', 'richtext'].includes(field.type)
                         ? updateLocalizedNewsField(current, editLanguage, field.key, value)
-                        : updateSharedNewsField(current, field.key, value),
-                    )
+                        : updateSharedNewsField(current, field.key, value);
+                    })
                   }
                 />
               ))}
