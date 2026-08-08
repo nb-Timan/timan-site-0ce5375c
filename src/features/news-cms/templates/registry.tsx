@@ -184,7 +184,7 @@ function Template02({ content, lang }: NewsRendererProps) {
   return (
     <TemplateShell lang={lang} logoAlign="left">
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
-        <div className="flex min-w-0 flex-col pt-28">
+        <div className="flex min-w-0 flex-col pt-[44%]">
           <div className="mb-4 h-1.5 w-28 shrink-0 rounded-full bg-emerald-600" />
           <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
             {text(content, 'headline', t('newsCmsWireHeadline', lang))}
