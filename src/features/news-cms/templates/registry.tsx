@@ -38,10 +38,12 @@ function TemplateShell({
   children,
   lang,
   logoAlign = 'right',
+  logoSize = 'default',
 }: {
   children: ReactNode;
   lang?: NewsRendererProps['lang'];
   logoAlign?: 'left' | 'right';
+  logoSize?: 'default' | 'sm';
 }) {
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
@@ -49,11 +51,12 @@ function TemplateShell({
         <img
           src={timanLogo}
           alt="TIMAN"
-          className={`pointer-events-none absolute top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain ${
-            logoAlign === 'left' ? 'left-8' : 'right-8'
-          }`}
+          className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
+            logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
+          } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
           draggable={false}
         />
+
 
         <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
         <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
