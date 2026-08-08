@@ -226,7 +226,11 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate01Purpose',
     pageMode: 'single',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true }],
+    fields: [
+      ...baseFields,
+      { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true },
+      { key: 'features', labelKey: 'newsCmsFieldFeatures', type: 'featureBlocks', helpKey: 'newsCmsFieldFeaturesHelp' },
+    ],
     validate: placeholderValidate,
     Renderer: RENDERERS['template-01-product-announcement'],
   },
