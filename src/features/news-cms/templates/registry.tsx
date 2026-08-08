@@ -1,6 +1,7 @@
 import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
+import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
