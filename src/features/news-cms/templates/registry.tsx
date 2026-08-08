@@ -383,9 +383,9 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
   const secondaryHeading = text(content, 'secondaryHeading', '');
   const secondaryText = text(content, 'secondaryText', '');
   return (
-    <div className="relative h-full min-w-0 overflow-hidden">
-      {/* Large photo: wide at the top, progressively narrower toward the bottom. */}
-      <div className="absolute inset-0 z-0" style={{ clipPath: 'polygon(0 0, 94% 0, 52% 100%, 0 100%)' }}>
+    <div className="relative h-full min-w-0">
+      {/* Large photo: wide at the top, only gradually narrower toward the bottom. */}
+      <div className="absolute inset-0 z-0 overflow-hidden" style={{ clipPath: 'polygon(0 0, 94% 0, 76% 100%, 0 100%)' }}>
         <TemplateImage
           url={productImage}
           label={t('newsCmsWireProductImage', lang)}
@@ -395,11 +395,11 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
       {/* Constant-thickness green separator, parallel to the photo edge. */}
       <div
         className="absolute inset-0 z-10 bg-emerald-600"
-        style={{ clipPath: 'polygon(94% 0, 97.2% 0, 55.2% 100%, 52% 100%)' }}
+        style={{ clipPath: 'polygon(94% 0, 97.2% 0, 79.2% 100%, 76% 100%)' }}
       />
 
-      {/* Secondary image: overlaps the large photo by ~1/3 of its own width. */}
-      <div className="absolute bottom-[1.1rem] left-[39.5%] z-20 h-[7.6rem] w-[38%] overflow-hidden rounded-lg border border-white bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.55)]">
+      {/* Secondary image: ~2x larger, overlapping the large photo by ~1/3 of its own width. */}
+      <div className="absolute bottom-[1.1rem] left-[64%] z-20 h-[10.6rem] w-[52%] overflow-hidden rounded-lg border border-white bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.55)]">
         <TemplateImage
           url={secondaryImage}
           label={t('newsCmsFieldSecondaryImage', lang)}
@@ -407,7 +407,7 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
         />
       </div>
 
-      <div className="absolute bottom-[1.1rem] right-0 z-20 flex h-[7.6rem] w-[20.5%] min-w-0 flex-col justify-center overflow-hidden">
+      <div className="absolute bottom-[1.1rem] left-[120%] z-20 flex h-[10.6rem] w-[42%] min-w-0 flex-col justify-center overflow-hidden">
         <p className="line-clamp-2 text-[0.68rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
           {secondaryHeading || t('newsCmsWireSecondaryHeading', lang)}
         </p>
