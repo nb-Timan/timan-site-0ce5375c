@@ -127,7 +127,7 @@ export default function MesseHomePage() {
                   src={tile.image}
                   alt=""
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full scale-[1.035] object-cover transition-transform duration-300 group-hover:scale-[1.06]"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-fill transition duration-300 group-hover:brightness-105"
                 />
               )}
               <div className={`${tile.fullImageTile ? 'sr-only' : 'relative text-white pointer-events-none'}`}>
