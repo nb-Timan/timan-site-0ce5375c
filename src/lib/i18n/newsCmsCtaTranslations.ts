@@ -1,0 +1,167 @@
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+
+type Dict = Record<string, string>;
+
+const da: Dict = {
+  newsCmsFieldCtaLinks: 'Links (valgfri)',
+  newsCmsFieldCtaLinksHelp: 'Du kan tilføje 0, 1 eller 2 knapper under feature-blokkene.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Aktiver',
+  newsCmsCtaType: 'Linktype',
+  newsCmsCtaLabel: 'Knaptekst',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'URL er fælles for alle sprog. Knapteksten gemmes pr. sprog.',
+  newsCmsCtaTypeWebsite: 'Website',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Download / PDF',
+  newsCmsCtaTypeDealer: 'Forhandlerside',
+  newsCmsCtaTypeExternal: 'Eksternt link',
+  newsCmsCtaInvalidUrl: 'Ugyldig URL. Brug https:// eller http://',
+  newsCmsValidationInvalidCta: 'Et aktivt link mangler gyldig URL eller knaptekst',
+};
+
+const en: Dict = {
+  newsCmsFieldCtaLinks: 'Links (optional)',
+  newsCmsFieldCtaLinksHelp: 'You can add 0, 1 or 2 buttons below the feature blocks.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Enable',
+  newsCmsCtaType: 'Link type',
+  newsCmsCtaLabel: 'Button text',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'The URL is shared across languages. The button text is stored per language.',
+  newsCmsCtaTypeWebsite: 'Website',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Download / PDF',
+  newsCmsCtaTypeDealer: 'Dealer page',
+  newsCmsCtaTypeExternal: 'External link',
+  newsCmsCtaInvalidUrl: 'Invalid URL. Use https:// or http://',
+  newsCmsValidationInvalidCta: 'An enabled link is missing a valid URL or button text',
+};
+
+const de: Dict = {
+  newsCmsFieldCtaLinks: 'Links (optional)',
+  newsCmsFieldCtaLinksHelp: 'Sie können 0, 1 oder 2 Buttons unter den Feature-Blöcken hinzufügen.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Aktivieren',
+  newsCmsCtaType: 'Linktyp',
+  newsCmsCtaLabel: 'Buttontext',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'Die URL gilt für alle Sprachen. Der Buttontext wird pro Sprache gespeichert.',
+  newsCmsCtaTypeWebsite: 'Website',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Download / PDF',
+  newsCmsCtaTypeDealer: 'Händlerseite',
+  newsCmsCtaTypeExternal: 'Externer Link',
+  newsCmsCtaInvalidUrl: 'Ungültige URL. Bitte https:// oder http:// verwenden',
+  newsCmsValidationInvalidCta: 'Einem aktiven Link fehlt eine gültige URL oder ein Buttontext',
+};
+
+const it: Dict = {
+  newsCmsFieldCtaLinks: 'Link (opzionale)',
+  newsCmsFieldCtaLinksHelp: 'Puoi aggiungere 0, 1 o 2 pulsanti sotto i blocchi funzionalità.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Attiva',
+  newsCmsCtaType: 'Tipo di link',
+  newsCmsCtaLabel: 'Testo del pulsante',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: "L'URL è condiviso tra le lingue. Il testo del pulsante è salvato per lingua.",
+  newsCmsCtaTypeWebsite: 'Sito web',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Download / PDF',
+  newsCmsCtaTypeDealer: 'Pagina rivenditore',
+  newsCmsCtaTypeExternal: 'Link esterno',
+  newsCmsCtaInvalidUrl: 'URL non valido. Usa https:// o http://',
+  newsCmsValidationInvalidCta: 'Un link attivo non ha un URL valido o il testo del pulsante',
+};
+
+const hu: Dict = {
+  newsCmsFieldCtaLinks: 'Linkek (opcionális)',
+  newsCmsFieldCtaLinksHelp: '0, 1 vagy 2 gombot adhat hozzá a jellemzőblokkok alá.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Bekapcsolás',
+  newsCmsCtaType: 'Link típusa',
+  newsCmsCtaLabel: 'Gomb szövege',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'Az URL minden nyelven közös. A gomb szövege nyelvenként tárolódik.',
+  newsCmsCtaTypeWebsite: 'Weboldal',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Letöltés / PDF',
+  newsCmsCtaTypeDealer: 'Kereskedői oldal',
+  newsCmsCtaTypeExternal: 'Külső link',
+  newsCmsCtaInvalidUrl: 'Érvénytelen URL. Használjon https:// vagy http:// címet',
+  newsCmsValidationInvalidCta: 'Egy aktív linkhez hiányzik az érvényes URL vagy a gomb szövege',
+};
+
+const sv: Dict = {
+  newsCmsFieldCtaLinks: 'Länkar (valfritt)',
+  newsCmsFieldCtaLinksHelp: 'Du kan lägga till 0, 1 eller 2 knappar under funktionsblocken.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Aktivera',
+  newsCmsCtaType: 'Länktyp',
+  newsCmsCtaLabel: 'Knapptext',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'URL:en delas mellan språken. Knapptexten sparas per språk.',
+  newsCmsCtaTypeWebsite: 'Webbplats',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Nedladdning / PDF',
+  newsCmsCtaTypeDealer: 'Återförsäljarsida',
+  newsCmsCtaTypeExternal: 'Extern länk',
+  newsCmsCtaInvalidUrl: 'Ogiltig URL. Använd https:// eller http://',
+  newsCmsValidationInvalidCta: 'En aktiv länk saknar giltig URL eller knapptext',
+};
+
+const fr: Dict = {
+  newsCmsFieldCtaLinks: 'Liens (facultatif)',
+  newsCmsFieldCtaLinksHelp: 'Vous pouvez ajouter 0, 1 ou 2 boutons sous les blocs de caractéristiques.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Activer',
+  newsCmsCtaType: 'Type de lien',
+  newsCmsCtaLabel: 'Texte du bouton',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: "L'URL est commune à toutes les langues. Le texte du bouton est enregistré par langue.",
+  newsCmsCtaTypeWebsite: 'Site web',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Téléchargement / PDF',
+  newsCmsCtaTypeDealer: 'Page concessionnaire',
+  newsCmsCtaTypeExternal: 'Lien externe',
+  newsCmsCtaInvalidUrl: 'URL invalide. Utilisez https:// ou http://',
+  newsCmsValidationInvalidCta: "Un lien actif n'a pas d'URL valide ou de texte de bouton",
+};
+
+const pl: Dict = {
+  newsCmsFieldCtaLinks: 'Linki (opcjonalnie)',
+  newsCmsFieldCtaLinksHelp: 'Możesz dodać 0, 1 lub 2 przyciski pod blokami cech.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Włącz',
+  newsCmsCtaType: 'Typ linku',
+  newsCmsCtaLabel: 'Tekst przycisku',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'Adres URL jest wspólny dla wszystkich języków. Tekst przycisku zapisywany jest osobno dla każdego języka.',
+  newsCmsCtaTypeWebsite: 'Strona internetowa',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Pobieranie / PDF',
+  newsCmsCtaTypeDealer: 'Strona dealera',
+  newsCmsCtaTypeExternal: 'Link zewnętrzny',
+  newsCmsCtaInvalidUrl: 'Nieprawidłowy adres URL. Użyj https:// lub http://',
+  newsCmsValidationInvalidCta: 'Aktywny link nie ma poprawnego adresu URL lub tekstu przycisku',
+};
+
+const cs: Dict = {
+  newsCmsFieldCtaLinks: 'Odkazy (volitelné)',
+  newsCmsFieldCtaLinksHelp: 'Pod bloky vlastností můžete přidat 0, 1 nebo 2 tlačítka.',
+  newsCmsCta: 'CTA',
+  newsCmsCtaEnable: 'Aktivovat',
+  newsCmsCtaType: 'Typ odkazu',
+  newsCmsCtaLabel: 'Text tlačítka',
+  newsCmsCtaUrl: 'URL',
+  newsCmsCtaUrlShared: 'URL je společná pro všechny jazyky. Text tlačítka se ukládá pro každý jazyk zvlášť.',
+  newsCmsCtaTypeWebsite: 'Web',
+  newsCmsCtaTypeYoutube: 'YouTube',
+  newsCmsCtaTypePdf: 'Stažení / PDF',
+  newsCmsCtaTypeDealer: 'Stránka prodejce',
+  newsCmsCtaTypeExternal: 'Externí odkaz',
+  newsCmsCtaInvalidUrl: 'Neplatná URL. Použijte https:// nebo http://',
+  newsCmsValidationInvalidCta: 'Aktivní odkaz nemá platnou URL nebo text tlačítka',
+};
+
+export const NEWS_CMS_CTA_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };
