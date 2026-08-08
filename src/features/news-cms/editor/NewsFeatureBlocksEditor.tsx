@@ -25,7 +25,7 @@ const DESCRIPTION_MAX = 80;
 const inputClass =
   'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
 
-function IconPicker({
+export function IconPicker({
   lang,
   block,
   onPick,

@@ -9,7 +9,7 @@ export type NewsTemplateId =
   | 'template-05-story-layout'
   | 'template-06-flyer';
 
-export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks';
+export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks' | 'techBlocks' | 'specRows';
 
 export type NewsCtaLinkType = 'website' | 'youtube' | 'pdf' | 'dealer' | 'external';
 
@@ -30,6 +30,11 @@ export interface NewsFeatureBlock {
   customIconUrl: string | null;
   heading: string;
   description: string;
+}
+
+export interface NewsSpecRow {
+  label: string;
+  value: string;
 }
 
 export interface NewsFieldDefinition {
