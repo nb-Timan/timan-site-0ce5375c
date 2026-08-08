@@ -1,10 +1,16 @@
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
-import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
+import { Badge, FileText, Image as ImageIcon, ListChecks, Quote } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
 import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
 import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
+import {
+  FLYER_BODY_MAX,
+  FLYER_HEADLINE_MAX,
+  FLYER_SUBTITLE_MAX,
+  flyerPagesFromContent,
+} from '@/features/news-cms/lib/flyerPages';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -51,6 +57,21 @@ function template04Validate(content: Record<string, unknown>) {
   return { valid: issues.length === 0, issues };
 }
 
+
+/** Template 06: page 1 headline is required; every page respects the hard caps. */
+function template06Validate(content: Record<string, unknown>) {
+  const pages = flyerPagesFromContent(content);
+  const issues: Array<{ fieldKey: string; messageKey: string }> = [];
+  if (!pages[0]?.headline.trim()) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationRequired' });
+  const tooLong = pages.some(
+    (page) =>
+      page.headline.length > FLYER_HEADLINE_MAX ||
+      page.subtitle.length > FLYER_SUBTITLE_MAX ||
+      page.body.length > FLYER_BODY_MAX,
+  );
+  if (tooLong) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationTooLong' });
+  return { valid: issues.length === 0, issues };
+}
 
 function text(content: Record<string, unknown>, key: string, fallback: string) {
   const value = content[key];
@@ -404,19 +425,46 @@ function Template05({ content, lang }: NewsRendererProps) {
 }
 
 
-function Template06({ content, lang }: NewsRendererProps) {
+/**
+ * Template 06 – flyer. Fixed A4 landscape page rendering headline, subtitle
+ * and body next to a full-height image. Text zones are fixed so no content
+ * can push the image or the branding out of the page.
+ */
+function Template06({ content, lang, page = 1 }: NewsRendererProps) {
+  const pages = flyerPagesFromContent(content);
+  const index = Math.min(Math.max(page, 1), pages.length) - 1;
+  const current = pages[index] || { headline: '', subtitle: '', body: '', image: '' };
   return (
-    <TemplateShell lang={lang}>
-      <div className="flex h-full items-center justify-center">
-        <div className="grid w-full max-w-3xl grid-cols-2 gap-0 rounded-xl bg-slate-100 p-4 shadow-inner">
-          <div className="h-72 rounded-l-lg bg-white p-6 shadow-sm">
-            <Rows3 className="mb-4 h-7 w-7 text-emerald-700" />
-            <h3 className="text-2xl font-black text-slate-950">{text(content, 'headline', t('newsCmsWireFlyerPages', lang))}</h3>
-            <TextLines lines={6} />
+    <TemplateShell lang={lang} logoAlign="left" logoSize="sm">
+      <div className="grid h-full min-w-0 grid-cols-[1.04fr_0.96fr] gap-8">
+        {/* Text column: fixed rows — branding zone, header zone, body zone. */}
+        <div className="grid min-w-0 grid-rows-[7.5rem_auto_minmax(0,1fr)] overflow-hidden">
+          <div aria-hidden />
+          <div className="min-w-0">
+            <div className="mb-4 h-1.5 w-28 rounded-full bg-emerald-600" />
+            <h3 className="line-clamp-3 text-[2.35rem] font-black leading-[1.08] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+              {current.headline || t('newsCmsWireHeadline', lang)}
+            </h3>
+            <p className="mt-3 line-clamp-2 text-xl font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+              {current.subtitle || t('newsCmsWireSubtitle', lang)}
+            </p>
           </div>
-          <div className="h-72 rounded-r-lg bg-white p-6 shadow-sm">
-            <ImageBox label={t('newsCmsWirePagePreview', lang)} className="h-full" />
+          <div className="mt-5 min-h-0 min-w-0 overflow-hidden border-t border-slate-200 pt-4">
+            {current.body ? (
+              <p className="max-w-full whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+                {current.body}
+              </p>
+            ) : (
+              <TextLines lines={5} />
+            )}
           </div>
+        </div>
+        {/* Image column: fixed, never affected by text length. */}
+        <div className="relative h-full min-h-0 min-w-0">
+          <TemplateImage url={current.image} label={t('newsCmsWirePagePreview', lang)} className="h-full" />
+          <span className="absolute right-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
+            {t('newsCmsBadgeNews', lang)}
+          </span>
         </div>
       </div>
     </TemplateShell>
@@ -525,8 +573,11 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate06Purpose',
     pageMode: 'multiple',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'pages', labelKey: 'newsCmsFieldPages', type: 'pages', required: true }],
-    validate: placeholderValidate,
+    fields: [
+      { key: 'pageCount', labelKey: 'newsCmsFieldPageCount', type: 'pageCount', helpKey: 'newsCmsFieldPageCountHelp' },
+      { key: 'flyerPages', labelKey: 'newsCmsFieldPages', type: 'flyerPages', required: true, helpKey: 'newsCmsFlyerPagesHelp' },
+    ],
+    validate: template06Validate,
     Renderer: RENDERERS['template-06-flyer'],
   },
 ];

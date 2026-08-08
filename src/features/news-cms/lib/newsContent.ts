@@ -55,10 +55,20 @@ export function missingTranslationFields(
   fields: Array<{ key: string; type: string; labelKey: string }>,
 ): Array<{ key: string; labelKey: string }> {
   const active = getExactNewsContent(content, lang);
-  return fields
+  const plain = fields
     .filter((field) => ['text', 'textarea', 'richtext'].includes(field.type))
     .filter((field) => !hasText(active[field.key]))
     .map((field) => ({ key: field.key, labelKey: field.labelKey }));
+  // Template 06: a page without a headline in this language counts as missing.
+  const flyer = fields
+    .filter((field) => field.type === 'flyerPages')
+    .filter((field) => {
+      const pages = active[field.key];
+      if (!Array.isArray(pages) || pages.length === 0) return true;
+      return pages.some((page) => !hasText((page as { headline?: unknown })?.headline));
+    })
+    .map((field) => ({ key: field.key, labelKey: field.labelKey }));
+  return [...plain, ...flyer];
 }
 
 /** Media/layout fields are shared: copy them from any language that has them. */
@@ -68,7 +78,7 @@ export function mergeSharedNewsFields(
   fields: Array<{ key: string; type: string }>,
 ): Record<string, unknown> {
   const active = { ...getExactNewsContent(content, lang) };
-  const sharedTypes = ['image', 'file', 'featureBlocks', 'iconBlocks', 'pages', 'url'];
+  const sharedTypes = ['image', 'file', 'featureBlocks', 'iconBlocks', 'pages', 'url', 'pageCount'];
   for (const field of fields) {
     if (field.type === 'techBlocks') {
       if (Array.isArray(active[field.key])) continue;
@@ -79,6 +89,29 @@ export function mergeSharedNewsFields(
           active[field.key] = candidate.map((item) => ({ ...(item as Record<string, unknown>), heading: '', description: '' }));
           break;
         }
+      }
+      continue;
+    }
+    if (field.type === 'flyerPages') {
+      // Page images are shared, headline/subtitle/body stay per language.
+      const own = Array.isArray(active[field.key]) ? (active[field.key] as Array<Record<string, unknown>>) : [];
+      let shared: Array<Record<string, unknown>> | null = null;
+      for (const code of NEWS_CONTENT_LANGUAGES) {
+        const candidate = content?.[code]?.[field.key];
+        if (Array.isArray(candidate) && candidate.some((item) => (item as { image?: string })?.image)) {
+          shared = candidate as Array<Record<string, unknown>>;
+          break;
+        }
+      }
+      const length = Math.max(own.length, shared?.length ?? 0);
+      if (length > 0) {
+        active[field.key] = Array.from({ length }, (_, index) => ({
+          headline: '',
+          subtitle: '',
+          body: '',
+          ...(own[index] || {}),
+          image: (own[index]?.image as string) || (shared?.[index]?.image as string) || '',
+        }));
       }
       continue;
     }
@@ -193,6 +226,35 @@ export function updateSharedNewsField(
 ): LocalizedNewsContent {
   return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
     acc[code] = { ...(content?.[code] || {}), [fieldKey]: value };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
+
+
+/**
+ * Template 06 flyer pages: `image` is shared across every language while
+ * headline/subtitle/body are stored per language. The first page headline is
+ * mirrored to the top-level `headline` so the news title stays in sync.
+ */
+export function updateFlyerPagesField(
+  content: LocalizedNewsContent,
+  lang: PortalUiLanguage,
+  fieldKey: string,
+  pages: Array<Record<string, unknown>>,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
+    const next = pages.map((page, index) => ({
+      headline: code === lang ? page.headline ?? '' : existing[index]?.headline ?? '',
+      subtitle: code === lang ? page.subtitle ?? '' : existing[index]?.subtitle ?? '',
+      body: code === lang ? page.body ?? '' : existing[index]?.body ?? '',
+      image: page.image ?? '',
+    }));
+    acc[code] = {
+      ...(content?.[code] || {}),
+      [fieldKey]: next,
+      headline: (next[0]?.headline as string) || (content?.[code]?.headline as string) || '',
+    };
     return acc;
   }, { ...content } as LocalizedNewsContent);
 }
