@@ -3,6 +3,7 @@ import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'l
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
+import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -12,6 +13,20 @@ function placeholderValidate(content: Record<string, unknown>) {
   });
   return { valid: issues.length === 0, issues };
 }
+
+/** Template 01 additionally blocks save/publish on misconfigured CTA links. */
+function template01Validate(content: Record<string, unknown>) {
+  const base = placeholderValidate(content);
+  const ctaBroken =
+    invalidCtaLinks(content.ctaLinks).length > 0 ||
+    activeCtaLinks(content.ctaLinks).length !==
+      (Array.isArray(content.ctaLinks) ? content.ctaLinks.filter((item) => (item as { enabled?: boolean })?.enabled).length : 0);
+  const issues = ctaBroken
+    ? [...base.issues, { fieldKey: 'ctaLinks', messageKey: 'newsCmsValidationInvalidCta' }]
+    : base.issues;
+  return { valid: issues.length === 0, issues };
+}
+
 
 function text(content: Record<string, unknown>, key: string, fallback: string) {
   const value = content[key];
