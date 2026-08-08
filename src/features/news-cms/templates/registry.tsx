@@ -1,3 +1,4 @@
+import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
@@ -62,7 +63,7 @@ function TextLines({ lines = 4 }: { lines?: number }) {
 function Template01({ content, lang }: NewsRendererProps) {
   const features = normalizeFeatureBlocks(content.features);
   return (
-    <TemplateShell>
+    <TemplateShell lang={lang}>
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <ImageBox label="Large image" className="h-full" />
         <div className="flex min-w-0 flex-col justify-center">
