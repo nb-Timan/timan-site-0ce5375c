@@ -40,7 +40,11 @@ function template01Validate(content: Record<string, unknown>) {
  */
 const TPL04_HEADLINE_MAX = 70;
 const TPL04_SUBTITLE_MAX = 90;
-const TPL04_BODY_MAX = 350;
+// Measured against the real A4 layout: with worst-case two-line headline and
+// two-line subtitle, the body zone can grow to ~6 lines before the 2x2 tech
+// grid reaches its lowest safe position above the bottom margin (~67 chars/line).
+const TPL04_BODY_MAX = 400;
+
 
 function template04Validate(content: Record<string, unknown>) {
   const base = placeholderValidate(content);
