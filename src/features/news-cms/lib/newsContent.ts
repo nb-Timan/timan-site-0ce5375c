@@ -244,12 +244,38 @@ export function updateFlyerPagesField(
 ): LocalizedNewsContent {
   return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
     const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
-    const next = pages.map((page, index) => ({
-      headline: code === lang ? page.headline ?? '' : existing[index]?.headline ?? '',
-      subtitle: code === lang ? page.subtitle ?? '' : existing[index]?.subtitle ?? '',
-      body: code === lang ? page.body ?? '' : existing[index]?.body ?? '',
-      image: page.image ?? '',
-    }));
+    const mine = code === lang;
+    const next = pages.map((page, index) => {
+      const prev = (existing[index] || {}) as Record<string, unknown>;
+      const prevHighlights = (prev.highlights as Array<Record<string, unknown>> | undefined) || [];
+      const prevSpecs = (prev.specs as Array<Record<string, unknown>> | undefined) || [];
+      const prevLinks = (prev.links as Array<Record<string, unknown>> | undefined) || [];
+      // Icons, images, colours and URLs are shared; all wording is per language.
+      const highlights = ((page.highlights as Array<Record<string, unknown>> | undefined) || []).map((block, i) => ({
+        ...block,
+        heading: mine ? block.heading ?? '' : prevHighlights[i]?.heading ?? '',
+        description: mine ? block.description ?? '' : prevHighlights[i]?.description ?? '',
+      }));
+      const specs = ((page.specs as Array<Record<string, unknown>> | undefined) || []).map((row, i) => ({
+        label: mine ? row.label ?? '' : prevSpecs[i]?.label ?? '',
+        value: mine ? row.value ?? '' : prevSpecs[i]?.value ?? '',
+      }));
+      const links = ((page.links as Array<Record<string, unknown>> | undefined) || []).map((link, i) => ({
+        label: mine ? link.label ?? '' : prevLinks[i]?.label ?? '',
+        url: link.url ?? '',
+      }));
+      return {
+        headline: mine ? page.headline ?? '' : prev.headline ?? '',
+        subtitle: mine ? page.subtitle ?? '' : prev.subtitle ?? '',
+        body: mine ? page.body ?? '' : prev.body ?? '',
+        image: page.image ?? '',
+        secondaryImage: page.secondaryImage ?? '',
+        highlights,
+        specs,
+        links,
+      };
+    });
+
     acc[code] = {
       ...(content?.[code] || {}),
       [fieldKey]: next,
