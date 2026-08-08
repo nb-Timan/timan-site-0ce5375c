@@ -307,9 +307,15 @@ function Template04({ content, lang }: NewsRendererProps) {
         {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
         <div className="grid min-w-0 grid-rows-[10.5rem_minmax(0,1fr)]">
           <div aria-hidden />
-          {/* Fixed rows: header · body box · 2x2 boxes · specs. None can grow. */}
-          <div className="grid min-h-0 min-w-0 grid-rows-[auto_6rem_auto_minmax(0,1fr)] overflow-hidden">
-            <div className="min-w-0 overflow-hidden">
+          {/*
+            Flex column: the body zone starts at a fixed minimum height (so the
+            2x2 grid keeps its current start position for short text) and may
+            grow with longer body text, pushing the grid downward. The grid is
+            flex-none, so once vertical space runs out the body zone shrinks /
+            clips instead of pushing the boxes past the safe bottom margin.
+          */}
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+            <div className="min-w-0 flex-none overflow-hidden">
               <h3 className="line-clamp-2 text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
                 {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
               </h3>
@@ -317,7 +323,7 @@ function Template04({ content, lang }: NewsRendererProps) {
                 {text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}
               </p>
             </div>
-            <div className="mt-2.5 min-h-0 min-w-0 max-w-full overflow-hidden">
+            <div className="mt-2.5 min-h-[6rem] min-w-0 max-w-full flex-[0_1_auto] overflow-hidden">
               {body ? (
                 <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
                   {body}
@@ -325,7 +331,8 @@ function Template04({ content, lang }: NewsRendererProps) {
               ) : null}
             </div>
 
-            <div className="mt-3 grid grid-cols-2 grid-rows-2 gap-3">
+            <div className="mt-3 grid flex-none grid-cols-2 grid-rows-2 gap-3">
+
               {blocks.map((block, index) => (
                 <div
                   key={index}
