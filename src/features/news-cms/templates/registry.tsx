@@ -294,8 +294,9 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
       ...baseFields,
       { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true },
       { key: 'features', labelKey: 'newsCmsFieldFeatures', type: 'featureBlocks', helpKey: 'newsCmsFieldFeaturesHelp' },
+      { key: 'ctaLinks', labelKey: 'newsCmsFieldCtaLinks', type: 'ctaLinks', helpKey: 'newsCmsFieldCtaLinksHelp' },
     ],
-    validate: placeholderValidate,
+    validate: template01Validate,
     Renderer: RENDERERS['template-01-product-announcement'],
   },
   {
