@@ -309,6 +309,7 @@ function Template04({ content, lang }: NewsRendererProps) {
               </dl>
             </div>
           ) : null}
+          </div>
         </div>
       </div>
     </TemplateShell>
