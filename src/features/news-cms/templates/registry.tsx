@@ -41,9 +41,9 @@ function template01Validate(content: Record<string, unknown>) {
 const TPL04_HEADLINE_MAX = 70;
 const TPL04_SUBTITLE_MAX = 90;
 // Measured on the intrinsic 1123x794 A4 canvas: with a worst-case two-line
-// headline and two-line subtitle, the body zone can grow to ~9.5 lines before
+// headline and two-line subtitle, the body zone can grow to ~9 lines before
 // the 2x2 tech grid reaches its lowest safe position (48px bottom margin).
-const TPL04_BODY_MAX = 660;
+const TPL04_BODY_MAX = 560;
 
 // Caption block beside the overlapping secondary photo: 2 clamped heading
 // lines and 6 clamped text lines in a fixed 8.4rem tall, ~24% wide zone.
