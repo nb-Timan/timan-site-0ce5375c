@@ -33,14 +33,24 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
-function TemplateShell({ children, lang }: { children: ReactNode; lang?: NewsRendererProps['lang'] }) {
+function TemplateShell({
+  children,
+  lang,
+  logoAlign = 'right',
+}: {
+  children: ReactNode;
+  lang?: NewsRendererProps['lang'];
+  logoAlign?: 'left' | 'right';
+}) {
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
         <img
           src={timanLogo}
           alt="TIMAN"
-          className="pointer-events-none absolute right-8 top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain"
+          className={`pointer-events-none absolute top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain ${
+            logoAlign === 'left' ? 'left-8' : 'right-8'
+          }`}
           draggable={false}
         />
 
