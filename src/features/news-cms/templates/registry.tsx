@@ -321,11 +321,11 @@ function Template05({ content, lang }: NewsRendererProps) {
   const body = text(content, 'body', '');
   const quote = text(content, 'quote', '');
   return (
-    <TemplateShell lang={lang}>
+    <TemplateShell lang={lang} logoAlign="left" logoSize="sm">
       <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
         {/* Text column: fixed rows — header block, body zone, quote zone. */}
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_9rem] overflow-hidden">
-          <div className="min-w-0 pt-24">
+          <div className="min-w-0 pt-[7.5rem]">
             <h3 className="line-clamp-2 text-[2.1rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
               {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
             </h3>
