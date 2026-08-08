@@ -1,5 +1,5 @@
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
-import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
+import { Badge, FileText, Image as ImageIcon, ListChecks, Quote } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
@@ -9,7 +9,6 @@ import {
   FLYER_BODY_MAX,
   FLYER_HEADLINE_MAX,
   FLYER_SUBTITLE_MAX,
-  clampFlyerPageCount,
   flyerPagesFromContent,
 } from '@/features/news-cms/lib/flyerPages';
 import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';

@@ -55,10 +55,20 @@ export function missingTranslationFields(
   fields: Array<{ key: string; type: string; labelKey: string }>,
 ): Array<{ key: string; labelKey: string }> {
   const active = getExactNewsContent(content, lang);
-  return fields
+  const plain = fields
     .filter((field) => ['text', 'textarea', 'richtext'].includes(field.type))
     .filter((field) => !hasText(active[field.key]))
     .map((field) => ({ key: field.key, labelKey: field.labelKey }));
+  // Template 06: a page without a headline in this language counts as missing.
+  const flyer = fields
+    .filter((field) => field.type === 'flyerPages')
+    .filter((field) => {
+      const pages = active[field.key];
+      if (!Array.isArray(pages) || pages.length === 0) return true;
+      return pages.some((page) => !hasText((page as { headline?: unknown })?.headline));
+    })
+    .map((field) => ({ key: field.key, labelKey: field.labelKey }));
+  return [...plain, ...flyer];
 }
 
 /** Media/layout fields are shared: copy them from any language that has them. */
