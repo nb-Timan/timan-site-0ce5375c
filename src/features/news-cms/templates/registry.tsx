@@ -25,13 +25,13 @@ function TemplateShell({ children, lang }: { children: ReactNode; lang?: NewsRen
         <img
           src={timanLogo}
           alt="TIMAN"
-          className="pointer-events-none absolute right-7 top-6 z-10 h-11 w-auto select-none object-contain"
+          className="pointer-events-none absolute right-8 top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain"
           draggable={false}
         />
 
         <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
         <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
-        <div className="relative h-full p-7 pt-24">{children}</div>
+        <div className="relative h-full p-7">{children}</div>
       </div>
     </div>
   );
