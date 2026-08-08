@@ -6,10 +6,8 @@ import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib
 import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
 import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
 import {
-  FLYER_BODY_MAX,
-  FLYER_HEADLINE_MAX,
-  FLYER_SUBTITLE_MAX,
   activeFlyerLinks,
+
   emptyFlyerPage,
   filledFlyerSpecs,
   flyerPagesFromContent,
