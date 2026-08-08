@@ -1,5 +1,7 @@
-import { FileText } from 'lucide-react';
-import type { NewsTemplateDefinition, NewsTemplateId } from './types';
+import { Badge, FileText, Image as ImageIcon, ListChecks, Quote, Rows3 } from 'lucide-react';
+import type { ComponentType, ReactNode } from 'react';
+import { t } from '@/lib/i18n/translations';
+import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 function placeholderValidate(content: Record<string, unknown>) {
   const issues = ['headline'].flatMap((fieldKey) => {
@@ -9,33 +11,198 @@ function placeholderValidate(content: Record<string, unknown>) {
   return { valid: issues.length === 0, issues };
 }
 
-function PlaceholderTemplateRenderer({ content }: { content: Record<string, unknown> }) {
-  const headline = String(content.headline || '');
-  const subtitle = String(content.subtitle || '');
-  const body = String(content.body || '');
+function text(content: Record<string, unknown>, key: string, fallback: string) {
+  const value = content[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
 
+function TemplateShell({ children }: { children: ReactNode }) {
   return (
-    <div className="aspect-[1.414/1] w-full rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex h-full flex-col justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
-        <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
-            <FileText className="h-3.5 w-3.5" />
-            Fixed template preview
-          </div>
-          <h3 className="text-3xl font-bold text-slate-900">{headline || 'Headline'}</h3>
-          <p className="mt-2 text-lg text-slate-600">{subtitle || 'Subtitle'}</p>
+    <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="absolute left-5 top-4 z-10 text-sm font-black italic tracking-tight text-emerald-700">TIMAN</div>
+        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-rose-600">
+          NEWS
         </div>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600">{body || 'Template design is intentionally not implemented yet.'}</p>
+        <div className="absolute -left-12 bottom-0 h-28 w-36 -skew-x-12 bg-emerald-600" />
+        <div className="absolute left-20 bottom-0 h-28 w-5 -skew-x-12 bg-rose-500" />
+        <div className="relative h-full p-9 pt-14">{children}</div>
       </div>
     </div>
   );
 }
 
+function ImageBox({ label, className = '' }: { label: string; className?: string }) {
+  return (
+    <div className={`flex items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-100 text-slate-400 ${className}`}>
+      <div className="flex flex-col items-center gap-2 text-center text-xs font-semibold uppercase tracking-wide">
+        <ImageIcon className="h-7 w-7" />
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function TextLines({ lines = 4 }: { lines?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, index) => (
+        <div key={index} className={`h-2 rounded-full bg-slate-200 ${index === lines - 1 ? 'w-2/3' : 'w-full'}`} />
+      ))}
+    </div>
+  );
+}
+
+function Template01({ content }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="grid h-full grid-cols-[1.1fr_0.9fr] gap-7">
+        <ImageBox label="Large image" className="h-full" />
+        <div className="flex flex-col justify-center">
+          <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
+            <Badge className="h-3.5 w-3.5" />
+            Product announcement
+          </div>
+          <h3 className="text-3xl font-black leading-tight text-slate-950">{text(content, 'headline', 'Headline')}</h3>
+          <p className="mt-2 text-base text-slate-600">{text(content, 'subtitle', 'Subtitle')}</p>
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                <ListChecks className="mb-2 h-5 w-5 text-emerald-700" />
+                <div className="h-2 w-16 rounded-full bg-emerald-200" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template02({ content, lang }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="grid h-full grid-cols-2 gap-8">
+        <div className="flex flex-col justify-center pr-3">
+          <div className="mb-5 h-1.5 w-28 rounded-full bg-emerald-600" />
+          <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', t('newsCmsWireHeadline', lang))}</h3>
+          <p className="mt-3 text-lg font-semibold text-slate-600">{text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}</p>
+          <div className="mt-6 rounded-xl border-l-4 border-rose-500 bg-rose-50 p-4">
+            <Quote className="mb-2 h-5 w-5 text-rose-500" />
+            <p className="text-sm font-semibold text-slate-700">{text(content, 'quote', t('newsCmsWireQuote', lang))}</p>
+          </div>
+          <div className="mt-6">
+            <TextLines lines={5} />
+          </div>
+        </div>
+        <div className="grid h-full grid-rows-[1.25fr_0.75fr] gap-4">
+          <ImageBox label={t('newsCmsWireLargeImage', lang)} />
+          <div className="grid grid-cols-[0.9fr_1.1fr] gap-4">
+            <ImageBox label={t('newsCmsWireSmallImage', lang)} />
+            <div className="flex flex-col justify-center rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="mb-3 text-xs font-black uppercase tracking-wide text-emerald-700">{t('newsCmsWireImageText', lang)}</p>
+              <p className="text-sm leading-6 text-slate-600">{text(content, 'imageCaption', t('newsCmsWireCaption', lang))}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template03({ content }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="relative h-full overflow-hidden rounded-xl">
+        <ImageBox label="Full-width hero image" className="absolute inset-0 h-full border-none bg-slate-200" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
+        <div className="relative flex h-full max-w-lg flex-col justify-center text-white">
+          <h3 className="text-4xl font-black leading-tight">{text(content, 'headline', 'Hero headline')}</h3>
+          <p className="mt-4 text-lg">{text(content, 'subtitle', 'Short introduction')}</p>
+          <div className="mt-7 flex gap-3">
+            {[1, 2, 3].map((item) => <span key={item} className="h-12 w-28 rounded-lg bg-white/20" />)}
+          </div>
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template04({ content }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="grid h-full grid-cols-[0.9fr_1.1fr] gap-7">
+        <ImageBox label="Product image" className="h-full" />
+        <div className="flex flex-col justify-center">
+          <h3 className="text-3xl font-black text-slate-950">{text(content, 'headline', 'Technical feature')}</h3>
+          <p className="mt-2 text-slate-600">{text(content, 'subtitle', 'Machine function or equipment')}</p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((item) => <div key={item} className="h-20 rounded-lg bg-emerald-50 ring-1 ring-emerald-100" />)}
+          </div>
+          <div className="mt-5 rounded-xl bg-slate-100 p-4">
+            <TextLines lines={5} />
+          </div>
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template05({ content }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="grid h-full grid-cols-[1fr_1fr] gap-7">
+        <div className="flex flex-col justify-between">
+          <div>
+            <h3 className="text-4xl font-black leading-tight text-slate-950">{text(content, 'headline', 'Story headline')}</h3>
+            <p className="mt-4 text-base leading-7 text-slate-600">{text(content, 'body', 'Large body text for case, project or customer story.')}</p>
+          </div>
+          <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4 text-sm font-semibold text-slate-700">
+            {text(content, 'quote', 'Highlight quote')}
+          </div>
+        </div>
+        <div className="grid h-full grid-rows-[1.25fr_0.75fr] gap-4">
+          <ImageBox label="Large image" />
+          <ImageBox label="Secondary image" />
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template06({ content }: NewsRendererProps) {
+  return (
+    <TemplateShell>
+      <div className="flex h-full items-center justify-center">
+        <div className="grid w-full max-w-3xl grid-cols-2 gap-0 rounded-xl bg-slate-100 p-4 shadow-inner">
+          <div className="h-72 rounded-l-lg bg-white p-6 shadow-sm">
+            <Rows3 className="mb-4 h-7 w-7 text-emerald-700" />
+            <h3 className="text-2xl font-black text-slate-950">{text(content, 'headline', 'Flyer pages')}</h3>
+            <TextLines lines={6} />
+          </div>
+          <div className="h-72 rounded-r-lg bg-white p-6 shadow-sm">
+            <ImageBox label="Page preview" className="h-full" />
+          </div>
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+const RENDERERS: Record<NewsTemplateId, ComponentType<NewsRendererProps>> = {
+  'template-01-product-announcement': Template01,
+  'template-02-split-story': Template02,
+  'template-03-hero-news': Template03,
+  'template-04-technical-feature': Template04,
+  'template-05-story-layout': Template05,
+  'template-06-flyer': Template06,
+};
+
 const baseFields = [
   { key: 'headline', labelKey: 'newsCmsFieldHeadline', type: 'text', required: true, maxLength: 120 },
   { key: 'subtitle', labelKey: 'newsCmsFieldSubtitle', type: 'text', maxLength: 180 },
   { key: 'body', labelKey: 'newsCmsFieldBody', type: 'textarea' },
-] as const;
+] satisfies NewsTemplateDefinition['fields'];
 
 export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
   {
@@ -47,7 +214,7 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     orientation: 'a4-landscape',
     fields: [...baseFields, { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true }],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-01-product-announcement'],
   },
   {
     id: 'template-02-split-story',
@@ -56,9 +223,15 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate02Purpose',
     pageMode: 'single',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'quote', labelKey: 'newsCmsFieldQuote', type: 'textarea' }],
+    fields: [
+      ...baseFields,
+      { key: 'mainImage', labelKey: 'newsCmsFieldLargeImage', type: 'image', required: true },
+      { key: 'secondaryImage', labelKey: 'newsCmsFieldSmallImage', type: 'image' },
+      { key: 'imageCaption', labelKey: 'newsCmsFieldImageCaption', type: 'textarea' },
+      { key: 'quote', labelKey: 'newsCmsFieldQuote', type: 'textarea' },
+    ],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-02-split-story'],
   },
   {
     id: 'template-03-hero-news',
@@ -69,7 +242,7 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     orientation: 'a4-landscape',
     fields: [...baseFields, { key: 'heroImage', labelKey: 'newsCmsFieldHeroImage', type: 'image', required: true }],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-03-hero-news'],
   },
   {
     id: 'template-04-technical-feature',
@@ -80,7 +253,7 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     orientation: 'a4-landscape',
     fields: [...baseFields, { key: 'specifications', labelKey: 'newsCmsFieldSpecifications', type: 'textarea' }],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-04-technical-feature'],
   },
   {
     id: 'template-05-story-layout',
@@ -89,9 +262,9 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     purposeKey: 'newsCmsTemplate05Purpose',
     pageMode: 'single',
     orientation: 'a4-landscape',
-    fields: [...baseFields, { key: 'secondaryImage', labelKey: 'newsCmsFieldSecondaryImage', type: 'image' }],
+    fields: [...baseFields, { key: 'secondaryImage', labelKey: 'newsCmsFieldSecondaryImage', type: 'image' }, { key: 'quote', labelKey: 'newsCmsFieldQuote', type: 'textarea' }],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-05-story-layout'],
   },
   {
     id: 'template-06-flyer',
@@ -102,7 +275,7 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     orientation: 'a4-landscape',
     fields: [...baseFields, { key: 'pages', labelKey: 'newsCmsFieldPages', type: 'pages', required: true }],
     validate: placeholderValidate,
-    Renderer: PlaceholderTemplateRenderer,
+    Renderer: RENDERERS['template-06-flyer'],
   },
 ];
 
