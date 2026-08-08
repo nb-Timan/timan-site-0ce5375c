@@ -58,7 +58,36 @@ function TextLines({ lines = 4 }: { lines?: number }) {
   );
 }
 
-function Template01({ content, lang }: NewsRendererProps) {
+function CtaRow({ content, lang }: NewsRendererProps) {
+  const ctas = activeCtaLinks(content.ctaLinks);
+  if (ctas.length === 0) return null;
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3">
+      {ctas.map((cta, index) => {
+        const Icon = ctaTypeOption(cta.type).Icon;
+        const primary = index === 0;
+        return (
+          <a
+            key={index}
+            href={cta.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex max-w-[16rem] items-center gap-2 rounded-lg px-4 py-2 text-[0.8rem] font-bold leading-tight transition ${
+              primary
+                ? 'bg-[var(--timan-green)] text-white hover:opacity-90'
+                : 'border border-[var(--timan-green)] bg-white text-[var(--timan-green)] hover:bg-emerald-50'
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{cta.label}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+function Template01({ content, lang, mode }: NewsRendererProps) {
   const features = normalizeFeatureBlocks(content.features);
   return (
     <TemplateShell lang={lang}>
@@ -106,6 +135,7 @@ function Template01({ content, lang }: NewsRendererProps) {
               </div>
             ))}
           </div>
+          <CtaRow content={content} lang={lang} mode={mode} />
         </div>
       </div>
     </TemplateShell>
