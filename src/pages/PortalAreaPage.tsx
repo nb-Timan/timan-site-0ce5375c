@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, LucideIcon } from 'lucide-react';
+import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
@@ -12,7 +12,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canManageNewsContent, derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -124,6 +124,7 @@ export default function PortalAreaPage({ areaId }: Props) {
       if (!key) return true;
       return hasModuleAccess(portalRole, key, moduleOverride);
     });
+  const showCreateNewsCard = areaId === 'salg_marketing' && canManageNewsContent(effectiveUser);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -164,6 +165,15 @@ export default function PortalAreaPage({ areaId }: Props) {
               : null;
             return <ModuleCard key={m.id} module={m} language={uiLanguage} updateBadge={mUpdateBadge} />;
           })}
+          {showCreateNewsCard && (
+            <PlaceholderCard
+              title={t('newsCmsCreateCardTitle', uiLanguage)}
+              language={lang}
+              to="/portal/backend/news"
+              icon={Newspaper}
+              description={t('newsCmsCreateCardDesc', uiLanguage)}
+            />
+          )}
           {area.placeholders.map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;

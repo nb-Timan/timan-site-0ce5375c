@@ -62,6 +62,8 @@ const da: Dict = {
   // News CMS foundation
   newsCmsTitle: 'Nyheder',
   newsCmsSubtitle: 'Administrér faste nyhedsskabeloner, kladder og publicering til Seneste nyt.',
+  newsCmsCreateCardTitle: 'Opret nyhed',
+  newsCmsCreateCardDesc: 'Opret kladder, vælg skabelon og publicér nyheder til Seneste nyt.',
   newsCmsBackToBackend: 'Tilbage til Timan Backend',
   newsCmsReload: 'Genindlæs',
   newsCmsOverview: 'Nyhedsoversigt',
@@ -401,6 +403,8 @@ const en: Dict = {
   // News CMS foundation
   newsCmsTitle: 'News',
   newsCmsSubtitle: 'Manage fixed news templates, drafts and publishing for Latest news.',
+  newsCmsCreateCardTitle: 'Create news',
+  newsCmsCreateCardDesc: 'Create drafts, choose templates and publish news to Latest news.',
   newsCmsBackToBackend: 'Back to Timan Backend',
   newsCmsReload: 'Reload',
   newsCmsOverview: 'News overview',
