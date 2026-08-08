@@ -38,10 +38,12 @@ function TemplateShell({
   children,
   lang,
   logoAlign = 'right',
+  logoSize = 'default',
 }: {
   children: ReactNode;
   lang?: NewsRendererProps['lang'];
   logoAlign?: 'left' | 'right';
+  logoSize?: 'default' | 'sm';
 }) {
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
@@ -49,11 +51,12 @@ function TemplateShell({
         <img
           src={timanLogo}
           alt="TIMAN"
-          className={`pointer-events-none absolute top-7 z-20 h-32 w-auto max-w-[38%] select-none object-contain ${
-            logoAlign === 'left' ? 'left-8' : 'right-8'
-          }`}
+          className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
+            logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
+          } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
           draggable={false}
         />
+
 
         <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
         <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
@@ -318,11 +321,11 @@ function Template05({ content, lang }: NewsRendererProps) {
   const body = text(content, 'body', '');
   const quote = text(content, 'quote', '');
   return (
-    <TemplateShell lang={lang}>
+    <TemplateShell lang={lang} logoAlign="left" logoSize="sm">
       <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
         {/* Text column: fixed rows — header block, body zone, quote zone. */}
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_9rem] overflow-hidden">
-          <div className="min-w-0 pt-24">
+          <div className="min-w-0 pt-[7.5rem]">
             <h3 className="line-clamp-2 text-[2.1rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
               {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
             </h3>
@@ -349,7 +352,12 @@ function Template05({ content, lang }: NewsRendererProps) {
         </div>
         {/* Image column: fixed rows, never affected by text length. */}
         <div className="grid h-full min-w-0 grid-rows-[1.25fr_0.75fr] gap-4 overflow-hidden">
-          <TemplateImage url={text(content, 'mainImage', '')} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <div className="relative h-full min-h-0 min-w-0">
+            <TemplateImage url={text(content, 'mainImage', '')} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+            <span className="absolute right-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
+              {t('newsCmsBadgeNews', lang)}
+            </span>
+          </div>
           <TemplateImage url={text(content, 'secondaryImage', '')} label={t('newsCmsWireSecondaryImage', lang)} className="h-full" />
         </div>
       </div>
