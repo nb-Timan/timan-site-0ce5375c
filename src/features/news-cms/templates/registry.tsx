@@ -286,53 +286,64 @@ function Template04({ content, lang }: NewsRendererProps) {
         {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
         <div className="grid min-w-0 grid-rows-[10.5rem_minmax(0,1fr)]">
           <div aria-hidden />
-          <div className="flex min-h-0 min-w-0 flex-col">
-          <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
-            {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
-          </h3>
-          <p className="mt-1.5 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
-            {text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}
-          </p>
-          {body ? (
-            <p className="mt-2.5 max-w-prose whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
-              {body}
-            </p>
-          ) : null}
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {blocks.map((block, index) => (
-              <div key={index} className="flex min-w-0 items-start gap-2.5 rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-100">
-                <FeatureIconMark block={block} size="sm" />
-                <div className="min-w-0">
-                  <p className="text-[0.9rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
-                    {block.heading || t('newsCmsTechHeading', lang)}
-                  </p>
-                  {block.description ? (
-                    <p className="mt-0.5 text-[0.7rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
-                      {block.description}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {specs.length > 0 ? (
-            <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-100 p-3.5">
-              <p className="mb-2 text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-500">
-                {t('newsCmsSpecificationsTitle', lang)}
+          {/* Fixed rows: header · body box · 2x2 boxes · specs. None can grow. */}
+          <div className="grid min-h-0 min-w-0 grid-rows-[auto_6rem_auto_minmax(0,1fr)] overflow-hidden">
+            <div className="min-w-0 overflow-hidden">
+              <h3 className="line-clamp-2 text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+                {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
+              </h3>
+              <p className="mt-1.5 line-clamp-2 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+                {text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}
               </p>
-              <dl className="grid grid-cols-2 gap-x-5 gap-y-1">
-                {specs.map((row, index) => (
-                  <div key={index} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
-                    <dt className="min-w-0 text-[0.72rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
-                    <dd className="min-w-0 text-right text-[0.72rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
             </div>
-          ) : null}
+            <div className="mt-2.5 min-h-0 min-w-0 max-w-full overflow-hidden">
+              {body ? (
+                <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+                  {body}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 grid-rows-2 gap-3">
+              {blocks.map((block, index) => (
+                <div
+                  key={index}
+                  className="flex h-[4.6rem] min-w-0 items-start gap-2.5 overflow-hidden rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-100"
+                >
+                  <FeatureIconMark block={block} size="sm" />
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 text-[0.9rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
+                      {block.heading || t('newsCmsTechHeading', lang)}
+                    </p>
+                    {block.description ? (
+                      <p className="mt-0.5 line-clamp-2 text-[0.7rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+                        {block.description}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 min-h-0 min-w-0 overflow-hidden">
+              {specs.length > 0 ? (
+                <div className="h-full overflow-hidden rounded-xl bg-slate-100 p-3.5">
+                  <p className="mb-2 text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-500">
+                    {t('newsCmsSpecificationsTitle', lang)}
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-1">
+                    {specs.map((row, index) => (
+                      <div key={index} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
+                        <dt className="min-w-0 text-[0.72rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
+                        <dd className="min-w-0 text-right text-[0.72rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+            </div>
           </div>
+
         </div>
       </div>
     </TemplateShell>
