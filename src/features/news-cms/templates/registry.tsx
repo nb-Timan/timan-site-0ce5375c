@@ -352,7 +352,12 @@ function Template05({ content, lang }: NewsRendererProps) {
         </div>
         {/* Image column: fixed rows, never affected by text length. */}
         <div className="grid h-full min-w-0 grid-rows-[1.25fr_0.75fr] gap-4 overflow-hidden">
-          <TemplateImage url={text(content, 'mainImage', '')} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <div className="relative h-full min-h-0 min-w-0">
+            <TemplateImage url={text(content, 'mainImage', '')} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+            <span className="absolute right-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
+              {t('newsCmsBadgeNews', lang)}
+            </span>
+          </div>
           <TemplateImage url={text(content, 'secondaryImage', '')} label={t('newsCmsWireSecondaryImage', lang)} className="h-full" />
         </div>
       </div>
