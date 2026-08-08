@@ -305,7 +305,7 @@ function Template04({ content, lang }: NewsRendererProps) {
       <div className="grid h-full min-w-0 grid-cols-[0.9fr_1.1fr] gap-7">
         <TemplateImage url={productImage} label={t('newsCmsWireProductImage', lang)} className="h-full" />
         {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
-        <div className="grid min-w-0 grid-rows-[10.5rem_minmax(0,1fr)]">
+        <div className="grid min-h-0 min-w-0 grid-rows-[10.5rem_minmax(0,1fr)] overflow-hidden">
           <div aria-hidden />
           {/*
             Flex column: the body zone starts at a fixed minimum height (so the
