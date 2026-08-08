@@ -6,12 +6,16 @@ import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib
 import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
 import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
 import {
-  FLYER_BODY_MAX,
-  FLYER_HEADLINE_MAX,
-  FLYER_SUBTITLE_MAX,
+  activeFlyerLinks,
+
+  emptyFlyerPage,
+  filledFlyerSpecs,
   flyerPagesFromContent,
+  flyerTextLimits,
+  normalizeFlyerHighlights,
 } from '@/features/news-cms/lib/flyerPages';
-import type { NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+import type { NewsFlyerPage, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+
 
 function placeholderValidate(content: Record<string, unknown>) {
   const issues = ['headline'].flatMap((fieldKey) => {
@@ -76,12 +80,15 @@ function template06Validate(content: Record<string, unknown>) {
   const pages = flyerPagesFromContent(content);
   const issues: Array<{ fieldKey: string; messageKey: string }> = [];
   if (!pages[0]?.headline.trim()) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationRequired' });
-  const tooLong = pages.some(
-    (page) =>
-      page.headline.length > FLYER_HEADLINE_MAX ||
-      page.subtitle.length > FLYER_SUBTITLE_MAX ||
-      page.body.length > FLYER_BODY_MAX,
-  );
+  const tooLong = pages.some((page, index) => {
+    const limits = flyerTextLimits(index);
+    return (
+      page.headline.length > limits.headline ||
+      page.subtitle.length > limits.subtitle ||
+      page.body.length > limits.body
+    );
+  });
+
   if (tooLong) issues.push({ fieldKey: 'flyerPages', messageKey: 'newsCmsValidationTooLong' });
   return { valid: issues.length === 0, issues };
 }
@@ -130,30 +137,43 @@ function TemplateShell({
   logoAlign = 'right',
   logoSize = 'default',
   scaleToFit = false,
+  showLogo = true,
+  showDecor = true,
 }: {
   children: ReactNode;
   lang?: NewsRendererProps['lang'];
   logoAlign?: 'left' | 'right';
   logoSize?: 'default' | 'sm';
   scaleToFit?: boolean;
+  /** Pages that place the logo inside their own composition opt out. */
+  showLogo?: boolean;
+  /** Bottom-left green/red mark; pages that use that corner opt out. */
+  showDecor?: boolean;
 }) {
   const inner = (
     <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <img
-        src={timanLogo}
-        alt="TIMAN"
-        className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
-          logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
-        } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
-        draggable={false}
-      />
+      {showLogo && (
+        <img
+          src={timanLogo}
+          alt="TIMAN"
+          className={`pointer-events-none absolute top-7 z-20 w-auto max-w-[38%] select-none object-contain ${
+            logoSize === 'sm' ? 'h-[6.8rem]' : 'h-32'
+          } ${logoAlign === 'left' ? 'left-8' : 'right-8'}`}
+          draggable={false}
+        />
+      )}
 
 
-      <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
-      <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
+      {showDecor && (
+        <>
+          <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
+          <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
+        </>
+      )}
       <div className="relative h-full p-7">{children}</div>
     </div>
   );
+
   return (
     <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       {scaleToFit ? <ScaleToFit>{inner}</ScaleToFit> : inner}
@@ -536,16 +556,26 @@ function Template05({ content, lang }: NewsRendererProps) {
 
 
 /**
- * Template 06 – flyer. Fixed A4 landscape page rendering headline, subtitle
- * and body next to a full-height image. Text zones are fixed so no content
- * can push the image or the branding out of the page.
+ * Template 06 – flyer. Three distinct fixed A4 landscape compositions that
+ * share the Timan identity (logo, green, red accent, radius, type scale):
+ *   page 1 = hero / intro          (headline column beside a dominant image)
+ *   page 2 = product story         (wide hero band, editorial body, 3 highlights)
+ *   page 3 = specifications + CTA  (image beside a fact list, closing actions)
+ * All zones are fixed rows/columns with overflow hidden, so text can never
+ * push an image, resize the canvas or drop the CTA off the page.
  */
-function Template06({ content, lang, page = 1 }: NewsRendererProps) {
-  const pages = flyerPagesFromContent(content);
-  const index = Math.min(Math.max(page, 1), pages.length) - 1;
-  const current = pages[index] || { headline: '', subtitle: '', body: '', image: '' };
+function FlyerNewsBadge({ lang }: { lang: NewsRendererProps['lang'] }) {
   return (
-    <TemplateShell lang={lang} logoAlign="left" logoSize="sm">
+    <span className="absolute right-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
+      {t('newsCmsBadgeNews', lang)}
+    </span>
+  );
+}
+
+/** Page 1 – hero / intro. */
+function FlyerPage1({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+  return (
+    <TemplateShell lang={lang} logoAlign="left" logoSize="sm" scaleToFit>
       <div className="grid h-full min-w-0 grid-cols-[1.04fr_0.96fr] gap-8">
         {/* Text column: fixed rows — branding zone, header zone, body zone. */}
         <div className="grid min-w-0 grid-rows-[7.5rem_auto_minmax(0,1fr)] overflow-hidden">
@@ -553,16 +583,16 @@ function Template06({ content, lang, page = 1 }: NewsRendererProps) {
           <div className="min-w-0">
             <div className="mb-4 h-1.5 w-28 rounded-full bg-emerald-600" />
             <h3 className="line-clamp-3 text-[2.35rem] font-black leading-[1.08] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
-              {current.headline || t('newsCmsWireHeadline', lang)}
+              {page.headline || t('newsCmsWireHeadline', lang)}
             </h3>
             <p className="mt-3 line-clamp-2 text-xl font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
-              {current.subtitle || t('newsCmsWireSubtitle', lang)}
+              {page.subtitle || t('newsCmsWireSubtitle', lang)}
             </p>
           </div>
           <div className="mt-5 min-h-0 min-w-0 overflow-hidden border-t border-slate-200 pt-4">
-            {current.body ? (
+            {page.body ? (
               <p className="max-w-full whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
-                {current.body}
+                {page.body}
               </p>
             ) : (
               <TextLines lines={5} />
@@ -571,15 +601,172 @@ function Template06({ content, lang, page = 1 }: NewsRendererProps) {
         </div>
         {/* Image column: fixed, never affected by text length. */}
         <div className="relative h-full min-h-0 min-w-0">
-          <TemplateImage url={current.image} label={t('newsCmsWirePagePreview', lang)} className="h-full" />
-          <span className="absolute right-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
-            {t('newsCmsBadgeNews', lang)}
-          </span>
+          <TemplateImage url={page.image} label={t('newsCmsWirePagePreview', lang)} className="h-full" />
+          <FlyerNewsBadge lang={lang} />
         </div>
       </div>
     </TemplateShell>
   );
 }
+
+/**
+ * Page 2 – product story. Editorial composition: a wide hero band across the
+ * top, then a body column beside a small secondary image, closing with three
+ * fixed highlight cards.
+ */
+function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+  const highlights = normalizeFlyerHighlights(page.highlights);
+  return (
+    <TemplateShell lang={lang} scaleToFit showLogo={false} showDecor={false}>
+      <div className="grid h-full min-w-0 grid-rows-[2.6rem_minmax(0,1fr)_auto_minmax(0,1fr)_6.2rem] gap-4 overflow-hidden">
+        {/* Masthead: small logo, thin green rule. */}
+        <div className="flex min-w-0 items-center gap-4">
+          <img src={timanLogo} alt="TIMAN" className="h-9 w-auto shrink-0 object-contain" draggable={false} />
+          <span className="h-1 min-w-0 flex-1 rounded-full bg-emerald-600" />
+          <span className="h-1 w-6 shrink-0 rounded-full bg-rose-500" />
+        </div>
+
+        {/* Wide hero band. */}
+        <div className="relative min-h-0 min-w-0">
+          <TemplateImage url={page.image} label={t('newsCmsFlyerMainImage', lang)} className="h-full" />
+        </div>
+
+        {/* Header zone. */}
+        <div className="min-w-0">
+          <h3 className="line-clamp-2 text-[1.85rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            {page.headline || t('newsCmsWireHeadline', lang)}
+          </h3>
+          <p className="mt-1.5 line-clamp-1 text-base font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            {page.subtitle || t('newsCmsWireSubtitle', lang)}
+          </p>
+        </div>
+
+        {/* Body beside the smaller secondary image. */}
+        <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_13rem] gap-5 overflow-hidden">
+          <div className="min-h-0 min-w-0 overflow-hidden border-t border-slate-200 pt-3">
+            {page.body ? (
+              <p className="max-w-full whitespace-pre-line text-[0.86rem] font-normal leading-[1.55] text-slate-700 [overflow-wrap:anywhere]">
+                {page.body}
+              </p>
+            ) : (
+              <TextLines lines={4} />
+            )}
+          </div>
+          <TemplateImage url={page.secondaryImage} label={t('newsCmsFlyerSecondaryImage', lang)} className="h-full min-h-0" />
+        </div>
+
+        {/* Three fixed highlight cards. */}
+        <div className="grid min-w-0 grid-cols-3 gap-4 overflow-hidden">
+          {highlights.map((block, index) => (
+            <div key={index} className="flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <FeatureIconMark block={block} size="sm" />
+              <div className="min-w-0">
+                <p className="line-clamp-1 text-[0.8rem] font-bold leading-tight text-slate-900 [overflow-wrap:anywhere]">
+                  {block.heading || `${t('newsCmsFlyerHighlight', lang)} ${index + 1}`}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[0.72rem] font-normal leading-snug text-slate-600 [overflow-wrap:anywhere]">
+                  {block.description || t('newsCmsWireBody', lang)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
+/** Page 3 – specifications and closing call to action. */
+function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+  const specs = filledFlyerSpecs(page.specs);
+  const links = activeFlyerLinks(page.links);
+  return (
+    <TemplateShell lang={lang} scaleToFit showLogo={false} showDecor={false}>
+      <div className={`grid h-full min-w-0 gap-5 overflow-hidden ${links.length > 0 ? 'grid-rows-[auto_minmax(0,1fr)_4.4rem]' : 'grid-rows-[auto_minmax(0,1fr)]'}`}>
+        {/* Header: medium logo beside headline block. */}
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-6 border-b border-slate-200 pb-4">
+          <img src={timanLogo} alt="TIMAN" className="h-16 w-auto shrink-0 object-contain" draggable={false} />
+          <div className="min-w-0">
+            <h3 className="line-clamp-2 text-[1.7rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+              {page.headline || t('newsCmsWireHeadline', lang)}
+            </h3>
+            <p className="mt-1 line-clamp-1 text-[0.95rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+              {page.subtitle || t('newsCmsWireSubtitle', lang)}
+            </p>
+            <p className="mt-1.5 line-clamp-2 text-[0.82rem] font-normal leading-[1.5] text-slate-600 [overflow-wrap:anywhere]">
+              {page.body || t('newsCmsWireBody', lang)}
+            </p>
+          </div>
+        </div>
+
+        {/* Image beside the specification list. */}
+        <div className="grid min-h-0 min-w-0 grid-cols-[0.86fr_1.14fr] gap-7 overflow-hidden">
+          <div className="relative min-h-0 min-w-0">
+            <TemplateImage url={page.image} label={t('newsCmsFlyerMainImage', lang)} className="h-full" />
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+            <div className="mb-2 flex items-center gap-3">
+              <span className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-slate-500">
+                {t('newsCmsFlyerSpecTitle', lang)}
+              </span>
+              <span className="h-1 w-10 rounded-full bg-emerald-600" />
+            </div>
+            {specs.length > 0 ? (
+              <dl className="min-h-0 overflow-hidden">
+                {specs.map((row, index) => (
+                  <div
+                    key={index}
+                    className="flex items-baseline justify-between gap-4 border-b border-dotted border-slate-300 py-[0.52rem]"
+                  >
+                    <dt className="line-clamp-1 min-w-0 text-[0.85rem] font-medium text-slate-600 [overflow-wrap:anywhere]">{row.label}</dt>
+                    <dd className="line-clamp-1 shrink-0 text-[0.9rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <TextLines lines={6} />
+            )}
+          </div>
+        </div>
+
+        {/* Closing CTA — collapses completely when no link is configured. */}
+        {links.length > 0 && (
+          <div className="flex min-w-0 items-center gap-3 overflow-hidden border-t border-slate-200 pt-3">
+            {links.map((link, index) => (
+              <a
+                key={index}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex max-w-[18rem] items-center gap-2 rounded-lg px-5 py-2.5 text-[0.85rem] font-bold leading-tight transition ${
+                  index === 0
+                    ? 'bg-[var(--timan-green)] text-white'
+                    : 'border-2 border-[var(--timan-green)] bg-white text-emerald-700'
+                }`}
+              >
+                <span className="line-clamp-1 [overflow-wrap:anywhere]">{link.label}</span>
+              </a>
+            ))}
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              <span className="h-6 w-4 -skew-x-12 rounded-[2px] bg-emerald-600" />
+              <span className="h-6 w-1.5 -skew-x-12 rounded-[2px] bg-rose-500" />
+            </span>
+          </div>
+        )}
+      </div>
+    </TemplateShell>
+  );
+}
+
+function Template06({ content, lang, page = 1 }: NewsRendererProps) {
+  const pages = flyerPagesFromContent(content);
+  const index = Math.min(Math.max(page, 1), pages.length) - 1;
+  const current = pages[index] || emptyFlyerPage(index);
+  if (index === 1) return <FlyerPage2 page={current} lang={lang} />;
+  if (index === 2) return <FlyerPage3 page={current} lang={lang} />;
+  return <FlyerPage1 page={current} lang={lang} />;
+}
+
 
 const RENDERERS: Record<NewsTemplateId, ComponentType<NewsRendererProps>> = {
   'template-01-product-announcement': Template01,

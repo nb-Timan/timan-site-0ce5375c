@@ -1,0 +1,190 @@
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+
+type Dict = Record<string, string>;
+
+/**
+ * Template 06 – multi-page flyer. Page 1 is the hero/intro, page 2 the
+ * product story and page 3 the specification / call-to-action page, so each
+ * accordion exposes its own field set and needs its own labels.
+ */
+const da: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / forside',
+  newsCmsFlyerPage2Label: 'Produkthistorie',
+  newsCmsFlyerPage3Label: 'Specifikationer og handling',
+  newsCmsFlyerMainImage: 'Hovedbillede',
+  newsCmsFlyerSecondaryImage: 'Sekundært billede (valgfrit)',
+  newsCmsFlyerIntro: 'Introduktion',
+  newsCmsFlyerHighlight: 'Fremhævning',
+  newsCmsFlyerHighlightHeading: 'Overskrift',
+  newsCmsFlyerHighlightText: 'Tekst',
+  newsCmsFlyerSpecTitle: 'Specifikationer',
+  newsCmsFlyerSpecLabel: 'Betegnelse',
+  newsCmsFlyerSpecValue: 'Værdi',
+  newsCmsFlyerSpecRow: 'Specifikation',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Linktekst',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Linktekst gemmes pr. sprog. URL deles på tværs af sprog.',
+};
+
+const en: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / cover',
+  newsCmsFlyerPage2Label: 'Product story',
+  newsCmsFlyerPage3Label: 'Specifications and action',
+  newsCmsFlyerMainImage: 'Main image',
+  newsCmsFlyerSecondaryImage: 'Secondary image (optional)',
+  newsCmsFlyerIntro: 'Introduction',
+  newsCmsFlyerHighlight: 'Highlight',
+  newsCmsFlyerHighlightHeading: 'Heading',
+  newsCmsFlyerHighlightText: 'Text',
+  newsCmsFlyerSpecTitle: 'Specifications',
+  newsCmsFlyerSpecLabel: 'Label',
+  newsCmsFlyerSpecValue: 'Value',
+  newsCmsFlyerSpecRow: 'Specification',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Link text',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Link text is stored per language. URLs are shared across languages.',
+};
+
+const de: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / Titelseite',
+  newsCmsFlyerPage2Label: 'Produktgeschichte',
+  newsCmsFlyerPage3Label: 'Technische Daten und Aktion',
+  newsCmsFlyerMainImage: 'Hauptbild',
+  newsCmsFlyerSecondaryImage: 'Zweitbild (optional)',
+  newsCmsFlyerIntro: 'Einleitung',
+  newsCmsFlyerHighlight: 'Highlight',
+  newsCmsFlyerHighlightHeading: 'Überschrift',
+  newsCmsFlyerHighlightText: 'Text',
+  newsCmsFlyerSpecTitle: 'Technische Daten',
+  newsCmsFlyerSpecLabel: 'Bezeichnung',
+  newsCmsFlyerSpecValue: 'Wert',
+  newsCmsFlyerSpecRow: 'Technische Angabe',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Linktext',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Linktext wird pro Sprache gespeichert. URLs gelten für alle Sprachen.',
+};
+
+const it: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / copertina',
+  newsCmsFlyerPage2Label: 'Storia del prodotto',
+  newsCmsFlyerPage3Label: 'Specifiche e azione',
+  newsCmsFlyerMainImage: 'Immagine principale',
+  newsCmsFlyerSecondaryImage: 'Immagine secondaria (facoltativa)',
+  newsCmsFlyerIntro: 'Introduzione',
+  newsCmsFlyerHighlight: 'Punto chiave',
+  newsCmsFlyerHighlightHeading: 'Titolo',
+  newsCmsFlyerHighlightText: 'Testo',
+  newsCmsFlyerSpecTitle: 'Specifiche',
+  newsCmsFlyerSpecLabel: 'Voce',
+  newsCmsFlyerSpecValue: 'Valore',
+  newsCmsFlyerSpecRow: 'Specifica',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Testo del link',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Il testo del link è salvato per lingua. Gli URL sono condivisi.',
+};
+
+const hu: Dict = {
+  newsCmsFlyerPage1Label: 'Bevezető / címlap',
+  newsCmsFlyerPage2Label: 'Terméktörténet',
+  newsCmsFlyerPage3Label: 'Műszaki adatok és teendő',
+  newsCmsFlyerMainImage: 'Fő kép',
+  newsCmsFlyerSecondaryImage: 'Másodlagos kép (opcionális)',
+  newsCmsFlyerIntro: 'Bevezetés',
+  newsCmsFlyerHighlight: 'Kiemelés',
+  newsCmsFlyerHighlightHeading: 'Cím',
+  newsCmsFlyerHighlightText: 'Szöveg',
+  newsCmsFlyerSpecTitle: 'Műszaki adatok',
+  newsCmsFlyerSpecLabel: 'Megnevezés',
+  newsCmsFlyerSpecValue: 'Érték',
+  newsCmsFlyerSpecRow: 'Műszaki adat',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Link szövege',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'A link szövege nyelvenként tárolódik. Az URL minden nyelven közös.',
+};
+
+const sv: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / omslag',
+  newsCmsFlyerPage2Label: 'Produktberättelse',
+  newsCmsFlyerPage3Label: 'Specifikationer och åtgärd',
+  newsCmsFlyerMainImage: 'Huvudbild',
+  newsCmsFlyerSecondaryImage: 'Sekundär bild (valfri)',
+  newsCmsFlyerIntro: 'Introduktion',
+  newsCmsFlyerHighlight: 'Höjdpunkt',
+  newsCmsFlyerHighlightHeading: 'Rubrik',
+  newsCmsFlyerHighlightText: 'Text',
+  newsCmsFlyerSpecTitle: 'Specifikationer',
+  newsCmsFlyerSpecLabel: 'Beteckning',
+  newsCmsFlyerSpecValue: 'Värde',
+  newsCmsFlyerSpecRow: 'Specifikation',
+  newsCmsFlyerLink: 'Länk',
+  newsCmsFlyerLinkLabel: 'Länktext',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Länktext sparas per språk. URL delas mellan alla språk.',
+};
+
+const fr: Dict = {
+  newsCmsFlyerPage1Label: 'Intro / couverture',
+  newsCmsFlyerPage2Label: 'Histoire du produit',
+  newsCmsFlyerPage3Label: 'Caractéristiques et action',
+  newsCmsFlyerMainImage: 'Image principale',
+  newsCmsFlyerSecondaryImage: 'Image secondaire (facultative)',
+  newsCmsFlyerIntro: 'Introduction',
+  newsCmsFlyerHighlight: 'Point fort',
+  newsCmsFlyerHighlightHeading: 'Titre',
+  newsCmsFlyerHighlightText: 'Texte',
+  newsCmsFlyerSpecTitle: 'Caractéristiques',
+  newsCmsFlyerSpecLabel: 'Désignation',
+  newsCmsFlyerSpecValue: 'Valeur',
+  newsCmsFlyerSpecRow: 'Caractéristique',
+  newsCmsFlyerLink: 'Lien',
+  newsCmsFlyerLinkLabel: 'Texte du lien',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Le texte du lien est enregistré par langue. Les URL sont partagées.',
+};
+
+const pl: Dict = {
+  newsCmsFlyerPage1Label: 'Wstęp / okładka',
+  newsCmsFlyerPage2Label: 'Historia produktu',
+  newsCmsFlyerPage3Label: 'Specyfikacja i działanie',
+  newsCmsFlyerMainImage: 'Zdjęcie główne',
+  newsCmsFlyerSecondaryImage: 'Zdjęcie dodatkowe (opcjonalnie)',
+  newsCmsFlyerIntro: 'Wprowadzenie',
+  newsCmsFlyerHighlight: 'Wyróżnienie',
+  newsCmsFlyerHighlightHeading: 'Nagłówek',
+  newsCmsFlyerHighlightText: 'Tekst',
+  newsCmsFlyerSpecTitle: 'Specyfikacja',
+  newsCmsFlyerSpecLabel: 'Nazwa',
+  newsCmsFlyerSpecValue: 'Wartość',
+  newsCmsFlyerSpecRow: 'Parametr',
+  newsCmsFlyerLink: 'Link',
+  newsCmsFlyerLinkLabel: 'Tekst linku',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Tekst linku zapisywany jest osobno dla języka. Adresy URL są wspólne.',
+};
+
+const cs: Dict = {
+  newsCmsFlyerPage1Label: 'Úvod / titulní strana',
+  newsCmsFlyerPage2Label: 'Příběh produktu',
+  newsCmsFlyerPage3Label: 'Specifikace a akce',
+  newsCmsFlyerMainImage: 'Hlavní obrázek',
+  newsCmsFlyerSecondaryImage: 'Vedlejší obrázek (volitelné)',
+  newsCmsFlyerIntro: 'Úvod',
+  newsCmsFlyerHighlight: 'Zvýraznění',
+  newsCmsFlyerHighlightHeading: 'Nadpis',
+  newsCmsFlyerHighlightText: 'Text',
+  newsCmsFlyerSpecTitle: 'Specifikace',
+  newsCmsFlyerSpecLabel: 'Označení',
+  newsCmsFlyerSpecValue: 'Hodnota',
+  newsCmsFlyerSpecRow: 'Specifikace',
+  newsCmsFlyerLink: 'Odkaz',
+  newsCmsFlyerLinkLabel: 'Text odkazu',
+  newsCmsFlyerLinkUrl: 'URL',
+  newsCmsFlyerCtaHelp: 'Text odkazu se ukládá pro každý jazyk. URL jsou sdílené.',
+};
+
+export const NEWS_CMS_FLYER_PAGES_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };

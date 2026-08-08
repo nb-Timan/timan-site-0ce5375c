@@ -11,13 +11,28 @@ export type NewsTemplateId =
 
 export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks' | 'techBlocks' | 'specRows' | 'pageCount' | 'flyerPages';
 
-/** Template 06 flyer page. Text is per language, `image` is shared. */
+/** Template 06 flyer CTA link. `label` is per language, `url` is shared. */
+export interface NewsFlyerLink {
+  label: string;
+  url: string;
+}
+
+/**
+ * Template 06 flyer page. Text is per language; images, icons and URLs are
+ * shared. Each page index maps to its own layout, so page 2 uses
+ * `highlights` + `secondaryImage` and page 3 uses `specs` + `links`.
+ */
 export interface NewsFlyerPage {
   headline: string;
   subtitle: string;
   body: string;
   image: string;
+  secondaryImage: string;
+  highlights: NewsFeatureBlock[];
+  specs: NewsSpecRow[];
+  links: NewsFlyerLink[];
 }
+
 
 export type NewsCtaLinkType = 'website' | 'youtube' | 'pdf' | 'dealer' | 'external';
 
