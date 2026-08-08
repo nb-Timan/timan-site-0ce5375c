@@ -19,15 +19,15 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
 
 function TemplateShell({ children }: { children: ReactNode }) {
   return (
-    <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="aspect-[1.414/1] w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <div className="relative h-full overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="absolute left-5 top-4 z-10 text-sm font-black italic tracking-tight text-emerald-700">TIMAN</div>
-        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-rose-600">
+        <div className="absolute left-5 top-4 z-10 text-base font-black italic tracking-tight text-emerald-700">TIMAN</div>
+        <div className="absolute right-5 top-4 z-10 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-rose-600">
           NEWS
         </div>
-        <div className="absolute -left-12 bottom-0 h-28 w-36 -skew-x-12 bg-emerald-600" />
-        <div className="absolute left-20 bottom-0 h-28 w-5 -skew-x-12 bg-rose-500" />
-        <div className="relative h-full p-9 pt-14">{children}</div>
+        <div className="absolute -left-12 bottom-0 h-32 w-40 -skew-x-12 bg-emerald-600" />
+        <div className="absolute left-24 bottom-0 h-32 w-6 -skew-x-12 bg-rose-500" />
+        <div className="relative h-full p-7 pt-14">{children}</div>
       </div>
     </div>
   );
