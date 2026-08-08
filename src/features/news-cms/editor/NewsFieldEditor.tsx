@@ -54,6 +54,11 @@ export default function NewsFieldEditor({ lang, field, value, onChange }: Props)
           placeholder={field.type === 'image' || field.type === 'file' ? t('newsCmsStoragePlaceholder', lang) : undefined}
         />
       )}
+      {field.maxLength ? (
+        <p className="mt-1 text-right text-xs tabular-nums text-slate-400">
+          {stringValue.length}/{field.maxLength}
+        </p>
+      ) : null}
       {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
     </label>
   );
