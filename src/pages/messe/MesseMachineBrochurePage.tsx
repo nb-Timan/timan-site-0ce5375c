@@ -54,7 +54,84 @@ type TechnicalSection = {
   rows: Array<{ label: Localized; value: Localized }>;
 };
 
-const text = (da: string, en = da, de = en, it = en, hu = en): Localized => ({ da, en, de, it, hu });
+const AUTO_TRANSLATIONS: Partial<Record<string, Partial<Localized>>> = {
+  'Tekniske specifikationer': { de: 'Technische Daten', it: 'Specifiche tecniche', hu: 'Muszaki adatok' },
+  'Dimensioner': { de: 'Abmessungen', it: 'Dimensioni', hu: 'Meretek' },
+  'Ekstraudstyr': { de: 'Sonderausstattung', it: 'Accessori opzionali', hu: 'Opcionalis felszereles' },
+  'Dimensioner med slagleklipper': { de: 'Abmessungen mit Schlegelmaher', it: 'Dimensioni con trincia', hu: 'Meretek szarzuzoval' },
+  'Hydraulik og el': { de: 'Hydraulik und Elektrik', it: 'Idraulica ed elettrico', hu: 'Hidraulika es elektromossag' },
+  'Lydniveau': { de: 'Gerauschpegel', it: 'Livello sonoro', hu: 'Zajszint' },
+  'Motor - Briggs & Stratton': { de: 'Motor - Briggs & Stratton', it: 'Motore - Briggs & Stratton', hu: 'Motor - Briggs & Stratton' },
+  'Motor - Vanguard': { de: 'Motor - Vanguard', it: 'Motore - Vanguard', hu: 'Motor - Vanguard' },
+  'Motor': { de: 'Motor', it: 'Motore', hu: 'Motor' },
+  'Transmission til larvebånd': { de: 'Raupenantrieb', it: 'Trasmissione cingoli', hu: 'Lanctalpas hajtas' },
+  'Transmission til slagleklipper': { de: 'Antrieb Schlegelmaher', it: 'Trasmissione trincia', hu: 'Szarzuzo hajtasa' },
+  'Antal Y-slagler': { de: 'Anzahl Y-Schlegel', it: 'Numero di coltelli a Y', hu: 'Y-kesek szama' },
+  'Maks. arbejdshældning i alle retninger': { de: 'Max. Arbeitsneigung in alle Richtungen', it: 'Pendenza max. di lavoro in tutte le direzioni', hu: 'Max. munkadoles minden iranyban' },
+  'Maks. arbejdshastighed': { de: 'Max. Arbeitsgeschwindigkeit', it: 'Velocita max. di lavoro', hu: 'Max. munkasebesseg' },
+  'Maks. betjeningsafstand': { de: 'Max. Bedienabstand', it: 'Distanza max. di comando', hu: 'Max. kezeloi tavolsag' },
+  'Venderadius': { de: 'Wenderadius', it: 'Raggio di sterzata', hu: 'Fordulasi sugar' },
+  'Brændstofforbrug': { de: 'Kraftstoffverbrauch', it: 'Consumo carburante', hu: 'Uzemanyag-fogyasztas' },
+  'Teoretisk maks. output': { de: 'Theoretische max. Leistung', it: 'Resa teorica max.', hu: 'Elmeleti max. teljesitmeny' },
+  'Teoretisk maks. output med slagleklipper': { de: 'Theoretische max. Leistung mit Schlegelmaher', it: 'Resa teorica max. con trincia', hu: 'Elmeleti max. teljesitmeny szarzuzoval' },
+  'Vægt': { de: 'Gewicht', it: 'Peso', hu: 'Tomeg' },
+  'Total vægt': { de: 'Gesamtgewicht', it: 'Peso totale', hu: 'Ossztomeg' },
+  'Total længde': { de: 'Gesamtlange', it: 'Lunghezza totale', hu: 'Teljes hossz' },
+  'Total bredde': { de: 'Gesamtbreite', it: 'Larghezza totale', hu: 'Teljes szelesseg' },
+  'Total højde': { de: 'Gesamthohe', it: 'Altezza totale', hu: 'Teljes magassag' },
+  'Klippebredde': { de: 'Schnittbreite', it: 'Larghezza di taglio', hu: 'Vagasi szelesseg' },
+  'Klippehøjde': { de: 'Schnitthohe', it: 'Altezza di taglio', hu: 'Vagasi magassag' },
+  'Spikes på bælter': { de: 'Spikes auf Raupen', it: 'Spikes sui cingoli', hu: 'Tuskek a lanctalpakon' },
+  'Blitzlys': { de: 'Blitzlicht', it: 'Lampeggiante', hu: 'Villogofeny' },
+  'L-slagler': { de: 'L-Schlegel', it: 'Coltelli a L', hu: 'L-kesek' },
+  'Lader': { de: 'Ladegerat', it: 'Caricabatterie', hu: 'Tolto' },
+  'Hk / kW': { de: 'PS / kW', it: 'CV / kW', hu: 'LE / kW' },
+  'Benzintank': { de: 'Kraftstofftank', it: 'Serbatoio benzina', hu: 'Benzintartaly' },
+  'Antal cylindere': { de: 'Anzahl Zylinder', it: 'Numero cilindri', hu: 'Hengerek szama' },
+  'Slagvolumen': { de: 'Hubraum', it: 'Cilindrata', hu: 'Hengerurtartalom' },
+  'Kølesystem': { de: 'Kuhlsystem', it: 'Sistema di raffreddamento', hu: 'Hutorendszer' },
+  'Hastighed': { de: 'Geschwindigkeit', it: 'Velocita', hu: 'Sebesseg' },
+  'Hjulmotorer': { de: 'Radmotoren', it: 'Motori ruota', hu: 'Kerekmotorok' },
+  'Kapacitet udtag front': { de: 'Leistung Frontausgang', it: 'Portata uscita anteriore', hu: 'Elso kiadas teljesitmenye' },
+  'Kapacitet udtag bag': { de: 'Leistung Heckausgang', it: 'Portata uscita posteriore', hu: 'Hatso kiadas teljesitmenye' },
+  'Olieudtag front': { de: 'Olanschluss vorne', it: 'Uscita olio anteriore', hu: 'Elso olajcsatlakozo' },
+  'Olieudtag bag': { de: 'Olanschluss hinten', it: 'Uscita olio posteriore', hu: 'Hatso olajcsatlakozo' },
+  'Arbejdshydraulik': { de: 'Arbeitshydraulik', it: 'Idraulica di lavoro', hu: 'Munkahidraulika' },
+  'Liftarm': { de: 'Hubarm', it: 'Braccio di sollevamento', hu: 'Emelokar' },
+  'Løftekapacitet': { de: 'Hubkraft', it: 'Capacita di sollevamento', hu: 'Emelesi kapacitas' },
+  'Elsystem': { de: 'Elektrik', it: 'Impianto elettrico', hu: 'Elektromos rendszer' },
+  'Generator': { de: 'Generator', it: 'Alternatore', hu: 'Generator' },
+  'Køre- og arbejdslys frem': { de: 'Fahr- und Arbeitslicht vorn', it: 'Luci anteriori guida/lavoro', hu: 'Elso menet- es munkafeny' },
+  'Arbejdslys bag': { de: 'Arbeitslicht hinten', it: 'Luce lavoro posteriore', hu: 'Hatso munkafeny' },
+  'Rotorblink': { de: 'Rundumleuchte', it: 'Girofaro', hu: 'Forgovillogo' },
+  '13-polet trailerstik': { de: '13-poliger Anhangerstecker', it: 'Presa rimorchio 13 poli', hu: '13 polusu potkocsi csatlakozo' },
+  'Radio med Bluetooth': { de: 'Radio mit Bluetooth', it: 'Radio con Bluetooth', hu: 'Bluetooth radio' },
+  'Køreklar vægt': { de: 'Betriebsgewicht', it: 'Peso operativo', hu: 'Uzemkesz tomeg' },
+  'Længde': { de: 'Lange', it: 'Lunghezza', hu: 'Hossz' },
+  'Bredde': { de: 'Breite', it: 'Larghezza', hu: 'Szelesseg' },
+  'Højde': { de: 'Hohe', it: 'Altezza', hu: 'Magassag' },
+  'Indstigningshøjde': { de: 'Einstiegshohe', it: 'Altezza accesso', hu: 'Beszallasi magassag' },
+  'Venderadius (indv.)': { de: 'Wenderadius (innen)', it: 'Raggio di sterzata (interno)', hu: 'Fordulasi sugar (belso)' },
+  'Venderadius (udv.)': { de: 'Wenderadius (aussen)', it: 'Raggio di sterzata (esterno)', hu: 'Fordulasi sugar (kulso)' },
+  'Aircondition': { de: 'Klimaanlage', it: 'Aria condizionata', hu: 'Legkondicionalo' },
+  'Skyderuder i højre og venstre side': { de: 'Schiebefenster rechts und links', it: 'Finestrini scorrevoli destra/sinistra', hu: 'Tolhato ablak jobb es bal oldalon' },
+  'Luftsæde': { de: 'Luftsitz', it: 'Sedile pneumatico', hu: 'Legrugos ules' },
+  'Tilvalg': { de: 'Optional', it: 'Opzionale', hu: 'Opcionalis' },
+  'Hydraulisk': { de: 'Hydraulisch', it: 'Idraulica', hu: 'Hidraulikus' },
+  'Mekanisk': { de: 'Mechanisch', it: 'Meccanica', hu: 'Mechanikus' },
+  'Standard': { de: 'Standard', it: 'Standard', hu: 'Standard' },
+};
+
+function text(da: string, en = da, de?: string, it?: string, hu?: string): Localized {
+  const auto = AUTO_TRANSLATIONS[da] || {};
+  return {
+    da,
+    en,
+    de: de ?? auto.de ?? en,
+    it: it ?? auto.it ?? en,
+    hu: hu ?? auto.hu ?? en,
+  };
+}
 
 const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
   'rc-751': {
@@ -129,25 +206,25 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
     attachmentCount: '9',
     highlights: [
       {
-        da: 'Klarer skråninger op til 50 grader.',
-        en: 'Handles slopes up to 50 degrees.',
-        de: 'Bewaltigt Hange bis 50 Grad.',
-        it: 'Gestisce pendenze fino a 50 gradi.',
-        hu: 'Akár 50 fokos lejtoket is kezel.',
+        da: 'Større kapacitet til krævende terræn, krat og grovere grønne opgaver.',
+        en: 'More capacity for demanding terrain, scrub and heavier green maintenance.',
+        de: 'Mehr Kapazitat fur anspruchsvolles Gelande, Gestrupp und grobere Grunpflege.',
+        it: 'Maggiore capacita per terreni difficili, arbusti e manutenzione verde impegnativa.',
+        hu: 'Nagyobb kapacitas nehez terepre, bozotoshoz es komolyabb zoldterulet-munkahoz.',
       },
       {
-        da: 'Avanceret stabilitetssystem og fjernstyring.',
-        en: 'Advanced stability system and remote control.',
-        de: 'Fortschrittliches Stabilitatssystem und Fernsteuerung.',
-        it: 'Sistema di stabilita avanzato e radiocomando.',
-        hu: 'Fejlett stabilitasi rendszer es taviranyitas.',
+        da: 'Hydraulisk redskabsdrift gør maskinen fleksibel på tværs af sæsoner.',
+        en: 'Hydraulic attachment drive makes the machine flexible across seasons.',
+        de: 'Der hydraulische Gerateantrieb macht die Maschine saisonubergreifend flexibel.',
+        it: 'L azionamento idraulico degli accessori rende la macchina flessibile in ogni stagione.',
+        hu: 'A hidraulikus adapterhajtas evszakokon at rugalmas hasznalatot ad.',
       },
       {
-        da: 'Hurtigt redskabsskifte til mange sæsonopgaver.',
-        en: 'Quick attachment changes for many seasonal tasks.',
-        de: 'Schneller Geratewechsel fur viele saisonale Aufgaben.',
-        it: 'Cambio rapido degli accessori per molti lavori stagionali.',
-        hu: 'Gyors adaptercsere sok szezonalis feladathoz.',
+        da: 'Fjernbetjeningen lader operatøren arbejde på afstand fra støv, sten og stejle områder.',
+        en: 'Remote operation keeps the operator away from dust, stones and steep areas.',
+        de: 'Die Fernbedienung halt den Bediener von Staub, Steinen und steilen Bereichen fern.',
+        it: 'Il radiocomando mantiene l operatore lontano da polvere, pietre e zone ripide.',
+        hu: 'A taviranyitas tavol tartja a kezelot a portol, kovektol es meredek reszektol.',
       },
     ],
     specs: [
@@ -245,34 +322,52 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
 
 const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
   'rc-751': [
-    text(
-      'RC-751 er velegnet til skråninger, grøftekanter og smalle områder, hvor operatøren skal stå sikkert væk fra arbejdet.',
-      'RC-751 is suited for slopes, ditches and narrow areas where the operator should work at a safe distance.',
-    ),
-    text(
-      'Den lave vægt og kompakte størrelse gør maskinen nem at transportere og bruge på steder, hvor almindelige maskiner bliver for store.',
-      'The low weight and compact size make it easy to transport and use where ordinary machines become too large.',
-    ),
+    {
+      da: 'RC-751 er velegnet til skråninger, grøftekanter og smalle områder, hvor operatøren skal stå sikkert væk fra arbejdet.',
+      en: 'RC-751 is suited for slopes, ditches and narrow areas where the operator should work at a safe distance.',
+      de: 'RC-751 eignet sich fur Hange, Grabenrander und enge Bereiche, in denen der Bediener sicher auf Abstand bleiben soll.',
+      it: 'RC-751 e adatta a pendii, fossi e aree strette in cui l operatore deve lavorare a distanza sicura.',
+      hu: 'Az RC-751 lejtokhoz, arkokhoz es szuk teruletekhez valo, ahol a kezelo biztonsagos tavolsagbol dolgozhat.',
+    },
+    {
+      da: 'Den lave vægt og kompakte størrelse gør maskinen nem at transportere og bruge på steder, hvor almindelige maskiner bliver for store.',
+      en: 'The low weight and compact size make it easy to transport and use where ordinary machines become too large.',
+      de: 'Das geringe Gewicht und die kompakte Bauweise erleichtern Transport und Einsatz an Orten, wo normale Maschinen zu gross werden.',
+      it: 'Il peso ridotto e le dimensioni compatte la rendono facile da trasportare e usare dove le macchine ordinarie sono troppo grandi.',
+      hu: 'A kis tomeg es kompakt meret miatt konnyen szallithato es ott is hasznalhato, ahol a hagyomanyos gepek tul nagyok.',
+    },
   ],
   'rc-1000s': [
-    text(
-      'RC-1000s er den større fjernstyrede platform til opgaver, hvor der er brug for mere kapacitet, større klippebredde og flere redskabsmuligheder.',
-      'RC-1000s is the larger remote-controlled platform for jobs that require more capacity, wider cutting and more attachment options.',
-    ),
-    text(
-      'Maskinen kan bruges til både grøn vedligeholdelse og vintertjeneste, og redskabsskiftet gør den fleksibel gennem hele året.',
-      'The machine can be used for both green maintenance and winter service, and quick attachment changes make it flexible all year.',
-    ),
+    {
+      da: 'RC-1000s er den større fjernstyrede platform til opgaver, hvor der er brug for mere kapacitet, større klippebredde og flere redskabsmuligheder.',
+      en: 'RC-1000s is the larger remote-controlled platform for jobs that require more capacity, wider cutting and more attachment options.',
+      de: 'RC-1000s ist die grossere ferngesteuerte Plattform fur Aufgaben mit mehr Kapazitat, grosserer Arbeitsbreite und mehreren Anbaugeraten.',
+      it: 'RC-1000s e la piattaforma radiocomandata piu grande per lavori che richiedono piu capacita, maggiore larghezza di taglio e piu accessori.',
+      hu: 'Az RC-1000s nagyobb taviranyitasu platform nagyobb kapacitashoz, szelesebb vagashoz es tobb adapterhez.',
+    },
+    {
+      da: 'Maskinen kan bruges til både grøn vedligeholdelse og vintertjeneste, og redskabsskiftet gør den fleksibel gennem hele året.',
+      en: 'The machine can be used for both green maintenance and winter service, and quick attachment changes make it flexible all year.',
+      de: 'Die Maschine kann fur Grunpflege und Winterdienst eingesetzt werden; der schnelle Geratewechsel macht sie ganzjahrig flexibel.',
+      it: 'La macchina puo essere usata per manutenzione verde e servizio invernale; il cambio rapido degli accessori la rende flessibile tutto l anno.',
+      hu: 'A gep zoldterulet-karbantartasra es teli munkara is hasznalhato; a gyors adaptercsere egesz evben rugalmassa teszi.',
+    },
   ],
   'timan-3330': [
-    text(
-      'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.',
-      'Timan 3330 is built for year-round operation where one machine handles sweeping, green care, winter service and transport in compact urban areas.',
-    ),
-    text(
-      'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.',
-      'The cab, compact design and quick attachment changes make it well suited for daily operation where comfort and efficiency matter.',
-    ),
+    {
+      da: 'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.',
+      en: 'Timan 3330 is built for year-round operation where one machine handles sweeping, green care, winter service and transport in compact urban areas.',
+      de: 'Timan 3330 ist fur den Ganzjahreseinsatz gebaut, bei dem eine Maschine Kehren, Grunpflege, Winterdienst und Transport in engen Stadtbereichen ubernimmt.',
+      it: 'Timan 3330 e costruita per il lavoro tutto l anno, dove una sola macchina gestisce spazzamento, verde, inverno e trasporto in aree urbane strette.',
+      hu: 'A Timan 3330 egesz eves uzemre keszult, ahol egy gep seprest, zoldteruletet, teli munkat es szallitast vegez szuk varosi kornyezetben.',
+    },
+    {
+      da: 'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.',
+      en: 'The cab, compact design and quick attachment changes make it well suited for daily operation where comfort and efficiency matter.',
+      de: 'Kabine, kompakte Bauweise und schneller Geratewechsel machen die Maschine ideal fur den Alltag, wenn Komfort und Effizienz wichtig sind.',
+      it: 'La cabina, il design compatto e il cambio rapido degli accessori la rendono adatta al lavoro quotidiano dove comfort ed efficienza contano.',
+      hu: 'A fulke, a kompakt kialakitas es a gyors adaptercsere alkalmassa teszi mindennapi munkara, ahol a kenyelem es hatekonysag fontos.',
+    },
   ],
 };
 
@@ -488,27 +583,29 @@ export default function MesseMachineBrochurePage({
               <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">{tr(content.intro, lang)}</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              {content.attachmentCount && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                  <Wrench className="mb-4 h-6 w-6 text-emerald-700" />
-                  <div className="text-3xl font-black text-emerald-800">{content.attachmentCount}</div>
-                  <div className="mt-1 text-sm font-semibold text-emerald-900">
-                    {tr(content.attachmentLabel || T.tools, lang)}
+            {machineKey !== 'rc-1000s' && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {content.attachmentCount && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                    <Wrench className="mb-4 h-6 w-6 text-emerald-700" />
+                    <div className="text-3xl font-black text-emerald-800">{content.attachmentCount}</div>
+                    <div className="mt-1 text-sm font-semibold text-emerald-900">
+                      {tr(content.attachmentLabel || T.tools, lang)}
+                    </div>
                   </div>
-                </div>
-              )}
-              {content.highlights.slice(0, content.attachmentCount ? 2 : 3).map((item, index) => (
-                <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  {index === 0 ? (
-                    <Gauge className="mb-4 h-6 w-6 text-slate-700" />
-                  ) : (
-                    <Settings className="mb-4 h-6 w-6 text-slate-700" />
-                  )}
-                  <p className="text-sm font-semibold leading-6 text-slate-800">{tr(item, lang)}</p>
-                </div>
-              ))}
-            </div>
+                )}
+                {content.highlights.slice(0, content.attachmentCount ? 2 : 3).map((item, index) => (
+                  <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    {index === 0 ? (
+                      <Gauge className="mb-4 h-6 w-6 text-slate-700" />
+                    ) : (
+                      <Settings className="mb-4 h-6 w-6 text-slate-700" />
+                    )}
+                    <p className="text-sm font-semibold leading-6 text-slate-800">{tr(item, lang)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {machineKey === 'rc-1000s' && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -632,24 +729,24 @@ export default function MesseMachineBrochurePage({
         onClose={() => setDataOpen(false)}
         title={`${title} - ${T.technicalSheet[lang]}`}
         closeLabel={T.close[lang]}
-        widthClass="max-w-4xl"
+        widthClass="max-w-5xl"
       >
-        <div className="max-h-[72vh] space-y-6 overflow-y-auto pr-1">
+        <div className="max-h-[72vh] space-y-5 overflow-y-auto pr-2">
           {technicalSections.map((section) => (
-            <section key={tr(section.title, lang)}>
+            <section key={tr(section.title, lang)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500">
                 {tr(section.title, lang)}
               </h3>
-              <dl className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <dl className="overflow-hidden rounded-xl border border-slate-200">
                 {section.rows.map((row, index) => (
                   <div
                     key={`${tr(row.label, lang)}-${index}`}
-                    className={`grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-2.5 text-sm ${
-                      index % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100'
+                    className={`grid grid-cols-[minmax(0,1fr)_minmax(150px,auto)] items-start gap-6 px-5 py-3 text-sm ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                     }`}
                   >
-                    <dt className="text-slate-700">{tr(row.label, lang)}</dt>
-                    <dd className="max-w-[45%] text-right font-bold text-slate-950">{tr(row.value, lang)}</dd>
+                    <dt className="leading-5 text-slate-700">{tr(row.label, lang)}</dt>
+                    <dd className="text-right font-bold leading-5 text-slate-950">{tr(row.value, lang)}</dd>
                   </div>
                 ))}
               </dl>
