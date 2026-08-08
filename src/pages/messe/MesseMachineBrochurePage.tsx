@@ -8,6 +8,7 @@ import {
   Gauge,
   ListChecks,
   Settings,
+  ShieldCheck,
   Wrench,
 } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
@@ -24,7 +25,6 @@ const T: Record<string, Localized> = {
   brochure: { da: 'Brochure', en: 'Brochure', de: 'Broschure', it: 'Brochure', hu: 'Brosura' },
   documents: { da: 'Dokumenter', en: 'Documents', de: 'Dokumente', it: 'Documenti', hu: 'Dokumentumok' },
   technicalSheet: { da: 'Teknisk datablad', en: 'Technical data sheet', de: 'Technisches Datenblatt', it: 'Scheda tecnica', hu: 'Muszaki adatlap' },
-  pdfDataSheet: { da: 'PDF-datablad (DA)', en: 'PDF data sheet (DA)', de: 'PDF-Datenblatt (DA)', it: 'Scheda PDF (DA)', hu: 'PDF adatlap (DA)' },
   openBrochure: { da: 'Åbn brochure', en: 'Open brochure', de: 'Broschure offnen', it: 'Apri brochure', hu: 'Brosura megnyitasa' },
   openData: { da: 'Se tekniske data', en: 'View technical data', de: 'Technische Daten ansehen', it: 'Vedi dati tecnici', hu: 'Muszaki adatok megtekintese' },
   openNew: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF offnen', it: 'Apri PDF', hu: 'PDF megnyitasa' },
@@ -35,6 +35,7 @@ const T: Record<string, Localized> = {
   keyPoints: { da: 'Styrker', en: 'Strengths', de: 'Starken', it: 'Punti forti', hu: 'Erossegek' },
   specs: { da: 'Tekniske data', en: 'Technical data', de: 'Technische Daten', it: 'Dati tecnici', hu: 'Muszaki adatok' },
   tools: { da: 'Redskaber', en: 'Attachments', de: 'Anbaugerate', it: 'Accessori', hu: 'Adapterek' },
+  moreAbout: { da: 'Mere om maskinen', en: 'More about the machine', de: 'Mehr zur Maschine', it: 'Maggiori informazioni', hu: 'Tovabbi informacio' },
 };
 
 interface MachineContent {
@@ -47,6 +48,13 @@ interface MachineContent {
   attachments?: Localized[];
   dataPdfSrc: string;
 }
+
+type TechnicalSection = {
+  title: Localized;
+  rows: Array<{ label: Localized; value: Localized }>;
+};
+
+const text = (da: string, en = da, de = en, it = en, hu = en): Localized => ({ da, en, de, it, hu });
 
 const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
   'rc-751': {
@@ -227,6 +235,180 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
   },
 };
 
+const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
+  'rc-751': [
+    text(
+      'RC-751 er velegnet til skråninger, grøftekanter og smalle områder, hvor operatøren skal stå sikkert væk fra arbejdet.',
+      'RC-751 is suited for slopes, ditches and narrow areas where the operator should work at a safe distance.',
+    ),
+    text(
+      'Den lave vægt og kompakte størrelse gør maskinen nem at transportere og bruge på steder, hvor almindelige maskiner bliver for store.',
+      'The low weight and compact size make it easy to transport and use where ordinary machines become too large.',
+    ),
+  ],
+  'rc-1000s': [
+    text(
+      'RC-1000s er den større fjernstyrede platform til opgaver, hvor der er brug for mere kapacitet, større klippebredde og flere redskabsmuligheder.',
+      'RC-1000s is the larger remote-controlled platform for jobs that require more capacity, wider cutting and more attachment options.',
+    ),
+    text(
+      'Maskinen kan bruges til både grøn vedligeholdelse og vintertjeneste, og redskabsskiftet gør den fleksibel gennem hele året.',
+      'The machine can be used for both green maintenance and winter service, and quick attachment changes make it flexible all year.',
+    ),
+  ],
+  'timan-3330': [
+    text(
+      'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.',
+      'Timan 3330 is built for year-round operation where one machine handles sweeping, green care, winter service and transport in compact urban areas.',
+    ),
+    text(
+      'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.',
+      'The cab, compact design and quick attachment changes make it well suited for daily operation where comfort and efficiency matter.',
+    ),
+  ],
+};
+
+const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
+  'rc-751': [
+    {
+      title: text('Tekniske specifikationer', 'Technical specifications'),
+      rows: [
+        { label: text('Motor - Briggs & Stratton', 'Engine - Briggs & Stratton'), value: text('14 HK', '14 HP') },
+        { label: text('Transmission til larvebånd', 'Track transmission'), value: text('Hydraulisk', 'Hydraulic') },
+        { label: text('Transmission til slagleklipper', 'Flail mower transmission'), value: text('Mekanisk', 'Mechanical') },
+        { label: text('Antal Y-slagler', 'Number of Y-flails'), value: text('16 sæt = 32 stk.', '16 sets = 32 pcs.') },
+        { label: text('Maks. arbejdshældning i alle retninger', 'Max. working slope in all directions'), value: text('50 grader', '50 degrees') },
+        { label: text('Maks. arbejdshastighed', 'Max. working speed'), value: text('6 km/t', '6 km/h') },
+        { label: text('Maks. betjeningsafstand', 'Max. operating distance'), value: text('120 m') },
+        { label: text('Venderadius', 'Turning radius'), value: text('0 mm') },
+        { label: text('Brændstofforbrug', 'Fuel consumption'), value: text('Maks. 3 l/t', 'Max. 3 l/h') },
+        { label: text('Teoretisk maks. output', 'Theoretical max. output'), value: text('4.500 m2/t', '4,500 m2/h') },
+      ],
+    },
+    {
+      title: text('Dimensioner', 'Dimensions'),
+      rows: [
+        { label: text('Vægt', 'Weight'), value: text('345 kg') },
+        { label: text('Total længde', 'Total length'), value: text('1.877 mm') },
+        { label: text('Total bredde', 'Total width'), value: text('865 mm') },
+        { label: text('Total højde', 'Total height'), value: text('600 mm') },
+        { label: text('Klippebredde', 'Cutting width'), value: text('750 mm') },
+        { label: text('Klippehøjde', 'Cutting height'), value: text('30 - 80 mm') },
+      ],
+    },
+    {
+      title: text('Ekstraudstyr', 'Optional equipment'),
+      rows: [
+        { label: text('Spikes på bælter', 'Track spikes'), value: text('Tilvalg', 'Optional') },
+        { label: text('Blitzlys', 'Flashing light'), value: text('Tilvalg', 'Optional') },
+        { label: text('L-slagler', 'L-flails'), value: text('Tilvalg', 'Optional') },
+        { label: text('Lader', 'Charger'), value: text('Tilvalg', 'Optional') },
+      ],
+    },
+  ],
+  'rc-1000s': [
+    {
+      title: text('Tekniske specifikationer', 'Technical specifications'),
+      rows: [
+        { label: text('Motor - Vanguard', 'Engine - Vanguard'), value: text('23 HK', '23 HP') },
+        { label: text('Transmission til larvebånd', 'Track transmission'), value: text('Hydraulisk', 'Hydraulic') },
+        { label: text('Transmission til slagleklipper', 'Flail mower transmission'), value: text('Hydraulisk', 'Hydraulic') },
+        { label: text('Antal Y-slagler', 'Number of Y-flails'), value: text('36 stk.', '36 pcs.') },
+        { label: text('Maks. arbejdshældning i alle retninger', 'Max. working slope in all directions'), value: text('50 grader', '50 degrees') },
+        { label: text('Maks. arbejdshastighed', 'Max. working speed'), value: text('7 km/t', '7 km/h') },
+        { label: text('Maks. betjeningsafstand', 'Max. operating distance'), value: text('150 m') },
+        { label: text('Venderadius', 'Turning radius'), value: text('0 mm') },
+        { label: text('Brændstofforbrug', 'Fuel consumption'), value: text('Ca. 4 l/t', 'Approx. 4 l/h') },
+        { label: text('Teoretisk maks. output med slagleklipper', 'Theoretical max. output with flail mower'), value: text('6.000 m2/t', '6,000 m2/h') },
+      ],
+    },
+    {
+      title: text('Dimensioner med slagleklipper', 'Dimensions with flail mower'),
+      rows: [
+        { label: text('Total vægt', 'Total weight'), value: text('580 kg') },
+        { label: text('Total længde', 'Total length'), value: text('1.970 mm') },
+        { label: text('Total bredde', 'Total width'), value: text('1.112 mm') },
+        { label: text('Total højde', 'Total height'), value: text('685 mm') },
+        { label: text('Klippebredde', 'Cutting width'), value: text('1.000 mm') },
+        { label: text('Klippehøjde', 'Cutting height'), value: text('20 - 70 mm') },
+      ],
+    },
+  ],
+  'timan-3330': [
+    {
+      title: text('Tekniske specifikationer', 'Technical specifications'),
+      rows: [
+        { label: text('Motor', 'Engine'), value: text('Kubota') },
+        { label: text('Hk / kW', 'HP / kW'), value: text('33 / 24') },
+        { label: text('Benzintank', 'Fuel tank'), value: text('37 L') },
+        { label: text('Antal cylindere', 'Number of cylinders'), value: text('3') },
+        { label: text('Slagvolumen', 'Displacement'), value: text('962') },
+        { label: text('Kølesystem', 'Cooling system'), value: text('Vandkøling (45 C udetemperatur)', 'Water cooling (45 C ambient temperature)') },
+        { label: text('Hastighed', 'Speed'), value: text('28 km/t', '28 km/h') },
+        { label: text('Transmission', 'Transmission'), value: text('Stempelpumpe', 'Piston pump') },
+        { label: text('Hjulmotorer', 'Wheel motors'), value: text('4 stk. orbitmotorer', '4 orbital motors') },
+      ],
+    },
+    {
+      title: text('Hydraulik og el', 'Hydraulics and electrical'),
+      rows: [
+        { label: text('Kapacitet udtag front', 'Front outlet capacity'), value: text('48 l/min (nominel) 180 bar', '48 l/min (nominal) 180 bar') },
+        { label: text('Kapacitet udtag bag', 'Rear outlet capacity'), value: text('48 l/min (nominel) 180 bar', '48 l/min (nominal) 180 bar') },
+        { label: text('Olieudtag front', 'Front oil outlet'), value: text('1 dobbeltvirkende m. flydestilling 150 bar', '1 double-acting with float position 150 bar') },
+        { label: text('Olieudtag bag', 'Rear oil outlet'), value: text('1 dobbeltvirkende 150 bar', '1 double-acting 150 bar') },
+        { label: text('Arbejdshydraulik', 'Working hydraulics'), value: text('Tandhjulspumpe', 'Gear pump') },
+        { label: text('Liftarm', 'Lift arm'), value: text('Flydestilling og parallelløft standard', 'Float position and parallel lift standard') },
+        { label: text('Løftekapacitet', 'Lifting capacity'), value: text('300 kg ved hurtigskiftet / 150 kg 80 cm ude fra hurtigskiftet', '300 kg at quick hitch / 150 kg 80 cm from quick hitch') },
+        { label: text('Elsystem', 'Electrical system'), value: text('12 volt') },
+        { label: text('Generator', 'Alternator'), value: text('65 amp') },
+        { label: text('Køre- og arbejdslys frem', 'Front driving and work lights'), value: text('2 + 2 stk.', '2 + 2 pcs.') },
+        { label: text('Arbejdslys bag', 'Rear work light'), value: text('1 stk.', '1 pc.') },
+        { label: text('Rotorblink', 'Beacon'), value: text('Standard') },
+        { label: text('13-polet trailerstik', '13-pin trailer plug'), value: text('Standard') },
+        { label: text('Radio med Bluetooth', 'Radio with Bluetooth'), value: text('Standard') },
+      ],
+    },
+    {
+      title: text('Dimensioner', 'Dimensions'),
+      rows: [
+        { label: text('Vægt', 'Weight'), value: text('1.060 kg') },
+        { label: text('Køreklar vægt', 'Operating weight'), value: text('1.185 kg') },
+        { label: text('Længde', 'Length'), value: text('2.700 mm') },
+        { label: text('Bredde', 'Width'), value: text('1.130 mm') },
+        { label: text('Højde', 'Height'), value: text('1.990 mm') },
+        { label: text('Indstigningshøjde', 'Entry height'), value: text('500 mm') },
+        { label: text('Venderadius (indv.)', 'Turning radius (inner)'), value: text('530 mm') },
+        { label: text('Venderadius (udv.)', 'Turning radius (outer)'), value: text('1.670 mm') },
+      ],
+    },
+    {
+      title: text('Lydniveau', 'Noise level'),
+      rows: [
+        { label: text('Lydniveau kabine EU1322/2014 metode B', 'Cab noise level EU1322/2014 method B'), value: text('79 dB') },
+        { label: text('Forbikørsel EU985/2018 kørende', 'Pass-by EU985/2018 driving'), value: text('71 dB') },
+        { label: text('Forbikørsel EU985/2018 stående', 'Pass-by EU985/2018 stationary'), value: text('74 dB') },
+        { label: text('Støjniveau i kabine ved 2600 omdr.', 'Cab noise level at 2600 rpm'), value: text('68 dB') },
+        { label: text('Kildestyrke Lwa ISO 6395:2008', 'Sound power Lwa ISO 6395:2008'), value: text('105 dB') },
+      ],
+    },
+    {
+      title: text('Ekstraudstyr', 'Optional equipment'),
+      rows: [
+        { label: text('Aircondition', 'Air conditioning'), value: text('Tilvalg', 'Optional') },
+        { label: text('Skyderuder i højre og venstre side', 'Sliding windows right and left'), value: text('Tilvalg', 'Optional') },
+        { label: text('Luftsæde', 'Air seat'), value: text('Tilvalg', 'Optional') },
+        { label: text('Kørekamera ved sugemund', 'Driving camera at suction mouth'), value: text('Tilvalg', 'Optional') },
+        { label: text('Bakkamera i taget', 'Roof-mounted reversing camera'), value: text('Tilvalg', 'Optional') },
+        { label: text('Bakalarm', 'Reversing alarm'), value: text('Tilvalg', 'Optional') },
+        { label: text('Blitzlys', 'Flashing light'), value: text('Tilvalg', 'Optional') },
+        { label: text('LED rotorblink', 'LED beacon'), value: text('Tilvalg', 'Optional') },
+        { label: text('Baklygte LED', 'LED reversing light'), value: text('Tilvalg', 'Optional') },
+        { label: text('Kombitræk kugle/gaffel', 'Combination tow hitch ball/fork'), value: text('Tilvalg', 'Optional') },
+      ],
+    },
+  ],
+};
+
 interface MesseMachineBrochurePageProps {
   machineKey: MachineKey;
   title: string;
@@ -250,6 +432,8 @@ export default function MesseMachineBrochurePage({
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
   const content = MACHINE_CONTENT[machineKey];
+  const descriptions = MACHINE_DESCRIPTIONS[machineKey];
+  const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
   if (!appUser) return null;
 
@@ -262,6 +446,24 @@ export default function MesseMachineBrochurePage({
 
   const documentButtonClass =
     'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md';
+  const rc1000IconFeatures = [
+    {
+      icon: Gauge,
+      label: text('Klarer skråninger op til 50 grader.', 'Handles slopes up to 50 degrees.', 'Bewaltigt Hange bis 50 Grad.', 'Gestisce pendenze fino a 50 gradi.', 'Akár 50 fokos lejtoket is kezel.'),
+    },
+    {
+      icon: ShieldCheck,
+      label: text('Avanceret stabilitetssystem.', 'Advanced stability system.', 'Fortschrittliches Stabilitatssystem.', 'Sistema di stabilita avanzato.', 'Fejlett stabilitasi rendszer.'),
+    },
+    {
+      icon: Wrench,
+      label: text('Hurtigt og nemt redskabsskifte.', 'Quick and easy attachment change.', 'Schneller und einfacher Geratewechsel.', 'Cambio accessori rapido e semplice.', 'Gyors es egyszeru adaptercsere.'),
+    },
+    {
+      icon: Settings,
+      label: text('Driftssikker, uanset sæson.', 'Reliable, regardless of season.', 'Betriebssicher zu jeder Saison.', 'Affidabile in ogni stagione.', 'Megbizhato, evszaktol fuggetlenul.'),
+    },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -299,6 +501,26 @@ export default function MesseMachineBrochurePage({
                 </div>
               ))}
             </div>
+
+            {machineKey === 'rc-1000s' && (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {rc1000IconFeatures.map(({ icon: Icon, label }) => (
+                  <div key={tr(label, lang)} className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+                    <Icon className="mx-auto mb-3 h-8 w-8 text-slate-800" />
+                    <p className="text-sm font-bold leading-5 text-slate-800">{tr(label, lang)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-lg font-bold text-slate-950">{T.moreAbout[lang]}</h2>
+              <div className="space-y-3 text-sm leading-7 text-slate-600">
+                {descriptions.map((paragraph) => (
+                  <p key={tr(paragraph, lang)}>{tr(paragraph, lang)}</p>
+                ))}
+              </div>
+            </section>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -393,19 +615,6 @@ export default function MesseMachineBrochurePage({
               </div>
             </button>
 
-            <a href={content.dataPdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
-              <div className="flex items-start gap-4">
-                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
-                  <ExternalLink className="h-6 w-6" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
-                    {T.pdfDataSheet[lang]}
-                  </div>
-                  <div className="mt-1 text-base font-bold text-slate-950">{T.openNew[lang]}</div>
-                </div>
-              </div>
-            </a>
           </aside>
         </div>
       </main>
@@ -417,29 +626,27 @@ export default function MesseMachineBrochurePage({
         closeLabel={T.close[lang]}
         widthClass="max-w-4xl"
       >
-        <div className="grid gap-6 md:grid-cols-2">
-          <section>
-            <h3 className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500">{T.specs[lang]}</h3>
-            <dl className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
-              {content.specs.map((spec) => (
-                <div key={tr(spec.label, lang)} className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 text-sm">
-                  <dt className="text-slate-500">{tr(spec.label, lang)}</dt>
-                  <dd className="font-bold text-slate-900">{tr(spec.value, lang)}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section>
-            <h3 className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500">{T.keyPoints[lang]}</h3>
-            <div className="space-y-3">
-              {content.highlights.map((item, index) => (
-                <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
-                  {tr(item, lang)}
-                </div>
-              ))}
-            </div>
-          </section>
+        <div className="max-h-[72vh] space-y-6 overflow-y-auto pr-1">
+          {technicalSections.map((section) => (
+            <section key={tr(section.title, lang)}>
+              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                {tr(section.title, lang)}
+              </h3>
+              <dl className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                {section.rows.map((row, index) => (
+                  <div
+                    key={`${tr(row.label, lang)}-${index}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-2.5 text-sm ${
+                      index % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100'
+                    }`}
+                  >
+                    <dt className="text-slate-700">{tr(row.label, lang)}</dt>
+                    <dd className="max-w-[45%] text-right font-bold text-slate-950">{tr(row.value, lang)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ))}
         </div>
       </MesseModal>
 
