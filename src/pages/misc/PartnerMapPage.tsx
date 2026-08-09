@@ -177,18 +177,23 @@ function normalizeType(t: string | null): PartnerType {
   return 'dealer';
 }
 
+// Shared pin silhouette — identical geometry for every colour variant.
+function pinSvgMarkup(color: string, width = 36, height = 44): string {
+  return `
+      <svg width="${width}" height="${height}" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))">
+        <path d="M20 2 C10 2 3 9 3 18 C3 30 20 46 20 46 C20 46 37 30 37 18 C37 9 30 2 20 2 Z" fill="${color}" stroke="white" stroke-width="2.5"/>
+        <circle cx="20" cy="18" r="5.5" fill="white"/>
+      </svg>`;
+}
+
 function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
   const color = TYPE_COLORS[type];
   const sel = selected ? 'pm-pin--selected' : '';
   const html = `
-    <div class="pm-pin ${sel}">
-      <svg width="36" height="44" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))">
-        <path d="M20 2 C10 2 3 9 3 18 C3 30 20 46 20 46 C20 46 37 30 37 18 C37 9 30 2 20 2 Z" fill="${color}" stroke="white" stroke-width="2.5"/>
-        <circle cx="20" cy="18" r="5.5" fill="white"/>
-      </svg>
-    </div>`;
+    <div class="pm-pin ${sel}">${pinSvgMarkup(color)}</div>`;
   return L.divIcon({ html, className: 'pm-pin-wrap', iconSize: [36, 44], iconAnchor: [18, 42], popupAnchor: [0, -36] });
 }
+
 
 const MACHINE_PIN_COLOR = '#f59e0b'; // amber-500 — clearly distinct from dealer red/green/blue/purple
 
