@@ -161,7 +161,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       )}
 
       {step === 2 && (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(380px,0.72fr)_minmax(640px,1.28fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
