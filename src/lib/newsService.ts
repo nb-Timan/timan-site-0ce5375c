@@ -16,6 +16,14 @@ export interface NewsPost {
   published_at: string;
   is_active: boolean;
   source: string | null;
+  template_id?: NewsTemplateId | string | null;
+  status?: NewsStatus | null;
+  slug?: string | null;
+  localized_content?: LocalizedNewsContent | null;
+  template_data?: Record<string, unknown> | null;
+  assets?: unknown[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface NewsCmsPost extends NewsPost {
@@ -44,16 +52,78 @@ export interface NewsCmsDraftInput {
 const LEGACY_NEWS_SELECT = 'id, title, excerpt, image_url, link_url, category, published_at, is_active, source';
 const CMS_NEWS_SELECT = `${LEGACY_NEWS_SELECT}, template_id, status, slug, localized_content, template_data, assets, created_at, updated_at, created_by, updated_by, published_by`;
 
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function firstLocalizedString(
+  localizedContent: LocalizedNewsContent | null | undefined,
+  keys: string[],
+): string {
+  if (!localizedContent) return '';
+  for (const content of Object.values(localizedContent)) {
+    if (!content) continue;
+    for (const key of keys) {
+      const value = stringValue(content[key]);
+      if (value) return value;
+    }
+  }
+  return '';
+}
+
+function publicFieldsFromLocalizedContent(
+  row: Partial<NewsCmsPost>,
+  lang: PortalUiLanguage,
+): Pick<NewsPost, 'title' | 'excerpt' | 'image_url'> {
+  const localizedContent = row.localized_content;
+  if (!localizedContent) {
+    return {
+      title: row.title || 'Untitled news',
+      excerpt: row.excerpt || null,
+      image_url: row.image_url || null,
+    };
+  }
+
+  const content = getLocalizedNewsContent(localizedContent, lang);
+  const title = stringValue(content.headline) || stringValue(content.title) || row.title || 'Untitled news';
+  const excerpt =
+    stringValue(content.subtitle) ||
+    stringValue(content.excerpt) ||
+    stringValue(content.body) ||
+    row.excerpt ||
+    null;
+  const imageUrl =
+    stringValue(content.mainImage) ||
+    stringValue(content.heroImage) ||
+    stringValue(content.productImage) ||
+    stringValue(content.secondaryImage) ||
+    stringValue(content.image_url) ||
+    firstLocalizedString(localizedContent, ['mainImage', 'heroImage', 'productImage', 'secondaryImage', 'image_url']) ||
+    row.image_url ||
+    null;
+
+  return { title, excerpt, image_url: imageUrl };
+}
+
+function toPublicNewsPost(row: NewsCmsPost, lang: PortalUiLanguage): NewsPost {
+  const localizedFields = publicFieldsFromLocalizedContent(row, lang);
+  return {
+    ...row,
+    ...localizedFields,
+    published_at: row.published_at || row.updated_at || row.created_at || new Date().toISOString(),
+  };
+}
+
 /**
  * Fetch the N newest active news posts, sorted by published_at desc.
  * Returns [] if the table doesn't exist yet or on any error — caller
  * is responsible for showing placeholder content in that case.
  */
-export async function fetchLatestNews(limit = 4): Promise<NewsPost[]> {
+export async function fetchLatestNews(limit = 4, language: PortalUiLanguage = 'da'): Promise<NewsPost[]> {
   try {
     const { data, error } = await supabase
       .from('news_posts')
-      .select(LEGACY_NEWS_SELECT)
+      .select(CMS_NEWS_SELECT)
       .eq('is_active', true)
       .order('published_at', { ascending: false })
       .limit(limit);
@@ -61,9 +131,17 @@ export async function fetchLatestNews(limit = 4): Promise<NewsPost[]> {
     if (error) {
       // Table may not exist yet — caller falls back to placeholders.
       console.warn('[newsService] fetchLatestNews error:', error.message);
-      return [];
+      const fallback = await supabase
+        .from('news_posts')
+        .select(LEGACY_NEWS_SELECT)
+        .eq('is_active', true)
+        .order('published_at', { ascending: false })
+        .limit(limit);
+
+      if (fallback.error) return [];
+      return (fallback.data ?? []) as NewsPost[];
     }
-    return (data ?? []) as NewsPost[];
+    return ((data ?? []) as NewsCmsPost[]).map((row) => toPublicNewsPost(row, language));
   } catch (err) {
     console.warn('[newsService] fetchLatestNews exception:', err);
     return [];

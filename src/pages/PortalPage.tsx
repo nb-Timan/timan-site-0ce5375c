@@ -290,8 +290,8 @@ export default function PortalPage() {
           })}
           {showMesseCard && (
             <AreaCard
-              title={MESSE_TITLE[lang] ?? MESSE_TITLE.da}
-              description={MESSE_DESC[lang] ?? MESSE_DESC.da}
+              title={t('portalMesseTitle', uiLanguage)}
+              description={t('portalMesseDesc', uiLanguage)}
               cta={t('openArea', uiLanguage)}
               to="/messe"
               icon={Sparkles}
@@ -300,11 +300,11 @@ export default function PortalPage() {
           )}
         </div>
 
-        <QuickActions />
+        <QuickActions language={uiLanguage} />
 
-        <LatestChanges language={lang} />
+        <LatestChanges language={uiLanguage} />
 
-        <LatestFromTiman language={lang} />
+        <LatestFromTiman language={uiLanguage} />
       </main>
 
       <PortalFooter language={lang} />

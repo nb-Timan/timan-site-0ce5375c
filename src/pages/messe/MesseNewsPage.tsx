@@ -10,29 +10,38 @@ import Timan2620NewsModal from '@/components/messe/Timan2620NewsModal';
 import FlyerViewerModal from '@/components/messe/FlyerViewerModal';
 import { FlyerFrontPage } from '@/components/messe/TeaserFlyerPages';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
+import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 const T: Record<string, Record<Language, string>> = {
-  back:  { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
-  title: { da: 'Seneste nyt', en: 'Latest news', de: 'Aktuelles', it: 'Ultime notizie', hu: 'Legfrissebb hírek' },
-  empty: { da: 'Ingen nyheder lige nu.', en: 'No news right now.', de: 'Aktuell keine Nachrichten.', it: 'Nessuna notizia al momento.', hu: 'Jelenleg nincs hír.' },
-  read:  { da: 'Læs mere', en: 'Read more', de: 'Mehr lesen', it: 'Leggi di più', hu: 'Tovább' },
+  back: { da: 'Tilbage', en: 'Back', de: 'Zuruck', it: 'Indietro', hu: 'Vissza' },
+  title: { da: 'Seneste nyt', en: 'Latest news', de: 'Aktuelles', it: 'Ultime notizie', hu: 'Legfrissebb hirek' },
+  read: { da: 'Laes mere', en: 'Read more', de: 'Mehr lesen', it: 'Leggi di piu', hu: 'Tovabb' },
 };
 
+function categoryLabel(category: string, language: PortalUiLanguage) {
+  return category?.toUpperCase() === 'SERVICE'
+    ? t('latestFromTimanServiceTag', language)
+    : t('newsCmsBadgeNews', language);
+}
 
 export default function MesseNewsPage() {
   const { language: lang, uiLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
   const [openModal, setOpenModal] = useState<null | 'article' | 'flyer'>(null);
+  const [openPost, setOpenPost] = useState<NewsPost | null>(null);
   const { appUser } = useAppUser();
 
   useEffect(() => {
     let cancelled = false;
-    fetchLatestNews(12).then(rows => {
+    fetchLatestNews(12, uiLanguage).then((rows) => {
       if (cancelled) return;
       setNews(rows);
     });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [uiLanguage]);
 
   if (!appUser) return null;
 
@@ -52,14 +61,14 @@ export default function MesseNewsPage() {
             <FlyerFrontPage lang={uiLanguage} />
           </div>
         ) : (
-        <img
-          src={item.image}
-          alt={t(item.titleKey, uiLanguage)}
-          onError={(e) => {
-            if (item.imageFallback) (e.currentTarget as HTMLImageElement).src = item.imageFallback;
-          }}
-          className={`w-full h-full object-cover ${item.imagePositionClass ?? 'object-center'} transition-transform duration-300 group-hover:scale-[1.03]`}
-        />
+          <img
+            src={item.image}
+            alt={t(item.titleKey, uiLanguage)}
+            onError={(event) => {
+              if (item.imageFallback) event.currentTarget.src = item.imageFallback;
+            }}
+            className={`w-full h-full object-cover ${item.imagePositionClass ?? 'object-center'} transition-transform duration-300 group-hover:scale-[1.03]`}
+          />
         )}
       </div>
       <div className="p-4 flex-grow flex flex-col">
@@ -75,41 +84,65 @@ export default function MesseNewsPage() {
     </button>
   );
 
+  const renderCmsPost = (post: NewsPost) => {
+    const isCmsPost = post.source === 'news_cms' || !!post.localized_content;
+    const body = (
+      <>
+        {post.image_url ? (
+          <div className="aspect-video bg-slate-200">
+            <img
+              src={post.image_url}
+              alt={post.title}
+              className="w-full h-full object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        ) : (
+          <div className="aspect-video bg-gradient-to-br from-emerald-100 to-emerald-200" />
+        )}
+        <div className="p-4 flex-grow flex flex-col">
+          <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700 mb-1">
+            {categoryLabel(post.category, uiLanguage)}
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">{post.title}</h2>
+          {post.excerpt && <p className="text-sm text-slate-600 mt-2 flex-grow">{post.excerpt}</p>}
+          {post.link_url && (
+            <a href={post.link_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
+              {T.read[lang]} <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </div>
+      </>
+    );
+
+    return isCmsPost && !post.link_url ? (
+      <button key={post.id} type="button" onClick={() => setOpenPost(post)} className={cardClass}>
+        {body}
+      </button>
+    ) : (
+      <article key={post.id} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col h-full">
+        {body}
+      </article>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <MesseSubpageHeader backLabel={T.back[lang]} />
 
       <main className="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">{T.title[lang]}</h1>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
           {MESSE_NEWS_ITEMS.map(renderCurated)}
-
-          {(news ?? []).map(n => (
-            <article key={n.id} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col h-full">
-              {n.image_url ? (
-                <div className="aspect-video bg-slate-200"><img src={n.image_url} alt={n.title} className="w-full h-full object-cover" /></div>
-              ) : (
-                <div className="aspect-video bg-gradient-to-br from-emerald-100 to-emerald-200" />
-              )}
-              <div className="p-4 flex-grow flex flex-col">
-                <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700 mb-1">{n.category}</div>
-                <h2 className="text-lg font-bold text-slate-900">{n.title}</h2>
-                {n.excerpt && <p className="text-sm text-slate-600 mt-2 flex-grow">{n.excerpt}</p>}
-                {n.link_url && (
-                  <a href={n.link_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
-                    {T.read[lang]} <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-            </article>
-          ))}
+          {(news ?? []).map(renderCmsPost)}
         </div>
       </main>
 
       <Timan2620NewsModal open={openModal === 'article'} onClose={() => setOpenModal(null)} lang={uiLanguage} />
       <FlyerViewerModal open={openModal === 'flyer'} onClose={() => setOpenModal(null)} lang={uiLanguage} />
+      <PublicNewsPostModal post={openPost} language={uiLanguage} onClose={() => setOpenPost(null)} />
     </div>
   );
 }
-

@@ -1,18 +1,19 @@
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Language } from '@/types/configurator';
 import {
   useChangelog,
   formatChangedDate,
   hrefForEntry,
   areaForModule,
   isStillNew,
-  t,
   ChangeLogEntry,
 } from '@/lib/portalChangelog';
 import { useAppUser } from '@/context/AppUserContext';
 import { PortalAreaId } from '@/lib/portalAreas';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
+import { t } from '@/lib/i18n/translations';
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
   teknik_service: '/portal/teknik-service',
@@ -23,7 +24,7 @@ const AREA_ROUTE: Record<PortalAreaId, string> = {
 };
 
 interface Props {
-  language: Language;
+  language: PortalUiLanguage;
   /** Max rows to display. Default 5. */
   limit?: number;
 }
@@ -31,7 +32,8 @@ interface Props {
 export default function LatestChanges({ language, limit = 5 }: Props) {
   const { appUser } = useAppUser();
   const navigate = useNavigate();
-  const { entries, isRead, markEntryRead } = useChangelog(appUser, language);
+  const legacyLanguage = mapUiLanguageToLegacy(language);
+  const { entries, isRead, markEntryRead } = useChangelog(appUser, legacyLanguage);
 
   const shown = entries.slice(0, limit);
 
@@ -47,14 +49,14 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-[#2d5a27]" />
         <div>
-          <h2 className="text-lg font-bold text-gray-900 leading-tight">{t('whatsNew', language)}</h2>
-          <p className="text-xs text-gray-500">{t('latestChanges', language)}</p>
+          <h2 className="text-lg font-bold text-gray-900 leading-tight">{t('portalWhatsNewHeading', language)}</h2>
+          <p className="text-xs text-gray-500">{t('portalLatestChangesLabel', language)}</p>
         </div>
       </div>
 
       {shown.length === 0 ? (
         <div className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-500">
-          {t('empty', language)}
+          {t('portalLatestChangesEmpty', language)}
         </div>
       ) : (
         <ul className="rounded-xl border border-gray-100 bg-white divide-y divide-gray-100 overflow-hidden">
@@ -76,13 +78,13 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                   </span>
                   <span className="text-gray-300">·</span>
                   <span className={cn('font-semibold shrink-0', read ? 'text-gray-500' : 'text-[#2d5a27]')}>
-                    {entry.module_name[language] || entry.module_name.en}:
+                    {entry.module_name[legacyLanguage] || entry.module_name.en}:
                   </span>
-                  <span className="truncate">{entry.title[language] || entry.title.en}</span>
+                  <span className="truncate">{entry.title[legacyLanguage] || entry.title.en}</span>
                   <span className="flex items-center gap-1.5 ml-auto shrink-0">
                     {showNew && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">
-                        {t('newTag', language)}
+                        {t('portalNewTag', language)}
                       </span>
                     )}
                     {entry.is_major && (
@@ -91,7 +93,7 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                         read ? 'bg-gray-200 text-gray-500' : 'bg-rose-100 text-rose-700',
                       )}>
                         <Star className="h-3 w-3" />
-                        {t('important', language)}
+                        {t('portalImportantTag', language)}
                       </span>
                     )}
                   </span>

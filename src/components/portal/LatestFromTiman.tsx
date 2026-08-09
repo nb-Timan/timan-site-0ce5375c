@@ -1,46 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Language } from '@/types/configurator';
 import { fetchLatestNews, NewsPost } from '@/lib/newsService';
-
-const T: Record<string, Record<Language, string>> = {
-  heading: { da: 'Seneste fra Timan', en: 'Latest from Timan', de: 'Neueste von Timan', it: 'Ultime da Timan', hu: 'Legújabb a Timantól' },
-  newsTag: { da: 'NYHED', en: 'NEWS', de: 'NEUIGKEIT', it: 'NOVITÀ', hu: 'HÍR' },
-  serviceTag: { da: 'SERVICE', en: 'SERVICE', de: 'SERVICE', it: 'SERVIZIO', hu: 'SZERVIZ' },
-  placeholder1Title: {
-    da: 'Ny redskabsserie til Timan 3400 er nu tilgængelig',
-    en: 'New attachment series for Timan 3400 now available',
-    de: 'Neue Anbaugeräte-Serie für Timan 3400 jetzt verfügbar',
-    it: 'Nuova serie di accessori per Timan 3400 ora disponibile',
-    hu: 'Az új Timan 3400 tartozéksorozat már elérhető',
-  },
-  placeholder1Body: {
-    da: 'Vi har netop lanceret en ny række klippeborde der øger effektiviteten med 15%...',
-    en: 'We just launched a new range of cutting decks that increase efficiency by 15%...',
-    de: 'Wir haben gerade eine neue Reihe von Mähdecks eingeführt, die die Effizienz um 15% steigern...',
-    it: 'Abbiamo appena lanciato una nuova gamma di piatti di taglio che aumentano l\'efficienza del 15%...',
-    hu: 'Most indítottuk útjára az új vágóasztal-sorozatot, amely 15%-kal növeli a hatékonyságot...',
-  },
-  placeholder2Title: {
-    da: 'Opdatering af AI-assistenten i konfiguratoren',
-    en: 'AI assistant update in the configurator',
-    de: 'Update des KI-Assistenten im Konfigurator',
-    it: 'Aggiornamento dell\'assistente AI nel configuratore',
-    hu: 'AI-asszisztens frissítése a konfigurátorban',
-  },
-  placeholder2Body: {
-    da: 'Det er nu endnu lettere at generere professionelle PDF-tilbud til dine kunder.',
-    en: 'It is now even easier to generate professional PDF quotes for your customers.',
-    de: 'Es ist jetzt noch einfacher, professionelle PDF-Angebote für Ihre Kunden zu erstellen.',
-    it: 'Ora è ancora più facile generare preventivi PDF professionali per i tuoi clienti.',
-    hu: 'Most még egyszerűbb professzionális PDF-árajánlatokat készíteni ügyfelei számára.',
-  },
-};
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { t } from '@/lib/i18n/translations';
+import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 
 interface Props {
-  language: Language;
+  language: PortalUiLanguage;
 }
 
-// Clean inline SVG fallback used when a post has no image_url.
 const FALLBACK_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -51,27 +18,38 @@ const FALLBACK_IMAGE =
      </svg>`,
   );
 
+const DATE_LOCALE: Record<PortalUiLanguage, string> = {
+  da: 'da-DK',
+  en: 'en-US',
+  de: 'de-DE',
+  it: 'it-IT',
+  hu: 'hu-HU',
+  sv: 'sv-SE',
+  fr: 'fr-FR',
+  pl: 'pl-PL',
+  cs: 'cs-CZ',
+};
+
 function categoryStyle(category: string) {
   const c = (category || '').toUpperCase();
   if (c === 'SERVICE') return { bg: 'bg-blue-100', text: 'text-blue-600' };
-  // default = NYHED / news-like
   return { bg: 'bg-green-100', text: 'text-[#2d5a27]' };
 }
 
-function categoryLabel(category: string, language: Language) {
+function categoryLabel(category: string, language: PortalUiLanguage) {
   const c = (category || '').toUpperCase();
-  if (c === 'SERVICE') return T.serviceTag[language];
-  if (c === 'NYHED' || c === 'NEWS') return T.newsTag[language];
-  return c; // unknown category → show as-is
+  if (c === 'SERVICE') return t('latestFromTimanServiceTag', language);
+  if (c === 'NYHED' || c === 'NEWS') return t('newsCmsBadgeNews', language);
+  return c;
 }
 
-function buildPlaceholders(language: Language): NewsPost[] {
+function buildPlaceholders(language: PortalUiLanguage): NewsPost[] {
   const now = new Date();
   return [
     {
       id: 'placeholder-1',
-      title: T.placeholder1Title[language],
-      excerpt: T.placeholder1Body[language],
+      title: t('latestFromTimanPlaceholder1Title', language),
+      excerpt: t('latestFromTimanPlaceholder1Body', language),
       image_url: null,
       link_url: null,
       category: 'NYHED',
@@ -81,8 +59,8 @@ function buildPlaceholders(language: Language): NewsPost[] {
     },
     {
       id: 'placeholder-2',
-      title: T.placeholder2Title[language],
-      excerpt: T.placeholder2Body[language],
+      title: t('latestFromTimanPlaceholder2Title', language),
+      excerpt: t('latestFromTimanPlaceholder2Body', language),
       image_url: null,
       link_url: null,
       category: 'SERVICE',
@@ -95,10 +73,11 @@ function buildPlaceholders(language: Language): NewsPost[] {
 
 export default function LatestFromTiman({ language }: Props) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
+  const [openPost, setOpenPost] = useState<NewsPost | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetchLatestNews(4).then((rows) => {
+    fetchLatestNews(4, language).then((rows) => {
       if (cancelled) return;
       setPosts(rows.length > 0 ? rows : buildPlaceholders(language));
     });
@@ -111,19 +90,19 @@ export default function LatestFromTiman({ language }: Props) {
 
   return (
     <div className="mt-16 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">{T.heading[language]}</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('latestFromTimanHeading', language)}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.map((item) => {
           const styles = categoryStyle(item.category);
-          const clickable = !!item.link_url;
+          const opensInModal = !item.link_url && item.source !== 'placeholder';
 
           const inner = (
-            <div className="flex flex-col h-full">
+            <div className="flex h-full flex-col text-left">
               <img
                 src={item.image_url || FALLBACK_IMAGE}
                 alt=""
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                onError={(event) => {
+                  event.currentTarget.src = FALLBACK_IMAGE;
                 }}
                 className="w-full h-40 object-cover rounded-lg mb-4 bg-gray-100"
               />
@@ -138,7 +117,7 @@ export default function LatestFromTiman({ language }: Props) {
               )}
 
               <div className="mt-auto pt-3 text-xs text-gray-400">
-                {new Date(item.published_at).toLocaleDateString(language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : language === 'it' ? 'it-IT' : language === 'hu' ? 'hu-HU' : 'en-US', {
+                {new Date(item.published_at).toLocaleDateString(DATE_LOCALE[language], {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -147,10 +126,10 @@ export default function LatestFromTiman({ language }: Props) {
             </div>
           );
 
-          return clickable ? (
+          return item.link_url ? (
             <a
               key={item.id}
-              href={item.link_url!}
+              href={item.link_url}
               target="_blank"
               rel="noopener noreferrer"
               className="block bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md hover:border-gray-200 transition-all"
@@ -158,12 +137,21 @@ export default function LatestFromTiman({ language }: Props) {
               {inner}
             </a>
           ) : (
-            <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4">
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (opensInModal) setOpenPost(item);
+              }}
+              className="block bg-white border border-gray-100 rounded-xl p-4 transition-all hover:border-gray-200 hover:shadow-md disabled:hover:shadow-none"
+              disabled={!opensInModal}
+            >
               {inner}
-            </div>
+            </button>
           );
         })}
       </div>
+      <PublicNewsPostModal post={openPost} language={language} onClose={() => setOpenPost(null)} />
     </div>
   );
 }
