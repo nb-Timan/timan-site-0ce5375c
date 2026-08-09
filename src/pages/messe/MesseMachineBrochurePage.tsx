@@ -640,16 +640,32 @@ export default function MesseMachineBrochurePage({
                     </div>
                   </div>
                 )}
-                {content.highlights.slice(0, content.attachmentCount ? 2 : 3).map((item, index) => (
+                {(content.cards ??
+                  content.highlights
+                    .slice(0, content.attachmentCount ? 2 : 3)
+                    .map((item) => ({ title: undefined, text: item }))
+                ).map((item, index) => (
                   <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     {index === 0 ? (
                       <Gauge className="mb-4 h-6 w-6 text-slate-700" />
                     ) : (
                       <Settings className="mb-4 h-6 w-6 text-slate-700" />
                     )}
-                    <p className="text-sm font-semibold leading-6 text-slate-800">{tr(item, lang)}</p>
+                    {item.title && (
+                      <p className="text-sm font-semibold leading-6 text-slate-900">{tr(item.title, lang)}</p>
+                    )}
+                    <p
+                      className={
+                        item.title
+                          ? 'text-sm leading-6 text-slate-600'
+                          : 'text-sm font-semibold leading-6 text-slate-800'
+                      }
+                    >
+                      {tr(item.text, lang)}
+                    </p>
                   </div>
                 ))}
+
               </div>
             )}
 
