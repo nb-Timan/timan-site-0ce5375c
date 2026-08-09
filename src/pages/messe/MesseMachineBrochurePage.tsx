@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BookOpen,
   ChevronLeft,
@@ -554,11 +554,36 @@ export default function MesseMachineBrochurePage({
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
+  const [covers, setCovers] = useState<{ frontCover: number; backCover: number }>({
+    frontCover: 1,
+    backCover: pageCount,
+  });
   const content = MACHINE_CONTENT[machineKey];
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
+  useEffect(() => {
+    let active = true;
+    setCovers({ frontCover: 1, backCover: pageCount });
+    fetch(`${pageBase}/covers.json`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        const front = Number(data.frontCover);
+        const back = Number(data.backCover);
+        setCovers({
+          frontCover: Number.isFinite(front) && front >= 1 ? front : 1,
+          backCover: Number.isFinite(back) && back >= 1 ? back : pageCount,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [pageBase, pageCount]);
+
   if (!appUser) return null;
+
 
   const pageSrc = (page: number) => `${pageBase}/page-${page}.jpg`;
   const rightPage = leftPage + 1;
@@ -566,6 +591,7 @@ export default function MesseMachineBrochurePage({
   const canGoNext = rightPage < pageCount;
   const goBack = () => setLeftPage((page) => Math.max(1, page - 2));
   const goNext = () => setLeftPage((page) => Math.min(pageCount, page + 2));
+
 
   const documentButtonClass =
     'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md';
@@ -712,16 +738,24 @@ export default function MesseMachineBrochurePage({
             >
               <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
                 <div className="relative h-full w-full rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
-                  <div className="absolute inset-y-5 left-1/2 w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
-                  <div className="grid h-full grid-cols-2 overflow-hidden rounded-xl">
-                    <img src={pageSrc(1)} alt="" className="h-full w-full object-cover object-top" />
-                    <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-white to-slate-50 px-4 text-center">
-                      <BookOpen className="h-9 w-9 text-slate-700" />
-                      <span className="text-sm font-bold text-slate-900">{tr(T.openBrochure, lang)}</span>
+                  <div className="grid h-full grid-cols-2 items-stretch overflow-hidden rounded-xl">
+                    <div className="flex min-w-0 items-center justify-end p-1.5">
+                      <img src={pageSrc(covers.frontCover)} alt="" className="h-full w-auto max-w-full object-contain" />
                     </div>
+                    <div className="flex min-w-0 items-center justify-start p-1.5">
+                      <img src={pageSrc(covers.backCover)} alt="" className="h-full w-auto max-w-full object-contain" />
+                    </div>
+                  </div>
+                  <div className="pointer-events-none absolute inset-y-3 left-1/2 w-8 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 backdrop-blur">
+                      <BookOpen className="h-3.5 w-3.5 text-slate-700" />
+                      {tr(T.openBrochure, lang)}
+                    </span>
                   </div>
                 </div>
               </div>
+
               <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
               <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
             </button>
