@@ -51,6 +51,8 @@ interface MachineContent {
   attachmentLabel?: Localized;
   attachmentCount?: string;
   highlights: Localized[];
+  /** Optional explicit top cards (title + supporting line). Falls back to `highlights`. */
+  cards?: Array<{ title?: Localized; text: Localized }>;
   specs: Array<{ label: Localized; value: Localized }>;
   attachments?: Localized[];
   dataPdfSrc: string;
@@ -263,11 +265,11 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       hu: 'Kompakt eszkozhordozo fulkevel',
     },
     intro: {
-      da: 'Timan 3330 er en kompakt redskabsbærer til daglig drift hele året. Den kombinerer komfort, hurtige redskabsskift og mange opgaver fra samme maskine.',
-      en: 'Timan 3330 is a compact tool carrier for daily year-round operation. It combines comfort, quick attachment changes and many tasks from one machine.',
-      de: 'Timan 3330 ist ein kompakter Geratetrager fur den taglichen Ganzjahreseinsatz. Er kombiniert Komfort, schnellen Geratewechsel und viele Aufgaben in einer Maschine.',
-      it: 'Timan 3330 e un portattrezzi compatto per il lavoro quotidiano tutto l anno. Combina comfort, cambio rapido degli accessori e molte attivita con una sola macchina.',
-      hu: 'A Timan 3330 kompakt eszkozhordozo mindennapi, egesz eves munkara. Kenyelmet, gyors adaptercseret es sok feladatot egyesit egy gepben.',
+      da: 'Timan 3330 er en knækstyret redskabsbærer med kabine til professionel pleje af udendørsarealer.',
+      en: 'Timan 3330 is an articulated tool carrier with cab for professional care of outdoor areas.',
+      de: 'Timan 3330 ist ein knickgelenkter Geratetrager mit Kabine fur die professionelle Pflege von Aussenanlagen.',
+      it: 'Timan 3330 e un portattrezzi articolato con cabina per la cura professionale delle aree esterne.',
+      hu: 'A Timan 3330 csuklos kormanyzasu, fulkes eszkozhordozo kulteri teruletek professzionalis gondozasahoz.',
     },
     attachmentLabel: {
       da: 'Mange redskaber til helårsdrift',
@@ -277,29 +279,64 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       hu: 'Sok adapter egesz eves hasznalatra',
     },
     attachmentCount: '13',
-    highlights: [
+    cards: [
       {
-        da: 'Kabine med fokus på lavt støjniveau og førerkomfort.',
-        en: 'Cab focused on low noise and operator comfort.',
-        de: 'Kabine mit Fokus auf niedrigen Gerauschpegel und Fahrerkomfort.',
-        it: 'Cabina orientata a basso rumore e comfort dell operatore.',
-        hu: 'A fulke alacsony zajszintre es kezeloi kényelemre keszult.',
+        title: {
+          da: 'Lavt brændstofforbrug',
+          en: 'Low fuel consumption',
+          de: 'Niedriger Kraftstoffverbrauch',
+          it: 'Basso consumo di carburante',
+          hu: 'Alacsony uzemanyag-fogyasztas',
+        },
+        text: {
+          da: 'Elektronisk reguleret motor udnytter brændstoffet effektivt.',
+          en: 'Electronically controlled engine uses fuel efficiently.',
+          de: 'Elektronisch geregelter Motor nutzt den Kraftstoff effizient.',
+          it: 'Il motore a controllo elettronico usa il carburante in modo efficiente.',
+          hu: 'Az elektronikusan szabalyozott motor hatekonyan hasznalja az uzemanyagot.',
+        },
       },
       {
-        da: 'Hurtigt redskabsskifte til feje-, græs-, vinter- og transportopgaver.',
-        en: 'Quick attachment changes for sweeping, grass, winter and transport tasks.',
-        de: 'Schneller Geratewechsel fur Kehr-, Gras-, Winter- und Transportaufgaben.',
-        it: 'Cambio rapido per lavori di spazzamento, erba, inverno e trasporto.',
-        hu: 'Gyors adaptercsere sepreshez, fuhöz, teli es szallitasi feladatokhoz.',
-      },
-      {
-        da: 'Kompakt størrelse til arbejde på stier, fortove, parker og tætte bymiljøer.',
-        en: 'Compact size for paths, pavements, parks and dense urban areas.',
-        de: 'Kompakte Bauweise fur Wege, Gehwege, Parks und enge Stadtbereiche.',
-        it: 'Dimensioni compatte per vialetti, marciapiedi, parchi e aree urbane strette.',
-        hu: 'Kompakt meret utakhoz, jardakhoz, parkokhoz es suru varosi teruletekhez.',
+        title: {
+          da: 'Dansk design og kvalitet',
+          en: 'Danish design and quality',
+          de: 'Danisches Design und Qualitat',
+          it: 'Design e qualita danesi',
+          hu: 'Dan tervezes es minoseg',
+        },
+        text: {
+          da: 'Robust konstruktion bygget til professionel daglig drift.',
+          en: 'Robust construction built for professional daily operation.',
+          de: 'Robuste Konstruktion fur den professionellen taglichen Einsatz.',
+          it: 'Costruzione robusta pensata per il lavoro quotidiano professionale.',
+          hu: 'Robusztus felepites a professzionalis napi hasznalathoz.',
+        },
       },
     ],
+    highlights: [
+      {
+        da: 'Ergonomisk arbejdsplads med nem ind- og udstigning og betjening placeret med fokus på føreren.',
+        en: 'Ergonomic workplace with easy entry and exit and controls placed with the operator in focus.',
+        de: 'Ergonomischer Arbeitsplatz mit leichtem Ein- und Ausstieg und bedienerorientiert angeordneten Bedienelementen.',
+        it: 'Postazione ergonomica con salita e discesa facili e comandi disposti pensando all operatore.',
+        hu: 'Ergonomikus munkahely konnyu be- es kiszallassal, a kezelore szabott kezeloszervekkel.',
+      },
+      {
+        da: 'Store glaspartier giver godt udsyn under kørsel og betjening af maskinen.',
+        en: 'Large glass areas give good visibility while driving and operating the machine.',
+        de: 'Grosse Glasflachen sorgen fur gute Sicht beim Fahren und Bedienen der Maschine.',
+        it: 'Ampie superfici vetrate offrono buona visibilita durante la guida e l uso della macchina.',
+        hu: 'A nagy uvegfeluletek jo kilatast adnak vezetes es a gep kezelese kozben.',
+      },
+      {
+        da: 'Fuldt hydraulisk system og robust konstruktion giver høj driftssikkerhed i det daglige arbejde.',
+        en: 'A fully hydraulic system and robust construction provide high reliability in daily work.',
+        de: 'Vollhydraulisches System und robuste Konstruktion sorgen fur hohe Zuverlassigkeit im Alltag.',
+        it: 'Il sistema completamente idraulico e la costruzione robusta garantiscono alta affidabilita nel lavoro quotidiano.',
+        hu: 'A teljesen hidraulikus rendszer es a robusztus felepites nagy uzembiztonsagot ad a napi munkaban.',
+      },
+    ],
+
     specs: [
       { label: { da: 'Varenr.', en: 'Item no.', de: 'Art.-Nr.', it: 'Codice', hu: 'Cikkszam' }, value: { da: '712000', en: '712000', de: '712000', it: '712000', hu: '712000' } },
       { label: { da: 'Motor', en: 'Engine', de: 'Motor', it: 'Motore', hu: 'Motor' }, value: { da: 'Kubota benzinmotor', en: 'Kubota petrol engine', de: 'Kubota Benzinmotor', it: 'Motore benzina Kubota', hu: 'Kubota benzinmotor' } },
@@ -362,21 +399,22 @@ const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
   ],
   'timan-3330': [
     {
-      da: 'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.',
-      en: 'Timan 3330 is built for year-round operation where one machine handles sweeping, green care, winter service and transport in compact urban areas.',
-      de: 'Timan 3330 ist fur den Ganzjahreseinsatz gebaut, bei dem eine Maschine Kehren, Grunpflege, Winterdienst und Transport in engen Stadtbereichen ubernimmt.',
-      it: 'Timan 3330 e costruita per il lavoro tutto l anno, dove una sola macchina gestisce spazzamento, verde, inverno e trasporto in aree urbane strette.',
-      hu: 'A Timan 3330 egesz eves uzemre keszult, ahol egy gep seprest, zoldteruletet, teli munkat es szallitast vegez szuk varosi kornyezetben.',
+      da: 'Timan 3330 er en kompakt, knækstyret redskabsbærer udviklet til professionel vedligeholdelse af udendørsarealer året rundt.',
+      en: 'Timan 3330 is a compact, articulated tool carrier developed for professional maintenance of outdoor areas all year round.',
+      de: 'Timan 3330 ist ein kompakter, knickgelenkter Geratetrager fur die professionelle Pflege von Aussenanlagen das ganze Jahr uber.',
+      it: 'Timan 3330 e un portattrezzi compatto e articolato sviluppato per la manutenzione professionale delle aree esterne tutto l anno.',
+      hu: 'A Timan 3330 kompakt, csuklos kormanyzasu eszkozhordozo kulteri teruletek egesz eves, professzionalis karbantartasahoz.',
     },
     {
-      da: 'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.',
-      en: 'The cab, compact design and quick attachment changes make it well suited for daily operation where comfort and efficiency matter.',
-      de: 'Kabine, kompakte Bauweise und schneller Geratewechsel machen die Maschine ideal fur den Alltag, wenn Komfort und Effizienz wichtig sind.',
-      it: 'La cabina, il design compatto e il cambio rapido degli accessori la rendono adatta al lavoro quotidiano dove comfort ed efficienza contano.',
-      hu: 'A fulke, a kompakt kialakitas es a gyors adaptercsere alkalmassa teszi mindennapi munkara, ahol a kenyelem es hatekonysag fontos.',
+      da: 'Den brede redskabsløsning gør det muligt at bruge samme maskine til blandt andet fejning, græspleje og vinterberedskab, så Timan 3330 kan løse mange forskellige opgaver gennem alle fire årstider.',
+      en: 'The broad attachment programme makes it possible to use the same machine for sweeping, green care and winter readiness, so Timan 3330 can solve many different tasks through all four seasons.',
+      de: 'Das breite Gerateprogramm ermoglicht es, dieselbe Maschine unter anderem zum Kehren, zur Grunpflege und fur den Winterdienst einzusetzen, sodass Timan 3330 viele verschiedene Aufgaben in allen vier Jahreszeiten losen kann.',
+      it: 'L ampia gamma di accessori permette di usare la stessa macchina per spazzamento, cura del verde e servizio invernale, cosi Timan 3330 puo svolgere molti compiti diversi in tutte e quattro le stagioni.',
+      hu: 'A szeles adapterkinalat lehetove teszi, hogy ugyanazt a gepet hasznaljuk sepreshez, zoldterulet-gondozashoz es teli felkeszultseghez, igy a Timan 3330 sokfele feladatot lat el mind a negy evszakban.',
     },
   ],
 };
+
 
 const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
   'rc-751': [
@@ -640,16 +678,32 @@ export default function MesseMachineBrochurePage({
                     </div>
                   </div>
                 )}
-                {content.highlights.slice(0, content.attachmentCount ? 2 : 3).map((item, index) => (
+                {(content.cards ??
+                  content.highlights
+                    .slice(0, content.attachmentCount ? 2 : 3)
+                    .map((item) => ({ title: undefined, text: item }))
+                ).map((item, index) => (
                   <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     {index === 0 ? (
                       <Gauge className="mb-4 h-6 w-6 text-slate-700" />
                     ) : (
                       <Settings className="mb-4 h-6 w-6 text-slate-700" />
                     )}
-                    <p className="text-sm font-semibold leading-6 text-slate-800">{tr(item, lang)}</p>
+                    {item.title && (
+                      <p className="text-sm font-semibold leading-6 text-slate-900">{tr(item.title, lang)}</p>
+                    )}
+                    <p
+                      className={
+                        item.title
+                          ? 'text-sm leading-6 text-slate-600'
+                          : 'text-sm font-semibold leading-6 text-slate-800'
+                      }
+                    >
+                      {tr(item.text, lang)}
+                    </p>
                   </div>
                 ))}
+
               </div>
             )}
 
