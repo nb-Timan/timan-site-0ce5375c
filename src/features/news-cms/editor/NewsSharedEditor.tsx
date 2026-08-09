@@ -201,6 +201,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   field={field}
                   value={activeContent[field.key]}
                   content={activeContent}
+                  onMetaChange={(fieldKey, value) =>
+                    setLocalizedContent((current) => updateSharedNewsField(current, fieldKey, value))
+                  }
                   onChange={(value) =>
                     setLocalizedContent((current) => {
                       if (field.type === 'techBlocks') {

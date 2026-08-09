@@ -8,18 +8,29 @@ import NewsSpecRowsEditor from './NewsSpecRowsEditor';
 import NewsFlyerPagesEditor from './NewsFlyerPagesEditor';
 import NewsImageUploadField from './NewsImageUploadField';
 import { FLYER_MAX_PAGES, clampFlyerPageCount } from '@/features/news-cms/lib/flyerPages';
-import type { NewsFlyerPage } from '@/features/news-cms/templates/types';
+import type { NewsFlyerPage, NewsImageTransform } from '@/features/news-cms/templates/types';
 
 interface Props {
   lang: PortalUiLanguage;
   field: NewsFieldDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
+  onMetaChange?: (fieldKey: string, value: unknown) => void;
   /** Full active content — needed by fields that depend on siblings (page count). */
   content?: Record<string, unknown>;
 }
 
-export default function NewsFieldEditor({ lang, field, value, onChange, content = {} }: Props) {
+function isImageTransform(value: unknown): Partial<NewsImageTransform> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<NewsImageTransform>;
+  return {
+    x: typeof candidate.x === 'number' ? candidate.x : undefined,
+    y: typeof candidate.y === 'number' ? candidate.y : undefined,
+    scale: typeof candidate.scale === 'number' ? candidate.scale : undefined,
+  };
+}
+
+export default function NewsFieldEditor({ lang, field, value, onChange, onMetaChange, content = {} }: Props) {
   const commonClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
   const stringValue = typeof value === 'string' ? value : '';
 
@@ -73,7 +84,17 @@ export default function NewsFieldEditor({ lang, field, value, onChange, content 
   }
 
   if (field.type === 'image') {
-    return <NewsImageUploadField lang={lang} field={field} value={stringValue} onChange={(next) => onChange(next)} />;
+    const transformKey = `${field.key}Transform`;
+    return (
+      <NewsImageUploadField
+        lang={lang}
+        field={field}
+        value={stringValue}
+        transform={isImageTransform(content[transformKey])}
+        onChange={(next) => onChange(next)}
+        onTransformChange={(next) => onMetaChange?.(transformKey, next)}
+      />
+    );
   }
 
   return (

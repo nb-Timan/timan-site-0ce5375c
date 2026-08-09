@@ -60,6 +60,12 @@ export interface NewsSpecRow {
   value: string;
 }
 
+export interface NewsImageTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 export interface NewsFieldDefinition {
   key: string;
   labelKey: string;

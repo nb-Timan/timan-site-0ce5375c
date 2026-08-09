@@ -14,7 +14,7 @@ import {
   flyerTextLimits,
   normalizeFlyerHighlights,
 } from '@/features/news-cms/lib/flyerPages';
-import type { NewsFlyerPage, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+import type { NewsFlyerPage, NewsImageTransform, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -96,6 +96,20 @@ function template06Validate(content: Record<string, unknown>) {
 function text(content: Record<string, unknown>, key: string, fallback: string) {
   const value = content[key];
   return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function imageTransform(content: Record<string, unknown>, key: string): NewsImageTransform | undefined {
+  const value = content[key];
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<NewsImageTransform>;
+  const x = typeof candidate.x === 'number' ? candidate.x : 0;
+  const y = typeof candidate.y === 'number' ? candidate.y : 0;
+  const scale = typeof candidate.scale === 'number' ? candidate.scale : 1;
+  return {
+    x: Math.min(45, Math.max(-45, x)),
+    y: Math.min(45, Math.max(-45, y)),
+    scale: Math.min(2.5, Math.max(1, scale)),
+  };
 }
 
 /** Intrinsic A4 landscape design size (px) used by scale-to-fit templates. */
@@ -239,7 +253,12 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
     <TemplateShell lang={lang}>
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <div className="relative h-full min-w-0">
-          <TemplateImage url={mainImage} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <TemplateImage
+            url={mainImage}
+            label={t('newsCmsWireLargeImage', lang)}
+            className="h-full"
+            transform={imageTransform(content, 'mainImageTransform')}
+          />
           <span className="absolute left-3 top-3 z-10 rounded-[4px] bg-[var(--timan-green)] px-2.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white shadow-sm">
             {t('newsCmsBadgeNews', lang)}
           </span>
@@ -288,11 +307,34 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
   );
 }
 
-function TemplateImage({ url, label, className = '' }: { url: string; label: string; className?: string }) {
+function TemplateImage({
+  url,
+  label,
+  className = '',
+  transform,
+}: {
+  url: string;
+  label: string;
+  className?: string;
+  transform?: NewsImageTransform;
+}) {
   if (!url) return <ImageBox label={label} className={className} />;
   return (
     <div className={`overflow-hidden rounded-lg border border-slate-200 bg-slate-100 ${className}`}>
-      <img src={url} alt="" className="h-full w-full object-cover" draggable={false} />
+      <img
+        src={url}
+        alt=""
+        className="h-full w-full object-cover"
+        draggable={false}
+        style={
+          transform
+            ? {
+                transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
+                transformOrigin: 'center',
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }
@@ -330,9 +372,19 @@ function Template02({ content, lang }: NewsRendererProps) {
           </div>
         </div>
         <div className="grid h-full min-w-0 grid-rows-[1.25fr_0.75fr] gap-4">
-          <TemplateImage url={mainImage} label={t('newsCmsWireLargeImage', lang)} className="h-full" />
+          <TemplateImage
+            url={mainImage}
+            label={t('newsCmsWireLargeImage', lang)}
+            className="h-full"
+            transform={imageTransform(content, 'mainImageTransform')}
+          />
           <div className="grid min-w-0 grid-cols-[0.9fr_1.1fr] gap-4">
-            <TemplateImage url={secondaryImage} label={t('newsCmsWireSmallImage', lang)} className="h-full" />
+            <TemplateImage
+              url={secondaryImage}
+              label={t('newsCmsWireSmallImage', lang)}
+              className="h-full"
+              transform={imageTransform(content, 'secondaryImageTransform')}
+            />
             <div className="flex min-w-0 flex-col justify-center border-l-2 border-emerald-500 pl-3">
               {caption ? (
                 <p className="line-clamp-3 text-[0.78rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
@@ -391,6 +443,7 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
           url={productImage}
           label={t('newsCmsWireProductImage', lang)}
           className="h-full w-full rounded-none border-0 object-cover"
+          transform={imageTransform(content, 'productImageTransform')}
         />
       </div>
       {/* Constant-thickness green separator, parallel to the photo edge. */}
@@ -405,6 +458,7 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
           url={secondaryImage}
           label={t('newsCmsFieldSecondaryImage', lang)}
           className="h-full w-full rounded-none border-0 object-cover"
+          transform={imageTransform(content, 'secondaryImageTransform')}
         />
       </div>
 
@@ -463,15 +517,15 @@ function Template04({ content, lang }: NewsRendererProps) {
               {blocks.map((block, index) => (
                 <div
                   key={index}
-                  className="flex h-[4.6rem] min-w-0 items-start gap-2.5 overflow-hidden rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-100"
+                  className="flex h-[5rem] min-w-0 items-start gap-2.5 overflow-hidden rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-100"
                 >
                   <FeatureIconMark block={block} size="sm" />
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-[0.9rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
+                    <p className="line-clamp-2 text-[1rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
                       {block.heading || t('newsCmsTechHeading', lang)}
                     </p>
                     {block.description ? (
-                      <p className="mt-0.5 line-clamp-2 text-[0.7rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+                      <p className="mt-0.5 line-clamp-2 text-[0.8rem] font-medium leading-[1.32] text-slate-600 [overflow-wrap:anywhere]">
                         {block.description}
                       </p>
                     ) : null}
@@ -483,14 +537,14 @@ function Template04({ content, lang }: NewsRendererProps) {
             <div className="mt-3 min-h-0 min-w-0 flex-[1_1_0%] overflow-hidden">
               {specs.length > 0 ? (
                 <div className="h-full overflow-hidden rounded-xl bg-slate-100 p-3.5">
-                  <p className="mb-2 text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mb-2 text-[0.75rem] font-black uppercase tracking-[0.14em] text-slate-500">
                     {t('newsCmsSpecificationsTitle', lang)}
                   </p>
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-1">
                     {specs.map((row, index) => (
                       <div key={index} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
-                        <dt className="min-w-0 text-[0.72rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
-                        <dd className="min-w-0 text-right text-[0.72rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                        <dt className="min-w-0 text-[0.84rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
+                        <dd className="min-w-0 text-right text-[0.84rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
                       </div>
                     ))}
                   </dl>
