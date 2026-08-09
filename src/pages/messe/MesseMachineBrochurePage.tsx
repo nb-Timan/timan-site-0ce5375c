@@ -16,6 +16,10 @@ import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
+import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
+import iconService from '@/assets/rc1000s-icon-16.png.asset.json';
+import iconSeason from '@/assets/rc1000s-icon-17.png.asset.json';
 
 type MachineKey = 'rc-751' | 'rc-1000s' | 'timan-3330';
 type Localized = Record<Language, string>;
