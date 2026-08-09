@@ -77,7 +77,7 @@ export default function LatestFromTiman({ language }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchLatestNews(4, language).then((rows) => {
+    fetchLatestNews(3, language).then((rows) => {
       if (cancelled) return;
       setPosts(rows.length > 0 ? rows : buildPlaceholders(language));
     });
@@ -91,7 +91,7 @@ export default function LatestFromTiman({ language }: Props) {
   return (
     <div className="mt-16 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('latestFromTimanHeading', language)}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {data.map((item) => {
           const styles = categoryStyle(item.category);
           const opensInModal = !item.link_url && item.source !== 'placeholder';
@@ -104,7 +104,7 @@ export default function LatestFromTiman({ language }: Props) {
                 onError={(event) => {
                   event.currentTarget.src = FALLBACK_IMAGE;
                 }}
-                className="w-full h-40 object-cover rounded-lg mb-4 bg-gray-100"
+                className="aspect-square w-full object-cover rounded-lg mb-4 bg-gray-100"
               />
 
               <div className={`${styles.bg} ${styles.text} text-xs font-bold px-2 py-1 rounded self-start mb-3`}>
