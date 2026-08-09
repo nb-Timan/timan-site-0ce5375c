@@ -399,8 +399,7 @@ function makeTimanHeadquartersIcon(zoom = 6): L.DivIcon {
   const markerHeight = Math.round(60 * scale);
   const logoWidth = Math.round(50 * scale);
   const pinSize = Math.round(26 * scale);
-  const pinTail = Math.round(7 * scale);
-  const pinInset = Math.max(6, Math.round(7 * scale));
+  const pinHeight = Math.round((pinSize * 44) / 36);
   const anchorX = Math.round(markerWidth / 2);
   const anchorY = markerHeight - Math.round(2 * scale);
   const html = `
@@ -408,11 +407,11 @@ function makeTimanHeadquartersIcon(zoom = 6): L.DivIcon {
       <div class="pm-timan-marker-logo" style="width:${logoWidth}px;max-width:${logoWidth}px;">
         <img src="${escapeHtml(timanLogo)}" alt="Timan" style="display:block;width:${logoWidth}px;max-width:${logoWidth}px;height:auto;" />
       </div>
-      <div class="pm-timan-marker-pin" style="width:${pinSize}px;height:${pinSize}px;">
-        <span style="inset:${pinInset}px;"></span>
-        <i style="bottom:-${pinTail}px;width:${Math.round(14 * scale)}px;height:${Math.round(14 * scale)}px;"></i>
+      <div class="pm-timan-marker-pin" style="width:${pinSize}px;height:${pinHeight}px;">
+        ${pinSvgMarkup(TIMAN_GOLD, pinSize, pinHeight)}
       </div>
     </div>`;
+
   return L.divIcon({
     html,
     className: 'pm-timan-marker-wrap',
