@@ -51,6 +51,17 @@ export interface NewsCmsDraftInput {
 
 const LEGACY_NEWS_SELECT = 'id, title, excerpt, image_url, link_url, category, published_at, is_active, source';
 const CMS_NEWS_SELECT = `${LEGACY_NEWS_SELECT}, template_id, status, slug, localized_content, template_data, assets, created_at, updated_at, created_by, updated_by, published_by`;
+const LANGUAGE_KEY_ALIASES: Record<PortalUiLanguage, string[]> = {
+  da: ['da', 'dk'],
+  en: ['en', 'gb'],
+  de: ['de'],
+  it: ['it'],
+  hu: ['hu'],
+  sv: ['sv', 'se'],
+  fr: ['fr'],
+  pl: ['pl'],
+  cs: ['cs', 'cz'],
+};
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -71,7 +82,52 @@ function firstLocalizedString(
   return '';
 }
 
-function publicFieldsFromLocalizedContent(
+function firstStringFromContent(content: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!content) return '';
+  for (const key of keys) {
+    const value = stringValue(content[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function uniqueLanguageKeys(...groups: string[][]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const group of groups) {
+    for (const key of group) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+function localizedStringForLanguage(
+  localizedContent: LocalizedNewsContent | null | undefined,
+  lang: PortalUiLanguage,
+  keys: string[],
+): string {
+  if (!localizedContent) return '';
+
+  const contentByLanguage = localizedContent as Record<string, Record<string, unknown> | undefined>;
+  const languageKeys = uniqueLanguageKeys(
+    LANGUAGE_KEY_ALIASES[lang] || [lang],
+    lang === 'en' ? [] : LANGUAGE_KEY_ALIASES.en,
+    lang === 'da' ? [] : LANGUAGE_KEY_ALIASES.da,
+    Object.keys(contentByLanguage),
+  );
+
+  for (const languageKey of languageKeys) {
+    const value = firstStringFromContent(contentByLanguage[languageKey], keys);
+    if (value) return value;
+  }
+
+  return '';
+}
+
+export function resolvePublicNewsFields(
   row: Partial<NewsCmsPost>,
   lang: PortalUiLanguage,
 ): Pick<NewsPost, 'title' | 'excerpt' | 'image_url'> {
@@ -84,20 +140,22 @@ function publicFieldsFromLocalizedContent(
     };
   }
 
-  const content = getLocalizedNewsContent(localizedContent, lang);
-  const title = stringValue(content.headline) || stringValue(content.title) || row.title || 'Untitled news';
+  const title =
+    localizedStringForLanguage(localizedContent, lang, ['headline', 'title']) ||
+    row.title ||
+    'Untitled news';
   const excerpt =
-    stringValue(content.subtitle) ||
-    stringValue(content.excerpt) ||
-    stringValue(content.body) ||
+    localizedStringForLanguage(localizedContent, lang, ['subtitle', 'excerpt', 'body']) ||
     row.excerpt ||
     null;
   const imageUrl =
-    stringValue(content.mainImage) ||
-    stringValue(content.heroImage) ||
-    stringValue(content.productImage) ||
-    stringValue(content.secondaryImage) ||
-    stringValue(content.image_url) ||
+    localizedStringForLanguage(localizedContent, lang, [
+      'mainImage',
+      'heroImage',
+      'productImage',
+      'secondaryImage',
+      'image_url',
+    ]) ||
     firstLocalizedString(localizedContent, ['mainImage', 'heroImage', 'productImage', 'secondaryImage', 'image_url']) ||
     row.image_url ||
     null;
@@ -106,7 +164,7 @@ function publicFieldsFromLocalizedContent(
 }
 
 function toPublicNewsPost(row: NewsCmsPost, lang: PortalUiLanguage): NewsPost {
-  const localizedFields = publicFieldsFromLocalizedContent(row, lang);
+  const localizedFields = resolvePublicNewsFields(row, lang);
   return {
     ...row,
     ...localizedFields,

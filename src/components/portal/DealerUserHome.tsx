@@ -6,6 +6,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import LatestChanges from '@/components/portal/LatestChanges';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DealerUserHomeProps {
   user: SessionUser;
@@ -52,6 +53,7 @@ const quickActions = [
 
 export default function DealerUserHome({ user, language, onLanguageChange, onLogout }: DealerUserHomeProps) {
   const navigate = useNavigate();
+  const { uiLanguage } = useLanguage();
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -112,8 +114,8 @@ export default function DealerUserHome({ user, language, onLanguageChange, onLog
           </div>
         </section>
 
-        <LatestChanges language={language} />
-        <LatestFromTiman language={language} />
+        <LatestChanges language={uiLanguage} />
+        <LatestFromTiman language={uiLanguage} />
       </main>
 
       <PortalFooter language={language} />
