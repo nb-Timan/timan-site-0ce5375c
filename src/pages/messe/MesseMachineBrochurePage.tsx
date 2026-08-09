@@ -567,6 +567,7 @@ export default function MesseMachineBrochurePage({
   const goBack = () => setLeftPage((page) => Math.max(1, page - 2));
   const goNext = () => setLeftPage((page) => Math.min(pageCount, page + 2));
 
+
   const documentButtonClass =
     'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md';
   const rc1000IconFeatures = [
