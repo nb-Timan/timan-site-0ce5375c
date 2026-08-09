@@ -8,7 +8,7 @@ import {
   Gauge,
   ListChecks,
   Settings,
-  ShieldCheck,
+  
   Wrench,
 } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
@@ -16,6 +16,10 @@ import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
+import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
+import iconService from '@/assets/rc1000s-icon-16.png.asset.json';
+import iconSeason from '@/assets/rc1000s-icon-17.png.asset.json';
 
 type MachineKey = 'rc-751' | 'rc-1000s' | 'timan-3330';
 type Localized = Record<Language, string>;
@@ -551,19 +555,19 @@ export default function MesseMachineBrochurePage({
     'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md';
   const rc1000IconFeatures = [
     {
-      icon: Gauge,
+      iconSrc: iconSlope.url,
       label: text('Klarer skråninger op til 50 grader.', 'Handles slopes up to 50 degrees.', 'Bewaltigt Hange bis 50 Grad.', 'Gestisce pendenze fino a 50 gradi.', 'Akár 50 fokos lejtoket is kezel.'),
     },
     {
-      icon: ShieldCheck,
+      iconSrc: iconStability.url,
       label: text('Avanceret stabilitetssystem.', 'Advanced stability system.', 'Fortschrittliches Stabilitatssystem.', 'Sistema di stabilita avanzato.', 'Fejlett stabilitasi rendszer.'),
     },
     {
-      icon: Wrench,
+      iconSrc: iconService.url,
       label: text('Hurtigt og nemt redskabsskifte.', 'Quick and easy attachment change.', 'Schneller und einfacher Geratewechsel.', 'Cambio accessori rapido e semplice.', 'Gyors es egyszeru adaptercsere.'),
     },
     {
-      icon: Settings,
+      iconSrc: iconSeason.url,
       label: text('Driftssikker, uanset sæson.', 'Reliable, regardless of season.', 'Betriebssicher zu jeder Saison.', 'Affidabile in ogni stagione.', 'Megbizhato, evszaktol fuggetlenul.'),
     },
   ];
@@ -609,9 +613,9 @@ export default function MesseMachineBrochurePage({
 
             {machineKey === 'rc-1000s' && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {rc1000IconFeatures.map(({ icon: Icon, label }) => (
+                {rc1000IconFeatures.map(({ iconSrc, label }) => (
                   <div key={tr(label, lang)} className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-                    <Icon className="mx-auto mb-3 h-8 w-8 text-slate-800" />
+                    <img src={iconSrc} alt="" aria-hidden="true" className="mx-auto mb-3 h-14 w-auto max-w-[4.5rem] object-contain" />
                     <p className="text-sm font-bold leading-5 text-slate-800">{tr(label, lang)}</p>
                   </div>
                 ))}
