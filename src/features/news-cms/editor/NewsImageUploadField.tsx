@@ -176,7 +176,7 @@ export default function NewsImageUploadField({ lang, field, value, onChange, tra
             <img
               src={value}
               alt=""
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               draggable={false}
               style={{
                 transform: `translate(${activeTransform.x}%, ${activeTransform.y}%) scale(${activeTransform.scale})`,
