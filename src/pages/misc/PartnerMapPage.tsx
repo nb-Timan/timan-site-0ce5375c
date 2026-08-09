@@ -1382,11 +1382,9 @@ export default function PartnerMapPage() {
         .pm-timan-marker-logo { position:absolute; left:50%; top:0; transform:translateX(-50%); min-height:19px; padding:3px 5px;
           border-radius:999px; background:rgba(255,255,255,.96); border:1px solid rgba(201,162,39,.42); box-shadow:0 7px 18px rgba(15,23,42,.22); }
         .pm-timan-marker-logo img { display:block; width:100% !important; max-width:100% !important; height:auto !important; }
-        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); border-radius:50%;
-          background:linear-gradient(145deg,#f6e7a6,#c9a227 56%,#8b6f12); border:3px solid white; box-shadow:0 8px 18px rgba(15,23,42,.32); }
-        .pm-timan-marker-pin i { position:absolute; left:50%; transform:translateX(-50%) rotate(45deg);
-          background:#c9a227; border-right:3px solid white; border-bottom:3px solid white; }
-        .pm-timan-marker-pin span { position:absolute; border-radius:50%; background:white; box-shadow:inset 0 1px 2px rgba(0,0,0,.18); }
+        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); }
+        .pm-timan-marker-pin svg { display:block; width:100%; height:100%; }
+
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
