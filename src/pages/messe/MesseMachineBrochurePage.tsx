@@ -399,20 +399,20 @@ const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
   ],
   'timan-3330': [
     {
-      da: 'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.',
-      en: 'Timan 3330 is built for year-round operation where one machine handles sweeping, green care, winter service and transport in compact urban areas.',
-      de: 'Timan 3330 ist fur den Ganzjahreseinsatz gebaut, bei dem eine Maschine Kehren, Grunpflege, Winterdienst und Transport in engen Stadtbereichen ubernimmt.',
-      it: 'Timan 3330 e costruita per il lavoro tutto l anno, dove una sola macchina gestisce spazzamento, verde, inverno e trasporto in aree urbane strette.',
-      hu: 'A Timan 3330 egesz eves uzemre keszult, ahol egy gep seprest, zoldteruletet, teli munkat es szallitast vegez szuk varosi kornyezetben.',
+      da: 'Timan 3330 er en kompakt, knækstyret redskabsbærer udviklet til professionel vedligeholdelse af udendørsarealer året rundt.',
+      en: 'Timan 3330 is a compact, articulated tool carrier developed for professional maintenance of outdoor areas all year round.',
+      de: 'Timan 3330 ist ein kompakter, knickgelenkter Geratetrager fur die professionelle Pflege von Aussenanlagen das ganze Jahr uber.',
+      it: 'Timan 3330 e un portattrezzi compatto e articolato sviluppato per la manutenzione professionale delle aree esterne tutto l anno.',
+      hu: 'A Timan 3330 kompakt, csuklos kormanyzasu eszkozhordozo kulteri teruletek egesz eves, professzionalis karbantartasahoz.',
     },
     {
-      da: 'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.',
-      en: 'The cab, compact design and quick attachment changes make it well suited for daily operation where comfort and efficiency matter.',
-      de: 'Kabine, kompakte Bauweise und schneller Geratewechsel machen die Maschine ideal fur den Alltag, wenn Komfort und Effizienz wichtig sind.',
-      it: 'La cabina, il design compatto e il cambio rapido degli accessori la rendono adatta al lavoro quotidiano dove comfort ed efficienza contano.',
-      hu: 'A fulke, a kompakt kialakitas es a gyors adaptercsere alkalmassa teszi mindennapi munkara, ahol a kenyelem es hatekonysag fontos.',
+      da: 'Den brede redskabsløsning gør det muligt at bruge samme maskine til blandt andet fejning, græspleje og vinterberedskab, så Timan 3330 kan løse mange forskellige opgaver gennem alle fire årstider.',
+      en: 'The broad attachment programme makes it possible to use the same machine for sweeping, green care and winter readiness, so Timan 3330 can solve many different tasks through all four seasons.',
+      de: 'Das breite Gerateprogramm ermoglicht es, dieselbe Maschine unter anderem zum Kehren, zur Grunpflege und fur den Winterdienst einzusetzen, sodass Timan 3330 viele verschiedene Aufgaben in allen vier Jahreszeiten losen kann.',
+      it: 'L ampia gamma di accessori permette di usare la stessa macchina per spazzamento, cura del verde e servizio invernale, cosi Timan 3330 puo svolgere molti compiti diversi in tutte e quattro le stagioni.',
+      hu: 'A szeles adapterkinalat lehetove teszi, hogy ugyanazt a gepet hasznaljuk sepreshez, zoldterulet-gondozashoz es teli felkeszultseghez, igy a Timan 3330 sokfele feladatot lat el mind a negy evszakban.',
     },
-  ],
+
 };
 
 const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
