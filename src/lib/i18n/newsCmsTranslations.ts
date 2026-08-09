@@ -10,6 +10,7 @@ import { NEWS_CMS_TECH_TRANSLATIONS } from '@/lib/i18n/newsCmsTechTranslations';
 import { NEWS_CMS_FLYER_TRANSLATIONS } from '@/lib/i18n/newsCmsFlyerTranslations';
 import { NEWS_CMS_FLYER_PAGES_TRANSLATIONS } from '@/lib/i18n/newsCmsFlyerPagesTranslations';
 import { NEWS_CMS_TPL04_TRANSLATIONS } from '@/lib/i18n/newsCmsTpl04Translations';
+import { NEWS_CMS_UPLOAD_TRANSLATIONS } from '@/lib/i18n/newsCmsUploadTranslations';
 
 type Dict = Record<string, string>;
 
@@ -1422,6 +1423,6 @@ const BASE: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, c
 export const NEWS_CMS_TRANSLATIONS: Record<PortalUiLanguage, Dict> = (
   Object.keys(BASE) as PortalUiLanguage[]
 ).reduce((acc, code) => {
-  acc[code] = { ...BASE[code], ...NEWS_CMS_CTA_TRANSLATIONS[code], ...NEWS_CMS_TECH_TRANSLATIONS[code], ...NEWS_CMS_FLYER_TRANSLATIONS[code], ...NEWS_CMS_FLYER_PAGES_TRANSLATIONS[code], ...NEWS_CMS_TPL04_TRANSLATIONS[code] };
+  acc[code] = { ...BASE[code], ...NEWS_CMS_CTA_TRANSLATIONS[code], ...NEWS_CMS_TECH_TRANSLATIONS[code], ...NEWS_CMS_FLYER_TRANSLATIONS[code], ...NEWS_CMS_FLYER_PAGES_TRANSLATIONS[code], ...NEWS_CMS_TPL04_TRANSLATIONS[code], ...NEWS_CMS_UPLOAD_TRANSLATIONS[code] };
   return acc;
 }, {} as Record<PortalUiLanguage, Dict>);

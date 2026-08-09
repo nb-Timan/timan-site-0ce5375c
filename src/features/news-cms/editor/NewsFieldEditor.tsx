@@ -6,6 +6,7 @@ import NewsCtaLinksEditor from './NewsCtaLinksEditor';
 import NewsTechBlocksEditor from './NewsTechBlocksEditor';
 import NewsSpecRowsEditor from './NewsSpecRowsEditor';
 import NewsFlyerPagesEditor from './NewsFlyerPagesEditor';
+import NewsImageUploadField from './NewsImageUploadField';
 import { FLYER_MAX_PAGES, clampFlyerPageCount } from '@/features/news-cms/lib/flyerPages';
 import type { NewsFlyerPage } from '@/features/news-cms/templates/types';
 
@@ -69,6 +70,10 @@ export default function NewsFieldEditor({ lang, field, value, onChange, content 
         {field.helpKey && <p className="mt-1 text-xs text-slate-400">{t(field.helpKey, lang)}</p>}
       </div>
     );
+  }
+
+  if (field.type === 'image') {
+    return <NewsImageUploadField lang={lang} field={field} value={stringValue} onChange={(next) => onChange(next)} />;
   }
 
   return (

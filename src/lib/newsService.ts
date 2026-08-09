@@ -120,6 +120,7 @@ export async function adminListNewsPosts(): Promise<{ rows: NewsCmsPost[]; error
 
 export async function adminSaveNewsDraft(input: NewsCmsDraftInput): Promise<{ row: NewsCmsPost | null; error: string | null }> {
   const legacy = legacyFieldsFromLocalizedContent(input.localized_content);
+  const now = new Date().toISOString();
   const payload = {
     template_id: input.template_id,
     status: input.status || 'draft',
@@ -129,7 +130,8 @@ export async function adminSaveNewsDraft(input: NewsCmsDraftInput): Promise<{ ro
     localized_content: input.localized_content,
     template_data: input.template_data || {},
     assets: input.assets || [],
-    published_at: input.status === 'published' ? new Date().toISOString() : null,
+    published_at: input.status === 'published' ? now : null,
+    updated_at: now,
     ...legacy,
   };
 
@@ -147,10 +149,12 @@ export async function adminPublishNewsPost(input: NewsCmsDraftInput): Promise<{ 
 }
 
 export async function adminUpdateNewsStatus(id: string, status: NewsStatus): Promise<{ error: string | null }> {
+  const now = new Date().toISOString();
   const payload = {
     status,
     is_active: status === 'published',
-    published_at: status === 'published' ? new Date().toISOString() : null,
+    published_at: status === 'published' ? now : null,
+    updated_at: now,
   };
 
   const { error } = await supabase.from('news_posts').update(payload).eq('id', id);
