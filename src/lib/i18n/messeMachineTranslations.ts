@@ -1,0 +1,331 @@
+/**
+ * Extra machine/product page translations for the portal languages that are
+ * not part of the legacy `Language` union (sv / fr / pl / cs).
+ *
+ * The machine detail pages store their content as `Record<Language, string>`
+ * objects keyed by a Danish source string. Rather than duplicating the whole
+ * content tree, this registry maps that Danish source string to the four
+ * additional locales. `resolveMachineText()` in the machine page resolves:
+ *
+ *   selected portal language -> this registry -> English -> Danish
+ *
+ * Strings that need no translation (product names, numbers, units) are simply
+ * omitted and fall back to the existing English/Danish value.
+ */
+
+export type ExtraMachineLanguage = 'sv' | 'fr' | 'pl' | 'cs';
+
+type Quad = Partial<Record<ExtraMachineLanguage, string>>;
+
+export const MESSE_MACHINE_EXTRA_TRANSLATIONS: Record<string, Quad> = {
+  // ---------------------------------------------------------------- UI chrome
+  'Tilbage': { sv: 'Tillbaka', fr: 'Retour', pl: 'Wstecz', cs: 'Zpět' },
+  'Til forsiden': { sv: 'Till startsidan', fr: "Vers l'accueil", pl: 'Do strony głównej', cs: 'Na úvodní stránku' },
+  'Brochure': { sv: 'Broschyr', fr: 'Brochure', pl: 'Broszura', cs: 'Brožura' },
+  'Dokumenter': { sv: 'Dokument', fr: 'Documents', pl: 'Dokumenty', cs: 'Dokumenty' },
+  'Teknisk datablad': { sv: 'Tekniskt datablad', fr: 'Fiche technique', pl: 'Karta techniczna', cs: 'Technický list' },
+  'Åbn brochure': { sv: 'Öppna broschyr', fr: 'Ouvrir la brochure', pl: 'Otwórz broszurę', cs: 'Otevřít brožuru' },
+  'Se tekniske data': { sv: 'Visa tekniska data', fr: 'Voir les données techniques', pl: 'Zobacz dane techniczne', cs: 'Zobrazit technická data' },
+  'Åbn PDF': { sv: 'Öppna PDF', fr: 'Ouvrir le PDF', pl: 'Otwórz PDF', cs: 'Otevřít PDF' },
+  'Forrige': { sv: 'Föregående', fr: 'Précédent', pl: 'Poprzednia', cs: 'Předchozí' },
+  'Næste': { sv: 'Nästa', fr: 'Suivant', pl: 'Następna', cs: 'Další' },
+  'Luk': { sv: 'Stäng', fr: 'Fermer', pl: 'Zamknij', cs: 'Zavřít' },
+  'Overblik': { sv: 'Översikt', fr: 'Aperçu', pl: 'Przegląd', cs: 'Přehled' },
+  'Styrker': { sv: 'Styrkor', fr: 'Points forts', pl: 'Zalety', cs: 'Přednosti' },
+  'Tekniske data': { sv: 'Tekniska data', fr: 'Données techniques', pl: 'Dane techniczne', cs: 'Technická data' },
+  'Redskaber': { sv: 'Redskap', fr: 'Accessoires', pl: 'Osprzęt', cs: 'Nářadí' },
+  'Mere om maskinen': { sv: 'Mer om maskinen', fr: 'En savoir plus sur la machine', pl: 'Więcej o maszynie', cs: 'Více o stroji' },
+  'Timan forside': { sv: 'Timan startsida', fr: "Accueil Timan", pl: 'Strona główna Timan', cs: 'Úvodní stránka Timan' },
+  'side': { sv: 'sida', fr: 'page', pl: 'strona', cs: 'strana' },
+
+  // ------------------------------------------------------------------- RC-751
+  'Kompakt fjernstyret skråningsklipper': {
+    sv: 'Kompakt fjärrstyrd släntklippare',
+    fr: 'Débroussailleuse de pente compacte radiocommandée',
+    pl: 'Kompaktowa zdalnie sterowana kosiarka do skarp',
+    cs: 'Kompaktní dálkově ovládaná svahová sekačka',
+  },
+  'Timan RC-751 er den lille fjernstyrede maskine til stejle skråninger, smalle passager og områder, hvor operatøren skal stå sikkert væk fra arbejdet.': {
+    sv: 'Timan RC-751 är den lilla fjärrstyrda maskinen för branta slänter, trånga passager och områden där föraren ska stå på säkert avstånd från arbetet.',
+    fr: 'La Timan RC-751 est la petite machine radiocommandée pour les pentes raides, les passages étroits et les zones où l’opérateur doit rester à distance de sécurité.',
+    pl: 'Timan RC-751 to mała maszyna zdalnie sterowana do stromych skarp, wąskich przejść i miejsc, gdzie operator musi pozostać w bezpiecznej odległości.',
+    cs: 'Timan RC-751 je malý dálkově ovládaný stroj pro strmé svahy, úzké průjezdy a místa, kde má obsluha zůstat v bezpečné vzdálenosti.',
+  },
+  'Arbejder på skråninger op til 50 grader.': {
+    sv: 'Arbetar i slänter upp till 50 grader.',
+    fr: 'Travaille sur des pentes jusqu’à 50 degrés.',
+    pl: 'Pracuje na zboczach do 50 stopni.',
+    cs: 'Pracuje na svazích až 50 stupňů.',
+  },
+  'Lav vægt og kompakt størrelse gør den let at transportere.': {
+    sv: 'Låg vikt och kompakt storlek gör den enkel att transportera.',
+    fr: 'Son poids réduit et sa taille compacte facilitent le transport.',
+    pl: 'Niska masa i kompaktowe wymiary ułatwiają transport.',
+    cs: 'Nízká hmotnost a kompaktní rozměry usnadňují přepravu.',
+  },
+  'Fjernstyring giver bedre sikkerhed ved farlige og svært tilgængelige områder.': {
+    sv: 'Fjärrstyrningen ger bättre säkerhet i farliga och svåråtkomliga områden.',
+    fr: 'La radiocommande améliore la sécurité dans les zones dangereuses et difficiles d’accès.',
+    pl: 'Zdalne sterowanie zwiększa bezpieczeństwo w miejscach niebezpiecznych i trudno dostępnych.',
+    cs: 'Dálkové ovládání zvyšuje bezpečnost v nebezpečných a těžko přístupných místech.',
+  },
+
+  // ----------------------------------------------------------------- RC-1000s
+  'Fjernstyret redskabsbærer til helårsbrug': {
+    sv: 'Fjärrstyrd redskapsbärare för åretruntbruk',
+    fr: 'Porte-outils radiocommandé pour une utilisation toute l’année',
+    pl: 'Zdalnie sterowany nośnik narzędzi do pracy przez cały rok',
+    cs: 'Dálkově ovládaný nosič nářadí pro celoroční použití',
+  },
+  'Timan RC-1000s er bygget til krævende terræn og skråninger. Den kan kobles med flere redskaber til grøn vedligeholdelse og vintertjeneste.': {
+    sv: 'Timan RC-1000s är byggd för krävande terräng och slänter. Den kan kombineras med flera redskap för grönyteskötsel och vinterväghållning.',
+    fr: 'La Timan RC-1000s est conçue pour les terrains difficiles et les pentes. Elle accepte plusieurs outils pour l’entretien des espaces verts et le service hivernal.',
+    pl: 'Timan RC-1000s została zbudowana do wymagającego terenu i skarp. Można ją łączyć z wieloma narzędziami do utrzymania zieleni i zimowego utrzymania.',
+    cs: 'Timan RC-1000s je určen pro náročný terén a svahy. Lze jej kombinovat s několika nástroji pro údržbu zeleně i zimní údržbu.',
+  },
+  'Ca. 9 redskaber til RC-1000s': {
+    sv: 'Ca 9 redskap till RC-1000s',
+    fr: 'Env. 9 outils pour la RC-1000s',
+    pl: 'Ok. 9 narzędzi do RC-1000s',
+    cs: 'Cca 9 nástrojů pro RC-1000s',
+  },
+  'Større kapacitet til krævende terræn, krat og grovere grønne opgaver.': {
+    sv: 'Större kapacitet för krävande terräng, sly och grövre grönyteuppgifter.',
+    fr: 'Plus de capacité pour les terrains difficiles, les broussailles et l’entretien vert exigeant.',
+    pl: 'Większa wydajność w trudnym terenie, zaroślach i przy cięższych pracach zieleni.',
+    cs: 'Vyšší výkon pro náročný terén, křoviny a hrubší práce v zeleni.',
+  },
+  'Hydraulisk redskabsdrift gør maskinen fleksibel på tværs af sæsoner.': {
+    sv: 'Hydraulisk redskapsdrift gör maskinen flexibel under alla säsonger.',
+    fr: 'L’entraînement hydraulique des outils rend la machine flexible en toute saison.',
+    pl: 'Hydrauliczny napęd osprzętu zapewnia elastyczność przez cały rok.',
+    cs: 'Hydraulický pohon nářadí činí stroj flexibilním v každé sezóně.',
+  },
+  'Fjernbetjeningen lader operatøren arbejde på afstand fra støv, sten og stejle områder.': {
+    sv: 'Fjärrkontrollen låter föraren arbeta på avstånd från damm, sten och branta partier.',
+    fr: 'La radiocommande permet à l’opérateur de travailler à distance de la poussière, des pierres et des zones raides.',
+    pl: 'Pilot pozwala operatorowi pracować z dala od pyłu, kamieni i stromych stref.',
+    cs: 'Dálkové ovládání umožňuje obsluze pracovat mimo prach, kameny a strmé úseky.',
+  },
+
+  // -------------------------------------------------------------- Timan 3330
+  'Kompakt redskabsbærer med kabine': {
+    sv: 'Kompakt redskapsbärare med hytt',
+    fr: 'Porte-outils compact avec cabine',
+    pl: 'Kompaktowy nośnik narzędzi z kabiną',
+    cs: 'Kompaktní nosič nářadí s kabinou',
+  },
+  'Timan 3330 er en kompakt redskabsbærer til daglig drift hele året. Den kombinerer komfort, hurtige redskabsskift og mange opgaver fra samme maskine.': {
+    sv: 'Timan 3330 är en kompakt redskapsbärare för daglig drift året runt. Den kombinerar komfort, snabba redskapsbyten och många uppgifter i samma maskin.',
+    fr: 'La Timan 3330 est un porte-outils compact pour une exploitation quotidienne toute l’année. Elle allie confort, changement rapide d’outils et polyvalence.',
+    pl: 'Timan 3330 to kompaktowy nośnik narzędzi do codziennej pracy przez cały rok. Łączy komfort, szybką wymianę osprzętu i wiele zastosowań w jednej maszynie.',
+    cs: 'Timan 3330 je kompaktní nosič nářadí pro každodenní celoroční provoz. Spojuje komfort, rychlou výměnu nářadí a mnoho úkolů v jednom stroji.',
+  },
+  'Mange redskaber til helårsdrift': {
+    sv: 'Många redskap för åretruntdrift',
+    fr: 'De nombreux outils pour une utilisation toute l’année',
+    pl: 'Wiele narzędzi do pracy przez cały rok',
+    cs: 'Mnoho nástrojů pro celoroční provoz',
+  },
+  'Kabine med fokus på lavt støjniveau og førerkomfort.': {
+    sv: 'Hytt med fokus på låg ljudnivå och förarkomfort.',
+    fr: 'Cabine axée sur un faible niveau sonore et le confort du conducteur.',
+    pl: 'Kabina z naciskiem na niski poziom hałasu i komfort operatora.',
+    cs: 'Kabina s důrazem na nízkou hlučnost a komfort obsluhy.',
+  },
+  'Hurtigt redskabsskifte til feje-, græs-, vinter- og transportopgaver.': {
+    sv: 'Snabbt redskapsbyte för sopning, gräs, vinter och transport.',
+    fr: 'Changement rapide d’outils pour le balayage, l’herbe, l’hiver et le transport.',
+    pl: 'Szybka wymiana osprzętu do zamiatania, koszenia, zimy i transportu.',
+    cs: 'Rychlá výměna nářadí pro zametání, trávu, zimu i přepravu.',
+  },
+  'Kompakt størrelse til arbejde på stier, fortove, parker og tætte bymiljøer.': {
+    sv: 'Kompakt storlek för arbete på gångstigar, trottoarer, parker och täta stadsmiljöer.',
+    fr: 'Format compact pour les sentiers, trottoirs, parcs et milieux urbains denses.',
+    pl: 'Kompaktowe wymiary do pracy na ścieżkach, chodnikach, w parkach i gęstej zabudowie.',
+    cs: 'Kompaktní rozměry pro práci na stezkách, chodnících, v parcích a husté zástavbě.',
+  },
+
+  // --------------------------------------------------------- Descriptions
+  'RC-751 er velegnet til skråninger, grøftekanter og smalle områder, hvor operatøren skal stå sikkert væk fra arbejdet.': {
+    sv: 'RC-751 passar för slänter, dikeskanter och trånga områden där föraren ska stå på säkert avstånd från arbetet.',
+    fr: 'La RC-751 convient aux pentes, aux bords de fossés et aux zones étroites où l’opérateur doit rester à distance de sécurité.',
+    pl: 'RC-751 nadaje się na skarpy, pobocza rowów i wąskie strefy, gdzie operator musi pozostać w bezpiecznej odległości.',
+    cs: 'RC-751 je vhodný pro svahy, okraje příkopů a úzká místa, kde má obsluha zůstat v bezpečné vzdálenosti.',
+  },
+  'Den lave vægt og kompakte størrelse gør maskinen nem at transportere og bruge på steder, hvor almindelige maskiner bliver for store.': {
+    sv: 'Den låga vikten och kompakta storleken gör maskinen enkel att transportera och använda där vanliga maskiner blir för stora.',
+    fr: 'Son faible poids et sa taille compacte facilitent le transport et l’utilisation là où les machines classiques sont trop grandes.',
+    pl: 'Niska masa i kompaktowe wymiary ułatwiają transport i pracę tam, gdzie zwykłe maszyny są za duże.',
+    cs: 'Nízká hmotnost a kompaktní rozměry usnadňují přepravu a použití tam, kde jsou běžné stroje příliš velké.',
+  },
+  'RC-1000s er den større fjernstyrede platform til opgaver, hvor der er brug for mere kapacitet, større klippebredde og flere redskabsmuligheder.': {
+    sv: 'RC-1000s är den större fjärrstyrda plattformen för uppgifter som kräver mer kapacitet, större klippbredd och fler redskapsmöjligheter.',
+    fr: 'La RC-1000s est la plateforme radiocommandée plus grande pour les travaux exigeant plus de capacité, une largeur de coupe supérieure et davantage d’outils.',
+    pl: 'RC-1000s to większa platforma zdalnie sterowana do zadań wymagających większej wydajności, szerokości koszenia i większego wyboru osprzętu.',
+    cs: 'RC-1000s je větší dálkově ovládaná platforma pro úkoly vyžadující vyšší výkon, větší záběr a více možností nářadí.',
+  },
+  'Maskinen kan bruges til både grøn vedligeholdelse og vintertjeneste, og redskabsskiftet gør den fleksibel gennem hele året.': {
+    sv: 'Maskinen kan användas både för grönyteskötsel och vinterväghållning, och redskapsbytet gör den flexibel året runt.',
+    fr: 'La machine s’utilise aussi bien pour l’entretien des espaces verts que pour le service hivernal, et le changement d’outils la rend flexible toute l’année.',
+    pl: 'Maszyna sprawdza się w utrzymaniu zieleni i zimowym utrzymaniu, a wymiana osprzętu zapewnia elastyczność przez cały rok.',
+    cs: 'Stroj lze použít pro údržbu zeleně i zimní údržbu a výměna nářadí jej činí flexibilním po celý rok.',
+  },
+  'Timan 3330 er bygget til helårsdrift, hvor samme maskine skal kunne klare fejning, græspleje, vinteropgaver og transport i tætte bymiljøer.': {
+    sv: 'Timan 3330 är byggd för åretruntdrift där samma maskin ska klara sopning, gräsvård, vinteruppgifter och transport i täta stadsmiljöer.',
+    fr: 'La Timan 3330 est conçue pour une exploitation toute l’année : balayage, entretien du gazon, travaux hivernaux et transport en milieu urbain dense.',
+    pl: 'Timan 3330 powstała do pracy przez cały rok: zamiatanie, pielęgnacja trawy, zadania zimowe i transport w gęstej zabudowie miejskiej.',
+    cs: 'Timan 3330 je stavěn pro celoroční provoz, kde jeden stroj zvládne zametání, péči o trávu, zimní práce i přepravu v husté zástavbě.',
+  },
+  'Kabinen, det kompakte design og de hurtige redskabsskift gør maskinen velegnet til daglig drift, hvor komfort og effektivitet betyder meget.': {
+    sv: 'Hytten, den kompakta designen och de snabba redskapsbytena gör maskinen lämplig för daglig drift där komfort och effektivitet betyder mycket.',
+    fr: 'La cabine, la conception compacte et les changements d’outils rapides rendent la machine idéale pour un usage quotidien où confort et efficacité comptent.',
+    pl: 'Kabina, kompaktowa konstrukcja i szybka wymiana osprzętu czynią maszynę idealną do codziennej pracy, gdzie liczy się komfort i wydajność.',
+    cs: 'Kabina, kompaktní konstrukce a rychlá výměna nářadí činí stroj vhodným pro každodenní provoz, kde záleží na komfortu a efektivitě.',
+  },
+
+  // ------------------------------------------------------- Feature card text
+  'Klarer skråninger op til 50 grader.': {
+    sv: 'Klarar slänter upp till 50 grader.',
+    fr: 'Gère des pentes jusqu’à 50 degrés.',
+    pl: 'Radzi sobie ze zboczami do 50 stopni.',
+    cs: 'Zvládne svahy až 50 stupňů.',
+  },
+  'Avanceret stabilitetssystem.': {
+    sv: 'Avancerat stabilitetssystem.',
+    fr: 'Système de stabilité avancé.',
+    pl: 'Zaawansowany system stabilizacji.',
+    cs: 'Pokročilý systém stability.',
+  },
+  'Hurtigt og nemt redskabsskifte.': {
+    sv: 'Snabbt och enkelt redskapsbyte.',
+    fr: 'Changement d’outils rapide et simple.',
+    pl: 'Szybka i łatwa wymiana osprzętu.',
+    cs: 'Rychlá a snadná výměna nářadí.',
+  },
+  'Driftssikker, uanset sæson.': {
+    sv: 'Driftsäker oavsett säsong.',
+    fr: 'Fiable en toute saison.',
+    pl: 'Niezawodna w każdym sezonie.',
+    cs: 'Spolehlivý v každé sezóně.',
+  },
+
+  // ----------------------------------------------------------- Attachments
+  'Sneslynge': { sv: 'Snöslunga', fr: 'Fraise à neige', pl: 'Odśnieżarka wirnikowa', cs: 'Sněhová fréza' },
+  'V-plov': { sv: 'V-plog', fr: 'Lame en V', pl: 'Pług V', cs: 'Radlice V' },
+  'Centerdrevet hydraulisk kost': { sv: 'Centerdriven hydraulisk sopborste', fr: 'Balai hydraulique à entraînement central', pl: 'Szczotka hydrauliczna z napędem centralnym', cs: 'Hydraulický kartáč s centrálním pohonem' },
+  'Ukrudtsbørste': { sv: 'Ogräsborste', fr: 'Brosse de désherbage', pl: 'Szczotka do chwastów', cs: 'Kartáč na plevel' },
+  'Slagleklipper': { sv: 'Slaghack', fr: 'Broyeur à fléaux', pl: 'Kosiarka bijakowa', cs: 'Mulčovač' },
+  'Fingerklipper': { sv: 'Fingerslåtter', fr: 'Barre de coupe', pl: 'Kosiarka palcowa', cs: 'Prstová sekačka' },
+  'Rotorklipper': { sv: 'Rotorklippare', fr: 'Tondeuse rotative', pl: 'Kosiarka rotacyjna', cs: 'Rotační sekačka' },
+  'Stubfræser': { sv: 'Stubbfräs', fr: 'Rogneuse de souches', pl: 'Frezarka do pni', cs: 'Frézka pařezů' },
+  'Skivehøster': { sv: 'Skivslåtter', fr: 'Faucheuse à disques', pl: 'Kosiarka dyskowa', cs: 'Disková sekačka' },
+  'Centerdrevet kost': { sv: 'Centerdriven sopborste', fr: 'Balai à entraînement central', pl: 'Szczotka z napędem centralnym', cs: 'Kartáč s centrálním pohonem' },
+  'Dozerblad': { sv: 'Dozerblad', fr: 'Lame de bouteur', pl: 'Lemiesz spycharki', cs: 'Dozerová radlice' },
+  'Multitrimmer': { sv: 'Multitrimmer', fr: 'Multi-débroussailleuse', pl: 'Multitrymer', cs: 'Multitrimr' },
+  'Skovl': { sv: 'Skopa', fr: 'Godet', pl: 'Łyżka', cs: 'Lopata' },
+
+  // --------------------------------------------------- Spec + datasheet labels
+  'Varenr.': { sv: 'Art.nr', fr: 'Réf.', pl: 'Nr kat.', cs: 'Č. zboží' },
+  'Motor': { sv: 'Motor', fr: 'Moteur', pl: 'Silnik', cs: 'Motor' },
+  'Maks. hældning': { sv: 'Max. lutning', fr: 'Pente max.', pl: 'Maks. nachylenie', cs: 'Max. sklon' },
+  '50 grader': { sv: '50 grader', fr: '50 degrés', pl: '50 stopni', cs: '50 stupňů' },
+  'Klippebredde': { sv: 'Klippbredd', fr: 'Largeur de coupe', pl: 'Szerokość koszenia', cs: 'Šířka záběru' },
+  'Klippehøjde': { sv: 'Klipphöjd', fr: 'Hauteur de coupe', pl: 'Wysokość koszenia', cs: 'Výška sečení' },
+  'Vægt (basis)': { sv: 'Vikt (bas)', fr: 'Poids (base)', pl: 'Masa (podstawa)', cs: 'Hmotnost (základ)' },
+  'Effekt': { sv: 'Effekt', fr: 'Puissance', pl: 'Moc', cs: 'Výkon' },
+  'Tophastighed': { sv: 'Topphastighet', fr: 'Vitesse maximale', pl: 'Prędkość maksymalna', cs: 'Maximální rychlost' },
+  'Lydniveau i kabine': { sv: 'Ljudnivå i hytt', fr: 'Niveau sonore en cabine', pl: 'Poziom hałasu w kabinie', cs: 'Hlučnost v kabině' },
+  'Køreklar vægt': { sv: 'Tjänstevikt', fr: 'Poids en ordre de marche', pl: 'Masa gotowa do jazdy', cs: 'Provozní hmotnost' },
+  'Tekniske specifikationer': { sv: 'Tekniska specifikationer', fr: 'Spécifications techniques', pl: 'Specyfikacja techniczna', cs: 'Technické specifikace' },
+  'Motor - Briggs & Stratton': { sv: 'Motor – Briggs & Stratton', fr: 'Moteur – Briggs & Stratton', pl: 'Silnik – Briggs & Stratton', cs: 'Motor – Briggs & Stratton' },
+  'Motor - Vanguard': { sv: 'Motor – Vanguard', fr: 'Moteur – Vanguard', pl: 'Silnik – Vanguard', cs: 'Motor – Vanguard' },
+  'Transmission til larvebånd': { sv: 'Transmission till larvband', fr: 'Transmission des chenilles', pl: 'Napęd gąsienic', cs: 'Pohon pásů' },
+  'Transmission til slagleklipper': { sv: 'Transmission till slaghack', fr: 'Transmission du broyeur', pl: 'Napęd kosiarki bijakowej', cs: 'Pohon mulčovače' },
+  'Transmission': { sv: 'Transmission', fr: 'Transmission', pl: 'Napęd', cs: 'Převodovka' },
+  'Hydraulisk': { sv: 'Hydraulisk', fr: 'Hydraulique', pl: 'Hydrauliczny', cs: 'Hydraulický' },
+  'Mekanisk': { sv: 'Mekanisk', fr: 'Mécanique', pl: 'Mechaniczny', cs: 'Mechanický' },
+  'Standard': { sv: 'Standard', fr: 'Standard', pl: 'Standard', cs: 'Standard' },
+  'Tilvalg': { sv: 'Tillval', fr: 'En option', pl: 'Opcja', cs: 'Volitelné' },
+  'Antal Y-slagler': { sv: 'Antal Y-slagor', fr: 'Nombre de fléaux en Y', pl: 'Liczba bijaków Y', cs: 'Počet Y-cepů' },
+  '16 sæt = 32 stk.': { sv: '16 set = 32 st.', fr: '16 jeux = 32 pcs', pl: '16 kpl. = 32 szt.', cs: '16 sad = 32 ks' },
+  '36 stk.': { sv: '36 st.', fr: '36 pcs', pl: '36 szt.', cs: '36 ks' },
+  '1 stk.': { sv: '1 st.', fr: '1 pc', pl: '1 szt.', cs: '1 ks' },
+  '2 + 2 stk.': { sv: '2 + 2 st.', fr: '2 + 2 pcs', pl: '2 + 2 szt.', cs: '2 + 2 ks' },
+  '4 stk. orbitmotorer': { sv: '4 st. orbitmotorer', fr: '4 moteurs orbitaux', pl: '4 silniki orbitalne', cs: '4 orbitální motory' },
+  'Maks. arbejdshældning i alle retninger': { sv: 'Max. arbetslutning i alla riktningar', fr: 'Pente de travail max. dans toutes les directions', pl: 'Maks. nachylenie robocze we wszystkich kierunkach', cs: 'Max. pracovní sklon ve všech směrech' },
+  'Maks. arbejdshastighed': { sv: 'Max. arbetshastighet', fr: 'Vitesse de travail max.', pl: 'Maks. prędkość robocza', cs: 'Max. pracovní rychlost' },
+  'Maks. betjeningsafstand': { sv: 'Max. manöveravstånd', fr: 'Distance de commande max.', pl: 'Maks. zasięg sterowania', cs: 'Max. dosah ovládání' },
+  'Venderadius': { sv: 'Vändradie', fr: 'Rayon de braquage', pl: 'Promień skrętu', cs: 'Poloměr otáčení' },
+  'Venderadius (indv.)': { sv: 'Vändradie (inre)', fr: 'Rayon de braquage (intérieur)', pl: 'Promień skrętu (wewn.)', cs: 'Poloměr otáčení (vnitřní)' },
+  'Venderadius (udv.)': { sv: 'Vändradie (yttre)', fr: 'Rayon de braquage (extérieur)', pl: 'Promień skrętu (zewn.)', cs: 'Poloměr otáčení (vnější)' },
+  'Brændstofforbrug': { sv: 'Bränsleförbrukning', fr: 'Consommation de carburant', pl: 'Zużycie paliwa', cs: 'Spotřeba paliva' },
+  'Maks. 3 l/t': { sv: 'Max. 3 l/h', fr: 'Max. 3 l/h', pl: 'Maks. 3 l/h', cs: 'Max. 3 l/h' },
+  'Teoretisk maks. output': { sv: 'Teoretisk max. kapacitet', fr: 'Rendement théorique max.', pl: 'Teoretyczna maks. wydajność', cs: 'Teoretický max. výkon' },
+  'Teoretisk maks. output med slagleklipper': { sv: 'Teoretisk max. kapacitet med slaghack', fr: 'Rendement théorique max. avec broyeur', pl: 'Teoretyczna maks. wydajność z kosiarką bijakową', cs: 'Teoretický max. výkon s mulčovačem' },
+  'Dimensioner': { sv: 'Mått', fr: 'Dimensions', pl: 'Wymiary', cs: 'Rozměry' },
+  'Dimensioner med slagleklipper': { sv: 'Mått med slaghack', fr: 'Dimensions avec broyeur', pl: 'Wymiary z kosiarką bijakową', cs: 'Rozměry s mulčovačem' },
+  'Vægt': { sv: 'Vikt', fr: 'Poids', pl: 'Masa', cs: 'Hmotnost' },
+  'Total vægt': { sv: 'Totalvikt', fr: 'Poids total', pl: 'Masa całkowita', cs: 'Celková hmotnost' },
+  'Total længde': { sv: 'Total längd', fr: 'Longueur totale', pl: 'Długość całkowita', cs: 'Celková délka' },
+  'Total bredde': { sv: 'Total bredd', fr: 'Largeur totale', pl: 'Szerokość całkowita', cs: 'Celková šířka' },
+  'Total højde': { sv: 'Total höjd', fr: 'Hauteur totale', pl: 'Wysokość całkowita', cs: 'Celková výška' },
+  'Længde': { sv: 'Längd', fr: 'Longueur', pl: 'Długość', cs: 'Délka' },
+  'Bredde': { sv: 'Bredd', fr: 'Largeur', pl: 'Szerokość', cs: 'Šířka' },
+  'Højde': { sv: 'Höjd', fr: 'Hauteur', pl: 'Wysokość', cs: 'Výška' },
+  'Indstigningshøjde': { sv: 'Insteghöjd', fr: 'Hauteur d’accès', pl: 'Wysokość wejścia', cs: 'Nástupní výška' },
+  'Ekstraudstyr': { sv: 'Extrautrustning', fr: 'Équipements en option', pl: 'Wyposażenie dodatkowe', cs: 'Doplňková výbava' },
+  'Spikes på bælter': { sv: 'Spikes på band', fr: 'Crampons sur chenilles', pl: 'Kolce na gąsienicach', cs: 'Hroty na pásech' },
+  'Blitzlys': { sv: 'Blixtljus', fr: 'Feu à éclats', pl: 'Lampa błyskowa', cs: 'Blikající maják' },
+  'L-slagler': { sv: 'L-slagor', fr: 'Fléaux en L', pl: 'Bijaki L', cs: 'L-cepy' },
+  'Lader': { sv: 'Laddare', fr: 'Chargeur', pl: 'Ładowarka', cs: 'Nabíječka' },
+  'Benzintank': { sv: 'Bensintank', fr: 'Réservoir d’essence', pl: 'Zbiornik paliwa', cs: 'Palivová nádrž' },
+  'Antal cylindere': { sv: 'Antal cylindrar', fr: 'Nombre de cylindres', pl: 'Liczba cylindrów', cs: 'Počet válců' },
+  'Slagvolumen': { sv: 'Slagvolym', fr: 'Cylindrée', pl: 'Pojemność skokowa', cs: 'Objem válců' },
+  'Kølesystem': { sv: 'Kylsystem', fr: 'Système de refroidissement', pl: 'Układ chłodzenia', cs: 'Chladicí systém' },
+  'Vandkøling (45 C udetemperatur)': { sv: 'Vattenkylning (45 C utetemperatur)', fr: 'Refroidissement à eau (45 C extérieur)', pl: 'Chłodzenie cieczą (45 C na zewnątrz)', cs: 'Vodní chlazení (45 C venkovní teplota)' },
+  'Hastighed': { sv: 'Hastighet', fr: 'Vitesse', pl: 'Prędkość', cs: 'Rychlost' },
+  'Stempelpumpe': { sv: 'Kolvpump', fr: 'Pompe à pistons', pl: 'Pompa tłokowa', cs: 'Pístové čerpadlo' },
+  'Tandhjulspumpe': { sv: 'Kugghjulspump', fr: 'Pompe à engrenages', pl: 'Pompa zębata', cs: 'Zubové čerpadlo' },
+  'Hjulmotorer': { sv: 'Hjulmotorer', fr: 'Moteurs de roue', pl: 'Silniki kół', cs: 'Motory kol' },
+  'Hydraulik og el': { sv: 'Hydraulik och el', fr: 'Hydraulique et électricité', pl: 'Hydraulika i instalacja elektryczna', cs: 'Hydraulika a elektro' },
+  'Kapacitet udtag front': { sv: 'Kapacitet uttag fram', fr: 'Débit prise avant', pl: 'Wydajność wyjścia z przodu', cs: 'Průtok předního vývodu' },
+  'Kapacitet udtag bag': { sv: 'Kapacitet uttag bak', fr: 'Débit prise arrière', pl: 'Wydajność wyjścia z tyłu', cs: 'Průtok zadního vývodu' },
+  '48 l/min (nominel) 180 bar': { sv: '48 l/min (nominell) 180 bar', fr: '48 l/min (nominal) 180 bar', pl: '48 l/min (nominalnie) 180 bar', cs: '48 l/min (jmenovitě) 180 bar' },
+  'Olieudtag front': { sv: 'Oljeuttag fram', fr: 'Prise hydraulique avant', pl: 'Wyjście oleju z przodu', cs: 'Olejový vývod vpředu' },
+  'Olieudtag bag': { sv: 'Oljeuttag bak', fr: 'Prise hydraulique arrière', pl: 'Wyjście oleju z tyłu', cs: 'Olejový vývod vzadu' },
+  '1 dobbeltvirkende m. flydestilling 150 bar': { sv: '1 dubbelverkande med flytläge 150 bar', fr: '1 double effet avec position flottante 150 bar', pl: '1 dwustronnego działania z pozycją pływającą 150 bar', cs: '1 dvojčinný s plovoucí polohou 150 bar' },
+  '1 dobbeltvirkende 150 bar': { sv: '1 dubbelverkande 150 bar', fr: '1 double effet 150 bar', pl: '1 dwustronnego działania 150 bar', cs: '1 dvojčinný 150 bar' },
+  'Arbejdshydraulik': { sv: 'Arbetshydraulik', fr: 'Hydraulique de travail', pl: 'Hydraulika robocza', cs: 'Pracovní hydraulika' },
+  'Liftarm': { sv: 'Lyftarm', fr: 'Bras de levage', pl: 'Ramię podnoszenia', cs: 'Zvedací rameno' },
+  'Flydestilling og parallelløft standard': { sv: 'Flytläge och parallellyft standard', fr: 'Position flottante et levage parallèle de série', pl: 'Pozycja pływająca i podnoszenie równoległe w standardzie', cs: 'Plovoucí poloha a paralelní zdvih ve standardu' },
+  'Løftekapacitet': { sv: 'Lyftkapacitet', fr: 'Capacité de levage', pl: 'Udźwig', cs: 'Nosnost zdvihu' },
+  '300 kg ved hurtigskiftet / 150 kg 80 cm ude fra hurtigskiftet': { sv: '300 kg vid snabbfästet / 150 kg 80 cm ut från snabbfästet', fr: '300 kg à l’attache rapide / 150 kg à 80 cm de l’attache rapide', pl: '300 kg przy szybkozłączu / 150 kg w odległości 80 cm od szybkozłącza', cs: '300 kg u rychloupínače / 150 kg 80 cm od rychloupínače' },
+  'Elsystem': { sv: 'Elsystem', fr: 'Système électrique', pl: 'Instalacja elektryczna', cs: 'Elektrický systém' },
+  'Generator': { sv: 'Generator', fr: 'Alternateur', pl: 'Alternator', cs: 'Alternátor' },
+  'Køre- og arbejdslys frem': { sv: 'Kör- och arbetsbelysning fram', fr: 'Feux de route et de travail avant', pl: 'Światła jazdy i robocze z przodu', cs: 'Jízdní a pracovní světla vpředu' },
+  'Arbejdslys bag': { sv: 'Arbetsbelysning bak', fr: 'Feu de travail arrière', pl: 'Światło robocze z tyłu', cs: 'Pracovní světlo vzadu' },
+  'Rotorblink': { sv: 'Roterande varningsljus', fr: 'Gyrophare', pl: 'Lampa ostrzegawcza', cs: 'Maják' },
+  'LED rotorblink': { sv: 'LED roterande varningsljus', fr: 'Gyrophare LED', pl: 'Lampa ostrzegawcza LED', cs: 'LED maják' },
+  '13-polet trailerstik': { sv: '13-poligt släpvagnsuttag', fr: 'Prise remorque 13 broches', pl: 'Gniazdo przyczepy 13-pin', cs: '13pólová zásuvka přívěsu' },
+  'Radio med Bluetooth': { sv: 'Radio med Bluetooth', fr: 'Radio avec Bluetooth', pl: 'Radio z Bluetooth', cs: 'Rádio s Bluetooth' },
+  'Lydniveau': { sv: 'Ljudnivå', fr: 'Niveau sonore', pl: 'Poziom hałasu', cs: 'Hlučnost' },
+  'Lydniveau kabine EU1322/2014 metode B': { sv: 'Ljudnivå hytt EU1322/2014 metod B', fr: 'Niveau sonore cabine UE1322/2014 méthode B', pl: 'Poziom hałasu w kabinie UE1322/2014 metoda B', cs: 'Hlučnost kabiny EU1322/2014 metoda B' },
+  'Forbikørsel EU985/2018 kørende': { sv: 'Förbipassage EU985/2018 körande', fr: 'Passage UE985/2018 en roulant', pl: 'Przejazd UE985/2018 w ruchu', cs: 'Průjezd EU985/2018 za jízdy' },
+  'Forbikørsel EU985/2018 stående': { sv: 'Förbipassage EU985/2018 stående', fr: 'Passage UE985/2018 à l’arrêt', pl: 'Przejazd UE985/2018 na postoju', cs: 'Průjezd EU985/2018 ve stání' },
+  'Støjniveau i kabine ved 2600 omdr.': { sv: 'Ljudnivå i hytt vid 2600 varv', fr: 'Niveau sonore en cabine à 2600 tr/min', pl: 'Poziom hałasu w kabinie przy 2600 obr./min', cs: 'Hlučnost v kabině při 2600 ot./min' },
+  'Kildestyrke Lwa ISO 6395:2008': { sv: 'Ljudeffekt Lwa ISO 6395:2008', fr: 'Puissance acoustique Lwa ISO 6395:2008', pl: 'Moc akustyczna Lwa ISO 6395:2008', cs: 'Akustický výkon Lwa ISO 6395:2008' },
+  'Aircondition': { sv: 'Luftkonditionering', fr: 'Climatisation', pl: 'Klimatyzacja', cs: 'Klimatizace' },
+  'Skyderuder i højre og venstre side': { sv: 'Skjutfönster på höger och vänster sida', fr: 'Vitres coulissantes à droite et à gauche', pl: 'Przesuwne szyby po prawej i lewej stronie', cs: 'Posuvná okna vpravo a vlevo' },
+  'Luftsæde': { sv: 'Luftfjädrad stol', fr: 'Siège pneumatique', pl: 'Fotel pneumatyczny', cs: 'Vzduchová sedačka' },
+  'Kørekamera ved sugemund': { sv: 'Kamera vid sugmunstycke', fr: 'Caméra à la bouche d’aspiration', pl: 'Kamera przy ssawie', cs: 'Kamera u sacího hrdla' },
+  'Bakkamera i taget': { sv: 'Backkamera i taket', fr: 'Caméra de recul dans le toit', pl: 'Kamera cofania w dachu', cs: 'Zpětná kamera ve střeše' },
+  'Bakalarm': { sv: 'Backlarm', fr: 'Alarme de recul', pl: 'Sygnał cofania', cs: 'Couvací alarm' },
+  'Baklygte LED': { sv: 'Backljus LED', fr: 'Feu de recul LED', pl: 'Światło cofania LED', cs: 'Couvací světlo LED' },
+  'Kombitræk kugle/gaffel': { sv: 'Kombidrag kula/gaffel', fr: 'Attelage combiné boule/chape', pl: 'Zaczep kombi kula/widelec', cs: 'Kombinované tažné zařízení koule/vidlice' },
+  'Kubota benzinmotor': { sv: 'Kubota bensinmotor', fr: 'Moteur essence Kubota', pl: 'Silnik benzynowy Kubota', cs: 'Benzinový motor Kubota' },
+  'Vanguard, 23 HK': { sv: 'Vanguard, 23 hk', fr: 'Vanguard, 23 ch', pl: 'Vanguard, 23 KM', cs: 'Vanguard, 23 k' },
+};
+
+/** All Danish source keys that have extra-language coverage. */
+export const MESSE_MACHINE_EXTRA_KEYS = Object.keys(MESSE_MACHINE_EXTRA_TRANSLATIONS);
