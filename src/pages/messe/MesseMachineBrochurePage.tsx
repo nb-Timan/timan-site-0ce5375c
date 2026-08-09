@@ -555,19 +555,19 @@ export default function MesseMachineBrochurePage({
     'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md';
   const rc1000IconFeatures = [
     {
-      icon: Gauge,
+      iconSrc: iconSlope.url,
       label: text('Klarer skråninger op til 50 grader.', 'Handles slopes up to 50 degrees.', 'Bewaltigt Hange bis 50 Grad.', 'Gestisce pendenze fino a 50 gradi.', 'Akár 50 fokos lejtoket is kezel.'),
     },
     {
-      icon: ShieldCheck,
+      iconSrc: iconStability.url,
       label: text('Avanceret stabilitetssystem.', 'Advanced stability system.', 'Fortschrittliches Stabilitatssystem.', 'Sistema di stabilita avanzato.', 'Fejlett stabilitasi rendszer.'),
     },
     {
-      icon: Wrench,
+      iconSrc: iconService.url,
       label: text('Hurtigt og nemt redskabsskifte.', 'Quick and easy attachment change.', 'Schneller und einfacher Geratewechsel.', 'Cambio accessori rapido e semplice.', 'Gyors es egyszeru adaptercsere.'),
     },
     {
-      icon: Settings,
+      iconSrc: iconSeason.url,
       label: text('Driftssikker, uanset sæson.', 'Reliable, regardless of season.', 'Betriebssicher zu jeder Saison.', 'Affidabile in ogni stagione.', 'Megbizhato, evszaktol fuggetlenul.'),
     },
   ];
