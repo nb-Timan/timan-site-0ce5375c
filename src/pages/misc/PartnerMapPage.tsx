@@ -177,18 +177,23 @@ function normalizeType(t: string | null): PartnerType {
   return 'dealer';
 }
 
+// Shared pin silhouette — identical geometry for every colour variant.
+function pinSvgMarkup(color: string, width = 36, height = 44): string {
+  return `
+      <svg width="${width}" height="${height}" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))">
+        <path d="M20 2 C10 2 3 9 3 18 C3 30 20 46 20 46 C20 46 37 30 37 18 C37 9 30 2 20 2 Z" fill="${color}" stroke="white" stroke-width="2.5"/>
+        <circle cx="20" cy="18" r="5.5" fill="white"/>
+      </svg>`;
+}
+
 function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
   const color = TYPE_COLORS[type];
   const sel = selected ? 'pm-pin--selected' : '';
   const html = `
-    <div class="pm-pin ${sel}">
-      <svg width="36" height="44" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))">
-        <path d="M20 2 C10 2 3 9 3 18 C3 30 20 46 20 46 C20 46 37 30 37 18 C37 9 30 2 20 2 Z" fill="${color}" stroke="white" stroke-width="2.5"/>
-        <circle cx="20" cy="18" r="5.5" fill="white"/>
-      </svg>
-    </div>`;
+    <div class="pm-pin ${sel}">${pinSvgMarkup(color)}</div>`;
   return L.divIcon({ html, className: 'pm-pin-wrap', iconSize: [36, 44], iconAnchor: [18, 42], popupAnchor: [0, -36] });
 }
+
 
 const MACHINE_PIN_COLOR = '#f59e0b'; // amber-500 — clearly distinct from dealer red/green/blue/purple
 
@@ -394,8 +399,7 @@ function makeTimanHeadquartersIcon(zoom = 6): L.DivIcon {
   const markerHeight = Math.round(60 * scale);
   const logoWidth = Math.round(50 * scale);
   const pinSize = Math.round(26 * scale);
-  const pinTail = Math.round(7 * scale);
-  const pinInset = Math.max(6, Math.round(7 * scale));
+  const pinHeight = Math.round((pinSize * 44) / 36);
   const anchorX = Math.round(markerWidth / 2);
   const anchorY = markerHeight - Math.round(2 * scale);
   const html = `
@@ -403,11 +407,11 @@ function makeTimanHeadquartersIcon(zoom = 6): L.DivIcon {
       <div class="pm-timan-marker-logo" style="width:${logoWidth}px;max-width:${logoWidth}px;">
         <img src="${escapeHtml(timanLogo)}" alt="Timan" style="display:block;width:${logoWidth}px;max-width:${logoWidth}px;height:auto;" />
       </div>
-      <div class="pm-timan-marker-pin" style="width:${pinSize}px;height:${pinSize}px;">
-        <span style="inset:${pinInset}px;"></span>
-        <i style="bottom:-${pinTail}px;width:${Math.round(14 * scale)}px;height:${Math.round(14 * scale)}px;"></i>
+      <div class="pm-timan-marker-pin" style="width:${pinSize}px;height:${pinHeight}px;">
+        ${pinSvgMarkup(TIMAN_GOLD, pinSize, pinHeight)}
       </div>
     </div>`;
+
   return L.divIcon({
     html,
     className: 'pm-timan-marker-wrap',
@@ -1378,11 +1382,9 @@ export default function PartnerMapPage() {
         .pm-timan-marker-logo { position:absolute; left:50%; top:0; transform:translateX(-50%); min-height:19px; padding:3px 5px;
           border-radius:999px; background:rgba(255,255,255,.96); border:1px solid rgba(201,162,39,.42); box-shadow:0 7px 18px rgba(15,23,42,.22); }
         .pm-timan-marker-logo img { display:block; width:100% !important; max-width:100% !important; height:auto !important; }
-        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); border-radius:50%;
-          background:linear-gradient(145deg,#f6e7a6,#c9a227 56%,#8b6f12); border:3px solid white; box-shadow:0 8px 18px rgba(15,23,42,.32); }
-        .pm-timan-marker-pin i { position:absolute; left:50%; transform:translateX(-50%) rotate(45deg);
-          background:#c9a227; border-right:3px solid white; border-bottom:3px solid white; }
-        .pm-timan-marker-pin span { position:absolute; border-radius:50%; background:white; box-shadow:inset 0 1px 2px rgba(0,0,0,.18); }
+        .pm-timan-marker-pin { position:absolute; left:50%; bottom:0; transform:translateX(-50%); }
+        .pm-timan-marker-pin svg { display:block; width:100%; height:100%; }
+
         .leaflet-container { font-family:inherit; background:#cfe7f1; }
         .leaflet-control-zoom a { border:none !important; background:white !important; color:#374151 !important;
           width:34px !important; height:34px !important; line-height:34px !important; font-size:18px !important;
