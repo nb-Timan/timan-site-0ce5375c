@@ -3,12 +3,26 @@ import { ArrowLeft, ChevronDown } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+const HEADER_TEXT: Record<string, Record<string, string>> = {
+  home: { da: 'Til forsiden', en: 'To the front page', de: 'Zur Startseite', it: 'Alla home page', hu: 'A kezdolapra' },
+  logoTitle: { da: 'Timan forside', en: 'Timan home', de: 'Timan Startseite', it: 'Home Timan', hu: 'Timan kezdolap' },
+};
+
+const ht = (key: 'home' | 'logoTitle', lang: string) => {
+  const entry = HEADER_TEXT[key];
+  if (entry[lang]) return entry[lang];
+  const daKey = key === 'home' ? 'Til forsiden' : 'Timan forside';
+  const extra = MESSE_MACHINE_EXTRA_TRANSLATIONS[daKey] as Record<string, string> | undefined;
+  return extra?.[lang] || entry.en;
+};
 
 interface MesseSubpageHeaderProps {
   backTo?: string;
@@ -17,9 +31,11 @@ interface MesseSubpageHeaderProps {
 
 export default function MesseSubpageHeader({
   backTo = '/messe',
-  backLabel = 'Til forsiden',
+  backLabel,
 }: MesseSubpageHeaderProps) {
   const { uiLanguage, setLanguage } = useLanguage();
+  const resolvedBackLabel = backLabel ?? ht('home', uiLanguage);
+  const logoTitle = ht('logoTitle', uiLanguage);
   const currentLanguage = PORTAL_LANGUAGES.find((l) => l.code === uiLanguage);
 
   return (
@@ -28,8 +44,8 @@ export default function MesseSubpageHeader({
         <Link
           to={backTo}
           className="absolute left-1/2 top-1/2 inline-flex -translate-x-1/2 -translate-y-1/2 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
-          aria-label="Timan forside"
-          title="Timan forside"
+          aria-label={logoTitle}
+          title={logoTitle}
         >
           <img src={timanLogo} alt="Timan" className="h-12 w-auto object-contain sm:h-14" />
         </Link>
@@ -40,7 +56,7 @@ export default function MesseSubpageHeader({
             className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 sm:px-4"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{backLabel}</span>
+            <span className="hidden sm:inline">{resolvedBackLabel}</span>
           </Link>
 
           <DropdownMenu>
