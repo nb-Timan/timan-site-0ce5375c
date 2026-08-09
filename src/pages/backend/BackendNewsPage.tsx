@@ -14,6 +14,19 @@ import { t } from '@/lib/i18n/translations';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
 import {
+  getAllNewsTargetsLabel,
+  getCombinedTargetOptions,
+  getNewsTopicForDisplay,
+  getNewsTopicLabel,
+  getNewsTopicTypeLabel,
+  getTargetOptions,
+  matchesNewsTopicFilter,
+  NEWS_TOPIC_FILTERS,
+  NEWS_TOPIC_UI_TEXT,
+  type NewsTopicFilter,
+  type NewsTopicOption,
+} from '@/features/news-cms/lib/newsTaxonomy';
+import {
   adminListNewsPosts,
   adminPublishNewsPost,
   adminSaveNewsDraft,
@@ -89,6 +102,8 @@ export default function BackendNewsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [templateFilter, setTemplateFilter] = useState('all');
   const [languageFilter, setLanguageFilter] = useState('all');
+  const [topicFilter, setTopicFilter] = useState<NewsTopicFilter>('all');
+  const [targetFilter, setTargetFilter] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
 
   const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
@@ -117,7 +132,12 @@ export default function BackendNewsPage() {
         const template = getNewsTemplate(row.template_id);
         return completedNewsLanguages(row.localized_content, template.fields).includes(languageFilter as PortalUiLanguage);
       })
-      .filter((row) => !normalizedSearch || row.title.toLowerCase().includes(normalizedSearch))
+      .filter((row) => matchesNewsTopicFilter(row, topicFilter, targetFilter))
+      .filter((row) => {
+        if (!normalizedSearch) return true;
+        const topicLabel = getNewsTopicLabel(getNewsTopicForDisplay(row), uiLanguage).toLowerCase();
+        return [row.title, row.excerpt || '', topicLabel].some((value) => value.toLowerCase().includes(normalizedSearch));
+      })
       .sort((a, b) => {
         if (sortKey === 'title') return a.title.localeCompare(b.title, 'da');
         if (sortKey === 'template') return String(a.template_id || '').localeCompare(String(b.template_id || ''), 'da');
@@ -126,7 +146,14 @@ export default function BackendNewsPage() {
         const bDate = sortKey === 'published' ? b.published_at : b.updated_at || b.published_at;
         return new Date(bDate || 0).getTime() - new Date(aDate || 0).getTime();
       });
-  }, [rows, searchTerm, sortKey, statusFilter, templateFilter, languageFilter]);
+  }, [rows, searchTerm, sortKey, statusFilter, templateFilter, languageFilter, topicFilter, targetFilter, uiLanguage]);
+
+  const targetOptions = useMemo<NewsTopicOption[]>(() => {
+    if (topicFilter === 'machine') return getTargetOptions('machine');
+    if (topicFilter === 'attachment') return getTargetOptions('attachment');
+    if (topicFilter === 'misc') return getTargetOptions('misc');
+    return getCombinedTargetOptions();
+  }, [topicFilter]);
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -227,6 +254,7 @@ export default function BackendNewsPage() {
                 id: payload.id,
                 template_id: payload.templateId,
                 localized_content: payload.localizedContent,
+                template_data: payload.templateData,
               });
               setSaving(false);
               if (result.error) {
@@ -243,6 +271,7 @@ export default function BackendNewsPage() {
                 id: payload.id,
                 template_id: payload.templateId,
                 localized_content: payload.localizedContent,
+                template_data: payload.templateData,
               });
               setSaving(false);
               if (result.error) {
@@ -277,7 +306,7 @@ export default function BackendNewsPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_180px_180px]">
+              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_180px_180px_180px_180px]">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
@@ -300,6 +329,24 @@ export default function BackendNewsPage() {
                     <option key={lang.code} value={lang.code}>{lang.label}</option>
                   ))}
                 </select>
+                <select
+                  value={topicFilter}
+                  onChange={(event) => {
+                    setTopicFilter(event.target.value as NewsTopicFilter);
+                    setTargetFilter('all');
+                  }}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                >
+                  {NEWS_TOPIC_FILTERS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
+                  ))}
+                </select>
+                <select value={targetFilter} onChange={(event) => setTargetFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="all">{getAllNewsTargetsLabel(topicFilter, uiLanguage)}</option>
+                  {targetOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
+                  ))}
+                </select>
                 <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                   <option value="updated">{t('newsCmsSortUpdated', uiLanguage)}</option>
                   <option value="published">{t('newsCmsSortPublished', uiLanguage)}</option>
@@ -316,6 +363,7 @@ export default function BackendNewsPage() {
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTitle', uiLanguage)}</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTemplate', uiLanguage)}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{NEWS_TOPIC_UI_TEXT.topicColumn[uiLanguage]}</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnStatus', uiLanguage)}</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnLanguage', uiLanguage)}</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnCreated', uiLanguage)}</th>
@@ -328,6 +376,7 @@ export default function BackendNewsPage() {
                   {filteredRows.map((row) => {
                     const status = effectiveStatus(row);
                     const template = getNewsTemplate(row.template_id);
+                    const topic = getNewsTopicForDisplay(row);
                     return (
                       <tr key={row.id} className="border-t border-slate-100 align-top hover:bg-slate-50/70">
                         <td className="min-w-[260px] px-4 py-4">
@@ -335,6 +384,10 @@ export default function BackendNewsPage() {
                           {row.excerpt && <div className="mt-1 line-clamp-2 max-w-md text-xs text-slate-500">{row.excerpt}</div>}
                         </td>
                         <td className="px-4 py-4 text-slate-600">{row.template_id === 'legacy' ? t('newsCmsLegacy', uiLanguage) : `Template ${template.number}`}</td>
+                        <td className="px-4 py-4 text-slate-600">
+                          <div className="font-semibold text-slate-700">{getNewsTopicTypeLabel(topic.type, uiLanguage)}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">{getNewsTopicLabel(topic, uiLanguage).split(': ').slice(1).join(': ')}</div>
+                        </td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusClass(status)}`}>
                             {t(`newsCmsStatus${status[0].toUpperCase()}${status.slice(1)}`, uiLanguage)}
@@ -387,14 +440,14 @@ export default function BackendNewsPage() {
                   })}
                   {!loadingRows && filteredRows.length === 0 && (
                     <tr>
-                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={8}>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={9}>
                         {t('newsCmsNoRows', uiLanguage)}
                       </td>
                     </tr>
                   )}
                   {loadingRows && (
                     <tr>
-                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={8}>{t('loading', uiLanguage)}</td>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={9}>{t('loading', uiLanguage)}</td>
                     </tr>
                   )}
                 </tbody>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { fetchLatestNews, type NewsPost } from '@/lib/newsService';
@@ -12,6 +12,15 @@ import { FlyerFrontPage } from '@/components/messe/TeaserFlyerPages';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import {
+  getAllNewsTargetsLabel,
+  getCombinedTargetOptions,
+  getTargetOptions,
+  matchesNewsTopicFilter,
+  NEWS_TOPIC_FILTERS,
+  type NewsTopicFilter,
+  type NewsTopicOption,
+} from '@/features/news-cms/lib/newsTaxonomy';
 
 const T: Record<string, Record<Language, string>> = {
   back: { da: 'Tilbage', en: 'Back', de: 'Zuruck', it: 'Indietro', hu: 'Vissza' },
@@ -30,6 +39,8 @@ export default function MesseNewsPage() {
   const [news, setNews] = useState<NewsPost[] | null>(null);
   const [openModal, setOpenModal] = useState<null | 'article' | 'flyer'>(null);
   const [openPost, setOpenPost] = useState<NewsPost | null>(null);
+  const [topicFilter, setTopicFilter] = useState<NewsTopicFilter>('all');
+  const [targetFilter, setTargetFilter] = useState('all');
   const { appUser } = useAppUser();
 
   useEffect(() => {
@@ -47,6 +58,30 @@ export default function MesseNewsPage() {
 
   const cardClass =
     'group text-left bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-slate-300 cursor-pointer';
+
+  const targetOptions = useMemo<NewsTopicOption[]>(() => {
+    if (topicFilter === 'machine') return getTargetOptions('machine');
+    if (topicFilter === 'attachment') return getTargetOptions('attachment');
+    if (topicFilter === 'misc') return getTargetOptions('misc');
+    return getCombinedTargetOptions();
+  }, [topicFilter]);
+
+  const filteredCuratedNews = useMemo(
+    () =>
+      MESSE_NEWS_ITEMS.filter((item) =>
+        matchesNewsTopicFilter(
+          { template_data: { news_topic: item.newsTopic } },
+          topicFilter,
+          targetFilter,
+        ),
+      ),
+    [topicFilter, targetFilter],
+  );
+
+  const filteredCmsNews = useMemo(
+    () => (news ?? []).filter((post) => matchesNewsTopicFilter(post, topicFilter, targetFilter)),
+    [news, topicFilter, targetFilter],
+  );
 
   const renderCurated = (item: MesseNewsItem) => (
     <button
@@ -134,9 +169,42 @@ export default function MesseNewsPage() {
 
       <main className="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">{T.title[lang]}</h1>
+
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            {NEWS_TOPIC_FILTERS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  setTopicFilter(option.value);
+                  setTargetFilter('all');
+                }}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                  topicFilter === option.value
+                    ? 'bg-slate-950 text-white'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                }`}
+              >
+                {option.labels[uiLanguage]}
+              </button>
+            ))}
+          </div>
+          <select
+            value={targetFilter}
+            onChange={(event) => setTargetFilter(event.target.value)}
+            className="min-w-[180px] rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            <option value="all">{getAllNewsTargetsLabel(topicFilter, uiLanguage)}</option>
+            {targetOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-          {MESSE_NEWS_ITEMS.map(renderCurated)}
-          {(news ?? []).map(renderCmsPost)}
+          {filteredCuratedNews.map(renderCurated)}
+          {filteredCmsNews.map(renderCmsPost)}
         </div>
       </main>
 

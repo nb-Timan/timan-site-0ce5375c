@@ -1,4 +1,5 @@
 import flyerPdf from '@/assets/flyer/teaser.pdf.asset.json';
+import type { NewsTopicMeta } from '@/features/news-cms/lib/newsTaxonomy';
 
 /**
  * Curated Messe news items shown on /messe/nyt.
@@ -26,6 +27,8 @@ export interface MesseNewsItem {
   imageFallback?: string;
   /** Optional object-position override for the thumbnail crop. */
   imagePositionClass?: string;
+  /** Used by /messe/nyt filters. */
+  newsTopic: NewsTopicMeta;
 }
 
 /** Original PDF (download / open in new tab). */
@@ -42,6 +45,7 @@ export const MESSE_NEWS_ITEMS: MesseNewsItem[] = [
     titleKey: 'messe_news_2620_card_title',
     descKey: 'messe_news_2620_card_desc',
     image: '/images/timan-2620/cab_v_plow/01.jpg',
+    newsTopic: { type: 'machine', target: 'timan-2620' },
   },
   {
     id: 'timan-2620-teaser-flyer',
@@ -52,6 +56,7 @@ export const MESSE_NEWS_ITEMS: MesseNewsItem[] = [
     // Localized live render of the flyer front page (same component + strings
     // as the full teaser flyer modal) — never a static Danish image.
     thumb: 'flyer-front',
+    newsTopic: { type: 'machine', target: 'timan-2620' },
   },
 ];
 
