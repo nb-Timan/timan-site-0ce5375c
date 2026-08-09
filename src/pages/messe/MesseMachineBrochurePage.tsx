@@ -51,6 +51,8 @@ interface MachineContent {
   attachmentLabel?: Localized;
   attachmentCount?: string;
   highlights: Localized[];
+  /** Optional explicit top cards (title + supporting line). Falls back to `highlights`. */
+  cards?: Array<{ title?: Localized; text: Localized }>;
   specs: Array<{ label: Localized; value: Localized }>;
   attachments?: Localized[];
   dataPdfSrc: string;
