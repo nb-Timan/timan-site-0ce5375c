@@ -8,7 +8,7 @@ import {
   Gauge,
   ListChecks,
   Settings,
-  ShieldCheck,
+  
   Wrench,
 } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
