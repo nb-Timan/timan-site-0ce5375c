@@ -1,3 +1,4 @@
+import type { NewsFieldDefinition } from '@/features/news-cms/templates/types';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { LocalizedNewsContent } from '@/features/news-cms/templates/types';
 
@@ -48,27 +49,136 @@ function hasText(value: unknown): boolean {
   return typeof value === 'string' ? value.trim().length > 0 : false;
 }
 
+function fieldHasTextInAnyLanguage(
+  content: LocalizedNewsContent | null | undefined,
+  key: string,
+): boolean {
+  return NEWS_CONTENT_LANGUAGES.some((code) => hasText(content?.[code]?.[key]));
+}
+
+function firstArrayForField(
+  content: LocalizedNewsContent | null | undefined,
+  key: string,
+): Array<Record<string, unknown>> {
+  for (const code of NEWS_CONTENT_LANGUAGES) {
+    const candidate = content?.[code]?.[key];
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate as Array<Record<string, unknown>>;
+    }
+  }
+  return [];
+}
+
+function anyLanguageHasArrayText(
+  content: LocalizedNewsContent | null | undefined,
+  key: string,
+  index: number,
+  nestedKey: string,
+): boolean {
+  return NEWS_CONTENT_LANGUAGES.some((code) => {
+    const candidate = content?.[code]?.[key];
+    if (!Array.isArray(candidate)) return false;
+    return hasText((candidate[index] as Record<string, unknown> | undefined)?.[nestedKey]);
+  });
+}
+
+function blockFieldMissing(
+  content: LocalizedNewsContent | null | undefined,
+  lang: PortalUiLanguage,
+  key: string,
+  nestedKeys: string[],
+): boolean {
+  const baseline = firstArrayForField(content, key);
+  if (baseline.length === 0) return false;
+  const active = content?.[lang]?.[key];
+  if (!Array.isArray(active)) return true;
+  return baseline.some((_, index) =>
+    nestedKeys.some((nestedKey) => {
+      const shouldRequire = anyLanguageHasArrayText(content, key, index, nestedKey);
+      if (!shouldRequire) return false;
+      return !hasText((active[index] as Record<string, unknown> | undefined)?.[nestedKey]);
+    }),
+  );
+}
+
+function ctaLinksMissing(
+  content: LocalizedNewsContent | null | undefined,
+  lang: PortalUiLanguage,
+  key: string,
+): boolean {
+  const baseline = firstArrayForField(content, key);
+  if (baseline.length === 0) return false;
+  const active = content?.[lang]?.[key];
+  if (!Array.isArray(active)) return true;
+  return baseline.some((link, index) => {
+    const enabled = Boolean(link.enabled);
+    if (!enabled) return false;
+    return !hasText((active[index] as Record<string, unknown> | undefined)?.label);
+  });
+}
+
+function flyerPagesMissing(
+  content: LocalizedNewsContent | null | undefined,
+  lang: PortalUiLanguage,
+  key: string,
+): boolean {
+  const baseline = firstArrayForField(content, key);
+  if (baseline.length === 0) return true;
+  const active = content?.[lang]?.[key];
+  if (!Array.isArray(active)) return true;
+  return baseline.some((_, index) =>
+    ['headline', 'subtitle', 'body'].some((nestedKey) => {
+      const shouldRequire = index === 0 && nestedKey === 'headline'
+        ? true
+        : anyLanguageHasArrayText(content, key, index, nestedKey);
+      if (!shouldRequire) return false;
+      return !hasText((active[index] as Record<string, unknown> | undefined)?.[nestedKey]);
+    }),
+  );
+}
+
 /** Text field keys (of the given template) with no content in `lang`. */
 export function missingTranslationFields(
   content: LocalizedNewsContent | null | undefined,
   lang: PortalUiLanguage,
-  fields: Array<{ key: string; type: string; labelKey: string }>,
+  fields: Array<Pick<NewsFieldDefinition, 'key' | 'type' | 'labelKey' | 'required'>>,
 ): Array<{ key: string; labelKey: string }> {
   const active = getExactNewsContent(content, lang);
-  const plain = fields
-    .filter((field) => ['text', 'textarea', 'richtext'].includes(field.type))
-    .filter((field) => !hasText(active[field.key]))
-    .map((field) => ({ key: field.key, labelKey: field.labelKey }));
-  // Template 06: a page without a headline in this language counts as missing.
-  const flyer = fields
-    .filter((field) => field.type === 'flyerPages')
+  return fields
     .filter((field) => {
-      const pages = active[field.key];
-      if (!Array.isArray(pages) || pages.length === 0) return true;
-      return pages.some((page) => !hasText((page as { headline?: unknown })?.headline));
+      if (['text', 'textarea', 'richtext'].includes(field.type)) {
+        const shouldRequire = Boolean(field.required) || fieldHasTextInAnyLanguage(content, field.key);
+        return shouldRequire && !hasText(active[field.key]);
+      }
+      if (['featureBlocks', 'techBlocks'].includes(field.type)) {
+        return blockFieldMissing(content, lang, field.key, ['heading', 'description']);
+      }
+      if (field.type === 'specRows') {
+        return blockFieldMissing(content, lang, field.key, ['label', 'value']);
+      }
+      if (field.type === 'ctaLinks') {
+        return ctaLinksMissing(content, lang, field.key);
+      }
+      if (field.type === 'flyerPages') {
+        return flyerPagesMissing(content, lang, field.key);
+      }
+      return false;
     })
     .map((field) => ({ key: field.key, labelKey: field.labelKey }));
-  return [...plain, ...flyer];
+}
+
+export function completedNewsLanguages(
+  content: LocalizedNewsContent | null | undefined,
+  fields: Array<Pick<NewsFieldDefinition, 'key' | 'type' | 'labelKey' | 'required'>>,
+): PortalUiLanguage[] {
+  return NEWS_CONTENT_LANGUAGES.filter((lang) => missingTranslationFields(content, lang, fields).length === 0);
+}
+
+export function missingNewsLanguages(
+  content: LocalizedNewsContent | null | undefined,
+  fields: Array<Pick<NewsFieldDefinition, 'key' | 'type' | 'labelKey' | 'required'>>,
+): PortalUiLanguage[] {
+  return NEWS_CONTENT_LANGUAGES.filter((lang) => missingTranslationFields(content, lang, fields).length > 0);
 }
 
 /** Media/layout fields are shared: copy them from any language that has them. */

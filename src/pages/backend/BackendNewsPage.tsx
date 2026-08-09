@@ -7,7 +7,7 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import { Button } from '@/components/ui/button';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { getLocalizedNewsContent } from '@/features/news-cms/lib/newsContent';
+import { completedNewsLanguages, getLocalizedNewsContent, missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
 import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
 import { getNewsTemplate, NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
 import { t } from '@/lib/i18n/translations';
@@ -46,9 +46,21 @@ function statusClass(status: NewsStatus) {
   return 'bg-amber-50 text-amber-700 ring-amber-200';
 }
 
+function languageFlag(code: PortalUiLanguage) {
+  return PORTAL_LANGUAGES.find((item) => item.code === code)?.flag || code.toUpperCase();
+}
+
 function getRowLanguage(row: NewsCmsPost) {
-  const keys = row.localized_content ? Object.keys(row.localized_content).filter(Boolean) : [];
-  return keys.length ? keys.map((key) => key.toUpperCase()).join(', ') : 'DA';
+  if (row.template_id === 'legacy') return 'DA';
+  const template = getNewsTemplate(row.template_id);
+  const complete = completedNewsLanguages(row.localized_content, template.fields);
+  return complete.length ? complete.map(languageFlag).join(', ') : '-';
+}
+
+function getMissingRowLanguages(row: NewsCmsPost) {
+  if (row.template_id === 'legacy') return [];
+  const template = getNewsTemplate(row.template_id);
+  return missingNewsLanguages(row.localized_content, template.fields);
 }
 
 function getPreviewContent(row: NewsCmsPost, lang: PortalUiLanguage) {
@@ -101,8 +113,9 @@ export default function BackendNewsPage() {
       .filter((row) => templateFilter === 'all' || row.template_id === templateFilter)
       .filter((row) => {
         if (languageFilter === 'all') return true;
-        if (!row.localized_content) return languageFilter === 'da';
-        return Object.prototype.hasOwnProperty.call(row.localized_content, languageFilter);
+        if (row.template_id === 'legacy') return languageFilter === 'da';
+        const template = getNewsTemplate(row.template_id);
+        return completedNewsLanguages(row.localized_content, template.fields).includes(languageFilter as PortalUiLanguage);
       })
       .filter((row) => !normalizedSearch || row.title.toLowerCase().includes(normalizedSearch))
       .sort((a, b) => {
@@ -126,6 +139,14 @@ export default function BackendNewsPage() {
     setSaving(true);
     setMessage(null);
     setError(null);
+    if (status === 'published') {
+      const missing = getMissingRowLanguages(row);
+      if (missing.length > 0) {
+        setSaving(false);
+        setError(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${missing.map(languageFlag).join(', ')}`);
+        return;
+      }
+    }
     const result = await adminUpdateNewsStatus(row.id, status);
     setSaving(false);
     if (result.error) {
@@ -319,7 +340,14 @@ export default function BackendNewsPage() {
                             {t(`newsCmsStatus${status[0].toUpperCase()}${status.slice(1)}`, uiLanguage)}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-slate-600">{getRowLanguage(row)}</td>
+                        <td className="px-4 py-4 text-slate-600">
+                          <div>{getRowLanguage(row)}</div>
+                          {row.template_id !== 'legacy' && getMissingRowLanguages(row).length > 0 && (
+                            <div className="mt-1 text-[11px] font-semibold text-amber-700">
+                              {t('newsCmsMissingShort', uiLanguage)} {getMissingRowLanguages(row).map(languageFlag).join(', ')}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-4 text-slate-500">{formatDate(row.created_at, uiLanguage)}</td>
                         <td className="px-4 py-4 text-slate-500">{formatDate(row.updated_at || row.published_at, uiLanguage)}</td>
                         <td className="px-4 py-4 text-slate-500">{status === 'published' ? formatDate(row.published_at, uiLanguage) : '-'}</td>

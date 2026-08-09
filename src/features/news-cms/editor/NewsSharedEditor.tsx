@@ -9,6 +9,7 @@ import type { LocalizedNewsContent, NewsTemplateId } from '@/features/news-cms/t
 import {
   emptyLocalizedContent,
   mergeSharedNewsFields,
+  missingNewsLanguages,
   missingTranslationFields,
   updateCtaLinksField,
   updateTechBlocksField,
@@ -97,16 +98,31 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     () => missingTranslationFields(localizedContent, editLanguage, template.fields),
     [localizedContent, editLanguage, template.fields],
   );
+  const missingLanguages = useMemo(
+    () => missingNewsLanguages(localizedContent, template.fields),
+    [localizedContent, template.fields],
+  );
+  const [publishWarning, setPublishWarning] = useState<string | null>(null);
   const contentLanguageLabel =
     PORTAL_LANGUAGES.find((option) => option.code === editLanguage)?.label || editLanguage.toUpperCase();
+  const missingLanguageLabels = missingLanguages
+    .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+    .join(', ');
   const validation = template.validate(activeContent);
+  const canPublish = validation.valid && missingLanguages.length === 0;
 
   const saveDraft = async () => {
+    setPublishWarning(null);
     await onSaveDraft({ id: initialPost?.id, templateId, localizedContent });
     setSavedOnce(true);
   };
 
   const publish = async () => {
+    if (!canPublish) {
+      setPublishWarning(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${missingLanguageLabels}`);
+      return;
+    }
+    setPublishWarning(null);
     await onPublish({ id: initialPost?.id, templateId, localizedContent });
   };
 
@@ -192,6 +208,11 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             )}
             <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
+            {missingLanguages.length > 0 && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                <span className="font-bold">{t('newsCmsPublishMissingLanguages', uiLanguage)}</span> {missingLanguageLabels}
+              </div>
+            )}
 
             <div className="space-y-4">
               {template.fields.map((field) => (
@@ -286,12 +307,23 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             </div>
             <h3 className="text-xl font-bold text-slate-900">{t('newsCmsStepPublishTitle', uiLanguage)}</h3>
             <p className="mt-2 text-sm text-slate-600">{t('newsCmsStepPublishHelp', uiLanguage)}</p>
+            {missingLanguages.length > 0 && (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p className="font-bold">{t('newsCmsPublishMissingLanguages', uiLanguage)}</p>
+                <p className="mt-1">{missingLanguageLabels}</p>
+              </div>
+            )}
+            {publishWarning && (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {publishWarning}
+              </div>
+            )}
             <div className="mt-5 flex flex-wrap gap-3">
               <Button type="button" variant="outline" onClick={() => setStep(3)}>
                 <Eye className="mr-2 h-4 w-4" />
                 {t('newsCmsPreview', uiLanguage)}
               </Button>
-              <Button type="button" disabled={saving || !validation.valid} onClick={publish}>
+              <Button type="button" disabled={saving || !canPublish} onClick={publish}>
                 <Send className="mr-2 h-4 w-4" />
                 {t('newsCmsPublish', uiLanguage)}
               </Button>
@@ -305,7 +337,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('previous', uiLanguage)}
         </Button>
-        <Button type="button" disabled={saving || (step > 1 && !validation.valid)} onClick={() => (step < 5 ? setStep((step + 1) as StepId) : publish())}>
+        <Button type="button" disabled={saving || (step > 1 && !validation.valid) || (step === 5 && !canPublish)} onClick={() => (step < 5 ? setStep((step + 1) as StepId) : publish())}>
           {step < 5 ? `${t('next', uiLanguage)}: ${stepTitle((step + 1) as StepId, uiLanguage)}` : t('newsCmsPublish', uiLanguage)}
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
