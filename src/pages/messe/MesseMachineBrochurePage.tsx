@@ -412,8 +412,9 @@ const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
       it: 'L ampia gamma di accessori permette di usare la stessa macchina per spazzamento, cura del verde e servizio invernale, cosi Timan 3330 puo svolgere molti compiti diversi in tutte e quattro le stagioni.',
       hu: 'A szeles adapterkinalat lehetove teszi, hogy ugyanazt a gepet hasznaljuk sepreshez, zoldterulet-gondozashoz es teli felkeszultseghez, igy a Timan 3330 sokfele feladatot lat el mind a negy evszakban.',
     },
-
+  ],
 };
+
 
 const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
   'rc-751': [
