@@ -554,11 +554,36 @@ export default function MesseMachineBrochurePage({
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
+  const [covers, setCovers] = useState<{ frontCover: number; backCover: number }>({
+    frontCover: 1,
+    backCover: pageCount,
+  });
   const content = MACHINE_CONTENT[machineKey];
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
+  useEffect(() => {
+    let active = true;
+    setCovers({ frontCover: 1, backCover: pageCount });
+    fetch(`${pageBase}/covers.json`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        const front = Number(data.frontCover);
+        const back = Number(data.backCover);
+        setCovers({
+          frontCover: Number.isFinite(front) && front >= 1 ? front : 1,
+          backCover: Number.isFinite(back) && back >= 1 ? back : pageCount,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [pageBase, pageCount]);
+
   if (!appUser) return null;
+
 
   const pageSrc = (page: number) => `${pageBase}/page-${page}.jpg`;
   const rightPage = leftPage + 1;
