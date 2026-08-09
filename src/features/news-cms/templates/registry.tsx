@@ -398,8 +398,8 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
         style={{ clipPath: 'polygon(94% 0, 97.2% 0, 79.2% 100%, 76% 100%)' }}
       />
 
-      {/* Secondary image: ~2x larger, overlapping the large photo by ~1/3 of its own width. */}
-      <div className="absolute bottom-[1.1rem] left-[64%] z-20 h-[10.6rem] w-[52%] overflow-hidden rounded-lg border border-white bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.55)]">
+      {/* Secondary image: ~25% larger, still overlapping the large photo by ~1/3 of its own width. */}
+      <div className="absolute bottom-[1.1rem] left-[54.5%] z-20 h-[13.25rem] w-[65%] overflow-hidden rounded-lg border border-white bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.55)]">
         <TemplateImage
           url={secondaryImage}
           label={t('newsCmsFieldSecondaryImage', lang)}
@@ -407,14 +407,15 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
         />
       </div>
 
-      <div className="absolute bottom-[1.1rem] left-[120%] z-20 flex h-[10.6rem] w-[42%] min-w-0 flex-col justify-center overflow-hidden">
-        <p className="line-clamp-2 text-[0.68rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
+      <div className="absolute bottom-[1.1rem] left-[122.5%] z-20 flex h-[13.25rem] w-[46%] min-w-0 flex-col justify-start overflow-hidden pt-1">
+        <p className="line-clamp-2 text-[1.5rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
           {secondaryHeading || t('newsCmsWireSecondaryHeading', lang)}
         </p>
-        <p className="mt-1 line-clamp-6 text-[0.6rem] font-normal leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+        <p className="mt-2 line-clamp-5 text-[1.1rem] font-normal leading-[1.45] text-slate-700 [overflow-wrap:anywhere]">
           {secondaryText || t('newsCmsWireSecondaryText', lang)}
         </p>
       </div>
+
     </div>
   );
 }
@@ -424,7 +425,7 @@ function Template04({ content, lang }: NewsRendererProps) {
   const specs = filledSpecRows(content.specRows);
   const body = text(content, 'body', '');
   return (
-    <TemplateShell lang={lang} scaleToFit>
+    <TemplateShell lang={lang} logoSize="sm" scaleToFit>
 
       <div className="grid h-full min-w-0 grid-cols-[0.98fr_1.02fr] gap-6">
         <Template04Composition content={content} lang={lang} />
