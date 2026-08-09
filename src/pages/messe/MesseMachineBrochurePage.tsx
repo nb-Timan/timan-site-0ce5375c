@@ -729,7 +729,7 @@ export default function MesseMachineBrochurePage({
         onClose={() => setDataOpen(false)}
         title={`${title} - ${T.technicalSheet[lang]}`}
         closeLabel={T.close[lang]}
-        widthClass="max-w-5xl"
+        widthClass="max-w-[53rem]"
       >
         <div className="max-h-[72vh] space-y-5 overflow-y-auto pr-2">
           {technicalSections.map((section) => (
