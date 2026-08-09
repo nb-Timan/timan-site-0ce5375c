@@ -16,6 +16,8 @@ import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
 import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
 import iconService from '@/assets/rc1000s-icon-16.png.asset.json';
@@ -39,6 +41,7 @@ const T: Record<string, Localized> = {
   keyPoints: { da: 'Styrker', en: 'Strengths', de: 'Starken', it: 'Punti forti', hu: 'Erossegek' },
   specs: { da: 'Tekniske data', en: 'Technical data', de: 'Technische Daten', it: 'Dati tecnici', hu: 'Muszaki adatok' },
   tools: { da: 'Redskaber', en: 'Attachments', de: 'Anbaugerate', it: 'Accessori', hu: 'Adapterek' },
+  page: { da: 'side', en: 'page', de: 'Seite', it: 'pagina', hu: 'oldal' },
   moreAbout: { da: 'Mere om maskinen', en: 'More about the machine', de: 'Mehr zur Maschine', it: 'Maggiori informazioni', hu: 'Tovabbi informacio' },
 };
 
@@ -524,7 +527,20 @@ interface MesseMachineBrochurePageProps {
   pageCount: number;
 }
 
-const tr = (value: Localized, lang: Language) => value[lang] || value.da;
+/**
+ * Resolve a localized machine string against the *selected portal language*.
+ *
+ * Order: selected language -> extra-language registry (sv/fr/pl/cs, keyed by
+ * the Danish source string) -> English -> Danish. This prevents sv/fr/pl/cs
+ * from silently collapsing to English for content that is translated.
+ */
+const tr = (value: Localized, lang: PortalUiLanguage) => {
+  const direct = (value as Partial<Record<PortalUiLanguage, string>>)[lang];
+  if (direct) return direct;
+  const extra = MESSE_MACHINE_EXTRA_TRANSLATIONS[value.da]?.[lang as 'sv' | 'fr' | 'pl' | 'cs'];
+  if (extra) return extra;
+  return value.en || value.da;
+};
 
 export default function MesseMachineBrochurePage({
   machineKey,
@@ -534,7 +550,7 @@ export default function MesseMachineBrochurePage({
   pageCount,
 }: MesseMachineBrochurePageProps) {
   const { appUser } = useAppUser();
-  const { language: lang } = useLanguage();
+  const { uiLanguage: lang } = useLanguage();
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
@@ -574,7 +590,7 @@ export default function MesseMachineBrochurePage({
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <MesseSubpageHeader backLabel={T.back[lang]} />
+      <MesseSubpageHeader backLabel={tr(T.back, lang)} />
 
       <main className="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -623,7 +639,7 @@ export default function MesseMachineBrochurePage({
             )}
 
             <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-lg font-bold text-slate-950">{T.moreAbout[lang]}</h2>
+              <h2 className="mb-3 text-lg font-bold text-slate-950">{tr(T.moreAbout, lang)}</h2>
               <div className="space-y-3 text-sm leading-7 text-slate-600">
                 {descriptions.map((paragraph) => (
                   <p key={tr(paragraph, lang)}>{tr(paragraph, lang)}</p>
@@ -635,7 +651,7 @@ export default function MesseMachineBrochurePage({
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <ListChecks className="h-5 w-5 text-emerald-700" />
-                  <h2 className="text-lg font-bold text-slate-950">{T.keyPoints[lang]}</h2>
+                  <h2 className="text-lg font-bold text-slate-950">{tr(T.keyPoints, lang)}</h2>
                 </div>
                 <div className="space-y-3">
                   {content.highlights.map((item, index) => (
@@ -650,7 +666,7 @@ export default function MesseMachineBrochurePage({
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-emerald-700" />
-                  <h2 className="text-lg font-bold text-slate-950">{T.specs[lang]}</h2>
+                  <h2 className="text-lg font-bold text-slate-950">{tr(T.specs, lang)}</h2>
                 </div>
                 <dl className="divide-y divide-slate-100">
                   {content.specs.map((spec) => (
@@ -667,7 +683,7 @@ export default function MesseMachineBrochurePage({
               <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <Wrench className="h-5 w-5 text-emerald-700" />
-                  <h2 className="text-lg font-bold text-slate-950">{T.tools[lang]}</h2>
+                  <h2 className="text-lg font-bold text-slate-950">{tr(T.tools, lang)}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {content.attachments.map((item) => (
@@ -684,7 +700,7 @@ export default function MesseMachineBrochurePage({
           </section>
 
           <aside className="space-y-4 lg:sticky lg:top-6">
-            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{T.documents[lang]}</h2>
+            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{tr(T.documents, lang)}</h2>
 
             <button
               type="button"
@@ -701,12 +717,12 @@ export default function MesseMachineBrochurePage({
                     <img src={pageSrc(1)} alt="" className="h-full w-full object-cover object-top" />
                     <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-white to-slate-50 px-4 text-center">
                       <BookOpen className="h-9 w-9 text-slate-700" />
-                      <span className="text-sm font-bold text-slate-900">{T.openBrochure[lang]}</span>
+                      <span className="text-sm font-bold text-slate-900">{tr(T.openBrochure, lang)}</span>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{T.brochure[lang]}</div>
+              <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
               <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
             </button>
 
@@ -717,9 +733,9 @@ export default function MesseMachineBrochurePage({
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">
-                    {T.technicalSheet[lang]}
+                    {tr(T.technicalSheet, lang)}
                   </div>
-                  <div className="mt-1 text-base font-bold text-slate-950">{T.openData[lang]}</div>
+                  <div className="mt-1 text-base font-bold text-slate-950">{tr(T.openData, lang)}</div>
                 </div>
               </div>
             </button>
@@ -731,8 +747,8 @@ export default function MesseMachineBrochurePage({
       <MesseModal
         open={dataOpen}
         onClose={() => setDataOpen(false)}
-        title={`${title} - ${T.technicalSheet[lang]}`}
-        closeLabel={T.close[lang]}
+        title={`${title} - ${tr(T.technicalSheet, lang)}`}
+        closeLabel={tr(T.close, lang)}
         widthClass="max-w-[53rem]"
       >
         <div className="max-h-[72vh] space-y-5 overflow-y-auto pr-2">
@@ -762,8 +778,8 @@ export default function MesseMachineBrochurePage({
       <MesseModal
         open={brochureOpen}
         onClose={() => setBrochureOpen(false)}
-        title={`${title} ${T.brochure[lang]}`}
-        closeLabel={T.close[lang]}
+        title={`${title} ${tr(T.brochure, lang)}`}
+        closeLabel={tr(T.close, lang)}
         widthClass="max-w-[92rem]"
         bodyClass="px-3 sm:px-5 py-4"
       >
@@ -772,7 +788,7 @@ export default function MesseMachineBrochurePage({
             <div className="flex min-h-0 items-center justify-center bg-white p-2 md:border-r md:border-slate-100">
               <img
                 src={pageSrc(leftPage)}
-                alt={`${title} side ${leftPage}`}
+                alt={`${title} ${tr(T.page, lang)} ${leftPage}`}
                 className="h-full w-full object-contain"
               />
             </div>
@@ -780,7 +796,7 @@ export default function MesseMachineBrochurePage({
               {rightPage <= pageCount ? (
                 <img
                   src={pageSrc(rightPage)}
-                  alt={`${title} side ${rightPage}`}
+                  alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
                   className="h-full w-full object-contain"
                 />
               ) : (
@@ -802,7 +818,7 @@ export default function MesseMachineBrochurePage({
               className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4" />
-              {T.previous[lang]}
+              {tr(T.previous, lang)}
             </button>
             <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm">
               {leftPage}-{Math.min(rightPage, pageCount)} / {pageCount}
@@ -813,7 +829,7 @@ export default function MesseMachineBrochurePage({
               disabled={!canGoNext}
               className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {T.next[lang]}
+              {tr(T.next, lang)}
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
@@ -825,7 +841,7 @@ export default function MesseMachineBrochurePage({
             className="absolute bottom-8 right-8 hidden items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 sm:inline-flex"
           >
             <ExternalLink className="h-4 w-4" />
-            {T.openNew[lang]}
+            {tr(T.openNew, lang)}
           </a>
         </div>
       </MesseModal>
