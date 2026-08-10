@@ -269,7 +269,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     // Every frame-2 entry uses its own anchor + callout so the bubble
     // sits in empty background and the connector never crosses the body.
     v_plow: [
-      { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
+      { anchor: { x: 25, y: 62 }, callout: { cx: 14, cy: 54 }, frame: 1 },
       // frame 2: anchor on the dozer blade (right-front), bubble in the
       // lower-right corner — short diagonal through empty background.
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
@@ -281,7 +281,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
     ],
     kabine: [
-      { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
+      { anchor: { x: 48, y: 30 }, callout: { cx: 63, cy: 10 }, frame: 1 },
       // frame 2: anchor on the cab roof, bubble straight up — clean
       // vertical connector, no roof or body crossing.
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
