@@ -304,7 +304,12 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   cab: {
     motor:      CAB_MOTOR,
-    kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
+    kabine: [
+      // frame 1: target moved rearward onto the cabin structure so the
+      // connector no longer reads as pointing at the mirror arm.
+      { anchor: { x: 53, y: 33 }, callout: { cx: 78, cy: 12 }, frame: 1 },
+      { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 }, frame: 2 },
+    ],
     affjedring: [
       affjedring({ x: 56, y: 72 }, 1),
       AFFJEDRING_REAR,
