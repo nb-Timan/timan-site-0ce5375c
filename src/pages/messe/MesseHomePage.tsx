@@ -123,7 +123,7 @@ export default function MesseHomePage() {
                   src={tile.artImage}
                   alt=""
                   aria-hidden="true"
-                  className="pointer-events-none absolute right-[2%] top-1/2 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain mix-blend-multiply transition duration-300 group-hover:scale-[1.02]"
+                  className="pointer-events-none absolute right-[-1%] top-1/2 -translate-y-1/2 h-[100%] w-auto max-w-[68%] object-contain mix-blend-multiply transition duration-300 group-hover:scale-[1.02]"
                 />
               )}
               {tile.image && (
