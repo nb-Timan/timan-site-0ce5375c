@@ -386,99 +386,10 @@ export default function ProductImageViewer({
       </div>
 
       {/* Callout hotspot detail overlay — large kiosk-style window */}
-      {activeHotspot && hasCalloutHotspot && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-8 animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="viewer-hotspot-title"
-          onClick={() => setActiveHotspot(null)}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-[70rem] max-h-[97vh] overflow-hidden animate-scale-in flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 overflow-y-auto">
-              {/* Visual / future-video area */}
-              <div className="bg-slate-100 relative min-h-[260px] md:min-h-[420px] flex items-center justify-center">
-                {activeHotspot.imageUrl ? (
-                  <img
-                    src={activeHotspot.imageUrl}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-contain"
-                    style={activeHotspot.imageScale ? { transform: `scale(${activeHotspot.imageScale})` } : undefined}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-                    <ImageOff className="h-12 w-12 mb-3" />
-                    <div className="text-sm font-medium text-slate-500">{t('m2620_media_placeholder_title', uiLanguage)}</div>
-                    <div className="text-xs text-slate-400 mt-1">{t('m2620_media_placeholder_sub', uiLanguage)}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="p-6 lg:p-8 flex flex-col">
-                <div className="text-[11px] uppercase tracking-[0.2em] text-emerald-700 font-semibold">
-                  Timan 2620
-                </div>
-                <h3 id="viewer-hotspot-title" className="text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
-                  {activeHotspot.title}
-                </h3>
-                {activeHotspot.subtitle && (
-                  <p className="text-base text-emerald-700 font-semibold mt-1">
-                    {activeHotspot.subtitle}
-                  </p>
-                )}
-                {activeHotspot.description && (
-                  <p className="text-sm lg:text-base text-slate-600 mt-3 leading-relaxed">
-                    {activeHotspot.description}
-                  </p>
-                )}
-                {activeHotspot.bullets && activeHotspot.bullets.length > 0 && (
-                  <ul className="mt-4 space-y-2">
-                    {activeHotspot.bullets.map((b, i) => (
-                      <li key={i} className="flex gap-2.5 text-sm lg:text-base text-slate-700">
-                        <span className="text-emerald-600 font-bold leading-tight">✓</span>
-                        <span>{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {activeHotspot.technical && activeHotspot.technical.length > 0 && (
-                  <SpecificationGrid
-                    className="mt-5 border-t border-slate-200 pt-4"
-                    title={t('m2620_spec_heading', uiLanguage)}
-                    items={activeHotspot.technical}
-                    splitAt={activeHotspot.technicalSplitAt}
-                    columns={activeHotspot.technicalColumns}
-                  />
-                )}
-                {activeHotspot.extra && activeHotspot.extra.length > 0 && (
-                  <SpecificationGrid
-                    className="mt-5 border-t border-slate-200 pt-4"
-                    title={activeHotspot.extraTitle ?? t('m2620_extra_heading', uiLanguage)}
-                    badge={t('m2620_extra_badge', uiLanguage)}
-                    items={activeHotspot.extra}
-                    splitAt={activeHotspot.extraSplitAt}
-                  />
-                )}
-
-              </div>
-            </div>
-            <div className="border-t border-slate-200 p-4 lg:p-5 bg-slate-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveHotspot(null)}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm lg:text-base font-semibold shadow"
-              >
-                <ChevronLeft className="h-5 w-5" />
-                {t('m2620_back_to_machine', uiLanguage)}
-              </button>
-            </div>
-          </div>
-        </div>
+      {hasCalloutHotspot && (
+        <HotspotDetailModal hotspot={activeHotspot} onClose={() => setActiveHotspot(null)} />
       )}
+
 
       {/* Toolbar */}
       {hasImage && !hideControls && (
