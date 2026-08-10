@@ -113,12 +113,12 @@ export default function ProductImageViewer({
 
   // Reset transient state when the configuration changes.
   useEffect(() => {
-    setFrame(0);
+    setFrame(current => (total > 0 ? Math.min(current, total - 1) : 0));
     setZoom(1);
     setActiveHotspot(null);
     setAutoRotate(false);
     setPreloaded(false);
-  }, [config.key]);
+  }, [config.key, total]);
 
   // Preload every image of the active configuration.
   useEffect(() => {

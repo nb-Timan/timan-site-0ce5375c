@@ -505,12 +505,11 @@ function Sidebar() {
 }
 
 function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boolean; largeArrows?: boolean } = {}) {
-  const { imageKey, configuration } = useTiman2620();
+  const { configuration } = useTiman2620();
 
   return (
     <div>
       <ProductImageViewer
-        key={imageKey}
         configuration={configuration}
         hideControls
         disableZoom={disableZoom}
