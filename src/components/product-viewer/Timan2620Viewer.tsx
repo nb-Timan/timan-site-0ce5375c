@@ -256,10 +256,16 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   },
 
   cab: {
-    motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
+    motor:      CAB_MOTOR,
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
     affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
+
+  // Kabine + skovl — Motor reuses the approved cabin placement.
+  cab_bucket: {
+    motor: CAB_MOTOR,
+  },
+
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
