@@ -9,6 +9,7 @@
  * Clicks inside the modal never close it.
  */
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ImageOff, X } from 'lucide-react';
 import SpecificationGrid from './SpecificationGrid';
 import type { ViewerHotspot } from './types';
@@ -34,9 +35,9 @@ export default function HotspotDetailModal({ hotspot, onClose }: HotspotDetailMo
 
   if (!hotspot) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-8 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-8 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="viewer-hotspot-title"
@@ -130,6 +131,7 @@ export default function HotspotDetailModal({ hotspot, onClose }: HotspotDetailMo
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
