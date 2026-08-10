@@ -13,7 +13,7 @@ const T: Record<string, Record<Language, string>> = {
   none:   { da: 'Ingen videoer', en: 'No videos', de: 'Keine Videos', it: 'Nessun video', hu: 'Nincs videó' },
 };
 
-const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber', 'service', 'salg'];
+const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber'];
 
 export default function MesseVideoPage() {
   const { language: lang } = useLanguage();
@@ -89,7 +89,6 @@ export default function MesseVideoPage() {
 }
 
 function Section({ title, videos, lang, onPlay }: { title: string; videos: MesseVideo[]; lang: Language; onPlay: (v: MesseVideo) => void }) {
-  if (videos.length === 0) return null;
   return (
     <section>
       <h2 className="text-xl font-bold text-slate-900 mb-3">{title}</h2>
