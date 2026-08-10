@@ -313,12 +313,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       // lower-right corner — short diagonal through empty background.
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
-    motor: [
-      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
-      // frame 2: anchor on the engine compartment mid-body (behind the
-      // driver area, under the cargo body), bubble down in the lower-left.
-      { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
-    ],
+    motor: CAB_MOTOR,
+
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 63, cy: 10 }, frame: 1 },
       // frame 2: anchor on the cab roof, bubble straight up — clean
