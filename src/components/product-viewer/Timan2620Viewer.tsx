@@ -211,20 +211,29 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  *   rear frames
  *     → machine faces RIGHT (front = right, rear = left)
  */
+// Shared Affjedring placement for ALL Standard (no cab) configurations:
+// target sits just in front of the rear tyre, bubble centred under the
+// rear/wheel area. Kabine views keep their own values.
+const STANDARD_AFFJEDRING: PosEntry = {
+  anchor: { x: 62, y: 79 },
+  callout: { cx: 66, cy: 95 },
+};
+
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
   dozer_blade: { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
-  affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+  affjedring: STANDARD_AFFJEDRING,
 };
 
 const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
   // Bare machines — front faces LEFT
   standard: {
     motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 88, cy: 65 } },
-    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 94 } },
+    affjedring: STANDARD_AFFJEDRING,
   },
+
   cab: {
     motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
@@ -234,7 +243,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
-    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+    affjedring:    STANDARD_AFFJEDRING,
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
   cab_salt_spreader: {
@@ -248,7 +257,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   standard_bucket: {
     bucket:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
     motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
-    affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+    affjedring: STANDARD_AFFJEDRING,
   },
 
   standard_dozer_blade: { ...STANDARD_FRONT_BLADE_LAYOUT },
