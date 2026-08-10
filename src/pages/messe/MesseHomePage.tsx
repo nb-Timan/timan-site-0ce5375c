@@ -13,6 +13,10 @@ import rc751Bg from '@/assets/messe/rc-751-bg.png.asset.json';
 import rc751Art from '@/assets/messe/rc-751-art.png.asset.json';
 import rc1000sBg from '@/assets/messe/rc-1000s-bg.png.asset.json';
 import rc1000sArt from '@/assets/messe/rc-1000s-art.png.asset.json';
+import t2620Bg from '@/assets/messe/timan-2620-bg.png.asset.json';
+import t2620Art from '@/assets/messe/timan-2620-art.png.asset.json';
+import t3330Bg from '@/assets/messe/timan-3330-bg.png.asset.json';
+import t3330Art from '@/assets/messe/timan-3330-art.png.asset.json';
 
 
 interface Tile {
