@@ -243,10 +243,18 @@ const STANDARD_SALT_SPREADER: PosEntry = {
   callout: { cx: 90, cy: 22 },
 };
 
+// Shared Dozerblad bubble placement (front views). Moved inward/up so it
+// no longer collides with the left image-navigation arrow. Green target
+// (anchor) stays on the blade.
+const DOZER_BLADE_FRONT: PosEntry = {
+  anchor: { x: 25, y: 62 },
+  callout: { cx: 16, cy: 41 },
+};
+
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
-  dozer_blade: { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+  dozer_blade: DOZER_BLADE_FRONT,
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
   affjedring: STANDARD_AFFJEDRING,
 };
