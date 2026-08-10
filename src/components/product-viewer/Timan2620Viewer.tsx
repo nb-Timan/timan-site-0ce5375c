@@ -473,10 +473,7 @@ function buildHotspots(
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
   // Fodpedal: Standard base only, rear view (page 2/2), and only when a
   // dozerblad or saltspreder is fitted.
-  if (
-    imageKey.startsWith('standard') &&
-    (equipment.has('dozer_blade') || equipment.has('salt_spreader'))
-  ) {
+  if (imageKey.startsWith('standard')) {
     visibleParts.add('fodpedal');
   }
 
