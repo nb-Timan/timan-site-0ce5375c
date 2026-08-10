@@ -291,6 +291,14 @@ const DOZER_BLADE_FRONT: PosEntry = {
 
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
+// Fodpedal (rear view, page 2/2 only) — bubble in the open area above/right
+// of the machine, target on the footwell/pedal area in front of the seat.
+const FODPEDAL_REAR: PosEntry = {
+  anchor: { x: 62, y: 60 },
+  callout: { cx: 82, cy: 16 },
+  frame: 2,
+};
+
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
   dozer_blade: DOZER_BLADE_FRONT,
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
