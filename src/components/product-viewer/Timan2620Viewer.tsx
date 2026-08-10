@@ -624,6 +624,35 @@ const UDSTYR_LINKS: { part: PartId; label: string }[] = [
   { part: 'kabine', label: 'Kabine' },
 ];
 
+/** Not available yet — same muted, struck-through treatment as REDSKAB_COMING_SOON. */
+const UDSTYR_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
+  { label: 'Luftaffjedret Comfort sæde med kunstlæder og justerbar armlæn' },
+  { label: 'Luftaffjedret Deluxe stofsæde med sædevarme og justerbar armlæn' },
+  { label: 'Elektrisk fartpilot' },
+  { label: 'Bio hydraulikolie' },
+  { label: 'Monitor for kamera' },
+  { label: 'Kamera for sugemundstykke' },
+  { label: 'Bakkamera på bagenden' },
+  { label: 'Bakalarm' },
+  { label: 'Kombitræk kugle/gaffel' },
+  { label: 'Hydraulisk baglift' },
+  { label: 'Skovl- og kosteholder' },
+  { label: 'Stænkskærm sæt, 4 stk.' },
+  { label: 'Undervognsbehandling (anbefales til vinterbrug)' },
+  { label: 'Førerhus inkl. varme, lys og spejle (ROPS)', gapBefore: true },
+  { label: 'Aircondition' },
+  { label: 'Bluetooth radio med USB/MP3' },
+  { label: 'Solskærm justerbar' },
+  { label: 'Opvarmede spejle' },
+  { label: 'Arbejdslys foran (2 stk.)' },
+  { label: 'Arbejdslys bag (1 stk.)' },
+  { label: 'Rotorblink' },
+  { label: 'Blitzlys for og bag på kabinen' },
+  { label: 'Skyderuder H/V side' },
+  { label: '112 brandslukker i kabine' },
+  { label: 'Nummerpladeholder for og bag' },
+];
+
 type InfoBrowser = 'redskab' | 'udstyr';
 
 function Sidebar() {
@@ -752,7 +781,7 @@ function Sidebar() {
           })),
           activeId: infoPart ?? 'bucket',
           onSelect: id => setInfoPart(id as PartId),
-          comingSoon: infoBrowser === 'udstyr' ? undefined : REDSKAB_COMING_SOON,
+          comingSoon: infoBrowser === 'udstyr' ? UDSTYR_COMING_SOON : REDSKAB_COMING_SOON,
         }}
       />
 
