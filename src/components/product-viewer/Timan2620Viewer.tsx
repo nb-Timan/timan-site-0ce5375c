@@ -381,6 +381,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Standard + skovl.
   standard_bucket: {
     bucket:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+    fodpedal:   FODPEDAL_REAR,
     motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
     affjedring: STANDARD_AFFJEDRING,
   },
