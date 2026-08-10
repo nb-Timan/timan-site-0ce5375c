@@ -321,6 +321,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { ...STANDARD_MOTOR, frame: 1 },
       { ...CAB_MOTOR[1] },
     ],
+    fodpedal:   FODPEDAL_REAR,
     affjedring: STANDARD_AFFJEDRING,
   },
 
