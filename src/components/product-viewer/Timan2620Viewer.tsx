@@ -616,10 +616,21 @@ const REDSKAB_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
   { label: 'Svingbar kost' },
 ];
 
+/** Machine components shown in the Udstyrsinformation browser. */
+const UDSTYR_LINKS: { part: PartId; label: string }[] = [
+  { part: 'fodpedal', label: 'Fodpedal' },
+  { part: 'affjedring', label: 'Affjedring' },
+  { part: 'motor', label: 'Motor' },
+  { part: 'kabine', label: 'Kabine' },
+];
+
+type InfoBrowser = 'redskab' | 'udstyr';
+
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
   const { uiLanguage } = useLanguage();
-  const [redskabPart, setRedskabPart] = useState<PartId | null>(null);
+  const [infoBrowser, setInfoBrowser] = useState<InfoBrowser | null>(null);
+  const [infoPart, setInfoPart] = useState<PartId | null>(null);
   const partContent = useMemo(() => buildPartContent(uiLanguage), [uiLanguage]);
   const baseLabel = t('m2620_basismaskine', uiLanguage);
 
@@ -687,24 +698,40 @@ function Sidebar() {
         </div>
       </section>
 
-      <section className="mt-6">
+      <section className="mt-10">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
+          Information
+        </div>
         <div className="flex flex-col items-start gap-4">
           <button
             type="button"
-            onClick={() => setRedskabPart('bucket')}
+            onClick={() => {
+              setInfoBrowser('redskab');
+              setInfoPart('bucket');
+            }}
             className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
           >
             Redskabsinformation
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInfoBrowser('udstyr');
+              setInfoPart('fodpedal');
+            }}
+            className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
+          >
+            Udstyrsinformation
           </button>
         </div>
       </section>
 
       <HotspotDetailModal
         hotspot={
-          redskabPart
+          infoBrowser && infoPart
             ? {
-                ...partContent[redskabPart],
-                id: `redskab-${redskabPart}`,
+                ...partContent[infoPart],
+                id: `${infoBrowser}-${infoPart}`,
                 frame: 0,
                 x: 0,
                 y: 0,
@@ -712,14 +739,22 @@ function Sidebar() {
               }
             : null
         }
-        onClose={() => setRedskabPart(null)}
+        onClose={() => {
+          setInfoBrowser(null);
+          setInfoPart(null);
+        }}
         nav={{
-          items: REDSKAB_LINKS.map(i => ({ id: i.part, label: i.label })),
-          activeId: redskabPart ?? 'bucket',
-          onSelect: id => setRedskabPart(id as PartId),
-          comingSoon: REDSKAB_COMING_SOON,
+          title: infoBrowser === 'udstyr' ? 'Udstyrsinformation' : 'Redskabsinformation',
+          items: (infoBrowser === 'udstyr' ? UDSTYR_LINKS : REDSKAB_LINKS).map(i => ({
+            id: i.part,
+            label: i.label,
+          })),
+          activeId: infoPart ?? 'bucket',
+          onSelect: id => setInfoPart(id as PartId),
+          comingSoon: infoBrowser === 'udstyr' ? undefined : REDSKAB_COMING_SOON,
         }}
       />
+
     </aside>
   );
 }
