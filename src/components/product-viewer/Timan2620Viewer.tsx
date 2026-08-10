@@ -262,9 +262,15 @@ const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>
 const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
   // Bare machines — front faces LEFT
   standard: {
-    motor:      STANDARD_MOTOR,
+    // Frame 1 keeps the approved Standard placement; frame 2 (rear view)
+    // reuses the approved Kabine + Dozerblad + Saltspreder rear Motor spot.
+    motor:      [
+      { ...STANDARD_MOTOR, frame: 1 },
+      { ...CAB_MOTOR[1] },
+    ],
     affjedring: STANDARD_AFFJEDRING,
   },
+
 
   cab: {
     motor:      CAB_MOTOR,
