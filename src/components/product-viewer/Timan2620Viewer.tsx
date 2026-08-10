@@ -11,9 +11,8 @@
  *
  * Selection rules:
  *   - Basismaskine: single-select (Standard | Kabine)
- *   - Udstyr:       multi-select (V-plov, Saltspreder, Kost)
- *                   Kost cannot be combined with V-plov; selecting Kost while
- *                   V-plov is active opens a confirm dialog.
+ *   - Udstyr:       multi-select (Skovl, V-plov, Dozerblad, Saltspreder)
+ *                   Cabin combinations are driven by the central image matrix.
  *
  * Hotspot visibility is identical to the previous implementation: Motor and
  * Affjedring are always visible; Kabine, Redskaber, V-plov and Saltspreder
@@ -24,9 +23,10 @@ import ProductImageViewer from './ProductImageViewer';
 import {
   TIMAN_2620_BASE_OPTIONS,
   TIMAN_2620_EQUIPMENT_OPTIONS,
-  TIMAN_2620_INCOMPATIBLE,
   TIMAN_2620_IMAGES,
   deriveTiman2620ImageKey,
+  getTiman2620NearestValidEquipment,
+  isTiman2620EquipmentSelectable,
   type Timan2620Base,
   type Timan2620Equipment,
 } from '@/data/timan2620Viewer';
@@ -38,24 +38,8 @@ const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
   standard: 'm2620_base_standard',
   cab: 'm2620_base_cab',
 };
-const EQUIPMENT_LABEL_KEY: Record<Timan2620Equipment, string> = {
-  v_plow: 'm2620_eq_v_plow',
-  salt_spreader: 'm2620_eq_salt_spreader',
-  brush: 'm2620_eq_brush',
-};
 
 const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
-
-function findConflict(
-  equipment: ReadonlySet<Timan2620Equipment>,
-  candidate: Timan2620Equipment,
-): Timan2620Equipment | null {
-  for (const [a, b] of TIMAN_2620_INCOMPATIBLE) {
-    if (a === candidate && equipment.has(b)) return b;
-    if (b === candidate && equipment.has(a)) return a;
-  }
-  return null;
-}
 
 /* --------------------------------------------------------------
  * View-aware hotspot system
@@ -80,9 +64,10 @@ type PartId =
   | 'motor'
   | 'kabine'
   | 'affjedring'
+  | 'bucket'
   | 'v_plow'
-  | 'salt_spreader'
-  | 'brush';
+  | 'dozer_blade'
+  | 'salt_spreader';
 
 type PartContent = Omit<ViewerHotspot, 'id' | 'frame' | 'x' | 'y' | 'calloutCenter' | 'variant'>;
 
@@ -170,25 +155,32 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
     v_plow: {
-      title: t('m2620_hot_vplow_title', lang),
-      subtitle: t('m2620_hot_vplow_sub', lang),
+      title: 'V-plov',
+      subtitle: 'Vinterredskab',
       description:
-        'Hydraulisk Dozer blad rydder sne i smalle som brede passager — perfekt til byområder.',
-      bullets: ['Hydraulisk justering', 'Slidstærke skær', 'Robust ophæng'],
+        'V-plov til effektiv snerydning, hvor sneen skal skubbes til siderne.',
+      bullets: ['Hydraulisk justering', 'Effektiv rydning', 'Robust ophæng'],
     },
     salt_spreader: {
-      title: t('m2620_hot_salt_title', lang),
-      subtitle: t('m2620_hot_salt_sub', lang),
+      title: 'Saltspreder',
+      subtitle: 'Vinterudstyr',
       description:
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
       bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
     },
-    brush: {
-      title: t('m2620_hot_brush_title', lang),
-      subtitle: t('m2620_hot_brush_sub', lang),
+    bucket: {
+      title: 'Skovl',
+      subtitle: 'Frontredskab',
       description:
-        'Roterende kost med stor arbejdsbredde — ideel til fejning af gårdspladser, stier og parkeringsarealer.',
-      bullets: ['Justerbar arbejdsbredde', 'Effektiv opsamling', 'Nem montering og betjening'],
+        'Frontskovl til let flytning af materialer og oprydning på små områder.',
+      bullets: ['Godt overblik', 'Nem montering', 'Praktisk frontredskab'],
+    },
+    dozer_blade: {
+      title: 'Dozerblad',
+      subtitle: 'Frontredskab',
+      description:
+        'Dozerblad til snerydning og planering, hvor maskinen skal arbejde tæt på underlaget.',
+      bullets: ['Stabilt blad', 'Let manøvrering', 'Velegnet til vinterbrug'],
     },
   };
 }
@@ -199,9 +191,9 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  * orbits around the silhouette so the card never overlaps the machine.
  *
  * Camera orientation per image (left = west side of frame):
- *   standard / cab / *_salt_spreader / *_full_winter_setup (frame 1)
+ *   standard / cab / *_salt_spreader / *_salt_spreader_v_plow (frame 1)
  *     → machine faces LEFT (front = left, rear = right)
- *   standard_v_plow / cab_full_winter_setup (frame 2)
+ *   standard_v_plow / *_rear frames
  *     → machine faces RIGHT (front = right, rear = left)
  */
 // Shared layout for the Standard + dozerblad views (with or without
@@ -241,27 +233,17 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // just without the saltspreder hotspot (shared source of truth).
   standard_v_plow: { ...STANDARD_DOZER_LAYOUT },
 
-  // Cab + dozer blade — machine faces LEFT, blade front-left.
-  // Saltspreder is intentionally absent: this image only shows the
-  // dozer-blade configuration.
-  cab_v_plow: {
-    kabine:     { anchor: { x: 50, y: 34 }, callout: { cx: 80, cy: 7 } },
-    motor:      { anchor: { x: 71, y: 60 }, callout: { cx: 94, cy: 44 } },
-    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 50, cy: 94 } },
-    v_plow:     { anchor: { x: 28, y: 76 }, callout: { cx: 10, cy: 52 } },
-  },
-
   // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
   standard_full_winter_setup: {
     ...STANDARD_DOZER_LAYOUT,
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 
-  // Full winter setup cab — 2 frames (rotation)
+  // Cab + saltspreder + V-plov — 2 frames (rotation)
   //   frame 1 (IMG 6): front/side — v-plov LEFT, cab centre, saltspreder RIGHT
   //   frame 2 (IMG 8): rear/mirrored — v-plov RIGHT, cab upper-right;
   //                    saltspreder hidden to avoid overlap & confusion
-  cab_full_winter_setup: {
+  cab_salt_spreader_v_plow: {
     // Frame 2 (IMG 8) is the rear/mirrored view:
     //   dozer blade → RIGHT, cab → centre, engine/rear body → LEFT.
     // Every frame-2 entry uses its own anchor + callout so the bubble
@@ -298,6 +280,30 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 22, y: 40 }, callout: { cx: 4,  cy: 18 }, frame: 2 },
     ],
   },
+
+  // Cab + saltspreder + dozerblad — 2 frames (rotation)
+  cab_salt_spreader_dozer_blade: {
+    dozer_blade: [
+      { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
+      { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
+    ],
+    motor: [
+      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
+      { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
+    ],
+    kabine: [
+      { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
+      { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
+    ],
+    affjedring: [
+      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      { anchor: { x: 62, y: 78 }, callout: { cx: 74, cy: 96 }, frame: 2 },
+    ],
+    salt_spreader: [
+      { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
+      { anchor: { x: 22, y: 40 }, callout: { cx: 4,  cy: 18 }, frame: 2 },
+    ],
+  },
 };
 
 function buildHotspots(
@@ -313,9 +319,10 @@ function buildHotspots(
   const partContent = buildPartContent(lang);
   const visibleParts = new Set<PartId>(['motor', 'affjedring']);
   if (imageKey.startsWith('cab')) visibleParts.add('kabine');
+  if (equipment.has('bucket')) visibleParts.add('bucket');
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
+  if (equipment.has('dozer_blade')) visibleParts.add('dozer_blade');
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
-  if (equipment.has('brush')) visibleParts.add('brush');
 
   const list: ViewerHotspot[] = [];
   for (const part of visibleParts) {
@@ -343,9 +350,6 @@ interface Timan2620Ctx {
   setBase: (b: Timan2620Base) => void;
   equipment: Set<Timan2620Equipment>;
   toggleEquipment: (e: Timan2620Equipment) => void;
-  conflict: { candidate: Timan2620Equipment; conflictsWith: Timan2620Equipment } | null;
-  cancelConflict: () => void;
-  confirmReplace: () => void;
   imageKey: string;
   configuration: ViewerConfiguration;
 }
@@ -362,7 +366,6 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
   const { uiLanguage } = useLanguage();
   const [base, setBase] = useState<Timan2620Base>('standard');
   const [equipment, setEquipment] = useState<Set<Timan2620Equipment>>(() => new Set());
-  const [conflict, setConflict] = useState<Timan2620Ctx['conflict']>(null);
 
   const imageKey = useMemo(() => deriveTiman2620ImageKey(base, equipment), [base, equipment]);
   const entry = TIMAN_2620_IMAGES[imageKey] ?? { imageSequence: [], hotspots: [] };
@@ -371,6 +374,11 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
     [imageKey, base, equipment, uiLanguage],
   );
 
+  function setBaseSafely(nextBase: Timan2620Base) {
+    setBase(nextBase);
+    setEquipment((current) => getTiman2620NearestValidEquipment(nextBase, current));
+  }
+
   function toggleEquipment(eq: Timan2620Equipment) {
     const next = new Set(equipment);
     if (next.has(eq)) {
@@ -378,22 +386,11 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
       setEquipment(next);
       return;
     }
-    const conflictsWith = findConflict(equipment, eq);
-    if (conflictsWith) {
-      setConflict({ candidate: eq, conflictsWith });
-      return;
-    }
+
+    if (!isTiman2620EquipmentSelectable(base, equipment, eq)) return;
+
     next.add(eq);
     setEquipment(next);
-  }
-
-  function confirmReplace() {
-    if (!conflict) return;
-    const next = new Set(equipment);
-    next.delete(conflict.conflictsWith);
-    next.add(conflict.candidate);
-    setEquipment(next);
-    setConflict(null);
   }
 
   const configuration: ViewerConfiguration = {
@@ -406,9 +403,8 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
   };
 
   const value: Timan2620Ctx = {
-    base, setBase,
+    base, setBase: setBaseSafely,
     equipment, toggleEquipment,
-    conflict, cancelConflict: () => setConflict(null), confirmReplace,
     imageKey, configuration,
   };
 
@@ -461,19 +457,24 @@ function Sidebar() {
         <div className="flex flex-col items-start gap-4" role="group" aria-label={equipmentLabel}>
           {TIMAN_2620_EQUIPMENT_OPTIONS.map(o => {
             const active = equipment.has(o.key);
+            const selectable = active || isTiman2620EquipmentSelectable(base, equipment, o.key);
             return (
               <button
                 key={o.key}
                 type="button"
                 aria-pressed={active}
+                aria-disabled={!selectable}
+                disabled={!selectable}
                 onClick={() => toggleEquipment(o.key)}
                 className={`${pillClass} ${
                   active
                     ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : !selectable
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {t(EQUIPMENT_LABEL_KEY[o.key], uiLanguage)}
+                {o.label}
               </button>
             );
           })}
@@ -484,65 +485,18 @@ function Sidebar() {
 }
 
 function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boolean; largeArrows?: boolean } = {}) {
-  const { imageKey, configuration, conflict, cancelConflict, confirmReplace } = useTiman2620();
-  const { uiLanguage } = useLanguage();
-  const labelOfEquipment = (eq: Timan2620Equipment) =>
-    t(EQUIPMENT_LABEL_KEY[eq], uiLanguage);
+  const { imageKey, configuration } = useTiman2620();
 
   return (
-    <>
-      <div>
-        <ProductImageViewer
-          key={imageKey}
-          configuration={configuration}
-          hideControls
-          disableZoom={disableZoom}
-          largeArrows={largeArrows}
-        />
-      </div>
-
-
-
-      {conflict && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="timan-2620-conflict-title"
-        >
-          <div className="bg-white rounded-xl shadow-xl p-5 max-w-sm w-full">
-            <div id="timan-2620-conflict-title" className="text-base font-bold text-slate-900 mb-2">
-              {labelOfEquipment(conflict.candidate)}{' '}
-              {t('m2620_conflict_cannot_combine_with', uiLanguage)}{' '}
-              {labelOfEquipment(conflict.conflictsWith)}.
-            </div>
-            <p className="text-sm text-slate-600 mb-4">
-              {t('m2620_conflict_replace_prefix', uiLanguage)}{' '}
-              {labelOfEquipment(conflict.conflictsWith)}{' '}
-              {t('m2620_conflict_with', uiLanguage)}{' '}
-              {labelOfEquipment(conflict.candidate)}?
-            </p>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={cancelConflict}
-                className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
-              >
-                {t('cancel', uiLanguage)}
-              </button>
-              <button
-                type="button"
-                onClick={confirmReplace}
-                className="px-3 py-1.5 rounded-md bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800"
-              >
-                {t('m2620_replace', uiLanguage)} {labelOfEquipment(conflict.conflictsWith)}{' '}
-                {t('m2620_conflict_with', uiLanguage)} {labelOfEquipment(conflict.candidate)}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <div>
+      <ProductImageViewer
+        key={imageKey}
+        configuration={configuration}
+        hideControls
+        disableZoom={disableZoom}
+        largeArrows={largeArrows}
+      />
+    </div>
   );
 }
 

@@ -1,36 +1,13 @@
 /**
- * Timan 2620 viewer data — base machine + equipment model.
+ * Timan 2620 viewer data.
  *
- * Image folder convention:
- *   public/images/timan-2620/<imageKey>/NN.jpg
- *
- * Where <imageKey> is derived from base + equipment:
- *   - standard
- *   - standard_v_plow
- *   - standard_salt_spreader
- *   - standard_brush
- *   - standard_full_winter_setup     (V-plov + Saltspreder, no Kost)
- *   - cab
- *   - cab_v_plow
- *   - cab_salt_spreader
- *   - cab_brush
- *   - cab_full_winter_setup
- *
- * Each folder may contain:
- *   - 1 image (01.jpg)              → static photo, no rotation
- *   - 2+ images (01.jpg .. NN.jpg)  → drag-to-rotate 360° sequence
- *
- * To add images for a new combination:
- *   1. Drop NN.jpg files into public/images/timan-2620/<imageKey>/
- *   2. Update the matching entry below with the correct frame count
- *      via `seq('<imageKey>', N)`.
- *
- * Never modify, crop, recolor, upscale or recompress the originals.
+ * The cabin MESSE images are mapped directly from the delivered filenames.
+ * If a combination is not listed here, the configurator must not allow it.
  */
 import type { ViewerHotspot } from '@/components/product-viewer/types';
 
 export type Timan2620Base = 'standard' | 'cab';
-export type Timan2620Equipment = 'v_plow' | 'salt_spreader' | 'brush';
+export type Timan2620Equipment = 'bucket' | 'v_plow' | 'dozer_blade' | 'salt_spreader';
 
 export interface Timan2620BaseOption {
   key: Timan2620Base;
@@ -47,88 +24,178 @@ export interface Timan2620ImageEntry {
   hotspots: ViewerHotspot[];
 }
 
+export interface Timan2620CabinImageConfig {
+  key: string;
+  equipment: readonly Timan2620Equipment[];
+  imageSequence: readonly string[];
+  originalFileNames: readonly string[];
+}
+
 export const TIMAN_2620_BASE_OPTIONS: Timan2620BaseOption[] = [
   { key: 'standard', label: 'Standard' },
   { key: 'cab', label: 'Kabine' },
 ];
 
 export const TIMAN_2620_EQUIPMENT_OPTIONS: Timan2620EquipmentOption[] = [
-  { key: 'v_plow', label: 'Dozer blad' },
+  { key: 'bucket', label: 'Skovl' },
+  { key: 'v_plow', label: 'V-plov' },
+  { key: 'dozer_blade', label: 'Dozerblad' },
   { key: 'salt_spreader', label: 'Saltspreder' },
-  { key: 'brush', label: 'Skov' },
-];
-
-/** Pairs of equipment that cannot be combined. Order does not matter. */
-export const TIMAN_2620_INCOMPATIBLE: Array<[Timan2620Equipment, Timan2620Equipment]> = [
-  ['brush', 'v_plow'],
 ];
 
 const BASE = '/images/timan-2620';
+const STANDARD_IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
+const CABIN_BASE = `${BASE}/cab-config`;
+const CABIN_IMG = (name: string) => `${CABIN_BASE}/${name}.png`;
 
-/**
- * Explicit mapping from uploaded source photos.
- * All 8 reference images currently live in `public/images/timan-2620/standard/`
- * as NN.jpg (01..08). Each combination below references those files directly
- * — no path guessing, no inferred folders.
- *
- *   Image 1 → Kabine + Saltspreder
- *   Image 2 → Standard + Saltspreder
- *   Image 3 → Standard
- *   Image 4 → Standard + V-plov
- *   Image 5 → Standard + Fuldt vintersæt
- *   Image 6 → Kabine + Fuldt vintersæt
- *   Image 7 → Kabine
- *   Image 8 → Kabine + Fuldt vintersæt (alternate view)
- */
-const IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
+function cabinConfig(
+  key: string,
+  equipment: readonly Timan2620Equipment[],
+  imageSequence: readonly string[],
+  originalFileNames: readonly string[],
+): Timan2620CabinImageConfig {
+  return { key, equipment, imageSequence, originalFileNames };
+}
 
-/**
- * Image sequences and hotspots for every base + equipment combination.
- * Empty `imageSequence` means the photo set has not been shot yet — the
- * viewer shows a friendly placeholder instead of a broken image.
- */
+export const TIMAN_2620_CABIN_IMAGE_CONFIGS = [
+  cabinConfig(
+    'cab',
+    [],
+    [CABIN_IMG('a-kabine'), CABIN_IMG('v-kabine-bagfra')],
+    ['A-Kabine.png', 'V-Kabine-bagfra.png'],
+  ),
+  cabinConfig(
+    'cab_bucket',
+    ['bucket'],
+    [CABIN_IMG('c-kabine-skovl')],
+    ['C-Kabine+Skovl.png'],
+  ),
+  cabinConfig(
+    'cab_salt_spreader',
+    ['salt_spreader'],
+    [CABIN_IMG('h-kabine-saltspreder'), CABIN_IMG('ae-kabine-bagfra-saltspreder')],
+    ['H-Kabine+Saltspreder.png', 'Æ-Kabine-bagfra+Saltspreder.png'],
+  ),
+  cabinConfig(
+    'cab_salt_spreader_v_plow',
+    ['salt_spreader', 'v_plow'],
+    [CABIN_IMG('i-kabine-saltspreder-vplov'), CABIN_IMG('oe-kabine-bagfra-saltspreder-vplov')],
+    ['I-Kabine+Saltspreder+Vplov.png', 'Ø-Kabine-bagfra+Saltspreder+V-plov.png'],
+  ),
+  cabinConfig(
+    'cab_salt_spreader_dozer_blade',
+    ['salt_spreader', 'dozer_blade'],
+    [CABIN_IMG('j-kabine-saltspreder-dozerblad'), CABIN_IMG('aa-kabine-bagfra-saltspreder-dozerblad')],
+    ['J-Kabine+Saltspreder+Dozer blad.png', 'Å-Kabine-bagfra+saltspreder+Dozer blad.png'],
+  ),
+] as const satisfies readonly Timan2620CabinImageConfig[];
+
+function equipmentSignature(equipment: Iterable<Timan2620Equipment>): string {
+  return Array.from(equipment).sort().join('|');
+}
+
+const CABIN_CONFIG_BY_SIGNATURE = new Map(
+  TIMAN_2620_CABIN_IMAGE_CONFIGS.map((config) => [equipmentSignature(config.equipment), config]),
+);
+
+export function getTiman2620CabinImageConfig(
+  equipment: ReadonlySet<Timan2620Equipment>,
+): Timan2620CabinImageConfig | null {
+  return CABIN_CONFIG_BY_SIGNATURE.get(equipmentSignature(equipment)) ?? null;
+}
+
 export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
-  // Base machine only
-  standard: { imageSequence: [IMG(3)], hotspots: [] },
-  cab: { imageSequence: [`${BASE}/cab/01.jpg`], hotspots: [] },
+  standard: { imageSequence: [STANDARD_IMG(3)], hotspots: [] },
+  standard_salt_spreader: { imageSequence: [STANDARD_IMG(2)], hotspots: [] },
+  standard_v_plow: { imageSequence: [STANDARD_IMG(4)], hotspots: [] },
+  standard_full_winter_setup: { imageSequence: [STANDARD_IMG(5)], hotspots: [] },
+  standard_bucket: { imageSequence: [], hotspots: [] },
+  standard_dozer_blade: { imageSequence: [], hotspots: [] },
 
-  // Saltspreder only
-  standard_salt_spreader: { imageSequence: [IMG(2)], hotspots: [] },
-  cab_salt_spreader: { imageSequence: [IMG(1)], hotspots: [] },
-
-  // V-plov only
-  standard_v_plow: { imageSequence: [IMG(4)], hotspots: [] },
-  cab_v_plow: { imageSequence: [`${BASE}/cab_v_plow/01.jpg`], hotspots: [] },
-
-  // Fuldt vintersæt (V-plov + Saltspreder)
-  standard_full_winter_setup: { imageSequence: [IMG(5)], hotspots: [] },
-  cab_full_winter_setup: { imageSequence: [IMG(6), IMG(8)], hotspots: [] },
-
-  // Kost — not photographed yet
-  standard_brush: { imageSequence: [], hotspots: [] },
-  cab_brush: { imageSequence: [], hotspots: [] },
+  cab: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[0].imageSequence], hotspots: [] },
+  cab_bucket: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[1].imageSequence], hotspots: [] },
+  cab_salt_spreader: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[2].imageSequence], hotspots: [] },
+  cab_salt_spreader_v_plow: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[3].imageSequence], hotspots: [] },
+  cab_salt_spreader_dozer_blade: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[4].imageSequence], hotspots: [] },
 };
 
-/**
- * Derive the image key for the active base machine + selected equipment.
- *
- * Rules:
- *   - V-plov + Saltspreder (without Kost) → "<base>_full_winter_setup"
- *   - Otherwise the single piece of equipment determines the suffix
- *   - Kost is never combined with V-plov (enforced in the UI)
- */
 export function deriveTiman2620ImageKey(
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
 ): string {
+  if (base === 'cab') {
+    return getTiman2620CabinImageConfig(equipment)?.key ?? 'cab_invalid';
+  }
+
   const hasVPlow = equipment.has('v_plow');
   const hasSalt = equipment.has('salt_spreader');
-  const hasBrush = equipment.has('brush');
+  const hasBucket = equipment.has('bucket');
+  const hasDozerBlade = equipment.has('dozer_blade');
 
-  if (hasVPlow && hasSalt && !hasBrush) return `${base}_full_winter_setup`;
+  if (hasBucket || hasDozerBlade) return `${base}_invalid`;
+  if (hasVPlow && hasSalt) return `${base}_full_winter_setup`;
   if (hasVPlow) return `${base}_v_plow`;
-  if (hasSalt && hasBrush) return `${base}_brush`; // fallback, both shown as badges
   if (hasSalt) return `${base}_salt_spreader`;
-  if (hasBrush) return `${base}_brush`;
   return base;
+}
+
+export function hasTiman2620ImageForSelection(
+  base: Timan2620Base,
+  equipment: ReadonlySet<Timan2620Equipment>,
+): boolean {
+  const imageKey = deriveTiman2620ImageKey(base, equipment);
+  return Boolean(TIMAN_2620_IMAGES[imageKey]?.imageSequence.length);
+}
+
+export function isTiman2620EquipmentSelectable(
+  base: Timan2620Base,
+  currentEquipment: ReadonlySet<Timan2620Equipment>,
+  candidate: Timan2620Equipment,
+): boolean {
+  const next = new Set(currentEquipment);
+
+  if (next.has(candidate)) {
+    next.delete(candidate);
+  } else {
+    next.add(candidate);
+  }
+
+  if (base === 'standard') return true;
+
+  return hasTiman2620ImageForSelection(base, next);
+}
+
+function combinations<T>(items: readonly T[], size: number): T[][] {
+  if (size === 0) return [[]];
+  if (items.length < size) return [];
+  if (items.length === size) return [items.slice()];
+
+  const first = items[0] as T;
+  const rest = items.slice(1);
+
+  return [
+    ...combinations(rest, size - 1).map((combo) => [first, ...combo]),
+    ...combinations(rest, size),
+  ];
+}
+
+export function getTiman2620NearestValidEquipment(
+  base: Timan2620Base,
+  equipment: ReadonlySet<Timan2620Equipment>,
+): Set<Timan2620Equipment> {
+  if (hasTiman2620ImageForSelection(base, equipment)) return new Set(equipment);
+
+  const selectedInUiOrder = TIMAN_2620_EQUIPMENT_OPTIONS
+    .map((option) => option.key)
+    .filter((key) => equipment.has(key));
+
+  for (let size = selectedInUiOrder.length - 1; size >= 0; size -= 1) {
+    const match = combinations(selectedInUiOrder, size).find((combo) =>
+      hasTiman2620ImageForSelection(base, new Set(combo)),
+    );
+
+    if (match) return new Set(match);
+  }
+
+  return new Set();
 }
