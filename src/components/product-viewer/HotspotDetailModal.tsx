@@ -33,9 +33,14 @@ export interface HotspotDetailModalProps {
   nav?: HotspotDetailModalNav;
   /** Overrides the default image zoom (hotspot.imageScale * 1.2) for the media column. */
   imageZoom?: number;
+  /**
+   * 'compact' = 10% wider and 10% shorter than the default dialog box.
+   * Used by the Udstyrsinformation browser only.
+   */
+  sizeVariant?: 'default' | 'compact';
 }
 
-export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom }: HotspotDetailModalProps) {
+export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom, sizeVariant = 'default' }: HotspotDetailModalProps) {
   const { uiLanguage } = useLanguage();
 
   useEffect(() => {
@@ -59,11 +64,19 @@ export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom }:
     >
       <div
         className="bg-white rounded-3xl shadow-2xl w-full overflow-hidden animate-scale-in flex flex-col relative"
-        style={{
-          maxWidth: 'min(92rem, calc(100vw - 2rem))',
-          maxHeight: 'calc(100vh - 2rem)',
-          minHeight: 'min(56rem, calc(100vh - 2rem))',
-        }}
+        style={
+          sizeVariant === 'compact'
+            ? {
+                maxWidth: 'min(101.2rem, calc(100vw - 2rem))',
+                maxHeight: 'calc((100vh - 2rem) * 0.9)',
+                minHeight: 'min(50.4rem, calc((100vh - 2rem) * 0.9))',
+              }
+            : {
+                maxWidth: 'min(92rem, calc(100vw - 2rem))',
+                maxHeight: 'calc(100vh - 2rem)',
+                minHeight: 'min(56rem, calc(100vh - 2rem))',
+              }
+        }
         onClick={e => e.stopPropagation()}
       >
         <button
