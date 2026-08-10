@@ -39,6 +39,13 @@ import vPlowDetailAsset from '@/assets/v-plov.png.asset.json';
 import fodpedalDetailAsset from '@/assets/fodpedal.png.asset.json';
 import kabineDetailAsset from '@/assets/kabine-detalje.png.asset.json';
 
+const EQUIPMENT_LABEL_KEY: Record<Timan2620Equipment, string> = {
+  bucket: 'm2620i_bucket_name',
+  v_plow: 'm2620i_vplow_name',
+  dozer_blade: 'm2620i_dozer_name',
+  salt_spreader: 'm2620i_salt_name',
+};
+
 const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
   standard: 'm2620_base_standard',
   cab: 'm2620_base_cab',
@@ -170,63 +177,49 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
     v_plow: {
-      title: 'V-plov',
-      subtitle: 'Vinterredskab',
-      description:
-        'V-ploven er et fleksibelt redskab til effektiv snerydning. Med tre hydrauliske indstillinger kan ploven tilpasses forskellige forhold og bruges til både at bryde gennem større snemængder og lede sneen effektivt væk.',
-      bullets: ['3 hydrauliske indstillinger', 'V-, Y- og spidsplov', 'Fleksibel og sikker snerydning'],
+      title: t('m2620i_vplow_name', lang),
+      subtitle: t('m2620i_sub_winter_tool', lang),
+      description: t('m2620i_vplow_desc', lang),
+      bullets: [t('m2620i_vplow_b1', lang), t('m2620i_vplow_b2', lang), t('m2620i_vplow_b3', lang)],
       imageUrl: V_PLOW_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     salt_spreader: {
-      title: 'Saltspreder',
-      subtitle: 'Vinterudstyr',
-      description:
-        'DS-250 er en salt- og grusspreder til effektiv glatførebekæmpelse. Sprederen monteres på maskinens lad og giver mulighed for at tilpasse spredningen til opgaven.',
-      bullets: ['Salt- og grusspredning', 'Justerbar spredning', 'Nem påfyldning og betjening'],
-      extraTitle: 'Tilvalg',
+      title: t('m2620i_salt_name', lang),
+      subtitle: t('m2620i_sub_winter_equip', lang),
+      description: t('m2620i_salt_desc', lang),
+      bullets: [t('m2620i_salt_b1', lang), t('m2620i_salt_b2', lang), t('m2620i_salt_b3', lang)],
+      extraTitle: t('m2620_extra_badge', lang),
       extraSplitAt: 3,
       extra: [
-        {
-          label: 'Kørselsafhængig spredning',
-          value: 'Tilpasser spredningen efter maskinens kørehastighed.',
-        },
-        {
-          label: 'Arbejdslys bag på spreder',
-          value: 'Giver bedre udsyn ved arbejde i mørke.',
-        },
-        {
-          label: 'Bakkamera bag på spreder',
-          value: 'Giver bedre overblik bag maskinen ved bakning.',
-        },
+        { label: t('m2620i_salt_x1_label', lang), value: t('m2620i_salt_x1_value', lang) },
+        { label: t('m2620i_salt_x2_label', lang), value: t('m2620i_salt_x2_value', lang) },
+        { label: t('m2620i_salt_x3_label', lang), value: t('m2620i_salt_x3_value', lang) },
       ],
       imageUrl: SALT_SPREADER_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     bucket: {
-      title: 'Skovl',
-      subtitle: 'Frontredskab',
-      description:
-        'Frontskovl til let flytning af materialer og oprydning på små områder.',
-      bullets: ['Godt overblik', 'Nem montering', 'Praktisk frontredskab'],
+      title: t('m2620i_bucket_name', lang),
+      subtitle: t('m2620i_sub_front', lang),
+      description: t('m2620i_bucket_desc', lang),
+      bullets: [t('m2620i_bucket_b1', lang), t('m2620i_bucket_b2', lang), t('m2620i_bucket_b3', lang)],
       imageUrl: SHOVEL_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     dozer_blade: {
-      title: 'Dozerblad',
-      subtitle: 'Frontredskab',
-      description:
-        'Dozerblad til snerydning og planering, hvor maskinen skal arbejde tæt på underlaget.',
-      bullets: ['Stabilt blad', 'Let manøvrering', 'Velegnet til vinterbrug'],
+      title: t('m2620i_dozer_name', lang),
+      subtitle: t('m2620i_sub_front', lang),
+      description: t('m2620i_dozer_desc', lang),
+      bullets: [t('m2620i_dozer_b1', lang), t('m2620i_dozer_b2', lang), t('m2620i_dozer_b3', lang)],
       imageUrl: DOZER_BLADE_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     fodpedal: {
-      title: 'Fodpedal',
-      subtitle: 'Betjening',
-      description:
-        'Fodpedal i førerpladsens fodrum til præcis betjening af kørsel og hastighed.',
-      bullets: ['Trinløs regulering', 'Ergonomisk placering', 'Fri sigt til redskabet'],
+      title: t('m2620i_fodpedal_name', lang),
+      subtitle: t('m2620i_sub_operation', lang),
+      description: t('m2620i_fodpedal_desc', lang),
+      bullets: [t('m2620i_fodpedal_b1', lang), t('m2620i_fodpedal_b2', lang), t('m2620i_fodpedal_b3', lang)],
       imageUrl: FODPEDAL_DETAIL_IMAGE,
     },
   };
@@ -598,59 +591,59 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 /* ------------------------- Subcomponents ------------------------- */
 
 /** Attachments that can open an existing technical detail modal. */
-const REDSKAB_LINKS: { part: PartId; label: string }[] = [
-  { part: 'bucket', label: 'Skovl' },
-  { part: 'v_plow', label: 'V-plov' },
-  { part: 'dozer_blade', label: 'Dozerblad' },
-  { part: 'salt_spreader', label: 'Saltspreder' },
+const REDSKAB_LINKS: { part: PartId; labelKey: string }[] = [
+  { part: 'bucket', labelKey: 'm2620i_bucket_name' },
+  { part: 'v_plow', labelKey: 'm2620i_vplow_name' },
+  { part: 'dozer_blade', labelKey: 'm2620i_dozer_name' },
+  { part: 'salt_spreader', labelKey: 'm2620i_salt_name' },
 ];
 
 /** Not available yet — shown as muted, struck-through, non-interactive text. */
-const REDSKAB_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
-  { label: 'Rotorklipper' },
-  { label: 'Multiklipper' },
-  { label: 'Skivehøster' },
-  { label: 'Græsopsamler' },
-  { label: 'Sugetank', gapBefore: true },
-  { label: 'Ukrudtsbørste' },
-  { label: 'Svingbar kost' },
+const REDSKAB_COMING_SOON: { labelKey: string; gapBefore?: boolean }[] = [
+  { labelKey: 'm2620i_soon_rotorklipper' },
+  { labelKey: 'm2620i_soon_multiklipper' },
+  { labelKey: 'm2620i_soon_skivehoester' },
+  { labelKey: 'm2620i_soon_graesopsamler' },
+  { labelKey: 'm2620i_soon_sugetank', gapBefore: true },
+  { labelKey: 'm2620i_soon_ukrudtsboerste' },
+  { labelKey: 'm2620i_soon_svingbarkost' },
 ];
 
 /** Machine components shown in the Udstyrsinformation browser. */
-const UDSTYR_LINKS: { part: PartId; label: string }[] = [
-  { part: 'fodpedal', label: 'Fodpedal' },
-  { part: 'affjedring', label: 'Affjedring' },
-  { part: 'motor', label: 'Motor' },
-  { part: 'kabine', label: 'Kabine' },
+const UDSTYR_LINKS: { part: PartId; labelKey: string }[] = [
+  { part: 'fodpedal', labelKey: 'm2620i_fodpedal_name' },
+  { part: 'affjedring', labelKey: 'm2620_hot_affjedring_title' },
+  { part: 'motor', labelKey: 'm2620_hot_motor_title' },
+  { part: 'kabine', labelKey: 'm2620_hot_kabine_title' },
 ];
 
 /** Not available yet — same muted, struck-through treatment as REDSKAB_COMING_SOON. */
-const UDSTYR_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
-  { label: 'Luftaffjedret Comfort sæde med kunstlæder og justerbar armlæn' },
-  { label: 'Luftaffjedret Deluxe stofsæde med sædevarme og justerbar armlæn' },
-  { label: 'Elektrisk fartpilot' },
-  { label: 'Bio hydraulikolie' },
-  { label: 'Monitor for kamera' },
-  { label: 'Kamera for sugemundstykke' },
-  { label: 'Bakkamera på bagenden' },
-  { label: 'Bakalarm' },
-  { label: 'Kombitræk kugle/gaffel' },
-  { label: 'Hydraulisk baglift' },
-  { label: 'Skovl- og kosteholder' },
-  { label: 'Stænkskærm sæt, 4 stk.' },
-  { label: 'Undervognsbehandling (anbefales til vinterbrug)' },
-  { label: 'Førerhus inkl. varme, lys og spejle (ROPS)', gapBefore: true },
-  { label: 'Aircondition' },
-  { label: 'Bluetooth radio med USB/MP3' },
-  { label: 'Solskærm justerbar' },
-  { label: 'Opvarmede spejle' },
-  { label: 'Arbejdslys foran (2 stk.)' },
-  { label: 'Arbejdslys bag (1 stk.)' },
-  { label: 'Rotorblink' },
-  { label: 'Blitzlys for og bag på kabinen' },
-  { label: 'Skyderuder H/V side' },
-  { label: '112 brandslukker i kabine' },
-  { label: 'Nummerpladeholder for og bag' },
+const UDSTYR_COMING_SOON: { labelKey: string; gapBefore?: boolean }[] = [
+  { labelKey: 'm2620i_uso_comfortseat' },
+  { labelKey: 'm2620i_uso_deluxeseat' },
+  { labelKey: 'm2620i_uso_cruise' },
+  { labelKey: 'm2620i_uso_biooil' },
+  { labelKey: 'm2620i_uso_monitor' },
+  { labelKey: 'm2620i_uso_camera_nozzle' },
+  { labelKey: 'm2620i_uso_rearcam' },
+  { labelKey: 'm2620i_uso_reversealarm' },
+  { labelKey: 'm2620i_uso_towhitch' },
+  { labelKey: 'm2620i_uso_rearlift' },
+  { labelKey: 'm2620i_uso_holder' },
+  { labelKey: 'm2620i_uso_mudflaps' },
+  { labelKey: 'm2620i_uso_underseal' },
+  { labelKey: 'm2620i_uso_cab', gapBefore: true },
+  { labelKey: 'm2620i_uso_ac' },
+  { labelKey: 'm2620i_uso_radio' },
+  { labelKey: 'm2620i_uso_sunshade' },
+  { labelKey: 'm2620i_uso_heatedmirrors' },
+  { labelKey: 'm2620i_uso_worklights_front' },
+  { labelKey: 'm2620i_uso_worklights_rear' },
+  { labelKey: 'm2620i_uso_beacon' },
+  { labelKey: 'm2620i_uso_strobes' },
+  { labelKey: 'm2620i_uso_slidingwindows' },
+  { labelKey: 'm2620i_uso_extinguisher' },
+  { labelKey: 'm2620i_uso_plateholder' },
 ];
 
 type InfoBrowser = 'redskab' | 'udstyr';
@@ -720,7 +713,7 @@ function Sidebar() {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
                 }`}
               >
-                {o.label}
+                {t(EQUIPMENT_LABEL_KEY[o.key], uiLanguage)}
               </button>
             );
           })}
@@ -729,7 +722,7 @@ function Sidebar() {
 
       <section className="mt-10">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Information
+          {t('m2620i_information', uiLanguage)}
         </div>
         <div className="flex flex-col items-start gap-4">
           <button
@@ -740,7 +733,7 @@ function Sidebar() {
             }}
             className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
           >
-            Redskabsinformation
+            {t('m2620i_redskab_title', uiLanguage)}
           </button>
           <button
             type="button"
@@ -750,7 +743,7 @@ function Sidebar() {
             }}
             className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
           >
-            Udstyrsinformation
+            {t('m2620i_udstyr_title', uiLanguage)}
           </button>
         </div>
       </section>
@@ -774,14 +767,17 @@ function Sidebar() {
           setInfoPart(null);
         }}
         nav={{
-          title: infoBrowser === 'udstyr' ? 'Udstyrsinformation' : 'Redskabsinformation',
+          title: t(infoBrowser === 'udstyr' ? 'm2620i_udstyr_title' : 'm2620i_redskab_title', uiLanguage),
           items: (infoBrowser === 'udstyr' ? UDSTYR_LINKS : REDSKAB_LINKS).map(i => ({
             id: i.part,
-            label: i.label,
+            label: t(i.labelKey, uiLanguage),
           })),
           activeId: infoPart ?? 'bucket',
           onSelect: id => setInfoPart(id as PartId),
-          comingSoon: infoBrowser === 'udstyr' ? UDSTYR_COMING_SOON : REDSKAB_COMING_SOON,
+          comingSoon: (infoBrowser === 'udstyr' ? UDSTYR_COMING_SOON : REDSKAB_COMING_SOON).map(i => ({
+            label: t(i.labelKey, uiLanguage),
+            gapBefore: i.gapBefore,
+          })),
         }}
       />
 
