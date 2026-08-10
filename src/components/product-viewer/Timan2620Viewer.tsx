@@ -180,8 +180,24 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       title: 'Saltspreder',
       subtitle: 'Vinterudstyr',
       description:
-        'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
-      bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
+        'DS-250 er en salt- og grusspreder til effektiv glatførebekæmpelse. Sprederen monteres på maskinens lad og giver mulighed for at tilpasse spredningen til opgaven.',
+      bullets: ['Salt- og grusspredning', 'Justerbar spredning', 'Nem påfyldning og betjening'],
+      extraTitle: 'Tilvalg',
+      extraSplitAt: 3,
+      extra: [
+        {
+          label: 'Kørselsafhængig spredning',
+          value: 'Tilpasser spredningen efter maskinens kørehastighed.',
+        },
+        {
+          label: 'Arbejdslys bag på spreder',
+          value: 'Giver bedre udsyn ved arbejde i mørke.',
+        },
+        {
+          label: 'Bakkamera bag på spreder',
+          value: 'Giver bedre overblik bag maskinen ved bakning.',
+        },
+      ],
       imageUrl: SALT_SPREADER_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
