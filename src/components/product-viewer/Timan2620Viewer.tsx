@@ -305,9 +305,20 @@ const FODPEDAL_REAR: PosEntry = {
   frame: 2,
 };
 
+// Fodpedal (front view, page 1/2) — target on the footwell just in front of
+// the steering column; bubble kept upper-right so it never collides with the
+// left-side Dozerblad callout or its connector line.
+const FODPEDAL_FRONT: PosEntry = {
+  anchor: { x: 46, y: 57 },
+  callout: { cx: 84, cy: 16 },
+  frame: 1,
+};
+
+const STANDARD_FODPEDAL: PosEntry[] = [FODPEDAL_FRONT, FODPEDAL_REAR];
+
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
   dozer_blade: DOZER_BLADE_FRONT,
-  fodpedal:   FODPEDAL_REAR,
+  fodpedal:   STANDARD_FODPEDAL,
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
   affjedring: STANDARD_AFFJEDRING,
 };
