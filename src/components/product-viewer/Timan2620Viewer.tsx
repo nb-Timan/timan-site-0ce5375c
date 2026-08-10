@@ -321,6 +321,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { ...STANDARD_MOTOR, frame: 1 },
       { ...CAB_MOTOR[1] },
     ],
+    fodpedal:   FODPEDAL_REAR,
     affjedring: STANDARD_AFFJEDRING,
   },
 
@@ -381,6 +382,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Standard + skovl.
   standard_bucket: {
     bucket:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+    fodpedal:   FODPEDAL_REAR,
     motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
     affjedring: STANDARD_AFFJEDRING,
   },
@@ -473,10 +475,7 @@ function buildHotspots(
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
   // Fodpedal: Standard base only, rear view (page 2/2), and only when a
   // dozerblad or saltspreder is fitted.
-  if (
-    imageKey.startsWith('standard') &&
-    (equipment.has('dozer_blade') || equipment.has('salt_spreader'))
-  ) {
+  if (imageKey.startsWith('standard')) {
     visibleParts.add('fodpedal');
   }
 
