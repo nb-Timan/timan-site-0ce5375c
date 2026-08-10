@@ -43,6 +43,7 @@ const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
 const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
 const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
 const SHOVEL_DETAIL_IMAGE = '/images/timan-2620/redskaber/skovl.png';
+const V_PLOW_DETAIL_IMAGE = vPlowDetailAsset.url;
 /** Display-only zoom for the four equipment detail images (Skovl, V-plov, Dozerblad, Saltspreder). */
 const EQUIPMENT_DETAIL_IMAGE_SCALE = 1.18;
 
