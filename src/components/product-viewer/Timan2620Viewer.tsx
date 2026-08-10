@@ -298,13 +298,16 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   standard_salt_spreader: {
     motor:         STANDARD_MOTOR,
     affjedring:    STANDARD_AFFJEDRING,
-    salt_spreader: STANDARD_SALT_SPREADER,
+    salt_spreader: [{ ...STANDARD_SALT_SPREADER, frame: 1 }, SALT_SPREADER_REAR],
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
     affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
-    salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
+    salt_spreader: [
+      { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 }, frame: 1 },
+      SALT_SPREADER_REAR,
+    ],
   },
 
   // Standard + skovl.
@@ -378,7 +381,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
-      { anchor: { x: 22, y: 40 }, callout: { cx: 4,  cy: 18 }, frame: 2 },
+      SALT_SPREADER_REAR,
     ],
   },
 };
