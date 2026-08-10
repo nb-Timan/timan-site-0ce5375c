@@ -41,6 +41,7 @@ const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
 
 const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
 const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
+const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
 
 /* --------------------------------------------------------------
  * View-aware hotspot system
@@ -168,6 +169,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
       bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
+      imageUrl: SALT_SPREADER_DETAIL_IMAGE,
     },
     bucket: {
       title: 'Skovl',
