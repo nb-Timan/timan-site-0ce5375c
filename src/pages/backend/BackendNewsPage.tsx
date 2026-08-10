@@ -197,7 +197,7 @@ export default function BackendNewsPage() {
       setError(result.error);
       return;
     }
-    setMessage(t(status === 'published' ? 'newsCmsPublished' : 'newsCmsStatusUpdated', uiLanguage));
+    setMessage(t('newsCmsStatusUpdated', uiLanguage));
     await reload();
   };
 
