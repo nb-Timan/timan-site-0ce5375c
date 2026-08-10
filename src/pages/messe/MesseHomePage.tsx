@@ -9,6 +9,10 @@ import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { canSwitchMode } from '@/lib/activeMode';
+import rc751Bg from '@/assets/messe/rc-751-bg.png.asset.json';
+import rc751Art from '@/assets/messe/rc-751-art.png.asset.json';
+import rc1000sBg from '@/assets/messe/rc-1000s-bg.png.asset.json';
+import rc1000sArt from '@/assets/messe/rc-1000s-art.png.asset.json';
 
 
 interface Tile {
@@ -19,15 +23,20 @@ interface Tile {
   accent: string;
   image?: string;
   fullImageTile?: boolean;
+  /** Supplied gradient background + transparent machine artwork (layered card). */
+  bgImage?: string;
+  artImage?: string;
   /** Title is a model designation and must not be translated. */
   literalTitle?: boolean;
 }
 
+
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />, title: 'mh_configurator', desc: 'mh_configurator_desc', accent: 'from-emerald-500 to-emerald-700' },
   { to: '/messe/partner-map', icon: <MapPin className="h-14 w-14" />, title: 'mh_partner_map', desc: 'mh_partner_map_desc', accent: 'from-sky-500 to-sky-700' },
-  { to: '/messe/rc-751', title: 'Timan RC-751', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-amber-400 to-amber-600', image: '/messe/machines/rc-751-tile.png', fullImageTile: true },
-  { to: '/messe/rc-1000s', title: 'Timan RC-1000s', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-red-500 to-red-700', image: '/messe/machines/rc-1000s-tile.png', fullImageTile: true },
+  { to: '/messe/rc-751', title: 'Timan RC-751', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-amber-400 to-amber-600', bgImage: rc751Bg.url, artImage: rc751Art.url },
+  { to: '/messe/rc-1000s', title: 'Timan RC-1000s', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-red-500 to-red-700', bgImage: rc1000sBg.url, artImage: rc1000sArt.url },
+
   { to: '/messe/timan-2620', title: 'Timan 2620', literalTitle: true, desc: 'mh_2620_desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-tile.png', fullImageTile: true },
   { to: '/messe/timan-3330', title: 'Timan 3330', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-indigo-500 to-indigo-700', image: '/messe/machines/timan-3330-tile.png', fullImageTile: true },
   { to: '/messe/video', icon: <Play className="h-14 w-14" />, title: 'mh_video', desc: 'mh_video_desc', accent: 'from-rose-500 to-rose-700' },
@@ -98,7 +107,25 @@ export default function MesseHomePage() {
               to={tile.to}
               className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[146px] sm:min-h-[178px] flex flex-col justify-end p-6 sm:p-8"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} ${tile.fullImageTile ? 'opacity-100' : 'opacity-90'} pointer-events-none`} />
+              {!tile.bgImage && (
+                <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} ${tile.fullImageTile ? 'opacity-100' : 'opacity-90'} pointer-events-none`} />
+              )}
+              {tile.bgImage && (
+                <img
+                  src={tile.bgImage}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              {tile.artImage && (
+                <img
+                  src={tile.artImage}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-[2%] top-1/2 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain mix-blend-multiply transition duration-300 group-hover:scale-[1.02]"
+                />
+              )}
               {tile.image && (
                 <img
                   src={tile.image}
@@ -117,6 +144,7 @@ export default function MesseHomePage() {
                   }}
                 />
               )}
+
 
               <div className="relative text-white pointer-events-none [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]">
 
