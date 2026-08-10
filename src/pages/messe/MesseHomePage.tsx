@@ -26,8 +26,9 @@ interface Tile {
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />, title: 'mh_configurator', desc: 'mh_configurator_desc', accent: 'from-emerald-500 to-emerald-700' },
   { to: '/messe/partner-map', icon: <MapPin className="h-14 w-14" />, title: 'mh_partner_map', desc: 'mh_partner_map_desc', accent: 'from-sky-500 to-sky-700' },
-  { to: '/messe/rc-751', title: 'Timan RC-751', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-amber-400 to-amber-600', image: '/messe/machines/rc-751-tile.png', fullImageTile: true },
-  { to: '/messe/rc-1000s', title: 'Timan RC-1000s', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-red-500 to-red-700', image: '/messe/machines/rc-1000s-tile.png', fullImageTile: true },
+  { to: '/messe/rc-751', title: 'Timan RC-751', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-amber-400 to-amber-600', bgImage: rc751Bg.url, artImage: rc751Art.url },
+  { to: '/messe/rc-1000s', title: 'Timan RC-1000s', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-red-500 to-red-700', bgImage: rc1000sBg.url, artImage: rc1000sArt.url },
+
   { to: '/messe/timan-2620', title: 'Timan 2620', literalTitle: true, desc: 'mh_2620_desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-tile.png', fullImageTile: true },
   { to: '/messe/timan-3330', title: 'Timan 3330', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-indigo-500 to-indigo-700', image: '/messe/machines/timan-3330-tile.png', fullImageTile: true },
   { to: '/messe/video', icon: <Play className="h-14 w-14" />, title: 'mh_video', desc: 'mh_video_desc', accent: 'from-rose-500 to-rose-700' },
