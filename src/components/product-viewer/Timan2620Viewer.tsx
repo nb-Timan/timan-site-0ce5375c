@@ -211,13 +211,27 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  *   rear frames
  *     → machine faces RIGHT (front = right, rear = left)
  */
-// Shared Affjedring placement for ALL Standard (no cab) configurations:
-// target sits just in front of the rear tyre, bubble centred under the
-// rear/wheel area. Kabine views keep their own values.
-const STANDARD_AFFJEDRING: PosEntry = {
-  anchor: { x: 62, y: 79 },
-  callout: { cx: 66, cy: 95 },
-};
+// ONE global Affjedring bubble position, shared by every configuration and
+// BOTH image views (front 1/2 and rear 2/2). Only the green target (anchor)
+// may differ per image; the bubble must never jump when switching frames.
+const AFFJEDRING_CALLOUT = { cx: 50, cy: 95 } as const;
+
+const affjedring = (anchor: { x: number; y: number }, frame?: number): PosEntry => ({
+  anchor,
+  callout: { ...AFFJEDRING_CALLOUT },
+  ...(frame ? { frame } : {}),
+});
+
+// Shared REAR (page 2/2) target: chassis/suspension between the wheels,
+// just behind the front mudguard — above the tyre, never on the rim.
+const AFFJEDRING_REAR: PosEntry = affjedring({ x: 57, y: 70 }, 2);
+
+
+const STANDARD_AFFJEDRING: PosEntry[] = [
+  affjedring({ x: 62, y: 79 }, 1),
+  AFFJEDRING_REAR,
+];
+
 
 // Approved Standard Motor placement (from Standard + Saltspreder).
 const STANDARD_MOTOR: PosEntry = {
@@ -246,14 +260,11 @@ const STANDARD_SALT_SPREADER: PosEntry = {
 // Shared Saltspreder placement for rear views (page 2/2). Source of truth is
 // Kabine + Dozerblad + Saltspreder: bubble on the LEFT, target nudged forward
 // onto the grey DS-250 spreader body.
-// Shared Affjedring placement for CABIN rear views (page 2/2). Bubble sits
-// further LEFT, below the wheel area; target lands just behind the wheel in
-// the suspension area (never on the red body panel or engine).
-const CAB_AFFJEDRING_REAR: PosEntry = {
-  anchor: { x: 60, y: 79 },
-  callout: { cx: 44, cy: 96 },
-  frame: 2,
-};
+// Shared Affjedring REAR target (page 2/2, all configurations): chassis /
+// suspension area between the wheels, just behind the front mudguard —
+// above the tyre, never on the rim. Bubble uses the global position.
+
+
 
 const SALT_SPREADER_REAR: PosEntry = {
   anchor: { x: 26, y: 44 },
@@ -295,8 +306,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:      CAB_MOTOR,
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
     affjedring: [
-      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 56, y: 72 }, 1),
+      AFFJEDRING_REAR,
     ],
   },
 
@@ -309,8 +320,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 56, y: 72 }, 1),
+      AFFJEDRING_REAR,
     ],
     bucket: [
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
@@ -329,8 +340,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
     affjedring:    [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 61, y: 68 }, 1),
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 }, frame: 1 },
@@ -377,10 +388,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 44, cy: 95 }, frame: 1 },
+      affjedring({ x: 61, y: 68 }, 1),
       // frame 2: anchor on the front wheel / front-axle suspension,
       // bubble in the lower-right area beneath the machine.
-      CAB_AFFJEDRING_REAR,
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
@@ -404,8 +415,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 61, y: 68 }, 1),
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
