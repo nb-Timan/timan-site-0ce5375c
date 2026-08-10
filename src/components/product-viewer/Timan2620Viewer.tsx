@@ -253,14 +253,11 @@ const STANDARD_SALT_SPREADER: PosEntry = {
 // Shared Saltspreder placement for rear views (page 2/2). Source of truth is
 // Kabine + Dozerblad + Saltspreder: bubble on the LEFT, target nudged forward
 // onto the grey DS-250 spreader body.
-// Shared Affjedring placement for CABIN rear views (page 2/2). Bubble sits
-// further LEFT, below the wheel area; target lands just behind the wheel in
-// the suspension area (never on the red body panel or engine).
-const CAB_AFFJEDRING_REAR: PosEntry = {
-  anchor: { x: 60, y: 79 },
-  callout: { cx: 44, cy: 96 },
-  frame: 2,
-};
+// Shared Affjedring REAR target (page 2/2, all configurations): chassis /
+// suspension area between the wheels, just behind the front mudguard —
+// above the tyre, never on the rim. Bubble uses the global position.
+const AFFJEDRING_REAR: PosEntry = affjedring({ x: 57, y: 70 }, 2);
+
 
 const SALT_SPREADER_REAR: PosEntry = {
   anchor: { x: 26, y: 44 },
