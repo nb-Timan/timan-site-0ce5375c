@@ -40,6 +40,7 @@ const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
 };
 
 const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
+const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
 
 /* --------------------------------------------------------------
  * View-aware hotspot system
@@ -181,6 +182,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'Dozerblad til snerydning og planering, hvor maskinen skal arbejde tæt på underlaget.',
       bullets: ['Stabilt blad', 'Let manøvrering', 'Velegnet til vinterbrug'],
+      imageUrl: DOZER_BLADE_DETAIL_IMAGE,
     },
   };
 }
