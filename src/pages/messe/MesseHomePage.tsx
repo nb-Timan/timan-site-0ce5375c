@@ -41,8 +41,8 @@ const TILES: Tile[] = [
   { to: '/messe/rc-751', title: 'Timan RC-751', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-amber-400 to-amber-600', bgImage: rc751Bg.url, artImage: rc751Art.url },
   { to: '/messe/rc-1000s', title: 'Timan RC-1000s', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-red-500 to-red-700', bgImage: rc1000sBg.url, artImage: rc1000sArt.url },
 
-  { to: '/messe/timan-2620', title: 'Timan 2620', literalTitle: true, desc: 'mh_2620_desc', accent: 'from-slate-600 to-slate-800', image: '/messe/machines/timan-2620-tile.png', fullImageTile: true },
-  { to: '/messe/timan-3330', title: 'Timan 3330', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-indigo-500 to-indigo-700', image: '/messe/machines/timan-3330-tile.png', fullImageTile: true },
+  { to: '/messe/timan-2620', title: 'Timan 2620', literalTitle: true, desc: 'mh_2620_desc', accent: 'from-slate-600 to-slate-800', bgImage: t2620Bg.url, artImage: t2620Art.url },
+  { to: '/messe/timan-3330', title: 'Timan 3330', literalTitle: true, desc: 'mh_machine_brochure_desc', accent: 'from-indigo-500 to-indigo-700', bgImage: t3330Bg.url, artImage: t3330Art.url },
   { to: '/messe/video', icon: <Play className="h-14 w-14" />, title: 'mh_video', desc: 'mh_video_desc', accent: 'from-rose-500 to-rose-700' },
   { to: '/messe/nyt', icon: <Newspaper className="h-14 w-14" />, title: 'mh_news', desc: 'mh_news_desc', accent: 'from-amber-500 to-amber-700' },
 ];
