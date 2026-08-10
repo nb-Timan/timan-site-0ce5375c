@@ -332,7 +332,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { ...STANDARD_MOTOR, frame: 1 },
       { ...CAB_MOTOR[1] },
     ],
-    fodpedal:   FODPEDAL_REAR,
+    fodpedal:   STANDARD_FODPEDAL,
     affjedring: STANDARD_AFFJEDRING,
   },
 
@@ -375,7 +375,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:         STANDARD_MOTOR,
     affjedring:    STANDARD_AFFJEDRING,
     salt_spreader: [{ ...STANDARD_SALT_SPREADER, frame: 1 }, SALT_SPREADER_REAR],
-    fodpedal:      FODPEDAL_REAR,
+    fodpedal:      STANDARD_FODPEDAL,
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
@@ -393,7 +393,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Standard + skovl.
   standard_bucket: {
     bucket:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
-    fodpedal:   FODPEDAL_REAR,
+    fodpedal:   STANDARD_FODPEDAL,
     motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
     affjedring: STANDARD_AFFJEDRING,
   },
