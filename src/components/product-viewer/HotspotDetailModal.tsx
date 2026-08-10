@@ -31,9 +31,11 @@ export interface HotspotDetailModalProps {
   onClose: () => void;
   /** Optional in-modal navigation sidebar (attachment information browser). */
   nav?: HotspotDetailModalNav;
+  /** Overrides the default image zoom (hotspot.imageScale * 1.2) for the media column. */
+  imageZoom?: number;
 }
 
-export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDetailModalProps) {
+export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom }: HotspotDetailModalProps) {
   const { uiLanguage } = useLanguage();
 
   useEffect(() => {
@@ -118,13 +120,13 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
             </nav>
           )}
           {/* Visual / future-video area */}
-          <div className="bg-slate-100 relative min-h-[300px] md:min-h-[520px] flex items-center justify-center">
+          <div className="bg-slate-100 relative min-h-[300px] md:min-h-[520px] flex items-center justify-center overflow-hidden">
             {hotspot.imageUrl ? (
               <img
                 src={hotspot.imageUrl}
                 alt=""
                 className="absolute inset-0 w-full h-full object-contain p-4"
-                style={{ transform: `scale(${(hotspot.imageScale ?? 1) * 1.2})` }}
+                style={{ transform: `scale(${imageZoom ?? (hotspot.imageScale ?? 1) * 1.2})` }}
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">

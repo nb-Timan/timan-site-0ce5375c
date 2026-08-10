@@ -739,6 +739,7 @@ function Sidebar() {
               }
             : null
         }
+        imageZoom={infoBrowser === 'udstyr' ? 0.92 : undefined}
         onClose={() => {
           setInfoBrowser(null);
           setInfoPart(null);
