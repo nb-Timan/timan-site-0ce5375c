@@ -222,8 +222,10 @@ const affjedring = (anchor: { x: number; y: number }, frame?: number): PosEntry 
   ...(frame ? { frame } : {}),
 });
 
-// Standard front view (page 1/2) target: just in front of the rear tyre.
+// Shared REAR (page 2/2) target: chassis/suspension between the wheels,
+// just behind the front mudguard — above the tyre, never on the rim.
 const AFFJEDRING_REAR: PosEntry = affjedring({ x: 57, y: 70 }, 2);
+
 
 const STANDARD_AFFJEDRING: PosEntry[] = [
   affjedring({ x: 62, y: 79 }, 1),
