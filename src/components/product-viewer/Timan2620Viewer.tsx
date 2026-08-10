@@ -219,6 +219,13 @@ const STANDARD_AFFJEDRING: PosEntry = {
   callout: { cx: 66, cy: 95 },
 };
 
+// Shared Saltspreder placement for all Standard saltspreder views, so
+// Standard + Saltspreder and Standard + Dozerblad + Saltspreder match.
+const STANDARD_SALT_SPREADER: PosEntry = {
+  anchor: { x: 65, y: 42 },
+  callout: { cx: 90, cy: 22 },
+};
+
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
@@ -240,8 +247,6 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
 
-  // Shared Saltspreder placement for all Standard saltspreder views.
-  // (defined above VIEW_POSITIONS usage via const below)
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
@@ -267,7 +272,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Standard + dozerblad + saltspreder.
   standard_salt_spreader_dozer_blade: {
     ...STANDARD_FRONT_BLADE_LAYOUT,
-    salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
+    salt_spreader: STANDARD_SALT_SPREADER,
   },
 
   // Cab + saltspreder + V-plov — 2 frames (rotation)
