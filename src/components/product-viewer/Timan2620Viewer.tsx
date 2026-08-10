@@ -225,6 +225,14 @@ const STANDARD_MOTOR: PosEntry = {
   callout: { cx: 90, cy: 82 },
 };
 
+// Approved Cabin Motor placement (source of truth:
+// Kabine + Dozerblad + Saltspreder). Reused by all cabin views below.
+const CAB_MOTOR: PosEntry[] = [
+  { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
+  { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
+];
+
+
 // Shared Saltspreder placement for all Standard saltspreder views, so
 // Standard + Saltspreder and Standard + Dozerblad + Saltspreder match.
 const STANDARD_SALT_SPREADER: PosEntry = {
@@ -248,10 +256,16 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   },
 
   cab: {
-    motor:      { anchor: { x: 60, y: 55 }, callout: { cx: 88, cy: 68 } },
+    motor:      CAB_MOTOR,
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
     affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
+
+  // Kabine + skovl — Motor reuses the approved cabin placement.
+  cab_bucket: {
+    motor: CAB_MOTOR,
+  },
+
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
@@ -329,10 +343,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
-    motor: [
-      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
-      { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
-    ],
+    motor: CAB_MOTOR,
+
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
