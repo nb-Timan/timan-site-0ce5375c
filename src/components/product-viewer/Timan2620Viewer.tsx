@@ -33,6 +33,7 @@ import {
 import type { ViewerConfiguration, ViewerHotspot } from './types';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
+import vPlowDetailAsset from '@/assets/v-plov.png.asset.json';
 
 const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
   standard: 'm2620_base_standard',
