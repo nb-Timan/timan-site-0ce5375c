@@ -684,9 +684,50 @@ function Sidebar() {
           })}
         </div>
       </section>
+
+      <section className="mt-6">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
+          Redskaber
+        </div>
+        <div className="flex flex-col items-start gap-4" aria-label="Redskaber">
+          {REDSKAB_LINKS.map(item => (
+            <button
+              key={item.part}
+              type="button"
+              onClick={() =>
+                setDetail({
+                  ...partContent[item.part],
+                  id: `redskab-${item.part}`,
+                  frame: 0,
+                  x: 0,
+                  y: 0,
+                  variant: 'callout',
+                })
+              }
+              className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <ul className="mt-4 space-y-1.5">
+          {REDSKAB_COMING_SOON.map(item => (
+            <li
+              key={item.label}
+              aria-disabled="true"
+              className={`text-sm text-slate-400 line-through select-none ${item.gapBefore ? 'mt-3' : ''}`}
+            >
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <HotspotDetailModal hotspot={detail} onClose={() => setDetail(null)} />
     </aside>
   );
 }
+
 
 function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boolean; largeArrows?: boolean } = {}) {
   const { configuration } = useTiman2620();
