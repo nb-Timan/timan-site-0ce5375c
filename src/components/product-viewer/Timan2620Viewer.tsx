@@ -243,6 +243,16 @@ const STANDARD_SALT_SPREADER: PosEntry = {
   callout: { cx: 90, cy: 22 },
 };
 
+// Shared Saltspreder placement for rear views (page 2/2). Source of truth is
+// Kabine + Dozerblad + Saltspreder: bubble on the LEFT, target nudged forward
+// onto the grey DS-250 spreader body.
+const SALT_SPREADER_REAR: PosEntry = {
+  anchor: { x: 26, y: 44 },
+  callout: { cx: 4, cy: 18 },
+  frame: 2,
+};
+
+
 // Shared Dozerblad bubble placement (front views). Moved inward/up so it
 // no longer collides with the left image-navigation arrow. Green target
 // (anchor) stays on the blade.
