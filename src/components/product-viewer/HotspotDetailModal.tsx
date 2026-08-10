@@ -82,7 +82,7 @@ export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom }:
           {nav && (
             <nav className="border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 px-6 py-5">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                {nav.title ?? 'Redskabsinformation'}
+                {nav.title ?? t('m2620i_redskab_title', uiLanguage)}
               </div>
               <div className="flex flex-col items-start gap-3">
                 {nav.items.map(item => {
