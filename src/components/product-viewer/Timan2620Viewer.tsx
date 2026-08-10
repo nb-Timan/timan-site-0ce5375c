@@ -717,7 +717,7 @@ function Sidebar() {
             <li
               key={item.label}
               aria-disabled="true"
-              className={`text-sm text-slate-400 line-through select-none ${item.gapBefore ? 'mt-3' : ''}`}
+              className={`text-sm text-slate-400 line-through select-none ${item.gapBefore ? 'pt-3' : ''}`}
             >
               {item.label}
             </li>
