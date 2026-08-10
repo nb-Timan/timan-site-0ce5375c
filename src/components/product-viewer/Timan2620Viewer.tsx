@@ -246,6 +246,15 @@ const STANDARD_SALT_SPREADER: PosEntry = {
 // Shared Saltspreder placement for rear views (page 2/2). Source of truth is
 // Kabine + Dozerblad + Saltspreder: bubble on the LEFT, target nudged forward
 // onto the grey DS-250 spreader body.
+// Shared Affjedring placement for CABIN rear views (page 2/2). Bubble sits
+// further LEFT, below the wheel area; target lands just behind the wheel in
+// the suspension area (never on the red body panel or engine).
+const CAB_AFFJEDRING_REAR: PosEntry = {
+  anchor: { x: 60, y: 79 },
+  callout: { cx: 44, cy: 96 },
+  frame: 2,
+};
+
 const SALT_SPREADER_REAR: PosEntry = {
   anchor: { x: 26, y: 44 },
   callout: { cx: 4, cy: 18 },
@@ -285,7 +294,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   cab: {
     motor:      CAB_MOTOR,
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
-    affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
+    affjedring: [
+      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
+      CAB_AFFJEDRING_REAR,
+    ],
   },
 
   // Kabine + skovl — Motor reuses the approved cabin placement.
@@ -303,7 +315,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
-    affjedring:    { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+    affjedring:    [
+      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      CAB_AFFJEDRING_REAR,
+    ],
     salt_spreader: [
       { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 }, frame: 1 },
       SALT_SPREADER_REAR,
@@ -352,7 +367,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 61, y: 68 }, callout: { cx: 44, cy: 95 }, frame: 1 },
       // frame 2: anchor on the front wheel / front-axle suspension,
       // bubble in the lower-right area beneath the machine.
-      { anchor: { x: 62, y: 78 }, callout: { cx: 74, cy: 96 }, frame: 2 },
+      CAB_AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
@@ -377,7 +392,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
     affjedring: [
       { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      { anchor: { x: 62, y: 78 }, callout: { cx: 74, cy: 96 }, frame: 2 },
+      CAB_AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
