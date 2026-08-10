@@ -38,6 +38,8 @@ interface Props {
   language: Language;
   onLanguageChange: (lang: PortalUiLanguage) => void;
   onLogout: () => void;
+  /** Hide the small "Til forsiden" shortcut under the logo (used on Messe resource pages that already have a back link). */
+  hideMesseHomeShortcut?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -47,7 +49,7 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function PortalHeader({ user, language, onLanguageChange, onLogout }: Props) {
+export default function PortalHeader({ user, language, onLanguageChange, onLogout, hideMesseHomeShortcut = false }: Props) {
   const { uiLanguage } = useLanguage();
   const displayName = user.display_name || user.email || '';
   const initials = getInitials(displayName);
@@ -96,7 +98,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }, [showModeSwitch, user.email]);
 
   const navigate = useNavigate();
-  const showMesseHomeShortcut = location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
+  const showMesseHomeShortcut = !hideMesseHomeShortcut && location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
 
   function homeTarget(): string {
     if (isMesseVariantUser(user)) return '/messe';

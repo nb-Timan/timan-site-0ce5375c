@@ -180,7 +180,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
 
   const publish = async () => {
     if (!validation.valid) {
-      setPublishWarning(validation.errors.join(', '));
+      setPublishWarning(validation.issues.map((issue) => t(issue.messageKey, uiLanguage)).join(', '));
       return;
     }
 

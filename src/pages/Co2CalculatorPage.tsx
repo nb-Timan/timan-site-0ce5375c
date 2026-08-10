@@ -124,6 +124,7 @@ export default function Co2CalculatorPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
+        hideMesseHomeShortcut
         user={appUser}
         language={lang}
         onLanguageChange={setLanguage}

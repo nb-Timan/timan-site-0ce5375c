@@ -118,7 +118,7 @@ export default function NewsFieldEditor({ lang, field, value, onChange, onMetaCh
           onChange={(event) => onChange(event.target.value)}
           className={commonClass}
           maxLength={field.maxLength}
-          placeholder={field.type === 'image' || field.type === 'file' ? t('newsCmsStoragePlaceholder', lang) : undefined}
+          placeholder={field.type === 'file' ? t('newsCmsStoragePlaceholder', lang) : undefined}
         />
       )}
       {field.maxLength ? (

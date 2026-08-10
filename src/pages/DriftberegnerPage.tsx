@@ -279,6 +279,7 @@ export default function DriftberegnerPage() {
 
       <div className="no-print">
         <PortalHeader
+          hideMesseHomeShortcut
           user={appUser}
           language={appLanguage}
           onLanguageChange={setAppLang}
