@@ -300,9 +300,22 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     ],
   },
 
-  // Kabine + skovl — Motor reuses the approved cabin placement.
+  // Kabine + skovl — full annotation set, reusing the approved cabin
+  // placements (Kabine, Motor, Affjedring) and the approved Skovl spot.
   cab_bucket: {
     motor: CAB_MOTOR,
+    kabine: [
+      { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 }, frame: 1 },
+      { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
+    ],
+    affjedring: [
+      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
+      CAB_AFFJEDRING_REAR,
+    ],
+    bucket: [
+      { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
+      { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
+    ],
   },
 
 
