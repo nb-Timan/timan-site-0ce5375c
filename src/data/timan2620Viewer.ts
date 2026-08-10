@@ -1,7 +1,7 @@
 /**
  * Timan 2620 viewer data.
  *
- * The cabin MESSE images are mapped directly from the delivered filenames.
+ * The MESSE images are mapped directly from delivered filenames.
  * If a combination is not listed here, the configurator must not allow it.
  */
 import type { ViewerHotspot } from '@/components/product-viewer/types';
@@ -24,8 +24,9 @@ export interface Timan2620ImageEntry {
   hotspots: ViewerHotspot[];
 }
 
-export interface Timan2620CabinImageConfig {
+export interface Timan2620ImageConfig {
   key: string;
+  base: Timan2620Base;
   equipment: readonly Timan2620Equipment[];
   imageSequence: readonly string[];
   originalFileNames: readonly string[];
@@ -44,99 +45,138 @@ export const TIMAN_2620_EQUIPMENT_OPTIONS: Timan2620EquipmentOption[] = [
 ];
 
 const BASE = '/images/timan-2620';
-const STANDARD_IMG = (n: number) => `${BASE}/standard/${String(n).padStart(2, '0')}.jpg`;
+const STANDARD_BASE = `${BASE}/standard-config`;
 const CABIN_BASE = `${BASE}/cab-config`;
+const STANDARD_IMG = (name: string) => `${STANDARD_BASE}/${name}`;
 const CABIN_IMG = (name: string) => `${CABIN_BASE}/${name}.png`;
 
-function cabinConfig(
+function imageConfig(
   key: string,
+  base: Timan2620Base,
   equipment: readonly Timan2620Equipment[],
   imageSequence: readonly string[],
   originalFileNames: readonly string[],
-): Timan2620CabinImageConfig {
-  return { key, equipment, imageSequence, originalFileNames };
+): Timan2620ImageConfig {
+  return { key, base, equipment, imageSequence, originalFileNames };
 }
 
+export const TIMAN_2620_STANDARD_IMAGE_CONFIGS = [
+  imageConfig(
+    'standard',
+    'standard',
+    [],
+    [STANDARD_IMG('a-standard.png'), STANDARD_IMG('v-standard-bagfra.png')],
+    ['A-standard.png', 'V-standard-bagfra.png'],
+  ),
+  imageConfig(
+    'standard_bucket',
+    'standard',
+    ['bucket'],
+    [STANDARD_IMG('i-standard-skovl.png')],
+    ['I-standard+skovl.png'],
+  ),
+  imageConfig(
+    'standard_dozer_blade',
+    'standard',
+    ['dozer_blade'],
+    [STANDARD_IMG('b-standard-dozerblad.jpg'), STANDARD_IMG('x-standard-bagfra-dozerblad.png')],
+    ['B-standard+Dozerblad.JPG', 'X-standard-bagfra+dozerblad.png'],
+  ),
+  imageConfig(
+    'standard_salt_spreader',
+    'standard',
+    ['salt_spreader'],
+    [STANDARD_IMG('c-standard-saltspreder.jpg'), STANDARD_IMG('ae-standard-bagfra-saltspreder.png')],
+    ['C-standard+Saltspreder.JPG', 'AE-standard-bagfra+saltspreder.png'],
+  ),
+  imageConfig(
+    'standard_salt_spreader_dozer_blade',
+    'standard',
+    ['salt_spreader', 'dozer_blade'],
+    [STANDARD_IMG('h-standard-dozerblad-saltspreder.jpg')],
+    ['H-standard+dozerblad+saltspreder.JPG'],
+  ),
+] as const satisfies readonly Timan2620ImageConfig[];
+
 export const TIMAN_2620_CABIN_IMAGE_CONFIGS = [
-  cabinConfig(
+  imageConfig(
+    'cab',
     'cab',
     [],
     [CABIN_IMG('a-kabine'), CABIN_IMG('v-kabine-bagfra')],
     ['A-Kabine.png', 'V-Kabine-bagfra.png'],
   ),
-  cabinConfig(
+  imageConfig(
     'cab_bucket',
+    'cab',
     ['bucket'],
     [CABIN_IMG('c-kabine-skovl')],
     ['C-Kabine+Skovl.png'],
   ),
-  cabinConfig(
+  imageConfig(
     'cab_salt_spreader',
+    'cab',
     ['salt_spreader'],
     [CABIN_IMG('h-kabine-saltspreder'), CABIN_IMG('ae-kabine-bagfra-saltspreder')],
-    ['H-Kabine+Saltspreder.png', 'Æ-Kabine-bagfra+Saltspreder.png'],
+    ['H-Kabine+Saltspreder.png', 'AE-Kabine-bagfra+Saltspreder.png'],
   ),
-  cabinConfig(
+  imageConfig(
     'cab_salt_spreader_v_plow',
+    'cab',
     ['salt_spreader', 'v_plow'],
     [CABIN_IMG('i-kabine-saltspreder-vplov'), CABIN_IMG('oe-kabine-bagfra-saltspreder-vplov')],
-    ['I-Kabine+Saltspreder+Vplov.png', 'Ø-Kabine-bagfra+Saltspreder+V-plov.png'],
+    ['I-Kabine+Saltspreder+Vplov.png', 'OE-Kabine-bagfra+Saltspreder+V-plov.png'],
   ),
-  cabinConfig(
+  imageConfig(
     'cab_salt_spreader_dozer_blade',
+    'cab',
     ['salt_spreader', 'dozer_blade'],
     [CABIN_IMG('j-kabine-saltspreder-dozerblad'), CABIN_IMG('aa-kabine-bagfra-saltspreder-dozerblad')],
-    ['J-Kabine+Saltspreder+Dozer blad.png', 'Å-Kabine-bagfra+saltspreder+Dozer blad.png'],
+    ['J-Kabine+Saltspreder+Dozer blad.png', 'AA-Kabine-bagfra+saltspreder+Dozer blad.png'],
   ),
-] as const satisfies readonly Timan2620CabinImageConfig[];
+] as const satisfies readonly Timan2620ImageConfig[];
+
+export const TIMAN_2620_IMAGE_CONFIGS = [
+  ...TIMAN_2620_STANDARD_IMAGE_CONFIGS,
+  ...TIMAN_2620_CABIN_IMAGE_CONFIGS,
+] as const satisfies readonly Timan2620ImageConfig[];
 
 function equipmentSignature(equipment: Iterable<Timan2620Equipment>): string {
   return Array.from(equipment).sort().join('|');
 }
 
-const CABIN_CONFIG_BY_SIGNATURE = new Map(
-  TIMAN_2620_CABIN_IMAGE_CONFIGS.map((config) => [equipmentSignature(config.equipment), config]),
+const CONFIG_BY_BASE_AND_SIGNATURE = new Map(
+  TIMAN_2620_IMAGE_CONFIGS.map((config) => [
+    `${config.base}:${equipmentSignature(config.equipment)}`,
+    config,
+  ]),
 );
+
+export function getTiman2620ImageConfig(
+  base: Timan2620Base,
+  equipment: ReadonlySet<Timan2620Equipment>,
+): Timan2620ImageConfig | null {
+  return CONFIG_BY_BASE_AND_SIGNATURE.get(`${base}:${equipmentSignature(equipment)}`) ?? null;
+}
 
 export function getTiman2620CabinImageConfig(
   equipment: ReadonlySet<Timan2620Equipment>,
-): Timan2620CabinImageConfig | null {
-  return CABIN_CONFIG_BY_SIGNATURE.get(equipmentSignature(equipment)) ?? null;
+): Timan2620ImageConfig | null {
+  return getTiman2620ImageConfig('cab', equipment);
 }
 
-export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = {
-  standard: { imageSequence: [STANDARD_IMG(3)], hotspots: [] },
-  standard_salt_spreader: { imageSequence: [STANDARD_IMG(2)], hotspots: [] },
-  standard_v_plow: { imageSequence: [STANDARD_IMG(4)], hotspots: [] },
-  standard_full_winter_setup: { imageSequence: [STANDARD_IMG(5)], hotspots: [] },
-  standard_bucket: { imageSequence: [], hotspots: [] },
-  standard_dozer_blade: { imageSequence: [], hotspots: [] },
-
-  cab: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[0].imageSequence], hotspots: [] },
-  cab_bucket: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[1].imageSequence], hotspots: [] },
-  cab_salt_spreader: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[2].imageSequence], hotspots: [] },
-  cab_salt_spreader_v_plow: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[3].imageSequence], hotspots: [] },
-  cab_salt_spreader_dozer_blade: { imageSequence: [...TIMAN_2620_CABIN_IMAGE_CONFIGS[4].imageSequence], hotspots: [] },
-};
+export const TIMAN_2620_IMAGES: Record<string, Timan2620ImageEntry> = Object.fromEntries(
+  TIMAN_2620_IMAGE_CONFIGS.map((config) => [
+    config.key,
+    { imageSequence: [...config.imageSequence], hotspots: [] },
+  ]),
+);
 
 export function deriveTiman2620ImageKey(
   base: Timan2620Base,
   equipment: ReadonlySet<Timan2620Equipment>,
 ): string {
-  if (base === 'cab') {
-    return getTiman2620CabinImageConfig(equipment)?.key ?? 'cab_invalid';
-  }
-
-  const hasVPlow = equipment.has('v_plow');
-  const hasSalt = equipment.has('salt_spreader');
-  const hasBucket = equipment.has('bucket');
-  const hasDozerBlade = equipment.has('dozer_blade');
-
-  if (hasBucket || hasDozerBlade) return `${base}_invalid`;
-  if (hasVPlow && hasSalt) return `${base}_full_winter_setup`;
-  if (hasVPlow) return `${base}_v_plow`;
-  if (hasSalt) return `${base}_salt_spreader`;
-  return base;
+  return getTiman2620ImageConfig(base, equipment)?.key ?? `${base}_invalid`;
 }
 
 export function hasTiman2620ImageForSelection(
@@ -159,8 +199,6 @@ export function isTiman2620EquipmentSelectable(
   } else {
     next.add(candidate);
   }
-
-  if (base === 'standard') return true;
 
   return hasTiman2620ImageForSelection(base, next);
 }

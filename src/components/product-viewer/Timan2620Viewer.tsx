@@ -12,10 +12,10 @@
  * Selection rules:
  *   - Basismaskine: single-select (Standard | Kabine)
  *   - Udstyr:       multi-select (Skovl, V-plov, Dozerblad, Saltspreder)
- *                   Cabin combinations are driven by the central image matrix.
+ *                   All combinations are driven by the central image matrix.
  *
  * Hotspot visibility is identical to the previous implementation: Motor and
- * Affjedring are always visible; Kabine, Redskaber, V-plov and Saltspreder
+ * Affjedring are always visible; Kabine, Skovl, V-plov, Dozerblad and Saltspreder
  * appear when their corresponding selection is active.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
@@ -193,13 +193,13 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  * Camera orientation per image (left = west side of frame):
  *   standard / cab / *_salt_spreader / *_salt_spreader_v_plow (frame 1)
  *     → machine faces LEFT (front = left, rear = right)
- *   standard_v_plow / *_rear frames
+ *   rear frames
  *     → machine faces RIGHT (front = right, rear = left)
  */
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
-const STANDARD_DOZER_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
-  v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
+  dozer_blade: { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
   affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
 };
@@ -229,13 +229,18 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
   },
 
-  // V-plov only — same layout as Standard + dozerblad + saltspreder,
-  // just without the saltspreder hotspot (shared source of truth).
-  standard_v_plow: { ...STANDARD_DOZER_LAYOUT },
+  // Standard + skovl.
+  standard_bucket: {
+    bucket:     { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 } },
+    motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+    affjedring: { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 } },
+  },
 
-  // Full winter setup standard — front/side view: V-plov LEFT, saltspreder RIGHT
-  standard_full_winter_setup: {
-    ...STANDARD_DOZER_LAYOUT,
+  standard_dozer_blade: { ...STANDARD_FRONT_BLADE_LAYOUT },
+
+  // Standard + dozerblad + saltspreder.
+  standard_salt_spreader_dozer_blade: {
+    ...STANDARD_FRONT_BLADE_LAYOUT,
     salt_spreader: { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 } },
   },
 

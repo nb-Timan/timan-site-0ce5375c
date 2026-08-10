@@ -57,3 +57,59 @@ describe('Timan 2620 cabin image matrix', () => {
     );
   });
 });
+
+describe('Timan 2620 standard image matrix', () => {
+  it('maps exact standard configurations to the delivered images', () => {
+    const standardKey = deriveTiman2620ImageKey('standard', equipmentSet());
+    expect(standardKey).toBe('standard');
+    expect(TIMAN_2620_IMAGES[standardKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/a-standard.png',
+      '/images/timan-2620/standard-config/v-standard-bagfra.png',
+    ]);
+
+    const bucketKey = deriveTiman2620ImageKey('standard', equipmentSet('bucket'));
+    expect(bucketKey).toBe('standard_bucket');
+    expect(TIMAN_2620_IMAGES[bucketKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/i-standard-skovl.png',
+    ]);
+
+    const dozerKey = deriveTiman2620ImageKey('standard', equipmentSet('dozer_blade'));
+    expect(dozerKey).toBe('standard_dozer_blade');
+    expect(TIMAN_2620_IMAGES[dozerKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/b-standard-dozerblad.jpg',
+      '/images/timan-2620/standard-config/x-standard-bagfra-dozerblad.png',
+    ]);
+
+    const saltKey = deriveTiman2620ImageKey('standard', equipmentSet('salt_spreader'));
+    expect(saltKey).toBe('standard_salt_spreader');
+    expect(TIMAN_2620_IMAGES[saltKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/c-standard-saltspreder.jpg',
+      '/images/timan-2620/standard-config/ae-standard-bagfra-saltspreder.png',
+    ]);
+
+    const saltDozerKey = deriveTiman2620ImageKey(
+      'standard',
+      equipmentSet('salt_spreader', 'dozer_blade'),
+    );
+    expect(saltDozerKey).toBe('standard_salt_spreader_dozer_blade');
+    expect(TIMAN_2620_IMAGES[saltDozerKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/h-standard-dozerblad-saltspreder.jpg',
+    ]);
+  });
+
+  it('blocks standard combinations without exact image mappings', () => {
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet(), 'v_plow')).toBe(false);
+    expect(deriveTiman2620ImageKey('standard', equipmentSet('v_plow'))).toBe(
+      'standard_invalid',
+    );
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet('bucket'), 'salt_spreader')).toBe(
+      false,
+    );
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet('dozer_blade'), 'salt_spreader')).toBe(
+      true,
+    );
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet('salt_spreader'), 'dozer_blade')).toBe(
+      true,
+    );
+  });
+});
