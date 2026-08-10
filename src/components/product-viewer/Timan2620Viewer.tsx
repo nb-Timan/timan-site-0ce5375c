@@ -287,7 +287,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
+      { anchor: { x: 61, y: 68 }, callout: { cx: 44, cy: 95 }, frame: 1 },
       // frame 2: anchor on the front wheel / front-axle suspension,
       // bubble in the lower-right area beneath the machine.
       { anchor: { x: 62, y: 78 }, callout: { cx: 74, cy: 96 }, frame: 2 },
