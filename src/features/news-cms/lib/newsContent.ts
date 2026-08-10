@@ -262,6 +262,30 @@ export function mergeSharedNewsFields(
 }
 
 /**
+ * Feature blocks: icon, colour and custom icon are shared across languages,
+ * while heading/description are stored per language.
+ */
+export function updateFeatureBlocksField(
+  content: LocalizedNewsContent,
+  lang: PortalUiLanguage,
+  fieldKey: string,
+  blocks: Array<Record<string, unknown>>,
+): LocalizedNewsContent {
+  return NEWS_CONTENT_LANGUAGES.reduce((acc, code) => {
+    const existing = (content?.[code]?.[fieldKey] as Array<Record<string, unknown>> | undefined) || [];
+    acc[code] = {
+      ...(content?.[code] || {}),
+      [fieldKey]: blocks.map((block, index) => ({
+        ...block,
+        heading: code === lang ? block.heading : (existing[index]?.heading ?? ''),
+        description: code === lang ? block.description : (existing[index]?.description ?? ''),
+      })),
+    };
+    return acc;
+  }, { ...content } as LocalizedNewsContent);
+}
+
+/**
  * CTA links: `label` is stored per language, while `enabled`, `type` and `url`
  * are shared across every language version.
  */
