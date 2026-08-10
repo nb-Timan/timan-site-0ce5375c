@@ -20,6 +20,8 @@
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import ProductImageViewer from './ProductImageViewer';
+import HotspotDetailModal from './HotspotDetailModal';
+
 import {
   TIMAN_2620_BASE_OPTIONS,
   TIMAN_2620_EQUIPMENT_OPTIONS,
