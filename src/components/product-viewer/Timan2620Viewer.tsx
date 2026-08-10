@@ -74,7 +74,8 @@ type PartId =
   | 'bucket'
   | 'v_plow'
   | 'dozer_blade'
-  | 'salt_spreader';
+  | 'salt_spreader'
+  | 'fodpedal';
 
 type PartContent = Omit<ViewerHotspot, 'id' | 'frame' | 'x' | 'y' | 'calloutCenter' | 'variant'>;
 
@@ -197,6 +198,13 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       imageUrl: DOZER_BLADE_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
+    fodpedal: {
+      title: 'Fodpedal',
+      subtitle: 'Betjening',
+      description:
+        'Fodpedal i førerpladsens fodrum til præcis betjening af kørsel og hastighed.',
+      bullets: ['Trinløs regulering', 'Ergonomisk placering', 'Fri sigt til redskabet'],
+    },
   };
 }
 
@@ -283,8 +291,17 @@ const DOZER_BLADE_FRONT: PosEntry = {
 
 // Shared layout for the Standard + dozerblad views (with or without
 // saltspreder) so both configurations stay perfectly synchronized.
+// Fodpedal (rear view, page 2/2 only) — bubble in the open area above/right
+// of the machine, target on the footwell/pedal area in front of the seat.
+const FODPEDAL_REAR: PosEntry = {
+  anchor: { x: 62, y: 60 },
+  callout: { cx: 82, cy: 16 },
+  frame: 2,
+};
+
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
   dozer_blade: DOZER_BLADE_FRONT,
+  fodpedal:   FODPEDAL_REAR,
   motor:      { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
   affjedring: STANDARD_AFFJEDRING,
 };
@@ -340,6 +357,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:         STANDARD_MOTOR,
     affjedring:    STANDARD_AFFJEDRING,
     salt_spreader: [{ ...STANDARD_SALT_SPREADER, frame: 1 }, SALT_SPREADER_REAR],
+    fodpedal:      FODPEDAL_REAR,
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
@@ -447,6 +465,14 @@ function buildHotspots(
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
   if (equipment.has('dozer_blade')) visibleParts.add('dozer_blade');
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
+  // Fodpedal: Standard base only, rear view (page 2/2), and only when a
+  // dozerblad or saltspreder is fitted.
+  if (
+    imageKey.startsWith('standard') &&
+    (equipment.has('dozer_blade') || equipment.has('salt_spreader'))
+  ) {
+    visibleParts.add('fodpedal');
+  }
 
   const list: ViewerHotspot[] = [];
   for (const part of visibleParts) {
