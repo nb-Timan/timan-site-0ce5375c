@@ -225,6 +225,14 @@ const STANDARD_MOTOR: PosEntry = {
   callout: { cx: 90, cy: 82 },
 };
 
+// Approved Cabin Motor placement (source of truth:
+// Kabine + Dozerblad + Saltspreder). Reused by all cabin views below.
+const CAB_MOTOR: PosEntry[] = [
+  { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
+  { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
+];
+
+
 // Shared Saltspreder placement for all Standard saltspreder views, so
 // Standard + Saltspreder and Standard + Dozerblad + Saltspreder match.
 const STANDARD_SALT_SPREADER: PosEntry = {
