@@ -42,6 +42,7 @@ const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
 const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
 const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
 const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
+const SHOVEL_DETAIL_IMAGE = '/images/timan-2620/redskaber/skovl.png';
 
 /* --------------------------------------------------------------
  * View-aware hotspot system
@@ -177,6 +178,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'Frontskovl til let flytning af materialer og oprydning på små områder.',
       bullets: ['Godt overblik', 'Nem montering', 'Praktisk frontredskab'],
+      imageUrl: SHOVEL_DETAIL_IMAGE,
     },
     dozer_blade: {
       title: 'Dozerblad',
