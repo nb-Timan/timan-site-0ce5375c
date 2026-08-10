@@ -167,6 +167,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'V-plov til effektiv snerydning, hvor sneen skal skubbes til siderne.',
       bullets: ['Hydraulisk justering', 'Effektiv rydning', 'Robust ophæng'],
+      imageUrl: V_PLOW_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     salt_spreader: {
