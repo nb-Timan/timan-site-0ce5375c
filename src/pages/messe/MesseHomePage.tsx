@@ -9,6 +9,10 @@ import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { canSwitchMode } from '@/lib/activeMode';
+import rc751Bg from '@/assets/messe/rc-751-bg.png.asset.json';
+import rc751Art from '@/assets/messe/rc-751-art.png.asset.json';
+import rc1000sBg from '@/assets/messe/rc-1000s-bg.png.asset.json';
+import rc1000sArt from '@/assets/messe/rc-1000s-art.png.asset.json';
 
 
 interface Tile {
@@ -19,9 +23,13 @@ interface Tile {
   accent: string;
   image?: string;
   fullImageTile?: boolean;
+  /** Supplied gradient background + transparent machine artwork (layered card). */
+  bgImage?: string;
+  artImage?: string;
   /** Title is a model designation and must not be translated. */
   literalTitle?: boolean;
 }
+
 
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />, title: 'mh_configurator', desc: 'mh_configurator_desc', accent: 'from-emerald-500 to-emerald-700' },
