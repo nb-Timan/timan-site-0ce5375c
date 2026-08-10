@@ -16,12 +16,24 @@ import type { ViewerHotspot } from './types';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 
+export interface HotspotDetailModalNav {
+  /** Selectable items rendered in the modal's left sidebar. */
+  items: { id: string; label: string }[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  /** Future attachments: muted, struck-through, non-interactive. */
+  comingSoon?: { label: string; gapBefore?: boolean }[];
+  title?: string;
+}
+
 export interface HotspotDetailModalProps {
   hotspot: ViewerHotspot | null;
   onClose: () => void;
+  /** Optional in-modal navigation sidebar (attachment information browser). */
+  nav?: HotspotDetailModalNav;
 }
 
-export default function HotspotDetailModal({ hotspot, onClose }: HotspotDetailModalProps) {
+export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDetailModalProps) {
   const { uiLanguage } = useLanguage();
 
   useEffect(() => {
@@ -55,7 +67,51 @@ export default function HotspotDetailModal({ hotspot, onClose }: HotspotDetailMo
         >
           <X className="h-5 w-5" />
         </button>
-        <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 overflow-y-auto">
+        <div
+          className={`grid grid-cols-1 flex-1 min-h-0 overflow-y-auto ${
+            nav ? 'md:grid-cols-[13rem_1fr_1fr]' : 'md:grid-cols-2'
+          }`}
+        >
+          {nav && (
+            <nav className="border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 p-5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                {nav.title ?? 'Redskabsinformation'}
+              </div>
+              <div className="flex flex-col items-start gap-3">
+                {nav.items.map(item => {
+                  const active = item.id === nav.activeId;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => nav.onSelect(item.id)}
+                      className={`w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                        active
+                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {nav.comingSoon && nav.comingSoon.length > 0 && (
+                <ul className="mt-4 space-y-1.5">
+                  {nav.comingSoon.map(item => (
+                    <li
+                      key={item.label}
+                      aria-disabled="true"
+                      className={`text-sm text-slate-400 line-through select-none ${item.gapBefore ? 'pt-3' : ''}`}
+                    >
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </nav>
+          )}
           {/* Visual / future-video area */}
           <div className="bg-slate-100 relative min-h-[260px] md:min-h-[420px] flex items-center justify-center">
             {hotspot.imageUrl ? (
