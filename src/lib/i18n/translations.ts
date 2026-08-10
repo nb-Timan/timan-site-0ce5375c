@@ -14,6 +14,7 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { NEWS_CMS_TRANSLATIONS } from '@/lib/i18n/newsCmsTranslations';
 import { TIMAN_2620_INFO_TRANSLATIONS } from '@/lib/i18n/timan2620InfoTranslations';
+import { MESSE_HOME_TRANSLATIONS } from '@/lib/i18n/messeHomeTranslations';
 
 type Dict = Record<string, string>;
 
@@ -473,6 +474,7 @@ const da: Dict = {
   messe_news_flyer_missing: 'Flyeren er ikke tilgængelig lige nu.',
   ...NEWS_CMS_TRANSLATIONS.da,
   ...TIMAN_2620_INFO_TRANSLATIONS.da,
+  ...MESSE_HOME_TRANSLATIONS.da,
 };
 
 // ---------------------------------------------------------------------------
@@ -915,6 +917,7 @@ const en: Dict = {
   messe_news_flyer_missing: 'The flyer is not available right now.',
   ...NEWS_CMS_TRANSLATIONS.en,
   ...TIMAN_2620_INFO_TRANSLATIONS.en,
+  ...MESSE_HOME_TRANSLATIONS.en,
 };
 
 // ---------------------------------------------------------------------------
@@ -1172,6 +1175,7 @@ const de: Dict = {
   messe_news_flyer_missing: 'Der Flyer ist derzeit nicht verfügbar.',
   ...NEWS_CMS_TRANSLATIONS.de,
   ...TIMAN_2620_INFO_TRANSLATIONS.de,
+  ...MESSE_HOME_TRANSLATIONS.de,
 };
 
 // ---------------------------------------------------------------------------
@@ -1426,6 +1430,7 @@ const it: Dict = {
   messe_news_flyer_missing: 'Il flyer non è disponibile al momento.',
   ...NEWS_CMS_TRANSLATIONS.it,
   ...TIMAN_2620_INFO_TRANSLATIONS.it,
+  ...MESSE_HOME_TRANSLATIONS.it,
 };
 
 // ---------------------------------------------------------------------------
@@ -1680,6 +1685,7 @@ const hu: Dict = {
   messe_news_flyer_missing: 'A szórólap jelenleg nem érhető el.',
   ...NEWS_CMS_TRANSLATIONS.hu,
   ...TIMAN_2620_INFO_TRANSLATIONS.hu,
+  ...MESSE_HOME_TRANSLATIONS.hu,
 };
 
 // ---------------------------------------------------------------------------
@@ -1935,6 +1941,7 @@ const sv: Dict = {
   messe_news_flyer_missing: 'Foldern är inte tillgänglig just nu.',
   ...NEWS_CMS_TRANSLATIONS.sv,
   ...TIMAN_2620_INFO_TRANSLATIONS.sv,
+  ...MESSE_HOME_TRANSLATIONS.sv,
 };
 
 // ---------------------------------------------------------------------------
@@ -2190,6 +2197,7 @@ const fr: Dict = {
   messe_news_flyer_missing: 'Le flyer n’est pas disponible pour le moment.',
   ...NEWS_CMS_TRANSLATIONS.fr,
   ...TIMAN_2620_INFO_TRANSLATIONS.fr,
+  ...MESSE_HOME_TRANSLATIONS.fr,
 };
 
 // ---------------------------------------------------------------------------
@@ -2445,6 +2453,7 @@ const pl: Dict = {
   messe_news_flyer_missing: 'Ulotka jest obecnie niedostępna.',
   ...NEWS_CMS_TRANSLATIONS.pl,
   ...TIMAN_2620_INFO_TRANSLATIONS.pl,
+  ...MESSE_HOME_TRANSLATIONS.pl,
 };
 
 // ---------------------------------------------------------------------------
@@ -2700,6 +2709,7 @@ const cs: Dict = {
   messe_news_flyer_missing: 'Leták momentálně není k dispozici.',
   ...NEWS_CMS_TRANSLATIONS.cs,
   ...TIMAN_2620_INFO_TRANSLATIONS.cs,
+  ...MESSE_HOME_TRANSLATIONS.cs,
 };
 
 // ---------------------------------------------------------------------------
