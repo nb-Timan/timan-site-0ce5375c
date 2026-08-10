@@ -107,7 +107,25 @@ export default function MesseHomePage() {
               to={tile.to}
               className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 min-h-[146px] sm:min-h-[178px] flex flex-col justify-end p-6 sm:p-8"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} ${tile.fullImageTile ? 'opacity-100' : 'opacity-90'} pointer-events-none`} />
+              {!tile.bgImage && (
+                <div className={`absolute inset-0 bg-gradient-to-br ${tile.accent} ${tile.fullImageTile ? 'opacity-100' : 'opacity-90'} pointer-events-none`} />
+              )}
+              {tile.bgImage && (
+                <img
+                  src={tile.bgImage}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              {tile.artImage && (
+                <img
+                  src={tile.artImage}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-[2%] top-1/2 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain mix-blend-multiply transition duration-300 group-hover:scale-[1.02]"
+                />
+              )}
               {tile.image && (
                 <img
                   src={tile.image}
@@ -126,6 +144,7 @@ export default function MesseHomePage() {
                   }}
                 />
               )}
+
 
               <div className="relative text-white pointer-events-none [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]">
 
