@@ -20,6 +20,8 @@
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import ProductImageViewer from './ProductImageViewer';
+import HotspotDetailModal from './HotspotDetailModal';
+
 import {
   TIMAN_2620_BASE_OPTIONS,
   TIMAN_2620_EQUIPMENT_OPTIONS,
@@ -595,10 +597,32 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
 /* ------------------------- Subcomponents ------------------------- */
 
+/** Attachments that can open an existing technical detail modal. */
+const REDSKAB_LINKS: { part: PartId; label: string }[] = [
+  { part: 'bucket', label: 'Skovl' },
+  { part: 'v_plow', label: 'V-plov' },
+  { part: 'dozer_blade', label: 'Dozerblad' },
+  { part: 'salt_spreader', label: 'Saltspreder' },
+];
+
+/** Not available yet — shown as muted, struck-through, non-interactive text. */
+const REDSKAB_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
+  { label: 'Rotorklipper' },
+  { label: 'Multiklipper' },
+  { label: 'Skivehøster' },
+  { label: 'Græsopsamler' },
+  { label: 'Sugetank', gapBefore: true },
+  { label: 'Ukrudtsbørste' },
+  { label: 'Svingbar kost' },
+];
+
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
   const { uiLanguage } = useLanguage();
+  const [detail, setDetail] = useState<ViewerHotspot | null>(null);
+  const partContent = useMemo(() => buildPartContent(uiLanguage), [uiLanguage]);
   const baseLabel = t('m2620_basismaskine', uiLanguage);
+
   const equipmentLabel = t('m2620_udstyr', uiLanguage);
   // Fixed width sized to longest label "Saltspreder"
   const pillClass =
@@ -662,9 +686,50 @@ function Sidebar() {
           })}
         </div>
       </section>
+
+      <section className="mt-6">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
+          Redskaber
+        </div>
+        <div className="flex flex-col items-start gap-4" aria-label="Redskaber">
+          {REDSKAB_LINKS.map(item => (
+            <button
+              key={item.part}
+              type="button"
+              onClick={() =>
+                setDetail({
+                  ...partContent[item.part],
+                  id: `redskab-${item.part}`,
+                  frame: 0,
+                  x: 0,
+                  y: 0,
+                  variant: 'callout',
+                })
+              }
+              className={`${pillClass} bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <ul className="mt-4 space-y-1.5">
+          {REDSKAB_COMING_SOON.map(item => (
+            <li
+              key={item.label}
+              aria-disabled="true"
+              className={`text-sm text-slate-400 line-through select-none ${item.gapBefore ? 'pt-3' : ''}`}
+            >
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <HotspotDetailModal hotspot={detail} onClose={() => setDetail(null)} />
     </aside>
   );
 }
+
 
 function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boolean; largeArrows?: boolean } = {}) {
   const { configuration } = useTiman2620();
