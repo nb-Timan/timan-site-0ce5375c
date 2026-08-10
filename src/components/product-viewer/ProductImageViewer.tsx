@@ -31,7 +31,7 @@ import {
 } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, RotateCw, Pause, ImageOff } from 'lucide-react';
 import type { ViewerConfiguration, ViewerHotspot } from './types';
-import SpecificationGrid from './SpecificationGrid';
+
 import HotspotDetailModal from './HotspotDetailModal';
 
 import { useLanguage } from '@/context/LanguageContext';
