@@ -171,8 +171,8 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       title: 'V-plov',
       subtitle: 'Vinterredskab',
       description:
-        'V-plov til effektiv snerydning, hvor sneen skal skubbes til siderne.',
-      bullets: ['Hydraulisk justering', 'Effektiv rydning', 'Robust ophæng'],
+        'V-ploven er et fleksibelt redskab til effektiv snerydning. Med tre hydrauliske indstillinger kan ploven tilpasses forskellige forhold og bruges til både at bryde gennem større snemængder og lede sneen effektivt væk.',
+      bullets: ['3 hydrauliske indstillinger', 'V-, Y- og spidsplov', 'Fleksibel og sikker snerydning'],
       imageUrl: V_PLOW_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
