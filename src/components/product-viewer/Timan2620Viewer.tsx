@@ -229,7 +229,10 @@ const STANDARD_MOTOR: PosEntry = {
 // Kabine + Dozerblad + Saltspreder). Reused by all cabin views below.
 const CAB_MOTOR: PosEntry[] = [
   { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
-  { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
+  // frame 2 (rear view): target sits on the red rear body panel, just
+  // left of the "TIMAN 2620" badge. Bubble position unchanged.
+  { anchor: { x: 35, y: 70 }, callout: { cx: 22, cy: 94 }, frame: 2 },
+
 ];
 
 
