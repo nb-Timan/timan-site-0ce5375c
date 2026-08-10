@@ -46,6 +46,8 @@ export interface ViewerHotspot {
 
   /** Optional thumbnail shown in the hotspot popover/modal. */
   imageUrl?: string;
+  /** Optional display-only zoom factor for the large detail image (1 = unchanged). */
+  imageScale?: number;
   /** Optional outbound link from the popover. */
   linkUrl?: string;
   /**

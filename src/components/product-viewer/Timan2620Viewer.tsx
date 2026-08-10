@@ -43,6 +43,8 @@ const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
 const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
 const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
 const SHOVEL_DETAIL_IMAGE = '/images/timan-2620/redskaber/skovl.png';
+/** Display-only zoom for the four equipment detail images (Skovl, V-plov, Dozerblad, Saltspreder). */
+const EQUIPMENT_DETAIL_IMAGE_SCALE = 1.18;
 
 /* --------------------------------------------------------------
  * View-aware hotspot system
@@ -163,6 +165,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'V-plov til effektiv snerydning, hvor sneen skal skubbes til siderne.',
       bullets: ['Hydraulisk justering', 'Effektiv rydning', 'Robust ophæng'],
+      imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     salt_spreader: {
       title: 'Saltspreder',
@@ -171,6 +174,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         'Tallerkenspreder med justerbar bredde og mængde — egnet til salt, grus eller sand.',
       bullets: ['Justerbar spredebredde', 'Stor beholder', 'Hurtig påfyldning'],
       imageUrl: SALT_SPREADER_DETAIL_IMAGE,
+      imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     bucket: {
       title: 'Skovl',
@@ -179,6 +183,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         'Frontskovl til let flytning af materialer og oprydning på små områder.',
       bullets: ['Godt overblik', 'Nem montering', 'Praktisk frontredskab'],
       imageUrl: SHOVEL_DETAIL_IMAGE,
+      imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     dozer_blade: {
       title: 'Dozerblad',
@@ -187,6 +192,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         'Dozerblad til snerydning og planering, hvor maskinen skal arbejde tæt på underlaget.',
       bullets: ['Stabilt blad', 'Let manøvrering', 'Velegnet til vinterbrug'],
       imageUrl: DOZER_BLADE_DETAIL_IMAGE,
+      imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
   };
 }

@@ -406,6 +406,7 @@ export default function ProductImageViewer({
                     src={activeHotspot.imageUrl}
                     alt=""
                     className="absolute inset-0 w-full h-full object-contain"
+                    style={activeHotspot.imageScale ? { transform: `scale(${activeHotspot.imageScale})` } : undefined}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">
