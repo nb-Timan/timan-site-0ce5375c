@@ -198,6 +198,13 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       imageUrl: DOZER_BLADE_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
+    fodpedal: {
+      title: 'Fodpedal',
+      subtitle: 'Betjening',
+      description:
+        'Fodpedal i førerpladsens fodrum til præcis betjening af kørsel og hastighed.',
+      bullets: ['Trinløs regulering', 'Ergonomisk placering', 'Fri sigt til redskabet'],
+    },
   };
 }
 
