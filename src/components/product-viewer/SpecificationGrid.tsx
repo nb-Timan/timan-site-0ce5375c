@@ -31,7 +31,7 @@ export interface SpecificationGridProps {
 function SpecRow({ item }: { item: ViewerHotspotTechnical }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-slate-200/80 py-2 last:border-b-0">
-      <dt className="text-sm text-slate-500 leading-snug">{item.label}</dt>
+      <dt className="text-sm text-slate-500 leading-snug shrink-0">{item.label}</dt>
       <dd className="text-sm font-semibold text-slate-900 text-right leading-snug">
         {item.value}
       </dd>
@@ -60,6 +60,9 @@ export default function SpecificationGrid({
     : items.length;
   const left = items.slice(0, cut);
   const right = items.slice(cut);
+  // A "two column" split that leaves the second column empty would squeeze the
+  // single remaining column to half width and wrap text word-by-word.
+  const renderTwoColumns = twoColumns && right.length > 0;
 
   return (
     <section className={className}>
@@ -74,7 +77,7 @@ export default function SpecificationGrid({
         )}
       </div>
       <div
-        className={`grid grid-cols-1 gap-x-10 gap-y-0 ${twoColumns ? 'sm:grid-cols-2' : ''}`}
+        className={`grid grid-cols-1 gap-x-10 gap-y-0 ${renderTwoColumns ? 'sm:grid-cols-2' : ''}`}
       >
         <dl className="min-w-0">
           {left.map((it, i) => (

@@ -56,7 +56,7 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-[70rem] max-h-[97vh] overflow-hidden animate-scale-in flex flex-col relative"
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-[80rem] max-h-[97vh] overflow-hidden animate-scale-in flex flex-col relative"
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -69,11 +69,11 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
         </button>
         <div
           className={`grid grid-cols-1 flex-1 min-h-0 overflow-y-auto ${
-            nav ? 'md:grid-cols-[13rem_1fr_1fr]' : 'md:grid-cols-2'
+            nav ? 'md:grid-cols-[16.5rem_1fr_1fr]' : 'md:grid-cols-2'
           }`}
         >
           {nav && (
-            <nav className="border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 p-5">
+            <nav className="border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 px-6 py-5">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
                 {nav.title ?? 'Redskabsinformation'}
               </div>
@@ -86,7 +86,7 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
                       type="button"
                       aria-pressed={active}
                       onClick={() => nav.onSelect(item.id)}
-                      className={`w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
+                      className={`w-full max-w-[13rem] px-5 py-1.5 rounded-full text-sm font-semibold border transition text-center ${
                         active
                           ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                           : 'bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:text-emerald-700'
