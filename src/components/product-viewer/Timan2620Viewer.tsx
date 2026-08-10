@@ -35,6 +35,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import vPlowDetailAsset from '@/assets/v-plov.png.asset.json';
 import fodpedalDetailAsset from '@/assets/fodpedal.png.asset.json';
+import kabineDetailAsset from '@/assets/kabine-detalje.png.asset.json';
 
 const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
   standard: 'm2620_base_standard',
@@ -47,6 +48,7 @@ const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
 const SHOVEL_DETAIL_IMAGE = '/images/timan-2620/redskaber/skovl.png';
 const V_PLOW_DETAIL_IMAGE = vPlowDetailAsset.url;
 const FODPEDAL_DETAIL_IMAGE = fodpedalDetailAsset.url;
+const KABINE_DETAIL_IMAGE = kabineDetailAsset.url;
 /** Display-only zoom for the four equipment detail images (Skovl, V-plov, Dozerblad, Saltspreder). */
 const EQUIPMENT_DETAIL_IMAGE_SCALE = 1.18;
 
@@ -122,6 +124,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       title: t('m2620_hot_kabine_title', lang),
       subtitle: t('m2620_hot_kabine_sub', lang),
       description: t('m2620_cab_desc', lang),
+      imageUrl: KABINE_DETAIL_IMAGE,
       bullets: [
         t('m2620_cab_b1', lang),
         t('m2620_cab_b2', lang),
