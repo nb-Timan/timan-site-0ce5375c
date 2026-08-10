@@ -781,7 +781,7 @@ function Sidebar() {
           })),
           activeId: infoPart ?? 'bucket',
           onSelect: id => setInfoPart(id as PartId),
-          comingSoon: infoBrowser === 'udstyr' ? undefined : REDSKAB_COMING_SOON,
+          comingSoon: infoBrowser === 'udstyr' ? UDSTYR_COMING_SOON : REDSKAB_COMING_SOON,
         }}
       />
 
