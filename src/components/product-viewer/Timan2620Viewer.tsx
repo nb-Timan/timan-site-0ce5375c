@@ -219,6 +219,12 @@ const STANDARD_AFFJEDRING: PosEntry = {
   callout: { cx: 66, cy: 95 },
 };
 
+// Approved Standard Motor placement (from Standard + Saltspreder).
+const STANDARD_MOTOR: PosEntry = {
+  anchor: { x: 67, y: 62 },
+  callout: { cx: 90, cy: 82 },
+};
+
 // Shared Saltspreder placement for all Standard saltspreder views, so
 // Standard + Saltspreder and Standard + Dozerblad + Saltspreder match.
 const STANDARD_SALT_SPREADER: PosEntry = {
@@ -237,7 +243,7 @@ const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>
 const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[]>>> = {
   // Bare machines — front faces LEFT
   standard: {
-    motor:      { anchor: { x: 58, y: 55 }, callout: { cx: 88, cy: 65 } },
+    motor:      STANDARD_MOTOR,
     affjedring: STANDARD_AFFJEDRING,
   },
 
@@ -249,7 +255,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
-    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
+    motor:         STANDARD_MOTOR,
     affjedring:    STANDARD_AFFJEDRING,
     salt_spreader: STANDARD_SALT_SPREADER,
   },
