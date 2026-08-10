@@ -72,7 +72,7 @@ export default function MesseHomePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
         user={appUser}
-        language={uiLanguage}
+        language={legacyLang}
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
