@@ -41,7 +41,7 @@ const QUICK_ACTIONS = [
 
 export default function MesseHomePage() {
   const { appUser, logout } = useAppUser();
-  const { uiLanguage, setLanguage } = useLanguage();
+  const { language: legacyLang, uiLanguage, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const navigate = useNavigate();
 
