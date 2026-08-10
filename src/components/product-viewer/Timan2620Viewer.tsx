@@ -33,6 +33,7 @@ import {
 import type { ViewerConfiguration, ViewerHotspot } from './types';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
+import vPlowDetailAsset from '@/assets/v-plov.png.asset.json';
 
 const BASE_LABEL_KEY: Record<Timan2620Base, string> = {
   standard: 'm2620_base_standard',
@@ -43,6 +44,7 @@ const SUSPENSION_DETAIL_IMAGE = '/images/timan-2620/fjeder.png';
 const DOZER_BLADE_DETAIL_IMAGE = '/images/timan-2620/redskaber/dozer-blad.png';
 const SALT_SPREADER_DETAIL_IMAGE = '/images/timan-2620/redskaber/ds-250.png';
 const SHOVEL_DETAIL_IMAGE = '/images/timan-2620/redskaber/skovl.png';
+const V_PLOW_DETAIL_IMAGE = vPlowDetailAsset.url;
 /** Display-only zoom for the four equipment detail images (Skovl, V-plov, Dozerblad, Saltspreder). */
 const EQUIPMENT_DETAIL_IMAGE_SCALE = 1.18;
 
@@ -165,6 +167,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       description:
         'V-plov til effektiv snerydning, hvor sneen skal skubbes til siderne.',
       bullets: ['Hydraulisk justering', 'Effektiv rydning', 'Robust ophæng'],
+      imageUrl: V_PLOW_DETAIL_IMAGE,
       imageScale: EQUIPMENT_DETAIL_IMAGE_SCALE,
     },
     salt_spreader: {
