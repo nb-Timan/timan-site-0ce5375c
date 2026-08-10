@@ -56,7 +56,12 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-[80rem] max-h-[97vh] overflow-hidden animate-scale-in flex flex-col relative"
+        className="bg-white rounded-3xl shadow-2xl w-full overflow-hidden animate-scale-in flex flex-col relative"
+        style={{
+          maxWidth: 'min(92rem, calc(100vw - 2rem))',
+          maxHeight: 'calc(100vh - 2rem)',
+          minHeight: 'min(56rem, calc(100vh - 2rem))',
+        }}
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -69,7 +74,7 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
         </button>
         <div
           className={`grid grid-cols-1 flex-1 min-h-0 overflow-y-auto ${
-            nav ? 'md:grid-cols-[16.5rem_1fr_1fr]' : 'md:grid-cols-2'
+            nav ? 'md:grid-cols-[16.5rem_1.2fr_1fr]' : 'md:grid-cols-2'
           }`}
         >
           {nav && (
@@ -113,13 +118,13 @@ export default function HotspotDetailModal({ hotspot, onClose, nav }: HotspotDet
             </nav>
           )}
           {/* Visual / future-video area */}
-          <div className="bg-slate-100 relative min-h-[260px] md:min-h-[420px] flex items-center justify-center">
+          <div className="bg-slate-100 relative min-h-[300px] md:min-h-[520px] flex items-center justify-center">
             {hotspot.imageUrl ? (
               <img
                 src={hotspot.imageUrl}
                 alt=""
-                className="absolute inset-0 w-full h-full object-contain"
-                style={hotspot.imageScale ? { transform: `scale(${hotspot.imageScale})` } : undefined}
+                className="absolute inset-0 w-full h-full object-contain p-4"
+                style={{ transform: `scale(${(hotspot.imageScale ?? 1) * 1.2})` }}
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 p-6 text-center">
