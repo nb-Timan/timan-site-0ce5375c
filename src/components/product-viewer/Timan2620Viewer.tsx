@@ -343,10 +343,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
-    motor: [
-      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
-      { anchor: { x: 38, y: 58 }, callout: { cx: 22, cy: 94 }, frame: 2 },
-    ],
+    motor: CAB_MOTOR,
+
     kabine: [
       { anchor: { x: 48, y: 30 }, callout: { cx: 78, cy: 10 }, frame: 1 },
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
