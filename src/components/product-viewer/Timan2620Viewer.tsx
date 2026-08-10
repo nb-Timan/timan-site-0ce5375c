@@ -689,9 +689,9 @@ function Sidebar() {
 
       <section className="mt-6">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-          Redskaber
+          Redskabsinformation
         </div>
-        <div className="flex flex-col items-start gap-4" aria-label="Redskaber">
+        <div className="flex flex-col items-start gap-4" aria-label="Redskabsinformation">
           {REDSKAB_LINKS.map(item => (
             <button
               key={item.part}
