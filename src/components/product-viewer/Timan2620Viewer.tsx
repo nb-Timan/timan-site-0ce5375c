@@ -223,7 +223,12 @@ const affjedring = (anchor: { x: number; y: number }, frame?: number): PosEntry 
 });
 
 // Standard front view (page 1/2) target: just in front of the rear tyre.
-const STANDARD_AFFJEDRING: PosEntry = affjedring({ x: 62, y: 79 });
+const AFFJEDRING_REAR: PosEntry = affjedring({ x: 57, y: 70 }, 2);
+
+const STANDARD_AFFJEDRING: PosEntry[] = [
+  affjedring({ x: 62, y: 79 }, 1),
+  AFFJEDRING_REAR,
+];
 
 
 // Approved Standard Motor placement (from Standard + Saltspreder).
@@ -256,7 +261,7 @@ const STANDARD_SALT_SPREADER: PosEntry = {
 // Shared Affjedring REAR target (page 2/2, all configurations): chassis /
 // suspension area between the wheels, just behind the front mudguard —
 // above the tyre, never on the rim. Bubble uses the global position.
-const AFFJEDRING_REAR: PosEntry = affjedring({ x: 57, y: 70 }, 2);
+
 
 
 const SALT_SPREADER_REAR: PosEntry = {
