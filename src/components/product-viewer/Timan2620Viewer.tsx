@@ -595,10 +595,32 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
 
 /* ------------------------- Subcomponents ------------------------- */
 
+/** Attachments that can open an existing technical detail modal. */
+const REDSKAB_LINKS: { part: PartId; label: string }[] = [
+  { part: 'bucket', label: 'Skovl' },
+  { part: 'v_plow', label: 'V-plov' },
+  { part: 'dozer_blade', label: 'Dozerblad' },
+  { part: 'salt_spreader', label: 'Saltspreder' },
+];
+
+/** Not available yet — shown as muted, struck-through, non-interactive text. */
+const REDSKAB_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
+  { label: 'Rotorklipper' },
+  { label: 'Multiklipper' },
+  { label: 'Skivehøster' },
+  { label: 'Græsopsamler' },
+  { label: 'Sugetank', gapBefore: true },
+  { label: 'Ukrudtsbørste' },
+  { label: 'Svingbar kost' },
+];
+
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
   const { uiLanguage } = useLanguage();
+  const [detail, setDetail] = useState<ViewerHotspot | null>(null);
+  const partContent = useMemo(() => buildPartContent(uiLanguage), [uiLanguage]);
   const baseLabel = t('m2620_basismaskine', uiLanguage);
+
   const equipmentLabel = t('m2620_udstyr', uiLanguage);
   // Fixed width sized to longest label "Saltspreder"
   const pillClass =
