@@ -616,10 +616,21 @@ const REDSKAB_COMING_SOON: { label: string; gapBefore?: boolean }[] = [
   { label: 'Svingbar kost' },
 ];
 
+/** Machine components shown in the Udstyrsinformation browser. */
+const UDSTYR_LINKS: { part: PartId; label: string }[] = [
+  { part: 'fodpedal', label: 'Fodpedal' },
+  { part: 'affjedring', label: 'Affjedring' },
+  { part: 'motor', label: 'Motor' },
+  { part: 'kabine', label: 'Kabine' },
+];
+
+type InfoBrowser = 'redskab' | 'udstyr';
+
 function Sidebar() {
   const { base, setBase, equipment, toggleEquipment } = useTiman2620();
   const { uiLanguage } = useLanguage();
-  const [redskabPart, setRedskabPart] = useState<PartId | null>(null);
+  const [infoBrowser, setInfoBrowser] = useState<InfoBrowser | null>(null);
+  const [infoPart, setInfoPart] = useState<PartId | null>(null);
   const partContent = useMemo(() => buildPartContent(uiLanguage), [uiLanguage]);
   const baseLabel = t('m2620_basismaskine', uiLanguage);
 
