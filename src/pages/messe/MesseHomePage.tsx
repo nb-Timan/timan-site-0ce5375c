@@ -41,7 +41,7 @@ const QUICK_ACTIONS = [
 
 export default function MesseHomePage() {
   const { appUser, logout } = useAppUser();
-  const { uiLanguage, setLanguage } = useLanguage();
+  const { language: legacyLang, uiLanguage, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const navigate = useNavigate();
 
@@ -72,7 +72,7 @@ export default function MesseHomePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
         user={appUser}
-        language={uiLanguage}
+        language={legacyLang}
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
@@ -107,7 +107,28 @@ export default function MesseHomePage() {
                   className="pointer-events-none absolute inset-0 h-full w-full object-fill transition duration-300 group-hover:brightness-105"
                 />
               )}
+              {tile.fullImageTile && (
+                <>
+                  {/* Soft bottom-up scrim: hides image cleanup artifacts behind the text */}
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(to top, rgba(15,23,42,0.34) 0%, rgba(15,23,42,0.20) 26%, rgba(15,23,42,0.06) 50%, rgba(15,23,42,0) 72%)',
+                    }}
+                  />
+                  {/* Soft left-to-right fade over the text column */}
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(to right, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0.12) 38%, rgba(15,23,42,0.03) 62%, rgba(15,23,42,0) 80%)',
+                    }}
+                  />
+                </>
+              )}
               <div className="relative text-white pointer-events-none [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]">
+
                 {tile.icon && <div className="mb-4 opacity-95">{tile.icon}</div>}
                 <div className="text-2xl sm:text-3xl font-bold leading-tight">{tile.literalTitle ? tile.title : t(tile.title, uiLanguage)}</div>
                 <div className="text-sm sm:text-base text-white/85 mt-1">{t(tile.desc, uiLanguage)}</div>
