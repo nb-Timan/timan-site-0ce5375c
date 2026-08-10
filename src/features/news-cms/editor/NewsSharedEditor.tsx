@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send, WandSparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
@@ -12,25 +12,26 @@ import {
   missingNewsLanguages,
   missingTranslationFields,
   updateCtaLinksField,
+  updateFeatureBlocksField,
   updateTechBlocksField,
   updateSpecRowsField,
   updateLocalizedNewsField,
   updateSharedNewsField,
   updateFlyerPagesField,
 } from '@/features/news-cms/lib/newsContent';
+import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
 import type { NewsCmsPost } from '@/lib/newsService';
 import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
 import NewsPreviewPane from './NewsPreviewPane';
 import NewsRenderSurface from './NewsRenderSurface';
 import {
-  getNewsTopicLabel,
-  getNewsTopicTypeLabel,
-  getTargetOptions,
+  getAttachmentOptionsForMachine,
+  getNewsAttachmentLabel,
+  getNewsMachineLabel,
+  NEWS_MACHINE_FILTER_TARGETS,
   NEWS_TOPIC_UI_TEXT,
-  NEWS_TOPIC_TYPE_OPTIONS,
   normalizeNewsTopicData,
-  type NewsTopicType,
 } from '@/features/news-cms/lib/newsTaxonomy';
 
 type StepId = 1 | 2 | 3 | 4 | 5;
@@ -91,6 +92,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   const editLanguage: PortalUiLanguage = uiLanguage;
   const [localizedContent, setLocalizedContent] = useState<LocalizedNewsContent>(() => initialPost?.localized_content || emptyLocalizedContent());
   const [templateData, setTemplateData] = useState<Record<string, unknown>>(() => initialPost?.template_data || {});
+  const [translateStatus, setTranslateStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setStep(1);
@@ -98,6 +100,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     setTemplateId(isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id);
     setLocalizedContent(initialPost?.localized_content || emptyLocalizedContent());
     setTemplateData(initialPost?.template_data || {});
+    setTranslateStatus(null);
   }, [initialPost?.id]);
 
   const template = getNewsTemplate(templateId);
@@ -120,25 +123,53 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
     .join(', ');
   const validation = template.validate(activeContent);
-  const canPublish = validation.valid && missingLanguages.length === 0;
+  const canPublish = validation.valid;
   const newsTopic = normalizeNewsTopicData(templateData.news_topic);
-  const topicTargets = getTargetOptions(newsTopic.type);
+  const attachmentOptions = getAttachmentOptionsForMachine(newsTopic.target);
 
   const updateNewsTopic = (patch: Partial<typeof newsTopic>) => {
     setTemplateData((current) => {
-      const nextType = patch.type || newsTopic.type;
-      const options = getTargetOptions(nextType);
-      const nextTarget = patch.type && !patch.target ? options[0]?.value : patch.target || newsTopic.target;
+      const nextTarget = patch.target || newsTopic.target;
+      if (nextTarget === 'diverse') {
+        return {
+          ...current,
+          news_topic: normalizeNewsTopicData({ type: 'misc', target: 'diverse' }),
+        };
+      }
+
+      const allowedAttachments = getAttachmentOptionsForMachine(nextTarget);
+      const requestedAttachment = Object.prototype.hasOwnProperty.call(patch, 'attachment')
+        ? patch.attachment
+        : newsTopic.attachment;
+      const nextAttachment = requestedAttachment && allowedAttachments.some((option) => option.value === requestedAttachment)
+        ? requestedAttachment
+        : undefined;
       return {
         ...current,
         news_topic: normalizeNewsTopicData({
           ...newsTopic,
           ...patch,
-          type: nextType,
+          type: 'machine',
           target: nextTarget,
+          attachment: nextAttachment,
         }),
       };
     });
+  };
+
+  const translateMissingLanguages = () => {
+    const result = translateMissingNewsContent(localizedContent, template.fields, editLanguage);
+    setLocalizedContent(result.localizedContent);
+
+    if (result.translatedLanguages.length > 0) {
+      const labels = result.translatedLanguages
+        .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+        .join(', ');
+      setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
+      return;
+    }
+
+    setTranslateStatus(t('newsCmsTranslateMissingNone', uiLanguage));
   };
 
   const saveDraft = async () => {
@@ -148,12 +179,35 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   };
 
   const publish = async () => {
-    if (!canPublish) {
-      setPublishWarning(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${missingLanguageLabels}`);
+    if (!validation.valid) {
+      setPublishWarning(validation.errors.join(', '));
       return;
     }
+
+    const translationResult = missingLanguages.length > 0
+      ? translateMissingNewsContent(localizedContent, template.fields, editLanguage)
+      : null;
+    const contentToPublish = translationResult?.localizedContent || localizedContent;
+    const remainingMissingLanguages = missingNewsLanguages(contentToPublish, template.fields);
+
+    if (remainingMissingLanguages.length > 0) {
+      const labels = remainingMissingLanguages
+        .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+        .join(', ');
+      setPublishWarning(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${labels}`);
+      return;
+    }
+
+    if (translationResult?.translatedLanguages.length) {
+      setLocalizedContent(contentToPublish);
+      const labels = translationResult.translatedLanguages
+        .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+        .join(', ');
+      setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
+    }
+
     setPublishWarning(null);
-    await onPublish({ id: initialPost?.id, templateId, localizedContent, templateData });
+    await onPublish({ id: initialPost?.id, templateId, localizedContent: contentToPublish, templateData });
   };
 
   return (
@@ -238,9 +292,17 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             )}
             <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
+            <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+              <Button type="button" variant="outline" className="w-full justify-center bg-white" onClick={translateMissingLanguages}>
+                <WandSparkles className="mr-2 h-4 w-4 text-emerald-700" />
+                {t('newsCmsTranslateMissingButton', uiLanguage)}
+              </Button>
+              <p className="mt-2 text-xs text-emerald-800">{t('newsCmsTranslateMissingHelp', uiLanguage)}</p>
+              {translateStatus && <p className="mt-2 text-xs font-semibold text-emerald-900">{translateStatus}</p>}
+            </div>
             {missingLanguages.length > 0 && (
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                <span className="font-bold">{t('newsCmsPublishMissingLanguages', uiLanguage)}</span> {missingLanguageLabels}
+                <span className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</span> {missingLanguageLabels}
               </div>
             )}
 
@@ -253,38 +315,35 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">{NEWS_TOPIC_UI_TEXT.typeLabel[uiLanguage]}</span>
-                  <select
-                    value={newsTopic.type}
-                    onChange={(event) => updateNewsTopic({ type: event.target.value as NewsTopicType })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  >
-                    {NEWS_TOPIC_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">
-                    {newsTopic.type === 'attachment'
-                      ? NEWS_TOPIC_UI_TEXT.attachmentLabel[uiLanguage]
-                      : newsTopic.type === 'machine'
-                        ? NEWS_TOPIC_UI_TEXT.machineLabel[uiLanguage]
-                        : NEWS_TOPIC_UI_TEXT.categoryLabel[uiLanguage]}
-                  </span>
+                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">{NEWS_TOPIC_UI_TEXT.machineLabel[uiLanguage]}</span>
                   <select
                     value={newsTopic.target}
                     onChange={(event) => updateNewsTopic({ target: event.target.value })}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   >
-                    {topicTargets.map((option) => (
+                    {NEWS_MACHINE_FILTER_TARGETS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">{NEWS_TOPIC_UI_TEXT.attachmentLabel[uiLanguage]}</span>
+                  <select
+                    value={newsTopic.attachment || ''}
+                    onChange={(event) => updateNewsTopic({ attachment: event.target.value || undefined })}
+                    disabled={attachmentOptions.length === 0}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">{NEWS_TOPIC_UI_TEXT.noAttachmentLabel[uiLanguage]}</option>
+                    {attachmentOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
                     ))}
                   </select>
                 </label>
               </div>
               <div className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                {getNewsTopicTypeLabel(newsTopic.type, uiLanguage)}: {getNewsTopicLabel(newsTopic, uiLanguage).split(': ').slice(1).join(': ') || getNewsTopicLabel(newsTopic, uiLanguage)}
+                {NEWS_TOPIC_UI_TEXT.machineLabel[uiLanguage]}: {getNewsMachineLabel(newsTopic, uiLanguage)}
+                {getNewsAttachmentLabel(newsTopic, uiLanguage) ? ` - ${NEWS_TOPIC_UI_TEXT.attachmentLabel[uiLanguage]}: ${getNewsAttachmentLabel(newsTopic, uiLanguage)}` : ''}
               </div>
             </div>
 
@@ -301,6 +360,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   }
                   onChange={(value) =>
                     setLocalizedContent((current) => {
+                      if (field.type === 'featureBlocks') {
+                        return updateFeatureBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                      }
                       if (field.type === 'techBlocks') {
                         return updateTechBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
                       }
@@ -383,7 +445,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             <p className="mt-2 text-sm text-slate-600">{t('newsCmsStepPublishHelp', uiLanguage)}</p>
             {missingLanguages.length > 0 && (
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-bold">{t('newsCmsPublishMissingLanguages', uiLanguage)}</p>
+                <p className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</p>
                 <p className="mt-1">{missingLanguageLabels}</p>
               </div>
             )}

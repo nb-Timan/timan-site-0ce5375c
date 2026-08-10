@@ -8,22 +8,23 @@ import { Button } from '@/components/ui/button';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { completedNewsLanguages, getLocalizedNewsContent, missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
+import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
 import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
 import { getNewsTemplate, NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
+import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { t } from '@/lib/i18n/translations';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
 import {
-  getAllNewsTargetsLabel,
-  getCombinedTargetOptions,
+  getAttachmentOptionsForMachine,
+  getCombinedAttachmentOptions,
+  getNewsAttachmentLabel,
+  getNewsMachineLabel,
   getNewsTopicForDisplay,
   getNewsTopicLabel,
-  getNewsTopicTypeLabel,
-  getTargetOptions,
   matchesNewsTopicFilter,
-  NEWS_TOPIC_FILTERS,
+  NEWS_MACHINE_FILTER_TARGETS,
   NEWS_TOPIC_UI_TEXT,
-  type NewsTopicFilter,
   type NewsTopicOption,
 } from '@/features/news-cms/lib/newsTaxonomy';
 import {
@@ -102,8 +103,8 @@ export default function BackendNewsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [templateFilter, setTemplateFilter] = useState('all');
   const [languageFilter, setLanguageFilter] = useState('all');
-  const [topicFilter, setTopicFilter] = useState<NewsTopicFilter>('all');
-  const [targetFilter, setTargetFilter] = useState('all');
+  const [machineFilter, setMachineFilter] = useState('all');
+  const [attachmentFilter, setAttachmentFilter] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
 
   const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
@@ -132,7 +133,7 @@ export default function BackendNewsPage() {
         const template = getNewsTemplate(row.template_id);
         return completedNewsLanguages(row.localized_content, template.fields).includes(languageFilter as PortalUiLanguage);
       })
-      .filter((row) => matchesNewsTopicFilter(row, topicFilter, targetFilter))
+      .filter((row) => matchesNewsTopicFilter(row, machineFilter, attachmentFilter))
       .filter((row) => {
         if (!normalizedSearch) return true;
         const topicLabel = getNewsTopicLabel(getNewsTopicForDisplay(row), uiLanguage).toLowerCase();
@@ -146,14 +147,12 @@ export default function BackendNewsPage() {
         const bDate = sortKey === 'published' ? b.published_at : b.updated_at || b.published_at;
         return new Date(bDate || 0).getTime() - new Date(aDate || 0).getTime();
       });
-  }, [rows, searchTerm, sortKey, statusFilter, templateFilter, languageFilter, topicFilter, targetFilter, uiLanguage]);
+  }, [rows, searchTerm, sortKey, statusFilter, templateFilter, languageFilter, machineFilter, attachmentFilter, uiLanguage]);
 
   const targetOptions = useMemo<NewsTopicOption[]>(() => {
-    if (topicFilter === 'machine') return getTargetOptions('machine');
-    if (topicFilter === 'attachment') return getTargetOptions('attachment');
-    if (topicFilter === 'misc') return getTargetOptions('misc');
-    return getCombinedTargetOptions();
-  }, [topicFilter]);
+    if (machineFilter === 'all') return getCombinedAttachmentOptions();
+    return getAttachmentOptionsForMachine(machineFilter);
+  }, [machineFilter]);
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -167,12 +166,30 @@ export default function BackendNewsPage() {
     setMessage(null);
     setError(null);
     if (status === 'published') {
-      const missing = getMissingRowLanguages(row);
+      const template = getNewsTemplate(row.template_id);
+      const translationResult = translateMissingNewsContent(row.localized_content || {}, template.fields, uiLanguage);
+      const missing = missingNewsLanguages(translationResult.localizedContent, template.fields);
       if (missing.length > 0) {
         setSaving(false);
         setError(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${missing.map(languageFlag).join(', ')}`);
         return;
       }
+
+      const publishResult = await adminPublishNewsPost({
+        id: row.id,
+        template_id: row.template_id as NewsTemplateId,
+        localized_content: translationResult.localizedContent,
+        template_data: row.template_data || {},
+        assets: row.assets || [],
+      });
+      setSaving(false);
+      if (publishResult.error) {
+        setError(publishResult.error);
+        return;
+      }
+      setMessage(t('newsCmsPublished', uiLanguage));
+      await reload();
+      return;
     }
     const result = await adminUpdateNewsStatus(row.id, status);
     setSaving(false);
@@ -306,7 +323,7 @@ export default function BackendNewsPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_180px_180px_180px_180px]">
+              <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_180px_180px_180px_120px_180px]">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
@@ -330,23 +347,40 @@ export default function BackendNewsPage() {
                   ))}
                 </select>
                 <select
-                  value={topicFilter}
+                  value={machineFilter}
                   onChange={(event) => {
-                    setTopicFilter(event.target.value as NewsTopicFilter);
-                    setTargetFilter('all');
+                    setMachineFilter(event.target.value);
+                    setAttachmentFilter('all');
                   }}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
                 >
-                  {NEWS_TOPIC_FILTERS.map((option) => (
+                  <option value="all">{NEWS_TOPIC_UI_TEXT.machineFilterPlaceholder[uiLanguage]}</option>
+                  {NEWS_MACHINE_FILTER_TARGETS.map((option) => (
                     <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
                   ))}
                 </select>
-                <select value={targetFilter} onChange={(event) => setTargetFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
-                  <option value="all">{getAllNewsTargetsLabel(topicFilter, uiLanguage)}</option>
+                <select
+                  value={attachmentFilter}
+                  onChange={(event) => setAttachmentFilter(event.target.value)}
+                  disabled={targetOptions.length === 0}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="all">{NEWS_TOPIC_UI_TEXT.attachmentFilterPlaceholder[uiLanguage]}</option>
                   {targetOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.labels[uiLanguage]}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMachineFilter('all');
+                    setAttachmentFilter('all');
+                  }}
+                  disabled={machineFilter === 'all' && attachmentFilter === 'all'}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-600 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  {NEWS_TOPIC_UI_TEXT.resetFilterLabel[uiLanguage]}
+                </button>
                 <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                   <option value="updated">{t('newsCmsSortUpdated', uiLanguage)}</option>
                   <option value="published">{t('newsCmsSortPublished', uiLanguage)}</option>
@@ -385,8 +419,10 @@ export default function BackendNewsPage() {
                         </td>
                         <td className="px-4 py-4 text-slate-600">{row.template_id === 'legacy' ? t('newsCmsLegacy', uiLanguage) : `Template ${template.number}`}</td>
                         <td className="px-4 py-4 text-slate-600">
-                          <div className="font-semibold text-slate-700">{getNewsTopicTypeLabel(topic.type, uiLanguage)}</div>
-                          <div className="mt-0.5 text-xs text-slate-500">{getNewsTopicLabel(topic, uiLanguage).split(': ').slice(1).join(': ')}</div>
+                          <div className="font-semibold text-slate-700">{getNewsMachineLabel(topic, uiLanguage)}</div>
+                          {getNewsAttachmentLabel(topic, uiLanguage) && (
+                            <div className="mt-0.5 text-xs text-slate-500">{getNewsAttachmentLabel(topic, uiLanguage)}</div>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusClass(status)}`}>
