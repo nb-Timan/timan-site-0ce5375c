@@ -108,25 +108,16 @@ export default function MesseHomePage() {
                 />
               )}
               {tile.fullImageTile && (
-                <>
-                  {/* Soft bottom-up scrim: hides image cleanup artifacts behind the text */}
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      background:
-                        'linear-gradient(to top, rgba(15,23,42,0.34) 0%, rgba(15,23,42,0.20) 26%, rgba(15,23,42,0.06) 50%, rgba(15,23,42,0) 72%)',
-                    }}
-                  />
-                  {/* Soft left-to-right fade over the text column */}
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      background:
-                        'linear-gradient(to right, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0.12) 38%, rgba(15,23,42,0.03) 62%, rgba(15,23,42,0) 80%)',
-                    }}
-                  />
-                </>
+                /* ONE continuous diagonal fade: strongest lower-left, transparent toward upper-right */
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      'linear-gradient(to top right, rgba(15,23,42,0.38) 0%, rgba(15,23,42,0.24) 30%, rgba(15,23,42,0.09) 55%, rgba(15,23,42,0) 75%)',
+                  }}
+                />
               )}
+
               <div className="relative text-white pointer-events-none [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]">
 
                 {tile.icon && <div className="mb-4 opacity-95">{tile.icon}</div>}
