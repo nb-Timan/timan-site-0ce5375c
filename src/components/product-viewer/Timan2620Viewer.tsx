@@ -122,6 +122,7 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
       title: t('m2620_hot_kabine_title', lang),
       subtitle: t('m2620_hot_kabine_sub', lang),
       description: t('m2620_cab_desc', lang),
+      imageUrl: KABINE_DETAIL_IMAGE,
       bullets: [
         t('m2620_cab_b1', lang),
         t('m2620_cab_b2', lang),
