@@ -74,7 +74,8 @@ type PartId =
   | 'bucket'
   | 'v_plow'
   | 'dozer_blade'
-  | 'salt_spreader';
+  | 'salt_spreader'
+  | 'fodpedal';
 
 type PartContent = Omit<ViewerHotspot, 'id' | 'frame' | 'x' | 'y' | 'calloutCenter' | 'variant'>;
 
