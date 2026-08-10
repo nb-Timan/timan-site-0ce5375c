@@ -211,13 +211,20 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
  *   rear frames
  *     → machine faces RIGHT (front = right, rear = left)
  */
-// Shared Affjedring placement for ALL Standard (no cab) configurations:
-// target sits just in front of the rear tyre, bubble centred under the
-// rear/wheel area. Kabine views keep their own values.
-const STANDARD_AFFJEDRING: PosEntry = {
-  anchor: { x: 62, y: 79 },
-  callout: { cx: 66, cy: 95 },
-};
+// ONE global Affjedring bubble position, shared by every configuration and
+// BOTH image views (front 1/2 and rear 2/2). Only the green target (anchor)
+// may differ per image; the bubble must never jump when switching frames.
+const AFFJEDRING_CALLOUT = { cx: 50, cy: 95 } as const;
+
+const affjedring = (anchor: { x: number; y: number }, frame?: number): PosEntry => ({
+  anchor,
+  callout: { ...AFFJEDRING_CALLOUT },
+  ...(frame ? { frame } : {}),
+});
+
+// Standard front view (page 1/2) target: just in front of the rear tyre.
+const STANDARD_AFFJEDRING: PosEntry = affjedring({ x: 62, y: 79 });
+
 
 // Approved Standard Motor placement (from Standard + Saltspreder).
 const STANDARD_MOTOR: PosEntry = {
