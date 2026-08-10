@@ -762,6 +762,7 @@ function Sidebar() {
             : null
         }
         imageZoom={infoBrowser === 'udstyr' ? 0.92 : undefined}
+        sizeVariant={infoBrowser === 'udstyr' ? 'compact' : 'default'}
         onClose={() => {
           setInfoBrowser(null);
           setInfoPart(null);
