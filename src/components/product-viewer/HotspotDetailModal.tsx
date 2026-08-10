@@ -33,9 +33,14 @@ export interface HotspotDetailModalProps {
   nav?: HotspotDetailModalNav;
   /** Overrides the default image zoom (hotspot.imageScale * 1.2) for the media column. */
   imageZoom?: number;
+  /**
+   * 'compact' = 10% wider and 10% shorter than the default dialog box.
+   * Used by the Udstyrsinformation browser only.
+   */
+  sizeVariant?: 'default' | 'compact';
 }
 
-export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom }: HotspotDetailModalProps) {
+export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom, sizeVariant = 'default' }: HotspotDetailModalProps) {
   const { uiLanguage } = useLanguage();
 
   useEffect(() => {
