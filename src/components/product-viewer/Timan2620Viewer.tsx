@@ -344,7 +344,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   cab_bucket: {
     motor: CAB_MOTOR,
     kabine: [
-      { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 }, frame: 1 },
+      { anchor: { x: 53, y: 33 }, callout: { cx: 78, cy: 12 }, frame: 1 },
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
