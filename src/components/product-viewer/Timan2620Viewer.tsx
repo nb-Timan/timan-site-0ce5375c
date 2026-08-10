@@ -240,11 +240,13 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     affjedring: { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 } },
   },
 
+  // Shared Saltspreder placement for all Standard saltspreder views.
+  // (defined above VIEW_POSITIONS usage via const below)
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 90, cy: 82 } },
     affjedring:    STANDARD_AFFJEDRING,
-    salt_spreader: { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 } },
+    salt_spreader: STANDARD_SALT_SPREADER,
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
