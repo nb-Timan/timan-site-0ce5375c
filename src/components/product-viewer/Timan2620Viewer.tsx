@@ -299,8 +299,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:      CAB_MOTOR,
     kabine:     { anchor: { x: 45, y: 30 }, callout: { cx: 78, cy: 12 } },
     affjedring: [
-      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 56, y: 72 }, 1),
+      AFFJEDRING_REAR,
     ],
   },
 
@@ -313,8 +313,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 56, y: 72 }, callout: { cx: 18, cy: 90 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 56, y: 72 }, 1),
+      AFFJEDRING_REAR,
     ],
     bucket: [
       { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
@@ -333,8 +333,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
     kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
     affjedring:    [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 61, y: 68 }, 1),
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 65, y: 42 }, callout: { cx: 90, cy: 22 }, frame: 1 },
@@ -381,10 +381,10 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 44, cy: 95 }, frame: 1 },
+      affjedring({ x: 61, y: 68 }, 1),
       // frame 2: anchor on the front wheel / front-axle suspension,
       // bubble in the lower-right area beneath the machine.
-      CAB_AFFJEDRING_REAR,
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
@@ -408,8 +408,8 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
       { anchor: { x: 50, y: 30 }, callout: { cx: 50, cy: 6  }, frame: 2 },
     ],
     affjedring: [
-      { anchor: { x: 61, y: 68 }, callout: { cx: 50, cy: 95 }, frame: 1 },
-      CAB_AFFJEDRING_REAR,
+      affjedring({ x: 61, y: 68 }, 1),
+      AFFJEDRING_REAR,
     ],
     salt_spreader: [
       { anchor: { x: 68, y: 42 }, callout: { cx: 92, cy: 22 }, frame: 1 },
