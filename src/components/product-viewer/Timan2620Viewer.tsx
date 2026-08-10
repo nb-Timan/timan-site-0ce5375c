@@ -347,7 +347,7 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   // Cab + saltspreder + dozerblad — 2 frames (rotation)
   cab_salt_spreader_dozer_blade: {
     dozer_blade: [
-      { anchor: { x: 25, y: 62 }, callout: { cx: 8,  cy: 45 }, frame: 1 },
+      { ...DOZER_BLADE_FRONT, frame: 1 },
       { anchor: { x: 80, y: 68 }, callout: { cx: 96, cy: 82 }, frame: 2 },
     ],
     motor: CAB_MOTOR,
