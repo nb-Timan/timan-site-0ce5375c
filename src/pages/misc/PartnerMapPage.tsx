@@ -1804,28 +1804,8 @@ export default function PartnerMapPage() {
               </div>
             )}
 
-            {/* Missing coordinates */}
-            {!loading && (missingCoords.length > 0 || loadError) && (
-              <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
-                <div className="flex items-start gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
-                  <div className="text-sm font-bold text-gray-900">{T.missing[lang]} ({missingCoords.length})</div>
-                </div>
-                {loadError && <div className="text-xs text-rose-700 mb-2">{loadError}</div>}
-                <p className="text-xs text-gray-600 mb-3">{T.missingHint[lang]}</p>
-                <div className="max-h-56 overflow-auto divide-y divide-gray-100">
-                  {missingCoords.map((p) => (
-                    <div key={p.id} className="py-1.5 flex items-center justify-between gap-3 text-xs">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">{p.name} <span className="text-gray-400 font-mono ml-1">#{p.account}</span></div>
-                        <div className="text-gray-500 truncate">{[p.addressLine1, p.postal, p.city, formatCountry(p.country)].filter(Boolean).join(', ') || '—'}</div>
-                      </div>
-                      <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: TYPE_COLORS[p.type] }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
+
 
             {!loading && partners.length === 0 && (
               <div className="mt-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-sm text-gray-600">{T.noData[lang]}</div>
