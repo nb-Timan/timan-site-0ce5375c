@@ -67,9 +67,9 @@ export default function HotspotDetailModal({ hotspot, onClose, nav, imageZoom, s
         style={
           sizeVariant === 'compact'
             ? {
-                maxWidth: 'min(101.2rem, calc(100vw - 2rem))',
-                maxHeight: 'calc((100vh - 2rem) * 0.9)',
-                minHeight: 'min(50.4rem, calc((100vh - 2rem) * 0.9))',
+                maxWidth: 'min(111.32rem, calc(100vw - 2rem))',
+                maxHeight: 'calc((100vh - 2rem) * 0.81)',
+                minHeight: 'min(45.36rem, calc((100vh - 2rem) * 0.81))',
               }
             : {
                 maxWidth: 'min(92rem, calc(100vw - 2rem))',
