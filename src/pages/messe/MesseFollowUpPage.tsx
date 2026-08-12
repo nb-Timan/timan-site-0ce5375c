@@ -233,12 +233,19 @@ function addDaysIso(date: Date, days: number): string {
   return localDateIso(next);
 }
 
+function addYearsIso(date: Date, years: number): string {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + years);
+  return localDateIso(next);
+}
+
 export default function MesseFollowUpPage() {
   const { appUser } = useAppUser();
   const { uiLanguage, setAutoLanguage } = useLanguage();
   const now = new Date();
   const today = localDateIso(now);
   const followUpDate = addDaysIso(now, 7);
+  const expectedCloseDate = addYearsIso(now, 1);
   const textLanguage = mapUiLanguageToLegacy(uiLanguage);
   const f = (key: keyof typeof FORM_TEXT) => FORM_TEXT[key][textLanguage] || FORM_TEXT[key].en;
   const productLabel = (product: string) => {
@@ -450,7 +457,7 @@ export default function MesseFollowUpPage() {
         owner_email: responsibleSeller.email,
         linked_dealer_id: selectedDealer?.account_number || null,
         first_contact_date: today,
-        expected_close_date: null,
+        expected_close_date: expectedCloseDate,
         next_followup_date: followUpDate,
         machine_types: selectedProductList,
         next_activity: wantsDemo === 'yes' ? 'Customer requests a demonstration' : 'Wants to be contacted',
