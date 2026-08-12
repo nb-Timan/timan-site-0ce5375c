@@ -97,6 +97,7 @@ import MesseHomePage from "./pages/messe/MesseHomePage";
 import MesseVideoPage from "./pages/messe/MesseVideoPage";
 import MesseNewsPage from "./pages/messe/MesseNewsPage";
 import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
+import MesseFollowUpPage from "./pages/messe/MesseFollowUpPage";
 import MesseMachineBrochurePage from "./pages/messe/MesseMachineBrochurePage";
 import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
+              <Route path="/messe/follow-up" element={<MesseRouteGuard><MesseFollowUpPage /></MesseRouteGuard>} />
               <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-751" title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-1000s" title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseTiman2620Page /></MesseRouteGuard>} />

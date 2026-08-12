@@ -44,6 +44,7 @@ interface LanguageContextValue {
   uiLanguage: PortalUiLanguage;
   /** Manual selection from the top switcher — persists across sessions. */
   setLanguage: (lang: PortalUiLanguage) => void;
+  setAutoLanguage: (lang: PortalUiLanguage) => void;
   /**
    * Apply the user's preferred_language only if no manual override exists.
    * Called once after the signed-in user is loaded.
@@ -62,6 +63,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, safe);
       localStorage.setItem(MANUAL_KEY, '1');
+    } catch {
+      // ignore storage errors (e.g. private mode)
+    }
+  }, []);
+
+  const setAutoLanguage = useCallback((lang: PortalUiLanguage) => {
+    const safe: PortalUiLanguage = (SUPPORTED as string[]).includes(lang) ? lang : FALLBACK;
+    setUiLanguageState(safe);
+    try {
+      localStorage.setItem(STORAGE_KEY, safe);
     } catch {
       // ignore storage errors (e.g. private mode)
     }
@@ -95,9 +106,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       language: mapUiLanguageToLegacy(uiLanguage),
       uiLanguage,
       setLanguage,
+      setAutoLanguage,
       applyPreferredLanguage,
     }),
-    [uiLanguage, setLanguage, applyPreferredLanguage],
+    [uiLanguage, setLanguage, setAutoLanguage, applyPreferredLanguage],
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

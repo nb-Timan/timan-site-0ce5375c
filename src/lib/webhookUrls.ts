@@ -23,3 +23,7 @@ export function getOrderWebhookUrl(): string {
 export function getQuoteWebhookUrl(): string {
   return `${N8N_BASE}/webhook/timan-afsend-tilbud`;
 }
+
+export function getMesseLeadWebhookUrl(): string {
+  return `${N8N_BASE}/webhook/timan-messe-lead`;
+}
