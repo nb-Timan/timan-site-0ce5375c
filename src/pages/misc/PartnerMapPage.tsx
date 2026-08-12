@@ -1752,61 +1752,6 @@ export default function PartnerMapPage() {
               </div>
             </div>
 
-            {/* Machine layer summary + missing coordinates (warranty) */}
-            {!loading && canSeeMachineLayer && showMachineLayer && (
-              <div className="mt-3 bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wrench className="h-4 w-4 text-amber-600" />
-                  <div className="text-sm font-bold text-gray-900">Garantiregistreringer på kortet</div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">I alt</div>
-                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachinePins.length + visibleMachineMissing.length}</div>
-                  </div>
-                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Vist på kortet</div>
-                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachinePins.length}</div>
-                  </div>
-                  <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Mangler koordinater</div>
-                    <div className="text-lg font-bold tabular-nums text-gray-900">{visibleMachineMissing.length}</div>
-                  </div>
-                </div>
-                {visibleMachineMissing.length > 0 && (
-                  <details>
-                    <summary className="cursor-pointer text-xs font-semibold text-gray-700 hover:text-amber-700">
-                      Vis registreringer uden koordinater ({visibleMachineMissing.length})
-                    </summary>
-                    <div className="mt-2 max-h-64 overflow-auto divide-y divide-gray-100 border border-gray-100 rounded-lg">
-                      {visibleMachineMissing.map((r) => {
-                        const city = [r.customerCity, r.customerCountry ? formatCountry(r.customerCountry) : ''].filter(Boolean).join(', ');
-                        return (
-                          <div key={r.id} className="px-3 py-1.5 text-xs flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="font-semibold text-gray-900 truncate">
-                                {r.machineModel || '—'}
-                                {r.machineSerial && <span className="ml-2 text-gray-400 font-mono">{r.machineSerial}</span>}
-                              </div>
-                              <div className="text-gray-500 truncate">
-                                {r.dealerNameSnapshot || '—'}
-                                {r.dealerAccountNumber && <span className="ml-1 text-gray-400 font-mono">#{r.dealerAccountNumber}</span>}
-                                {city && <span className="ml-2">· {city}</span>}
-                              </div>
-                            </div>
-                            {r.spId && <span className="shrink-0 text-[10px] font-mono text-gray-400">{r.spId}</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </details>
-                )}
-              </div>
-            )}
-
-
-
-
             {!loading && partners.length === 0 && (
               <div className="mt-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-sm text-gray-600">{T.noData[lang]}</div>
             )}
