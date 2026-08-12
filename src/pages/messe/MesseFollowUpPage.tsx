@@ -220,10 +220,25 @@ async function sendLeadMail(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
+function localDateIso(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysIso(date: Date, days: number): string {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return localDateIso(next);
+}
+
 export default function MesseFollowUpPage() {
   const { appUser } = useAppUser();
   const { uiLanguage, setAutoLanguage } = useLanguage();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = localDateIso(now);
+  const followUpDate = addDaysIso(now, 7);
   const textLanguage = mapUiLanguageToLegacy(uiLanguage);
   const f = (key: keyof typeof FORM_TEXT) => FORM_TEXT[key][textLanguage] || FORM_TEXT[key].en;
   const productLabel = (product: string) => {
@@ -436,7 +451,7 @@ export default function MesseFollowUpPage() {
         linked_dealer_id: selectedDealer?.account_number || null,
         first_contact_date: today,
         expected_close_date: null,
-        next_followup_date: today,
+        next_followup_date: followUpDate,
         machine_types: selectedProductList,
         next_activity: wantsDemo === 'yes' ? 'Customer requests a demonstration' : 'Wants to be contacted',
         demo_has_run: 'no',
