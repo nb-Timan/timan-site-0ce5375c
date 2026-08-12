@@ -161,6 +161,10 @@ function withDefinedMeta(input: Record<string, unknown>): Record<string, unknown
 
 function mapDbActivity(row: Record<string, unknown>): CrmActivity {
   const meta = (row.meta && typeof row.meta === "object" ? row.meta : null) as Record<string, unknown> | null;
+  const createdByEmail =
+    (row.created_by_email as string | null | undefined) ??
+    metaString(meta, "created_by_email") ??
+    metaString(meta, "legacy_created_by_email");
   return {
     id: String(row.id ?? ""),
     activity_type: row.activity_type as CrmActivityType,
@@ -168,7 +172,7 @@ function mapDbActivity(row: Record<string, unknown>): CrmActivity {
     account_id: (row.account_id as string | null | undefined) ?? (row.dealer_account_id as string | null | undefined) ?? null,
     account_name: (row.account_name as string | null | undefined) ?? (row.dealer_name as string | null | undefined) ?? null,
     created_by_user_id: (row.created_by_user_id as string | null | undefined) ?? null,
-    created_by_name: (row.created_by_name as string | null | undefined) ?? (row.created_by_email as string | null | undefined) ?? null,
+    created_by_name: (row.created_by_name as string | null | undefined) ?? createdByEmail,
     assigned_owner_user_id: (row.assigned_owner_user_id as string | null | undefined) ?? (row.seller_user_id as string | null | undefined) ?? null,
     assigned_owner_name: (row.assigned_owner_name as string | null | undefined) ?? (row.seller_name as string | null | undefined) ?? (row.seller_initials as string | null | undefined) ?? null,
     title: (row.title as string | null | undefined) ?? null,
@@ -232,11 +236,14 @@ export async function logActivity(
   writeLocal([row, ...local]);
 
   const inputMeta = input.meta ?? null;
+  const createdByEmail = input.created_by_email ?? (looksLikeEmail(input.created_by_name) ? input.created_by_name ?? null : null);
   const meta = withDefinedMeta({
     ...(inputMeta ?? {}),
     legacy_account_id: input.account_id ?? undefined,
     legacy_account_name: input.account_name ?? undefined,
     legacy_created_by_name: input.created_by_name ?? undefined,
+    legacy_created_by_email: createdByEmail ?? undefined,
+    created_by_email: createdByEmail ?? undefined,
     legacy_assigned_owner_user_id: input.assigned_owner_user_id ?? undefined,
     legacy_assigned_owner_name: input.assigned_owner_name ?? undefined,
     value: input.value ?? undefined,
@@ -261,7 +268,6 @@ export async function logActivity(
     status: row.status,
     meta,
     created_by_user_id: row.created_by_user_id,
-    created_by_email: input.created_by_email ?? (looksLikeEmail(input.created_by_name) ? input.created_by_name ?? null : null),
     created_at: row.created_at,
   };
 
