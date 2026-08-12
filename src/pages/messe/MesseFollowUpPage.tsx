@@ -15,6 +15,12 @@ import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
+type MesseMailAttachment = {
+  name: string;
+  size: number;
+  type: string;
+  data_base64: string;
+};
 
 const PRODUCTS = [
   'RC-751',
@@ -158,7 +164,7 @@ const FORM_TEXT = {
   phonePlaceholder: { da: 'Telefon nr.', en: 'Phone no.', de: 'Telefonnummer', it: 'Telefono', hu: 'Telefonszám' },
   emailPlaceholder: { da: 'E-mail', en: 'E-mail', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   commentPlaceholder: { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
-  businessCard: { da: '7. Tilføj billede (visitkort)', en: '7. Add image (Business card)', de: '7. Bild hinzufügen (Visitenkarte)', it: '7. Aggiungi immagine (biglietto da visita)', hu: '7. Kép hozzáadása (névjegykártya)' },
+  businessCard: { da: '7. Tilføj billeder (maks. 3)', en: '7. Add images (max. 3)', de: '7. Bilder hinzufügen (max. 3)', it: '7. Aggiungi immagini (max. 3)', hu: '7. Képek hozzáadása (max. 3)' },
   submit: { da: 'Gem lead og send mail', en: 'Save lead and send mail', de: 'Lead speichern und E-Mail senden', it: 'Salva lead e invia mail', hu: 'Lead mentése és email küldése' },
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
 };
@@ -186,6 +192,27 @@ function countryMatches(value: string | null | undefined, selectedCountry: strin
 
 function fileSummary(files: File[]): { name: string; size: number }[] {
   return files.map((file) => ({ name: file.name, size: file.size }));
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      resolve(result.includes(',') ? result.split(',')[1] : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Kunne ikke læse filen ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function filesForMail(files: File[]): Promise<MesseMailAttachment[]> {
+  return Promise.all(files.map(async (file) => ({
+    name: file.name,
+    size: file.size,
+    type: file.type || 'application/octet-stream',
+    data_base64: await fileToBase64(file),
+  })));
 }
 
 function RequiredMark() {
@@ -482,6 +509,7 @@ export default function MesseFollowUpPage() {
 
       setCreatedLead({ id: lead.id, leadNo: lead.lead_no });
       try {
+        const mailAttachmentFiles = await filesForMail(businessCardFiles);
         await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
@@ -514,6 +542,7 @@ export default function MesseFollowUpPage() {
           responsible_seller_name: responsibleSeller.full_name || responsibleSeller.initials,
           notes,
           attachments: fileSummary(businessCardFiles),
+          attachment_files: mailAttachmentFiles,
         });
         toast.success('Messe lead gemt og mail sendt');
       } catch (mailError) {
@@ -804,11 +833,34 @@ export default function MesseFollowUpPage() {
               </label>
               <input
                 type="file"
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                accept="image/*"
                 capture="environment"
-                onChange={(e) => setBusinessCardFiles(Array.from(e.target.files || []).slice(0, 1))}
+                multiple
+                onChange={(e) => {
+                  const selectedFiles = Array.from(e.target.files || []);
+                  const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
+                  if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
+                  if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
+                  setBusinessCardFiles(imageFiles);
+                }}
                 className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
               />
+              {businessCardFiles.length > 0 && (
+                <div className="space-y-1 text-xs text-slate-600">
+                  {businessCardFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+                      <span>{index + 1}. {file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                        className="font-semibold text-red-600 hover:text-red-700"
+                      >
+                        Fjern
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <div className="flex justify-end border-t border-slate-200 pt-5">
