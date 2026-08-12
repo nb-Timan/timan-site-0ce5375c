@@ -4,10 +4,9 @@
  * Source of truth: public.crm_activities.
  * Fallback: localStorage so the UI never crashes when the table rejects a write.
  *
- * The live table schema uses dealer_* / seller_* columns. Legacy caller fields
- * like account_id, assigned_owner_user_id, created_by_name, value and currency
- * are kept in the TypeScript API for compatibility, but are inserted under
- * meta unless they map cleanly to current columns.
+ * The live table schema uses the legacy account_* / assigned_owner_* columns.
+ * Newer caller fields like dealer_* / seller_* are kept in the TypeScript API
+ * for compatibility and are mirrored into meta unless they map cleanly.
  */
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -237,15 +236,26 @@ export async function logActivity(
 
   const inputMeta = input.meta ?? null;
   const createdByEmail = input.created_by_email ?? (looksLikeEmail(input.created_by_name) ? input.created_by_name ?? null : null);
+  const accountId = input.account_id ?? input.dealer_account_id ?? metaString(inputMeta, "dealer_account_id");
+  const accountName = input.account_name ?? input.dealer_name ?? metaString(inputMeta, "dealer_name");
+  const assignedOwnerUserId = input.assigned_owner_user_id ?? input.seller_user_id ?? metaString(inputMeta, "seller_user_id");
+  const assignedOwnerName = input.assigned_owner_name ?? input.seller_name ?? input.seller_initials ?? metaString(inputMeta, "seller_name") ?? metaString(inputMeta, "seller_initials");
   const meta = withDefinedMeta({
     ...(inputMeta ?? {}),
-    legacy_account_id: input.account_id ?? undefined,
-    legacy_account_name: input.account_name ?? undefined,
+    dealer_account_id: input.dealer_account_id ?? metaString(inputMeta, "dealer_account_id") ?? undefined,
+    dealer_number: input.dealer_number ?? metaString(inputMeta, "dealer_number") ?? undefined,
+    dealer_name: input.dealer_name ?? metaString(inputMeta, "dealer_name") ?? undefined,
+    seller_user_id: input.seller_user_id ?? metaString(inputMeta, "seller_user_id") ?? undefined,
+    seller_email: input.seller_email ?? metaString(inputMeta, "seller_email") ?? undefined,
+    seller_initials: input.seller_initials ?? metaString(inputMeta, "seller_initials") ?? undefined,
+    seller_name: input.seller_name ?? metaString(inputMeta, "seller_name") ?? undefined,
+    legacy_account_id: accountId ?? undefined,
+    legacy_account_name: accountName ?? undefined,
     legacy_created_by_name: input.created_by_name ?? undefined,
     legacy_created_by_email: createdByEmail ?? undefined,
     created_by_email: createdByEmail ?? undefined,
-    legacy_assigned_owner_user_id: input.assigned_owner_user_id ?? undefined,
-    legacy_assigned_owner_name: input.assigned_owner_name ?? undefined,
+    legacy_assigned_owner_user_id: assignedOwnerUserId ?? undefined,
+    legacy_assigned_owner_name: assignedOwnerName ?? undefined,
     value: input.value ?? undefined,
     currency: input.currency ?? undefined,
   });
@@ -258,16 +268,17 @@ export async function logActivity(
     configuration_id: row.configuration_id,
     quote_id: row.quote_id,
     order_id: row.order_id,
-    dealer_account_id: input.dealer_account_id ?? metaString(inputMeta, "dealer_account_id"),
-    dealer_number: input.dealer_number ?? metaString(inputMeta, "dealer_number"),
-    dealer_name: input.dealer_name ?? metaString(inputMeta, "dealer_name"),
-    seller_user_id: input.seller_user_id ?? row.assigned_owner_user_id,
-    seller_email: input.seller_email ?? metaString(inputMeta, "seller_email"),
-    seller_initials: input.seller_initials ?? metaString(inputMeta, "seller_initials"),
-    seller_name: input.seller_name ?? row.assigned_owner_name,
+    activity_date: row.activity_date,
+    account_id: accountId,
+    account_name: accountName,
+    created_by_user_id: row.created_by_user_id,
+    created_by_name: row.created_by_name,
+    assigned_owner_user_id: assignedOwnerUserId,
+    assigned_owner_name: assignedOwnerName,
+    value: row.value,
+    currency: row.currency,
     status: row.status,
     meta,
-    created_by_user_id: row.created_by_user_id,
     created_at: row.created_at,
   };
 
@@ -302,7 +313,7 @@ export async function listActivities(opts: ListActivitiesOpts = {}): Promise<Crm
   try {
     let q = supabase.from("crm_activities").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("seller_user_id", opts.ownerUserId);
-    if (opts.accountId) q = q.eq("dealer_account_id", opts.accountId);
+    if (opts.accountId) q = q.eq("account_id", opts.accountId);
     const { data, error } = await q;
     if (error) throw error;
     if (data && data.length > 0) return (data as Record<string, unknown>[]).map(mapDbActivity);
