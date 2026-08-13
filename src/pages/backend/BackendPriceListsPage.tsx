@@ -14,6 +14,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import {
   ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
   Search, Pencil, Download, Tag, X, Database, UploadCloud,
@@ -28,10 +29,10 @@ import {
   listPriceItems,
   listImportLogs,
   parsePriceCsv,
+  parsePriceWorkbook,
   buildPreview,
   runImport,
   updatePriceItem,
-  exportCsv,
   type PriceListItem,
   type PriceListImportLog,
   type PreviewRow,
@@ -54,9 +55,10 @@ import {
 
 const FIELD_LABEL: Record<string, string> = {
   item_text_da: "Varetekst",
+  cost_price_dkk: "Kostpris DKK",
   price_dkk: "Pris DKK",
-  price_eur: "Pris EUR",
   price_sek: "Pris SEK",
+  price_eur: "Pris EUR",
 };
 
 type Tab = "list" | "import" | "export";
@@ -174,8 +176,10 @@ export default function BackendPriceListsPage() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const text = String(reader.result ?? "");
-        const { rows, parseErrors: pe } = parsePriceCsv(text);
+        const parsed = /\.(xlsx|xls)$/i.test(f.name)
+          ? parsePriceWorkbook(reader.result as ArrayBuffer)
+          : parsePriceCsv(String(reader.result ?? ""));
+        const { rows, parseErrors: pe } = parsed;
         const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
         setParseErrors(pe);
         setPreview(buildPreview(scopedRows, items));
@@ -186,7 +190,11 @@ export default function BackendPriceListsPage() {
         toast.error("Kunne ikke læse CSV: " + (err instanceof Error ? err.message : String(err)));
       }
     };
-    reader.readAsText(f, "utf-8");
+    if (/\.(xlsx|xls)$/i.test(f.name)) {
+      reader.readAsArrayBuffer(f);
+    } else {
+      reader.readAsText(f, "utf-8");
+    }
   }
 
   function loadFromConfigurator(scope: ProductScope = "all") {
@@ -196,9 +204,10 @@ export default function BackendPriceListsPage() {
       const rows: CsvPriceRow[] = seed.map((s) => ({
         item_number: s.item_number,
         item_text_da: s.item_text_da,
+        cost_price_dkk: "",
         price_dkk: s.price_dkk == null ? "" : String(s.price_dkk),
-        price_eur: s.price_eur == null ? "" : String(s.price_eur),
         price_sek: "", // never overwrite existing SEK
+        price_eur: s.price_eur == null ? "" : String(s.price_eur),
       }));
       setFileName("konfigurator-seed");
       setPreview(buildPreview(rows, items));
@@ -228,13 +237,25 @@ export default function BackendPriceListsPage() {
 
 
   function downloadExport() {
-    const csv = exportCsv(scopedExportItems);
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const rows = scopedExportItems.map((i) => ({
+      "Maskintype": groupMap.get(i.item_number) ?? "Options/accessories/other",
+      "Varenr.": i.item_number,
+      "Varetekst": i.item_text_da ?? "",
+      "Kostpris DKK": i.cost_price_dkk ?? "",
+      "Pris DKK": i.price_dkk ?? "",
+      "Pris SEK": i.price_sek ?? "",
+      "Pris EUR": i.price_eur ?? "",
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "Prisliste");
+    const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     const scopeSlug = productScope === "all" ? "alle-maskiner" : slugify(productScope);
-    a.download = `prisliste-${scopeSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `prisliste-${scopeSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   }
@@ -331,9 +352,10 @@ export default function BackendPriceListsPage() {
                     <th className="px-3 py-2 text-left">Produktgruppe</th>
                     <th className="px-3 py-2 text-left">Varenr.</th>
                     <th className="px-3 py-2 text-left">Varetekst</th>
+                    <th className="px-3 py-2 text-right">Kostpris DKK</th>
                     <th className="px-3 py-2 text-right">Pris DKK</th>
-                    <th className="px-3 py-2 text-right">Pris EUR</th>
                     <th className="px-3 py-2 text-right">Pris SEK</th>
+                    <th className="px-3 py-2 text-right">Pris EUR</th>
                     <th className="px-3 py-2 text-left">Opdateret</th>
                     <th className="px-3 py-2"></th>
                   </tr>
@@ -357,9 +379,10 @@ export default function BackendPriceListsPage() {
                           )}
                         </td>
                         <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_sek)}</td>
+                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
                         <td className="px-3 py-2 text-xs text-slate-500">
                           {new Date(i.updated_at).toLocaleDateString("da-DK")}
                         </td>
@@ -375,7 +398,7 @@ export default function BackendPriceListsPage() {
                     );
                   })}
                   {filteredItems.length === 0 && !loadingItems && (
-                    <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-500">Ingen varer.</td></tr>
+                    <tr><td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">Ingen varer.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -392,15 +415,15 @@ export default function BackendPriceListsPage() {
         {tab === "import" && (
           <>
             <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-              <h2 className="font-bold text-slate-900 mb-2">1. Upload CSV-fil</h2>
+              <h2 className="font-bold text-slate-900 mb-2">1. Upload prisliste eller kostpriser</h2>
               <p className="text-xs text-slate-600 mb-3">
                 Understøttede kolonner (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
-                pris_dkk / price_dkk, pris_eur / price_eur, pris_sek / price_sek. Tomme felter overskriver
+                kostpris_dkk / cost_price_dkk, pris_dkk / price_dkk, pris_sek / price_sek, pris_eur / price_eur. Tomme felter overskriver
                 aldrig eksisterende værdier, og ingen varer slettes.
               </p>
               <ProductScopeSelect value={productScope} onChange={setProductScope} />
               <div className="flex items-center gap-3 flex-wrap">
-                <input type="file" accept=".csv,text/csv" onChange={onFile} disabled={loadingItems} className="block text-sm" />
+                <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={onFile} disabled={loadingItems} className="block text-sm" />
                 {fileName && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
                     <FileText className="h-3.5 w-3.5" /> {fileName}
@@ -437,9 +460,10 @@ export default function BackendPriceListsPage() {
                         <th className="px-2 py-1.5">Produktgruppe</th>
                         <th className="px-2 py-1.5">Varenr.</th>
                         <th className="px-2 py-1.5">Varetekst</th>
+                        <th className="px-2 py-1.5 text-right">Kostpris DKK</th>
                         <th className="px-2 py-1.5 text-right">Pris DKK</th>
-                        <th className="px-2 py-1.5 text-right">Pris EUR</th>
                         <th className="px-2 py-1.5 text-right">Pris SEK</th>
+                        <th className="px-2 py-1.5 text-right">Pris EUR</th>
                         <th className="px-2 py-1.5">Ændringer / fejl</th>
                       </tr>
                     </thead>
@@ -456,9 +480,10 @@ export default function BackendPriceListsPage() {
                           </td>
                           <td className="px-2 py-1.5 font-mono">{p.item_number ?? "—"}</td>
                           <td className="px-2 py-1.5">{p.raw.item_text_da || p.existing?.item_text_da || "—"}</td>
+                          <PriceCell p={p} field="cost_price_dkk" />
                           <PriceCell p={p} field="price_dkk" />
-                          <PriceCell p={p} field="price_eur" />
                           <PriceCell p={p} field="price_sek" />
+                          <PriceCell p={p} field="price_eur" />
                           <td className="px-2 py-1.5">
                             {p.bucket === "error" && <span className="text-rose-700">{p.errorMessage}</span>}
                             {p.bucket === "create" && <span className="text-emerald-700">Opretter ny vare.</span>}
@@ -589,7 +614,7 @@ export default function BackendPriceListsPage() {
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
             <h2 className="font-bold text-slate-900 mb-2">Eksportér prisliste</h2>
             <p className="text-sm text-slate-600 mb-4">
-              Download den nuværende prisliste som CSV (kolonner: varenr, varetekst_da, pris_dkk, pris_eur, pris_sek).
+              Download den nuværende prisliste som Excel (kolonner: maskintype, varenr, varetekst, kostpris DKK, pris DKK, pris SEK, pris EUR).
             </p>
             <ProductScopeSelect value={productScope} onChange={setProductScope} />
             <button
@@ -636,6 +661,9 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
     id: `configurator-${seed.item_number}`,
     item_number: seed.item_number,
     item_text_da: seed.item_text_da,
+    cost_price_dkk: null,
+    cost_price_source: null,
+    cost_price_updated_at: null,
     price_dkk: seed.price_dkk,
     price_eur: seed.price_eur,
     price_sek: seed.price_sek,
@@ -704,7 +732,7 @@ function fmtPriceStr(s: string | null | undefined): string {
   return fmtPrice(n);
 }
 
-function PriceCell({ p, field }: { p: PreviewRow; field: "price_dkk" | "price_eur" | "price_sek" }) {
+function PriceCell({ p, field }: { p: PreviewRow; field: "cost_price_dkk" | "price_dkk" | "price_sek" | "price_eur" }) {
   const change = p.changes.find((c) => c.field === field);
   const oldVal = p.existing ? (p.existing[field] == null ? null : String(p.existing[field])) : null;
   const rawNew = (p.raw[field] ?? "").trim();
@@ -807,6 +835,7 @@ function EditModal({ item, onClose, onSaved }: {
   onSaved: () => void | Promise<void>;
 }) {
   const [text, setText] = useState(item.item_text_da ?? "");
+  const [costDkk, setCostDkk] = useState(item.cost_price_dkk == null ? "" : String(item.cost_price_dkk));
   const [dkk, setDkk] = useState(item.price_dkk == null ? "" : String(item.price_dkk));
   const [eur, setEur] = useState(item.price_eur == null ? "" : String(item.price_eur));
   const [sek, setSek] = useState(item.price_sek == null ? "" : String(item.price_sek));
@@ -820,8 +849,8 @@ function EditModal({ item, onClose, onSaved }: {
   }
 
   async function save() {
-    const d = num(dkk), e = num(eur), s = num(sek);
-    if (Number.isNaN(d) || Number.isNaN(e) || Number.isNaN(s)) {
+    const c = num(costDkk), d = num(dkk), e = num(eur), s = num(sek);
+    if (Number.isNaN(c) || Number.isNaN(d) || Number.isNaN(e) || Number.isNaN(s)) {
       toast.error("Ugyldig pris-værdi.");
       return;
     }
@@ -829,6 +858,7 @@ function EditModal({ item, onClose, onSaved }: {
     const res = await updatePriceItem({
       item_number: item.item_number,
       item_text_da: text.trim() || null,
+      cost_price_dkk: c,
       price_dkk: d,
       price_eur: e,
       price_sek: s,
@@ -855,10 +885,11 @@ function EditModal({ item, onClose, onSaved }: {
             <input value={text} onChange={(e) => setText(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </Field>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
             <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
-            <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
             <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
+            <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
           </div>
         </div>
 

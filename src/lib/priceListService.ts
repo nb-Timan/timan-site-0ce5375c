@@ -12,6 +12,7 @@
  */
 
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
 export interface PriceListItem {
@@ -21,6 +22,9 @@ export interface PriceListItem {
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
+  cost_price_dkk: number | null;
+  cost_price_source: string | null;
+  cost_price_updated_at: string | null;
   updated_at: string;
   updated_by_email: string | null;
   is_dirty: boolean;
@@ -38,12 +42,13 @@ export interface PriceListImportLog {
   error_count: number;
 }
 
-export const PRICE_FIELDS = ["item_text_da", "price_dkk", "price_eur", "price_sek"] as const;
+export const PRICE_FIELDS = ["item_text_da", "cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const;
 export type PriceField = typeof PRICE_FIELDS[number];
 
 export interface CsvPriceRow {
   item_number: string;
   item_text_da?: string;
+  cost_price_dkk?: string;
   price_dkk?: string;
   price_eur?: string;
   price_sek?: string;
@@ -79,7 +84,7 @@ export interface ImportSummary {
 export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, item_number, item_text_da, price_dkk, price_eur, price_sek, updated_at, updated_by_email, is_dirty, last_published_at")
+    .select("id, item_number, item_text_da, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
     .order("item_number", { ascending: true });
   if (error) {
     // eslint-disable-next-line no-console
@@ -116,6 +121,7 @@ export async function updatePriceItem(input: {
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
+  cost_price_dkk: number | null;
 }): Promise<{ ok: boolean; item?: PriceListItem; error?: string }> {
   try {
     const { data, error } = await supabase.rpc("update_price_list_item", {
@@ -124,6 +130,7 @@ export async function updatePriceItem(input: {
       p_price_dkk: input.price_dkk,
       p_price_eur: input.price_eur,
       p_price_sek: input.price_sek,
+      p_cost_price_dkk: input.cost_price_dkk,
     });
     if (error) throw error;
     return { ok: true, item: data as PriceListItem };
@@ -137,6 +144,7 @@ export async function updatePriceItem(input: {
 const HEADER_ALIASES: Record<keyof CsvPriceRow, string[]> = {
   item_number: ["item_number", "varenr", "varenummer", "item_no", "itemnumber"],
   item_text_da: ["item_text_da", "varetekst_da", "varetekst", "text_da", "tekst"],
+  cost_price_dkk: ["cost_price_dkk", "kostpris_dkk", "kostpris", "kost_dkk", "kost", "cost_dkk", "cost_price"],
   price_dkk: ["price_dkk", "pris_dkk", "dkk"],
   price_eur: ["price_eur", "pris_eur", "eur"],
   price_sek: ["price_sek", "pris_sek", "sek"],
@@ -173,11 +181,35 @@ export function parsePriceCsv(text: string): ParseResult {
   const rows: CsvPriceRow[] = (out.data || []).map((r) => ({
     item_number: pickField(r, "item_number"),
     item_text_da: pickField(r, "item_text_da"),
+    cost_price_dkk: pickField(r, "cost_price_dkk"),
     price_dkk: pickField(r, "price_dkk"),
     price_eur: pickField(r, "price_eur"),
     price_sek: pickField(r, "price_sek"),
   }));
   return { rows, parseErrors };
+}
+
+export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const sheetName = wb.SheetNames[0];
+  if (!sheetName) return { rows: [], parseErrors: ["Excel-filen har ingen ark."] };
+  const sheet = wb.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  const rows: CsvPriceRow[] = data.map((r) => {
+    const asStrings: Record<string, string> = {};
+    for (const [key, value] of Object.entries(r)) {
+      asStrings[key] = value == null ? "" : String(value);
+    }
+    return {
+      item_number: pickField(asStrings, "item_number"),
+      item_text_da: pickField(asStrings, "item_text_da"),
+      cost_price_dkk: pickField(asStrings, "cost_price_dkk"),
+      price_dkk: pickField(asStrings, "price_dkk"),
+      price_eur: pickField(asStrings, "price_eur"),
+      price_sek: pickField(asStrings, "price_sek"),
+    };
+  });
+  return { rows, parseErrors: [] };
 }
 
 /* ---------------- Preview ---------------- */
@@ -237,7 +269,7 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
     seen.add(key);
 
     // Validate numeric fields explicitly so user sees parse errors.
-    for (const f of ["price_dkk", "price_eur", "price_sek"] as const) {
+    for (const f of ["cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const) {
       const v = (raw[f] ?? "").trim();
       if (v && parsePrice(v) == null) {
         out.push({
@@ -287,9 +319,11 @@ export async function runImport(
       const dkk = parsePrice(r.price_dkk);
       const eur = parsePrice(r.price_eur);
       const sek = parsePrice(r.price_sek);
+      const costDkk = parsePrice(r.cost_price_dkk);
       return {
         item_number: p.item_number!,
         item_text_da: r.item_text_da?.trim() || "",
+        cost_price_dkk: costDkk == null ? "" : String(costDkk),
         price_dkk: dkk == null ? "" : String(dkk),
         price_eur: eur == null ? "" : String(eur),
         price_sek: sek == null ? "" : String(sek),
@@ -298,7 +332,7 @@ export async function runImport(
 
   try {
     const { data, error } = await supabase.rpc("upsert_price_list_items", {
-      payload: { rows: toSend },
+      payload: { rows: toSend, file_name: fileName },
     });
     if (error) throw error;
     const d = (data ?? {}) as Record<string, unknown>;
@@ -355,9 +389,10 @@ export function exportCsv(items: PriceListItem[]): string {
   const rows = items.map((i) => ({
     varenr: i.item_number,
     varetekst_da: i.item_text_da ?? "",
+    kostpris_dkk: i.cost_price_dkk ?? "",
     pris_dkk: i.price_dkk ?? "",
-    pris_eur: i.price_eur ?? "",
     pris_sek: i.price_sek ?? "",
+    pris_eur: i.price_eur ?? "",
   }));
   return Papa.unparse(rows, { quotes: true });
 }
