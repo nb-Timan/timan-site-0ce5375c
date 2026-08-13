@@ -143,20 +143,20 @@ const FORM_TEXT = {
   customerLabel: { da: 'Kunde', en: 'Customer', de: 'Kunde', it: 'Cliente', hu: 'Ügyfél' },
   dealerDesc: { da: 'Vil gerne repræsentere Timan som forhandler.', en: 'Would like to represent Timan as a dealer.', de: 'Möchte Timan als Händler vertreten.', it: 'Vuole rappresentare Timan come rivenditore.', hu: 'Timan kereskedőként szeretne képviselni.' },
   customerDesc: { da: 'Er interesseret i produkt og ønsker kontakt.', en: 'Interested in a product and wants contact.', de: 'Interessiert sich für ein Produkt und möchte kontaktiert werden.', it: 'Interessato a un prodotto e desidera essere contattato.', hu: 'Érdeklődik egy termék iránt és kapcsolatfelvételt kér.' },
-  product: { da: '3. Produkt', en: '3. Product', de: '3. Produkt', it: '3. Prodotto', hu: '3. Termék' },
+  product: { da: '4. Produkt', en: '4. Product', de: '4. Produkt', it: '4. Prodotto', hu: '4. Termék' },
   productEquipment: { da: 'Redskaber', en: 'Equipment', de: 'Anbaugeräte', it: 'Attrezzature', hu: 'Eszközök' },
   productLoaderTractor: { da: 'Loader line / traktor-redskaber', en: 'Loader line / Tractor Equipment', de: 'Loader line / Traktor-Anbaugeräte', it: 'Attrezzature Loader line / trattore', hu: 'Loader line / traktor eszközök' },
   productAll: { da: 'Alle', en: 'All', de: 'Alle', it: 'Tutti', hu: 'Összes' },
   chooseEquipment: { da: 'Vælg redskaber', en: 'Choose equipment', de: 'Anbaugeräte wählen', it: 'Scegli attrezzature', hu: 'Eszközök kiválasztása' },
-  demo: { da: '4. Ønsker demonstration', en: '4. Wants a demonstration', de: '4. Möchte eine Vorführung', it: '4. Vuole una dimostrazione', hu: '4. Bemutatót szeretne' },
+  demo: { da: '5. Ønsker demonstration', en: '5. Wants a demonstration', de: '5. Möchte eine Vorführung', it: '5. Vuole una dimostrazione', hu: '5. Bemutatót szeretne' },
   yes: { da: 'Ja', en: 'Yes', de: 'Ja', it: 'Si', hu: 'Igen' },
   no: { da: 'Nej', en: 'No', de: 'Nein', it: 'No', hu: 'Nem' },
   choose: { da: 'Vælg', en: 'Choose', de: 'Wählen', it: 'Scegli', hu: 'Válasszon' },
-  responsible: { da: '5. Timan sælger', en: '5. Timan seller', de: '5. Timan Verkäufer', it: '5. Venditore Timan', hu: '5. Timan értékesítő' },
+  responsible: { da: '6. Timan sælger', en: '6. Timan seller', de: '6. Timan Verkäufer', it: '6. Venditore Timan', hu: '6. Timan értékesítő' },
   dealerSelect: { da: 'Vælg forhandler', en: 'Choose dealer', de: 'Händler wählen', it: 'Scegli rivenditore', hu: 'Kereskedő kiválasztása' },
   mailTo: { da: 'Mail sendes til', en: 'Mail is sent to', de: 'E-Mail wird gesendet an', it: 'Mail inviata a', hu: 'Email címzettje' },
   chooseResponsible: { da: 'vælg Timan sælger', en: 'choose Timan seller', de: 'Timan Verkäufer wählen', it: 'scegli venditore Timan', hu: 'válasszon Timan értékesítőt' },
-  customerInfo: { da: '6. Kundeinformation', en: '6. Customer information', de: '6. Kundeninformationen', it: '6. Informazioni cliente', hu: '6. Ügyféladatok' },
+  customerInfo: { da: '3. Kundeinformation', en: '3. Customer information', de: '3. Kundeninformationen', it: '3. Informazioni cliente', hu: '3. Ügyféladatok' },
   companyPlaceholder: { da: 'Firma navn eller CVR', en: "Customer's Company Name or CVR", de: 'Firmenname oder USt-IdNr.', it: 'Nome azienda o partita IVA', hu: 'Cégnév vagy adószám' },
   contactPlaceholder: { da: 'Kontaktperson', en: 'Contact person', de: 'Kontaktperson', it: 'Persona di contatto', hu: 'Kapcsolattartó' },
   addressPlaceholder: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
@@ -233,6 +233,11 @@ function isGermanySeller(seller: SellerDirectoryEntry): boolean {
   return haystack.includes('jakob') ||
     haystack.includes('alexander') ||
     ['jtn', 'akr', 'ak'].includes(seller.initials.toLowerCase());
+}
+
+function isDenmarkDefaultSeller(seller: SellerDirectoryEntry): boolean {
+  const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
+  return seller.initials.toLowerCase() === 'em' || haystack.includes('esben');
 }
 
 async function sendLeadMail(payload: Record<string, unknown>): Promise<void> {
@@ -316,7 +321,11 @@ export default function MesseFollowUpPage() {
     setCountryQuickChoice(value);
     setDealerNumber('');
     if (value === 'de') setAutoLanguage('de');
-    if (value === 'dk') setAutoLanguage('da');
+    if (value === 'dk') {
+      setAutoLanguage('da');
+      const esben = sellers.find(isDenmarkDefaultSeller);
+      if (esben) setSellerEmail(esben.email);
+    }
     if (value === 'other') setAutoLanguage('en');
   }
 
@@ -382,6 +391,12 @@ export default function MesseFollowUpPage() {
       setSellerEmail(sellerOptions[0].email);
     }
   }, [countryQuickChoice, sellerEmail, sellerOptions]);
+
+  useEffect(() => {
+    if (countryQuickChoice !== 'dk' || sellerEmail) return;
+    const esben = sellers.find(isDenmarkDefaultSeller);
+    if (esben) setSellerEmail(esben.email);
+  }, [countryQuickChoice, sellerEmail, sellers]);
 
   useEffect(() => {
     if (leadType === 'dealer' && dealerNumber) {
@@ -654,6 +669,19 @@ export default function MesseFollowUpPage() {
             </section>
 
             <section className="space-y-3">
+              <RequiredHeading>{f('customerInfo')}</RequiredHeading>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={f('companyPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={f('contactPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={f('addressPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={f('phonePlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              </div>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </section>
+
+            <section className="space-y-3">
               <RequiredHeading>{f('product')}</RequiredHeading>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {PRODUCTS.map((product) => (
@@ -811,19 +839,6 @@ export default function MesseFollowUpPage() {
               <p className="text-xs text-slate-500">
                 {f('mailTo')}: {responsibleSeller?.email || f('chooseResponsible')}
               </p>
-            </section>
-
-            <section className="space-y-3">
-              <RequiredHeading>{f('customerInfo')}</RequiredHeading>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={f('companyPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={f('contactPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={f('addressPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={f('phonePlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              </div>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             </section>
 
             <section className="space-y-2">
