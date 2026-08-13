@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 export interface PriceListItem {
   id: string;
   item_number: string;
+  renamed_from_item_number: string | null;
   item_text_da: string | null;
   price_dkk: number | null;
   price_eur: number | null;
@@ -84,7 +85,7 @@ export interface ImportSummary {
 export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, item_number, item_text_da, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
+    .select("id, item_number, renamed_from_item_number, item_text_da, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
     .order("item_number", { ascending: true });
   if (error) {
     // eslint-disable-next-line no-console
@@ -117,6 +118,7 @@ function describeError(e: unknown): string {
 
 export async function updatePriceItem(input: {
   item_number: string;
+  new_item_number: string;
   item_text_da: string | null;
   price_dkk: number | null;
   price_eur: number | null;
@@ -126,6 +128,7 @@ export async function updatePriceItem(input: {
   try {
     const { data, error } = await supabase.rpc("update_price_list_item", {
       p_item_number: input.item_number,
+      p_new_item_number: input.new_item_number,
       p_item_text_da: input.item_text_da,
       p_price_dkk: input.price_dkk,
       p_price_eur: input.price_eur,

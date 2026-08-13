@@ -126,9 +126,10 @@ export default function BackendPriceListsPage() {
   const filteredItems = useMemo(() => {
     const term = q.trim().toLowerCase();
     const base = !term
-      ? items
-      : items.filter((i) =>
+      ? exportItems
+      : exportItems.filter((i) =>
           i.item_number.toLowerCase().includes(term) ||
+          (i.renamed_from_item_number ?? "").toLowerCase().includes(term) ||
           (i.item_text_da ?? "").toLowerCase().includes(term),
         );
     return [...base].sort((a, b) => {
@@ -138,7 +139,7 @@ export default function BackendPriceListsPage() {
       if (oi !== 0) return oi;
       return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
     });
-  }, [items, q, groupMap]);
+  }, [exportItems, q, groupMap]);
 
   const counts = useMemo(() => {
     const c = { create: 0, update: 0, skip: 0, error: 0 };
@@ -340,7 +341,7 @@ export default function BackendPriceListsPage() {
                   Upload ændringer til konfigurator{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
                 </button>
                 <span className="text-xs text-slate-500">
-                  {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${items.length} varer`}
+                  {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${exportItems.length} varer`}
                 </span>
               </div>
             </div>
@@ -660,6 +661,7 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
   return {
     id: `configurator-${seed.item_number}`,
     item_number: seed.item_number,
+    renamed_from_item_number: null,
     item_text_da: seed.item_text_da,
     cost_price_dkk: null,
     cost_price_source: null,
@@ -677,6 +679,9 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
 function mergeSeedAndStoredItems(seedItems: PriceListItem[], storedItems: PriceListItem[]): PriceListItem[] {
   const byItemNumber = new Map<string, PriceListItem>();
   for (const item of seedItems) byItemNumber.set(item.item_number, item);
+  for (const item of storedItems) {
+    if (item.renamed_from_item_number) byItemNumber.delete(item.renamed_from_item_number);
+  }
   for (const item of storedItems) byItemNumber.set(item.item_number, item);
   return [...byItemNumber.values()];
 }
@@ -834,6 +839,7 @@ function EditModal({ item, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
+  const [itemNumber, setItemNumber] = useState(item.item_number);
   const [text, setText] = useState(item.item_text_da ?? "");
   const [costDkk, setCostDkk] = useState(item.cost_price_dkk == null ? "" : String(item.cost_price_dkk));
   const [dkk, setDkk] = useState(item.price_dkk == null ? "" : String(item.price_dkk));
@@ -849,6 +855,11 @@ function EditModal({ item, onClose, onSaved }: {
   }
 
   async function save() {
+    const nextItemNumber = itemNumber.trim();
+    if (!nextItemNumber) {
+      toast.error("Varenr. skal udfyldes.");
+      return;
+    }
     const c = num(costDkk), d = num(dkk), e = num(eur), s = num(sek);
     if (Number.isNaN(c) || Number.isNaN(d) || Number.isNaN(e) || Number.isNaN(s)) {
       toast.error("Ugyldig pris-værdi.");
@@ -857,6 +868,7 @@ function EditModal({ item, onClose, onSaved }: {
     setBusy(true);
     const res = await updatePriceItem({
       item_number: item.item_number,
+      new_item_number: nextItemNumber,
       item_text_da: text.trim() || null,
       cost_price_dkk: c,
       price_dkk: d,
@@ -881,6 +893,10 @@ function EditModal({ item, onClose, onSaved }: {
         </div>
 
         <div className="space-y-3">
+          <Field label="Varenr.">
+            <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
+          </Field>
           <Field label="Varetekst">
             <input value={text} onChange={(e) => setText(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
