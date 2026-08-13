@@ -36,15 +36,15 @@ const EQUIPMENT_GROUPS = [
   {
     machine: 'RC-1000s',
     items: [
-      'Slagleklipper inkl Y-slagle saet',
+      'Slagleklipper inkl. Y-slagle sæt',
       'Rotorklipper 1350 mm',
       'Fingerklipper 1700 mm',
-      'Skivehoester 1150mm',
-      'Stubfraeser m/hydraulisk sving',
-      'V-plov m/gummiskaer',
+      'Skivehøster 1150mm',
+      'Stubfræser m/hydraulisk sving',
+      'V-plov m/gummiskær',
       'Centerdrevet fejemaskine',
       'Sneslynge 1100 mm',
-      'WB-170 ukrudtsboerste basis enhed',
+      'WB-170 ukrudtsbørste basis enhed',
     ],
   },
   {
@@ -61,12 +61,12 @@ const EQUIPMENT_GROUPS = [
   {
     machine: 'Loader line / Tractor Equipment - Loader line',
     items: [
-      'CS-200 Valspreder, manuel reg. Inklusiv svingbar ophaengs beslag',
-      'CS-200 Combi, manuel reg. Inklusiv svingbar ophaengs beslag til Weidemann',
-      'CS-200 Combi, El. reg. Inklusiv svingbar ophaengs beslag til Weidemann',
-      'Timan hydr. fejemaskine D1316 med skrabeblad O600 mm boerster',
-      'Timan hydr. fejemaskine D1518 med skrabeblad O600 mm boerster',
-      'Flydende ophaeng inklusiv 6/2 ventil til Weidemann',
+      'CS-200 Valspreder, manuel reg. Inklusiv svingbar ophængs beslag',
+      'CS-200 Combi, manuel reg. Inklusiv svingbar ophængs beslag til Weidemann',
+      'CS-200 Combi, El. reg. Inklusiv svingbar ophængs beslag til Weidemann',
+      'Timan hydr. fejemaskine D1316 med skrabeblad Ø600 mm børster',
+      'Timan hydr. fejemaskine D1518 med skrabeblad Ø600 mm børster',
+      'Flydende ophæng inklusiv 6/2 ventil til Weidemann',
       'Tornado 400 fejebredde 135 til 180 cm. 400 liter beholder, 50 liter vandtank',
     ],
   },
@@ -81,33 +81,33 @@ const EQUIPMENT_GROUPS = [
   {
     machine: 'Timan 3330 - Feje/Sug Redskaber',
     items: [
-      'T2 Opsamlingstank uden hoejtryksslange',
-      'T2 Opsamlingstank inkl. hoejtryksrenser',
-      'T3 Opsamlingstank med toersug',
-      'T3 Opsamlingstank med toersug og hoejtryksrenser',
-      'Forkostesaet med 2 koste til fejesug forberedt til venstre og hoejre sidekost',
+      'T2 Opsamlingstank uden højtryksslange',
+      'T2 Opsamlingstank inkl. højtryksrenser',
+      'T3 Opsamlingstank med tørsug',
+      'T3 Opsamlingstank med tørsug og højtryksrenser',
+      'Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost',
     ],
   },
   {
-    machine: 'Timan 3330 - Ukrudtsboerste',
+    machine: 'Timan 3330 - Ukrudtsbørste',
     items: [
-      'WB-170 Ukrudtsboerste basisenhed',
+      'WB-170 Ukrudtsbørste basisenhed',
     ],
   },
   {
-    machine: 'Timan 3330 - Graes opgaver',
+    machine: 'Timan 3330 - Græs opgaver',
     items: [
       'Rotorklipper med 3 gatorknive og tilt-up, 135 cm klippebredde',
-      'Rotorklipper 150 cm med hydraulisk hoejdejustering og tilt-up',
+      'Rotorklipper 150 cm med hydraulisk højdejustering og tilt-up',
       'Rotorklipper 120 cm for opsamling til fejesugtank',
     ],
   },
   {
     machine: 'Timan 3330 - Vinter redskaber',
     items: [
-      'Centerdrevet fejemaskine med reversering, 120 cm, O550 mm boerster',
-      'V-plov 130-150 cm med gummiskaer',
-      'Dozerblad 130 cm med gummiskaer',
+      'Centerdrevet fejemaskine med reversering, 120 cm, Ø550 mm børster',
+      'V-plov 130-150 cm med gummiskær',
+      'Dozerblad 130 cm med gummiskær',
       'Sneslynge, 110 cm arbejdsbredde',
       'CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn',
       'CS-200 Combi, for lad, manuel reg. Husk lad og vogn',
@@ -115,7 +115,7 @@ const EQUIPMENT_GROUPS = [
     ],
   },
   {
-    machine: 'Timan 3330 - Oevrige Redskaber',
+    machine: 'Timan 3330 - Øvrige Redskaber',
     items: [
       'Fingerklipper for Termit-arm',
       'Multitrimmer for Termit-arm',
@@ -434,6 +434,18 @@ export default function MesseFollowUpPage() {
   const hasRequiredEquipment = !products.includes('Equipment') && !products.includes('Loader line / Tractor Equipment')
     ? true
     : equipmentItems.length > 0;
+  const isEquipmentBoxActive = (box: 'rc1000' | '2620' | '3330' | 'loaderTractor') => (
+    products.includes('All') ||
+    (box === 'rc1000' && products.includes('RC-1000')) ||
+    (box === '2620' && products.includes('Timan 2620')) ||
+    (box === '3330' && products.includes('Timan 3330')) ||
+    (box === 'loaderTractor' && products.includes('Loader line / Tractor Equipment'))
+  );
+  const equipmentBoxClass = (active: boolean) => `rounded-lg border-2 p-3 shadow-sm transition ${
+    active
+      ? 'border-emerald-700 bg-emerald-200/70 ring-2 ring-emerald-300/70'
+      : 'border-slate-400 bg-white'
+  }`;
   const isFormReady = Boolean(
     selectedLeadCountry &&
     leadType &&
@@ -703,30 +715,36 @@ export default function MesseFollowUpPage() {
                   </summary>
                   <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className="space-y-3">
-                      {EQUIPMENT_GROUPS.filter((group) => group.machine === 'RC-1000s' || group.machine === 'Timan 2620').map((group) => (
-                        <div key={group.machine} className="rounded-lg border-2 border-slate-400 bg-white p-3 shadow-sm">
-                          <h3 className="mb-2 text-sm font-bold text-slate-900">{group.machine}</h3>
-                          {'subtitle' in group && group.subtitle && (
-                            <div className="mb-2 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-                              {group.subtitle}
+                      {EQUIPMENT_GROUPS.filter((group) => group.machine === 'RC-1000s' || group.machine === 'Timan 2620').map((group) => {
+                        const active = group.machine === 'RC-1000s'
+                          ? isEquipmentBoxActive('rc1000')
+                          : isEquipmentBoxActive('2620');
+
+                        return (
+                          <div key={group.machine} className={equipmentBoxClass(active)}>
+                            <h3 className="mb-2 text-sm font-bold text-slate-900">{group.machine}</h3>
+                            {'subtitle' in group && group.subtitle && (
+                              <div className="mb-2 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+                                {group.subtitle}
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              {group.items.map((item) => (
+                                <label key={`${group.machine}-${item}`} className="flex items-center gap-2 text-sm text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={equipmentItems.includes(`${group.machine} - ${item}`)}
+                                    onChange={() => toggleEquipment(`${group.machine} - ${item}`)}
+                                    className="h-4 w-4 accent-emerald-700"
+                                  />
+                                  {item}
+                                </label>
+                              ))}
                             </div>
-                          )}
-                          <div className="space-y-2">
-                            {group.items.map((item) => (
-                              <label key={`${group.machine}-${item}`} className="flex items-center gap-2 text-sm text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={equipmentItems.includes(`${group.machine} - ${item}`)}
-                                  onChange={() => toggleEquipment(`${group.machine} - ${item}`)}
-                                  className="h-4 w-4 accent-emerald-700"
-                                />
-                                {item}
-                              </label>
-                            ))}
                           </div>
-                        </div>
-                      ))}
-                      <div className="rounded-lg border-2 border-slate-400 bg-white p-3 shadow-sm">
+                        );
+                      })}
+                      <div className={equipmentBoxClass(isEquipmentBoxActive('loaderTractor'))}>
                         <h3 className="mb-3 text-sm font-bold text-slate-900">Loader line / Tractor Equipment</h3>
                         <div className="space-y-4">
                           {EQUIPMENT_GROUPS.filter((group) => group.machine.startsWith('Loader line / Tractor Equipment - ')).map((group) => (
@@ -751,7 +769,7 @@ export default function MesseFollowUpPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-lg border-2 border-slate-400 bg-white p-3 shadow-sm">
+                    <div className={equipmentBoxClass(isEquipmentBoxActive('3330'))}>
                       <h3 className="mb-3 text-sm font-bold text-slate-900">Timan 3330</h3>
                       <div className="space-y-4">
                         {EQUIPMENT_GROUPS.filter((group) => group.machine.startsWith('Timan 3330 - ')).map((group) => (
