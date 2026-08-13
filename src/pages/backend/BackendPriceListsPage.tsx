@@ -14,10 +14,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import {
   ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
   Search, Pencil, Download, Tag, X, Database, UploadCloud,
+  TrendingDown, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
@@ -111,6 +112,11 @@ export default function BackendPriceListsPage() {
   const configuratorSeedItems = useMemo(
     () => buildConfiguratorSeed().map(seedToPriceListItem),
     [],
+  );
+
+  const configuratorSeedByItemNumber = useMemo(
+    () => new Map(configuratorSeedItems.map((i) => [i.item_number, i])),
+    [configuratorSeedItems],
   );
 
   const exportItems = useMemo(
@@ -239,16 +245,16 @@ export default function BackendPriceListsPage() {
 
   function downloadExport() {
     const rows = scopedExportItems.map((i) => ({
-      "Maskintype": groupMap.get(i.item_number) ?? "Options/accessories/other",
-      "Varenr.": i.item_number,
-      "Varetekst": i.item_text_da ?? "",
-      "Kostpris DKK": i.cost_price_dkk ?? "",
-      "Pris DKK": i.price_dkk ?? "",
-      "Pris SEK": i.price_sek ?? "",
-      "Pris EUR": i.price_eur ?? "",
+      group: groupMap.get(i.item_number) ?? "Options/accessories/other",
+      item_number: i.item_number,
+      item_text_da: i.item_text_da ?? "",
+      cost_price_dkk: i.cost_price_dkk ?? "",
+      price_dkk: i.price_dkk ?? 0,
+      price_sek: i.price_sek ?? "",
+      price_eur: i.price_eur ?? "",
     }));
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = buildPriceWorkbookSheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "Prisliste");
     const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -282,7 +288,7 @@ export default function BackendPriceListsPage() {
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
         <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
         </Link>
@@ -300,11 +306,36 @@ export default function BackendPriceListsPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-5 flex flex-wrap gap-2">
-          <TabBtn active={tab === "list"}   onClick={() => setTab("list")}>Prisliste</TabBtn>
-          <TabBtn active={tab === "import"} onClick={() => setTab("import")}>Upload prisliste</TabBtn>
-          <TabBtn active={tab === "export"} onClick={() => setTab("export")}>Eksportér prisliste</TabBtn>
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Arbejdsgang</h2>
+              <p className="text-xs text-slate-500">Upload kostpriser, eksportér Excel, ret arket og indlæs det igen.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <FlowStepButton active={tab === "list"} onClick={() => setTab("list")}>
+              Se nuværende prisliste
+            </FlowStepButton>
+            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
+              1. Upload kostpriser
+            </FlowStepButton>
+            <FlowStepButton active={tab === "export"} onClick={() => setTab("export")}>
+              2. Eksportér prisliste
+            </FlowStepButton>
+            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
+              3. Indlæs redigeret prisliste
+            </FlowStepButton>
+            <button
+              type="button"
+              onClick={() => loadFromConfigurator("all")}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+              title="Bygger en forhåndsvisning fra konfiguratorens nuværende produkt- og tilbehørsdata. Konfiguratorens prislogik ændres ikke."
+            >
+              <Database className="h-3.5 w-3.5" />
+              Indlæs fra eksisterende konfigurator-data
+            </button>
+          </div>
         </div>
 
         {tab === "list" && (
@@ -323,15 +354,6 @@ export default function BackendPriceListsPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => loadFromConfigurator("all")}
-                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
-                  title="Bygger en forhåndsvisning fra konfiguratorens nuværende produkt- og tilbehørsdata. Konfiguratorens prislogik ændres ikke."
-                >
-                  <Database className="h-3.5 w-3.5" />
-                  Indlæs fra eksisterende konfigurator-data
-                </button>
-                <button
-                  type="button"
                   onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
                   disabled={dirtyItems.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -346,6 +368,11 @@ export default function BackendPriceListsPage() {
               </div>
             </div>
 
+            <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              <strong>DB/DG beregnes med 25% standardrabat.</strong>{" "}
+              Pilen ved DB vises på ændrede varer og sammenligner mod konfiguratorens nuværende pris.
+            </div>
+
             <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[640px] overflow-y-auto">
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 sticky top-0 text-xs text-slate-600">
@@ -355,6 +382,8 @@ export default function BackendPriceListsPage() {
                     <th className="px-3 py-2 text-left">Varetekst</th>
                     <th className="px-3 py-2 text-right">Kostpris DKK</th>
                     <th className="px-3 py-2 text-right">Pris DKK</th>
+                    <th className="px-3 py-2 text-right">DB DKK<br /><span className="font-normal">(25%)</span></th>
+                    <th className="px-3 py-2 text-right">DG %<br /><span className="font-normal">(25%)</span></th>
                     <th className="px-3 py-2 text-right">Pris SEK</th>
                     <th className="px-3 py-2 text-right">Pris EUR</th>
                     <th className="px-3 py-2 text-left">Opdateret</th>
@@ -364,6 +393,13 @@ export default function BackendPriceListsPage() {
                 <tbody>
                   {filteredItems.slice(0, 1000).map((i) => {
                     const grp = groupMap.get(i.item_number) ?? "Options/accessories/other";
+                    const marginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
+                    const marginPct = calcMarginPct(i.price_dkk, marginDb);
+                    const seedItem = configuratorSeedByItemNumber.get(i.renamed_from_item_number ?? i.item_number);
+                    const baseMarginDb = calcMarginDb(seedItem?.price_dkk ?? null, i.cost_price_dkk);
+                    const marginDelta = i.is_dirty && marginDb != null && baseMarginDb != null
+                      ? Math.round((marginDb - baseMarginDb) * 100) / 100
+                      : null;
                     return (
                       <tr key={i.id} className="border-t border-slate-100">
                         <td className="px-3 py-2">
@@ -374,7 +410,7 @@ export default function BackendPriceListsPage() {
                         <td className="px-3 py-2 font-mono text-xs">
                           {i.item_number}
                           {i.is_dirty && (
-                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
+                            <span className="ml-2 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
                               Ændret – ikke publiceret
                             </span>
                           )}
@@ -382,6 +418,13 @@ export default function BackendPriceListsPage() {
                         <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-700">
+                          <div className="flex items-center justify-end gap-2">
+                            <span>{fmtPrice(marginDb)}</span>
+                            <MarginTrend delta={marginDelta} />
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPercent(marginPct)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_sek)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
                         <td className="px-3 py-2 text-xs text-slate-500">
@@ -399,7 +442,7 @@ export default function BackendPriceListsPage() {
                     );
                   })}
                   {filteredItems.length === 0 && !loadingItems && (
-                    <tr><td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">Ingen varer.</td></tr>
+                    <tr><td colSpan={11} className="px-3 py-6 text-center text-sm text-slate-500">Ingen varer.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -416,7 +459,11 @@ export default function BackendPriceListsPage() {
         {tab === "import" && (
           <>
             <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-              <h2 className="font-bold text-slate-900 mb-2">1. Upload prisliste eller kostpriser</h2>
+              <h2 className="font-bold text-slate-900 mb-2">Upload kostpriser</h2>
+              <p className="text-xs text-slate-600 mb-3">
+                Upload et Excel- eller CSV-ark med varenr. og kostpris. Hvis arket også indeholder varetekst eller salgspriser,
+                kan de felter også opdateres i samme forhåndsvisning.
+              </p>
               <p className="text-xs text-slate-600 mb-3">
                 Understøttede kolonner (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
                 kostpris_dkk / cost_price_dkk, pris_dkk / price_dkk, pris_sek / price_sek, pris_eur / price_eur. Tomme felter overskriver
@@ -676,6 +723,330 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
   };
 }
 
+export type PriceWorkbookRow = {
+  group: string;
+  item_number: string;
+  item_text_da: string;
+  cost_price_dkk: number | string;
+  price_dkk: number;
+  price_sek: number | string;
+  price_eur: number | string;
+};
+
+export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
+  const headers = [
+    "Maskintype",
+    "Varenr.",
+    "Varetekst (DA)",
+    "Kostpris DKK",
+    "Nuværende pris DKK",
+    "Nuværende pris SEK",
+    "Nuværende pris EUR",
+    "Nuværende DB DKK",
+    "Nuværende DG %",
+    "Ny pris DKK",
+    "Prisændring %",
+    "Masseændring – skriv X",
+    "Ny pris DKK",
+    "Ny pris SEK",
+    "Ny pris EUR",
+    "Ny DB DKK",
+    "Ny DG %",
+    "Note",
+  ];
+
+  const aoa: Array<Array<string | number>> = [
+    ["PRISLISTEVÆRKTØJ"],
+    ["1. INDSTILLINGER", "", "", "HURTIG INFO", "", "", "", "SÅDAN BRUGER DU ARKET"],
+    ["SEK kurs (DKK pr. 100 SEK)", 66.5, "", "Skriv i de orange felter til venstre.", "", "", "", "1. Ret eventuelt SEK/EUR-kurs, standardrabat eller masseændring øverst."],
+    ["EUR kurs (DKK pr. 1 EUR)", 7.45, "", "Ret én vare via Ny pris DKK eller Prisændring %.", "", "", "", "2. Ret én vare: skriv ønsket pris i Ny pris DKK eller skriv fx 1,00% i Prisændring %."],
+    ["Standard rabat (%)", 0.25, "", "Masseændring: skriv X i kolonnen Masseændring – skriv X.", "", "", "", "3. Masseændring: skriv procent i feltet Masseændring % og skriv X ud for de varer, der skal ændres."],
+    ["Masseændring (%)", 0, "", "Både X og x accepteres. Tom celle betyder ingen masseændring.", "", "", "", "4. Eksempel: Masseændring % = 3,00%."],
+    ["", "", "", "Systemet beregner automatisk nye priser og avance.", "", "", "", "5. Vare A = X, B = tom, C = X, D = x. Resultat: A, C og D får +3,00%. B ændres ikke."],
+    ["", "", "", "Upload samme Excel-fil igen. Systemet indlæser de nye pris-kolonner.", "", "", "", "6. Slet ikke kolonner eller rækker."],
+    ["2. PRISLISTE"],
+    ["VAREDATA / IDENTIFIKATION", "", "", "", "NUVÆRENDE VÆRDIER", "", "", "", "", "DINE ÆNDRINGER - udfyld kun her", "", "", "NYE BEREGNEDE VÆRDIER - automatisk", "", "", "", "", "NOTE"],
+    headers,
+    ...rows.map((row) => [
+      row.group,
+      row.item_number,
+      row.item_text_da,
+      row.cost_price_dkk,
+      row.price_dkk,
+      row.price_sek,
+      row.price_eur,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const sectionRow = 9;
+  const groupRow = 10;
+  const headerRow = 11;
+  const firstDataRow = headerRow + 1;
+  const lastRow = rows.length + headerRow;
+  const legendRow = lastRow + 3;
+
+  for (let r = firstDataRow; r <= lastRow; r++) {
+    const row = rows[r - firstDataRow];
+    const price = toWorkbookNumber(row.price_dkk);
+    const cost = toWorkbookNumber(row.cost_price_dkk);
+    const currentDb = price != null && cost != null ? roundMoney(price * 0.75 - cost) : "";
+    const currentDg = typeof currentDb === "number" && price != null && price > 0 ? currentDb / price : "";
+    ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(E${r}="",D${r}=""),"",ROUND(E${r}*(1-$B$5)-D${r},2))` };
+    ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(E${r}="",E${r}=0,H${r}=""),"",H${r}/E${r})` };
+    ws[`K${r}`] = { t: "n", v: 0 };
+    ws[`M${r}`] = { t: price == null ? "s" : "n", v: price ?? "", f: `IF(ISNUMBER(J${r}),J${r},IF(LOWER(TRIM(L${r}))="x",ROUND(E${r}*(1+$B$6),2),IF(ISNUMBER(K${r}),ROUND(E${r}*(1+K${r}),2),E${r})))` };
+    ws[`N${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney((price / 66.5) * 100), f: `IF(M${r}="","",ROUND(M${r}/$B$3*100,2))` };
+    ws[`O${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney(price / 7.45), f: `IF(M${r}="","",ROUND(M${r}/$B$4,2))` };
+    ws[`P${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(M${r}="",D${r}=""),"",ROUND(M${r}*(1-$B$5)-D${r},2))` };
+    ws[`Q${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(M${r}="",M${r}=0,P${r}=""),"",P${r}/M${r})` };
+  }
+
+  const border = {
+    top: { style: "thin", color: { rgb: "B7C3B5" } },
+    right: { style: "thin", color: { rgb: "B7C3B5" } },
+    bottom: { style: "thin", color: { rgb: "B7C3B5" } },
+    left: { style: "thin", color: { rgb: "B7C3B5" } },
+  };
+  const darkBorder = {
+    top: { style: "medium", color: { rgb: "0F4D2F" } },
+    right: { style: "medium", color: { rgb: "0F4D2F" } },
+    bottom: { style: "medium", color: { rgb: "0F4D2F" } },
+    left: { style: "medium", color: { rgb: "0F4D2F" } },
+  };
+  const titleStyle = {
+    font: { bold: true, sz: 20, color: { rgb: "0B3B24" } },
+    alignment: { vertical: "center" },
+  };
+  const boxHeaderStyle = {
+    font: { bold: true, sz: 12, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "EAF4E5" } },
+    border: darkBorder,
+    alignment: { vertical: "top", wrapText: true },
+  };
+  const inputStyle = {
+    fill: { fgColor: { rgb: "FCE4C4" } },
+    border: {
+      top: { style: "thin", color: { rgb: "D9822B" } },
+      right: { style: "thin", color: { rgb: "D9822B" } },
+      bottom: { style: "thin", color: { rgb: "D9822B" } },
+      left: { style: "thin", color: { rgb: "D9822B" } },
+    },
+    alignment: { horizontal: "right", vertical: "center" },
+  };
+  const dataStyle = {
+    fill: { fgColor: { rgb: "F3F0E8" } },
+    border,
+    alignment: { vertical: "top", wrapText: true },
+  };
+  const dataHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "E7E2D7" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
+  const currentStyle = {
+    fill: { fgColor: { rgb: "EAF4E5" } },
+    border,
+    alignment: { vertical: "top" },
+  };
+  const currentHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "D9EAD3" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
+  const changeStyle = {
+    fill: { fgColor: { rgb: "FCE4E4" } },
+    border,
+    alignment: { vertical: "top" },
+  };
+  const changeHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "F4CCCC" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
+  const outputStyle = {
+    fill: { fgColor: { rgb: "FFF2CC" } },
+    border,
+    alignment: { vertical: "top" },
+  };
+  const outputHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "FFE599" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
+  const noteStyle = {
+    fill: { fgColor: { rgb: "FFFFFF" } },
+    border,
+    alignment: { vertical: "top", wrapText: true },
+  };
+  const sectionStyle = {
+    font: { bold: true, sz: 13, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "0F4D2F" } },
+    border: darkBorder,
+  };
+  const infoStyle = {
+    fill: { fgColor: { rgb: "FFFFFF" } },
+    border: darkBorder,
+    alignment: { vertical: "top", wrapText: true },
+  };
+  const numberFormat = "#,##0.00";
+  const percentFormat = "0.00%";
+
+  styleCell(ws, "A1", titleStyle);
+  for (let r = 2; r <= 7; r++) {
+    for (let c = 1; c <= 6; c++) {
+      const cell = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
+      styleCell(ws, cell, r === 2 && (c === 1 || c === 4) ? boxHeaderStyle : infoStyle);
+    }
+    for (let c = 8; c <= 13; c++) {
+      const cell = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
+      styleCell(ws, cell, r === 2 ? boxHeaderStyle : infoStyle);
+    }
+  }
+  for (const cell of ["B3", "B4", "B5", "B6"]) styleCell(ws, cell, inputStyle);
+  ws["B3"].z = "0.00";
+  ws["B4"].z = "0.00";
+  ws["B5"].z = percentFormat;
+  ws["B6"].z = percentFormat;
+  for (let c = 1; c <= headers.length; c++) {
+    styleCell(ws, XLSX.utils.encode_cell({ r: sectionRow - 1, c: c - 1 }), sectionStyle);
+    const groupCell = XLSX.utils.encode_cell({ r: groupRow - 1, c: c - 1 });
+    if (c <= 4) styleCell(ws, groupCell, dataHeaderStyle);
+    else if (c <= 9) styleCell(ws, groupCell, currentHeaderStyle);
+    else if (c <= 12) styleCell(ws, groupCell, changeHeaderStyle);
+    else if (c <= 17) styleCell(ws, groupCell, outputHeaderStyle);
+    else styleCell(ws, groupCell, dataHeaderStyle);
+  }
+  for (let c = 0; c < headers.length; c++) {
+    const cell = XLSX.utils.encode_cell({ r: headerRow - 1, c });
+    if (c <= 3) styleCell(ws, cell, dataHeaderStyle);
+    else if (c <= 8) styleCell(ws, cell, currentHeaderStyle);
+    else if (c <= 11) styleCell(ws, cell, changeHeaderStyle);
+    else if (c <= 16) styleCell(ws, cell, outputHeaderStyle);
+    else styleCell(ws, cell, dataHeaderStyle);
+  }
+  for (let r = firstDataRow; r <= lastRow; r++) {
+    for (const col of ["E", "F", "G", "H", "I"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, currentStyle);
+    }
+    for (const col of ["J", "K", "L"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, changeStyle);
+    }
+    for (const col of ["M", "N", "O", "P", "Q"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, outputStyle);
+    }
+    for (const col of ["A", "B", "C", "D"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, dataStyle);
+    }
+    styleCell(ws, `R${r}`, noteStyle);
+    for (const col of ["D", "E", "F", "G", "H", "J", "M", "N", "O", "P"]) {
+      const cell = ws[`${col}${r}`];
+      if (cell) cell.z = numberFormat;
+    }
+    for (const col of ["I", "K", "Q"]) {
+      const cell = ws[`${col}${r}`];
+      if (cell) cell.z = percentFormat;
+    }
+  }
+
+  ws[`A${legendRow}`] = { t: "s", v: "FARVEFORKLARING" };
+  ws[`A${legendRow + 1}`] = { t: "s", v: "Orange = indstillinger/input" };
+  ws[`C${legendRow + 1}`] = { t: "s", v: "Grøn = nuværende værdier" };
+  ws[`E${legendRow + 1}`] = { t: "s", v: "Pink = dine ændringer" };
+  ws[`G${legendRow + 1}`] = { t: "s", v: "Gul = nye beregnede værdier" };
+  styleCell(ws, `A${legendRow}`, boxHeaderStyle);
+  styleCell(ws, `A${legendRow + 1}`, inputStyle);
+  styleCell(ws, `C${legendRow + 1}`, currentStyle);
+  styleCell(ws, `E${legendRow + 1}`, changeStyle);
+  styleCell(ws, `G${legendRow + 1}`, outputStyle);
+
+  ws["!cols"] = [
+    { wch: 22 }, { wch: 14 }, { wch: 46 }, { wch: 14 }, { wch: 15 },
+    { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
+    { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+    { wch: 14 }, { wch: 12 }, { wch: 26 },
+  ];
+  ws["!rows"] = [
+    { hpt: 24 }, { hpt: 24 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 },
+    { hpt: 22 }, { hpt: 4 }, { hpt: 24 }, { hpt: 28 }, { hpt: 42 },
+  ];
+  ws["!merges"] = [
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+    { s: { r: 1, c: 3 }, e: { r: 1, c: 5 } },
+    { s: { r: 2, c: 3 }, e: { r: 2, c: 5 } },
+    { s: { r: 3, c: 3 }, e: { r: 3, c: 5 } },
+    { s: { r: 4, c: 3 }, e: { r: 4, c: 5 } },
+    { s: { r: 5, c: 3 }, e: { r: 5, c: 5 } },
+    { s: { r: 6, c: 3 }, e: { r: 6, c: 5 } },
+    { s: { r: 1, c: 7 }, e: { r: 1, c: 12 } },
+    { s: { r: 2, c: 7 }, e: { r: 2, c: 12 } },
+    { s: { r: 3, c: 7 }, e: { r: 3, c: 12 } },
+    { s: { r: 4, c: 7 }, e: { r: 4, c: 12 } },
+    { s: { r: 5, c: 7 }, e: { r: 5, c: 12 } },
+    { s: { r: 6, c: 7 }, e: { r: 6, c: 12 } },
+    { s: { r: 8, c: 0 }, e: { r: 8, c: 17 } },
+    { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
+    { s: { r: 9, c: 4 }, e: { r: 9, c: 8 } },
+    { s: { r: 9, c: 9 }, e: { r: 9, c: 11 } },
+    { s: { r: 9, c: 12 }, e: { r: 9, c: 16 } },
+    { s: { r: legendRow - 1, c: 0 }, e: { r: legendRow - 1, c: 7 } },
+    { s: { r: legendRow, c: 0 }, e: { r: legendRow, c: 1 } },
+    { s: { r: legendRow, c: 2 }, e: { r: legendRow, c: 3 } },
+    { s: { r: legendRow, c: 4 }, e: { r: legendRow, c: 5 } },
+    { s: { r: legendRow, c: 6 }, e: { r: legendRow, c: 7 } },
+  ];
+  ws["!autofilter"] = { ref: `A${headerRow}:R${lastRow}` };
+  ws["!freeze"] = { xSplit: 0, ySplit: headerRow };
+
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:R1");
+  range.e.c = Math.max(range.e.c, 17);
+  range.e.r = Math.max(range.e.r, legendRow);
+  ws["!ref"] = XLSX.utils.encode_range(range);
+
+  return ws;
+}
+
+function styleCell(ws: XLSX.WorkSheet, address: string, style: Record<string, unknown>) {
+  const cell = (ws[address] ?? { t: "s", v: "" }) as XLSX.CellObject & { s?: Record<string, unknown> };
+  cell.s = style;
+  ws[address] = cell;
+}
+
+function toWorkbookNumber(value: number | string | null | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (value == null || value === "") return null;
+  const trimmed = String(value).trim().replace(/\s/g, "");
+  if (!trimmed) return null;
+  const normalized = trimmed.includes(",")
+    ? trimmed.replace(/\./g, "").replace(",", ".")
+    : trimmed.replace(/,/g, "");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function mergeSeedAndStoredItems(seedItems: PriceListItem[], storedItems: PriceListItem[]): PriceListItem[] {
   const byItemNumber = new Map<string, PriceListItem>();
   for (const item of seedItems) byItemNumber.set(item.item_number, item);
@@ -730,6 +1101,38 @@ function fmtPrice(n: number | null): string {
   return n.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtPercent(n: number | null): string {
+  if (n == null) return "—";
+  return n.toLocaleString("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function calcMarginDb(priceDkk: number | null, costDkk: number | null): number | null {
+  if (priceDkk == null || costDkk == null) return null;
+  return Math.round((priceDkk * 0.75 - costDkk) * 100) / 100;
+}
+
+function calcMarginPct(priceDkk: number | null, marginDb: number | null): number | null {
+  if (priceDkk == null || priceDkk === 0 || marginDb == null) return null;
+  return marginDb / priceDkk;
+}
+
+function MarginTrend({ delta }: { delta: number | null }) {
+  if (delta == null || Math.abs(delta) < 0.01) return null;
+  const positive = delta > 0;
+  const Icon = positive ? TrendingUp : TrendingDown;
+  return (
+    <span
+      title={`DB ${positive ? "stiger" : "falder"} med ${fmtPrice(Math.abs(delta))} ift. konfiguratorens nuværende pris`}
+      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+        positive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+      }`}
+    >
+      <Icon className="h-3 w-3" />
+      {fmtPrice(Math.abs(delta))}
+    </span>
+  );
+}
+
 function fmtPriceStr(s: string | null | undefined): string {
   if (s == null || s === "") return "—";
   const n = Number(s);
@@ -768,6 +1171,22 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
       onClick={onClick}
       className={`rounded-lg px-4 py-2 text-sm font-semibold border ${
         active ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FlowStepButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-4 py-2 text-sm font-bold ${
+        active
+          ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+          : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
       }`}
     >
       {children}
@@ -841,16 +1260,15 @@ function EditModal({ item, onClose, onSaved }: {
 }) {
   const [itemNumber, setItemNumber] = useState(item.item_number);
   const [text, setText] = useState(item.item_text_da ?? "");
-  const [costDkk, setCostDkk] = useState(item.cost_price_dkk == null ? "" : String(item.cost_price_dkk));
-  const [dkk, setDkk] = useState(item.price_dkk == null ? "" : String(item.price_dkk));
-  const [eur, setEur] = useState(item.price_eur == null ? "" : String(item.price_eur));
-  const [sek, setSek] = useState(item.price_sek == null ? "" : String(item.price_sek));
+  const [costDkk, setCostDkk] = useState(formatEditablePrice(item.cost_price_dkk));
+  const [dkk, setDkk] = useState(formatEditablePrice(item.price_dkk));
+  const [eur, setEur] = useState(formatEditablePrice(item.price_eur));
+  const [sek, setSek] = useState(formatEditablePrice(item.price_sek));
   const [busy, setBusy] = useState(false);
 
   function num(v: string): number | null {
-    const t = v.trim().replace(/\s/g, "");
-    if (!t) return null;
-    const n = Number(t.includes(",") && !t.includes(".") ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, ""));
+    const n = parseEditablePrice(v);
+    if (n == null) return null;
     return Number.isFinite(n) ? n : NaN;
   }
 
@@ -883,7 +1301,7 @@ function EditModal({ item, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Rediger varenr.</h3>
@@ -901,7 +1319,7 @@ function EditModal({ item, onClose, onSaved }: {
             <input value={text} onChange={(e) => setText(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </Field>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
             <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
             <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
@@ -934,16 +1352,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  function formatOnBlur() {
+    const n = parseEditablePrice(value);
+    if (n == null || Number.isNaN(n)) return;
+    onChange(formatEditablePrice(n));
+  }
+
   return (
     <input
       type="text"
       inputMode="decimal"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={formatOnBlur}
       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono text-right"
       placeholder="0,00"
     />
   );
+}
+
+function parseEditablePrice(value: string): number | null {
+  const t = value.trim().replace(/\s/g, "");
+  if (!t) return null;
+  const normalized = t.includes(",")
+    ? t.replace(/\./g, "").replace(",", ".")
+    : t.replace(/,/g, "");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function formatEditablePrice(value: number | null | undefined): string {
+  if (value == null) return "";
+  return value.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function PublishModal({

@@ -1,22 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Play, X } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
-import { MESSE_VIDEOS, MESSE_VIDEO_CATEGORY_LABEL, extractYouTubeId, youtubeThumbnail, type MesseVideo, type MesseVideoCategory } from '@/data/messeVideos';
-import { Language } from '@/types/configurator';
 import { useAppUser } from '@/context/AppUserContext';
+import { portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { t } from '@/lib/i18n/translations';
+import {
+  MESSE_VIDEOS,
+  extractYouTubeId,
+  youtubeThumbnail,
+  type MesseVideo,
+  type MesseVideoCategory,
+} from '@/data/messeVideos';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
-
-const T: Record<string, Record<Language, string>> = {
-  back:   { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
-  title:  { da: 'Video Akademi', en: 'Video Academy', de: 'Video-Akademie', it: 'Video Academy', hu: 'Videó Akadémia' },
-  latest: { da: 'Seneste videoer', en: 'Latest videos', de: 'Neueste Videos', it: 'Ultimi video', hu: 'Legújabb videók' },
-  none:   { da: 'Ingen videoer', en: 'No videos', de: 'Keine Videos', it: 'Nessun video', hu: 'Nincs videó' },
-};
 
 const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber'];
 
+const CATEGORY_LABEL_KEYS: Record<MesseVideoCategory, string> = {
+  maskiner: 'messeVideoCategoryMachines',
+  redskaber: 'messeVideoCategoryAttachments',
+  service: 'messeVideoCategoryService',
+  salg: 'messeVideoCategorySales',
+};
+
 export default function MesseVideoPage() {
-  const { language: lang } = useLanguage();
+  const { uiLanguage } = useLanguage();
   const [active, setActive] = useState<MesseVideo | null>(null);
   const { appUser } = useAppUser();
 
@@ -41,18 +48,18 @@ export default function MesseVideoPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <MesseSubpageHeader backLabel={T.back[lang]} />
+      <MesseSubpageHeader backLabel={t('back', uiLanguage)} />
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
-        <h1 className="text-3xl font-bold text-slate-900">{T.title[lang]}</h1>
+        <h1 className="text-3xl font-bold text-slate-900">{t('messeHomeVideo', uiLanguage)}</h1>
 
-        <Section title={T.latest[lang]} videos={latest} lang={lang} onPlay={setActive} />
+        <Section title={t('messeVideoLatest', uiLanguage)} videos={latest} lang={uiLanguage} onPlay={setActive} />
         {CATEGORY_ORDER.map(cat => (
           <Section
             key={cat}
-            title={MESSE_VIDEO_CATEGORY_LABEL[cat][lang]}
+            title={t(CATEGORY_LABEL_KEYS[cat], uiLanguage)}
             videos={byCategory[cat]}
-            lang={lang}
+            lang={uiLanguage}
             onPlay={setActive}
           />
         ))}
@@ -64,7 +71,7 @@ export default function MesseVideoPage() {
             type="button"
             onClick={() => setActive(null)}
             className="absolute top-4 right-4 rounded-full bg-white/10 hover:bg-white/20 text-white p-2"
-            aria-label="Close"
+            aria-label={t('close', uiLanguage)}
           >
             <X className="h-6 w-6" />
           </button>
@@ -75,7 +82,7 @@ export default function MesseVideoPage() {
                 <iframe
                   className="w-full h-full"
                   src={`https://www.youtube.com/embed/${id}?autoplay=1`}
-                  title={active.title[lang] || active.id}
+                  title={localizedVideoText(active.title, uiLanguage, active.id)}
                   allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
                 />
@@ -88,7 +95,17 @@ export default function MesseVideoPage() {
   );
 }
 
-function Section({ title, videos, lang, onPlay }: { title: string; videos: MesseVideo[]; lang: Language; onPlay: (v: MesseVideo) => void }) {
+function Section({
+  title,
+  videos,
+  lang,
+  onPlay,
+}: {
+  title: string;
+  videos: MesseVideo[];
+  lang: PortalUiLanguage;
+  onPlay: (v: MesseVideo) => void;
+}) {
   return (
     <section>
       <h2 className="text-xl font-bold text-slate-900 mb-3">{title}</h2>
@@ -103,7 +120,7 @@ function Section({ title, videos, lang, onPlay }: { title: string; videos: Messe
               className="text-left bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition group"
             >
               <div className="relative aspect-video bg-slate-200">
-                {thumb ? <img src={thumb} alt={v.title[lang] || v.id} className="w-full h-full object-cover" /> : null}
+                {thumb ? <img src={thumb} alt={localizedVideoText(v.title, lang, v.id)} className="w-full h-full object-cover" /> : null}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition">
                   <div className="h-14 w-14 rounded-full bg-white flex items-center justify-center">
                     <Play className="h-6 w-6 text-emerald-700 ml-0.5" fill="currentColor" />
@@ -111,8 +128,8 @@ function Section({ title, videos, lang, onPlay }: { title: string; videos: Messe
                 </div>
               </div>
               <div className="p-4">
-                <div className="font-bold text-slate-900">{v.title[lang] || v.title.da || v.id}</div>
-                <div className="text-sm text-slate-500 mt-1">{v.description[lang] || v.description.da || ''}</div>
+                <div className="font-bold text-slate-900">{localizedVideoText(v.title, lang, v.id)}</div>
+                <div className="text-sm text-slate-500 mt-1">{localizedVideoText(v.description, lang, '')}</div>
               </div>
             </button>
           );
@@ -120,4 +137,16 @@ function Section({ title, videos, lang, onPlay }: { title: string; videos: Messe
       </div>
     </section>
   );
+}
+
+function localizedVideoText(
+  value: Partial<Record<PortalUiLanguage, string>>,
+  language: PortalUiLanguage,
+  fallback: string,
+) {
+  for (const code of portalLanguageLookupOrder(language, true)) {
+    const text = value[code as PortalUiLanguage];
+    if (text?.trim()) return text;
+  }
+  return fallback;
 }

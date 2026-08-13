@@ -145,27 +145,96 @@ export async function updatePriceItem(input: {
 /* ---------------- CSV parsing ---------------- */
 
 const HEADER_ALIASES: Record<keyof CsvPriceRow, string[]> = {
-  item_number: ["item_number", "varenr", "varenummer", "item_no", "itemnumber"],
-  item_text_da: ["item_text_da", "varetekst_da", "varetekst", "text_da", "tekst"],
-  cost_price_dkk: ["cost_price_dkk", "kostpris_dkk", "kostpris", "kost_dkk", "kost", "cost_dkk", "cost_price"],
-  price_dkk: ["price_dkk", "pris_dkk", "dkk"],
-  price_eur: ["price_eur", "pris_eur", "eur"],
-  price_sek: ["price_sek", "pris_sek", "sek"],
+  item_number: ["item_number", "Varenr.", "varenr", "varenummer", "item_no", "itemnumber"],
+  item_text_da: ["item_text_da", "Varetekst (DA)", "varetekst_da", "varetekst", "text_da", "tekst"],
+  cost_price_dkk: ["cost_price_dkk", "Kostpris DKK", "kostpris_dkk", "kostpris", "kost_dkk", "kost", "cost_dkk", "cost_price"],
+  price_dkk: ["price_dkk", "Ny pris DKK", "pris_dkk", "ny_pris_dkk", "dkk"],
+  price_eur: ["price_eur", "Ny pris EUR", "pris_eur", "ny_pris_eur", "eur"],
+  price_sek: ["price_sek", "Ny pris SEK", "pris_sek", "ny_pris_sek", "sek"],
 };
 
 function normalizeKey(k: string) {
-  return k.trim().toLowerCase().replace(/\s+/g, "_");
+  return k
+    .trim()
+    .toLowerCase()
+    .replace(/[–-]/g, " ")
+    .replace(/[^0-9a-zæøå]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function pickField(row: Record<string, string>, field: keyof CsvPriceRow): string {
-  const aliases = HEADER_ALIASES[field].map(normalizeKey);
+  return pickByAliases(row, HEADER_ALIASES[field]);
+}
+
+function pickByAliases(row: Record<string, string>, aliases: string[]): string {
+  const normalizedAliases = aliases.map(normalizeKey);
   for (const k of Object.keys(row)) {
-    if (aliases.includes(normalizeKey(k))) {
+    if (normalizedAliases.includes(normalizeKey(k))) {
       const v = (row[k] ?? "").trim();
       if (v !== "") return v;
     }
   }
   return "";
+}
+
+function isMassChangeSelected(value: string): boolean {
+  return value.trim().toLowerCase() === "x";
+}
+
+function pickWorkbookCell(
+  values: unknown[],
+  headers: string[],
+  aliases: string[],
+  preferredIndexes: number[] = [],
+): string {
+  const normalizedAliases = aliases.map(normalizeKey);
+  const readAt = (idx: number): string => {
+    const value = values[idx];
+    return value == null ? "" : String(value).trim();
+  };
+
+  for (const idx of preferredIndexes) {
+    if (!normalizedAliases.includes(normalizeKey(headers[idx] ?? ""))) continue;
+    const value = readAt(idx);
+    if (value !== "") return value;
+  }
+
+  for (let idx = 0; idx < headers.length; idx++) {
+    if (!normalizedAliases.includes(normalizeKey(headers[idx] ?? ""))) continue;
+    const value = readAt(idx);
+    if (value !== "") return value;
+  }
+
+  return "";
+}
+
+function pickWorkbookCellAt(
+  values: unknown[],
+  headers: string[],
+  aliases: string[],
+  indexes: number[],
+): string {
+  const normalizedAliases = aliases.map(normalizeKey);
+  for (const idx of indexes) {
+    if (!normalizedAliases.includes(normalizeKey(headers[idx] ?? ""))) continue;
+    const value = values[idx];
+    return value == null ? "" : String(value).trim();
+  }
+  return "";
+}
+
+function parseWorkbookPercent(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.endsWith("%")) {
+    const n = parsePrice(trimmed.slice(0, -1));
+    return n == null ? null : n / 100;
+  }
+  return parsePrice(trimmed);
+}
+
+function formatWorkbookNumber(value: number | null): string {
+  return value == null || !Number.isFinite(value) ? "" : String(Math.round(value * 100) / 100);
 }
 
 export interface ParseResult {
@@ -197,21 +266,71 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return { rows: [], parseErrors: ["Excel-filen har ingen ark."] };
   const sheet = wb.Sheets[sheetName];
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-  const rows: CsvPriceRow[] = data.map((r) => {
-    const asStrings: Record<string, string> = {};
-    for (const [key, value] of Object.entries(r)) {
-      asStrings[key] = value == null ? "" : String(value);
+  const rawRows = XLSX.utils.sheet_to_json<Array<unknown>>(sheet, { header: 1, defval: "", blankrows: false });
+  const itemNumberAliases = HEADER_ALIASES.item_number.map(normalizeKey);
+  const headerIndex = rawRows.findIndex((row) =>
+    row.some((cell) => itemNumberAliases.includes(normalizeKey(String(cell ?? "")))),
+  );
+  if (headerIndex < 0) {
+    return { rows: [], parseErrors: ["Excel-filen mangler en kolonne med varenr."] };
+  }
+
+  const headers = rawRows[headerIndex].map((value) => String(value ?? "").trim());
+  const data = rawRows.slice(headerIndex + 1);
+
+  const readSetting = (labelPattern: RegExp): number | null => {
+    for (const row of rawRows.slice(0, headerIndex)) {
+      for (let idx = 0; idx < row.length; idx++) {
+        const label = String(row[idx] ?? "");
+        if (!labelPattern.test(label)) continue;
+        const rawValue = String(row[idx + 1] ?? "");
+        const parsed = parseWorkbookPercent(rawValue) ?? parsePrice(rawValue);
+        if (parsed != null) return parsed;
+      }
     }
-    return {
-      item_number: pickField(asStrings, "item_number"),
-      item_text_da: pickField(asStrings, "item_text_da"),
-      cost_price_dkk: pickField(asStrings, "cost_price_dkk"),
-      price_dkk: pickField(asStrings, "price_dkk"),
-      price_eur: pickField(asStrings, "price_eur"),
-      price_sek: pickField(asStrings, "price_sek"),
-    };
-  });
+    return null;
+  };
+  const sekRate = readSetting(/sek\s*kurs/i);
+  const eurRate = readSetting(/eur\s*kurs/i);
+  const massChangePct = readSetting(/masse/i) ?? 0;
+
+  const rows: CsvPriceRow[] = data
+    .map((values) => {
+      const itemNumber = pickWorkbookCell(values, headers, HEADER_ALIASES.item_number, [1]);
+      const currentDkk = parsePrice(pickWorkbookCell(values, headers, ["Nuværende pris DKK", "nuværende_pris_dkk", "current_price_dkk"], [4]));
+      const manualDkk = parsePrice(pickWorkbookCellAt(values, headers, ["Ny pris DKK", "manuel_ny_pris_dkk", "manual_new_price_dkk"], [9]));
+      const rowChangePct = parseWorkbookPercent(pickWorkbookCell(values, headers, ["Prisændring %", "prisændring_pct", "price_change_pct"], [10]));
+      const massSelected = isMassChangeSelected(pickWorkbookCell(values, headers, ["Masseændring - skriv X", "Masseændring – skriv X", "masseændring_skriv_x", "masseaendring_skriv_x", "vælg_til_masseændring", "vaelg_til_masseaendring", "mass_change", "mass_change_selected"], [11]));
+      const existingNewDkk = parsePrice(pickWorkbookCellAt(values, headers, ["Ny pris DKK", "ny_pris_dkk", "price_dkk", "pris_dkk", "dkk"], [12]));
+      const calculatedDkk = manualDkk != null
+        ? manualDkk
+        : massSelected && massChangePct !== 0 && currentDkk != null
+            ? currentDkk * (1 + massChangePct)
+            : rowChangePct != null && rowChangePct !== 0 && currentDkk != null
+              ? currentDkk * (1 + rowChangePct)
+              : existingNewDkk != null && currentDkk != null && existingNewDkk !== currentDkk
+                ? existingNewDkk
+                : "";
+      const calculatedSek = typeof calculatedDkk === "number" && sekRate != null && sekRate !== 0
+        ? (calculatedDkk / sekRate) * 100
+        : null;
+      const calculatedEur = typeof calculatedDkk === "number" && eurRate != null && eurRate !== 0
+        ? calculatedDkk / eurRate
+        : null;
+      return {
+        item_number: itemNumber,
+        item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da, [2]),
+        cost_price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk, [3]),
+        price_dkk: formatWorkbookNumber(calculatedDkk),
+        price_eur: formatWorkbookNumber(calculatedEur),
+        price_sek: formatWorkbookNumber(calculatedSek),
+      };
+    })
+    .filter((r) => {
+      const itemNumber = r.item_number.trim();
+      return itemNumber !== "" && !/\s/.test(itemNumber);
+    });
+
   return { rows, parseErrors: [] };
 }
 

@@ -825,6 +825,48 @@ function Template06({ content, lang, page = 1 }: NewsRendererProps) {
   return <FlyerPage1 page={current} lang={lang} />;
 }
 
+function CustomTiman3330Seat({ content, lang }: NewsRendererProps) {
+  const mainImage = text(content, 'mainImage', '');
+  const headline = text(content, 'headline', 'Superior operator comfort');
+  const subtitle = text(content, 'subtitle', 'Timan 3330');
+  const body = text(content, 'body', '');
+  const ctaLabel = text(content, 'cta_label', 'Læs mere');
+  const ctaUrl = text(content, 'cta_url', '');
+
+  return (
+    <TemplateShell lang={lang} scaleToFit showLogo={false} showDecor={false}>
+      <div className="grid h-full grid-cols-[0.92fr_1.08fr] gap-8 overflow-hidden bg-white">
+        <div className="flex min-h-0 items-center justify-center overflow-hidden rounded-2xl bg-black p-4">
+          {mainImage ? (
+            <img src={mainImage} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
+          ) : (
+            <ImageBox label={t('newsCmsFieldMainImage', lang)} className="h-full w-full" />
+          )}
+        </div>
+        <div className="flex min-h-0 flex-col justify-center overflow-hidden pr-6">
+          <img src={timanLogo} alt="TIMAN" className="mb-10 h-24 w-auto self-start object-contain" draggable={false} />
+          <span className="mb-5 inline-flex w-fit rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-black uppercase tracking-[0.12em] text-emerald-700">
+            {t('newsCmsBadgeNews', lang)}
+          </span>
+          <h2 className="max-w-[30rem] text-5xl font-black leading-[0.98] tracking-normal text-slate-950">{headline}</h2>
+          <p className="mt-4 max-w-[31rem] text-2xl font-bold leading-snug text-emerald-700">{subtitle}</p>
+          {body && <p className="mt-6 max-w-[33rem] text-lg leading-8 text-slate-700">{body}</p>}
+          {ctaUrl && (
+            <a
+              href={ctaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 inline-flex w-fit rounded-xl bg-[var(--timan-green)] px-6 py-3 text-base font-bold text-white shadow-sm"
+            >
+              {ctaLabel}
+            </a>
+          )}
+        </div>
+      </div>
+    </TemplateShell>
+  );
+}
+
 
 const RENDERERS: Record<NewsTemplateId, ComponentType<NewsRendererProps>> = {
   'template-01-product-announcement': Template01,
@@ -833,6 +875,7 @@ const RENDERERS: Record<NewsTemplateId, ComponentType<NewsRendererProps>> = {
   'template-04-technical-feature': Template04,
   'template-05-story-layout': Template05,
   'template-06-flyer': Template06,
+  'custom-timan-3330-seat': CustomTiman3330Seat,
 };
 
 const baseFields = [
@@ -948,6 +991,23 @@ export const NEWS_TEMPLATE_REGISTRY: NewsTemplateDefinition[] = [
     ],
     validate: template06Validate,
     Renderer: RENDERERS['template-06-flyer'],
+  },
+  {
+    id: 'custom-timan-3330-seat',
+    number: 'CUSTOM',
+    nameKey: 'newsCmsCustomTiman3330SeatName',
+    purposeKey: 'newsCmsCustomTiman3330SeatPurpose',
+    pageMode: 'single',
+    orientation: 'a4-landscape',
+    availableInPicker: false,
+    fields: [
+      ...baseFields,
+      { key: 'mainImage', labelKey: 'newsCmsFieldMainImage', type: 'image', required: true },
+      { key: 'cta_label', labelKey: 'newsCmsFieldCtaLabel', type: 'text', maxLength: 60 },
+      { key: 'cta_url', labelKey: 'newsCmsFieldCtaUrl', type: 'url' },
+    ],
+    validate: placeholderValidate,
+    Renderer: RENDERERS['custom-timan-3330-seat'],
   },
 ];
 

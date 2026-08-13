@@ -14,7 +14,7 @@ interface Props {
 export default function NewsTemplatePicker({ lang, selectedId, onSelect, compact = false }: Props) {
   return (
     <div className={compact ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3'}>
-      {NEWS_TEMPLATE_REGISTRY.map((template) => {
+      {NEWS_TEMPLATE_REGISTRY.filter((template) => template.availableInPicker !== false).map((template) => {
         const selected = template.id === selectedId;
         return (
           <button

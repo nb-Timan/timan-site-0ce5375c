@@ -3,26 +3,13 @@ import { ArrowLeft, ChevronDown } from 'lucide-react';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
-import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
+import { t } from '@/lib/i18n/translations';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const HEADER_TEXT: Record<string, Record<string, string>> = {
-  home: { da: 'Til forsiden', en: 'To the front page', de: 'Zur Startseite', it: 'Alla home page', hu: 'A kezdolapra' },
-  logoTitle: { da: 'Timan forside', en: 'Timan home', de: 'Timan Startseite', it: 'Home Timan', hu: 'Timan kezdolap' },
-};
-
-const ht = (key: 'home' | 'logoTitle', lang: string) => {
-  const entry = HEADER_TEXT[key];
-  if (entry[lang]) return entry[lang];
-  const daKey = key === 'home' ? 'Til forsiden' : 'Timan forside';
-  const extra = MESSE_MACHINE_EXTRA_TRANSLATIONS[daKey] as Record<string, string> | undefined;
-  return extra?.[lang] || entry.en;
-};
 
 interface MesseSubpageHeaderProps {
   backTo?: string;
@@ -34,8 +21,8 @@ export default function MesseSubpageHeader({
   backLabel,
 }: MesseSubpageHeaderProps) {
   const { uiLanguage, setLanguage } = useLanguage();
-  const resolvedBackLabel = backLabel ?? ht('home', uiLanguage);
-  const logoTitle = ht('logoTitle', uiLanguage);
+  const resolvedBackLabel = backLabel ?? t('portalHeaderToFrontPage', uiLanguage);
+  const logoTitle = t('portalHeaderHome', uiLanguage);
   const currentLanguage = PORTAL_LANGUAGES.find((l) => l.code === uiLanguage);
 
   return (

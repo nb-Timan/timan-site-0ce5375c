@@ -1,23 +1,64 @@
-import { Language } from '@/types/configurator';
+import { type PortalUiLanguage } from '@/lib/portalLanguages';
 
 export type MesseVideoCategory = 'maskiner' | 'redskaber' | 'service' | 'salg';
+type LocalizedVideoText = Partial<Record<PortalUiLanguage, string>>;
 
 export interface MesseVideo {
   id: string;
-  title: Partial<Record<Language, string>>;
-  description: Partial<Record<Language, string>>;
+  title: LocalizedVideoText;
+  description: LocalizedVideoText;
   youtubeUrl: string;
   category: MesseVideoCategory;
-  language: Language[];
+  language: PortalUiLanguage[];
   thumbnail?: string;
   publishedAt: string; // ISO
 }
 
-export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<Language, string>> = {
-  maskiner:  { da: 'Maskiner',  en: 'Machines',    de: 'Maschinen', it: 'Macchine',   hu: 'Gépek' },
-  redskaber: { da: 'Redskaber', en: 'Attachments', de: 'Anbauten',  it: 'Attrezzi',   hu: 'Eszközök' },
-  service:   { da: 'Service',   en: 'Service',     de: 'Service',   it: 'Service',    hu: 'Szerviz' },
-  salg:      { da: 'Salg',      en: 'Sales',       de: 'Vertrieb',  it: 'Vendite',    hu: 'Értékesítés' },
+export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<PortalUiLanguage, string>> = {
+  maskiner: {
+    da: 'Maskiner',
+    en: 'Machines',
+    de: 'Maschinen',
+    it: 'Macchine',
+    hu: 'Gepek',
+    sv: 'Maskiner',
+    fr: 'Machines',
+    pl: 'Maszyny',
+    cs: 'Stroje',
+  },
+  redskaber: {
+    da: 'Redskaber',
+    en: 'Attachments',
+    de: 'Anbaugeraete',
+    it: 'Attrezzi',
+    hu: 'Eszkozok',
+    sv: 'Redskap',
+    fr: 'Accessoires',
+    pl: 'Osprzet',
+    cs: 'Prislusenstvi',
+  },
+  service: {
+    da: 'Service',
+    en: 'Service',
+    de: 'Service',
+    it: 'Service',
+    hu: 'Szerviz',
+    sv: 'Service',
+    fr: 'Service',
+    pl: 'Serwis',
+    cs: 'Servis',
+  },
+  salg: {
+    da: 'Salg',
+    en: 'Sales',
+    de: 'Vertrieb',
+    it: 'Vendite',
+    hu: 'Ertekesites',
+    sv: 'Forsaljning',
+    fr: 'Ventes',
+    pl: 'Sprzedaz',
+    cs: 'Prodej',
+  },
 };
 
 export const MESSE_VIDEOS: MesseVideo[] = [];

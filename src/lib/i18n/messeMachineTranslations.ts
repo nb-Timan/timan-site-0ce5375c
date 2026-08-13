@@ -1,11 +1,10 @@
 /**
- * Extra machine/product page translations for the portal languages that are
- * not part of the legacy `Language` union (sv / fr / pl / cs).
+ * Extra machine/product page translations for the newer portal languages.
  *
- * The machine detail pages store their content as `Record<Language, string>`
- * objects keyed by a Danish source string. Rather than duplicating the whole
- * content tree, this registry maps that Danish source string to the four
- * additional locales. `resolveMachineText()` in the machine page resolves:
+ * The machine detail pages store their content as localized objects keyed by
+ * a Danish source string. Rather than duplicating the whole content tree, this
+ * registry maps that Danish source string to the additional locales.
+ * `resolveMachineText()` in the machine page resolves:
  *
  *   selected portal language -> this registry -> English -> Danish
  *

@@ -1,8 +1,8 @@
 import type { NewsFieldDefinition } from '@/features/news-cms/templates/types';
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 import type { LocalizedNewsContent } from '@/features/news-cms/templates/types';
 
-export const NEWS_CONTENT_LANGUAGES: PortalUiLanguage[] = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'];
+export const NEWS_CONTENT_LANGUAGES: PortalUiLanguage[] = [...PORTAL_LANGUAGE_CODES];
 
 export function emptyLocalizedContent(): LocalizedNewsContent {
   return NEWS_CONTENT_LANGUAGES.reduce((acc, lang) => {
@@ -16,7 +16,12 @@ export function getLocalizedNewsContent(
   lang: PortalUiLanguage,
 ): Record<string, unknown> {
   if (!content) return {};
-  return content[lang] || content.en || content.da || Object.values(content).find(Boolean) || {};
+  const contentByLanguage = content as Record<string, Record<string, unknown> | undefined>;
+  for (const languageKey of portalLanguageLookupOrder(lang, true)) {
+    const value = contentByLanguage[languageKey];
+    if (value && Object.keys(value).length > 0) return value;
+  }
+  return {};
 }
 
 export function updateLocalizedNewsField(
@@ -188,14 +193,14 @@ export function mergeSharedNewsFields(
   fields: Array<{ key: string; type: string }>,
 ): Record<string, unknown> {
   const active = { ...getExactNewsContent(content, lang) };
-  const sharedTypes = ['image', 'file', 'featureBlocks', 'iconBlocks', 'pages', 'url', 'pageCount'];
+  const sharedTypes = ['image', 'file', 'iconBlocks', 'pages', 'url', 'pageCount'];
   for (const field of fields) {
-    if (field.type === 'techBlocks') {
+    if (field.type === 'featureBlocks' || field.type === 'techBlocks') {
       if (Array.isArray(active[field.key])) continue;
       for (const code of NEWS_CONTENT_LANGUAGES) {
         const candidate = content?.[code]?.[field.key];
         if (Array.isArray(candidate)) {
-          // Icon/colour are shared, heading + value stay per language.
+          // Icon/colour are shared, heading + description stay per language.
           active[field.key] = candidate.map((item) => ({ ...(item as Record<string, unknown>), heading: '', description: '' }));
           break;
         }

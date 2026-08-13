@@ -15,8 +15,7 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { Language } from '@/types/configurator';
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
 import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
@@ -24,7 +23,7 @@ import iconService from '@/assets/rc1000s-icon-16.png.asset.json';
 import iconSeason from '@/assets/rc1000s-icon-17.png.asset.json';
 
 type MachineKey = 'rc-751' | 'rc-1000s' | 'timan-3330';
-type Localized = Record<Language, string>;
+type Localized = Partial<Record<PortalUiLanguage, string>> & { da: string; en: string };
 
 const T: Record<string, Localized> = {
   back: { da: 'Tilbage', en: 'Back', de: 'Zuruck', it: 'Indietro', hu: 'Vissza' },
@@ -63,7 +62,7 @@ type TechnicalSection = {
   rows: Array<{ label: Localized; value: Localized }>;
 };
 
-const AUTO_TRANSLATIONS: Partial<Record<string, Partial<Localized>>> = {
+const AUTO_TRANSLATIONS: Partial<Record<string, Partial<Record<PortalUiLanguage, string>>>> = {
   'Tekniske specifikationer': { de: 'Technische Daten', it: 'Specifiche tecniche', hu: 'Muszaki adatok' },
   'Dimensioner': { de: 'Abmessungen', it: 'Dimensioni', hu: 'Meretek' },
   'Ekstraudstyr': { de: 'Sonderausstattung', it: 'Accessori opzionali', hu: 'Opcionalis felszereles' },
@@ -573,10 +572,15 @@ interface MesseMachineBrochurePageProps {
  * from silently collapsing to English for content that is translated.
  */
 const tr = (value: Localized, lang: PortalUiLanguage) => {
-  const direct = (value as Partial<Record<PortalUiLanguage, string>>)[lang];
-  if (direct) return direct;
-  const extra = MESSE_MACHINE_EXTRA_TRANSLATIONS[value.da]?.[lang as 'sv' | 'fr' | 'pl' | 'cs'];
-  if (extra) return extra;
+  for (const languageKey of portalLanguageLookupOrder(lang, false)) {
+    const portalLanguageKey = languageKey as PortalUiLanguage;
+    const direct = value[portalLanguageKey];
+    if (direct) return direct;
+
+    const extra = MESSE_MACHINE_EXTRA_TRANSLATIONS[value.da]?.[portalLanguageKey as 'sv' | 'fr' | 'pl' | 'cs'];
+    if (extra) return extra;
+  }
+
   return value.en || value.da;
 };
 

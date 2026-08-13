@@ -12,7 +12,7 @@ import {
 import { useAppUser } from '@/context/AppUserContext';
 import { PortalAreaId } from '@/lib/portalAreas';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
-import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
+import { mapUiLanguageToLegacy, portalLanguageLookupOrder } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
@@ -27,6 +27,15 @@ interface Props {
   language: PortalUiLanguage;
   /** Max rows to display. Default 5. */
   limit?: number;
+}
+
+function pickLocalizedRecord(values: Partial<Record<string, string>>, language: PortalUiLanguage): string {
+  for (const key of portalLanguageLookupOrder(language, true)) {
+    const value = values[key];
+    if (value) return value;
+  }
+
+  return Object.values(values).find(Boolean) || '';
 }
 
 export default function LatestChanges({ language, limit = 5 }: Props) {
@@ -78,9 +87,9 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                   </span>
                   <span className="text-gray-300">·</span>
                   <span className={cn('font-semibold shrink-0', read ? 'text-gray-500' : 'text-[#2d5a27]')}>
-                    {entry.module_name[legacyLanguage] || entry.module_name.en}:
+                    {pickLocalizedRecord(entry.module_name, language)}:
                   </span>
-                  <span className="truncate">{entry.title[legacyLanguage] || entry.title.en}</span>
+                  <span className="truncate">{pickLocalizedRecord(entry.title, language)}</span>
                   <span className="flex items-center gap-1.5 ml-auto shrink-0">
                     {showNew && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">

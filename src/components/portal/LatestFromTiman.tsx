@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchLatestNews, NewsPost } from '@/lib/newsService';
+import { fetchLatestNews, resolvePublicNewsFields, NewsPost } from '@/lib/newsService';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
@@ -95,11 +95,12 @@ export default function LatestFromTiman({ language }: Props) {
         {data.map((item) => {
           const styles = categoryStyle(item.category);
           const opensInModal = !item.link_url && item.source !== 'placeholder';
+          const localizedItem = resolvePublicNewsFields(item, language);
 
           const inner = (
             <div className="flex h-full flex-col text-left">
               <img
-                src={item.image_url || FALLBACK_IMAGE}
+                src={localizedItem.image_url || FALLBACK_IMAGE}
                 alt=""
                 onError={(event) => {
                   event.currentTarget.src = FALLBACK_IMAGE;
@@ -111,9 +112,9 @@ export default function LatestFromTiman({ language }: Props) {
                 {categoryLabel(item.category, language)}
               </div>
 
-              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{item.title}</h4>
-              {item.excerpt && (
-                <p className="text-sm text-gray-500 line-clamp-3 mb-3">{item.excerpt}</p>
+              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{localizedItem.title}</h4>
+              {localizedItem.excerpt && (
+                <p className="text-sm text-gray-500 line-clamp-3 mb-3">{localizedItem.excerpt}</p>
               )}
 
               <div className="mt-auto pt-3 text-xs text-gray-400">

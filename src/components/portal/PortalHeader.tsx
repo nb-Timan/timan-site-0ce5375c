@@ -17,21 +17,9 @@ import {
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
 
 const LANGS = PORTAL_LANGUAGES;
-
-const T: Record<string, Record<Language, string>> = {
-  portal:        { da: 'Forhandler Portal', en: 'Dealer Portal', de: 'Händler Portal', it: 'Portale Rivenditori', hu: 'Kereskedői Portál' },
-  logout:        { da: 'Log ud', en: 'Log out', de: 'Abmelden', it: 'Esci', hu: 'Kijelentkezés' },
-  backendMode:   { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend' },
-  switchMode:    { da: 'Vis som sælger', en: 'View as seller', de: 'Als Verkäufer ansehen', it: 'Visualizza come venditore', hu: 'Megtekintés értékesítőként' },
-  rolePreview:   { da: 'Vis som rolle', en: 'View as role', de: 'Als Rolle ansehen', it: 'Visualizza come ruolo', hu: 'Megtekintés szerepként' },
-  viewingAs:     { da: 'Vis som', en: 'Viewing as', de: 'Ansicht als', it: 'Visualizzazione come', hu: 'Megtekintés mint' },
-  filteredNote:  { da: 'filtreret sælger-visning. Skift til Backend for global visning.', en: 'filtered seller view. Switch to Backend for the global view.', de: 'gefilterte Verkäuferansicht. Zurück zu Backend für die globale Ansicht.', it: 'vista venditore filtrata. Torna a Backend per la vista globale.', hu: 'szűrt értékesítői nézet. Váltson Backend-re a globális nézethez.' },
-  rolePreviewNote: { da: 'rolle-forhåndsvisning. Destruktive backend-handlinger er deaktiveret.', en: 'role preview. Destructive backend actions are disabled.', de: 'Rollenvorschau. Destruktive Backend-Aktionen sind deaktiviert.', it: 'anteprima ruolo. Le azioni distruttive sono disattivate.', hu: 'szerep-előnézet. A destruktív műveletek le vannak tiltva.' },
-  fullscreen:    { da: 'Fuld skærm', en: 'Fullscreen', de: 'Vollbild', it: 'Schermo intero', hu: 'Teljes képernyő' },
-  exitFullscreen:{ da: 'Afslut fuld skærm', en: 'Exit fullscreen', de: 'Vollbild beenden', it: 'Esci da schermo intero', hu: 'Kilépés teljes képernyőből' },
-};
 
 interface Props {
   user: SessionUser;
@@ -72,12 +60,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const sellerDir = useSellerDirectory();
-  // "Sælger" suffix per UI language for the active-mode chip.
-  const sellerSuffix = T.viewingAs[language] === 'Vis som' ? 'Sælger'
-    : language === 'de' ? 'Verkäufer'
-    : language === 'it' ? 'Venditore'
-    : language === 'hu' ? 'Értékesítő'
-    : 'Seller';
+  const sellerSuffix = t('quickActionsContextSeller', uiLanguage);
   function viewDisplay(v: typeof SELLER_VIEWS[number]) {
     return resolveSellerDisplay(
       { email: v.email, initialsKey: v.initials, fallbackInitials: v.initials, fallbackName: '' },
@@ -193,8 +176,8 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               type="button"
               onClick={() => navigate(homeTarget())}
               className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
-              aria-label={language === 'da' ? 'Gå til forside' : 'Go to home'}
-              title={language === 'da' ? 'Gå til forside' : 'Go to home'}
+              aria-label={t('portalHeaderHome', uiLanguage)}
+              title={t('portalHeaderHome', uiLanguage)}
             >
               <img
                 src={timanLogo}
@@ -207,11 +190,11 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                 type="button"
                 onClick={() => navigate('/messe')}
                 className="inline-flex h-6 items-center gap-1 rounded-md bg-emerald-700 px-2.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
-                aria-label="Til forsiden"
-                title="Til forsiden"
+                aria-label={t('portalHeaderToFrontPage', uiLanguage)}
+                title={t('portalHeaderToFrontPage', uiLanguage)}
               >
                 <ArrowLeft className="h-3 w-3" />
-                Til forsiden
+                {t('portalHeaderToFrontPage', uiLanguage)}
               </button>
             )}
           </div>
@@ -272,7 +255,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                         ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
                         : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
                     }`}
-                    title={T.switchMode[language]}
+                    title={t('portalHeaderSwitchMode', uiLanguage)}
                     aria-haspopup="menu"
                     aria-expanded={modeMenuOpen}
                   >
@@ -286,7 +269,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                               ? `${d.initials} ${d.full_name}`
                               : `${d.initials} ${sellerSuffix}`;
                           })()
-                        : T.backendMode[language]}
+                        : t('portalHeaderBackendMode', uiLanguage)}
                     </span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
@@ -303,12 +286,12 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                         onClick={() => chooseMode('backend')}
                         className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <span className="font-medium">{T.backendMode[language]}</span>
+                        <span className="font-medium">{t('portalHeaderBackendMode', uiLanguage)}</span>
                         {activeMode === 'backend' && <Check className="w-4 h-4 text-[#2d5a27]" />}
                       </button>
                       <div className="my-1 border-t border-gray-100" />
                       <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                        {T.switchMode[language]}
+                        {t('portalHeaderSwitchMode', uiLanguage)}
                       </div>
                       {SELLER_VIEWS.map(v => {
                         const d = viewDisplay(v);
@@ -334,7 +317,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       })}
                       <div className="my-1 border-t border-gray-100" />
                       <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                        {T.rolePreview[language]}
+                        {t('portalHeaderRolePreview', uiLanguage)}
                       </div>
                       {ROLE_PREVIEWS.map(r => {
                         const modeKey = `role:${r.key}` as ActiveMode;
@@ -361,18 +344,18 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
             <button
               onClick={onLogout}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition"
-              aria-label={T.logout[language]}
+              aria-label={t('portalHeaderLogout', uiLanguage)}
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden lg:inline">{T.logout[language]}</span>
+              <span className="hidden lg:inline">{t('portalHeaderLogout', uiLanguage)}</span>
             </button>
 
             <button
               type="button"
               onClick={toggleFullscreen}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
-              aria-label={isFullscreen ? T.exitFullscreen[language] : T.fullscreen[language]}
-              title={isFullscreen ? T.exitFullscreen[language] : T.fullscreen[language]}
+              aria-label={isFullscreen ? t('portalHeaderExitFullscreen', uiLanguage) : t('portalHeaderFullscreen', uiLanguage)}
+              title={isFullscreen ? t('portalHeaderExitFullscreen', uiLanguage) : t('portalHeaderFullscreen', uiLanguage)}
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
@@ -383,9 +366,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
             <span className="font-bold uppercase tracking-wide">
-              {T.viewingAs[language]} {activeSellerView.label}
+              {t('portalHeaderViewingAs', uiLanguage)} {activeSellerView.label}
             </span>
-            <span className="opacity-80">— {T.filteredNote[language]}</span>
+            <span className="opacity-80">— {t('portalHeaderFilteredNote', uiLanguage)}</span>
           </div>
         </div>
       )}
@@ -393,9 +376,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         <div className="bg-purple-50 border-t border-purple-200 text-purple-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
             <span className="font-bold uppercase tracking-wide">
-              {T.viewingAs[language]} {activeRolePreview.label}
+              {t('portalHeaderViewingAs', uiLanguage)} {activeRolePreview.label}
             </span>
-            <span className="opacity-80">— {T.rolePreviewNote[language]}</span>
+            <span className="opacity-80">— {t('portalHeaderRolePreviewNote', uiLanguage)}</span>
           </div>
         </div>
       )}

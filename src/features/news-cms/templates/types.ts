@@ -7,7 +7,8 @@ export type NewsTemplateId =
   | 'template-03-hero-news'
   | 'template-04-technical-feature'
   | 'template-05-story-layout'
-  | 'template-06-flyer';
+  | 'template-06-flyer'
+  | 'custom-timan-3330-seat';
 
 export type NewsFieldType = 'text' | 'textarea' | 'image' | 'file' | 'url' | 'richtext' | 'iconBlocks' | 'pages' | 'featureBlocks' | 'ctaLinks' | 'techBlocks' | 'specRows' | 'pageCount' | 'flyerPages';
 
@@ -106,4 +107,5 @@ export interface NewsTemplateDefinition {
   validate: (content: Record<string, unknown>) => NewsValidationResult;
   Renderer: ComponentType<NewsRendererProps>;
   previewLabel?: ReactNode;
+  availableInPicker?: boolean;
 }

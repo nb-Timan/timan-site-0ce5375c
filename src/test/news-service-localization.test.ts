@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePublicNewsFields, type NewsCmsPost } from '@/lib/newsService';
+import { mergeSharedNewsFields } from '@/features/news-cms/lib/newsContent';
+import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
 
 const basePost = {
   title: 'Mød Timan 2620',
@@ -54,5 +56,141 @@ describe('news service localization', () => {
     expect(fields.title).toBe('Mød Timan 2620');
     expect(fields.excerpt).toBe('Den lille maskine med de store muligheder');
     expect(fields.image_url).toBe('shared-image.png');
+  });
+
+  it('resolves every portal CMS language from localized_content', () => {
+    const localized_content = Object.fromEntries(
+      (['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const).map((lang) => [
+        lang,
+        {
+          headline: `title-${lang}`,
+          subtitle: `subtitle-${lang}`,
+          mainImage: `image-${lang}.png`,
+        },
+      ]),
+    );
+
+    const post = {
+      title: 'Legacy DK',
+      excerpt: 'Legacy DK excerpt',
+      image_url: null,
+      localized_content,
+    } satisfies Partial<NewsCmsPost>;
+
+    for (const lang of ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const) {
+      expect(resolvePublicNewsFields(post, lang)).toMatchObject({
+        title: `title-${lang}`,
+        excerpt: `subtitle-${lang}`,
+        image_url: `image-${lang}.png`,
+      });
+    }
+  });
+
+  it('keeps Template 01 feature box text language-specific while sharing icon styling', () => {
+    const content = {
+      da: {
+        features: [
+          {
+            icon: 'settings',
+            iconColor: 'green',
+            heading: 'Kompakt og fleksibel',
+            description: 'Designet til arbejde, hvor pladsen er trang.',
+          },
+        ],
+      },
+      hu: {
+        features: [
+          {
+            icon: 'settings',
+            iconColor: 'green',
+            heading: 'Kompakt és rugalmas',
+            description: 'Szűk helyeken végzett munkára tervezve.',
+          },
+        ],
+      },
+    };
+
+    const merged = mergeSharedNewsFields(content, 'hu', [{ key: 'features', type: 'featureBlocks' }]);
+
+    expect((merged.features as Array<Record<string, unknown>>)[0]).toMatchObject({
+      icon: 'settings',
+      iconColor: 'green',
+      heading: 'Kompakt és rugalmas',
+      description: 'Szűk helyeken végzett munkára tervezve.',
+    });
+  });
+
+  it('translates missing nested feature box text without overwriting shared styling', () => {
+    const result = translateMissingNewsContent(
+      {
+        da: {
+          headline: 'Mød Timan 2620',
+          features: [
+            {
+              icon: 'settings',
+              iconColor: 'green',
+              heading: 'Kompakt og fleksibel',
+              description: 'Designet til arbejde, hvor pladsen er trang.',
+            },
+          ],
+        },
+        hu: {
+          headline: 'Ismerje meg az új Timan 2620-at',
+          features: [{ icon: 'settings', iconColor: 'green', heading: '', description: '' }],
+        },
+      },
+      [
+        { key: 'headline', type: 'text', labelKey: 'newsCmsFieldHeadline', required: true },
+        { key: 'features', type: 'featureBlocks', labelKey: 'newsCmsFieldFeatures', required: false },
+      ],
+    );
+
+    expect(result.localizedContent.hu.features?.[0]).toMatchObject({
+      icon: 'settings',
+      iconColor: 'green',
+      heading: 'Kompakt és rugalmas',
+      description: 'Szűk helyeken végzett munkára tervezve.',
+    });
+  });
+
+  it('uses the selected source language for missing translations and keeps existing language content', () => {
+    const result = translateMissingNewsContent(
+      {
+        da: {
+          headline: '',
+          subtitle: '',
+          mainImage: 'shared-image.png',
+        },
+        en: {
+          headline: 'Meet the Timan 2620',
+          subtitle: 'The small machine with big possibilities',
+          mainImage: 'shared-image.png',
+        },
+        de: {
+          headline: 'Bestehender deutscher Titel',
+          subtitle: 'Bestehender deutscher Untertitel',
+          mainImage: 'shared-image.png',
+        },
+      },
+      [
+        { key: 'headline', type: 'text', labelKey: 'newsCmsFieldHeadline', required: true },
+        { key: 'subtitle', type: 'text', labelKey: 'newsCmsFieldSubtitle', required: false },
+        { key: 'mainImage', type: 'image', labelKey: 'newsCmsFieldMainImage', required: true },
+      ],
+      'en',
+    );
+
+    expect(result.localizedContent.da).toMatchObject({
+      headline: 'Meet the Timan 2620',
+      subtitle: 'The small machine with big possibilities',
+      mainImage: 'shared-image.png',
+    });
+    expect(result.localizedContent.de).toMatchObject({
+      headline: 'Bestehender deutscher Titel',
+      subtitle: 'Bestehender deutscher Untertitel',
+      mainImage: 'shared-image.png',
+    });
+    expect(result.translatedLanguages).toContain('da');
+    expect(result.translatedLanguages).not.toContain('de');
   });
 });

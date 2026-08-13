@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { NewsPost } from '@/lib/newsService';
+import { resolvePublicNewsFields, type NewsPost } from '@/lib/newsService';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import { mergeSharedNewsFields } from '@/features/news-cms/lib/newsContent';
@@ -41,6 +41,7 @@ export default function PublicNewsPostModal({ post, language, onClose }: Props) 
   const content = template && post.localized_content
     ? mergeSharedNewsFields(post.localized_content, language, template.fields)
     : null;
+  const localizedPost = resolvePublicNewsFields(post, language);
 
   return (
     <div
@@ -57,7 +58,7 @@ export default function PublicNewsPostModal({ post, language, onClose }: Props) 
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
               {post.category?.toUpperCase() === 'SERVICE' ? t('latestFromTimanServiceTag', language) : t('newsCmsBadgeNews', language)}
             </p>
-            <h2 className="text-xl font-bold text-slate-950">{post.title}</h2>
+            <h2 className="text-xl font-bold text-slate-950">{localizedPost.title}</h2>
           </div>
           <button
             type="button"
@@ -74,15 +75,15 @@ export default function PublicNewsPostModal({ post, language, onClose }: Props) 
           ) : (
             <article className="mx-auto max-w-3xl rounded-2xl bg-white p-5 shadow-sm">
               <img
-                src={post.image_url || FALLBACK_IMAGE}
+                src={localizedPost.image_url || FALLBACK_IMAGE}
                 alt=""
                 className="mb-5 aspect-video w-full rounded-xl bg-slate-100 object-cover"
                 onError={(event) => {
                   event.currentTarget.src = FALLBACK_IMAGE;
                 }}
               />
-              <h3 className="text-2xl font-bold text-slate-950">{post.title}</h3>
-              {post.excerpt && <p className="mt-3 text-base leading-7 text-slate-700">{post.excerpt}</p>}
+              <h3 className="text-2xl font-bold text-slate-950">{localizedPost.title}</h3>
+              {localizedPost.excerpt && <p className="mt-3 text-base leading-7 text-slate-700">{localizedPost.excerpt}</p>}
             </article>
           )}
         </div>

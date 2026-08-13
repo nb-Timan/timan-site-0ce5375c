@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type { LocalizedNewsContent, NewsTemplateId } from '@/features/news-cms/templates/types';
 import { getLocalizedNewsContent } from '@/features/news-cms/lib/newsContent';
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 
 export type NewsCategory = 'NYHED' | 'SERVICE' | string;
 export type NewsStatus = 'draft' | 'published' | 'archived';
@@ -51,17 +51,6 @@ export interface NewsCmsDraftInput {
 
 const LEGACY_NEWS_SELECT = 'id, title, excerpt, image_url, link_url, category, published_at, is_active, source';
 const CMS_NEWS_SELECT = `${LEGACY_NEWS_SELECT}, template_id, status, slug, localized_content, template_data, assets, created_at, updated_at, created_by, updated_by, published_by`;
-const LANGUAGE_KEY_ALIASES: Record<PortalUiLanguage, string[]> = {
-  da: ['da', 'dk'],
-  en: ['en', 'gb'],
-  de: ['de'],
-  it: ['it'],
-  hu: ['hu'],
-  sv: ['sv', 'se'],
-  fr: ['fr'],
-  pl: ['pl'],
-  cs: ['cs', 'cz'],
-};
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -91,19 +80,6 @@ function firstStringFromContent(content: Record<string, unknown> | undefined, ke
   return '';
 }
 
-function uniqueLanguageKeys(...groups: string[][]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const group of groups) {
-    for (const key of group) {
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push(key);
-    }
-  }
-  return result;
-}
-
 function localizedStringForLanguage(
   localizedContent: LocalizedNewsContent | null | undefined,
   lang: PortalUiLanguage,
@@ -112,12 +88,10 @@ function localizedStringForLanguage(
   if (!localizedContent) return '';
 
   const contentByLanguage = localizedContent as Record<string, Record<string, unknown> | undefined>;
-  const languageKeys = uniqueLanguageKeys(
-    LANGUAGE_KEY_ALIASES[lang] || [lang],
-    lang === 'en' ? [] : LANGUAGE_KEY_ALIASES.en,
-    lang === 'da' ? [] : LANGUAGE_KEY_ALIASES.da,
-    Object.keys(contentByLanguage),
-  );
+  const languageKeys = Array.from(new Set([
+    ...portalLanguageLookupOrder(lang, true),
+    ...Object.keys(contentByLanguage),
+  ]));
 
   for (const languageKey of languageKeys) {
     const value = firstStringFromContent(contentByLanguage[languageKey], keys);

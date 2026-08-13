@@ -54,11 +54,51 @@ export const PORTAL_LANGUAGES: PortalLanguageOption[] = [
 export const PORTAL_LANGUAGE_CODES: PortalUiLanguage[] = PORTAL_LANGUAGES.map((l) => l.code);
 export const FALLBACK_LANGUAGE: Language = 'da';
 
+export const PORTAL_LANGUAGE_ALIASES: Record<PortalUiLanguage, string[]> = {
+  da: ['da', 'dk'],
+  en: ['en', 'gb'],
+  de: ['de'],
+  it: ['it'],
+  hu: ['hu'],
+  sv: ['sv', 'se'],
+  fr: ['fr'],
+  pl: ['pl'],
+  cs: ['cs', 'cz'],
+};
+
 /** Legacy `Language` codes that have full inline translation coverage. */
 const LEGACY_LANGUAGE_CODES: Language[] = ['da', 'en', 'de', 'it', 'hu'];
 
 export function isSupportedLanguage(value: string | null | undefined): value is PortalUiLanguage {
   return !!value && (PORTAL_LANGUAGE_CODES as string[]).includes(value);
+}
+
+export function normalizePortalLanguageCode(value: string | null | undefined): PortalUiLanguage | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  for (const code of PORTAL_LANGUAGE_CODES) {
+    if (PORTAL_LANGUAGE_ALIASES[code].includes(normalized)) return code;
+  }
+
+  return null;
+}
+
+export function portalLanguageLookupOrder(
+  lang: PortalUiLanguage | string | null | undefined,
+  includeAll = false,
+): string[] {
+  const normalized = normalizePortalLanguageCode(lang) || FALLBACK_LANGUAGE;
+  const preferred = PORTAL_LANGUAGE_ALIASES[normalized];
+  const fallbacks = [
+    ...(normalized === 'en' ? [] : PORTAL_LANGUAGE_ALIASES.en),
+    ...(normalized === 'da' ? [] : PORTAL_LANGUAGE_ALIASES.da),
+  ];
+  const allLanguages = includeAll
+    ? PORTAL_LANGUAGE_CODES.flatMap((code) => PORTAL_LANGUAGE_ALIASES[code])
+    : [];
+
+  return Array.from(new Set([...preferred, ...fallbacks, ...allLanguages]));
 }
 
 /**
@@ -67,8 +107,9 @@ export function isSupportedLanguage(value: string | null | undefined): value is 
  * Currently sv/fr/pl/cs fall back to English; English falls back to Danish.
  */
 export function mapUiLanguageToLegacy(ui: PortalUiLanguage | string | null | undefined): Language {
-  if (!ui) return FALLBACK_LANGUAGE;
-  if ((LEGACY_LANGUAGE_CODES as string[]).includes(ui)) return ui as Language;
+  const normalized = normalizePortalLanguageCode(ui);
+  if (!normalized) return FALLBACK_LANGUAGE;
+  if ((LEGACY_LANGUAGE_CODES as string[]).includes(normalized)) return normalized as Language;
   // sv / fr / pl / cs — and any unknown value — fall back to English.
   return 'en';
 }
