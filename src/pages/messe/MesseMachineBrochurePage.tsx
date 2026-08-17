@@ -344,7 +344,6 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       { label: { da: 'Motor', en: 'Engine', de: 'Motor', it: 'Motore', hu: 'Motor' }, value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
       { label: { da: 'Effekt', en: 'Power', de: 'Leistung', it: 'Potenza', hu: 'Teljesítmény' }, value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
       { label: { da: 'Cylindre', en: 'Cylinders', de: 'Zylinder', it: 'Cilindri', hu: 'Hengerek' }, value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
-      { label: { da: 'Transmission', en: 'Transmission', de: 'Transmission', it: 'Trasmissione', hu: 'Hajtás' }, value: { da: 'Hydraulisk stempelpumpe', en: 'Hydraulic piston pump', de: 'Hydraulische Kolbenpumpe', it: 'Pompa idraulica a pistoni', hu: 'Hidraulikus dugattyús szivattyú' } },
       { label: { da: 'Tophastighed', en: 'Top speed', de: 'Höchstgeschwindigkeit', it: 'Velocità max.', hu: 'Végsebesség' }, value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
       { label: { da: 'Dieseltank', en: 'Diesel tank', de: 'Dieseltank', it: 'Serbatoio diesel', hu: 'Dízeltank' }, value: { da: '21 liter', en: '21 litres', de: '21 Liter', it: '21 litri', hu: '21 liter' } },
       { label: { da: 'EU Norm', en: 'EU standard', de: 'EU-Norm', it: 'Norma UE', hu: 'EU norma' }, value: { da: 'Stage V', en: 'Stage V', de: 'Stage V', it: 'Stage V', hu: 'Stage V' } },
@@ -624,7 +623,6 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
         { label: text('Effekt', 'Power'), value: text('25 hk / 18,4 kW', '25 hp / 18.4 kW') },
         { label: text('Cylindre', 'Cylinders'), value: text('3') },
         { label: text('Slagvolumen', 'Displacement'), value: text('1131 cc') },
-        { label: text('Transmission', 'Transmission'), value: text('Hydraulisk stempelpumpe', 'Hydraulic piston pump') },
         { label: text('Tophastighed', 'Top speed'), value: text('20 km/t', '20 km/h') },
         { label: text('EU Norm', 'EU standard'), value: text('Stage V') },
       ],
@@ -761,7 +759,7 @@ export default function MesseMachineBrochurePage({
     backCover: brochurePageCount || 1,
   });
   const content = MACHINE_CONTENT[machineKey];
-  const compactAttachmentChips = machineKey === 'rc-1000s';
+  const compactAttachmentChips = machineKey === 'rc-1000s' || machineKey === 'timan-2620';
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
@@ -899,8 +897,8 @@ export default function MesseMachineBrochurePage({
               </div>
             </section>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-2">
+              <section className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <ListChecks className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.keyPoints, lang)}</h2>
@@ -915,7 +913,7 @@ export default function MesseMachineBrochurePage({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.specs, lang)}</h2>
@@ -932,7 +930,7 @@ export default function MesseMachineBrochurePage({
             </div>
 
             {content.attachments && (
-              <section className={`mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm ${compactAttachmentChips ? 'p-4' : 'p-5'}`}>
+              <section className={`${machineKey === 'timan-2620' ? 'mt-4' : 'mt-6'} rounded-2xl border border-slate-200 bg-white shadow-sm ${compactAttachmentChips ? 'p-4' : 'p-5'}`}>
                 <div className={`${compactAttachmentChips ? 'mb-3' : 'mb-4'} flex items-center gap-2`}>
                   <Wrench className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.tools, lang)}</h2>
