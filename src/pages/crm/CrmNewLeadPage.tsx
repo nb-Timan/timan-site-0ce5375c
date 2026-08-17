@@ -192,7 +192,6 @@ const MACHINE_INTEREST_MAIN = [
   { label: 'RC-1000', values: ['RC-1000', 'RC-1000s'] },
   { label: 'Timan 2620', values: ['Timan 2620', 'New 2620'] },
   { label: 'Timan 3330', values: ['Timan 3330'] },
-  { label: 'Redskaber', values: ['Equipment'] },
   { label: 'Loader line / traktor-redskaber', values: ['Loader line / Tractor Equipment'] },
 ] as const;
 
