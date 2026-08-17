@@ -652,10 +652,10 @@ export default function MesseFollowUpPage() {
               <RequiredHeading>{f('country')}</RequiredHeading>
               <div className="grid gap-3 sm:grid-cols-2">
                 {([
-                  ['de', '🇩🇪', f('germany')],
-                  ['dk', '🇩🇰', f('denmark')],
-                  ['other', '🇬🇧', f('other')],
-                ] as [Exclude<CountryQuickChoice, ''>, string, string][]).map(([value, flag, label]) => (
+                  ['de', f('germany')],
+                  ['dk', f('denmark')],
+                  ['other', f('other')],
+                ] as [Exclude<CountryQuickChoice, ''>, string][]).map(([value, label]) => (
                   <button
                     type="button"
                     key={value}
@@ -666,7 +666,7 @@ export default function MesseFollowUpPage() {
                         : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
                     }`}
                   >
-                    <span className="text-base leading-none" aria-hidden="true">{flag}</span>
+                    <FlagIcon code={value} />
                     <span>{label}</span>
                   </button>
                 ))}
