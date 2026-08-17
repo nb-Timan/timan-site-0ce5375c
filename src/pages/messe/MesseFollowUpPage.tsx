@@ -622,21 +622,22 @@ export default function MesseFollowUpPage() {
               <RequiredHeading>{f('country')}</RequiredHeading>
               <div className="grid gap-3 sm:grid-cols-2">
                 {([
-                  ['de', f('germany')],
-                  ['dk', f('denmark')],
-                  ['other', f('other')],
-                ] as [Exclude<CountryQuickChoice, ''>, string][]).map(([value, label]) => (
+                  ['de', '🇩🇪', f('germany')],
+                  ['dk', '🇩🇰', f('denmark')],
+                  ['other', '🇬🇧', f('other')],
+                ] as [Exclude<CountryQuickChoice, ''>, string, string][]).map(([value, flag, label]) => (
                   <button
                     type="button"
                     key={value}
                     onClick={() => handleCountryChoice(value)}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
                       countryQuickChoice === value
                         ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
                     }`}
                   >
-                    {label}
+                    <span className="text-base leading-none" aria-hidden="true">{flag}</span>
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>
