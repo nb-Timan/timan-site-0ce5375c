@@ -31,7 +31,7 @@ export const PORTAL_AREAS: PortalArea[] = [
       it: 'Configuratore, preventivi, ordini e strumenti di vendita.',
       hu: 'Konfigurátor, árajánlatok, rendelések és értékesítési eszközök.',
     },
-    moduleIds: ['configurator', 'videos', 'resources', 'partner_map', 'misc'],
+    moduleIds: ['configurator', 'videos', 'resources', 'partner_map', 'misc', 'contracts'],
     placeholders: [],
   },
   {

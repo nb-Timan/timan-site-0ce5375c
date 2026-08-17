@@ -69,6 +69,7 @@ export type ModuleAccessKey =
   | 'tilbud'
   | 'ordre'
   | 'sales_tools'
+  | 'contracts'
   | 'resources'
   | 'videos';
 
@@ -78,7 +79,7 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
     'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
+    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
   ],
   timan_seller: [
     'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',

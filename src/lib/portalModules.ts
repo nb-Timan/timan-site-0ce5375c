@@ -5,7 +5,7 @@
 import { AppUser } from '@/data/appUsers';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
-import { Wrench, Calculator, Film, FileText, LifeBuoy, MapPinned, LucideIcon } from 'lucide-react';
+import { Wrench, Calculator, Film, FileText, FileSignature, LifeBuoy, MapPinned, LucideIcon } from 'lucide-react';
 
 export type PortalModuleId =
   | 'configurator'
@@ -13,6 +13,7 @@ export type PortalModuleId =
   | 'resources'
   | 'partner_map'
   | 'misc'
+  | 'contracts'
   | 'claims';
 
 /**
@@ -186,6 +187,33 @@ export const PORTAL_MODULES: PortalModule[] = [
     href: '/portal/misc',
     enabled: true,
     accent: 'slate',
+  },
+  {
+    id: 'contracts',
+    title: {
+      da: 'Kontrakt', en: 'Contracts', de: 'Verträge', it: 'Contratti', hu: 'Szerződések',
+      sv: 'Avtal', fr: 'Contrats', pl: 'Umowy', cs: 'Smlouvy',
+    },
+    description: {
+      da: 'Udfyld forhandlerdata og generér en kontraktpakke med bilag.',
+      en: 'Enter dealer details and generate a contract package with appendices.',
+      de: 'Händlerdaten ausfüllen und Vertragspaket mit Anlagen erstellen.',
+      it: 'Inserisci i dati del rivenditore e genera un pacchetto contratto con allegati.',
+      hu: 'Adja meg a kereskedő adatait, és készítsen szerződéscsomagot mellékletekkel.',
+      sv: 'Fyll i återförsäljaruppgifter och skapa ett avtalspaket med bilagor.',
+      fr: 'Saisir les informations revendeur et générer un dossier de contrat avec annexes.',
+      pl: 'Wprowadź dane dealera i wygeneruj pakiet umowy z załącznikami.',
+      cs: 'Vyplňte údaje prodejce a vytvořte smluvní balíček s přílohami.',
+    },
+    cta: {
+      da: 'Åbn kontrakt', en: 'Open contracts', de: 'Verträge öffnen',
+      it: 'Apri contratti', hu: 'Szerződések megnyitása',
+      sv: 'Öppna avtal', fr: 'Ouvrir les contrats', pl: 'Otwórz umowy', cs: 'Otevřít smlouvy',
+    },
+    icon: FileSignature,
+    href: '/portal/contracts',
+    enabled: true,
+    accent: 'amber',
   },
   {
     id: 'claims',

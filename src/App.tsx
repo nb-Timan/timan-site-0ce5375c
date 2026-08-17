@@ -30,6 +30,7 @@ import VideoCategoryPage from "./pages/VideoCategoryPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import DriftberegnerPage from "./pages/DriftberegnerPage";
 import Co2CalculatorPage from "./pages/Co2CalculatorPage";
+import ContractsPage from "./pages/contracts/ContractsPage";
 import ClaimsPage from "./pages/ClaimsPage";
 import ClaimDetailPage from "./pages/ClaimDetailPage";
 import NewClaimPage from "./pages/NewClaimPage";
@@ -170,6 +171,7 @@ const App = () => (
               <Route path="/portal/resources" element={<ResourcesPage />} />
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
+              <Route path="/portal/contracts" element={<ContractsPage />} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
               {/* Salg & Marketing > Diverse > Formularer */}
               <Route path="/portal/misc" element={<MiscPage />} />

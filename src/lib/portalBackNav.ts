@@ -59,6 +59,7 @@ type BackLabelKey =
   | 'resources'
   | 'misc'
   | 'forms'
+  | 'contracts'
   | 'videos'
   | 'my_dealers'
   | 'leads'
@@ -82,6 +83,7 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   resources:       { da: 'Tilbage til Beregnere',     en: 'Back to Calculators',    de: 'Zurück zu Rechnern',        it: 'Torna ai Calcolatori',     hu: 'Vissza a Kalkulátorokhoz' },
   misc:            { da: 'Tilbage til Formularer',    en: 'Back to Forms',          de: 'Zurück zu Formularen',      it: 'Torna ai Moduli',          hu: 'Vissza az Űrlapokhoz' },
   forms:           { da: 'Tilbage til Formularer',    en: 'Back to Forms',          de: 'Zurück zu Formularen',      it: 'Torna ai Moduli',          hu: 'Vissza az Űrlapokhoz' },
+  contracts:       { da: 'Tilbage til Kontrakt',      en: 'Back to Contracts',      de: 'Zurück zu Verträgen',       it: 'Torna ai Contratti',       hu: 'Vissza a szerződésekhez' },
   videos:          { da: 'Tilbage til Videoer',       en: 'Back to Videos',         de: 'Zurück zu Videos',          it: 'Torna ai Video',           hu: 'Vissza a Videókhoz' },
   my_dealers:      { da: 'Tilbage til Mine forhandlere', en: 'Back to My dealers',  de: 'Zurück zu Meine Händler',   it: 'Torna a I miei rivenditori', hu: 'Vissza: Kereskedőim' },
   leads:           { da: 'Tilbage til Leads',         en: 'Back to Leads',          de: 'Zurück zu Leads',           it: 'Torna ai Lead',            hu: 'Vissza a Leadekhez' },
@@ -117,6 +119,7 @@ const RULES: ParentRule[] = [
   { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
   { match: p => startsWith(p, '/portal/misc') && !eq(p, '/portal/misc'), to: '/portal/misc', labelKey: 'misc' },
   { match: p => eq(p, '/portal/misc'),                    to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+  { match: p => eq(p, '/portal/contracts'),               to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
   // Videos
   { match: p => startsWith(p, '/portal/videos') && !eq(p, '/portal/videos'), to: '/portal/videos', labelKey: 'videos' },

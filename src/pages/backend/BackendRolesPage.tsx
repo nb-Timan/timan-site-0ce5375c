@@ -43,7 +43,7 @@ const MODULE_LABEL: Record<string, string> = {
   teknik_service: "Teknik & Service", salg_marketing: "Salg", marketing: "Marketing", timan_backend: "Timan Backend",
   claims: "Service / Claims", tsb: "TSB Portal", warranty: "Garantiregistrering",
   service_information: "Serviceinformation", byg_din_timan: "Byg din Timan",
-  tilbud: "Tilbud", ordre: "Ordre", resources: "Beregnere & kalkulatorer", sales_tools: "Formularer",
+  tilbud: "Tilbud", ordre: "Ordre", resources: "Beregnere & kalkulatorer", sales_tools: "Formularer", contracts: "Kontrakt",
 };
 
 const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "marketing", "timan_backend"];

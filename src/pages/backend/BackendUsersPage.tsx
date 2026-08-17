@@ -90,6 +90,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   byg_din_timan: "Configurator",
   resources: "Beregnere & kalkulatorer",
   sales_tools: "Formularer",
+  contracts: "Kontrakt",
   tilbud: "Tilbud",
   ordre: "Ordrer",
   videos: "Video Galleri",
@@ -107,7 +108,7 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
 // rendered in an "Øvrige" bucket so nothing silently disappears if new keys
 // are added later.
 const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
-  { label: "Salg", modules: ["byg_din_timan", "resources", "videos", "sales_tools", "tilbud", "ordre"] },
+  { label: "Salg", modules: ["byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"] },
   { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
 ];
 

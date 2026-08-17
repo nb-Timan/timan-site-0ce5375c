@@ -26,6 +26,7 @@ export const ALL_MODULES: ModuleAccessKey[] = [
   "resources",
   "videos",
   "sales_tools",
+  "contracts",
   "tilbud",
   "ordre",
   // Teknik & Service
