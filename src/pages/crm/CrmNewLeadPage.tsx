@@ -30,6 +30,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Button } from '@/components/ui/button';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
+import { buildConfiguratorStateFromMachineTypes } from '@/lib/leadToConfiguratorDraft';
+import { createEmptyConfiguratorState } from '@/lib/configuratorState';
+import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 
 // ---- i18n. English is the fallback. ----
 type TKey =
@@ -541,6 +544,22 @@ export default function CrmNewLeadPage() {
 
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
 
+  const machineEstimate = useMemo(() => {
+    const { state, unmappedItems } = buildConfiguratorStateFromMachineTypes(
+      machineTypes,
+      createEmptyConfiguratorState('da', 'quote'),
+    );
+    const subtotal = Math.round(calcConfigurationTotals(state).subtotal || 0);
+    return {
+      value: subtotal > 0 ? String(subtotal) : '',
+      unmappedItems,
+    };
+  }, [machineTypes]);
+
+  useEffect(() => {
+    setEstimatedValue(machineEstimate.value);
+  }, [machineEstimate.value]);
+
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
   function handleNextActivityChange(na: string) {
     setNextActivity(na);
@@ -747,6 +766,11 @@ export default function CrmNewLeadPage() {
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
               <MachineInterestPicker value={machineTypes} onChange={setMachineTypes} />
+              {machineEstimate.unmappedItems.length > 0 && (
+                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
+                </p>
+              )}
             </div>
           </Section>
 

@@ -81,19 +81,27 @@ function parseEquipmentEntry(value: string): { machineKey: string | null; label:
   return { machineKey: machineKeyFromText(clean), label: clean };
 }
 
-export function buildConfiguratorStateFromLead(
-  lead: CrmLead,
+const GROUP_ONLY_MACHINE_TYPES = new Set(['Equipment', 'Loader line / Tractor Equipment']);
+
+export function buildConfiguratorStateFromMachineTypes(
+  machineTypes: string[] | null | undefined,
   previous: ConfiguratorState,
-): ConfiguratorState {
+): { state: ConfiguratorState; unmappedItems: string[] } {
   const base = createEmptyConfiguratorState(previous.language, 'quote');
   const machineSet = new Set<string>();
   const accByMachine = new Map<string, Set<string>>();
+  const unmappedItems: string[] = [];
 
-  for (const item of lead.machine_types || []) {
+  for (const item of machineTypes || []) {
+    if (GROUP_ONLY_MACHINE_TYPES.has(item)) continue;
     const machineKey = machineKeyFromText(item);
     const isEquipment = /^Equipment:/i.test(item);
+    let mapped = false;
 
-    if (machineKey && !isEquipment) machineSet.add(machineKey);
+    if (machineKey && !isEquipment) {
+      machineSet.add(machineKey);
+      mapped = true;
+    }
 
     if (isEquipment) {
       const parsed = parseEquipmentEntry(item);
@@ -108,9 +116,12 @@ export function buildConfiguratorStateFromLead(
         const ids = accByMachine.get(key) || new Set<string>();
         addAccessoryWithParents(key, ids, acc);
         accByMachine.set(key, ids);
+        mapped = true;
         break;
       }
     }
+
+    if (!mapped) unmappedItems.push(item);
   }
 
   const orderedMachines = MACHINE_ORDER.filter((key) => machineSet.has(key) && PRODUCTS[key]);
@@ -122,18 +133,31 @@ export function buildConfiguratorStateFromLead(
     acc: Array.from(accByMachine.get(type) || []),
   }));
 
+  return {
+    state: {
+      ...base,
+      language: previous.language,
+      step: machineConfigs.length > 0 ? 3 : 1,
+      flowType: 'quote',
+      machineConfigs,
+      currentMachineIndex: 0,
+    },
+    unmappedItems,
+  };
+}
+
+export function buildConfiguratorStateFromLead(
+  lead: CrmLead,
+  previous: ConfiguratorState,
+): ConfiguratorState {
+  const { state } = buildConfiguratorStateFromMachineTypes(lead.machine_types, previous);
   const contactText = lead.contact_information || '';
   const noteText = [lead.notes, lead.trade_fair ? `Messe: ${lead.trade_fair}` : null]
     .filter(Boolean)
     .join('\n\n');
 
   return {
-    ...base,
-    language: previous.language,
-    step: machineConfigs.length > 0 ? 3 : 1,
-    flowType: 'quote',
-    machineConfigs,
-    currentMachineIndex: 0,
+    ...state,
     firmanavn: parseLeadField(contactText, 'Firma/CVR'),
     kontaktperson: parseLeadField(contactText, 'Kontaktperson'),
     telefon: parseLeadField(contactText, 'Telefon'),
