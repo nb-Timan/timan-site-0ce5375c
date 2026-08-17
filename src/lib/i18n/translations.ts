@@ -113,7 +113,7 @@ const da: Dict = {
 
   // Navigation / modules
   navDashboard: 'Dashboard', navCrm: 'CRM', navConfigurator: 'Konfigurator',
-  navService: 'Service', navBackend: 'Backend', navResources: 'Ressourcer',
+  navService: 'Service', navBackend: 'Backend', navResources: 'Beregnere',
   navPartnerMap: 'Partnerkort', navProfile: 'Profil',
 
   // Status
@@ -289,7 +289,7 @@ const da: Dict = {
 
   // Modules / placeholders
   mod_configurator: 'Byg din Timan', mod_configurator_desc: 'Åbn konfiguratoren',
-  mod_videos: 'Videogalleri', mod_resources: 'Ressourcer', mod_misc: 'Diverse',
+  mod_videos: 'Videogalleri', mod_resources: 'Beregnere & kalkulatorer', mod_misc: 'Formularer',
   mod_machine_search: 'Søg på maskine',
   mod_machine_search_desc: 'Find en maskine på serienummer og se samlet maskinprofil.',
   mod_service_tickets: 'Service tickets',
@@ -785,7 +785,7 @@ const en: Dict = {
   area_dealer_data_desc: 'Master data, contacts, users and your quotes/orders.',
 
   mod_configurator: 'Build your Timan', mod_configurator_desc: 'Open the configurator',
-  mod_videos: 'Video gallery', mod_resources: 'Resources', mod_misc: 'Miscellaneous',
+  mod_videos: 'Video gallery', mod_resources: 'Calculators', mod_misc: 'Forms',
   mod_machine_search: 'Search machine',
   mod_machine_search_desc: 'Find a machine by serial number and see a full machine profile.',
   mod_service_tickets: 'Service tickets',
@@ -1130,7 +1130,7 @@ const de: Dict = {
   area_dealer_data_desc: 'Stammdaten, Kontakte, Benutzer und Ihre Angebote/Bestellungen.',
 
   mod_configurator: 'Konfigurieren Sie Ihren Timan', mod_configurator_desc: 'Konfigurator öffnen',
-  mod_videos: 'Videogalerie', mod_resources: 'Ressourcen', mod_misc: 'Sonstiges',
+  mod_videos: 'Videogalerie', mod_resources: 'Rechner', mod_misc: 'Formulare',
   mod_machine_search: 'Maschine suchen',
   mod_machine_search_desc: 'Finden Sie eine Maschine anhand der Seriennummer und zeigen Sie ein vollständiges Maschinenprofil an.',
   mod_service_tickets: 'Service-Tickets',
@@ -1421,7 +1421,7 @@ const it: Dict = {
   area_dealer_data_desc: 'Anagrafica, contatti, utenti e preventivi/ordini.',
 
   mod_configurator: 'Configura il tuo Timan', mod_configurator_desc: 'Apri il configuratore',
-  mod_videos: 'Videogallery', mod_resources: 'Risorse', mod_misc: 'Varie',
+  mod_videos: 'Videogallery', mod_resources: 'Calcolatori', mod_misc: 'Moduli',
   mod_machine_search: 'Cerca macchina',
   mod_machine_search_desc: 'Trova una macchina tramite numero di serie e visualizza il profilo completo della macchina.',
   mod_service_tickets: 'Ticket di assistenza',
@@ -1712,7 +1712,7 @@ const hu: Dict = {
   area_dealer_data_desc: 'Törzsadatok, kapcsolatok, felhasználók és árajánlatok/rendelések.',
 
   mod_configurator: 'Építse meg Timanját', mod_configurator_desc: 'Konfigurátor megnyitása',
-  mod_videos: 'Videógaléria', mod_resources: 'Erőforrások', mod_misc: 'Egyéb',
+  mod_videos: 'Videógaléria', mod_resources: 'Kalkulátorok', mod_misc: 'Űrlapok',
   mod_machine_search: 'Gép keresése',
   mod_machine_search_desc: 'Keressen gépet gyári szám alapján és tekintse meg a teljes gépprofilt.',
   mod_service_tickets: 'Szervizjegyek',
@@ -2004,7 +2004,7 @@ const sv: Dict = {
   area_dealer_data_desc: 'Grunddata, kontakter, användare och dina offerter/ordrar.',
 
   mod_configurator: 'Bygg din Timan', mod_configurator_desc: 'Öppna konfiguratorn',
-  mod_videos: 'Videogalleri', mod_resources: 'Resurser', mod_misc: 'Övrigt',
+  mod_videos: 'Videogalleri', mod_resources: 'Beräknare', mod_misc: 'Formulär',
   mod_machine_search: 'Sök maskin',
   mod_machine_search_desc: 'Hitta en maskin via serienummer och se en fullständig maskinprofil.',
   mod_service_tickets: 'Serviceärenden',
@@ -2296,7 +2296,7 @@ const fr: Dict = {
   area_dealer_data_desc: 'Données de base, contacts, utilisateurs et vos devis/commandes.',
 
   mod_configurator: 'Configurez votre Timan', mod_configurator_desc: 'Ouvrir le configurateur',
-  mod_videos: 'Galerie vidéo', mod_resources: 'Ressources', mod_misc: 'Divers',
+  mod_videos: 'Galerie vidéo', mod_resources: 'Calculateurs', mod_misc: 'Formulaires',
   mod_machine_search: 'Rechercher une machine',
   mod_machine_search_desc: 'Trouvez une machine par numéro de série et consultez son profil complet.',
   mod_service_tickets: 'Tickets de service',
@@ -2588,7 +2588,7 @@ const pl: Dict = {
   area_dealer_data_desc: 'Dane podstawowe, kontakty, użytkownicy oraz oferty/zamówienia.',
 
   mod_configurator: 'Zbuduj swojego Timana', mod_configurator_desc: 'Otwórz konfigurator',
-  mod_videos: 'Galeria wideo', mod_resources: 'Zasoby', mod_misc: 'Różne',
+  mod_videos: 'Galeria wideo', mod_resources: 'Kalkulatory', mod_misc: 'Formularze',
   mod_machine_search: 'Wyszukaj maszynę',
   mod_machine_search_desc: 'Znajdź maszynę po numerze seryjnym i zobacz pełny profil maszyny.',
   mod_service_tickets: 'Zgłoszenia serwisowe',
@@ -2880,7 +2880,7 @@ const cs: Dict = {
   area_dealer_data_desc: 'Základní data, kontakty, uživatelé a vaše nabídky/objednávky.',
 
   mod_configurator: 'Sestavte si svůj Timan', mod_configurator_desc: 'Otevřít konfigurátor',
-  mod_videos: 'Videogalerie', mod_resources: 'Zdroje', mod_misc: 'Různé',
+  mod_videos: 'Videogalerie', mod_resources: 'Kalkulačky', mod_misc: 'Formuláře',
   mod_machine_search: 'Hledat stroj',
   mod_machine_search_desc: 'Najděte stroj podle sériového čísla a zobrazte úplný profil stroje.',
   mod_service_tickets: 'Servisní tikety',

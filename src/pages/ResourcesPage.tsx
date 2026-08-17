@@ -8,13 +8,13 @@ import BackButton from '@/components/portal/BackButton';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
-  title:   { da: 'Ressourcer', en: 'Resources', de: 'Ressourcen', it: 'Risorse', hu: 'Források' },
+  title:   { da: 'Beregnere & kalkulatorer', en: 'Calculators', de: 'Rechner', it: 'Calcolatori', hu: 'Kalkulátorok' },
   intro: {
-    da: 'Vælg et værktøj eller dokument for at fortsætte.',
-    en: 'Choose a tool or document to continue.',
-    de: 'Wählen Sie ein Werkzeug oder Dokument, um fortzufahren.',
-    it: 'Seleziona uno strumento o documento per continuare.',
-    hu: 'Válasszon eszközt vagy dokumentumot a folytatáshoz.',
+    da: 'Vælg en beregner for at fortsætte.',
+    en: 'Choose a calculator to continue.',
+    de: 'Wählen Sie einen Rechner, um fortzufahren.',
+    it: 'Seleziona un calcolatore per continuare.',
+    hu: 'Válasszon kalkulátort a folytatáshoz.',
   },
   driftTitle: { da: 'Driftberegner', en: 'Operating cost calculator', de: 'Betriebskostenrechner', it: 'Calcolatore costi', hu: 'Üzemköltség kalkulátor' },
   driftDesc: {

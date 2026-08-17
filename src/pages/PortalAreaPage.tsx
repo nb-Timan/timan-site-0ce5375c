@@ -115,6 +115,7 @@ export default function PortalAreaPage({ areaId }: Props) {
     configurator: 'byg_din_timan',
     claims: 'claims',
     resources: 'resources',
+    partner_map: 'sales_tools',
     misc: 'sales_tools',
     videos: null, // always visible if area is visible
   };

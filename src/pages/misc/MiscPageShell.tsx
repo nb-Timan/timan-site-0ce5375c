@@ -68,7 +68,7 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
     }
   }
 
-  // Gate behind sales_tools (same key used for the "Diverse" module card).
+  // Gate behind sales_tools (same key used for the "Formularer" module card).
   const portalRole = derivePortalRole(appUser);
   const override = (appUser.module_access ?? null) as ('sales_tools' | string)[] | null;
   const allowed = portalRole

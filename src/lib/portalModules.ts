@@ -5,12 +5,13 @@
 import { AppUser } from '@/data/appUsers';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
-import { Wrench, BookOpen, Film, Sparkles, LifeBuoy, LucideIcon } from 'lucide-react';
+import { Wrench, Calculator, Film, FileText, LifeBuoy, MapPinned, LucideIcon } from 'lucide-react';
 
 export type PortalModuleId =
   | 'configurator'
   | 'videos'
   | 'resources'
+  | 'partner_map'
   | 'misc'
   | 'claims';
 
@@ -109,52 +110,79 @@ export const PORTAL_MODULES: PortalModule[] = [
   {
     id: 'resources',
     title: {
-      da: 'Ressourcer', en: 'Resources', de: 'Ressourcen', it: 'Risorse', hu: 'Források',
-      sv: 'Resurser', fr: 'Ressources', pl: 'Zasoby', cs: 'Zdroje',
+      da: 'Beregnere & kalkulatorer', en: 'Calculators', de: 'Rechner', it: 'Calcolatori', hu: 'Kalkulátorok',
+      sv: 'Beräknare', fr: 'Calculateurs', pl: 'Kalkulatory', cs: 'Kalkulačky',
     },
     description: {
-      da: 'Hent nyhedsbreve, formularer og andet nyttigt materiale til din forretning.',
-      en: 'Download newsletters, forms and other useful material for your business.',
-      de: 'Newsletter, Formulare und anderes nützliches Material für Ihr Geschäft herunterladen.',
-      it: 'Scarica newsletter, moduli e altro materiale utile per la tua attività.',
-      hu: 'Töltsön le hírleveleket, űrlapokat és egyéb hasznos anyagokat vállalkozásához.',
-      sv: 'Ladda ner nyhetsbrev, formulär och annat användbart material för din verksamhet.',
-      fr: 'Téléchargez bulletins, formulaires et autres documents utiles pour votre activité.',
-      pl: 'Pobierz biuletyny, formularze i inne przydatne materiały dla Twojej firmy.',
-      cs: 'Stáhněte si newslettery, formuláře a další užitečné materiály pro vaše podnikání.',
+      da: 'Åbn driftberegner, CO2-kalkulator og øvrige beregningsværktøjer.',
+      en: 'Open operating cost, CO2 and other calculation tools.',
+      de: 'Betriebskosten-, CO2- und weitere Rechner öffnen.',
+      it: 'Apri strumenti per costi operativi, CO2 e altri calcoli.',
+      hu: 'Üzemköltség-, CO2- és egyéb kalkulátorok megnyitása.',
+      sv: 'Öppna drift-, CO2- och andra beräkningsverktyg.',
+      fr: 'Ouvrir les calculateurs de coûts, CO2 et autres outils.',
+      pl: 'Otwórz kalkulatory kosztów, CO2 i inne narzędzia.',
+      cs: 'Otevřít provozní, CO2 a další kalkulačky.',
     },
     cta: {
-      da: 'Åbn bibliotek', en: 'Open library', de: 'Bibliothek öffnen',
-      it: 'Apri biblioteca', hu: 'Könyvtár megnyitása',
-      sv: 'Öppna bibliotek', fr: 'Ouvrir la bibliothèque', pl: 'Otwórz bibliotekę', cs: 'Otevřít knihovnu',
+      da: 'Åbn beregnere', en: 'Open calculators', de: 'Rechner öffnen',
+      it: 'Apri calcolatori', hu: 'Kalkulátorok megnyitása',
+      sv: 'Öppna beräknare', fr: 'Ouvrir les calculateurs', pl: 'Otwórz kalkulatory', cs: 'Otevřít kalkulačky',
     },
-    icon: BookOpen,
+    icon: Calculator,
     href: '/portal/resources',
     enabled: true,
     accent: 'sky',
   },
   {
-    id: 'misc',
+    id: 'partner_map',
     title: {
-      da: 'Diverse', en: 'Miscellaneous', de: 'Verschiedenes', it: 'Varie', hu: 'Egyéb',
-      sv: 'Övrigt', fr: 'Divers', pl: 'Różne', cs: 'Různé',
+      da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép',
+      sv: 'Partnerkarta', fr: 'Carte partenaires', pl: 'Mapa partnerów', cs: 'Mapa partnerů',
     },
     description: {
-      da: 'Diverse indstillinger, kontaktinfo og øvrige værktøjer samlet ét sted.',
-      en: 'Other settings, contact info and additional tools all in one place.',
-      de: 'Sonstige Einstellungen, Kontaktinformationen und zusätzliche Werkzeuge an einem Ort.',
-      it: 'Altre impostazioni, contatti e strumenti aggiuntivi in un unico posto.',
-      hu: 'Egyéb beállítások, kapcsolati információk és további eszközök egy helyen.',
-      sv: 'Övriga inställningar, kontaktinfo och fler verktyg på ett ställe.',
-      fr: 'Autres paramètres, informations de contact et outils supplémentaires regroupés.',
-      pl: 'Inne ustawienia, dane kontaktowe i dodatkowe narzędzia w jednym miejscu.',
-      cs: 'Další nastavení, kontaktní údaje a další nástroje na jednom místě.',
+      da: 'Find forhandlere, servicepartnere og importører på kortet.',
+      en: 'Find dealers, service partners and importers on the map.',
+      de: 'Händler, Servicepartner und Importeure auf der Karte finden.',
+      it: 'Trova rivenditori, partner di servizio e importatori sulla mappa.',
+      hu: 'Kereskedők, szervizpartnerek és importőrök a térképen.',
+      sv: 'Hitta återförsäljare, servicepartner och importörer på kartan.',
+      fr: 'Trouver revendeurs, partenaires service et importateurs sur la carte.',
+      pl: 'Znajdź dealerów, partnerów serwisowych i importerów na mapie.',
+      cs: 'Najděte prodejce, servisní partnery a importéry na mapě.',
     },
     cta: {
-      da: 'Se mere', en: 'See more', de: 'Mehr ansehen', it: 'Scopri di più', hu: 'További információ',
-      sv: 'Se mer', fr: 'Voir plus', pl: 'Zobacz więcej', cs: 'Zobrazit více',
+      da: 'Åbn partnerkort', en: 'Open partner map', de: 'Partnerkarte öffnen',
+      it: 'Apri mappa partner', hu: 'Partnertérkép megnyitása',
+      sv: 'Öppna partnerkarta', fr: 'Ouvrir la carte', pl: 'Otwórz mapę partnerów', cs: 'Otevřít mapu partnerů',
     },
-    icon: Sparkles,
+    icon: MapPinned,
+    href: '/portal/misc/partner-map',
+    enabled: true,
+    accent: 'primary',
+  },
+  {
+    id: 'misc',
+    title: {
+      da: 'Formularer', en: 'Forms', de: 'Formulare', it: 'Moduli', hu: 'Űrlapok',
+      sv: 'Formulär', fr: 'Formulaires', pl: 'Formularze', cs: 'Formuláře',
+    },
+    description: {
+      da: 'Budgetfeedback, kontaktinfo og øvrige formularer samlet ét sted.',
+      en: 'Budget feedback, contact info and other forms in one place.',
+      de: 'Budget-Feedback, Kontaktdaten und weitere Formulare an einem Ort.',
+      it: 'Feedback budget, contatti e altri moduli in un unico posto.',
+      hu: 'Budget visszajelzés, kapcsolati adatok és egyéb űrlapok egy helyen.',
+      sv: 'Budgetfeedback, kontaktinfo och övriga formulär på ett ställe.',
+      fr: 'Retours budget, contacts et autres formulaires regroupés.',
+      pl: 'Informacje budżetowe, kontaktowe i inne formularze w jednym miejscu.',
+      cs: 'Rozpočtová zpětná vazba, kontakty a další formuláře na jednom místě.',
+    },
+    cta: {
+      da: 'Åbn formularer', en: 'Open forms', de: 'Formulare öffnen', it: 'Apri moduli', hu: 'Űrlapok megnyitása',
+      sv: 'Öppna formulär', fr: 'Ouvrir les formulaires', pl: 'Otwórz formularze', cs: 'Otevřít formuláře',
+    },
+    icon: FileText,
     href: '/portal/misc',
     enabled: true,
     accent: 'slate',

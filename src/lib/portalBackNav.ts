@@ -7,12 +7,12 @@
  *
  * Hierarchy (most specific first):
  *
- *   /portal/resources/driftberegner   → /portal/resources       ("ressourcer")
- *   /portal/resources/co2             → /portal/resources       ("ressourcer")
+ *   /portal/resources/driftberegner   → /portal/resources       ("beregnere")
+ *   /portal/resources/co2             → /portal/resources       ("beregnere")
  *   /portal/resources                 → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/misc/forms/*              → /portal/misc/forms      ("Formularer")
- *   /portal/misc/forms                → /portal/misc            ("Diverse")
- *   /portal/misc/partner-map          → /portal/misc            ("Diverse")
+ *   /portal/misc/forms                → /portal/misc            ("Formularer")
+ *   /portal/misc/partner-map          → /portal/salg-marketing  ("Salg")
  *   /portal/misc                      → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/videos/*                  → /portal/videos          ("Videoer")
  *   /portal/videos                    → /portal/salg-marketing  ("Salg & Marketing")
@@ -75,12 +75,12 @@ type BackLabelKey =
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
   messe:           { da: 'Tilbage til Timan Messe',   en: 'Back to Timan Exhibition', de: 'Zurück zu Timan Messe',   it: 'Torna a Timan Fiera',      hu: 'Vissza a Timan kiállításhoz' },
-  sales_marketing: { da: 'Tilbage til Salg & Marketing', en: 'Back to Sales & Marketing', de: 'Zurück zu Vertrieb & Marketing', it: 'Torna a Vendite & Marketing', hu: 'Vissza: Értékesítés & Marketing' },
+  sales_marketing: { da: 'Tilbage til Salg', en: 'Back to Sales', de: 'Zurück zu Vertrieb', it: 'Torna a Vendite', hu: 'Vissza: Értékesítés' },
   service_area:    { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza: Műszaki & Szerviz' },
   backend_area:    { da: 'Tilbage til Backend',       en: 'Back to Backend',        de: 'Zurück zum Backend',        it: 'Torna al Backend',         hu: 'Vissza a Backendhez' },
   crm_area:        { da: 'Tilbage til CRM',           en: 'Back to CRM',            de: 'Zurück zum CRM',            it: 'Torna al CRM',             hu: 'Vissza a CRM-hez' },
-  resources:       { da: 'Tilbage til Ressourcer',    en: 'Back to Resources',      de: 'Zurück zu Ressourcen',      it: 'Torna alle Risorse',       hu: 'Vissza a Forrásokhoz' },
-  misc:            { da: 'Tilbage til Diverse',       en: 'Back to More',           de: 'Zurück zu Sonstiges',       it: 'Torna a Altro',            hu: 'Vissza: Egyéb' },
+  resources:       { da: 'Tilbage til Beregnere',     en: 'Back to Calculators',    de: 'Zurück zu Rechnern',        it: 'Torna ai Calcolatori',     hu: 'Vissza a Kalkulátorokhoz' },
+  misc:            { da: 'Tilbage til Formularer',    en: 'Back to Forms',          de: 'Zurück zu Formularen',      it: 'Torna ai Moduli',          hu: 'Vissza az Űrlapokhoz' },
   forms:           { da: 'Tilbage til Formularer',    en: 'Back to Forms',          de: 'Zurück zu Formularen',      it: 'Torna ai Moduli',          hu: 'Vissza az Űrlapokhoz' },
   videos:          { da: 'Tilbage til Videoer',       en: 'Back to Videos',         de: 'Zurück zu Videos',          it: 'Torna ai Video',           hu: 'Vissza a Videókhoz' },
   my_dealers:      { da: 'Tilbage til Mine forhandlere', en: 'Back to My dealers',  de: 'Zurück zu Meine Händler',   it: 'Torna a I miei rivenditori', hu: 'Vissza: Kereskedőim' },
@@ -111,10 +111,10 @@ const RULES: ParentRule[] = [
   { match: p => eq(p, '/portal/resources/co2'),           to: '/portal/resources', labelKey: 'resources' },
   { match: p => eq(p, '/portal/resources'),               to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
-  // Misc / Diverse
+  // Formularer + standalone partner map
   { match: p => startsWith(p, '/portal/misc/forms') && !eq(p, '/portal/misc/forms'), to: '/portal/misc/forms', labelKey: 'forms' },
   { match: p => eq(p, '/portal/misc/forms'),              to: '/portal/misc', labelKey: 'misc' },
-  { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal/misc', labelKey: 'misc' },
+  { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
   { match: p => startsWith(p, '/portal/misc') && !eq(p, '/portal/misc'), to: '/portal/misc', labelKey: 'misc' },
   { match: p => eq(p, '/portal/misc'),                    to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
