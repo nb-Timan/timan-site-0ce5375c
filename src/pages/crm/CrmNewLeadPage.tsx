@@ -158,6 +158,17 @@ function Field({ label, required, children, full }: { label: string; required?: 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
 const taCls = inputCls + ' min-h-[90px] resize-y';
 
+function formatDkkEstimate(value: string): string {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return `${Math.round(amount).toLocaleString('da-DK')},-`;
+}
+
+function parseDkkEstimate(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits ? String(Number(digits)) : '';
+}
+
 function MultiChip({ options, value, onChange }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -851,7 +862,14 @@ export default function CrmNewLeadPage() {
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
             <Field label={tt('lbl_budget', lang)}>
-              <input type="number" min={0} className={inputCls} value={estimatedValue} onChange={e=>setEstimatedValue(e.target.value)} placeholder="0" />
+              <input
+                type="text"
+                inputMode="numeric"
+                className={inputCls}
+                value={formatDkkEstimate(estimatedValue)}
+                onChange={e=>setEstimatedValue(parseDkkEstimate(e.target.value))}
+                placeholder="0,-"
+              />
             </Field>
             <Field label={tt('lbl_move_work', lang)}>
               <input
