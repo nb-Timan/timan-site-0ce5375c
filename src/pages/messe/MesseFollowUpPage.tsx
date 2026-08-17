@@ -457,8 +457,8 @@ export default function MesseFollowUpPage() {
   }
 
   const hasCustomerInfo = useMemo(
-    () => Boolean(clean(company) && clean(contactPerson) && clean(phone)),
-    [company, contactPerson, phone],
+    () => Boolean(clean(company) && clean(contactPerson) && clean(address) && clean(phone)),
+    [address, company, contactPerson, phone],
   );
   const hasBusinessCard = businessCardFiles.length > 0;
   const hasRequiredEquipment = !products.includes('Equipment') && !products.includes('Loader line / Tractor Equipment')
@@ -494,7 +494,7 @@ export default function MesseFollowUpPage() {
     if (!wantsDemo) { toast.error('Vælg om kunden ønsker demonstration'); return false; }
     if (!responsibleSeller) { toast.error('Vælg Timan sælger'); return false; }
     if (!hasCustomerInfo && !hasBusinessCard) {
-      toast.error('Udfyld firma, kontaktperson og telefon - eller vedhaeft visitkort/billede');
+      toast.error('Udfyld firma/CVR, kontaktperson, adresse og telefon - eller vedhaeft visitkort/billede');
       return false;
     }
     return true;
@@ -714,11 +714,11 @@ export default function MesseFollowUpPage() {
             <section className="space-y-3">
               <RequiredHeading>{f('customerInfo')}</RequiredHeading>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={f('companyPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={f('contactPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={f('addressPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={`${f('companyPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={`${f('contactPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={`${f('addressPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                 <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={f('phonePlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${f('phonePlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               </div>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
