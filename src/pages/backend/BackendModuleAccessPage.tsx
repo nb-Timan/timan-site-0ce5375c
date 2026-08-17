@@ -40,7 +40,6 @@ export default function BackendModuleAccessPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === "slutkunde") return <Navigate to="/configurator" replace />;
   if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
 
   function setCell(role: typeof PORTAL_ROLES[number], key: typeof MATRIX_MODULES[number]["key"], lvl: PermissionLevel) {

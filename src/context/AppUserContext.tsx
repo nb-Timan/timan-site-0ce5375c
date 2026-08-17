@@ -139,23 +139,9 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const cached = loadFromStorage();
-        // Refresh from DB if cache is missing portal_role or dealer_number (stale cache).
-        const cacheIsFresh = cached
-          && cached.email.toLowerCase() === session.user.email.toLowerCase()
-          && Object.prototype.hasOwnProperty.call(cached, 'portal_role')
-          && Object.prototype.hasOwnProperty.call(cached, 'dealer_number')
-          // Phase 27 — re-fetch when cache pre-dates the `permissions` field
-          // Phase 37 — also re-fetch when cache pre-dates `allowed_areas`
-          // so portal area filtering applies without manual logout.
-          && Object.prototype.hasOwnProperty.call(cached, 'permissions')
-          && Object.prototype.hasOwnProperty.call(cached, 'allowed_areas')
-          && Object.prototype.hasOwnProperty.call(cached, 'quick_actions')
-          && (cached as SessionUser & { __permission_defaults_version?: number }).__permission_defaults_version === SESSION_CACHE_VERSION;
-        if (cacheIsFresh) {
-          setLoading(false);
-          return;
-        }
+        // Always verify the cached session against Supabase on app start.
+        // Admins can change portal_role / allowed modules while a user still
+        // has an old browser session; the DB row must win over stale cache.
         const email = session.user.email.toLowerCase();
         const { data: row } = await supabase
           .from('app_users')
