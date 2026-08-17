@@ -601,6 +601,7 @@ export default function MesseMachineBrochurePage({
     backCover: pageCount,
   });
   const content = MACHINE_CONTENT[machineKey];
+  const compactAttachmentChips = machineKey === 'rc-1000s';
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
@@ -764,16 +765,16 @@ export default function MesseMachineBrochurePage({
             </div>
 
             {content.attachments && (
-              <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center gap-2">
+              <section className={`mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm ${compactAttachmentChips ? 'p-4' : 'p-5'}`}>
+                <div className={`${compactAttachmentChips ? 'mb-3' : 'mb-4'} flex items-center gap-2`}>
                   <Wrench className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.tools, lang)}</h2>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap ${compactAttachmentChips ? 'gap-1.5' : 'gap-2'}`}>
                   {content.attachments.map((item) => (
                     <span
                       key={tr(item, lang)}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                      className={`rounded-full border border-slate-200 bg-slate-50 font-semibold text-slate-700 ${compactAttachmentChips ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'}`}
                     >
                       {tr(item, lang)}
                     </span>
