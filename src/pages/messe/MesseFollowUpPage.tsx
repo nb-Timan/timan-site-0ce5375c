@@ -724,7 +724,7 @@ export default function MesseFollowUpPage() {
                         return (
                           <div key={group.machine} className={equipmentBoxClass(active)}>
                             <h3 className="mb-2 text-sm font-bold text-slate-900">{group.machine}</h3>
-                            {'subtitle' in group && group.subtitle && (
+                            {'subtitle' in group && typeof group.subtitle === 'string' && group.subtitle && (
                               <div className="mb-2 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
                                 {group.subtitle}
                               </div>
