@@ -70,7 +70,7 @@ const T: Record<string, Record<Language, string>> = {
   dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Forgalmazó' },
   service_partner: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Servizio', hu: 'Szervizpartner' },
   importer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
-  demo_location: { da: 'Demo-lokation', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  demo_location: { da: 'Demonstrationer', en: 'Demonstrations', de: 'Demonstrationen', it: 'Dimostrazioni', hu: 'Bemutatók' },
   dealer_customer: { da: 'Forhandlerkunde', en: 'Dealer customer', de: 'Dealer customer', it: 'Cliente rivenditore', hu: 'Dealer customer' },
   allSellers: { da: 'Alle sælgere', en: 'All sellers', de: 'Alle', it: 'Tutti', hu: 'Mind' },
   resetView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
@@ -928,18 +928,18 @@ export default function PartnerMapPage() {
     [appUser?.email, messePreviewVersion],
   );
   const onMesseRoute = location.pathname.includes('/messe');
-  const isMesseMapView =
-    onMesseRoute ||
+  const isPublicMesseMapView =
     portalRole === 'exhibition_user' ||
     isMessePreview ||
     isMesseVariantUser(appUser) ||
-    isMesseVariantUser(effectiveUser);
+    isMesseVariantUser(effectiveUser) ||
+    (!appUser && onMesseRoute);
   const isInternalMapRole =
     portalRole === 'timan_backend' ||
     portalRole === 'timan_seller' ||
     portalRole === 'timan_service';
-  const canSeeInternalMapFeatures = !isMesseMapView && isInternalMapRole;
-  const canOpenCrm = !isMesseMapView && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
+  const canSeeInternalMapFeatures = !isPublicMesseMapView && isInternalMapRole;
+  const canOpenCrm = !isPublicMesseMapView && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   const canSeeAssignedSeller = canOpenCrm;
   // Internal roles get aggregate machine stats on partner cards. Dealer-side
   // roles do not (those cards are about other partners), but they can still
@@ -1077,7 +1077,7 @@ export default function PartnerMapPage() {
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
       const isDealerCustomer = isDealerCustomerAccount(d);
-      if (isMesseMapView && isDealerCustomer) return false;
+      if (isPublicMesseMapView && isDealerCustomer) return false;
       if (isDealerCustomer && !canOpenCrm) return false;
       // Dealer-side users may see all partner accounts (Forhandler, Servicepartner,
       // Importør) so they can find other partners on the map. Demo-locations remain
@@ -1122,7 +1122,7 @@ export default function PartnerMapPage() {
         website: d.website ?? null,
         facebook: d.social_facebook ?? null,
       } as Partner;
-    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber, canSeeDemoLocations, isMesseMapView, canOpenCrm]);
+    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber, canSeeDemoLocations, isPublicMesseMapView, canOpenCrm]);
 
   // Machine pins visible to the current user.
   // - Backend / Service: all pins
