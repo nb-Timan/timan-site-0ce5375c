@@ -25,7 +25,7 @@ import { formatDate } from '@/lib/format-date';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
-type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location';
+type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location' | 'dealer_customer';
 
 interface Partner {
   id: string;
@@ -60,6 +60,7 @@ const TYPE_COLORS: Record<PartnerType, string> = {
   service_partner: '#16a34a',
   importer: '#2563eb',
   demo_location: '#7c3aed',
+  dealer_customer: '#64748b',
 };
 
 const T: Record<string, Record<Language, string>> = {
@@ -70,6 +71,7 @@ const T: Record<string, Record<Language, string>> = {
   service_partner: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Servizio', hu: 'Szervizpartner' },
   importer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
   demo_location: { da: 'Demo-lokation', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  dealer_customer: { da: 'Forhandlerkunde', en: 'Dealer customer', de: 'Dealer customer', it: 'Cliente rivenditore', hu: 'Dealer customer' },
   allSellers: { da: 'Alle sælgere', en: 'All sellers', de: 'Alle', it: 'Tutti', hu: 'Mind' },
   resetView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
   users: { da: 'Brugere', en: 'Users', de: 'Benutzer', it: 'Utenti', hu: 'Felh.' },
@@ -175,6 +177,13 @@ function normalizeType(t: string | null): PartnerType {
   if (v === 'importer' || v === 'importør') return 'importer';
   if (v === 'demo_location' || v === 'demo') return 'demo_location';
   return 'dealer';
+}
+
+function isDealerCustomerAccount(d: Pick<DealerAccount, 'customer_type' | 'customer_type_label' | 'dealer_type'>): boolean {
+  return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
+    const normalized = (value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+    return normalized === 'forhandlerkunde' || normalized === 'dealercustomer';
+  });
 }
 
 // Shared pin silhouette — identical geometry for every colour variant.
@@ -1074,6 +1083,9 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
+      const isDealerCustomer = isDealerCustomerAccount(d);
+      if (isMesseMapView && isDealerCustomer) return false;
+      if (isDealerCustomer && !canOpenCrm) return false;
       // Dealer-side users may see all partner accounts (Forhandler, Servicepartner,
       // Importør) so they can find other partners on the map. Demo-locations remain
       // hidden because ownership cannot be reliably proven on the client. Active/
@@ -1094,10 +1106,11 @@ export default function PartnerMapPage() {
     .map((d) => {
       const st = stats[d.id];
       const hasCoords = d.latitude != null && d.longitude != null;
+      const isDealerCustomer = isDealerCustomerAccount(d);
       return {
         id: d.id,
         name: d.company_name,
-        type: normalizeType(d.dealer_type),
+        type: isDealerCustomer ? 'dealer_customer' : normalizeType(d.dealer_type),
         account: d.account_number,
         country: d.country ?? '',
         city: d.city ?? '',
@@ -1116,7 +1129,7 @@ export default function PartnerMapPage() {
         website: d.website ?? null,
         facebook: d.social_facebook ?? null,
       } as Partner;
-    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber, canSeeDemoLocations]);
+    }), [dealers, stats, statusFilter, isDealerSide, ownDealerNumber, canSeeDemoLocations, isMesseMapView, canOpenCrm]);
 
   // Machine pins visible to the current user.
   // - Backend / Service: all pins
@@ -1473,8 +1486,9 @@ export default function PartnerMapPage() {
                 {search && (<button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>)}
               </div>
               <div className="flex items-center gap-1.5">
-                {(['dealer','service_partner','importer','demo_location'] as PartnerType[])
+                {(['dealer','service_partner','importer','demo_location','dealer_customer'] as PartnerType[])
                   .filter((t) => t !== 'demo_location' || canSeeDemoLocations)
+                  .filter((t) => t !== 'dealer_customer' || canOpenCrm)
                   .map((t) => {
                   const on = activeTypes.has(t);
                   return (
