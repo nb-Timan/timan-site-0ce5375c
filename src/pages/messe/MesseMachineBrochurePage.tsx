@@ -357,7 +357,7 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       { da: 'DS-250 Saltspreder', en: 'DS-250 salt spreader', de: 'DS-250 Salzstreuer', it: 'Spargisale DS-250', hu: 'DS-250 sószóró' },
     ],
     viewerHref: '/messe/timan-2620/360',
-    viewerImageSrc: '/images/timan-2620/j-kabine-saltspreder-dozerblad.png',
+    viewerImageSrc: '/images/timan-2620/j-kabine-saltspreder-dozerblad-card.png',
     viewerLabel: {
       da: '360 funktion',
       en: '360 function',
@@ -1015,8 +1015,11 @@ export default function MesseMachineBrochurePage({
             </button>
 
             {content.viewerHref && content.viewerImageSrc && (
-              <Link to={content.viewerHref} className={`${documentButtonClass} border-emerald-200 bg-emerald-50/40`}>
-                <div className="aspect-[4/3] overflow-hidden rounded-xl bg-emerald-50">
+              <Link
+                to={content.viewerHref}
+                className="group block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
+              >
+                <div className="aspect-[4/3] overflow-hidden bg-white">
                   <div className="relative h-full w-full">
                     <img
                       src={content.viewerImageSrc}
