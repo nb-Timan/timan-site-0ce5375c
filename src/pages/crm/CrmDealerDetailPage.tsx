@@ -35,7 +35,7 @@ import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccounts, fetchDealerAccountStats,
   updateDealerAccount, type UpdateDealerAccountPatch,
-  isDealerInactive, dealerLifecycleStatus, resolveActiveDealer,
+  isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
@@ -490,6 +490,9 @@ export default function CrmDealerDetailPage() {
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
   const hasGroup = branchNumbers.length > 1;
+  const dealerCustomers = dealers
+    .filter((d) => d.parent_account_number === mainAccountNumber && isDealerCustomerAccount(d))
+    .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
 
   const sellerCtx = getActiveSellerView(appUser.email);
   const effInitials = getEffectiveSellerInitials(appUser);
@@ -686,6 +689,7 @@ export default function CrmDealerDetailPage() {
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
+            ["dealer_customers", `Forhandlerkunder (${dealerCustomers.length})`],
             ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
             ["documents", tl("tab_documents", lang)],
           ] as const).map(([val, label]) => (
@@ -787,6 +791,15 @@ export default function CrmDealerDetailPage() {
 
 
         {/* USERS — portal users + registered contact persons */}
+        <TabsContent value="dealer_customers" className="mt-0">
+          <DealerCustomersPanel
+            customers={dealerCustomers}
+            stats={stats}
+            onOpen={(d) => navigate(`/portal/crm/my-dealers/${d.account_number}`)}
+            formatCountry={formatCountry}
+          />
+        </TabsContent>
+
         <TabsContent value="users" className="mt-0">
           <UsersAndContactsPanel
             dealer={dealer}
@@ -845,6 +858,77 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
       </div>
       <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
       {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
+    </div>
+  );
+}
+
+function DealerCustomersPanel({
+  customers,
+  stats,
+  onOpen,
+  formatCountry,
+}: {
+  customers: DealerAccount[];
+  stats: Record<string, DealerAccountStats>;
+  onOpen: (dealer: DealerAccount) => void;
+  formatCountry: (country: string | null | undefined) => string;
+}) {
+  if (customers.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+        <Building2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+        <p className="text-sm text-slate-500">Ingen forhandlerkunder tilknyttet denne konto endnu.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Forhandlerkunder</h3>
+        <p className="text-xs text-slate-500 mt-1">
+          Underkonti koblet til denne hovedkonto. Klik på en kunde for at se deres tilbud, ordrer, aktiviteter og historik.
+        </p>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {customers.map((customer) => {
+          const customerStats = stats[customer.id];
+          const location = [customer.postal_code, customer.city].filter(Boolean).join(" ");
+          return (
+            <button
+              key={customer.id}
+              type="button"
+              onClick={() => onOpen(customer)}
+              className="w-full px-5 py-4 text-left hover:bg-emerald-50/40 transition-colors flex items-center justify-between gap-4"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-slate-900">{customer.branch_name || customer.company_name}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">Forhandlerkunde</span>
+                  <span className="font-mono text-xs text-slate-400">#{customer.account_number}</span>
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {location || "-"}{customer.country ? ` · ${formatCountry(customer.country)}` : ""}
+                </div>
+              </div>
+              <div className="shrink-0 grid grid-cols-3 gap-3 text-center text-xs">
+                <div>
+                  <div className="font-bold text-slate-900">{customerStats?.quote_count ?? 0}</div>
+                  <div className="text-slate-400">Tilbud</div>
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900">{customerStats?.order_count ?? 0}</div>
+                  <div className="text-slate-400">Ordrer</div>
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900">{customerStats?.activity_count ?? 0}</div>
+                  <div className="text-slate-400">Akt.</div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

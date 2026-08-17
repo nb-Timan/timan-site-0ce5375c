@@ -99,6 +99,15 @@ export function isDealerInactive(d: Pick<DealerAccount, "is_deleted" | "is_block
   return d.is_deleted || d.is_blocked;
 }
 
+export function isDealerCustomerAccount(
+  d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">,
+): boolean {
+  return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
+    const normalized = (value ?? "").toLowerCase().replace(/[\s_-]+/g, "");
+    return normalized === "forhandlerkunde" || normalized === "dealercustomer";
+  });
+}
+
 
 
 

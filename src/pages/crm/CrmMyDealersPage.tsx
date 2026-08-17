@@ -40,6 +40,7 @@ import {
   resolveEffectiveSeller,
   buildSuccessorIndex,
   dealerLifecycleStatus,
+  isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
@@ -242,9 +243,26 @@ export default function CrmMyDealersPage() {
     }
   }
   // Hide absorbed predecessors from top-level grouping — they render as sub-rows.
-  const visibleDealers = (dealers ?? []).filter((d) => visibleIds.has(d.id) && !absorbedIds.has(d.id));
+  const visibleDealerCustomers = (dealers ?? []).filter((d) =>
+    visibleIds.has(d.id) && !absorbedIds.has(d.id) && isDealerCustomerAccount(d)
+  );
+  const visibleDealers = (dealers ?? []).filter((d) =>
+    visibleIds.has(d.id) && !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)
+  );
   const groups = groupDealersByParent(visibleDealers);
-  const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id)).length;
+  const dealerCustomersByParent = new Map<string, DealerAccount[]>();
+  for (const d of visibleDealerCustomers) {
+    const parent = d.parent_account_number || "";
+    if (!parent) continue;
+    const list = dealerCustomersByParent.get(parent) ?? [];
+    list.push(d);
+    dealerCustomersByParent.set(parent, list);
+  }
+  for (const list of dealerCustomersByParent.values()) {
+    list.sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
+  }
+  const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)).length;
+  const visibleMainCount = filteredDealers.filter((d) => !isDealerCustomerAccount(d)).length;
 
   return (
     <CrmLayout pageTitle={T.title[lang]}>
@@ -338,9 +356,11 @@ export default function CrmMyDealersPage() {
             )}
             {groups.map((g) => {
               const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
+              const dealerCustomers = dealerCustomersByParent.get(g.main.account_number) ?? [];
               const hasBranches = g.branches.length > 0;
+              const hasDealerCustomers = dealerCustomers.length > 0;
               const hasPredecessors = predecessors.length > 0;
-              const expandable = hasBranches || hasPredecessors;
+              const expandable = hasBranches || hasDealerCustomers || hasPredecessors;
               const isOpen = groupExpanded.has(g.main.id);
               const agg = hasBranches ? aggregateGroupStats(g, statsMap) : null;
               return (
@@ -349,8 +369,9 @@ export default function CrmMyDealersPage() {
                     r: g.main,
                     depth: 0,
                     variant: "main",
-                    isMain: hasBranches || g.main.is_main_account,
+                    isMain: hasBranches || hasDealerCustomers || g.main.is_main_account,
                     branchCount: g.branches.length,
+                    dealerCustomerCount: dealerCustomers.length,
                     successorCount: predecessors.length,
                     open: isOpen,
                     onToggle: expandable ? () => setGroupExpanded((p) => {
@@ -374,7 +395,7 @@ export default function CrmMyDealersPage() {
                   {isOpen && hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
                       {renderRow({
-                        r: b, depth: 1, variant: "branch", isMain: false, branchCount: 0, successorCount: 0,
+                        r: b, depth: 1, variant: "branch", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
@@ -384,10 +405,23 @@ export default function CrmMyDealersPage() {
                       })}
                     </React.Fragment>
                   ))}
+                  {isOpen && hasDealerCustomers && dealerCustomers.map((c) => (
+                    <React.Fragment key={c.id}>
+                      {renderRow({
+                        r: c, depth: 1, variant: "dealer_customer", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
+                        statsMap, allUsers, dealersByAcct,
+                        usersExpanded, setUsersExpanded,
+                        budgetIndex,
+                        budgetAccountNumbers: [c.account_number],
+                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        formatCountry,
+                      })}
+                    </React.Fragment>
+                  ))}
                   {isOpen && hasPredecessors && predecessors.map((p) => (
                     <React.Fragment key={p.id}>
                       {renderRow({
-                        r: p, depth: 1, variant: "successor", isMain: false, branchCount: 0, successorCount: 0,
+                        r: p, depth: 1, variant: "successor", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
@@ -405,7 +439,7 @@ export default function CrmMyDealersPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        {filteredDealers.length} / {totalDealersCount} · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link>
+        {visibleMainCount} / {totalDealersCount} · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link>
       </p>
     </CrmLayout>
   );
@@ -414,9 +448,10 @@ export default function CrmMyDealersPage() {
 interface RowProps {
   r: DealerAccount;
   depth: 0 | 1;
-  variant: "main" | "branch" | "successor";
+  variant: "main" | "branch" | "dealer_customer" | "successor";
   isMain: boolean;
   branchCount: number;
+  dealerCustomerCount: number;
   successorCount: number;
   open?: boolean;
   onToggle?: () => void;
@@ -498,6 +533,11 @@ function renderRow(p: RowProps) {
                 <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
               </span>
             )}
+            {p.variant === "main" && p.dealerCustomerCount > 0 && (
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">
+                Forhandlerkunder ({p.dealerCustomerCount})
+              </span>
+            )}
             {p.variant === "main" && p.successorCount > 0 && (
               <span
                 className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200"
@@ -509,6 +549,11 @@ function renderRow(p: RowProps) {
             {p.variant === "branch" && (
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                 Filial
+              </span>
+            )}
+            {p.variant === "dealer_customer" && (
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                Forhandlerkunde
               </span>
             )}
             {p.variant === "successor" && (

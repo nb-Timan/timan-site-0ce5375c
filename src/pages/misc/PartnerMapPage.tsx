@@ -11,7 +11,7 @@ import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
-import { fetchDealerAccounts, fetchDealerAccountStats, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
+import { fetchDealerAccounts, fetchDealerAccountStats, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -177,13 +177,6 @@ function normalizeType(t: string | null): PartnerType {
   if (v === 'importer' || v === 'importør') return 'importer';
   if (v === 'demo_location' || v === 'demo') return 'demo_location';
   return 'dealer';
-}
-
-function isDealerCustomerAccount(d: Pick<DealerAccount, 'customer_type' | 'customer_type_label' | 'dealer_type'>): boolean {
-  return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
-    const normalized = (value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
-    return normalized === 'forhandlerkunde' || normalized === 'dealercustomer';
-  });
 }
 
 // Shared pin silhouette — identical geometry for every colour variant.
