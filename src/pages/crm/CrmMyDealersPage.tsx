@@ -492,6 +492,7 @@ function renderRow(p: RowProps) {
     : p.allUsers.filter((u) => u.dealer_number === p.r.account_number);
   const eff = resolveEffectiveSeller(p.r, p.dealersByAcct);
   const usersOpen = p.usersExpanded.has(p.r.id);
+  const branchBadge = p.variant === "branch" ? branchRelationBadgeLabel(p.r, p.dealersByAcct) : null;
   return (
     <>
       <tr
@@ -570,7 +571,7 @@ function renderRow(p: RowProps) {
             )}
             {p.variant === "branch" && (
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-                Filial
+                {branchBadge}
               </span>
             )}
             {p.variant === "dealer_customer" && (
@@ -706,6 +707,37 @@ function BudgetStatusCell({
       </div>
     </Td>
   );
+}
+
+function branchRelationBadgeLabel(
+  dealer: DealerAccount,
+  dealersByAcct: Map<string, DealerAccount>,
+): string {
+  const rawType = dealer.customer_type_label || dealer.customer_type || dealer.dealer_type || "";
+  const normalizedType = rawType.toLowerCase().replace(/[\s_-]+/g, "");
+  if (normalizedType.includes("servicepartner")) return "Service Partner";
+  if (normalizedType.includes("import")) return "Importør";
+  if (normalizedType.includes("forhandlerkunde") || normalizedType.includes("dealercustomer")) return "Forhandlerkunde";
+
+  const parent = dealer.parent_account_number ? dealersByAcct.get(dealer.parent_account_number) : null;
+  if (parent && isSameCompanyBranch(parent.company_name, dealer.company_name)) return "Filial";
+  if (dealer.branch_name?.trim()) return "Filial";
+  return "Forhandler";
+}
+
+function isSameCompanyBranch(parentName: string | null | undefined, childName: string | null | undefined): boolean {
+  const parent = normalizeCompanyBase(parentName);
+  const child = normalizeCompanyBase(childName);
+  return Boolean(parent && child && (child.startsWith(parent) || parent.startsWith(child)));
+}
+
+function normalizeCompanyBase(value: string | null | undefined): string {
+  return (value ?? "")
+    .split(/\s+[–—-]\s+|,/)[0]
+    .toLowerCase()
+    .replace(/\b(a\/s|aps|ab|gmbh|as|oy|bv|nv|ltd|sarl|d\.o\.o)\b/g, "")
+    .replace(/[^a-z0-9æøåäöü]+/gi, "")
+    .trim();
 }
 
 function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
