@@ -108,6 +108,7 @@ export default function CrmMyDealersPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "blocked">("all");
 
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
+  const [dealerCustomersExpanded, setDealerCustomersExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
   const budgetYear = new Date().getFullYear();
@@ -360,8 +361,8 @@ export default function CrmMyDealersPage() {
               const hasBranches = g.branches.length > 0;
               const hasDealerCustomers = dealerCustomers.length > 0;
               const hasPredecessors = predecessors.length > 0;
-              const expandable = hasBranches || hasDealerCustomers || hasPredecessors;
               const isOpen = groupExpanded.has(g.main.id);
+              const dealerCustomersOpen = dealerCustomersExpanded.has(g.main.id);
               const agg = hasBranches ? aggregateGroupStats(g, statsMap) : null;
               return (
                 <React.Fragment key={g.main.id}>
@@ -374,7 +375,13 @@ export default function CrmMyDealersPage() {
                     dealerCustomerCount: dealerCustomers.length,
                     successorCount: predecessors.length,
                     open: isOpen,
-                    onToggle: expandable ? () => setGroupExpanded((p) => {
+                    onToggle: hasPredecessors ? () => setGroupExpanded((p) => {
+                      const n = new Set(p);
+                      if (n.has(g.main.id)) n.delete(g.main.id); else n.add(g.main.id);
+                      return n;
+                    }) : undefined,
+                    dealerCustomersOpen,
+                    onToggleDealerCustomers: hasDealerCustomers ? () => setDealerCustomersExpanded((p) => {
                       const n = new Set(p);
                       if (n.has(g.main.id)) n.delete(g.main.id); else n.add(g.main.id);
                       return n;
@@ -392,10 +399,11 @@ export default function CrmMyDealersPage() {
                     onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                     formatCountry,
                   })}
-                  {isOpen && hasBranches && g.branches.map((b) => (
+                  {hasBranches && g.branches.map((b) => (
                     <React.Fragment key={b.id}>
                       {renderRow({
                         r: b, depth: 1, variant: "branch", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
+                        dealerCustomersOpen: false,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
@@ -405,10 +413,11 @@ export default function CrmMyDealersPage() {
                       })}
                     </React.Fragment>
                   ))}
-                  {isOpen && hasDealerCustomers && dealerCustomers.map((c) => (
+                  {dealerCustomersOpen && hasDealerCustomers && dealerCustomers.map((c) => (
                     <React.Fragment key={c.id}>
                       {renderRow({
                         r: c, depth: 1, variant: "dealer_customer", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
+                        dealerCustomersOpen: false,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
@@ -422,6 +431,7 @@ export default function CrmMyDealersPage() {
                     <React.Fragment key={p.id}>
                       {renderRow({
                         r: p, depth: 1, variant: "successor", isMain: false, branchCount: 0, dealerCustomerCount: 0, successorCount: 0,
+                        dealerCustomersOpen: false,
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
@@ -455,6 +465,8 @@ interface RowProps {
   successorCount: number;
   open?: boolean;
   onToggle?: () => void;
+  dealerCustomersOpen: boolean;
+  onToggleDealerCustomers?: () => void;
   agg?: { user_count: number; quote_count: number; order_count: number; last_activity_at: string | null } | null;
   statsMap: Record<string, DealerAccountStats>;
   allUsers: BackendUser[];
@@ -534,9 +546,19 @@ function renderRow(p: RowProps) {
               </span>
             )}
             {p.variant === "main" && p.dealerCustomerCount > 0 && (
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); p.onToggleDealerCustomers?.(); }}
+                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold border transition-colors ${
+                  p.dealerCustomersOpen
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                    : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                }`}
+                aria-label={p.dealerCustomersOpen ? "Skjul forhandlerkunder" : "Vis forhandlerkunder"}
+              >
+                {p.dealerCustomersOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                 Forhandlerkunder ({p.dealerCustomerCount})
-              </span>
+              </button>
             )}
             {p.variant === "main" && p.successorCount > 0 && (
               <span
