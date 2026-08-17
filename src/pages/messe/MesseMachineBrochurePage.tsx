@@ -759,7 +759,8 @@ export default function MesseMachineBrochurePage({
     backCover: brochurePageCount || 1,
   });
   const content = MACHINE_CONTENT[machineKey];
-  const compactAttachmentChips = machineKey === 'rc-1000s' || machineKey === 'timan-2620';
+  const isTiman2620 = machineKey === 'timan-2620';
+  const compactAttachmentChips = machineKey === 'rc-1000s' || isTiman2620;
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
@@ -829,21 +830,21 @@ export default function MesseMachineBrochurePage({
       <main className="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <section>
-            <div className="mb-7">
+            <div className={isTiman2620 ? 'mb-5' : 'mb-7'}>
               <div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
                 {tr(content.eyebrow, lang)}
               </div>
               <h1 className="text-3xl font-bold text-slate-950">{title}</h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">{tr(content.intro, lang)}</p>
+              <p className={`${isTiman2620 ? 'mt-3 leading-6' : 'mt-4 leading-7'} max-w-3xl text-base text-slate-600`}>{tr(content.intro, lang)}</p>
             </div>
 
             {machineKey !== 'rc-1000s' && (
               <div className="grid gap-4 sm:grid-cols-3">
                 {content.attachmentCount && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                    <Wrench className="mb-4 h-6 w-6 text-emerald-700" />
-                    <div className="text-3xl font-black text-emerald-800">{content.attachmentCount}</div>
-                    <div className="mt-1 text-sm font-semibold text-emerald-900">
+                  <div className={`rounded-2xl border border-emerald-200 bg-emerald-50 ${isTiman2620 ? 'p-4' : 'p-5'}`}>
+                    <Wrench className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-emerald-700`} />
+                    <div className={`${isTiman2620 ? 'text-2xl' : 'text-3xl'} font-black text-emerald-800`}>{content.attachmentCount}</div>
+                    <div className={`${isTiman2620 ? 'text-xs leading-5' : 'text-sm'} mt-1 font-semibold text-emerald-900`}>
                       {tr(content.attachmentLabel || T.tools, lang)}
                     </div>
                   </div>
@@ -853,11 +854,11 @@ export default function MesseMachineBrochurePage({
                     .slice(0, content.attachmentCount ? 2 : 3)
                     .map((item) => ({ title: undefined, text: item }))
                 ).map((item, index) => (
-                  <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={index} className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${isTiman2620 ? 'p-4' : 'p-5'}`}>
                     {index === 0 ? (
-                      <Gauge className="mb-4 h-6 w-6 text-slate-700" />
+                      <Gauge className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-slate-700`} />
                     ) : (
-                      <Settings className="mb-4 h-6 w-6 text-slate-700" />
+                      <Settings className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-slate-700`} />
                     )}
                     {item.title && (
                       <p className="text-sm font-semibold leading-6 text-slate-900">{tr(item.title, lang)}</p>
@@ -865,7 +866,7 @@ export default function MesseMachineBrochurePage({
                     <p
                       className={
                         item.title
-                          ? 'text-sm leading-6 text-slate-600'
+                          ? `${isTiman2620 ? 'text-sm leading-5' : 'text-sm leading-6'} text-slate-600`
                           : 'text-sm font-semibold leading-6 text-slate-800'
                       }
                     >
@@ -888,24 +889,24 @@ export default function MesseMachineBrochurePage({
               </div>
             )}
 
-            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className={`${isTiman2620 ? 'mt-5 p-4' : 'mt-6 p-5'} rounded-2xl border border-slate-200 bg-white shadow-sm`}>
               <h2 className="mb-3 text-lg font-bold text-slate-950">{tr(T.moreAbout, lang)}</h2>
-              <div className="space-y-3 text-sm leading-7 text-slate-600">
+              <div className={`${isTiman2620 ? 'space-y-2 leading-6' : 'space-y-3 leading-7'} text-sm text-slate-600`}>
                 {descriptions.map((paragraph) => (
                   <p key={tr(paragraph, lang)}>{tr(paragraph, lang)}</p>
                 ))}
               </div>
             </section>
 
-            <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-2">
-              <section className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className={`${isTiman2620 ? 'mt-5 gap-4' : 'mt-8 gap-6'} grid items-stretch lg:grid-cols-2`}>
+              <section className={`${isTiman2620 ? 'p-4' : 'p-5'} h-full rounded-2xl border border-slate-200 bg-white shadow-sm`}>
                 <div className="mb-4 flex items-center gap-2">
                   <ListChecks className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.keyPoints, lang)}</h2>
                 </div>
-                <div className="space-y-3">
+                <div className={isTiman2620 ? 'space-y-2.5' : 'space-y-3'}>
                   {content.highlights.map((item, index) => (
-                    <div key={index} className="flex gap-3 text-sm leading-6 text-slate-700">
+                    <div key={index} className={`flex gap-3 text-sm text-slate-700 ${isTiman2620 ? 'leading-5' : 'leading-6'}`}>
                       <span className="mt-2 h-2 w-2 flex-none rounded-full bg-emerald-600" />
                       <span>{tr(item, lang)}</span>
                     </div>
@@ -913,7 +914,7 @@ export default function MesseMachineBrochurePage({
                 </div>
               </section>
 
-              <section className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className={`${isTiman2620 ? 'p-4' : 'p-5'} h-full rounded-2xl border border-slate-200 bg-white shadow-sm`}>
                 <div className="mb-4 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-emerald-700" />
                   <h2 className="text-lg font-bold text-slate-950">{tr(T.specs, lang)}</h2>
