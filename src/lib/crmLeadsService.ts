@@ -254,7 +254,15 @@ function ensureDemoNumbers(rows: CrmDemoLead[]): CrmDemoLead[] {
 
 export type NewCrmLead = Omit<CrmLead, "id" | "created_at" | "updated_at">;
 
-export async function createLead(input: NewCrmLead): Promise<CrmLead> {
+function removeLeadFromLocalCache(id: string): void {
+  writeLS<CrmLead>(LS_LEADS, readLS<CrmLead>(LS_LEADS).filter(r => r.id !== id));
+}
+
+function isUuid(value: string | null | undefined): boolean {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function createLead(input: NewCrmLead, opts: { requireRemote?: boolean } = {}): Promise<CrmLead> {
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
 
@@ -277,7 +285,8 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       title: row.title,
       owner_user_id: row.owner_user_id,
       owner_name: row.owner_name,
-      linked_dealer_id: row.linked_dealer_id,
+      owner_email: row.owner_email ?? null,
+      linked_dealer_id: isUuid(row.linked_dealer_id) ? row.linked_dealer_id : null,
       first_contact_date: row.first_contact_date,
       expected_close_date: row.expected_close_date,
       next_followup_date: row.next_followup_date,
@@ -296,11 +305,18 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
       lost_competitor: row.lost_competitor,
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
+      attachments: row.attachments ?? [],
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
       incomplete_from_configurator: row.incomplete_from_configurator ?? false,
     }).select("lead_no").maybeSingle();
-    if (error) notifyLocalFallback({ table: "crm_leads", action: "insert", error });
+    if (error) {
+      notifyLocalFallback({ table: "crm_leads", action: "insert", error });
+      if (opts.requireRemote) {
+        removeLeadFromLocalCache(row.id);
+        throw error;
+      }
+    }
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
       row.lead_no = (data as { lead_no: number }).lead_no;
       // Sync the local row with the authoritative number.
@@ -310,6 +326,10 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
     }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "insert", error: err });
+    if (opts.requireRemote) {
+      removeLeadFromLocalCache(row.id);
+      throw err;
+    }
   }
 
   // Auto-log to activity feed → dashboard updates immediately.
@@ -337,6 +357,18 @@ export async function createLead(input: NewCrmLead): Promise<CrmLead> {
   } catch { /* */ }
 
   return row;
+}
+
+export async function deleteLead(id: string): Promise<{ error?: string }> {
+  try {
+    const { error } = await supabase.from("crm_leads").delete().eq("id", id);
+    if (error) throw error;
+    removeLeadFromLocalCache(id);
+    return {};
+  } catch (err) {
+    notifyLocalFallback({ table: "crm_leads", action: "delete", error: err });
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export type CrmLeadPatch = Partial<Omit<CrmLead, "id" | "created_at">>;
@@ -570,6 +602,18 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
   } catch { /* */ }
 
   return row;
+}
+
+export async function deleteDemoLead(id: string): Promise<{ error?: string }> {
+  try {
+    const { error } = await supabase.from("crm_demo_leads").delete().eq("id", id);
+    if (error) throw error;
+    writeLS<CrmDemoLead>(LS_DEMO, readLS<CrmDemoLead>(LS_DEMO).filter(r => r.id !== id));
+    return {};
+  } catch (err) {
+    notifyLocalFallback({ table: "crm_demo_leads", action: "delete", error: err });
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** Seed rows imported from Machine_Demonstration.csv (real Timan demo history). */

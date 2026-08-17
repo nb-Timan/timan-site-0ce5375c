@@ -177,7 +177,7 @@ function MultiChip({ options, value, onChange }: { options: readonly string[]; v
 
 // ---- Dealer picker option (mirrors Calendar behaviour) ----
 interface DealerOption {
-  value: string;          // account_number
+  value: string;          // dealer_accounts.id
   label: string;          // "Axima AB · 10239 · BP"
   searchKey: string;
   isMine: boolean;
@@ -189,7 +189,7 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
   const initials = liveInitials || d.assigned_seller_initials || '';
   const label = `${d.company_name} · ${d.account_number}${initials ? ` · ${initials}` : ''}`;
   return {
-    value: d.account_number,
+    value: d.id,
     label,
     searchKey: [d.company_name, d.account_number, d.city, d.country, initials].filter(Boolean).join(' ').toLowerCase(),
     isMine: mine,

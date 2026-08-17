@@ -44,6 +44,8 @@ import { buildMainCategories } from '@/lib/mainCategories';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
+import { getLead } from '@/lib/crmLeadsService';
+import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -784,6 +786,7 @@ export default function ConfiguratorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [resumeBusy, setResumeBusy] = useState(false);
   const resumeAttemptedRef = useRef<string | null>(null);
+  const leadQuoteAttemptedRef = useRef<string | null>(null);
   useEffect(() => {
     const configId = searchParams.get('configId');
     if (!configId) return;
@@ -867,6 +870,55 @@ export default function ConfiguratorPage() {
       }
     })();
   }, [searchParams, appUser, lang, setState, setSearchParams]);
+
+  // CRM lead → configurator quote draft (?fromLeadQuote=<lead-id>).
+  // This keeps the lead linked and preselects known machines/equipment, then
+  // leaves the user in the configurator flow so delivery and existing reminder
+  // dialogs are still handled by the normal configurator rules.
+  useEffect(() => {
+    const leadId = searchParams.get('fromLeadQuote');
+    if (!leadId) return;
+    if (searchParams.get('configId')) return;
+    if (!appUser?.email) return;
+    if (leadQuoteAttemptedRef.current === leadId) return;
+    leadQuoteAttemptedRef.current = leadId;
+
+    (async () => {
+      try {
+        const lead = await getLead(leadId);
+        if (!lead) {
+          toast.error(lang === 'da' ? 'Leadet blev ikke fundet' : 'Lead was not found');
+          return;
+        }
+        setState((prev) => buildConfiguratorStateFromLead(lead, prev));
+        setSavedConfigurationId(null);
+        setSavedQuoteNumber(null);
+        setSavedOrderNumber(null);
+        setSavedSourceQuoteNumber(null);
+        setIsSavedCurrent(false);
+        setOrderLocked(false);
+        setLinkedLeadId(lead.id);
+        setOwnership((prev) => ({
+          ...prev,
+          sellerName: lead.owner_name || prev.sellerName,
+          sellerEmail: lead.owner_email || prev.sellerEmail,
+          dealerAccountId: lead.linked_dealer_id || prev.dealerAccountId,
+        }));
+        toast.success(lang === 'da' ? 'Lead indlæst som tilbud' : 'Lead loaded as quote', {
+          description: lang === 'da'
+            ? 'Kontrollér redskaberne og udfyld levering, før tilbuddet gemmes.'
+            : 'Check the equipment and fill delivery before saving the quote.',
+        });
+      } catch (e) {
+        console.error('[ConfiguratorPage] lead quote draft failed', e);
+        toast.error(lang === 'da' ? 'Kunne ikke indlæse leadet' : 'Could not load lead');
+      } finally {
+        const next = new URLSearchParams(searchParams);
+        next.delete('fromLeadQuote');
+        setSearchParams(next, { replace: true });
+      }
+    })();
+  }, [searchParams, appUser?.email, lang, setSearchParams, setState]);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {

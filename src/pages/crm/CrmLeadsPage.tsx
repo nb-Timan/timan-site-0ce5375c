@@ -6,9 +6,10 @@ import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
+import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead,
+  listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead, deleteLead, deleteDemoLead,
   CrmLead, CrmDemoLead,
   formatLeadNo, formatDemoNo,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
@@ -22,10 +23,20 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 // ---- i18n. English fallback. ----
@@ -40,7 +51,7 @@ type TKey =
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
-  | 'convert_to_demo'
+  | 'convert_to_demo' | 'convert_to_quote'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
@@ -92,6 +103,7 @@ const T: Record<TKey, Record<Language, string>> = {
   close_err:     { da: 'Kunne ikke lukke leadet.', en: 'Could not close lead.', de: 'Lead konnte nicht geschlossen werden.', it: 'Impossibile chiudere il lead.', hu: 'Nem sikerült lezárni a leadet.' },
   verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.' },
   convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá' },
+  convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
@@ -234,6 +246,7 @@ export default function CrmLeadsPage() {
   const dealerParam = searchParams.get('dealer') || '';
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
+  const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'all',       label: tt('tab_all', lang) },
@@ -252,6 +265,8 @@ export default function CrmLeadsPage() {
   const [q, setQ] = useState(dealerParam);
   const [stage, setStage] = useState<string>('');
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
@@ -356,6 +371,29 @@ export default function CrmLeadsPage() {
     () => allRows.filter(x => !x.owner_user_id).length,
     [allRows]
   );
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      const result = deleteTarget.type === 'demo'
+        ? await deleteDemoLead(deleteTarget.id)
+        : await deleteLead(deleteTarget.id);
+      if (result.error) {
+        toast.error('Kunne ikke slette leadet.');
+        return;
+      }
+      if (deleteTarget.type === 'demo') {
+        setDemoLeads((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      } else {
+        setOpenLeads((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      }
+      toast.success(deleteTarget.type === 'demo' ? 'Demo-lead er slettet.' : 'Lead er slettet.');
+      setDeleteTarget(null);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   return (
     <CrmLayout pageTitle={tt('page_title', lang)}>
@@ -522,6 +560,13 @@ export default function CrmLeadsPage() {
                               >
                                 <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
                               </Link>
+                              <Link
+                                to={`/configurator?fromLeadQuote=${encodeURIComponent(r.id)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[12px] text-emerald-700 hover:underline"
+                              >
+                                <FileText className="h-3.5 w-3.5" /> {tt('convert_to_quote', lang)}
+                              </Link>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -533,6 +578,18 @@ export default function CrmLeadsPage() {
                                 <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
                               </button>
                             </>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(r);
+                              }}
+                              className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Slet
+                            </button>
                           )}
                           {r.detail_href ? (
                             <Link to={r.detail_href} onClick={e => e.stopPropagation()}
@@ -559,6 +616,29 @@ export default function CrmLeadsPage() {
         onOpenChange={(open) => { if (!open) setCloseTarget(null); }}
         onSaved={async () => { setCloseTarget(null); await refreshLeads(); }}
       />
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open && !deleteBusy) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Er du sikker på, at du vil slette dette lead? Det fjernes fra CRM-listen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Annuller</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBusy ? '…' : 'Ja, slet'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmLayout>
   );
 }

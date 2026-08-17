@@ -539,7 +539,7 @@ export default function MesseFollowUpPage() {
         owner_user_id: ownerId,
         owner_name: responsibleSeller.full_name || responsibleSeller.initials,
         owner_email: responsibleSeller.email,
-        linked_dealer_id: selectedDealer?.account_number || null,
+        linked_dealer_id: selectedDealer?.id || null,
         first_contact_date: today,
         expected_close_date: expectedCloseDate,
         next_followup_date: followUpDate,
@@ -562,7 +562,7 @@ export default function MesseFollowUpPage() {
         status: 'open',
         move_to_working_qty: 0,
         incomplete_from_configurator: false,
-      });
+      }, { requireRemote: true });
 
       setCreatedLead({ id: lead.id, leadNo: lead.lead_no });
       try {
