@@ -25,6 +25,7 @@ import {
 } from '@/lib/leadStatus';
 import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,7 +47,7 @@ type TKey =
   | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
-  | 'col_equipment' | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
+  | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link'
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
@@ -77,7 +78,6 @@ const T: Record<TKey, Record<Language, string>> = {
   col_dealer:    { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   col_owner:     { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos' },
   col_machine:   { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép' },
-  col_equipment: { da: 'Udstyr', en: 'Equipment', de: 'Zubehör', it: 'Attrezzatura', hu: 'Felszerelés' },
   col_date:      { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
   col_followup:  { da: 'Næste opf.', en: 'Next f/u', de: 'Nächste NV', it: 'Prossimo f/u', hu: 'Köv. utánk.' },
   col_status:    { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
@@ -189,14 +189,22 @@ function fmtDate(s: string | null | undefined, lang: Language): string {
   return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function mapOpen(l: CrmLead): UnifiedLead {
+function looksLikeUuid(value: string | null | undefined): boolean {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
+  const linkedDealer = l.linked_dealer_id || null;
+  const dealer = linkedDealer && looksLikeUuid(linkedDealer)
+    ? dealerNameById.get(linkedDealer) || null
+    : linkedDealer;
   return {
     id: l.id,
     display_no: formatLeadNo(l.lead_no),
     type: 'open',
     title: l.title,
     customer: l.contact_information || null,
-    dealer: l.linked_dealer_id || null,
+    dealer,
     owner_user_id: l.owner_user_id,
     owner_name: l.owner_name,
     owner_email: l.owner_email || null,
@@ -258,6 +266,7 @@ export default function CrmLeadsPage() {
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
+  const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -277,6 +286,16 @@ export default function CrmLeadsPage() {
   };
 
   useEffect(() => { if (!dealerParam) setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin, dealerParam]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetchDealerAccounts({ includeDeleted: true });
+      if (cancelled) return;
+      setDealerNameById(new Map(res.rows.map((d) => [d.id, d.company_name || d.account_number])));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,7 +327,7 @@ export default function CrmLeadsPage() {
   }, [appUser?.email]);
 
   const allRows: UnifiedLead[] = useMemo(() => {
-    const open = openLeads.map(mapOpen);
+    const open = openLeads.map((lead) => mapOpen(lead, dealerNameById));
     const demo = demoLeads.map(mapDemo);
     let merged = [...open, ...demo];
     if (!isAdmin) {
@@ -321,7 +340,7 @@ export default function CrmLeadsPage() {
     }
     merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return merged;
-  }, [openLeads, demoLeads, isAdmin, sellerId, appUser?.email]);
+  }, [openLeads, demoLeads, dealerNameById, isAdmin, sellerId, appUser?.email]);
 
   const counts = useMemo(() => ({
     all:       allRows.length,
@@ -486,7 +505,6 @@ export default function CrmLeadsPage() {
                   <th className="text-left px-4 py-3">{tt('col_dealer', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_owner', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_machine', lang)}</th>
-                  <th className="text-left px-4 py-3">{tt('col_equipment', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_date', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_followup', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_status', lang)}</th>
@@ -532,8 +550,7 @@ export default function CrmLeadsPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-[160px] truncate">{r.machine || '—'}</td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-[180px] truncate">{r.equipment || '—'}</td>
+                      <td className="px-4 py-3.5 text-gray-600 max-w-[260px] truncate">{r.machine || '—'}</td>
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.date, lang)}</td>
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup, lang)}</td>
                       <td className="px-4 py-3.5">
