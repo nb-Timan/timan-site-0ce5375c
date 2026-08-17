@@ -18,6 +18,7 @@ import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory'
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
+import { getPortalBackInfo } from '@/lib/portalBackNav';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -43,6 +44,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const initials = getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const location = useLocation();
 
   // Backend users see a notification badge when new users are awaiting
@@ -82,6 +84,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   const navigate = useNavigate();
   const showMesseHomeShortcut = !hideMesseHomeShortcut && location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
+  const backInfo = getPortalBackInfo(location.pathname, language, location.search);
+  const isDealerUser = derivePortalRole(user) === 'dealer_user';
+  const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator';
+  const portalBackTarget = isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
+  const portalBackLabel = isDealerUser && location.pathname.startsWith('/portal/')
+    ? t('portalHeaderToFrontPage', uiLanguage)
+    : backInfo.label;
+  const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
 
   function homeTarget(): string {
     if (isMesseVariantUser(user)) return '/messe';
@@ -122,6 +132,17 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     document.addEventListener('pointerdown', onDown, true);
     return () => document.removeEventListener('pointerdown', onDown, true);
   }, [modeMenuOpen]);
+
+  useEffect(() => {
+    if (!languageMenuOpen) return;
+    function onDown(e: PointerEvent) {
+      const root = document.getElementById('timan-language-menu-root');
+      if (root && e.target instanceof Node && root.contains(e.target)) return;
+      setLanguageMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [languageMenuOpen]);
 
 
   useEffect(() => {
@@ -200,19 +221,60 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
 
           {/* Right: language flags + bell + user chip + logout */}
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-gray-50 border border-gray-200">
-              {LANGS.map(l => (
-                <button
-                  key={l.code}
-                  onClick={() => onLanguageChange(l.code)}
-                  className={`px-1.5 py-0.5 rounded-md transition ${uiLanguage === l.code ? 'bg-white shadow-sm border border-[#2d5a27]/30' : 'border border-transparent hover:bg-white'}`}
-                  aria-label={l.code}
-                  title={l.label}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {showPortalBackButton && (
+              <button
+                type="button"
+                onClick={() => navigate(portalBackTarget)}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 sm:px-4"
+                title={portalBackLabel}
+                aria-label={portalBackLabel}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{portalBackLabel.replace(/^Tilbage til\s+/i, 'Tilbage')}</span>
+              </button>
+            )}
+
+            <div className="relative" id="timan-language-menu-root">
+              <button
+                type="button"
+                onClick={() => setLanguageMenuOpen((open) => !open)}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
+                aria-haspopup="menu"
+                aria-expanded={languageMenuOpen}
+                aria-label={activeLanguage.label}
+                title={activeLanguage.label}
+              >
+                <span>{activeLanguage.flag}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </button>
+              {languageMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-28 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg z-50"
+                  onMouseDown={(e) => e.preventDefault()}
                 >
-                  <span className="text-base leading-none">{l.emoji}</span>
-                </button>
-              ))}
+                  {LANGS.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={uiLanguage === l.code}
+                      onClick={() => {
+                        onLanguageChange(l.code);
+                        setLanguageMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-sm font-semibold transition ${
+                        uiLanguage === l.code ? 'bg-emerald-50 text-emerald-800' : 'text-slate-700 hover:bg-gray-50'
+                      }`}
+                      title={l.label}
+                    >
+                      <span>{l.flag}</span>
+                      {uiLanguage === l.code && <Check className="h-4 w-4 text-emerald-700" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {isBackend ? (

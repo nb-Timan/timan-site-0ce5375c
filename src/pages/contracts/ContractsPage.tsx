@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { CalendarDays, Download, FileSignature, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import BackButton from '@/components/portal/BackButton';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
@@ -270,7 +269,7 @@ export default function ContractsPage() {
 
       <header className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
                 <FileSignature className="h-5 w-5" />
@@ -280,11 +279,6 @@ export default function ContractsPage() {
                 <p className="text-sm text-gray-500 mt-1">Generér kontraktdata med dato.</p>
               </div>
             </div>
-            <BackButton
-              to="/portal/salg-marketing"
-              label="Tilbage til Salg"
-              className="rounded-full border border-emerald-200 bg-emerald-50 px-5 py-2 text-sm hover:no-underline hover:bg-emerald-100"
-            />
           </div>
         </div>
       </header>

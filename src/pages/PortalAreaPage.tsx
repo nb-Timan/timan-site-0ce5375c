@@ -1,5 +1,5 @@
-import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, LucideIcon } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
@@ -141,11 +141,6 @@ export default function PortalAreaPage({ areaId }: Props) {
       />
 
       <main className={`${areaId === 'timan_backend' || areaId === 'teknik_service' ? 'max-w-[1700px] xl:px-12' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full`}>
-        <Link to="/portal" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          {t('backToPortal', uiLanguage)}
-        </Link>
-
         <div className="mb-10">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{AREA_TITLE_KEY[areaId] ? t(AREA_TITLE_KEY[areaId], uiLanguage) : (area.title[lang] || area.title.en)}</h1>
           <p className="text-gray-600 text-base mt-2 max-w-3xl">{AREA_DESC_KEY[areaId] ? t(AREA_DESC_KEY[areaId], uiLanguage) : (area.description[lang] || area.description.en)}</p>
