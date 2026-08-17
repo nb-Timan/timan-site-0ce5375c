@@ -16,13 +16,14 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
-import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles } from 'lucide-react';
+import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
 import { derivePortalRole } from '@/lib/portalAccess';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
   salg_marketing: 'area_salg_marketing_title',
+  marketing:      'area_marketing_title',
   timan_crm:      'area_timan_crm_title',
   timan_backend:  'area_timan_backend_title',
   dealer_data:    'area_dealer_data_title',
@@ -30,6 +31,7 @@ const AREA_TITLE_KEY: Record<string, string> = {
 const AREA_DESC_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_desc',
   salg_marketing: 'area_salg_marketing_desc',
+  marketing:      'area_marketing_desc',
   timan_crm:      'area_timan_crm_desc',
   timan_backend:  'area_timan_backend_desc',
   dealer_data:    'area_dealer_data_desc',
@@ -38,6 +40,7 @@ const AREA_DESC_KEY: Record<string, string> = {
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
   teknik_service: { to: '/portal/teknik-service', icon: Wrench,      accent: 'primary' },
   salg_marketing: { to: '/portal/salg-marketing', icon: ShoppingBag, accent: 'sky' },
+  marketing:      { to: '/portal/marketing',      icon: Newspaper,   accent: 'primary' },
   timan_crm:      { to: '/portal/crm',            icon: Users,       accent: 'primary' },
   timan_backend:  { to: '/portal/backend',        icon: Settings,    accent: 'violet' },
   dealer_data:    { to: '/portal/dealer-data',    icon: Building2,   accent: 'sky' },

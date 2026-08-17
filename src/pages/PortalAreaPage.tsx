@@ -20,6 +20,7 @@ import { t } from '@/lib/i18n/translations';
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
   salg_marketing: 'area_salg_marketing_title',
+  marketing:      'area_marketing_title',
   timan_crm:      'area_timan_crm_title',
   timan_backend:  'area_timan_backend_title',
   dealer_data:    'area_dealer_data_title',
@@ -27,6 +28,7 @@ const AREA_TITLE_KEY: Record<string, string> = {
 const AREA_DESC_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_desc',
   salg_marketing: 'area_salg_marketing_desc',
+  marketing:      'area_marketing_desc',
   timan_crm:      'area_timan_crm_desc',
   timan_backend:  'area_timan_backend_desc',
   dealer_data:    'area_dealer_data_desc',
@@ -124,7 +126,7 @@ export default function PortalAreaPage({ areaId }: Props) {
       if (!key) return true;
       return hasModuleAccess(portalRole, key, moduleOverride);
     });
-  const showCreateNewsCard = areaId === 'salg_marketing' && canManageNewsContent(effectiveUser);
+  const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -55,6 +55,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
 export type ModuleAccessKey =
   | 'teknik_service'
   | 'salg_marketing'
+  | 'marketing'
   | 'timan_backend'
   | 'timan_crm'
   | 'dealer_data'
@@ -75,7 +76,7 @@ export type ModuleAccessKey =
 // ---------- Default per-role module access ----------
 export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
-    'teknik_service', 'salg_marketing', 'timan_backend', 'timan_crm', 'dealer_data',
+    'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],

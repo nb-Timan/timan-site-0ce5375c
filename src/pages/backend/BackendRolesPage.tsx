@@ -31,7 +31,8 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
 };
 
 const AREA_LABEL: Record<AreaKey, string> = {
-  salg_marketing: "Salg & Marketing",
+  salg_marketing: "Salg",
+  marketing: "Marketing",
   teknik_service: "Teknik & Service",
   dealer_data:    "Forhandlerdata",
   timan_crm:      "Timan CRM",
@@ -39,13 +40,13 @@ const AREA_LABEL: Record<AreaKey, string> = {
 };
 
 const MODULE_LABEL: Record<string, string> = {
-  teknik_service: "Teknik & Service", salg_marketing: "Salg & Marketing", timan_backend: "Timan Backend",
+  teknik_service: "Teknik & Service", salg_marketing: "Salg", marketing: "Marketing", timan_backend: "Timan Backend",
   claims: "Service / Claims", tsb: "TSB Portal", warranty: "Garantiregistrering",
   service_information: "Serviceinformation", byg_din_timan: "Byg din Timan",
   tilbud: "Tilbud", ordre: "Ordre", resources: "Ressourcer", sales_tools: "Diverse",
 };
 
-const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "timan_backend"];
+const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "marketing", "timan_backend"];
 
 export default function BackendRolesPage() {
   const { appUser, loading, logout } = useAppUser();

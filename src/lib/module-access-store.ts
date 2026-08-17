@@ -12,7 +12,7 @@ export const PERMISSION_LEVELS: PermissionLevel[] = [
 ];
 
 export type MatrixModuleKey =
-  | "teknik_service" | "salg_marketing" | "timan_backend"
+  | "teknik_service" | "salg_marketing" | "marketing" | "timan_backend"
   | "claims" | "tsb" | "warranty" | "service_information"
   | "byg_din_timan" | "tilbud" | "ordre"
   | "videos" | "resources" | "sales_tools"
@@ -22,7 +22,8 @@ export interface MatrixModule { key: MatrixModuleKey; label: string }
 
 export const MATRIX_MODULES: MatrixModule[] = [
   { key: "teknik_service",      label: "Teknik & Service" },
-  { key: "salg_marketing",      label: "Salg & Marketing" },
+  { key: "salg_marketing",      label: "Salg" },
+  { key: "marketing",           label: "Marketing" },
   { key: "timan_backend",       label: "Timan Backend" },
   { key: "claims",              label: "Service / Claims" },
   { key: "tsb",                 label: "TSB Portal" },
@@ -54,7 +55,7 @@ function defaultLevel(role: PortalRole, key: MatrixModuleKey): PermissionLevel {
   const defaults = DEFAULT_MODULE_ACCESS[role] as string[];
   // Map matrix keys that align with ModuleAccessKey
   const aligned: MatrixModuleKey[] = [
-    "teknik_service","salg_marketing","claims","tsb","warranty",
+    "teknik_service","salg_marketing","marketing","claims","tsb","warranty",
     "service_information","byg_din_timan","tilbud","ordre","resources","sales_tools",
   ];
   if (aligned.includes(key)) {

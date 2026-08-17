@@ -16,12 +16,12 @@ import {
 } from "@/lib/portalAccess";
 
 export type UserStatus = "active" | "pending" | "blocked";
-export type AreaKey = "teknik_service" | "salg_marketing" | "timan_crm" | "timan_backend" | "dealer_data";
+export type AreaKey = "teknik_service" | "salg_marketing" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
 
-export const ALL_AREAS: AreaKey[] = ["salg_marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
+export const ALL_AREAS: AreaKey[] = ["salg_marketing", "marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
-  // Salg & Marketing
+  // Salg
   "byg_din_timan",
   "resources",
   "videos",

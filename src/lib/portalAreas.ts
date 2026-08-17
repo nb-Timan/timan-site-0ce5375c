@@ -6,9 +6,9 @@
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
-import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canManageNewsContent, derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
+export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -23,7 +23,7 @@ export interface PortalArea {
 export const PORTAL_AREAS: PortalArea[] = [
   {
     id: 'salg_marketing',
-    title: { da: 'Salg & Marketing', en: 'Sales & Marketing', de: 'Vertrieb & Marketing', it: 'Vendite & Marketing', hu: 'Értékesítés & Marketing' },
+    title: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Értékesítés' },
     description: {
       da: 'Konfigurator, tilbud, ordrer og salgsværktøjer.',
       en: 'Configurator, quotes, orders and sales tools.',
@@ -32,6 +32,19 @@ export const PORTAL_AREAS: PortalArea[] = [
       hu: 'Konfigurátor, árajánlatok, rendelések és értékesítési eszközök.',
     },
     moduleIds: ['configurator', 'videos', 'resources', 'misc'],
+    placeholders: [],
+  },
+  {
+    id: 'marketing',
+    title: { da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing' },
+    description: {
+      da: 'Nyheder, kampagner og publicering til Seneste nyt.',
+      en: 'News, campaigns and publishing to Latest news.',
+      de: 'Neuigkeiten, Kampagnen und Veröffentlichung für Aktuelles.',
+      it: 'Notizie, campagne e pubblicazione nelle ultime novità.',
+      hu: 'Hírek, kampányok és publikálás a legfrissebb hírekhez.',
+    },
+    moduleIds: [],
     placeholders: [],
   },
   {
@@ -123,6 +136,10 @@ export function isAreaVisible(
   if (!user) return false;
 
   const portalRole = derivePortalRole(user);
+
+  if (area.id === 'marketing') {
+    return canManageNewsContent(user);
+  }
 
   // Legacy role column may say 'slutkunde' for users that have since been
   // assigned a real portal_role (e.g. timan_dealer). Only bail when there

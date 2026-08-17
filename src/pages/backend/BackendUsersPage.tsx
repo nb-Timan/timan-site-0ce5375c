@@ -66,7 +66,8 @@ const STATUS_PILL: Record<UserStatus, string> = {
 };
 
 const AREA_LABEL: Record<AreaKey, string> = {
-  salg_marketing: "Salg & Marketing",
+  salg_marketing: "Salg",
+  marketing: "Marketing",
   teknik_service: "Teknik & Service",
   dealer_data:    "Forhandlerdata",
   timan_crm:      "Timan CRM",
@@ -75,7 +76,8 @@ const AREA_LABEL: Record<AreaKey, string> = {
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   teknik_service: "Teknik & Service",
-  salg_marketing: "Salg & Marketing",
+  salg_marketing: "Salg",
+  marketing: "Marketing",
   timan_backend: "Timan Backend",
   timan_crm: "Timan CRM",
   dealer_data: "Forhandlerdata",
@@ -105,7 +107,7 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
 // rendered in an "Øvrige" bucket so nothing silently disappears if new keys
 // are added later.
 const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
-  { label: "Salg & Marketing", modules: ["byg_din_timan", "resources", "videos", "sales_tools", "tilbud", "ordre"] },
+  { label: "Salg", modules: ["byg_din_timan", "resources", "videos", "sales_tools", "tilbud", "ordre"] },
   { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
 ];
 
