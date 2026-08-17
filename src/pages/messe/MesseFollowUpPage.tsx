@@ -11,6 +11,10 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { loadSellerDirectory, type SellerDirectoryEntry } from '@/lib/sellerDirectory';
 import { getMesseLeadWebhookUrl } from '@/lib/webhookUrls';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
+import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
+import { createEmptyConfiguratorState } from '@/lib/configuratorState';
+import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import type { CrmLead } from '@/lib/crmLeadsService';
 
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
@@ -521,6 +525,11 @@ export default function MesseFollowUpPage() {
         ...products,
         ...equipmentItems.map((item) => `Equipment: ${item}`),
       ];
+      const draftState = buildConfiguratorStateFromLead(
+        { machine_types: selectedProductList, contact_information: null, notes: null, trade_fair: null } as CrmLead,
+        createEmptyConfiguratorState('da', 'quote'),
+      );
+      const estimatedLeadValue = Math.round(calcConfigurationTotals(draftState).finalPrice || 0);
       const leadNotes = [
         'Messeformular / Follow-up form',
         `Land: ${selectedLeadCountry}`,
@@ -552,7 +561,7 @@ export default function MesseFollowUpPage() {
         trade_fair: 'Messe / Exhibition',
         country: selectedLeadCountry || selectedDealer?.country || null,
         notes: leadNotes,
-        estimated_value: null,
+        estimated_value: estimatedLeadValue > 0 ? estimatedLeadValue : null,
         probability: wantsDemo === 'yes' ? 50 : 25,
         pipeline_stage: 'Lead',
         lost_competitor: null,
