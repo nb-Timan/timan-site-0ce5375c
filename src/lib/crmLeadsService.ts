@@ -9,6 +9,7 @@
 import { supabase } from "@/lib/supabase";
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
+import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, localizedName } from "@/lib/crmBudgetService";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
 
@@ -750,18 +751,52 @@ export interface LeadWorkingContribution {
   customer: string | null;        // contact_information
 }
 
-/** Canonical BUDGET_PRODUCTS keys we match against. Kept in sync manually
- *  with crmBudgetService.BUDGET_PRODUCTS to avoid an import cycle. */
-const WORKING_PRODUCT_KEYS = ["RC-751", "RC-1000s", "Timan 3330", "Timan 2620"];
+function normalizeWorkingText(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
 
-function matchProductKey(machineType: string): string | null {
-  const m = (machineType || "").toLowerCase();
-  for (const k of WORKING_PRODUCT_KEYS) {
-    if (m === k.toLowerCase()) return k;
+const WORKING_MACHINE_KEYS = BUDGET_PRODUCTS
+  .filter((p) => p.category === "machine")
+  .map((p) => p.key);
+
+function matchMainProductKey(machineType: string): string | null {
+  const raw = machineType || "";
+  if (raw.trim().toLowerCase().startsWith("equipment:")) return null;
+  const m = normalizeWorkingText(raw);
+  if (!m) return null;
+  if (m === "rc1000" || m === "rc1000s") return "RC-1000s";
+  if (m === "new2620" || m === "timan2620") return "Timan 2620";
+  for (const k of WORKING_MACHINE_KEYS) {
+    if (m === normalizeWorkingText(k)) return k;
   }
-  // Fuzzy: machine_type contains the key (e.g. "RC-751 m. fejekost").
-  for (const k of WORKING_PRODUCT_KEYS) {
-    if (m.includes(k.toLowerCase())) return k;
+  for (const k of WORKING_MACHINE_KEYS) {
+    if (m.includes(normalizeWorkingText(k))) return k;
+  }
+  return null;
+}
+
+function matchEquipmentProductKey(machineType: string): { product_key: string; label: string } | null {
+  const raw = machineType || "";
+  if (!raw.trim().toLowerCase().startsWith("equipment:")) return null;
+  const normalizedRaw = normalizeWorkingText(raw.replace(/^equipment:\s*/i, ""));
+  for (const [machineKey, items] of Object.entries(EQUIPMENT_BY_MACHINE)) {
+    const normalizedMachine = normalizeWorkingText(machineKey);
+    if (!normalizedRaw.includes(normalizedMachine)) continue;
+    for (const item of items) {
+      if (item.isHeader) continue;
+      const itemName = localizedName(item.name, "da");
+      if (!itemName) continue;
+      if (normalizedRaw.includes(normalizeWorkingText(itemName))) {
+        return {
+          product_key: `${machineKey}::${item.key}`,
+          label: `${machineKey} - ${itemName}`,
+        };
+      }
+    }
   }
   return null;
 }
@@ -780,31 +815,30 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
     const month_idx = d.getUTCMonth();
     const types = (l.machine_types || []).filter(Boolean);
     if (types.length === 0) continue;
-    // Use the first matching machine_type. Spreading qty across multiple
-    // machines would distort budget — user picks one model semantically.
-    let pk: string | null = null;
-    let label = types[0];
+    // One lead can add one working-budget item per selected machine or attachment.
+    const seenProductKeys = new Set<string>();
     for (const t of types) {
-      const k = matchProductKey(t);
-      if (k) { pk = k; label = t; break; }
+      const equipmentMatch = matchEquipmentProductKey(t);
+      const pk = equipmentMatch?.product_key || matchMainProductKey(t);
+      if (!pk || seenProductKeys.has(pk)) continue;
+      seenProductKeys.add(pk);
+      out.push({
+        lead_id: l.id,
+        lead_no: typeof l.lead_no === "number" ? l.lead_no : null,
+        title: l.title,
+        product_key: pk,
+        machine_label: equipmentMatch?.label || t,
+        qty,
+        year,
+        month_idx,
+        expected_close_date: iso,
+        owner_user_id: l.owner_user_id,
+        owner_email: l.owner_email || null,
+        owner_name: l.owner_name,
+        dealer: l.linked_dealer_id || null,
+        customer: l.contact_information || null,
+      });
     }
-    if (!pk) continue;
-    out.push({
-      lead_id: l.id,
-      lead_no: typeof l.lead_no === "number" ? l.lead_no : null,
-      title: l.title,
-      product_key: pk,
-      machine_label: label,
-      qty,
-      year,
-      month_idx,
-      expected_close_date: iso,
-      owner_user_id: l.owner_user_id,
-      owner_email: l.owner_email || null,
-      owner_name: l.owner_name,
-      dealer: l.linked_dealer_id || null,
-      customer: l.contact_information || null,
-    });
   }
   return out;
 }

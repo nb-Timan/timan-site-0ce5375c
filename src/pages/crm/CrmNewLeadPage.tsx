@@ -870,17 +870,28 @@ export default function CrmNewLeadPage() {
                 placeholder="0,-"
               />
             </Field>
-            <Field label={tt('lbl_move_work', lang)}>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                className={inputCls}
-                value={moveToWorking}
-                onChange={e=>setMoveToWorking(e.target.value)}
-                placeholder="0"
-              />
-              <p className="text-[11px] text-slate-500 mt-1 leading-snug">{tt('hlp_move_work', lang)}</p>
+            <Field label={tt('lbl_move_work', lang).replace(/\s*\([^)]*\)$/, '?')}>
+              <div className="flex gap-2">
+                {(['1',''] as const).map(v => {
+                  const active = (moveToWorking ? '1' : '') === v;
+                  return (
+                    <button
+                      type="button"
+                      key={v || '0'}
+                      onClick={() => setMoveToWorking(v)}
+                      className={cn('px-4 py-2 rounded-xl text-sm border transition',
+                        active ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}
+                    >
+                      {v ? tt('yes', lang) : tt('no', lang)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                {lang === 'da'
+                  ? 'Ja fordeler leadet i Arbejdsbudget pr. valgt maskine/redskab på forventet lukkedato. Påvirker IKKE pipeline.'
+                  : tt('hlp_move_work', lang)}
+              </p>
             </Field>
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
