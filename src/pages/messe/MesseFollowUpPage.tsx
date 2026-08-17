@@ -228,6 +228,36 @@ function RequiredHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function FlagIcon({ code, className }: { code: string; className?: string }) {
+  const common = `block rounded-sm ${className || ''}`;
+  if (code === 'de') {
+    return (
+      <svg viewBox="0 0 5 3" className={`${common} h-4 w-6`} aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+        <rect width="5" height="1" fill="#000" />
+        <rect y="1" width="5" height="1" fill="#DD0000" />
+        <rect y="2" width="5" height="1" fill="#FFCE00" />
+      </svg>
+    );
+  }
+  if (code === 'dk') {
+    return (
+      <svg viewBox="0 0 37 28" className={`${common} h-4 w-6`} aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+        <rect width="37" height="28" fill="#C60C30" />
+        <path d="M12 0h4v28h-4zM0 12h37v4H0z" fill="#fff" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 60 30" className={`${common} h-4 w-6`} aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+      <rect width="60" height="30" fill="#012169" />
+      <path d="M0 0L60 30M60 0L0 30" stroke="#fff" strokeWidth="6" />
+      <path d="M0 0L60 30M60 0L0 30" stroke="#C8102E" strokeWidth="4" />
+      <path d="M30 0v30M0 15h60" stroke="#fff" strokeWidth="10" />
+      <path d="M30 0v30M0 15h60" stroke="#C8102E" strokeWidth="6" />
+    </svg>
+  );
+}
+
 function isGermanySeller(seller: SellerDirectoryEntry): boolean {
   const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
   return haystack.includes('jakob') ||
