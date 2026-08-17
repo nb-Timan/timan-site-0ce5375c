@@ -713,15 +713,17 @@ function branchRelationBadgeLabel(
   dealer: DealerAccount,
   dealersByAcct: Map<string, DealerAccount>,
 ): string {
-  const rawType = dealer.customer_type_label || dealer.customer_type || dealer.dealer_type || "";
-  const normalizedType = rawType.toLowerCase().replace(/[\s_-]+/g, "");
-  if (normalizedType.includes("servicepartner")) return "Service Partner";
-  if (normalizedType.includes("import")) return "Importør";
-  if (normalizedType.includes("forhandlerkunde") || normalizedType.includes("dealercustomer")) return "Forhandlerkunde";
+  const normalizedTypes = [dealer.customer_type_label, dealer.customer_type, dealer.dealer_type]
+    .map((value) => (value ?? "").toLowerCase().replace(/[\s_-]+/g, ""))
+    .filter(Boolean);
+  if (normalizedTypes.some((type) => type.includes("servicepartner"))) return "Service Partner";
+  if (normalizedTypes.some((type) => type.includes("import"))) return "Importør";
+  if (normalizedTypes.some((type) => type.includes("forhandlerkunde") || type.includes("dealercustomer"))) {
+    return "Forhandlerkunde";
+  }
 
   const parent = dealer.parent_account_number ? dealersByAcct.get(dealer.parent_account_number) : null;
   if (parent && isSameCompanyBranch(parent.company_name, dealer.company_name)) return "Filial";
-  if (dealer.branch_name?.trim()) return "Filial";
   return "Forhandler";
 }
 
