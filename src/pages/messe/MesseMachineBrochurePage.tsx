@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BookOpen,
   ChevronLeft,
@@ -22,7 +23,7 @@ import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
 import iconService from '@/assets/rc1000s-icon-16.png.asset.json';
 import iconSeason from '@/assets/rc1000s-icon-17.png.asset.json';
 
-type MachineKey = 'rc-751' | 'rc-1000s' | 'timan-3330';
+type MachineKey = 'rc-751' | 'rc-1000s' | 'timan-2620' | 'timan-3330';
 type Localized = Partial<Record<PortalUiLanguage, string>> & { da: string; en: string };
 
 const T: Record<string, Localized> = {
@@ -54,7 +55,11 @@ interface MachineContent {
   cards?: Array<{ title?: Localized; text: Localized }>;
   specs: Array<{ label: Localized; value: Localized }>;
   attachments?: Localized[];
-  dataPdfSrc: string;
+  dataPdfSrc?: string;
+  viewerHref?: string;
+  viewerImageSrc?: string;
+  viewerTitle?: Localized;
+  viewerLabel?: Localized;
 }
 
 type TechnicalSection = {
@@ -255,6 +260,117 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
     ],
     dataPdfSrc: '/brochures/data-rc-1000s-da-ny.pdf',
   },
+  'timan-2620': {
+    eyebrow: {
+      da: 'Kompakt redskabsbærer til ejendom og park',
+      en: 'Compact tool carrier for property and park maintenance',
+      de: 'Kompakter Geräteträger für Grundstücks- und Parkpflege',
+      it: 'Portattrezzi compatto per proprietà e parchi',
+      hu: 'Kompakt eszközhordozó ingatlan- és parkgondozáshoz',
+    },
+    intro: {
+      da: 'Timan 2620 er en kompakt og manøvredygtig maskine til grøn pleje, læsseopgaver og vintertjeneste - med eller uden kabine.',
+      en: 'Timan 2620 is a compact and manoeuvrable machine for green care, loader tasks and winter service - with or without cab.',
+      de: 'Timan 2620 ist eine kompakte und wendige Maschine für Grünpflege, Ladeaufgaben und Winterdienst - mit oder ohne Kabine.',
+      it: 'Timan 2620 è una macchina compatta e maneggevole per cura del verde, carico e servizio invernale - con o senza cabina.',
+      hu: 'A Timan 2620 kompakt és jól manőverezhető gép zöldterület-gondozáshoz, rakodáshoz és téli munkához - fülkével vagy fülke nélkül.',
+    },
+    attachmentLabel: {
+      da: 'Redskaber til helårsbrug',
+      en: 'Attachments for year-round use',
+      de: 'Anbaugeräte für den Ganzjahreseinsatz',
+      it: 'Accessori per uso tutto l anno',
+      hu: 'Adapterek egész éves használatra',
+    },
+    attachmentCount: '6',
+    cards: [
+      {
+        title: {
+          da: 'Med eller uden kabine',
+          en: 'With or without cab',
+          de: 'Mit oder ohne Kabine',
+          it: 'Con o senza cabina',
+          hu: 'Fülkével vagy fülke nélkül',
+        },
+        text: {
+          da: 'Vælg maskinen efter sæson, komfortbehov og opgavetype.',
+          en: 'Choose the machine to match season, comfort needs and task type.',
+          de: 'Wählen Sie die Maschine passend zu Saison, Komfortbedarf und Aufgabe.',
+          it: 'Scegli la macchina in base a stagione, comfort e tipo di lavoro.',
+          hu: 'Válassza a gépet az évszakhoz, komfortigényhez és feladathoz.',
+        },
+      },
+      {
+        title: {
+          da: 'Tractor / Loader line',
+          en: 'Tractor / Loader line',
+          de: 'Tractor / Loader line',
+          it: 'Tractor / Loader line',
+          hu: 'Tractor / Loader line',
+        },
+        text: {
+          da: 'Frontredskaber gør 2620 relevant til både løft, rydning og vedligehold.',
+          en: 'Front attachments make 2620 relevant for lifting, clearing and maintenance.',
+          de: 'Frontanbaugeräte machen 2620 relevant für Heben, Räumen und Pflege.',
+          it: 'Gli accessori frontali rendono 2620 adatta a sollevamento, sgombero e manutenzione.',
+          hu: 'Az első adapterekkel a 2620 emelésre, takarításra és karbantartásra is alkalmas.',
+        },
+      },
+    ],
+    highlights: [
+      {
+        da: 'Kompakt størrelse gør den nem at bruge på smalle områder og tæt omkring bygninger.',
+        en: 'Compact size makes it easy to use in narrow areas and close around buildings.',
+        de: 'Die kompakte Größe erleichtert den Einsatz in engen Bereichen und nah an Gebäuden.',
+        it: 'Le dimensioni compatte facilitano l uso in aree strette e vicino agli edifici.',
+        hu: 'Kompakt mérete miatt könnyen használható szűk helyeken és épületek körül.',
+      },
+      {
+        da: 'Kan sættes op med eller uden kabine, så maskinen matcher opgaven og årstiden.',
+        en: 'Can be configured with or without cab to match the task and season.',
+        de: 'Kann mit oder ohne Kabine konfiguriert werden, passend zu Aufgabe und Jahreszeit.',
+        it: 'Configurabile con o senza cabina per adattarsi al lavoro e alla stagione.',
+        hu: 'Fülkével vagy fülke nélkül konfigurálható a feladathoz és évszakhoz.',
+      },
+      {
+        da: 'Redskaber til læsning, sne og almindelig vedligehold gør maskinen fleksibel året rundt.',
+        en: 'Attachments for loading, snow and general maintenance make the machine flexible all year.',
+        de: 'Anbaugeräte für Laden, Schnee und Pflege machen die Maschine ganzjährig flexibel.',
+        it: 'Accessori per carico, neve e manutenzione rendono la macchina flessibile tutto l anno.',
+        hu: 'Rakodó, hó- és karbantartó adapterekkel egész évben rugalmasan használható.',
+      },
+    ],
+    specs: [
+      { label: { da: 'Maskintype', en: 'Machine type', de: 'Maschinentyp', it: 'Tipo macchina', hu: 'Géptípus' }, value: { da: 'Tractor / Loader line', en: 'Tractor / Loader line', de: 'Tractor / Loader line', it: 'Tractor / Loader line', hu: 'Tractor / Loader line' } },
+      { label: { da: 'Kabine', en: 'Cab', de: 'Kabine', it: 'Cabina', hu: 'Fülke' }, value: { da: 'Med eller uden kabine', en: 'With or without cab', de: 'Mit oder ohne Kabine', it: 'Con o senza cabina', hu: 'Fülkével vagy fülke nélkül' } },
+      { label: { da: 'Redskaber', en: 'Attachments', de: 'Anbaugeräte', it: 'Accessori', hu: 'Adapterek' }, value: { da: 'V-plov, skovl, skrabeblad og DS-250', en: 'V-plow, bucket, dozer blade and DS-250', de: 'V-Pflug, Schaufel, Dozerschild und DS-250', it: 'Lama a V, benna, lama dozer e DS-250', hu: 'V-eke, kanál, dozerlap és DS-250' } },
+      { label: { da: 'Anvendelse', en: 'Application', de: 'Einsatz', it: 'Applicazione', hu: 'Felhasználás' }, value: { da: 'Ejendom, park, læsning og vinter', en: 'Property, park, loading and winter', de: 'Grundstück, Park, Laden und Winter', it: 'Proprietà, parchi, carico e inverno', hu: 'Ingatlan, park, rakodás és tél' } },
+    ],
+    attachments: [
+      { da: 'Med kabine', en: 'With cab', de: 'Mit Kabine', it: 'Con cabina', hu: 'Fülkével' },
+      { da: 'Uden kabine', en: 'Without cab', de: 'Ohne Kabine', it: 'Senza cabina', hu: 'Fülke nélkül' },
+      { da: 'V-plov', en: 'V-plow', de: 'V-Pflug', it: 'Lama a V', hu: 'V-eke' },
+      { da: 'Skovl', en: 'Bucket', de: 'Schaufel', it: 'Benna', hu: 'Kanál' },
+      { da: 'Skrabeblad/Dozerblad', en: 'Scraper/dozer blade', de: 'Schürf-/Dozerschild', it: 'Raschietto/lama dozer', hu: 'Kaparó/dozerlap' },
+      { da: 'DS-250 Saltspreder', en: 'DS-250 salt spreader', de: 'DS-250 Salzstreuer', it: 'Spargisale DS-250', hu: 'DS-250 sószóró' },
+    ],
+    viewerHref: '/messe/timan-2620/360',
+    viewerImageSrc: '/images/timan-2620/standard/06.jpg',
+    viewerLabel: {
+      da: '360 funktion',
+      en: '360 function',
+      de: '360-Funktion',
+      it: 'Funzione 360',
+      hu: '360 funkció',
+    },
+    viewerTitle: {
+      da: 'Se Timan 2620 - 360 funktion',
+      en: 'View Timan 2620 - 360 function',
+      de: 'Timan 2620 - 360-Funktion ansehen',
+      it: 'Vedi Timan 2620 - funzione 360',
+      hu: 'Timan 2620 - 360 funkció megtekintése',
+    },
+  },
   'timan-3330': {
     eyebrow: {
       da: 'Kompakt redskabsbærer med kabine',
@@ -396,6 +512,22 @@ const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
       hu: 'A gep zoldterulet-karbantartasra es teli munkara is hasznalhato; a gyors adaptercsere egesz evben rugalmassa teszi.',
     },
   ],
+  'timan-2620': [
+    {
+      da: 'Timan 2620 er lavet til brugere, der har brug for en kompakt maskine til mange typer opgaver på ejendomme, stier, parker og mindre udendørsarealer.',
+      en: 'Timan 2620 is made for users who need a compact machine for many types of tasks on properties, paths, parks and smaller outdoor areas.',
+      de: 'Timan 2620 ist für Anwender entwickelt, die eine kompakte Maschine für viele Aufgaben auf Grundstücken, Wegen, Parks und kleineren Außenflächen benötigen.',
+      it: 'Timan 2620 è pensata per chi ha bisogno di una macchina compatta per molti lavori in proprietà, sentieri, parchi e piccole aree esterne.',
+      hu: 'A Timan 2620 azoknak készült, akik kompakt gépet keresnek ingatlanok, utak, parkok és kisebb kültéri területek sokféle feladatához.',
+    },
+    {
+      da: 'Maskinen kan vises i 360-portalen, hvor man kan dreje den rundt og se de vigtigste funktioner og udstyrsvalg på en mere visuel måde.',
+      en: 'The machine can be viewed in the 360 portal, where it can be rotated and the key functions and equipment choices can be explored visually.',
+      de: 'Die Maschine kann im 360-Portal angesehen werden, wo sie gedreht und die wichtigsten Funktionen und Ausstattungen visuell erkundet werden können.',
+      it: 'La macchina può essere visualizzata nel portale 360, dove è possibile ruotarla e vedere funzioni e configurazioni in modo più visivo.',
+      hu: 'A gép a 360 portálon tekinthető meg, ahol forgatható, és a fő funkciók, felszereltségek vizuálisan bejárhatók.',
+    },
+  ],
   'timan-3330': [
     {
       da: 'Timan 3330 er en kompakt, knækstyret redskabsbærer udviklet til professionel vedligeholdelse af udendørsarealer året rundt.',
@@ -481,6 +613,26 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
       ],
     },
   ],
+  'timan-2620': [
+    {
+      title: text('Tekniske specifikationer', 'Technical specifications'),
+      rows: [
+        { label: text('Maskintype', 'Machine type'), value: text('Kompakt redskabsbærer', 'Compact tool carrier') },
+        { label: text('Kabine', 'Cab'), value: text('Med eller uden kabine', 'With or without cab') },
+        { label: text('Redskabslinje', 'Attachment line'), value: text('Tractor / Loader line') },
+        { label: text('Anvendelse', 'Application'), value: text('Ejendom, park, læsning og vinter', 'Property, park, loading and winter') },
+      ],
+    },
+    {
+      title: text('Redskaber', 'Attachments'),
+      rows: [
+        { label: text('V-plov', 'V-plow'), value: text('Tilvalg', 'Optional') },
+        { label: text('Skovl', 'Bucket'), value: text('Tilvalg', 'Optional') },
+        { label: text('Skrabeblad/Dozerblad', 'Scraper/dozer blade'), value: text('Tilvalg', 'Optional') },
+        { label: text('DS-250 Saltspreder', 'DS-250 salt spreader'), value: text('Tilvalg', 'Optional') },
+      ],
+    },
+  ],
   'timan-3330': [
     {
       title: text('Tekniske specifikationer', 'Technical specifications'),
@@ -559,9 +711,9 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
 interface MesseMachineBrochurePageProps {
   machineKey: MachineKey;
   title: string;
-  pdfSrc: string;
-  pageBase: string;
-  pageCount: number;
+  pdfSrc?: string;
+  pageBase?: string;
+  pageCount?: number;
 }
 
 /**
@@ -596,9 +748,11 @@ export default function MesseMachineBrochurePage({
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
+  const brochurePageCount = pageCount ?? 0;
+  const hasBrochure = Boolean(pdfSrc && pageBase && brochurePageCount > 0);
   const [covers, setCovers] = useState<{ frontCover: number; backCover: number }>({
     frontCover: 1,
-    backCover: pageCount,
+    backCover: brochurePageCount || 1,
   });
   const content = MACHINE_CONTENT[machineKey];
   const compactAttachmentChips = machineKey === 'rc-1000s';
@@ -607,7 +761,14 @@ export default function MesseMachineBrochurePage({
 
   useEffect(() => {
     let active = true;
-    setCovers({ frontCover: 1, backCover: pageCount });
+    if (!hasBrochure || !pageBase) {
+      setCovers({ frontCover: 1, backCover: 1 });
+      return () => {
+        active = false;
+      };
+    }
+
+    setCovers({ frontCover: 1, backCover: brochurePageCount });
     fetch(`${pageBase}/covers.json`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -616,24 +777,24 @@ export default function MesseMachineBrochurePage({
         const back = Number(data.backCover);
         setCovers({
           frontCover: Number.isFinite(front) && front >= 1 ? front : 1,
-          backCover: Number.isFinite(back) && back >= 1 ? back : pageCount,
+          backCover: Number.isFinite(back) && back >= 1 ? back : brochurePageCount,
         });
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [pageBase, pageCount]);
+  }, [brochurePageCount, hasBrochure, pageBase]);
 
   if (!appUser) return null;
 
 
-  const pageSrc = (page: number) => `${pageBase}/page-${page}.jpg`;
+  const pageSrc = (page: number) => (pageBase ? `${pageBase}/page-${page}.jpg` : '');
   const rightPage = leftPage + 1;
   const canGoBack = leftPage > 1;
-  const canGoNext = rightPage < pageCount;
+  const canGoNext = rightPage < brochurePageCount;
   const goBack = () => setLeftPage((page) => Math.max(1, page - 2));
-  const goNext = () => setLeftPage((page) => Math.min(pageCount, page + 2));
+  const goNext = () => setLeftPage((page) => Math.min(brochurePageCount, page + 2));
 
 
   const documentButtonClass =
@@ -787,37 +948,49 @@ export default function MesseMachineBrochurePage({
           <aside className="space-y-4 lg:sticky lg:top-6">
             <h2 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{tr(T.documents, lang)}</h2>
 
-            <button
-              type="button"
-              onClick={() => {
-                setLeftPage(1);
-                setBrochureOpen(true);
-              }}
-              className={documentButtonClass}
-            >
-              <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
-                <div className="relative h-full w-full rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
-                  <div className="grid h-full grid-cols-2 items-stretch overflow-hidden rounded-xl">
-                    <div className="flex min-w-0 items-center justify-end p-1.5">
-                      <img src={pageSrc(covers.frontCover)} alt="" className="h-full w-auto max-w-full object-contain" />
+            {hasBrochure ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setLeftPage(1);
+                  setBrochureOpen(true);
+                }}
+                className={documentButtonClass}
+              >
+                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
+                  <div className="relative h-full w-full rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
+                    <div className="grid h-full grid-cols-2 items-stretch overflow-hidden rounded-xl">
+                      <div className="flex min-w-0 items-center justify-end p-1.5">
+                        <img src={pageSrc(covers.frontCover)} alt="" className="h-full w-auto max-w-full object-contain" />
+                      </div>
+                      <div className="flex min-w-0 items-center justify-start p-1.5">
+                        <img src={pageSrc(covers.backCover)} alt="" className="h-full w-auto max-w-full object-contain" />
+                      </div>
                     </div>
-                    <div className="flex min-w-0 items-center justify-start p-1.5">
-                      <img src={pageSrc(covers.backCover)} alt="" className="h-full w-auto max-w-full object-contain" />
+                    <div className="pointer-events-none absolute inset-y-3 left-1/2 w-8 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 backdrop-blur">
+                        <BookOpen className="h-3.5 w-3.5 text-slate-700" />
+                        {tr(T.openBrochure, lang)}
+                      </span>
                     </div>
-                  </div>
-                  <div className="pointer-events-none absolute inset-y-3 left-1/2 w-8 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 backdrop-blur">
-                      <BookOpen className="h-3.5 w-3.5 text-slate-700" />
-                      {tr(T.openBrochure, lang)}
-                    </span>
                   </div>
                 </div>
-              </div>
 
-              <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
-              <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
-            </button>
+                <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
+                <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
+              </button>
+            ) : (
+              <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
+                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
+                  <div className="flex h-full items-center justify-center rounded-xl bg-white text-center ring-1 ring-slate-200">
+                    <BookOpen className="h-9 w-9 text-slate-300" />
+                  </div>
+                </div>
+                <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
+                <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
+              </div>
+            )}
 
             <button type="button" onClick={() => setDataOpen(true)} className={documentButtonClass}>
               <div className="flex items-start gap-4">
@@ -832,6 +1005,33 @@ export default function MesseMachineBrochurePage({
                 </div>
               </div>
             </button>
+
+            {content.viewerHref && content.viewerImageSrc && (
+              <Link to={content.viewerHref} className={documentButtonClass}>
+                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-emerald-50">
+                  <div className="relative h-full w-full">
+                    <img
+                      src={content.viewerImageSrc}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/10 to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800 shadow-sm">
+                        {tr(content.viewerLabel || T.overview, lang)}
+                      </span>
+                      <div className="mt-2 text-lg font-black text-white drop-shadow">
+                        {tr(content.viewerTitle || T.overview, lang)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">Timan 2620</div>
+                  <div className="mt-1 text-base font-bold text-slate-950">{tr(content.viewerTitle || T.overview, lang)}</div>
+                </div>
+              </Link>
+            )}
 
           </aside>
         </div>
@@ -868,76 +1068,80 @@ export default function MesseMachineBrochurePage({
         </div>
       </MesseModal>
 
-      <MesseModal
-        open={brochureOpen}
-        onClose={() => setBrochureOpen(false)}
-        title={`${title} ${tr(T.brochure, lang)}`}
-        closeLabel={tr(T.close, lang)}
-        widthClass="max-w-[92rem]"
-        bodyClass="px-3 sm:px-5 py-4"
-      >
-        <div className="relative rounded-xl bg-slate-100 p-3 sm:p-5">
-          <div className="relative grid h-[76vh] min-h-[620px] grid-cols-1 overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 md:grid-cols-2">
-            <div className="flex min-h-0 items-center justify-center bg-white p-2 md:border-r md:border-slate-100">
-              <img
-                src={pageSrc(leftPage)}
-                alt={`${title} ${tr(T.page, lang)} ${leftPage}`}
-                className="h-full w-full object-contain"
-              />
-            </div>
-            <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
-              {rightPage <= pageCount ? (
+      {hasBrochure && (
+        <MesseModal
+          open={brochureOpen}
+          onClose={() => setBrochureOpen(false)}
+          title={`${title} ${tr(T.brochure, lang)}`}
+          closeLabel={tr(T.close, lang)}
+          widthClass="max-w-[92rem]"
+          bodyClass="px-3 sm:px-5 py-4"
+        >
+          <div className="relative rounded-xl bg-slate-100 p-3 sm:p-5">
+            <div className="relative grid h-[76vh] min-h-[620px] grid-cols-1 overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 md:grid-cols-2">
+              <div className="flex min-h-0 items-center justify-center bg-white p-2 md:border-r md:border-slate-100">
                 <img
-                  src={pageSrc(rightPage)}
-                  alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
+                  src={pageSrc(leftPage)}
+                  alt={`${title} ${tr(T.page, lang)} ${leftPage}`}
                   className="h-full w-full object-contain"
                 />
-              ) : (
-                <div className="h-full w-full rounded-sm bg-slate-50" />
-              )}
+              </div>
+              <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
+                {rightPage <= brochurePageCount ? (
+                  <img
+                    src={pageSrc(rightPage)}
+                    alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <div className="h-full w-full rounded-sm bg-slate-50" />
+                )}
+              </div>
             </div>
-          </div>
 
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
-          />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
+            />
 
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={!canGoBack}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              {tr(T.previous, lang)}
-            </button>
-            <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm">
-              {leftPage}-{Math.min(rightPage, pageCount)} / {pageCount}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                disabled={!canGoBack}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {tr(T.previous, lang)}
+              </button>
+              <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm">
+                {leftPage}-{Math.min(rightPage, brochurePageCount)} / {brochurePageCount}
+              </div>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={!canGoNext}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {tr(T.next, lang)}
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={!canGoNext}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {tr(T.next, lang)}
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
 
-          <a
-            href={pdfSrc}
-            target="_blank"
-            rel="noreferrer"
-            className="absolute bottom-8 right-8 hidden items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 sm:inline-flex"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {tr(T.openNew, lang)}
-          </a>
-        </div>
-      </MesseModal>
+            {pdfSrc && (
+              <a
+                href={pdfSrc}
+                target="_blank"
+                rel="noreferrer"
+                className="absolute bottom-8 right-8 hidden items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 sm:inline-flex"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {tr(T.openNew, lang)}
+              </a>
+            )}
+          </div>
+        </MesseModal>
+      )}
     </div>
   );
 }
