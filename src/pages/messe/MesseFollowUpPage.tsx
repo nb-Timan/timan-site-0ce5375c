@@ -650,10 +650,10 @@ export default function MesseFollowUpPage() {
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <section className="space-y-3">
               <RequiredHeading>{f('country')}</RequiredHeading>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 {([
-                  ['de', f('germany')],
                   ['dk', f('denmark')],
+                  ['de', f('germany')],
                   ['other', f('other')],
                 ] as [Exclude<CountryQuickChoice, ''>, string][]).map(([value, label]) => (
                   <button
