@@ -1,4 +1,4 @@
-import { getAccessoriesFlat, getLocalizedName, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
+import { getAccessoriesFlat, getLocalizedName, getPrice, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import type { CrmLead } from '@/lib/crmLeadsService';
 import type { Accessory, ConfiguratorState, Language } from '@/types/configurator';
@@ -71,7 +71,7 @@ function addAccessoryWithParents(machineKey: string, ids: Set<string>, acc: Acce
 
 function parseEquipmentEntry(value: string): { machineKey: string | null; label: string } {
   const clean = value.replace(/^Equipment:\s*/i, '').trim();
-  const parts = clean.split(/\s+-\s+/);
+  const parts = clean.split(/\s+[-–]\s+/);
   if (parts.length >= 2) {
     return {
       machineKey: machineKeyFromText(parts[0]),
@@ -82,6 +82,59 @@ function parseEquipmentEntry(value: string): { machineKey: string | null; label:
 }
 
 const GROUP_ONLY_MACHINE_TYPES = new Set(['Equipment', 'Loader line / Tractor Equipment']);
+
+export function calculateMachineInterestEstimate(
+  machineTypes: string[] | null | undefined,
+  language: Language = 'da',
+): { total: number; unmappedItems: string[]; pricedItems: { label: string; price: number }[] } {
+  const unmappedItems: string[] = [];
+  const pricedItems: { label: string; price: number }[] = [];
+  let total = 0;
+
+  for (const item of machineTypes || []) {
+    if (GROUP_ONLY_MACHINE_TYPES.has(item)) continue;
+
+    const machineKey = machineKeyFromText(item);
+    const isEquipment = /^Equipment:/i.test(item);
+
+    if (machineKey && !isEquipment) {
+      const product = PRODUCTS[machineKey];
+      if (product) {
+        const price = getPrice(product, language);
+        total += price;
+        pricedItems.push({ label: item, price });
+      } else {
+        unmappedItems.push(item);
+      }
+      continue;
+    }
+
+    if (isEquipment) {
+      const parsed = parseEquipmentEntry(item);
+      const keysToTry = parsed.machineKey
+        ? [parsed.machineKey]
+        : ['RC-1000S', 'Timan 2620', 'Timan 3330', LOOSE_TOOL_KEY];
+      let matched = false;
+
+      for (const key of keysToTry) {
+        const acc = findAccessory(key, parsed.label);
+        if (!acc) continue;
+        const price = getPrice(acc, language);
+        total += price;
+        pricedItems.push({ label: item, price });
+        matched = true;
+        break;
+      }
+
+      if (!matched) unmappedItems.push(item);
+      continue;
+    }
+
+    unmappedItems.push(item);
+  }
+
+  return { total: Math.round(total), unmappedItems, pricedItems };
+}
 
 export function buildConfiguratorStateFromMachineTypes(
   machineTypes: string[] | null | undefined,

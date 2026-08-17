@@ -30,9 +30,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Button } from '@/components/ui/button';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
-import { buildConfiguratorStateFromMachineTypes } from '@/lib/leadToConfiguratorDraft';
-import { createEmptyConfiguratorState } from '@/lib/configuratorState';
-import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 
 // ---- i18n. English is the fallback. ----
 type TKey =
@@ -413,6 +411,8 @@ export default function CrmNewLeadPage() {
   const [country, setCountry] = useState('Danmark');
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
+  const [loadedEstimatedValue, setLoadedEstimatedValue] = useState<string | null>(null);
+  const [machineTypesChanged, setMachineTypesChanged] = useState(false);
   const [probability, setProbability] = useState<string>('25');
   const [moveToWorking, setMoveToWorking] = useState<string>('');
   const [stage, setStage] = useState<PipelineStage>('Lead');
@@ -495,7 +495,10 @@ export default function CrmNewLeadPage() {
       setTradeFair(lead.trade_fair || '');
       setCountry(lead.country || '');
       setNotes(lead.notes || '');
-      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+      const savedEstimatedValue = lead.estimated_value != null ? String(lead.estimated_value) : '';
+      setLoadedEstimatedValue(savedEstimatedValue);
+      setMachineTypesChanged(false);
+      setEstimatedValue(savedEstimatedValue);
       setProbability(lead.probability != null ? String(lead.probability) : '');
       setMoveToWorking(typeof lead.move_to_working_qty === 'number' && lead.move_to_working_qty > 0
         ? String(lead.move_to_working_qty) : '');
@@ -545,20 +548,27 @@ export default function CrmNewLeadPage() {
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
 
   const machineEstimate = useMemo(() => {
-    const { state, unmappedItems } = buildConfiguratorStateFromMachineTypes(
-      machineTypes,
-      createEmptyConfiguratorState('da', 'quote'),
-    );
-    const subtotal = Math.round(calcConfigurationTotals(state).subtotal || 0);
+    const estimate = calculateMachineInterestEstimate(machineTypes, 'da');
     return {
-      value: subtotal > 0 ? String(subtotal) : '',
-      unmappedItems,
+      value: estimate.total > 0 ? String(estimate.total) : '',
+      unmappedItems: estimate.unmappedItems,
+      pricedItems: estimate.pricedItems,
     };
   }, [machineTypes]);
 
   useEffect(() => {
+    const hasMeaningfulSavedEstimate = isEdit
+      && !machineTypesChanged
+      && loadedEstimatedValue != null
+      && Number(loadedEstimatedValue) > 0;
+    if (hasMeaningfulSavedEstimate) return;
     setEstimatedValue(machineEstimate.value);
-  }, [machineEstimate.value]);
+  }, [isEdit, loadedEstimatedValue, machineEstimate.value, machineTypesChanged]);
+
+  function handleMachineTypesChange(next: string[]) {
+    setMachineTypesChanged(true);
+    setMachineTypes(next);
+  }
 
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
   function handleNextActivityChange(na: string) {
@@ -765,7 +775,7 @@ export default function CrmNewLeadPage() {
 
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
-              <MachineInterestPicker value={machineTypes} onChange={setMachineTypes} />
+              <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} />
               {machineEstimate.unmappedItems.length > 0 && (
                 <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
