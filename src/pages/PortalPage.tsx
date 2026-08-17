@@ -13,7 +13,7 @@ import QuickActions from '@/components/portal/QuickActions';
 import DealerUserHome from '@/components/portal/DealerUserHome';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { useDealerProfileBadge } from '@/lib/dealerProfileBadge';
+import { useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles } from 'lucide-react';
@@ -83,7 +83,14 @@ export default function PortalPage() {
   }, [appUser, lang, setLanguage]);
 
   const effectiveUser = useEffectivePortalUser(appUser);
-  const dealerBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
+  const portalRoleForBadge = derivePortalRole(effectiveUser);
+  const dealerProfileBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
+  const dealerPortfolioBadge = useDealerPortfolioProfileBadge(effectiveUser);
+  const dealerBadge = (
+    portalRoleForBadge === 'timan_backend' ||
+    portalRoleForBadge === 'timan_seller' ||
+    portalRoleForBadge === 'timan_service'
+  ) ? dealerPortfolioBadge : dealerProfileBadge;
   const changelog = useChangelog(appUser, lang);
 
   if (loading) {

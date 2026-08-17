@@ -14,11 +14,21 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
+  buildSuccessorIndex,
+  fetchDealerAccounts,
   fetchDealerAccountByNumber,
+  fetchDealerAccountsForSeller,
+  isDealerCustomerAccount,
   type DealerAccount,
 } from "@/lib/dealerAccountsService";
 import { listDealerContacts } from "@/lib/dealerContactsService";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
+import { derivePortalRole } from "@/lib/portalAccess";
+import {
+  getActiveSellerView,
+  getEffectiveSellerEmail,
+  getEffectiveSellerInitials,
+} from "@/lib/activeMode";
 
 const isFilled = (v: unknown): boolean =>
   typeof v === "string" && v.trim().length > 0;
@@ -181,6 +191,88 @@ export function useDealerProfileBadge(
 
     return () => { cancelled = true; };
   }, [dealerNumber]);
+
+  return badge;
+}
+
+export function useDealerPortfolioProfileBadge(
+  user: {
+    email?: string | null;
+    display_name?: string | null;
+    portal_role?: string | null;
+    dealer_number?: string | null;
+  } | null | undefined,
+): DealerProfileBadge | null {
+  const [badge, setBadge] = useState<DealerProfileBadge | null>(null);
+  const [activeModeTick, setActiveModeTick] = useState(0);
+
+  useEffect(() => {
+    const handler = () => setActiveModeTick((v) => v + 1);
+    window.addEventListener("timan:active-mode-changed", handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("timan:active-mode-changed", handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setBadge(null); return; }
+
+    const role = derivePortalRole(user);
+    const isBackend = role === "timan_backend";
+    const isSeller = role === "timan_seller";
+    if (!isBackend && !isSeller) { setBadge(null); return; }
+
+    (async () => {
+      try {
+        const activeSellerView = getActiveSellerView(user.email);
+        const initials = isBackend && !activeSellerView ? null : getEffectiveSellerInitials(user);
+        const email = isBackend && !activeSellerView ? null : getEffectiveSellerEmail(user);
+
+        const dealerRes = initials || email
+          ? await fetchDealerAccountsForSeller({ initials, email })
+          : await fetchDealerAccounts({ includeDeleted: true });
+
+        const rows = "dealers" in dealerRes ? dealerRes.dealers : dealerRes.rows;
+        const successorIndex = buildSuccessorIndex(rows);
+        const absorbedIds = new Set<string>();
+        for (const list of successorIndex.predecessorsByActiveId.values()) {
+          for (const predecessor of list) absorbedIds.add(predecessor.id);
+        }
+
+        const relevant = rows.filter((dealer) =>
+          !absorbedIds.has(dealer.id) &&
+          !isDealerCustomerAccount(dealer)
+        );
+        const total = relevant.length;
+        const incomplete = relevant.filter((dealer) =>
+          computeDealerProfileSeverity(dealer, 0) !== "complete"
+        ).length;
+        const critical = relevant.filter((dealer) =>
+          computeDealerProfileSeverity(dealer, 0) === "critical"
+        ).length;
+
+        if (cancelled) return;
+        if (total === 0) {
+          setBadge({ total: 0, missing: 0, tone: "neutral", label: "Ingen forhandlere" });
+          return;
+        }
+        const tone: BadgeTone = critical > 0 ? "red" : incomplete > 0 ? "yellow" : "green";
+        const label = incomplete === 0
+          ? "Komplet"
+          : critical > 0
+            ? `${critical} kritiske · ${incomplete} mangler info`
+            : `${incomplete} mangler info`;
+        setBadge({ total, missing: incomplete, tone, label });
+      } catch {
+        if (!cancelled) setBadge(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user?.email, user?.display_name, user?.portal_role, user?.dealer_number, activeModeTick]);
 
   return badge;
 }
