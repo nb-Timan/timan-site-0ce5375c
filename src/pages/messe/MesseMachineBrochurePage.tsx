@@ -302,11 +302,11 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       },
       {
         title: {
-          da: 'Tractor / Loader line',
-          en: 'Tractor / Loader line',
-          de: 'Tractor / Loader line',
-          it: 'Tractor / Loader line',
-          hu: 'Tractor / Loader line',
+          da: 'Timan 2620',
+          en: 'Timan 2620',
+          de: 'Timan 2620',
+          it: 'Timan 2620',
+          hu: 'Timan 2620',
         },
         text: {
           da: 'Frontredskaber gør 2620 relevant til både løft, rydning og vedligehold.',
