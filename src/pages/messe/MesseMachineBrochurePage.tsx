@@ -357,7 +357,7 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       { da: 'DS-250 Saltspreder', en: 'DS-250 salt spreader', de: 'DS-250 Salzstreuer', it: 'Spargisale DS-250', hu: 'DS-250 sószóró' },
     ],
     viewerHref: '/messe/timan-2620/360',
-    viewerImageSrc: '/images/timan-2620/standard/06.jpg',
+    viewerImageSrc: '/images/timan-2620/j-kabine-saltspreder-dozerblad.png',
     viewerLabel: {
       da: '360 funktion',
       en: '360 function',
