@@ -341,10 +341,13 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       },
     ],
     specs: [
-      { label: { da: 'Maskintype', en: 'Machine type', de: 'Maschinentyp', it: 'Tipo macchina', hu: 'Géptípus' }, value: { da: 'Tractor / Loader line', en: 'Tractor / Loader line', de: 'Tractor / Loader line', it: 'Tractor / Loader line', hu: 'Tractor / Loader line' } },
-      { label: { da: 'Kabine', en: 'Cab', de: 'Kabine', it: 'Cabina', hu: 'Fülke' }, value: { da: 'Med eller uden kabine', en: 'With or without cab', de: 'Mit oder ohne Kabine', it: 'Con o senza cabina', hu: 'Fülkével vagy fülke nélkül' } },
-      { label: { da: 'Redskaber', en: 'Attachments', de: 'Anbaugeräte', it: 'Accessori', hu: 'Adapterek' }, value: { da: 'V-plov, skovl, skrabeblad og DS-250', en: 'V-plow, bucket, dozer blade and DS-250', de: 'V-Pflug, Schaufel, Dozerschild und DS-250', it: 'Lama a V, benna, lama dozer e DS-250', hu: 'V-eke, kanál, dozerlap és DS-250' } },
-      { label: { da: 'Anvendelse', en: 'Application', de: 'Einsatz', it: 'Applicazione', hu: 'Felhasználás' }, value: { da: 'Ejendom, park, læsning og vinter', en: 'Property, park, loading and winter', de: 'Grundstück, Park, Laden und Winter', it: 'Proprietà, parchi, carico e inverno', hu: 'Ingatlan, park, rakodás és tél' } },
+      { label: { da: 'Motor', en: 'Engine', de: 'Motor', it: 'Motore', hu: 'Motor' }, value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
+      { label: { da: 'Effekt', en: 'Power', de: 'Leistung', it: 'Potenza', hu: 'Teljesítmény' }, value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
+      { label: { da: 'Cylindre', en: 'Cylinders', de: 'Zylinder', it: 'Cilindri', hu: 'Hengerek' }, value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
+      { label: { da: 'Transmission', en: 'Transmission', de: 'Transmission', it: 'Trasmissione', hu: 'Hajtás' }, value: { da: 'Hydraulisk stempelpumpe', en: 'Hydraulic piston pump', de: 'Hydraulische Kolbenpumpe', it: 'Pompa idraulica a pistoni', hu: 'Hidraulikus dugattyús szivattyú' } },
+      { label: { da: 'Tophastighed', en: 'Top speed', de: 'Höchstgeschwindigkeit', it: 'Velocità max.', hu: 'Végsebesség' }, value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
+      { label: { da: 'Dieseltank', en: 'Diesel tank', de: 'Dieseltank', it: 'Serbatoio diesel', hu: 'Dízeltank' }, value: { da: '21 liter', en: '21 litres', de: '21 Liter', it: '21 litri', hu: '21 liter' } },
+      { label: { da: 'EU Norm', en: 'EU standard', de: 'EU-Norm', it: 'Norma UE', hu: 'EU norma' }, value: { da: 'Stage V', en: 'Stage V', de: 'Stage V', it: 'Stage V', hu: 'Stage V' } },
     ],
     attachments: [
       { da: 'Med kabine', en: 'With cab', de: 'Mit Kabine', it: 'Con cabina', hu: 'Fülkével' },
@@ -615,12 +618,15 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
   ],
   'timan-2620': [
     {
-      title: text('Tekniske specifikationer', 'Technical specifications'),
+      title: text('Motor og drift', 'Engine and operation'),
       rows: [
-        { label: text('Maskintype', 'Machine type'), value: text('Kompakt redskabsbærer', 'Compact tool carrier') },
-        { label: text('Kabine', 'Cab'), value: text('Med eller uden kabine', 'With or without cab') },
-        { label: text('Redskabslinje', 'Attachment line'), value: text('Tractor / Loader line') },
-        { label: text('Anvendelse', 'Application'), value: text('Ejendom, park, læsning og vinter', 'Property, park, loading and winter') },
+        { label: text('Motor', 'Engine'), value: text('Perkins 403J-11') },
+        { label: text('Effekt', 'Power'), value: text('25 hk / 18,4 kW', '25 hp / 18.4 kW') },
+        { label: text('Cylindre', 'Cylinders'), value: text('3') },
+        { label: text('Slagvolumen', 'Displacement'), value: text('1131 cc') },
+        { label: text('Transmission', 'Transmission'), value: text('Hydraulisk stempelpumpe', 'Hydraulic piston pump') },
+        { label: text('Tophastighed', 'Top speed'), value: text('20 km/t', '20 km/h') },
+        { label: text('EU Norm', 'EU standard'), value: text('Stage V') },
       ],
     },
     {
@@ -983,8 +989,11 @@ export default function MesseMachineBrochurePage({
             ) : (
               <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
-                  <div className="flex h-full items-center justify-center rounded-xl bg-white text-center ring-1 ring-slate-200">
-                    <BookOpen className="h-9 w-9 text-slate-300" />
+                  <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white px-6 text-center ring-1 ring-slate-200">
+                    <BookOpen className="mb-3 h-9 w-9 text-slate-300" />
+                    <p className="text-sm font-bold text-slate-500">
+                      {tr({ da: 'Brochure kommer snart', en: 'Brochure coming soon' }, lang)}
+                    </p>
                   </div>
                 </div>
                 <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
@@ -1007,13 +1016,13 @@ export default function MesseMachineBrochurePage({
             </button>
 
             {content.viewerHref && content.viewerImageSrc && (
-              <Link to={content.viewerHref} className={documentButtonClass}>
+              <Link to={content.viewerHref} className={`${documentButtonClass} border-emerald-200 bg-emerald-50/40`}>
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-emerald-50">
                   <div className="relative h-full w-full">
                     <img
                       src={content.viewerImageSrc}
                       alt=""
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                      className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.04]"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/10 to-transparent" />
                     <div className="absolute bottom-3 left-3 right-3">
