@@ -197,6 +197,25 @@ export function isMesseVariantUser(
   return (user?.portal_variant || '').toLowerCase() === 'messe';
 }
 
+export function hasInternalMesseAccess(
+  user: (
+    Pick<AppUser, 'role' | 'partner_type'> & {
+      email?: string | null;
+      portal_role?: string | null;
+      module_access?: string[] | null;
+      allowed_areas?: string[] | null;
+      portal_variant?: string | null;
+    }
+  ) | null | undefined,
+): boolean {
+  if (!user || isMesseVariantUser(user)) return false;
+  const role = derivePortalRole(user);
+  if (role === 'timan_backend' || role === 'timan_seller' || role === 'timan_service') return true;
+  const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_user', 'exhibition_user'];
+  if (role && externalRoles.includes(role)) return false;
+  return user.role !== 'partner' && Array.isArray(user.allowed_areas) && user.allowed_areas.includes('salg_marketing');
+}
+
 // ---------- Claims view variant ----------
 // Internal/admin view: Timan Backend, Timan Service, Timan Sælger
 // Dealer-side view:    Timan Importør, Timan Forhandler, Timan Service Partner, Dealer User (read-only)

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
+import { hasInternalMesseAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
 import { canSwitchMode } from '@/lib/activeMode';
 
@@ -22,8 +22,7 @@ export function MesseRouteGuard({ children }: { children: ReactNode }) {
   if (loading) return null;
   if (!appUser) return <Navigate to="/portal?redirect=/messe" replace />;
   if (isMesseVariantUser(appUser)) return <>{children}</>;
-  const role = derivePortalRole(appUser);
-  if (role === 'timan_backend' || role === 'timan_seller') return <>{children}</>;
+  if (hasInternalMesseAccess(appUser)) return <>{children}</>;
   if (canSwitchMode(appUser) && isMessePreviewActive(appUser.email)) {
     return <>{children}</>;
   }
