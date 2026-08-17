@@ -650,7 +650,7 @@ export default function MesseFollowUpPage() {
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <section className="space-y-3">
               <RequiredHeading>{f('country')}</RequiredHeading>
-              <div className="grid gap-3">
+              <div className="flex flex-wrap gap-2">
                 {([
                   ['dk', f('denmark')],
                   ['de', f('germany')],
@@ -660,7 +660,7 @@ export default function MesseFollowUpPage() {
                     type="button"
                     key={value}
                     onClick={() => handleCountryChoice(value)}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                       countryQuickChoice === value
                         ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
