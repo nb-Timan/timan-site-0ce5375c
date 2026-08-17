@@ -321,7 +321,7 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
         item_number: itemNumber,
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da, [2]),
         cost_price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk, [3]),
-        price_dkk: formatWorkbookNumber(calculatedDkk),
+        price_dkk: formatWorkbookNumber(calculatedDkk === "" ? null : calculatedDkk),
         price_eur: formatWorkbookNumber(calculatedEur),
         price_sek: formatWorkbookNumber(calculatedSek),
       };
