@@ -1017,7 +1017,7 @@ export default function MesseMachineBrochurePage({
 
             {content.viewerHref && content.viewerImageSrc && (
               <Link to={content.viewerHref} className={`${documentButtonClass} border-emerald-200 bg-emerald-50/40`}>
-                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-emerald-50">
+                <div className="aspect-[4/3] overflow-hidden rounded-xl bg-emerald-50">
                   <div className="relative h-full w-full">
                     <img
                       src={content.viewerImageSrc}
@@ -1034,10 +1034,6 @@ export default function MesseMachineBrochurePage({
                       </div>
                     </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">Timan 2620</div>
-                  <div className="mt-1 text-base font-bold text-slate-950">{tr(content.viewerTitle || T.overview, lang)}</div>
                 </div>
               </Link>
             )}
