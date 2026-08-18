@@ -158,6 +158,31 @@ function Field({ label, required, children, full }: { label: string; required?: 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
 const taCls = inputCls + ' min-h-[90px] resize-y';
 
+const TRADE_FAIR_OPTIONS = [
+  { value: 'DemoPark', country: 'Tyskland' },
+  { value: 'GaLaBau', country: 'Tyskland' },
+  { value: 'Have & Landskab', country: 'Danmark' },
+  { value: 'Maskiner Under Broen', country: 'Danmark' },
+  { value: 'Other', country: null },
+] as const;
+const KNOWN_TRADE_FAIRS = TRADE_FAIR_OPTIONS.filter(o => o.value !== 'Other').map(o => o.value);
+const COUNTRY_OPTIONS = ['Danmark', 'Tyskland', 'Other'] as const;
+const CURRENT_YEAR = new Date().getFullYear();
+const TRADE_FAIR_YEARS = Array.from({ length: 7 }, (_, index) => String(CURRENT_YEAR - 1 + index));
+
+function splitTradeFairYear(value: string): { name: string; year: string } {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(.*)\s+\((\d{4})\)$/);
+  if (!match) return { name: trimmed, year: String(CURRENT_YEAR) };
+  return { name: match[1].trim(), year: match[2] };
+}
+
+function buildTradeFairValue(name: string, year: string): string | null {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
+  return `${cleanName} (${year || CURRENT_YEAR})`;
+}
+
 function formatDkkEstimate(value: string): string {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return '';
@@ -457,7 +482,10 @@ export default function CrmNewLeadPage() {
   const [customerType, setCustomerType] = useState<string>('');
 
   const [contactInfo, setContactInfo] = useState('');
+  const [tradeFairChoice, setTradeFairChoice] = useState('');
   const [tradeFair, setTradeFair] = useState('');
+  const [tradeFairYear, setTradeFairYear] = useState(String(CURRENT_YEAR));
+  const [countryChoice, setCountryChoice] = useState<(typeof COUNTRY_OPTIONS)[number]>('Danmark');
   const [country, setCountry] = useState('Danmark');
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
@@ -542,8 +570,25 @@ export default function CrmNewLeadPage() {
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
       setContactInfo(lead.contact_information || '');
-      setTradeFair(lead.trade_fair || '');
-      setCountry(lead.country || '');
+      const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
+      if (KNOWN_TRADE_FAIRS.includes(parsedTradeFair.name)) {
+        setTradeFairChoice(parsedTradeFair.name);
+        setTradeFair(parsedTradeFair.name);
+      } else if (parsedTradeFair.name) {
+        setTradeFairChoice('Other');
+        setTradeFair(parsedTradeFair.name);
+      } else {
+        setTradeFairChoice('');
+        setTradeFair('');
+      }
+      setTradeFairYear(parsedTradeFair.year);
+      const loadedCountry = lead.country || 'Danmark';
+      if (loadedCountry === 'Danmark' || loadedCountry === 'Tyskland') {
+        setCountryChoice(loadedCountry);
+      } else {
+        setCountryChoice('Other');
+      }
+      setCountry(loadedCountry);
       setNotes(lead.notes || '');
       const savedEstimatedValue = lead.estimated_value != null ? String(lead.estimated_value) : '';
       setLoadedEstimatedValue(savedEstimatedValue);
@@ -631,6 +676,25 @@ export default function CrmNewLeadPage() {
     setMachineTypes(next);
   }
 
+  function handleTradeFairChoiceChange(value: string) {
+    setTradeFairChoice(value);
+    if (value === 'Other') {
+      setTradeFair('');
+      return;
+    }
+    setTradeFair(value);
+    const preset = TRADE_FAIR_OPTIONS.find(option => option.value === value);
+    if (preset?.country) {
+      setCountryChoice(preset.country);
+      setCountry(preset.country);
+    }
+  }
+
+  function handleCountryChoiceChange(value: (typeof COUNTRY_OPTIONS)[number]) {
+    setCountryChoice(value);
+    setCountry(value === 'Other' ? '' : value);
+  }
+
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
   function handleNextActivityChange(na: string) {
     setNextActivity(na);
@@ -674,7 +738,7 @@ export default function CrmNewLeadPage() {
         contact_type: contactType,
         customer_type: customerType,
         contact_information: contactInfo || null,
-        trade_fair: tradeFair || null,
+        trade_fair: buildTradeFairValue(tradeFair, tradeFairYear),
         country: country || null,
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
@@ -899,12 +963,40 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_info', lang)} full>
               <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder={tt('ph_contact_info', lang)} />
             </Field>
-            <Field label={tt('lbl_tradefair', lang)}>
-              <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} />
-            </Field>
-            <Field label={tt('lbl_country', lang)}>
-              <input className={inputCls} value={country} onChange={e=>setCountry(e.target.value)} />
-            </Field>
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
+              <Field label={tt('lbl_tradefair', lang)}>
+                <select className={inputCls} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
+                  <option value="">{tt('pick', lang)}</option>
+                  {TRADE_FAIR_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.value}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={tt('lbl_country', lang)}>
+                <select className={inputCls} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
+                  {COUNTRY_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="År">
+                <select className={inputCls} value={tradeFairYear} onChange={e=>setTradeFairYear(e.target.value)}>
+                  {TRADE_FAIR_YEARS.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </Field>
+              {tradeFairChoice === 'Other' && (
+                <Field label="Messenavn" full>
+                  <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} placeholder="Skriv messens navn" />
+                </Field>
+              )}
+              {countryChoice === 'Other' && (
+                <Field label="Land" full>
+                  <input className={inputCls} value={country} onChange={e=>setCountry(e.target.value)} placeholder="Skriv land" />
+                </Field>
+              )}
+            </div>
             <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
