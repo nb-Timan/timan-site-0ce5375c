@@ -657,9 +657,9 @@ function Sidebar() {
   const baseLabel = t('m2620_basismaskine', uiLanguage);
 
   const equipmentLabel = t('m2620_udstyr', uiLanguage);
-  // Fixed width sized to longest label "Saltspreder"
+  // Fixed width with wrapping for longer translated labels.
   const pillClass =
-    'w-[150px] px-4 py-1.5 rounded-full text-sm font-semibold border transition text-center';
+    'w-[170px] px-4 py-1.5 rounded-full text-sm font-semibold leading-tight border transition text-center whitespace-normal break-words';
   return (
     <aside className="lg:sticky lg:top-24">
       <section className="mb-6">
