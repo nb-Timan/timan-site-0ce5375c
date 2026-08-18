@@ -985,6 +985,20 @@ export default function MesseMachineBrochurePage({
                 <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
                 <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
               </button>
+            ) : pdfSrc ? (
+              <a href={pdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
+                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
+                  <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white px-6 text-center ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
+                    <BookOpen className="mb-3 h-9 w-9 text-emerald-700" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200">
+                      <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
+                      {tr(T.openBrochure, lang)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
+                <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
+              </a>
             ) : (
               <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
