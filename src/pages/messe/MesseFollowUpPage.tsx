@@ -343,6 +343,11 @@ export default function MesseFollowUpPage() {
   const [notes, setNotes] = useState('');
   const [businessCardFiles, setBusinessCardFiles] = useState<File[]>([]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
   const selectedLeadCountry = countryQuickChoice === 'de'
     ? 'Germany'
     : countryQuickChoice === 'dk'
