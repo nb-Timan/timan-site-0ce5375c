@@ -8,8 +8,9 @@ import {
   FileText,
   Gauge,
   ListChecks,
+  Minimize2,
   Settings,
-  
+  CarFront,
   Wrench,
 } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
@@ -48,6 +49,7 @@ const T: Record<string, Localized> = {
 interface MachineContent {
   eyebrow: Localized;
   intro: Localized;
+  attachmentTitle?: Localized;
   attachmentLabel?: Localized;
   attachmentCount?: string;
   highlights: Localized[];
@@ -274,6 +276,13 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       de: 'Timan 2620 ist eine kompakte und wendige Maschine für Grünpflege, Ladeaufgaben und Winterdienst - mit oder ohne Kabine.',
       it: 'Timan 2620 è una macchina compatta e maneggevole per cura del verde, carico e servizio invernale - con o senza cabina.',
       hu: 'A Timan 2620 kompakt és jól manőverezhető gép zöldterület-gondozáshoz, rakodáshoz és téli munkához - fülkével vagy fülke nélkül.',
+    },
+    attachmentTitle: {
+      da: 'Bygget til små områder',
+      en: 'Built for small areas',
+      de: 'Für kleine Bereiche gebaut',
+      it: 'Costruita per aree piccole',
+      hu: 'Kis területekre készült',
     },
     attachmentLabel: {
       da: 'Kompakt størrelse gør den nem at bruge på smalle områder og tæt omkring bygninger.',
@@ -842,9 +851,16 @@ export default function MesseMachineBrochurePage({
               <div className="grid gap-4 sm:grid-cols-3">
                 {content.attachmentCount && (
                   <div className={`rounded-2xl border border-emerald-200 bg-emerald-50 ${isTiman2620 ? 'p-4' : 'p-5'}`}>
-                    <Wrench className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-emerald-700`} />
+                    {isTiman2620 ? (
+                      <Minimize2 className="mb-3 h-7 w-7 text-emerald-700" />
+                    ) : (
+                      <Wrench className="mb-4 h-6 w-6 text-emerald-700" />
+                    )}
                     {!isTiman2620 && (
                       <div className="text-3xl font-black text-emerald-800">{content.attachmentCount}</div>
+                    )}
+                    {content.attachmentTitle && (
+                      <p className="text-sm font-bold leading-5 text-emerald-900">{tr(content.attachmentTitle, lang)}</p>
                     )}
                     <div className={`${isTiman2620 ? 'text-xs leading-5' : 'text-sm'} mt-1 font-semibold text-emerald-900`}>
                       {tr(content.attachmentLabel || T.tools, lang)}
@@ -857,10 +873,14 @@ export default function MesseMachineBrochurePage({
                     .map((item) => ({ title: undefined, text: item }))
                 ).map((item, index) => (
                   <div key={index} className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${isTiman2620 ? 'p-4' : 'p-5'}`}>
-                    {index === 0 ? (
-                      <Gauge className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-slate-700`} />
+                    {isTiman2620 && index === 0 ? (
+                      <CarFront className="mb-3 h-7 w-7 text-slate-700" />
+                    ) : index === 0 ? (
+                      <Gauge className="mb-4 h-6 w-6 text-slate-700" />
+                    ) : isTiman2620 ? (
+                      <Wrench className="mb-3 h-7 w-7 text-slate-700" />
                     ) : (
-                      <Settings className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-slate-700`} />
+                      <Settings className="mb-4 h-6 w-6 text-slate-700" />
                     )}
                     {item.title && (
                       <p className="text-sm font-semibold leading-6 text-slate-900">{tr(item.title, lang)}</p>
