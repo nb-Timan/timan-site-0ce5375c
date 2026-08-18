@@ -189,7 +189,7 @@ function MultiChip({ options, value, onChange }: { options: readonly string[]; v
 
 const MACHINE_INTEREST_MAIN = [
   { label: 'RC-751', values: ['RC-751'] },
-  { label: 'RC-1000', values: ['RC-1000', 'RC-1000s'] },
+  { label: 'RC-1000s', values: ['RC-1000', 'RC-1000s'] },
   { label: 'Timan 2620', values: ['Timan 2620', 'New 2620'] },
   { label: 'Timan 3330', values: ['Timan 3330'] },
   { label: 'Loader line / traktor-redskaber', values: ['Loader line / Tractor Equipment'] },
@@ -213,6 +213,31 @@ const MACHINE_INTEREST_EQUIPMENT = [
   {
     machine: 'Timan 2620',
     items: ['Med kabine', 'Uden kabine', 'V-plov', 'Skovl', 'Skrabeblad/Dozerblad', 'DS-250 Saltspreder'],
+  },
+  {
+    machine: 'Loader line / Tractor Equipment',
+    groups: [
+      {
+        title: 'Loader line',
+        items: [
+          'CS-200 Valspreder, manuel reg. Inklusiv svingbar ophængs beslag',
+          'CS-200 Combi, manuel reg. Inklusiv svingbar ophængs beslag til Weidemann',
+          'CS-200 Combi, El. reg. Inklusiv svingbar ophængs beslag til Weidemann',
+          'Timan hydr. fejemaskine D1316 med skrabeblad Ø600 mm børster',
+          'Timan hydr. fejemaskine D1518 med skrabeblad Ø600 mm børster',
+          'Flydende ophæng inklusiv 6/2 ventil til Weidemann',
+          'Tornado 400 fejebredde 135 til 180 cm. 400 liter beholder, 50 liter vandtank',
+        ],
+      },
+      {
+        title: 'Tractor',
+        items: [
+          'CS-200 Valspreder, manuel reg.',
+          'CS-200 Combi, manuel reg.',
+          'CS-200 Combi, El. reg.',
+        ],
+      },
+    ],
   },
   {
     machine: 'Timan 3330',
@@ -289,6 +314,21 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
   }
   const knownMain = new Set(MACHINE_INTEREST_MAIN.flatMap(m => [...m.values]));
   const otherSelected = value.filter(v => !knownMain.has(v) && !knownEquipment.has(v));
+  const hasSelectedEquipmentContext = value.some(v => v.startsWith('Equipment:'))
+    || value.some(v => ['RC-1000', 'RC-1000s', 'Timan 2620', 'New 2620', 'Timan 3330', 'Loader line / Tractor Equipment'].includes(v));
+  const isEquipmentGroupActive = (machine: string) => {
+    if (machine === 'RC-1000s') return value.includes('RC-1000') || value.includes('RC-1000s');
+    if (machine === 'Timan 2620') return value.includes('Timan 2620') || value.includes('New 2620');
+    if (machine === 'Timan 3330') return value.includes('Timan 3330');
+    if (machine === 'Loader line / Tractor Equipment') return value.includes('Loader line / Tractor Equipment');
+    return false;
+  };
+  const equipmentGroupClass = (active: boolean) => cn(
+    'rounded-xl border p-3 shadow-sm transition',
+    active
+      ? 'border-emerald-700 bg-emerald-100/80 ring-2 ring-emerald-200'
+      : 'border-slate-300 bg-white',
+  );
 
   return (
     <div className="space-y-4">
@@ -310,11 +350,11 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
         })}
       </div>
 
-      <details className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3" open={value.some(v => v.startsWith('Equipment:'))}>
+      <details className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3" open={hasSelectedEquipmentContext}>
         <summary className="cursor-pointer text-sm font-semibold text-emerald-900">Redskaber under maskiner</summary>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {MACHINE_INTEREST_EQUIPMENT.map(group => (
-            <div key={group.machine} className="rounded-xl border border-slate-300 bg-white p-3">
+            <div key={group.machine} className={equipmentGroupClass(isEquipmentGroupActive(group.machine))}>
               <h4 className="mb-2 text-sm font-bold text-slate-900">{group.machine}</h4>
               {'groups' in group ? (
                 <div className="space-y-3">
