@@ -264,7 +264,7 @@ const da: Dict = {
 
   // Portal front page
   loginNeeded: 'Log ind for at fortsætte',
-  heroTitle: 'Velkommen til Timan Portalen',
+  heroTitle: 'Velkommen til vores Timan site',
   heroBody: 'Vælg et område for at komme i gang.',
   heroAlt: 'Timan industri',
   openArea: 'Åbn område',
@@ -762,7 +762,7 @@ const en: Dict = {
   newsCmsWireCaption: 'Short explanation or caption.',
 
   loginNeeded: 'Log in to continue',
-  heroTitle: 'Welcome to the Timan Portal',
+  heroTitle: 'Welcome to our Timan site',
   heroBody: 'Select an area to get started.',
   heroAlt: 'Timan industry',
   openArea: 'Open area',
@@ -1107,7 +1107,7 @@ const de: Dict = {
   unsavedChanges: 'Ungespeicherte Änderungen', requiredField: 'Dieses Feld ist erforderlich',
 
   loginNeeded: 'Bitte anmelden',
-  heroTitle: 'Willkommen im Timan-Portal',
+  heroTitle: 'Willkommen auf unserer Timan Website',
   heroBody: 'Wählen Sie einen Bereich, um zu beginnen.',
   heroAlt: 'Timan Industrie',
   openArea: 'Bereich öffnen',
@@ -1398,7 +1398,7 @@ const it: Dict = {
   unsavedChanges: 'Modifiche non salvate', requiredField: 'Questo campo è obbligatorio',
 
   loginNeeded: 'Accedi per continuare',
-  heroTitle: 'Benvenuto nel Portale Timan',
+  heroTitle: 'Benvenuto nel nostro sito Timan',
   heroBody: 'Seleziona un’area per iniziare.',
   heroAlt: 'Industria Timan',
   openArea: 'Apri area',
@@ -1689,7 +1689,7 @@ const hu: Dict = {
   unsavedChanges: 'Mentetlen módosítások', requiredField: 'Ez a mező kötelező',
 
   loginNeeded: 'Jelentkezzen be a folytatáshoz',
-  heroTitle: 'Üdvözöljük a Timan Portálon',
+  heroTitle: 'Üdvözöljük Timan oldalunkon',
   heroBody: 'Válasszon egy területet a kezdéshez.',
   heroAlt: 'Timan ipar',
   openArea: 'Terület megnyitása',
@@ -1981,7 +1981,7 @@ const sv: Dict = {
   unsavedChanges: 'Osparade ändringar', requiredField: 'Detta fält är obligatoriskt',
 
   loginNeeded: 'Logga in för att fortsätta',
-  heroTitle: 'Välkommen till Timan-portalen',
+  heroTitle: 'Välkommen till vår Timan-sida',
   heroBody: 'Välj ett område för att komma igång.',
   heroAlt: 'Timan industri',
   openArea: 'Öppna område',
@@ -2273,7 +2273,7 @@ const fr: Dict = {
   unsavedChanges: 'Modifications non enregistrées', requiredField: 'Ce champ est obligatoire',
 
   loginNeeded: 'Connectez-vous pour continuer',
-  heroTitle: 'Bienvenue sur le portail Timan',
+  heroTitle: 'Bienvenue sur notre site Timan',
   heroBody: 'Sélectionnez un espace pour commencer.',
   heroAlt: 'Industrie Timan',
   openArea: 'Ouvrir l’espace',
@@ -2565,7 +2565,7 @@ const pl: Dict = {
   unsavedChanges: 'Niezapisane zmiany', requiredField: 'To pole jest wymagane',
 
   loginNeeded: 'Zaloguj się, aby kontynuować',
-  heroTitle: 'Witamy w portalu Timan',
+  heroTitle: 'Witamy na naszej stronie Timan',
   heroBody: 'Wybierz obszar, aby rozpocząć.',
   heroAlt: 'Przemysł Timan',
   openArea: 'Otwórz obszar',
@@ -2857,7 +2857,7 @@ const cs: Dict = {
   unsavedChanges: 'Neuložené změny', requiredField: 'Toto pole je povinné',
 
   loginNeeded: 'Pro pokračování se přihlaste',
-  heroTitle: 'Vítejte v Timan Portálu',
+  heroTitle: 'Vítejte na našem webu Timan',
   heroBody: 'Vyberte oblast pro zahájení.',
   heroAlt: 'Timan průmysl',
   openArea: 'Otevřít oblast',
