@@ -8,8 +8,8 @@
  * portalChangelogService — see Phase 3 plan.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, Plus, RotateCcw, ScrollText, Star, Trash2 } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Pencil, Plus, RotateCcw, ScrollText, Star, Trash2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -163,10 +163,6 @@ export default function BackendChangelogPage() {
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center">

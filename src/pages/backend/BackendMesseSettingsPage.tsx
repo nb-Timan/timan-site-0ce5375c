@@ -6,8 +6,8 @@
  * - Download QR PNG (rendered client-side from the live URL)
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, QrCode, Copy, Download, Check, ExternalLink } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { QrCode, Copy, Download, Check, ExternalLink } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -65,10 +65,6 @@ export default function BackendMesseSettingsPage() {
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-8 flex items-center gap-4">
           <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
             <QrCode className="h-6 w-6 text-amber-600" />

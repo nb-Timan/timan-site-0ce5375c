@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -31,7 +31,6 @@ import {
 } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
-import { hasMachineSearchContext } from "@/lib/machineSearchState";
 
 const T: Record<string, Record<Language, string>> = {
   pageTitle:        { da: "Min Maskine", en: "My Machine", de: "Meine Maschine", it: "La mia macchina", hu: "Saját gép" },
@@ -134,10 +133,6 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
-  // Re-evaluate on every render so freshly-saved state (e.g. when the user
-  // opens the journal via openMachine in MachineSearchPage) is picked up
-  // immediately, and so navigating back/forward inside the SPA stays in sync.
-  const cameFromSearch = hasMachineSearchContext();
   const breadcrumbCurrent = useMemo(() => {
     if (journal?.summary) {
       return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
@@ -204,22 +199,7 @@ export default function MachineJournalPage() {
       />
 
       <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
-          <button
-            onClick={() => {
-              // Re-check at click time so the decision is based on the
-              // freshest sessionStorage value, not a captured snapshot.
-              if (hasMachineSearchContext()) {
-                navigate('/portal/service/machines');
-              } else {
-                navigate('/portal/teknik-service');
-              }
-            }}
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {cameFromSearch ? T.backToSearch[lang] : tt('backToTechnicalService', uiLanguage)}
-          </button>
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-end gap-2">
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
             <button
               onClick={() => navigate('/portal/teknik-service')}

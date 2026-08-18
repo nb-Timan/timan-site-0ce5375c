@@ -21,8 +21,8 @@
  * Sellers additionally pass through canSellerSeeAccount before render.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, MapPin, User, Hash, CircleDot, AlertTriangle, Clock, CheckCircle2, MinusCircle, Plus, ListChecks } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { Building2, MapPin, User, Hash, CircleDot, AlertTriangle, Clock, CheckCircle2, MinusCircle, Plus, ListChecks } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -389,9 +389,6 @@ export default function CrmAccountDetailPage() {
       <CrmLayout>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
           <p className="text-sm text-gray-700">{T.notfound[lang]}</p>
-          <Link to="/portal/crm/accounts" className="inline-flex items-center gap-2 mt-4 text-sm text-[#2d5a27] hover:underline">
-            <ArrowLeft className="h-4 w-4" />{T.back[lang]}
-          </Link>
         </div>
       </CrmLayout>
     );
@@ -401,13 +398,6 @@ export default function CrmAccountDetailPage() {
 
   return (
     <CrmLayout pageTitle={title}>
-      <button
-        onClick={() => navigate("/portal/crm/accounts")}
-        className="inline-flex items-center gap-2 mb-4 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />{T.back[lang]}
-      </button>
-
       {/* Header card */}
       <Card className="mb-6 border-gray-100 shadow-sm">
         <CardHeader className="pb-3">

@@ -36,9 +36,6 @@ export default function TsbDetailPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Kontroller TSB-nummeret eller gå tilbage til oversigten.
           </p>
-          <Link to="/portal/service/tsb" className="mt-4 inline-block">
-            <Button variant="outline">Tilbage til TSB-listen</Button>
-          </Link>
         </div>
       </TsbSidebarLayout>
     );

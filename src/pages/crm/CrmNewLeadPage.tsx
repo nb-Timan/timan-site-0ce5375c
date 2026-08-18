@@ -23,7 +23,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -670,9 +670,6 @@ export default function CrmNewLeadPage() {
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">{isEdit ? tt('edit_sub', lang) : tt('page_sub', lang)}</p>
           </div>
-          <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> {tt('back', lang)}
-          </Link>
         </div>
 
         {loadingLead ? (

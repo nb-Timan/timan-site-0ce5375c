@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShieldCheck, Pencil, X } from "lucide-react";
+import { ShieldCheck, Pencil, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -88,10 +88,6 @@ export default function BackendRolesPage() {
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-8 flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
             <ShieldCheck className="h-6 w-6 text-indigo-600" />

@@ -7,8 +7,8 @@
  * Standard supabase-js client only — RLS controls visibility.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Ticket, Plus, Loader2, Search } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Ticket, Plus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -18,7 +18,6 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { useDealerScope } from "@/lib/dealerScope";
-import { goBackOrFallback } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 import { t as tt, pickT } from "@/lib/i18n/translations";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
@@ -221,7 +220,6 @@ export default function ServiceTicketsPage() {
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const uiLang = uiLanguage;
   const navigate = useNavigate();
-  const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
 
   const portalRole = derivePortalRole(effectiveUser);
@@ -342,18 +340,6 @@ export default function ServiceTicketsPage() {
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
-
-      <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => goBackOrFallback(navigate, location)}
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {tt('backToTechnicalService', uiLanguage)}
-          </button>
-        </div>
-      </div>
 
       <main className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="mb-8 flex items-center justify-between gap-4">

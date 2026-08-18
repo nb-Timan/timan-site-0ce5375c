@@ -4,8 +4,7 @@
  * admin-side detail view by role, both 1:1 from the old portal.
  */
 
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
 import { ClaimsAdminSidebarLayout, type ClaimsLayoutScope } from "@/components/claims/ClaimsAdminSidebarLayout";
 import { ClaimTool } from "@/components/claims/ClaimTool";
 import {
@@ -37,13 +36,6 @@ export default function ClaimDetailPage({ scope, readOnly = false }: Props) {
           <p className="mt-2 text-sm text-slate-500">
             Vi kunne ikke finde sagen <span className="font-mono">{claimId}</span>.
           </p>
-          <Link
-            to={scope === "admin" ? "/portal/service/claims?tab=all" : "/portal/service/claims?tab=mine"}
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {scope === "admin" ? "Tilbage til Alle claims" : "Tilbage til Mine claims"}
-          </Link>
         </div>
       </ClaimsAdminSidebarLayout>
     );
@@ -68,19 +60,11 @@ export default function ClaimDetailPage({ scope, readOnly = false }: Props) {
 
 function DetailIntro({ claim, scope, readOnly }: { claim: ClaimRecord; scope: ClaimsLayoutScope; readOnly: boolean }) {
   const adminMode = scope === "admin";
-  const backTo = adminMode ? "/portal/service/claims?tab=all" : "/portal/service/claims?tab=mine";
-  const backLabel = adminMode ? "Alle claims" : "Mine claims";
 
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <Link
-          to={backTo}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
-        </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-black tracking-tight">{claimDisplayId(claim)}</h1>
           <StatusPill status={claim.status} />
           {adminMode && (

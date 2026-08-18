@@ -4,7 +4,6 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import BackButton from '@/components/portal/BackButton';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
@@ -16,7 +15,7 @@ interface Props {
   title: string;
   intro?: string;
   hideHeader?: boolean;
-  /** Optional override for back link target. */
+  /** Kept for compatibility; global portal header now owns back navigation. */
   backTo?: string;
   /** Optional changelog module key — renders "Senest ændret …" under the title. */
   changelogModule?: ModuleKey;
@@ -84,12 +83,6 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
-
-      <div className="bg-white border-b border-gray-200 py-3 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <BackButton to={backTo} />
-        </div>
-      </div>
 
       {!hideHeader && (
         <header className="bg-white border-b border-gray-200 py-10">

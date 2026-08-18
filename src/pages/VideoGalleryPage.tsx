@@ -4,7 +4,6 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import BackButton from '@/components/portal/BackButton';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
@@ -55,13 +54,6 @@ export default function VideoGalleryPage() {
           navigate('/portal', { replace: true });
         }}
       />
-
-      {/* Back button - directly below header */}
-      <div className="bg-white border-b border-gray-200 py-3 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <BackButton />
-        </div>
-      </div>
 
       {/* Page header */}
       <header className="bg-white border-b border-gray-200 py-10">

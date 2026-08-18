@@ -4,8 +4,8 @@
 // V1: own-account only — importer/service-partner → sub-dealer relations deferred.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -264,26 +264,6 @@ export default function DealerDataPage() {
       />
 
       <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 flex-grow space-y-6">
-        <div>
-          {cameFromCrm ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.history.length > 1) navigate(-1);
-                else navigate(`/portal/crm/my-dealers/${encodeURIComponent(overrideAccountNumber!)}`);
-              }}
-              className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backDealer[lang]}
-            </button>
-          ) : (
-            <Link to="/portal" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-              <ArrowLeft className="h-4 w-4 mr-1" /> {T.backPortal[lang]}
-            </Link>
-          )}
-        </div>
-
-
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
             <Building2 className="h-7 w-7 text-blue-600" />

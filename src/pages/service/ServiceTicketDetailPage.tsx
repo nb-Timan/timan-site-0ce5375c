@@ -3,15 +3,14 @@
  * Fetches a single ticket by ID via RLS-scoped supabase client.
  */
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ticket, Loader2, MessageSquare, Paperclip, Download, FileWarning } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Ticket, Loader2, MessageSquare, Paperclip, Download, FileWarning } from "lucide-react";
 import { toast } from "sonner";
 
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { goBackOrFallback, getPortalBackInfo } from "@/lib/portalBackNav";
 import { Language } from "@/types/configurator";
 import {
   fetchServiceTicketById,
@@ -187,7 +186,6 @@ export default function ServiceTicketDetailPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const { ticketId } = useParams<{ ticketId: string }>();
 
   const [ticket, setTicket] = useState<ServiceTicketDetail | null>(null);
@@ -563,18 +561,6 @@ export default function ServiceTicketDetailPage() {
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
-
-      <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => goBackOrFallback(navigate, location)}
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {getPortalBackInfo(location.pathname, lang, location.search).label}
-          </button>
-        </div>
-      </div>
 
       <main className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="mb-8 flex items-center gap-4">

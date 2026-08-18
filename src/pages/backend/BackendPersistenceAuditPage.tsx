@@ -9,8 +9,7 @@
  * Read-only — does not mutate data.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
@@ -165,10 +164,7 @@ export default function BackendPersistenceAuditPage() {
     <div className="min-h-screen bg-slate-50">
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
-          <Link to="/portal/backend" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft className="h-4 w-4" /> Tilbage til backend
-          </Link>
+        <div className="mb-4 flex items-center justify-end">
           <button
             onClick={run}
             className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

@@ -13,10 +13,10 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx-js-style";
 import {
-  ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
+  Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw,
   Search, Pencil, Download, Tag, X, Database, UploadCloud,
   TrendingDown, TrendingUp,
 } from "lucide-react";
@@ -289,10 +289,6 @@ export default function BackendPriceListsPage() {
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-6 flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
             <Tag className="h-6 w-6 text-indigo-600" />

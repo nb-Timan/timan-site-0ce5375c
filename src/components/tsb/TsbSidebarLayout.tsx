@@ -8,12 +8,11 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, FileText, Globe, LayoutDashboard, Settings, Users, Wrench, type LucideIcon } from "lucide-react";
+import { Building2, FileText, Globe, LayoutDashboard, Settings, Users, Wrench, type LucideIcon } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { goBackOrFallback, getPortalBackInfo } from "@/lib/portalBackNav";
 
 interface NavItem {
   to: string;
@@ -71,8 +70,6 @@ export function TsbSidebarLayout({ intro, children }: TsbSidebarLayoutProps) {
 
   if (!appUser) return null;
 
-  const backInfo = getPortalBackInfo(location.pathname, lang, location.search);
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <PortalHeader
@@ -81,18 +78,6 @@ export function TsbSidebarLayout({ intro, children }: TsbSidebarLayoutProps) {
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
-
-      <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1700px] px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => goBackOrFallback(navigate, location)}
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {backInfo.label}
-          </button>
-        </div>
-      </div>
 
       <div className="mx-auto flex max-w-[1700px] gap-6 px-4 sm:px-6 lg:px-8 py-6">
         <aside className="hidden w-56 shrink-0 lg:block">

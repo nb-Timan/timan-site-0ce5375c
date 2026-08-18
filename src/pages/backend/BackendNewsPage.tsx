@@ -1,7 +1,7 @@
 import NewsRenderSurface from '@/features/news-cms/editor/NewsRenderSurface';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { Archive, ArrowLeft, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Undo2 } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Archive, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Undo2 } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Button } from '@/components/ui/button';
@@ -218,11 +218,6 @@ export default function BackendNewsPage() {
       />
 
       <main className="mx-auto w-full max-w-[1500px] flex-grow px-4 py-10 sm:px-6 lg:px-8">
-        <Link to="/portal/backend" className="mb-6 inline-flex items-center text-sm text-slate-600 hover:text-slate-900">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          {t('newsCmsBackToBackend', uiLanguage)}
-        </Link>
-
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">

@@ -8,8 +8,8 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Upload, FileText, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -136,10 +136,6 @@ export default function BackendDealerImportPage() {
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-6 flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
             <Upload className="h-6 w-6 text-indigo-600" />

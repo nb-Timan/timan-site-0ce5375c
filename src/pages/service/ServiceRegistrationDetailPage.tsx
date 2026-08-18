@@ -5,14 +5,14 @@
 // returns null and we show "ikke fundet".
 
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { getPortalBackInfo, goBackOrFallback } from '@/lib/portalBackNav';
-import { ArrowLeft, ClipboardList, FileText, Wrench, Paperclip } from 'lucide-react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { ClipboardList, FileText, Wrench, Paperclip } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import PortalHeader from '@/components/portal/PortalHeader';
+import PortalFooter from '@/components/portal/PortalFooter';
 import { pickT } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
@@ -25,7 +25,6 @@ import {
 type Dict = Partial<Record<PortalUiLanguage, string>>;
 
 const T: Record<string, Dict> = {
-  back: { da: 'Tilbage til servicehistorik', en: 'Back to service history', de: 'Zurück zur Service-Historie' },
   title: { da: 'Service registrering', en: 'Service registration', de: 'Serviceerfassung' },
   notFound: { da: 'Registrering ikke fundet, eller du har ikke adgang.', en: 'Registration not found, or you do not have access.', de: 'Erfassung nicht gefunden oder kein Zugriff.' },
   loading: { da: 'Indlæser…', en: 'Loading…', de: 'Laden…' },
@@ -66,11 +65,10 @@ function fmt(v: number | null | undefined, suffix = '') {
 }
 
 export default function ServiceRegistrationDetailPage() {
-  const { appUser, loading: userLoading } = useAppUser();
-  const { uiLanguage } = useLanguage();
+  const { appUser, loading: userLoading, logout } = useAppUser();
+  const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const t = (k: keyof typeof T) => pickT(T[k], uiLanguage);
   const navigate = useNavigate();
-  const location = useLocation();
   const { registrationId } = useParams<{ registrationId: string }>();
 
   const [reg, setReg] = useState<ServiceRegistration | null>(null);
@@ -125,39 +123,42 @@ export default function ServiceRegistrationDetailPage() {
   }
   if (!appUser) return <Navigate to="/portal" replace />;
 
-  const backInfo = getPortalBackInfo(location.pathname, 'da', location.search);
-  const back = (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => goBackOrFallback(navigate, location)}
-    >
-      <ArrowLeft className="h-4 w-4 mr-1" />
-      {backInfo.label}
-    </Button>
-  );
-
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-5xl mx-auto">
-          {back}
-          <div className="mt-6 text-sm text-slate-500">{t('loading')}</div>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <PortalHeader
+          user={appUser}
+          language={lang}
+          onLanguageChange={setLanguage}
+          onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+        />
+        <main className="flex-1 p-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-sm text-slate-500">{t('loading')}</div>
+          </div>
+        </main>
+        <PortalFooter language={lang} />
       </div>
     );
   }
 
   if (error || !reg) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-5xl mx-auto">
-          {back}
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-            {error ?? t('notFound')}
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <PortalHeader
+          user={appUser}
+          language={lang}
+          onLanguageChange={setLanguage}
+          onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+        />
+        <main className="flex-1 p-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+              {error ?? t('notFound')}
+            </div>
           </div>
-        </div>
+        </main>
+        <PortalFooter language={lang} />
       </div>
     );
   }
@@ -167,9 +168,15 @@ export default function ServiceRegistrationDetailPage() {
   const grandTotal = reg.total_price ?? kitTotal + extraTotal;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-5xl mx-auto space-y-4">
-        {back}
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <PortalHeader
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
+      />
+      <main className="flex-1 p-4 md:p-6">
+        <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#2d5a27]/10 flex items-center justify-center">
             <Wrench className="h-6 w-6 text-[#2d5a27]" />
@@ -266,7 +273,9 @@ export default function ServiceRegistrationDetailPage() {
             </ul>
           </Section>
         ) : null}
-      </div>
+        </div>
+      </main>
+      <PortalFooter language={lang} />
     </div>
   );
 }

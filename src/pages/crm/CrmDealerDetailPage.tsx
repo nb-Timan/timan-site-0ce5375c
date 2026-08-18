@@ -15,7 +15,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
+  ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
   FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Plus, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
@@ -387,8 +387,7 @@ export default function CrmDealerDetailPage() {
     return (
       <CrmLayout pageTitle="Forhandler ikke fundet">
         <div className="bg-white border rounded-xl p-6">
-          <p className="text-slate-700 mb-4">Forhandler {accountNumber} blev ikke fundet eller er ikke tildelt dig.</p>
-          <Link to="/portal/crm/my-dealers" className="text-emerald-700 underline text-sm">{t("back")}</Link>
+          <p className="text-slate-700">Forhandler {accountNumber} blev ikke fundet eller er ikke tildelt dig.</p>
         </div>
       </CrmLayout>
     );

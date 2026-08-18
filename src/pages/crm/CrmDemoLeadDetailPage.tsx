@@ -6,7 +6,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { listDemoLeads, resolveSeedOwners, formatDemoNo, type CrmDemoLead } from '@/lib/crmLeadsService';
-import { ArrowLeft, Building2, MapPin, User, Calendar, Wrench, Gauge, Sparkles } from 'lucide-react';
+import { Building2, MapPin, User, Calendar, Wrench, Gauge, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_CLR: Record<string, string> = {
@@ -68,12 +68,6 @@ export default function CrmDemoLeadDetailPage() {
   return (
     <CrmLayout pageTitle="Demo lead">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-4">
-          <Link to="/portal/crm/leads" className="text-sm text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> Tilbage til leads
-          </Link>
-        </div>
-
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-sm text-gray-500">Indlæser…</div>
         ) : denied ? (

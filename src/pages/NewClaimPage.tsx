@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, LifeBuoy, AlertCircle, Plus, Trash2, Save, Send, CheckCircle2,
+  LifeBuoy, AlertCircle, Plus, Trash2, Save, Send, CheckCircle2,
   Building2, User, Wrench, Calendar, FileText, Hammer, Package, Calculator, Paperclip,
 } from 'lucide-react';
 import { z } from 'zod';
@@ -358,14 +358,6 @@ export default function NewClaimPage() {
       {/* ===== Service-Portal style topbar ===== */}
       <div className="text-white" style={{ background: `linear-gradient(135deg, ${BRAND} 0%, #1f3f1c 100%)` }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button
-            onClick={() => navigate('/portal/service/claims')}
-            className="flex items-center text-white/80 hover:text-white text-sm font-medium mb-4 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {pickT(T.back, uiLang)}
-          </button>
-
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/15 backdrop-blur rounded-xl flex items-center justify-center ring-1 ring-white/20">

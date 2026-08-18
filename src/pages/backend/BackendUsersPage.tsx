@@ -10,8 +10,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
@@ -209,10 +209,6 @@ export default function BackendUsersPage() {
       />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">

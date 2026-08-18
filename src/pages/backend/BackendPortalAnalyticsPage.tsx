@@ -6,8 +6,8 @@
  * Reads from guest_visitors, guest_sessions, portal_activity_log, app_users.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, BarChart3 } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -306,10 +306,6 @@ export default function BackendPortalAnalyticsPage() {
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
-        </Link>
-
         <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-7 w-7 text-emerald-600" />

@@ -14,8 +14,7 @@
  * a list of existing links per section.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
 import { derivePortalRole } from "@/lib/portalAccess";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -177,9 +176,6 @@ export default function BackendPartnerRelationsPage() {
       <PortalHeader user={appUser} language={language} onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <Link to="/portal/backend" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Tilbage til Timan Backend
-        </Link>
         <h1 className="text-3xl font-bold text-slate-900">Partner relationer</h1>
         <p className="mt-1 text-sm text-slate-600">
           Definér importør → forhandler-hierarkiet og service-partner → forhandler-relationer,

@@ -4,15 +4,14 @@
  * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { goBackOrFallback } from "@/lib/portalBackNav";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, listAccessibleMachines, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -230,7 +229,6 @@ export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
 
   const portalRole = derivePortalRole(effectiveUser);
@@ -564,18 +562,6 @@ export default function MachineSearchPage() {
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
-
-      <div className="bg-white border-b border-slate-200 py-3">
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6">
-          <button
-            onClick={() => goBackOrFallback(navigate, location)}
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {tt('backToTechnicalService', uiLanguage)}
-          </button>
-        </div>
-      </div>
 
       <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6 py-10 flex-1 w-full">
         <div className="mb-8 flex items-center gap-4">

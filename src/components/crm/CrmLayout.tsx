@@ -1,13 +1,12 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, LayoutDashboard, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
-import { getPortalBackTarget, goBackOrFallback } from '@/lib/portalBackNav';
 import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
@@ -60,11 +59,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-4 pb-8 flex-grow w-full">
-        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('backToCrm', uiLanguage)}
-          </button>
+        <div className="flex items-center justify-end mb-3 gap-3 flex-wrap">
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
             isCrmAdmin(portalRole) ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-sky-50 text-sky-800 border border-sky-200"

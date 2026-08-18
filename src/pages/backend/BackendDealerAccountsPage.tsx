@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { sellerInitialsMatch, normalizeSellerInitials } from "@/lib/sellerInitials";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, FileText, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Ban, Building2, CheckCircle2, ChevronDown, ChevronRight, FileText, GitBranch, Lock, Network, Pencil, Plus, RotateCcw, Search, Star, Trash2, Upload, X } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
@@ -233,10 +233,6 @@ export default function BackendDealerAccountsPage() {
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <Link to="/portal/backend" className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage til Timan Backend
-        </Link>
-
         <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
