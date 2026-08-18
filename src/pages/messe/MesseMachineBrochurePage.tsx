@@ -276,7 +276,7 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       hu: 'A Timan 2620 kompakt és jól manőverezhető gép zöldterület-gondozáshoz, rakodáshoz és téli munkához - fülkével vagy fülke nélkül.',
     },
     attachmentLabel: {
-      da: 'Redskaber til helårsbrug',
+      da: 'Kompakt størrelse gør den nem at bruge på smalle områder og tæt omkring bygninger.',
       en: 'Attachments for year-round use',
       de: 'Anbaugeräte für den Ganzjahreseinsatz',
       it: 'Accessori per uso tutto l anno',
@@ -293,7 +293,7 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
           hu: 'Fülkével vagy fülke nélkül',
         },
         text: {
-          da: 'Vælg maskinen efter sæson, komfortbehov og opgavetype.',
+          da: 'Kan sættes op med eller uden kabine, så maskinen matcher opgaven og årstiden.',
           en: 'Choose the machine to match season, comfort needs and task type.',
           de: 'Wählen Sie die Maschine passend zu Saison, Komfortbedarf und Aufgabe.',
           it: 'Scegli la macchina in base a stagione, comfort e tipo di lavoro.',
@@ -302,14 +302,14 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
       },
       {
         title: {
-          da: 'Timan 2620',
+          da: 'Redskaber',
           en: 'Timan 2620',
           de: 'Timan 2620',
           it: 'Timan 2620',
           hu: 'Timan 2620',
         },
         text: {
-          da: 'Frontredskaber gør 2620 relevant til både løft, rydning og vedligehold.',
+          da: 'Redskaber til sne, græs og almindelig vedligehold gør maskinen fleksibel året rundt.',
           en: 'Front attachments make 2620 relevant for lifting, clearing and maintenance.',
           de: 'Frontanbaugeräte machen 2620 relevant für Heben, Räumen und Pflege.',
           it: 'Gli accessori frontali rendono 2620 adatta a sollevamento, sgombero e manutenzione.',
@@ -319,21 +319,21 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
     ],
     highlights: [
       {
-        da: 'Kompakt størrelse gør den nem at bruge på smalle områder og tæt omkring bygninger.',
+        da: 'En maskinbredde på kun 1.020 mm uden kabine og en indvendig venderadius på blot 565 mm',
         en: 'Compact size makes it easy to use in narrow areas and close around buildings.',
         de: 'Die kompakte Größe erleichtert den Einsatz in engen Bereichen und nah an Gebäuden.',
         it: 'Le dimensioni compatte facilitano l uso in aree strette e vicino agli edifici.',
         hu: 'Kompakt mérete miatt könnyen használható szűk helyeken és épületek körül.',
       },
       {
-        da: 'Kan sættes op med eller uden kabine, så maskinen matcher opgaven og årstiden.',
+        da: 'Arbejdshydraulik med dobbeltvirkende funktioner',
         en: 'Can be configured with or without cab to match the task and season.',
         de: 'Kann mit oder ohne Kabine konfiguriert werden, passend zu Aufgabe und Jahreszeit.',
         it: 'Configurabile con o senza cabina per adattarsi al lavoro e alla stagione.',
         hu: 'Fülkével vagy fülke nélkül konfigurálható a feladathoz és évszakhoz.',
       },
       {
-        da: 'Redskaber til læsning, sne og almindelig vedligehold gør maskinen fleksibel året rundt.',
+        da: 'Høj effektivitet og kraftoverskud til krævende redskaber',
         en: 'Attachments for loading, snow and general maintenance make the machine flexible all year.',
         de: 'Anbaugeräte für Laden, Schnee und Pflege machen die Maschine ganzjährig flexibel.',
         it: 'Accessori per carico, neve e manutenzione rendono la macchina flessibile tutto l anno.',
@@ -523,7 +523,7 @@ const MACHINE_DESCRIPTIONS: Record<MachineKey, Localized[]> = {
       hu: 'A Timan 2620 azoknak készült, akik kompakt gépet keresnek ingatlanok, utak, parkok és kisebb kültéri területek sokféle feladatához.',
     },
     {
-      da: 'Maskinen kan vises i 360-portalen, hvor man kan dreje den rundt og se de vigtigste funktioner og udstyrsvalg på en mere visuel måde.',
+      da: 'Én maskine – hele året. Timan 2620 er skabt som en multimaskine til kommuner, entreprenører, boligforeninger og servicevirksomheder.',
       en: 'The machine can be viewed in the 360 portal, where it can be rotated and the key functions and equipment choices can be explored visually.',
       de: 'Die Maschine kann im 360-Portal angesehen werden, wo sie gedreht und die wichtigsten Funktionen und Ausstattungen visuell erkundet werden können.',
       it: 'La macchina può essere visualizzata nel portale 360, dove è possibile ruotarla e vedere funzioni e configurazioni in modo più visivo.',
@@ -843,7 +843,9 @@ export default function MesseMachineBrochurePage({
                 {content.attachmentCount && (
                   <div className={`rounded-2xl border border-emerald-200 bg-emerald-50 ${isTiman2620 ? 'p-4' : 'p-5'}`}>
                     <Wrench className={`${isTiman2620 ? 'mb-3 h-5 w-5' : 'mb-4 h-6 w-6'} text-emerald-700`} />
-                    <div className={`${isTiman2620 ? 'text-2xl' : 'text-3xl'} font-black text-emerald-800`}>{content.attachmentCount}</div>
+                    {!isTiman2620 && (
+                      <div className="text-3xl font-black text-emerald-800">{content.attachmentCount}</div>
+                    )}
                     <div className={`${isTiman2620 ? 'text-xs leading-5' : 'text-sm'} mt-1 font-semibold text-emerald-900`}>
                       {tr(content.attachmentLabel || T.tools, lang)}
                     </div>
