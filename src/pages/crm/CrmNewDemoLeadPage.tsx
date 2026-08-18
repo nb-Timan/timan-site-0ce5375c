@@ -9,7 +9,7 @@ import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createDemoLead, getLead, formatLeadNo,
-  DEMO_MACHINE_CATEGORY, DEMO_MACHINE_OPTIONS, DEMO_EQUIPMENT_OPTIONS, DEMO_RESULT_STATUS,
+  DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
+import MachineInterestPicker from '@/components/crm/MachineInterestPicker';
+import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 
 // ---------- i18n. English is the fallback. ----------
 type TKey =
@@ -127,6 +129,23 @@ function Field({ label, required, children, full }: { label: string; required?: 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
 const taCls = inputCls + ' min-h-[90px] resize-y';
 
+function formatDkkEstimate(value: string): string {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return `${Math.round(amount).toLocaleString('da-DK')},-`;
+}
+
+function parseDkkEstimate(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits ? String(Number(digits)) : '';
+}
+
+function splitMachineInterest(values: string[]) {
+  const equipment = values.filter(v => v.startsWith('Equipment:'));
+  const machines = values.filter(v => !v.startsWith('Equipment:') && v !== 'Equipment');
+  return { machines, equipment };
+}
+
 function Chips({ options, value, onChange, single }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -188,8 +207,7 @@ export default function CrmNewDemoLeadPage() {
   const [notes, setNotes] = useState('');
 
   const [machineCategory, setMachineCategory] = useState<string[]>([]);
-  const [demoMachine, setDemoMachine] = useState<string[]>([]); // single
-  const [demoEquipment, setDemoEquipment] = useState<string[]>([]);
+  const [machineInterest, setMachineInterest] = useState<string[]>([]);
 
   const [demoDate, setDemoDate] = useState(today);
   const [interest, setInterest] = useState(3);
@@ -204,6 +222,7 @@ export default function CrmNewDemoLeadPage() {
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   // Phase 38 — prefill from a CRM lead when ?fromLead=<id> is in the URL.
   const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
@@ -273,12 +292,15 @@ export default function CrmNewDemoLeadPage() {
       }
       if (lead.contact_information) setCustomerName(prev => prev || lead.contact_information || '');
       if (lead.notes) setNotes(prev => prev || lead.notes || '');
-      // machine_types → demoMachine (single) + machine_category default.
       const types = (lead.machine_types || []).filter(Boolean);
       if (types.length) {
-        const matched = types.find(t => (DEMO_MACHINE_OPTIONS as readonly string[]).includes(t));
-        if (matched) setDemoMachine(prev => prev.length ? prev : [matched]);
-        setMachineCategory(prev => prev.length ? prev : ['Timan machine']);
+        setMachineInterest(prev => prev.length ? prev : types);
+        const hasMachine = types.some(t => !t.startsWith('Equipment:') && t !== 'Equipment');
+        const hasEquipment = types.some(t => t.startsWith('Equipment:'));
+        setMachineCategory(prev => prev.length ? prev : [
+          ...(hasMachine ? ['Timan machine'] : []),
+          ...(hasEquipment ? ['Timan equipment'] : []),
+        ]);
       }
       if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
       if (lead.probability != null) setProbability(String(lead.probability));
@@ -307,12 +329,24 @@ export default function CrmNewDemoLeadPage() {
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
   const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
 
+  const selectedMachineInterest = useMemo(() => splitMachineInterest(machineInterest), [machineInterest]);
+  const machineEstimate = useMemo(() => {
+    const estimate = calculateMachineInterestEstimate(machineInterest, 'da');
+    return {
+      value: estimate.total > 0 ? String(estimate.total) : '',
+      unmappedItems: estimate.unmappedItems,
+    };
+  }, [machineInterest]);
+
+  useEffect(() => {
+    setEstValue(machineEstimate.value);
+  }, [machineEstimate.value]);
+
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
   const errDemoType = machineCategory.length === 0 ? tt('val_demo_type', lang) : '';
-  const errDemoMachine = demoMachine.length === 0 ? tt('val_demo_machine', lang) : '';
-  const errDemoEquipment = demoEquipment.length === 0 ? tt('val_demo_equipment', lang) : '';
-  const [showErrors, setShowErrors] = useState(false);
+  const errDemoMachine = selectedMachineInterest.machines.length === 0 ? tt('val_demo_machine', lang) : '';
+  const errDemoEquipment = selectedMachineInterest.equipment.length === 0 ? tt('val_demo_equipment', lang) : '';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -339,8 +373,8 @@ export default function CrmNewDemoLeadPage() {
         customer_address: customerAddress || null,
         notes: notes || null,
         machine_category: machineCategory,
-        demo_machine: demoMachine[0] || null,
-        demo_equipment: demoEquipment,
+        demo_machine: selectedMachineInterest.machines.join(', ') || null,
+        demo_equipment: selectedMachineInterest.equipment,
         demo_date: demoDate || null,
         interest_level: interest,
         wants_offer: wantsOffer,
@@ -498,19 +532,17 @@ export default function CrmNewDemoLeadPage() {
             </div>
           </Section>
 
-          <Section title={tt('sec_demo_machine', lang)}>
+          <Section title="Maskine-interesse" subtitle={`${tt('sec_demo_machine', lang)} / ${tt('sec_demo_equipment', lang)}`}>
             <div className="md:col-span-2">
-              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_machine', lang)} <span className="text-rose-500">*</span></div>
-              <Chips options={DEMO_MACHINE_OPTIONS} value={demoMachine} onChange={setDemoMachine} single />
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">Maskine og redskaber <span className="text-rose-500">*</span></div>
+              <MachineInterestPicker value={machineInterest} onChange={setMachineInterest} />
               {showErrors && errDemoMachine && <p className="mt-1.5 text-xs text-rose-600">{errDemoMachine}</p>}
-            </div>
-          </Section>
-
-          <Section title={tt('sec_demo_equipment', lang)} subtitle={tt('sec_demo_equipment_sub', lang)}>
-            <div className="md:col-span-2">
-              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_equipment', lang)} <span className="text-rose-500">*</span></div>
-              <Chips options={DEMO_EQUIPMENT_OPTIONS} value={demoEquipment} onChange={setDemoEquipment} />
               {showErrors && errDemoEquipment && <p className="mt-1.5 text-xs text-rose-600">{errDemoEquipment}</p>}
+              {machineEstimate.unmappedItems.length > 0 && (
+                <p className="mt-2 text-xs text-amber-700">
+                  Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
+                </p>
+              )}
             </div>
           </Section>
 
@@ -544,7 +576,14 @@ export default function CrmNewDemoLeadPage() {
               <input type="date" className={inputCls} value={followup} onChange={e=>setFollowup(e.target.value)} />
             </Field>
             <Field label={tt('lbl_value', lang)}>
-              <input type="number" min={0} className={inputCls} value={estValue} onChange={e=>setEstValue(e.target.value)} />
+              <input
+                type="text"
+                inputMode="numeric"
+                className={inputCls}
+                value={formatDkkEstimate(estValue)}
+                onChange={e=>setEstValue(parseDkkEstimate(e.target.value))}
+                placeholder="0,-"
+              />
             </Field>
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
