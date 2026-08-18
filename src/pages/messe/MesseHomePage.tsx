@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ClipboardList, Gauge, Leaf, MapPin, Newspaper, Play, ShieldCheck, UsersRound, Wrench } from 'lucide-react';
+import { ClipboardList, Gauge, Leaf, MapPin, Newspaper, Play, Wrench } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
@@ -9,8 +9,6 @@ import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { canSwitchMode } from '@/lib/activeMode';
-import { derivePortalRole, hasInternalMesseAccess, hasModuleAccess, type ModuleAccessKey } from '@/lib/portalAccess';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import rc751Bg from '@/assets/messe/rc-751-bg.png.asset.json';
 import rc751Art from '@/assets/messe/rc-751-art.png.asset.json';
 import rc1000sBg from '@/assets/messe/rc-1000s-bg.png.asset.json';
@@ -35,14 +33,6 @@ interface Tile {
   literalTitle?: boolean;
 }
 
-interface InternalTile {
-  to: string;
-  icon: ReactNode;
-  title: string;
-  desc: string;
-  access?: ModuleAccessKey;
-}
-
 const TILES: Tile[] = [
   { to: '/messe/konfigurator', icon: <Wrench className="h-14 w-14" />, title: 'mh_configurator', desc: 'mh_configurator_desc', accent: 'from-emerald-500 to-emerald-700' },
   { to: '/messe/partner-map', icon: <MapPin className="h-14 w-14" />, title: 'mh_partner_map', desc: 'mh_partner_map_desc', accent: 'from-sky-500 to-sky-700' },
@@ -60,42 +50,11 @@ const QUICK_ACTIONS = [
   { to: '/messe/follow-up', icon: ClipboardList, label: 'Messeformular', literalLabel: true },
 ];
 
-const INTERNAL_TILES: InternalTile[] = [
-  {
-    to: '/portal/crm/demo-leads',
-    icon: <ClipboardList className="h-5 w-5" />,
-    title: 'Demonstrationer',
-    desc: 'Åbn eksisterende demo-registreringer.',
-    access: 'timan_crm',
-  },
-  {
-    to: '/portal/service/warranty',
-    icon: <ShieldCheck className="h-5 w-5" />,
-    title: 'Garantiregistreringer',
-    desc: 'Åbn eksisterende garantiområde.',
-    access: 'warranty',
-  },
-  {
-    to: '/portal/crm/my-dealers',
-    icon: <UsersRound className="h-5 w-5" />,
-    title: 'Forhandlere / kunder',
-    desc: 'Åbn eksisterende CRM-kundeoversigt.',
-    access: 'dealer_data',
-  },
-  {
-    to: '/messe/follow-up',
-    icon: <ClipboardList className="h-5 w-5" />,
-    title: 'Messe leads',
-    desc: 'Opret opfølgning med nuværende CRM-integration.',
-  },
-];
-
 export default function MesseHomePage() {
   const { appUser, logout } = useAppUser();
   const { language: legacyLanguage, uiLanguage, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const navigate = useNavigate();
-  const effectiveUser = useEffectivePortalUser(appUser);
 
   useEffect(() => {
     const refresh = () => setEnabled(isMesseEnabled());
@@ -119,12 +78,6 @@ export default function MesseHomePage() {
   if (!appUser) return null;
 
   const isBackendPreview = canSwitchMode(appUser);
-  const portalRole = derivePortalRole(effectiveUser);
-  const moduleOverride = (effectiveUser?.module_access ?? null) as ModuleAccessKey[] | null;
-  const showInternalMesse = hasInternalMesseAccess(effectiveUser);
-  const internalTiles = showInternalMesse
-    ? INTERNAL_TILES.filter((tile) => !tile.access || hasModuleAccess(portalRole, tile.access, moduleOverride))
-    : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -222,30 +175,6 @@ export default function MesseHomePage() {
             })}
           </div>
         </section>
-
-        {internalTiles.length > 0 && (
-          <section className="mt-10 rounded-2xl border border-emerald-100 bg-white/80 p-4 sm:p-5 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-slate-900">Interne messefunktioner</h2>
-              <p className="text-sm text-slate-600">Eksisterende værktøjer til Timan-brugere.</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {internalTiles.map((tile) => (
-                <Link
-                  key={tile.to}
-                  to={tile.to}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-                >
-                  <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
-                    {tile.icon}
-                  </span>
-                  <span className="block font-bold text-slate-900">{tile.title}</span>
-                  <span className="mt-1 block text-sm text-slate-600">{tile.desc}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
       </main>
 
       <footer className="text-center text-xs text-slate-500 py-4">
