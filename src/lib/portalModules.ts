@@ -184,7 +184,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna formulär', fr: 'Ouvrir les formulaires', pl: 'Otwórz formularze', cs: 'Otevřít formuláře',
     },
     icon: FileText,
-    href: '/portal/misc',
+    href: '/portal/misc/forms',
     enabled: true,
     accent: 'slate',
   },
