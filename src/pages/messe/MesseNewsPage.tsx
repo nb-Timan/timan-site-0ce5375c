@@ -72,6 +72,7 @@ export default function MesseNewsPage() {
     () => (news ?? []).filter((post) => matchesNewsTopicFilter(post, machineFilter, attachmentFilter)),
     [news, machineFilter, attachmentFilter],
   );
+  const showCuratedFallback = (news ?? []).length === 0;
   const hasActiveTopicFilter = machineFilter !== 'all' || attachmentFilter !== 'all';
 
   const renderCurated = (item: MesseNewsItem) => (
@@ -202,7 +203,7 @@ export default function MesseNewsPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-          {filteredCuratedNews.map(renderCurated)}
+          {showCuratedFallback && filteredCuratedNews.map(renderCurated)}
           {filteredCmsNews.map(renderCmsPost)}
         </div>
       </main>

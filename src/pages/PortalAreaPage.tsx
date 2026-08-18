@@ -167,11 +167,11 @@ export default function PortalAreaPage({ areaId }: Props) {
           })}
           {showCreateNewsCard && (
             <PlaceholderCard
-              title={t('newsCmsCreateCardTitle', uiLanguage)}
+              title={t('newsCmsTitle', uiLanguage)}
               language={lang}
-              to="/portal/backend/news"
+              to="/portal/marketing/news"
               icon={Newspaper}
-              description={t('newsCmsCreateCardDesc', uiLanguage)}
+              description={t('newsCmsSubtitle', uiLanguage)}
             />
           )}
           {area.placeholders.map(p => {

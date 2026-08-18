@@ -1,7 +1,7 @@
 import NewsRenderSurface from '@/features/news-cms/editor/NewsRenderSurface';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Archive, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Undo2 } from 'lucide-react';
+import { Archive, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Trash2, Undo2 } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import {
 } from '@/features/news-cms/lib/newsTaxonomy';
 import {
   adminListNewsPosts,
+  adminDeleteNewsPost,
   adminPublishNewsPost,
   adminSaveNewsDraft,
   adminUpdateNewsStatus,
@@ -84,6 +85,25 @@ function getPreviewContent(row: NewsCmsPost, lang: PortalUiLanguage) {
     subtitle: row.excerpt || '',
     mainImage: row.image_url || '',
     ...localized,
+  };
+}
+
+function getEditablePost(row: NewsCmsPost): NewsCmsPost {
+  if (row.template_id !== 'legacy') return row;
+
+  return {
+    ...row,
+    template_id: 'template-01-product-announcement',
+    localized_content: {
+      da: {
+        headline: row.title,
+        subtitle: row.excerpt || '',
+        body: '',
+        mainImage: row.image_url || '',
+      },
+    },
+    template_data: row.template_data || { news_topic: { type: 'misc', target: 'diverse' } },
+    assets: row.assets || [],
   };
 }
 
@@ -198,6 +218,22 @@ export default function BackendNewsPage() {
       return;
     }
     setMessage(t('newsCmsStatusUpdated', uiLanguage));
+    await reload();
+  };
+
+  const deletePost = async (row: NewsCmsPost) => {
+    if (!window.confirm(`Slet nyheden "${row.title}"?`)) return;
+
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    const result = await adminDeleteNewsPost(row.id);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setMessage('Nyhed slettet.');
     await reload();
   };
 
@@ -437,8 +473,8 @@ export default function BackendNewsPage() {
                         <td className="px-4 py-4 text-slate-500">{status === 'published' ? formatDate(row.published_at, uiLanguage) : '-'}</td>
                         <td className="min-w-[250px] px-4 py-4">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {status !== 'archived' && row.template_id !== 'legacy' && (
-                              <button type="button" onClick={() => { setEditingPost(row); setViewMode('editor'); }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                            {status !== 'archived' && (
+                              <button type="button" onClick={() => { setEditingPost(getEditablePost(row)); setViewMode('editor'); }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                                 <FilePenLine className="h-3.5 w-3.5" /> {t('edit', uiLanguage)}
                               </button>
                             )}
@@ -464,6 +500,9 @@ export default function BackendNewsPage() {
                                 <Undo2 className="h-3.5 w-3.5" /> {t('newsCmsRestore', uiLanguage)}
                               </button>
                             )}
+                            <button type="button" disabled={saving} onClick={() => void deletePost(row)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100">
+                              <Trash2 className="h-3.5 w-3.5" /> {t('delete', uiLanguage)}
+                            </button>
                           </div>
                         </td>
                       </tr>

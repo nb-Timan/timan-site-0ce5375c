@@ -270,3 +270,8 @@ export async function adminUpdateNewsStatus(id: string, status: NewsStatus): Pro
   const { error } = await supabase.from('news_posts').update(payload).eq('id', id);
   return { error: error?.message || null };
 }
+
+export async function adminDeleteNewsPost(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('news_posts').delete().eq('id', id);
+  return { error: error?.message || null };
+}
