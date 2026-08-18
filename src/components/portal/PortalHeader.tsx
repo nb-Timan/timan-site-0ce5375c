@@ -226,12 +226,11 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
               <button
                 type="button"
                 onClick={() => navigate(portalBackTarget)}
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 sm:px-4"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
                 title={portalBackLabel}
                 aria-label={portalBackLabel}
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">{portalBackLabel.replace(/^Tilbage til\s+/i, 'Tilbage')}</span>
               </button>
             )}
 
