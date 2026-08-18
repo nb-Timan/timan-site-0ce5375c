@@ -276,6 +276,7 @@ export default function CrmLeadsPage() {
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
 
   useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
@@ -284,6 +285,25 @@ export default function CrmLeadsPage() {
     const openResolved = await resolveSeedOwners(openAll);
     setOpenLeads(openResolved);
   };
+
+  async function handleConvertToQuote(leadId: string) {
+    const lead = openLeads.find(l => l.id === leadId);
+    if (!lead || quoteConvertBusyId) return;
+    setQuoteConvertBusyId(leadId);
+    try {
+      const nextActivity = 'Offer sent to the customer';
+      await updateLead(leadId, {
+        next_activity: nextActivity,
+        probability: 70,
+        pipeline_stage: deriveLegacyPipelineStage(nextActivity),
+      });
+      navigate(`/configurator?fromLeadQuote=${encodeURIComponent(leadId)}`);
+    } catch (e) {
+      console.error(e);
+      toast.error(lang === 'da' ? 'Kunne ikke konvertere leadet til tilbud' : 'Could not convert lead to quote');
+      setQuoteConvertBusyId(null);
+    }
+  }
 
   useEffect(() => { if (!dealerParam) setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin, dealerParam]);
 
@@ -577,13 +597,19 @@ export default function CrmLeadsPage() {
                               >
                                 <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
                               </Link>
-                              <Link
-                                to={`/configurator?fromLeadQuote=${encodeURIComponent(r.id)}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-[12px] text-emerald-700 hover:underline"
-                              >
-                                <FileText className="h-3.5 w-3.5" /> {tt('convert_to_quote', lang)}
-                              </Link>
+                              {r.status !== 'Tilbud sendt' && (
+                                <button
+                                  type="button"
+                                  disabled={quoteConvertBusyId === r.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleConvertToQuote(r.id);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[12px] text-emerald-700 hover:underline disabled:opacity-50"
+                                >
+                                  <FileText className="h-3.5 w-3.5" /> {tt('convert_to_quote', lang)}
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

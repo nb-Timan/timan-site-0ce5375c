@@ -190,7 +190,7 @@ export function buildConfiguratorStateFromMachineTypes(
     state: {
       ...base,
       language: previous.language,
-      step: machineConfigs.length > 0 ? 3 : 1,
+      step: machineConfigs.length > 0 ? 2 : 1,
       flowType: 'quote',
       machineConfigs,
       currentMachineIndex: 0,
