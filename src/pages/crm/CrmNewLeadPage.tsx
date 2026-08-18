@@ -605,6 +605,17 @@ export default function CrmNewLeadPage() {
       pricedItems: estimate.pricedItems,
     };
   }, [machineTypes]);
+  const isLeadFormReady = Boolean(
+    title.trim()
+    && responsibleSellerId
+    && linkedDealer
+    && firstContact
+    && expectedClose
+    && nextFollowup
+    && nextActivity
+    && contactType
+    && customerType
+  );
 
   useEffect(() => {
     const hasMeaningfulSavedEstimate = isEdit
@@ -686,7 +697,7 @@ export default function CrmNewLeadPage() {
         await createLead(payload);
         toast.success(tt('created_ok', lang));
       }
-      navigate('/portal/crm/leads');
+      navigate('/portal/crm');
     } catch (err) {
       console.error(err);
       toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));
@@ -1035,7 +1046,7 @@ export default function CrmNewLeadPage() {
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
             <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
-            <button type="submit" disabled={submitting}
+            <button type="submit" disabled={submitting || !isLeadFormReady}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
               {submitting ? tt('saving', lang) : (isEdit ? tt('save_changes', lang) : tt('save', lang))}
