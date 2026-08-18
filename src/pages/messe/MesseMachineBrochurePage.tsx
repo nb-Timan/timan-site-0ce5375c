@@ -921,9 +921,9 @@ export default function MesseMachineBrochurePage({
             {machineKey === 'rc-1000s' && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {rc1000IconFeatures.map(({ iconSrc, label }) => (
-                  <div key={tr(label, lang)} className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+                  <div key={tr(label, lang)} className="flex min-h-[136px] flex-col justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
                     <img src={iconSrc} alt="" aria-hidden="true" className="mx-auto mb-3 h-14 w-auto max-w-[4.5rem] object-contain" />
-                    <p className="text-sm font-bold leading-5 text-slate-800">{tr(label, lang)}</p>
+                    <p className="break-words text-[13px] font-bold leading-5 text-slate-800">{tr(label, lang)}</p>
                   </div>
                 ))}
               </div>
