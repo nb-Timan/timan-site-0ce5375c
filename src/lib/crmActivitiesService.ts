@@ -24,6 +24,7 @@ export type CrmActivityType =
   | "comment"
   | "login"
   | "lead_created"
+  | "lead_deleted"
   | "lead_viewed"
   | "lead_accepted"
   | "lead_rejected";

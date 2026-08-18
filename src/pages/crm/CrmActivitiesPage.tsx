@@ -23,6 +23,8 @@ const TYPE_BADGE: Record<string, string> = {
   order_sent: 'bg-purple-50 text-purple-700 border-purple-200',
   order_deleted: 'bg-red-50 text-red-700 border-red-200',
   login: 'bg-gray-100 text-gray-700 border-gray-200',
+  lead_created: 'bg-sky-50 text-sky-700 border-sky-200',
+  lead_deleted: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
 export default function CrmActivitiesPage() {
@@ -94,27 +96,34 @@ export default function CrmActivitiesPage() {
         ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{T.empty[lang]}</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100">
+            <div className="hidden md:grid grid-cols-[180px_minmax(260px,1fr)_220px_180px] gap-4 px-5 py-3 bg-gray-50/70 text-[11px] uppercase tracking-[0.06em] text-gray-500">
+              <span>Handling</span>
+              <span>Lead / detaljer</span>
+              <span>Udført af</span>
+              <span className="text-right">Tidspunkt</span>
+            </div>
             {filtered.map(a => (
-              <li key={a.id} className="px-5 py-4 flex items-start justify-between gap-4">
+              <div key={a.id} className="px-5 py-4 grid gap-3 md:grid-cols-[180px_minmax(260px,1fr)_220px_180px] md:items-start">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border ${TYPE_BADGE[a.activity_type] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                      {a.activity_type}
-                    </span>
-                    {a.status && <span className="text-[10px] text-gray-500">{a.status}</span>}
-                  </div>
+                  <span className={`inline-flex text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border ${TYPE_BADGE[a.activity_type] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                    {a.activity_type}
+                  </span>
+                  {a.status && <div className="text-[10px] text-gray-500 mt-1">{a.status}</div>}
+                </div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{a.title || '—'}</p>
                   <p className="text-xs text-gray-500 truncate">
-                    {a.account_name || '—'} · {a.created_by_name || '—'}
+                    {a.account_name || '—'}
                     {a.assigned_owner_name ? ` · sælger: ${a.assigned_owner_name}` : ''}
                   </p>
                   {a.description && <p className="text-xs text-gray-500 mt-1">{a.description}</p>}
                 </div>
-                <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(a.activity_date).toLocaleString()}</span>
-              </li>
+                <span className="text-xs text-gray-500">{a.created_by_name || '—'}</span>
+                <span className="text-xs text-gray-400 whitespace-nowrap md:text-right">{new Date(a.activity_date).toLocaleString()}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </CrmLayout>

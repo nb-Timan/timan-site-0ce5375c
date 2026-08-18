@@ -416,8 +416,18 @@ export default function CrmLeadsPage() {
     setDeleteBusy(true);
     try {
       const result = deleteTarget.type === 'demo'
-        ? await deleteDemoLead(deleteTarget.id)
-        : await deleteLead(deleteTarget.id);
+        ? await deleteDemoLead(deleteTarget.id, {
+            ...deleteTarget,
+            deleted_by_name: appUser?.display_name || appUser?.email || null,
+            deleted_by_email: appUser?.email || null,
+            deleted_by_role: portalRole,
+          })
+        : await deleteLead(deleteTarget.id, {
+            ...deleteTarget,
+            deleted_by_name: appUser?.display_name || appUser?.email || null,
+            deleted_by_email: appUser?.email || null,
+            deleted_by_role: portalRole,
+          });
       if (result.error) {
         toast.error('Kunne ikke slette leadet.');
         return;

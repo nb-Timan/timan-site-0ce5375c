@@ -360,11 +360,57 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
   return row;
 }
 
-export async function deleteLead(id: string): Promise<{ error?: string }> {
+export interface DeleteLeadAudit {
+  title?: string | null;
+  display_no?: string | null;
+  customer?: string | null;
+  dealer?: string | null;
+  owner_user_id?: string | null;
+  owner_name?: string | null;
+  owner_email?: string | null;
+  machine?: string | null;
+  value?: number | null;
+  deleted_by_user_id?: string | null;
+  deleted_by_name?: string | null;
+  deleted_by_email?: string | null;
+  deleted_by_role?: string | null;
+}
+
+export async function deleteLead(id: string, audit: DeleteLeadAudit = {}): Promise<{ error?: string }> {
   try {
     const { error } = await supabase.from("crm_leads").delete().eq("id", id);
     if (error) throw error;
     removeLeadFromLocalCache(id);
+    try {
+      await logActivity({
+        activity_type: "lead_deleted",
+        title: audit.title ? `Slettet lead: ${audit.title}` : "Slettet lead",
+        description: [
+          audit.display_no,
+          audit.customer,
+          audit.deleted_by_name ? `Slettet af: ${audit.deleted_by_name}` : null,
+          audit.deleted_by_role ? `Rolle: ${audit.deleted_by_role}` : null,
+        ].filter(Boolean).join(" · "),
+        status: "Slettet",
+        account_name: audit.dealer ?? null,
+        assigned_owner_user_id: audit.owner_user_id ?? null,
+        assigned_owner_name: audit.owner_name ?? null,
+        created_by_user_id: audit.deleted_by_user_id ?? null,
+        created_by_name: audit.deleted_by_name ?? audit.deleted_by_email ?? null,
+        created_by_email: audit.deleted_by_email ?? null,
+        value: audit.value ?? null,
+        currency: audit.value != null ? "DKK" : null,
+        meta: {
+          deleted_entity: "crm_lead",
+          deleted_lead_id: id,
+          deleted_lead_no: audit.display_no,
+          deleted_by_email: audit.deleted_by_email,
+          deleted_by_role: audit.deleted_by_role,
+          owner_email: audit.owner_email,
+          machine: audit.machine,
+        },
+      });
+    } catch { /* deletion already succeeded; activity logging is best-effort */ }
     return {};
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "delete", error: err });
@@ -605,11 +651,41 @@ export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead
   return row;
 }
 
-export async function deleteDemoLead(id: string): Promise<{ error?: string }> {
+export async function deleteDemoLead(id: string, audit: DeleteLeadAudit = {}): Promise<{ error?: string }> {
   try {
     const { error } = await supabase.from("crm_demo_leads").delete().eq("id", id);
     if (error) throw error;
     writeLS<CrmDemoLead>(LS_DEMO, readLS<CrmDemoLead>(LS_DEMO).filter(r => r.id !== id));
+    try {
+      await logActivity({
+        activity_type: "lead_deleted",
+        title: audit.title ? `Slettet demo-lead: ${audit.title}` : "Slettet demo-lead",
+        description: [
+          audit.display_no,
+          audit.customer,
+          audit.deleted_by_name ? `Slettet af: ${audit.deleted_by_name}` : null,
+          audit.deleted_by_role ? `Rolle: ${audit.deleted_by_role}` : null,
+        ].filter(Boolean).join(" · "),
+        status: "Slettet",
+        account_name: audit.dealer ?? null,
+        assigned_owner_user_id: audit.owner_user_id ?? null,
+        assigned_owner_name: audit.owner_name ?? null,
+        created_by_user_id: audit.deleted_by_user_id ?? null,
+        created_by_name: audit.deleted_by_name ?? audit.deleted_by_email ?? null,
+        created_by_email: audit.deleted_by_email ?? null,
+        value: audit.value ?? null,
+        currency: audit.value != null ? "DKK" : null,
+        meta: {
+          deleted_entity: "crm_demo_lead",
+          deleted_lead_id: id,
+          deleted_lead_no: audit.display_no,
+          deleted_by_email: audit.deleted_by_email,
+          deleted_by_role: audit.deleted_by_role,
+          owner_email: audit.owner_email,
+          machine: audit.machine,
+        },
+      });
+    } catch { /* deletion already succeeded; activity logging is best-effort */ }
     return {};
   } catch (err) {
     notifyLocalFallback({ table: "crm_demo_leads", action: "delete", error: err });
