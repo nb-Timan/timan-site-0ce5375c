@@ -804,11 +804,29 @@ export default function MesseMachineBrochurePage({
 
 
   const pageSrc = (page: number) => (pageBase ? `${pageBase}/page-${page}.jpg` : '');
-  const rightPage = leftPage + 1;
-  const canGoBack = leftPage > 1;
-  const canGoNext = rightPage < brochurePageCount;
-  const goBack = () => setLeftPage((page) => Math.max(1, page - 2));
-  const goNext = () => setLeftPage((page) => Math.min(brochurePageCount, page + 2));
+  const brochureSpreads = isTiman2620 && brochurePageCount === 4
+    ? [[1], [2, 3], [4]]
+    : Array.from({ length: Math.ceil(brochurePageCount / 2) }, (_, index) => {
+        const page = index * 2 + 1;
+        return page + 1 <= brochurePageCount ? [page, page + 1] : [page];
+      });
+  const currentSpreadIndex = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === leftPage));
+  const currentSpread = brochureSpreads[currentSpreadIndex] ?? [leftPage];
+  const rightPage = currentSpread[1];
+  const isSinglePageSpread = currentSpread.length === 1;
+  const canGoBack = currentSpreadIndex > 0;
+  const canGoNext = currentSpreadIndex < brochureSpreads.length - 1;
+  const goBack = () => setLeftPage((page) => {
+    const index = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === page));
+    return brochureSpreads[Math.max(0, index - 1)]?.[0] ?? 1;
+  });
+  const goNext = () => setLeftPage((page) => {
+    const index = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === page));
+    return brochureSpreads[Math.min(brochureSpreads.length - 1, index + 1)]?.[0] ?? page;
+  });
+  const spreadLabel = isSinglePageSpread
+    ? `${currentSpread[0]}`
+    : `${currentSpread[0]}-${rightPage}`;
 
 
   const documentButtonClass =
@@ -1121,16 +1139,17 @@ export default function MesseMachineBrochurePage({
           bodyClass="px-3 sm:px-5 py-4"
         >
           <div className="relative rounded-xl bg-slate-100 p-3 sm:p-5">
-            <div className="relative grid h-[76vh] min-h-[620px] grid-cols-1 overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 md:grid-cols-2">
-              <div className="flex min-h-0 items-center justify-center bg-white p-2 md:border-r md:border-slate-100">
+            <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+              <div className={`flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
                 <img
-                  src={pageSrc(leftPage)}
-                  alt={`${title} ${tr(T.page, lang)} ${leftPage}`}
+                  src={pageSrc(currentSpread[0])}
+                  alt={`${title} ${tr(T.page, lang)} ${currentSpread[0]}`}
                   className="h-full w-full object-contain"
                 />
               </div>
+              {!isSinglePageSpread && (
               <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
-                {rightPage <= brochurePageCount ? (
+                {rightPage && rightPage <= brochurePageCount ? (
                   <img
                     src={pageSrc(rightPage)}
                     alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
@@ -1140,12 +1159,15 @@ export default function MesseMachineBrochurePage({
                   <div className="h-full w-full rounded-sm bg-slate-50" />
                 )}
               </div>
+              )}
             </div>
 
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
-            />
+            {!isSinglePageSpread && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
+              />
+            )}
 
             <div className="mt-4 flex items-center justify-center gap-3">
               <button
@@ -1158,7 +1180,7 @@ export default function MesseMachineBrochurePage({
                 {tr(T.previous, lang)}
               </button>
               <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm">
-                {leftPage}-{Math.min(rightPage, brochurePageCount)} / {brochurePageCount}
+                {spreadLabel} / {brochurePageCount}
               </div>
               <button
                 type="button"
