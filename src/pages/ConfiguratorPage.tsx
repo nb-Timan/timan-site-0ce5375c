@@ -2411,8 +2411,8 @@ export default function ConfiguratorPage() {
       )}
 
       {/* Header */}
-      <header className="max-w-6xl mx-auto mb-8 no-print flex justify-between items-center">
-        <div className="flex space-x-1 p-1 rounded-lg bg-white shadow-md border">
+      <header className="w-full max-w-6xl mx-auto mb-6 sm:mb-8 no-print flex flex-wrap lg:flex-nowrap justify-between items-center gap-3 px-3 sm:px-4">
+        <div className="order-1 flex max-w-full space-x-1 overflow-x-auto p-1 rounded-lg bg-white shadow-md border">
           {LANGUAGES.map(l => (
             <button key={l.code} onClick={() => setLanguage(l.code)}
               className={`flag-button ${uiLanguage === l.code ? 'active' : ''}`}>
@@ -2420,9 +2420,9 @@ export default function ConfiguratorPage() {
             </button>
           ))}
         </div>
-        <div className="header-title-container">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{T('appTitle')}</h1>
-          <p className="text-gray-500 font-medium mt-1 text-lg">{T('subtitle')}</p>
+        <div className="header-title-container order-3 lg:order-2 w-full lg:w-auto lg:flex-1 min-w-0">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 tracking-tight leading-tight break-words">{T('appTitle')}</h1>
+          <p className="text-gray-500 font-medium mt-1 text-sm sm:text-lg">{T('subtitle')}</p>
         </div>
         {(() => {
           const portalRole = (appUser as { portal_role?: string | null } | null)?.portal_role ?? null;
@@ -2430,10 +2430,11 @@ export default function ConfiguratorPage() {
             return (
               <button
                 onClick={() => navigate('/messe')}
-                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
+                className="order-2 lg:order-3 inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Tilbage til Timan Messe</span>
+                <span className="hidden sm:inline">Tilbage til Timan Messe</span>
+                <span className="sm:hidden">Messe</span>
               </button>
             );
           }
@@ -2454,7 +2455,7 @@ export default function ConfiguratorPage() {
                 navigate(backTarget);
               }
             }}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
+            className="order-2 lg:order-3 inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
