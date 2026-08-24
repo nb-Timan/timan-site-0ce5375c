@@ -1,33 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, ReactNode } from 'react';
 import { Language } from '@/types/configurator';
 import {
-  PORTAL_LANGUAGE_CODES,
   FALLBACK_LANGUAGE,
   mapUiLanguageToLegacy,
+  normalizePortalLanguageCode,
   type PortalUiLanguage,
 } from '@/lib/portalLanguages';
 
-const STORAGE_KEY = 'timan.language';
-const MANUAL_KEY = 'timan.language.manual';
-const SUPPORTED: PortalUiLanguage[] = PORTAL_LANGUAGE_CODES;
 const FALLBACK: PortalUiLanguage = FALLBACK_LANGUAGE;
 
-function loadFromStorage(): PortalUiLanguage {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw && (SUPPORTED as string[]).includes(raw)) return raw as PortalUiLanguage;
-  } catch {
-    // ignore
-  }
-  return FALLBACK;
-}
-
-function hasManualSelection(): boolean {
-  try {
-    return localStorage.getItem(MANUAL_KEY) === '1';
-  } catch {
-    return false;
-  }
+function normalizeOrFallback(lang: string | null | undefined): PortalUiLanguage {
+  return normalizePortalLanguageCode(lang) || FALLBACK;
 }
 
 interface LanguageContextValue {
@@ -42,7 +25,7 @@ interface LanguageContextValue {
    * language switcher's active state and any new translation lookups.
    */
   uiLanguage: PortalUiLanguage;
-  /** Manual selection from the top switcher — persists across sessions. */
+  /** Manual selection from the top switcher — session only. */
   setLanguage: (lang: PortalUiLanguage) => void;
   setAutoLanguage: (lang: PortalUiLanguage) => void;
   /**
@@ -50,55 +33,33 @@ interface LanguageContextValue {
    * Called once after the signed-in user is loaded.
    */
   applyPreferredLanguage: (lang: string | null | undefined) => void;
+  resetLanguageForIdentity: (lang: string | null | undefined) => void;
 }
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [uiLanguage, setUiLanguageState] = useState<PortalUiLanguage>(() => loadFromStorage());
+  const [uiLanguage, setUiLanguageState] = useState<PortalUiLanguage>(FALLBACK);
+  const manualOverrideRef = useRef(false);
 
   const setLanguage = useCallback((lang: PortalUiLanguage) => {
-    const safe: PortalUiLanguage = (SUPPORTED as string[]).includes(lang) ? lang : FALLBACK;
-    setUiLanguageState(safe);
-    try {
-      localStorage.setItem(STORAGE_KEY, safe);
-      localStorage.setItem(MANUAL_KEY, '1');
-    } catch {
-      // ignore storage errors (e.g. private mode)
-    }
+    manualOverrideRef.current = true;
+    setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
   const setAutoLanguage = useCallback((lang: PortalUiLanguage) => {
-    const safe: PortalUiLanguage = (SUPPORTED as string[]).includes(lang) ? lang : FALLBACK;
-    setUiLanguageState(safe);
-    try {
-      localStorage.setItem(STORAGE_KEY, safe);
-    } catch {
-      // ignore storage errors (e.g. private mode)
-    }
+    manualOverrideRef.current = false;
+    setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
   const applyPreferredLanguage = useCallback((lang: string | null | undefined) => {
-    if (!lang || !(SUPPORTED as string[]).includes(lang)) return;
-    if (hasManualSelection()) return;
-    const safe = lang as PortalUiLanguage;
-    setUiLanguageState(safe);
-    try {
-      localStorage.setItem(STORAGE_KEY, safe);
-    } catch {
-      // ignore
-    }
+    if (manualOverrideRef.current) return;
+    setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
-  // React to language changes from other tabs
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue && (SUPPORTED as string[]).includes(e.newValue)) {
-        setUiLanguageState(e.newValue as PortalUiLanguage);
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+  const resetLanguageForIdentity = useCallback((lang: string | null | undefined) => {
+    manualOverrideRef.current = false;
+    setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
   const value = useMemo<LanguageContextValue>(
@@ -108,8 +69,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLanguage,
       setAutoLanguage,
       applyPreferredLanguage,
+      resetLanguageForIdentity,
     }),
-    [uiLanguage, setLanguage, setAutoLanguage, applyPreferredLanguage],
+    [uiLanguage, setLanguage, setAutoLanguage, applyPreferredLanguage, resetLanguageForIdentity],
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

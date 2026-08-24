@@ -4,7 +4,7 @@
 //
 // - Kun for Timan Backend brugere (verificeres via caller JWT + app_users).
 // - Finder rækker uden latitude/longitude (eller geocoding_status='pending').
-// - Bygger adresse fra address_line_1 + address_line_2 + postal_code + city + country.
+// - Bygger adresse fra address_line_1/address + address_line_2 + postal_code/zip_city_raw + city + country.
 // - Slår op via OpenStreetMap Nominatim (gratis, ingen API-nøgle).
 // - Gemmer latitude/longitude, geocoded_at, geocoding_status, geocoding_error.
 // - Sletter ALDRIG data. Rører ALDRIG CRM/quotes/orders/users.
@@ -23,10 +23,12 @@ interface DealerRow {
   id: string;
   account_number: string | null;
   company_name: string | null;
+  address: string | null;
   address_line_1: string | null;
   address_line_2: string | null;
   postal_code: string | null;
   city: string | null;
+  zip_city_raw: string | null;
   country: string | null;
 }
 
@@ -38,11 +40,37 @@ interface Summary {
   errors: { account: string | null; name: string | null; address: string; reason: string }[];
 }
 
+function splitZipCityRaw(zipCityRaw: string | null): { postalCode: string | null; city: string | null } {
+  const raw = (zipCityRaw ?? "").trim();
+  if (!raw) return { postalCode: null, city: null };
+  const match = raw.match(/^(\d{3,10})\s+(.+)$/);
+  if (!match) return { postalCode: null, city: raw };
+  return { postalCode: match[1], city: match[2] };
+}
+
+function resolveAddressParts(d: DealerRow) {
+  const zipCity = splitZipCityRaw(d.zip_city_raw);
+  const street = d.address_line_1 || d.address;
+  const postalCode = d.postal_code || zipCity.postalCode;
+  const city = d.city || zipCity.city;
+  return { street, postalCode, city, country: d.country };
+}
+
 function buildAddress(d: DealerRow): string {
-  const parts = [d.address_line_1, d.address_line_2, d.postal_code, d.city, d.country]
+  const parts = resolveAddressParts(d);
+  return [parts.street, d.address_line_2, parts.postalCode, parts.city, parts.country]
     .map((p) => (p ?? "").toString().trim())
-    .filter(Boolean);
-  return parts.join(", ");
+    .filter(Boolean)
+    .join(", ");
+}
+
+function hasGeocodableAddress(d: DealerRow): boolean {
+  const parts = resolveAddressParts(d);
+  return Boolean(
+    parts.street?.trim() &&
+    (parts.postalCode?.trim() || parts.city?.trim()) &&
+    parts.country?.trim(),
+  );
 }
 
 async function nominatim(address: string): Promise<{ lat: number; lon: number } | null> {
@@ -101,7 +129,7 @@ Deno.serve(async (req) => {
     // Find rows that need geocoding.
     let query = admin
       .from("dealer_accounts")
-      .select("id,account_number,company_name,address_line_1,address_line_2,postal_code,city,country,geocoding_status")
+      .select("id,account_number,company_name,address,address_line_1,address_line_2,postal_code,city,zip_city_raw,country,geocoding_status")
       .or("is_deleted.is.null,is_deleted.eq.false")
       .is("latitude", null)
       .limit(limit);
@@ -119,7 +147,7 @@ Deno.serve(async (req) => {
 
     for (const r of (rows ?? []) as DealerRow[]) {
       const address = buildAddress(r);
-      if (!address || (!r.city && !r.postal_code && !r.address_line_1)) {
+      if (!address || !hasGeocodableAddress(r)) {
         await admin.from("dealer_accounts").update({
           geocoded_at: new Date().toISOString(),
           geocoding_status: "skipped",

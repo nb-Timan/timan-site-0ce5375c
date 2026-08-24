@@ -74,11 +74,13 @@ export function isSupportedLanguage(value: string | null | undefined): value is 
 }
 
 export function normalizePortalLanguageCode(value: string | null | undefined): PortalUiLanguage | null {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '').trim().toLowerCase().replace(/_/g, '-');
   if (!normalized) return null;
+  const primary = normalized.split('-')[0];
 
   for (const code of PORTAL_LANGUAGE_CODES) {
-    if (PORTAL_LANGUAGE_ALIASES[code].includes(normalized)) return code;
+    const aliases = PORTAL_LANGUAGE_ALIASES[code];
+    if (aliases.includes(normalized) || aliases.includes(primary)) return code;
   }
 
   return null;

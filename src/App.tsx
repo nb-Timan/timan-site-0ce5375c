@@ -69,16 +69,84 @@ import PartnerMapPage from "./pages/misc/PartnerMapPage";
 import DealerDataPage from "./pages/portal/DealerDataPage";
 
 import VisitorTracker from "./components/portal/VisitorTracker";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
+import { supabase } from "@/lib/supabase";
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
-  const { applyPreferredLanguage } = useLanguage();
+  const { applyPreferredLanguage, resetLanguageForIdentity } = useLanguage();
+  const [activeSellerView, setActiveSellerView] = useState<SellerView | null>(() => getActiveSellerView(appUser?.email));
+  const [sellerPreferredLanguage, setSellerPreferredLanguage] = useState<string | null | undefined>(null);
+  const lastIdentityRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (appUser?.preferred_language) applyPreferredLanguage(appUser.preferred_language);
-  }, [appUser?.email, appUser?.preferred_language, applyPreferredLanguage]);
+    const refreshActiveSeller = () => setActiveSellerView(getActiveSellerView(appUser?.email));
+    refreshActiveSeller();
+    window.addEventListener('timan:active-mode-changed', refreshActiveSeller);
+    window.addEventListener('storage', refreshActiveSeller);
+    return () => {
+      window.removeEventListener('timan:active-mode-changed', refreshActiveSeller);
+      window.removeEventListener('storage', refreshActiveSeller);
+    };
+  }, [appUser?.email]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeSellerView?.email) {
+      setSellerPreferredLanguage(null);
+      return;
+    }
+
+    setSellerPreferredLanguage(undefined);
+    supabase
+      .from('app_users')
+      .select('preferred_language')
+      .eq('email', activeSellerView.email.toLowerCase())
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) console.warn('Could not load seller preferred language', error);
+        setSellerPreferredLanguage((data?.preferred_language as string | null | undefined) ?? null);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeSellerView?.email]);
+
+  useEffect(() => {
+    if (!appUser?.email) {
+      if (lastIdentityRef.current !== 'anonymous') {
+        lastIdentityRef.current = 'anonymous';
+        resetLanguageForIdentity(null);
+      }
+      return;
+    }
+
+    if (activeSellerView?.email && sellerPreferredLanguage === undefined) return;
+
+    const identityKey = activeSellerView?.email
+      ? `seller:${activeSellerView.key}:${activeSellerView.email.toLowerCase()}`
+      : `user:${appUser.email.toLowerCase()}`;
+    const preferredLanguage = activeSellerView?.email ? sellerPreferredLanguage : appUser.preferred_language;
+
+    if (lastIdentityRef.current !== identityKey) {
+      lastIdentityRef.current = identityKey;
+      resetLanguageForIdentity(preferredLanguage);
+      return;
+    }
+
+    applyPreferredLanguage(preferredLanguage);
+  }, [
+    appUser?.email,
+    appUser?.preferred_language,
+    activeSellerView?.key,
+    activeSellerView?.email,
+    sellerPreferredLanguage,
+    resetLanguageForIdentity,
+    applyPreferredLanguage,
+  ]);
   return null;
 }
 import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";

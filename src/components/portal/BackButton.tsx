@@ -16,10 +16,9 @@ interface BackButtonProps {
 }
 
 /**
- * Shared portal back-button. Resolves the parent route from the current
- * pathname (see `getPortalBackInfo`) so navigation behaves as breadcrumbs:
- * each click moves one level up in the portal hierarchy and eventually
- * lands on `/portal`. Never falls back to `/configurator`.
+ * Shared portal back-button. It follows the browser history so the user goes
+ * back the same way they came in. The resolved route is only a safety fallback
+ * for direct links with no usable history.
  */
 export default function BackButton({ to, label, className }: BackButtonProps) {
   const navigate = useNavigate();
@@ -33,10 +32,22 @@ export default function BackButton({ to, label, className }: BackButtonProps) {
     ? t('portalHeaderToFrontPage', uiLanguage)
     : (label ?? info.label);
 
+  function goBack() {
+    if (to) {
+      navigate(to);
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(target);
+  }
+
   return (
     <button
       type="button"
-      onClick={() => navigate(target)}
+      onClick={goBack}
       className={cn(
         'inline-flex items-center text-[#2d5a27] font-semibold hover:underline',
         className,

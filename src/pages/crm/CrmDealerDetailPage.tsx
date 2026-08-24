@@ -74,6 +74,7 @@ import {
   listLeads, listDemoLeads, formatLeadNo, formatDemoNo,
   type CrmLead, type CrmDemoLead,
 } from "@/lib/crmLeadsService";
+import { isOpenLead } from "@/lib/leadStatus";
 import {
   buildDealerBudgetIndex,
   aggregateDealerBudget,
@@ -630,7 +631,7 @@ export default function CrmDealerDetailPage() {
         const scopeLeads = allLeads.filter((l) =>
           (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
         );
-        const openLeads = scopeLeads.filter((l) => l.pipeline_stage !== "Won" && l.pipeline_stage !== "Lost");
+        const openLeads = scopeLeads.filter(isOpenLead);
         // Demo leads: match by normalized company / branch name across scope.
         const scopeDealerNames = new Set(
           scopeNumbers

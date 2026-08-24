@@ -120,6 +120,85 @@ describe('news service localization', () => {
     });
   });
 
+  it('keeps Template 04 technical feature text language-specific while sharing structure', () => {
+    const content = {
+      da: {
+        headline: 'Dansk teknisk feature',
+        subtitle: 'Dansk underoverskrift',
+        body: 'Dansk hovedbrødtekst',
+        secondaryHeading: 'Dansk sekundær overskrift',
+        secondaryText: 'Dansk sekundær brødtekst',
+        productImage: 'shared-machine.png',
+        techBlocks: [
+          {
+            icon: 'gauge',
+            iconColor: 'green',
+            customIconUrl: null,
+            heading: 'Dansk feature',
+            description: 'Dansk featurebeskrivelse',
+          },
+        ],
+        specRows: [{ label: 'Dansk label', value: 'Dansk værdi' }],
+      },
+      de: {
+        headline: 'Deutsches technisches Feature',
+        subtitle: 'Deutsche Unterüberschrift',
+        body: 'Deutscher Haupttext',
+        secondaryHeading: 'Deutsche sekundäre Überschrift',
+        secondaryText: 'Deutscher sekundärer Text',
+        techBlocks: [
+          {
+            heading: 'Deutsches Feature',
+            description: 'Deutsche Featurebeschreibung',
+          },
+        ],
+        specRows: [{ label: 'Deutsches Label', value: 'Deutscher Wert' }],
+      },
+    };
+
+    const fields = [
+      { key: 'headline', type: 'text' },
+      { key: 'subtitle', type: 'text' },
+      { key: 'body', type: 'textarea' },
+      { key: 'productImage', type: 'image' },
+      { key: 'secondaryHeading', type: 'text' },
+      { key: 'secondaryText', type: 'textarea' },
+      { key: 'techBlocks', type: 'techBlocks' },
+      { key: 'specRows', type: 'specRows' },
+    ];
+
+    const de = mergeSharedNewsFields(content, 'de', fields);
+    const dk = mergeSharedNewsFields(content, 'da', fields);
+
+    expect(de).toMatchObject({
+      headline: 'Deutsches technisches Feature',
+      subtitle: 'Deutsche Unterüberschrift',
+      body: 'Deutscher Haupttext',
+      secondaryHeading: 'Deutsche sekundäre Überschrift',
+      secondaryText: 'Deutscher sekundärer Text',
+      productImage: 'shared-machine.png',
+    });
+    expect((de.techBlocks as Array<Record<string, unknown>>)[0]).toMatchObject({
+      icon: 'gauge',
+      iconColor: 'green',
+      customIconUrl: null,
+      heading: 'Deutsches Feature',
+      description: 'Deutsche Featurebeschreibung',
+    });
+    expect((de.specRows as Array<Record<string, unknown>>)[0]).toMatchObject({
+      label: 'Deutsches Label',
+      value: 'Deutscher Wert',
+    });
+
+    expect(dk).toMatchObject({
+      headline: 'Dansk teknisk feature',
+      subtitle: 'Dansk underoverskrift',
+      body: 'Dansk hovedbrødtekst',
+      secondaryHeading: 'Dansk sekundær overskrift',
+      secondaryText: 'Dansk sekundær brødtekst',
+    });
+  });
+
   it('translates missing nested feature box text without overwriting shared styling', () => {
     const result = translateMissingNewsContent(
       {

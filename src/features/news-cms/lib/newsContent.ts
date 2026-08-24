@@ -195,7 +195,7 @@ export function mergeSharedNewsFields(
   const active = { ...getExactNewsContent(content, lang) };
   const sharedTypes = ['image', 'file', 'iconBlocks', 'pages', 'url', 'pageCount'];
   for (const field of fields) {
-    if (field.type === 'featureBlocks' || field.type === 'techBlocks') {
+    if (field.type === 'featureBlocks') {
       if (Array.isArray(active[field.key])) continue;
       for (const code of NEWS_CONTENT_LANGUAGES) {
         const candidate = content?.[code]?.[field.key];
@@ -204,6 +204,28 @@ export function mergeSharedNewsFields(
           active[field.key] = candidate.map((item) => ({ ...(item as Record<string, unknown>), heading: '', description: '' }));
           break;
         }
+      }
+      continue;
+    }
+    if (field.type === 'techBlocks') {
+      const own = Array.isArray(active[field.key]) ? (active[field.key] as Array<Record<string, unknown>>) : [];
+      let shared: Array<Record<string, unknown>> | null = null;
+      for (const code of NEWS_CONTENT_LANGUAGES) {
+        const candidate = content?.[code]?.[field.key];
+        if (Array.isArray(candidate)) {
+          shared = candidate as Array<Record<string, unknown>>;
+          break;
+        }
+      }
+      const length = Math.max(own.length, shared?.length ?? 0);
+      if (length > 0) {
+        // Icon/colour are shared, heading + description stay per language.
+        active[field.key] = Array.from({ length }, (_, index) => ({
+          ...(shared?.[index] || {}),
+          ...(own[index] || {}),
+          heading: own[index]?.heading ?? '',
+          description: own[index]?.description ?? '',
+        }));
       }
       continue;
     }
@@ -231,13 +253,21 @@ export function mergeSharedNewsFields(
       continue;
     }
     if (field.type === 'specRows') {
-      if (Array.isArray(active[field.key])) continue;
+      const own = Array.isArray(active[field.key]) ? (active[field.key] as Array<Record<string, unknown>>) : [];
+      let sharedLength = 0;
       for (const code of NEWS_CONTENT_LANGUAGES) {
         const candidate = content?.[code]?.[field.key];
         if (Array.isArray(candidate)) {
-          active[field.key] = candidate.map(() => ({ label: '', value: '' }));
+          sharedLength = candidate.length;
           break;
         }
+      }
+      const length = Math.max(own.length, sharedLength);
+      if (length > 0) {
+        active[field.key] = Array.from({ length }, (_, index) => ({
+          label: own[index]?.label ?? '',
+          value: own[index]?.value ?? '',
+        }));
       }
       continue;
     }

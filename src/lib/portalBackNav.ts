@@ -213,19 +213,18 @@ export function getPortalBackInfo(
 }
 
 /**
- * Navigate "back" using the parent-route map (breadcrumb style).
- *
- * Browser history is no longer used as the primary mechanism because
- * deep-linking, redirects and external entry points make it unreliable.
- * The parent map always returns a route the user has access to (or the
- * portal frontpage as the final fallback). Configurator is never used
- * as a fallback unless the user explicitly opens it.
+ * Navigate one browser-history step back. The parent-route map is only used as
+ * fallback when the page was opened directly and there is no usable history.
  */
 export function goBackOrFallback(
   navigate: NavigateFunction,
   location: { key?: string; pathname: string; search?: string },
   fallback?: string,
 ): void {
+  if (window.history.length > 1) {
+    navigate(-1);
+    return;
+  }
   navigate(fallback ?? getPortalBackTarget(location.pathname, location.search));
 }
 

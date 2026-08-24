@@ -191,6 +191,49 @@ function countryMatches(value: string | null | undefined, selectedCountry: strin
   return current === selected;
 }
 
+function isDenmarkOrGermany(value: string | null | undefined): boolean {
+  return countryMatches(value, 'Denmark') || countryMatches(value, 'Germany');
+}
+
+function alphaCompare(a: string | null | undefined, b: string | null | undefined): number {
+  return (a || '').localeCompare(b || '', 'da', { sensitivity: 'base' });
+}
+
+function dealerBelongsToSeller(dealer: DealerAccount, seller: SellerDirectoryEntry | null): boolean {
+  if (!seller) return false;
+  const sellerEmail = seller.email?.trim().toLowerCase();
+  const sellerInitials = seller.initials?.trim().toLowerCase();
+  const sellerName = seller.full_name?.trim().toLowerCase();
+  return Boolean(
+    (sellerEmail && dealer.assigned_seller_email?.trim().toLowerCase() === sellerEmail) ||
+    (sellerInitials && dealer.assigned_seller_initials?.trim().toLowerCase() === sellerInitials) ||
+    (sellerName && dealer.assigned_seller_name?.trim().toLowerCase() === sellerName),
+  );
+}
+
+function dealerSellerSortKey(dealer: DealerAccount): string {
+  return dealer.assigned_seller_name || dealer.assigned_seller_initials || dealer.assigned_seller_email || '';
+}
+
+function sortDealersForSeller(dealers: DealerAccount[], seller: SellerDirectoryEntry | null): DealerAccount[] {
+  return [...dealers].sort((a, b) => {
+    const aSelected = dealerBelongsToSeller(a, seller);
+    const bSelected = dealerBelongsToSeller(b, seller);
+    if (aSelected !== bSelected) return aSelected ? -1 : 1;
+
+    const aHasSeller = Boolean(dealerSellerSortKey(a));
+    const bHasSeller = Boolean(dealerSellerSortKey(b));
+    if (aHasSeller !== bHasSeller) return aHasSeller ? -1 : 1;
+
+    if (!aSelected && aHasSeller && bHasSeller) {
+      const sellerOrder = alphaCompare(dealerSellerSortKey(a), dealerSellerSortKey(b));
+      if (sellerOrder !== 0) return sellerOrder;
+    }
+
+    return alphaCompare(a.company_name, b.company_name);
+  });
+}
+
 function RequiredMark() {
   return <span className="ml-1 text-red-600">*</span>;
 }
@@ -330,7 +373,6 @@ export default function MesseFollowUpPage() {
 
   function handleCountryChoice(value: Exclude<CountryQuickChoice, ''>) {
     setCountryQuickChoice(value);
-    setDealerNumber('');
     if (value === 'de') setAutoLanguage('de');
     if (value === 'dk') {
       setAutoLanguage('da');
@@ -381,19 +423,24 @@ export default function MesseFollowUpPage() {
     return Array.from(countries).sort((a, b) => a.localeCompare(b));
   }, [dealers]);
 
+  const otherCountryOptions = useMemo(() => (
+    countryOptions.filter((country) => !isDenmarkOrGermany(country))
+  ), [countryOptions]);
+
   const sellerOptions = useMemo(() => (
     countryQuickChoice === 'de'
       ? sellers.filter(isGermanySeller)
       : sellers
   ), [countryQuickChoice, sellers]);
 
-  const filteredDealers = useMemo(() => (
-    dealers.filter((dealer) => countryMatches(dealer.country, selectedLeadCountry))
-  ), [dealers, selectedLeadCountry]);
-
   const responsibleSeller = useMemo(() => {
     return sellerOptions.find((seller) => seller.email === sellerEmail) || null;
   }, [sellerEmail, sellerOptions]);
+
+  const filteredDealers = useMemo(() => {
+    const countryFiltered = dealers.filter((dealer) => countryMatches(dealer.country, selectedLeadCountry));
+    return sortDealersForSeller(countryFiltered, responsibleSeller);
+  }, [dealers, selectedLeadCountry, responsibleSeller]);
 
   useEffect(() => {
     if (countryQuickChoice !== 'de') return;
@@ -414,6 +461,12 @@ export default function MesseFollowUpPage() {
       setDealerNumber('');
     }
   }, [dealerNumber, leadType]);
+
+  useEffect(() => {
+    if (!dealerNumber) return;
+    const dealerStillValid = filteredDealers.some((dealer) => dealer.account_number === dealerNumber);
+    if (!dealerStillValid) setDealerNumber('');
+  }, [dealerNumber, filteredDealers]);
 
   useEffect(() => {
     if (!products.includes('Equipment') && !products.includes('Loader line / Tractor Equipment') && equipmentItems.length > 0) {
@@ -671,12 +724,11 @@ export default function MesseFollowUpPage() {
                   value={specificCountry}
                   onChange={(e) => {
                     setSpecificCountry(e.target.value);
-                    setDealerNumber('');
                   }}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 >
                   <option value="">{f('chooseCountry')}</option>
-                  {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
+                  {otherCountryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
                 </select>
               )}
             </section>
