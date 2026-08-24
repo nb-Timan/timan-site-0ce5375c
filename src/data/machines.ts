@@ -276,12 +276,12 @@ export const PRODUCTS: Record<string, Machine> = {
     varenr: '999-888',
     isDiscountEligible: true,
     techSpecs: [
-      { label: 'Motor', value: { da: 'Perkins Diesel Motor', en: 'Perkins Diesel Engine', de: 'Perkins Dieselmotor', it: 'Motore Diesel Perkins', hu: 'Perkins dieselmotor' } },
-      { label: 'HK', value: { da: '26 HK', en: '26 HP', de: '26 PS', it: '26 CV', hu: '26 LE' } },
+      { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
+      { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
       { label: 'Brændstof', value: { da: 'Diesel', en: 'Diesel', de: 'Diesel', it: 'Diesel', hu: 'Dizel' } },
+      { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
       { label: 'Træk', value: { da: '4WD', en: '4WD', de: '4WD', it: '4WD', hu: '4WD' } },
-      { label: 'Standardsæde', value: { da: 'Mekanisk sæde med kunstlæder og armlæn', en: 'Mechanical seat with artificial leather and armrests' } },
-      { label: 'Forberedt til', value: { da: 'Centersug inkl. fodgas', en: 'Center suction incl. foot throttle' } },
+      { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
     ],
     machineDetails: {
       main: {
