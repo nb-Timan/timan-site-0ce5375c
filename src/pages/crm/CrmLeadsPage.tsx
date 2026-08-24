@@ -27,6 +27,7 @@ import {
 import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
+import { listScopedConfigurations } from '@/lib/crmRelationsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,7 +54,7 @@ type TKey =
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
-  | 'convert_to_demo' | 'convert_to_quote'
+  | 'convert_to_demo' | 'convert_to_quote' | 'go_to_quote'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
@@ -105,6 +106,7 @@ const T: Record<TKey, Record<Language, string>> = {
   verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.' },
   convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá' },
   convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá' },
+  go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
@@ -137,6 +139,8 @@ interface UnifiedLead {
   value: number | null;
   detail_href: string | null;
   attachments?: CrmLeadAttachment[];
+  has_demo?: boolean;
+  quote_id?: string | null;
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
@@ -270,6 +274,7 @@ export default function CrmLeadsPage() {
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
+  const [quoteIdByLeadId, setQuoteIdByLeadId] = useState<Map<string, string>>(() => new Map());
   const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -327,15 +332,28 @@ export default function CrmLeadsPage() {
     (async () => {
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
-      const [openAll, demoAll] = await Promise.all([
+      const [openAll, demoAll, quoteResult] = await Promise.all([
         listLeads({}),
         listDemoLeads({}),
+        listScopedConfigurations({ documentType: 'quote' }),
       ]);
       const [openResolved, demoResolved] = await Promise.all([
         resolveSeedOwners(openAll),
         resolveSeedOwners(demoAll),
       ]);
       if (cancelled) return;
+      const nextQuoteIdByLeadId = new Map<string, { id: string; date: string }>();
+      for (const quote of quoteResult.rows) {
+        if (!quote.lead_id) continue;
+        const date = quote.quote_sent_at || quote.last_saved_at || quote.created_at || '';
+        const existing = nextQuoteIdByLeadId.get(quote.lead_id);
+        if (!existing || date.localeCompare(existing.date) > 0) {
+          nextQuoteIdByLeadId.set(quote.lead_id, { id: quote.id, date });
+        }
+      }
+      if (quoteResult.error) {
+        console.warn('[CRM Leads] quote lookup failed:', quoteResult.error);
+      }
       // eslint-disable-next-line no-console
       console.log('[CRM Leads] counts', {
         crm_open_leads: openResolved.length,
@@ -346,13 +364,20 @@ export default function CrmLeadsPage() {
       setSellerId(sid);
       setOpenLeads(openResolved);
       setDemoLeads(demoResolved);
+      setQuoteIdByLeadId(new Map(Array.from(nextQuoteIdByLeadId, ([leadId, quote]) => [leadId, quote.id])));
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email]);
 
   const allRows: UnifiedLead[] = useMemo(() => {
-    const open = openLeads.map((lead) => mapOpen(lead, dealerNameById));
+    const demoSourceLeadIds = new Set(demoLeads.map((demo) => demo.source_lead_id).filter(Boolean) as string[]);
+    const open = openLeads.map((lead) => {
+      const row = mapOpen(lead, dealerNameById);
+      row.has_demo = Boolean(lead.converted_demo_lead_id || demoSourceLeadIds.has(lead.id));
+      row.quote_id = quoteIdByLeadId.get(lead.id) || null;
+      return row;
+    });
     const demo = demoLeads.map(mapDemo);
     let merged = [...open, ...demo];
     if (!isAdmin) {
@@ -365,7 +390,7 @@ export default function CrmLeadsPage() {
     }
     merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return merged;
-  }, [openLeads, demoLeads, dealerNameById, isAdmin, sellerId, appUser?.email]);
+  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email]);
 
   const counts = useMemo(() => ({
     all:       allRows.length,
@@ -550,6 +575,7 @@ export default function CrmLeadsPage() {
                 {visible.map(r => {
                   const clickable = !!r.detail_href;
                   const imageAttachments = getLeadImageAttachments(r.attachments);
+                  const canActOnOpenLead = r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt';
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
@@ -622,16 +648,26 @@ export default function CrmLeadsPage() {
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          {r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt' && (
+                          {canActOnOpenLead && (
                             <>
-                              <Link
-                                to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-[12px] text-violet-700 hover:underline"
-                              >
-                                <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
-                              </Link>
-                              {r.status !== 'Tilbud sendt' && (
+                              {!r.has_demo && (
+                                <Link
+                                  to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 text-[12px] text-violet-700 hover:underline"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
+                                </Link>
+                              )}
+                              {r.quote_id ? (
+                                <Link
+                                  to={`/configurator?configId=${encodeURIComponent(r.quote_id)}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 text-[12px] text-emerald-700 hover:underline"
+                                >
+                                  <FileText className="h-3.5 w-3.5" /> {tt('go_to_quote', lang)}
+                                </Link>
+                              ) : (
                                 <button
                                   type="button"
                                   disabled={quoteConvertBusyId === r.id}
