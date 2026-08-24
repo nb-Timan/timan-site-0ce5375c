@@ -80,6 +80,14 @@ const REQUIRED_GROUPS_RC1000 = ['oil_1000'];
 const DANISH_ONLY_ITEM_IDS = new Set(['712527', '712528', 'S900205', 'S900025']);
 const EUR_ONLY_ITEM_IDS = new Set(['712188']);
 
+type MesseProfileAppUser = AppUser & {
+  dealer_number?: string | null;
+  portal_variant?: string | null;
+  portal_role?: string | null;
+};
+
+type ConfiguratorSubmitFlowType = 'quote' | 'order';
+
 function getYoutubeThumbnail(url: string | undefined | null, quality: 'hqdefault' | 'maxresdefault' = 'hqdefault'): string | null {
   if (!url) return null;
   const m = url.match(/(?:v=|\/embed\/|\.be\/)([A-Za-z0-9_-]{11})/);
@@ -119,8 +127,10 @@ export default function ConfiguratorPage() {
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
   // so the back button + demo guards work even before context resolves.
   const isMessePath = location.pathname.startsWith('/messe');
-  const isKnownMesseLogin = (appUser?.email || '').toLowerCase() === 'ordre@timan.dk';
-  const isExhibition = isMessePath || isKnownMesseLogin || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
+  const currentAppUser = appUser as MesseProfileAppUser | null;
+  const currentDealerNumber = String(currentAppUser?.dealer_number ?? '').trim();
+  const isTimanMesseUser = isMesseVariantUser(appUser) && currentDealerNumber === '100';
+  const isExhibition = isMessePath || isTimanMesseUser || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
   // Keep the configurator's internal language in sync with the global portal
@@ -380,6 +390,7 @@ export default function ConfiguratorPage() {
   const [isSavedCurrent, setIsSavedCurrent] = useState(false);
   const [showLeavePortalConfirm, setShowLeavePortalConfirm] = useState(false);
   const [savedConfigurationId, setSavedConfigurationId] = useState<string | null>(null);
+  const savedConfigurationIdRef = useRef<string | null>(null);
   const [savedQuoteNumber, setSavedQuoteNumber] = useState<string | null>(null);
   const [savedOrderNumber, setSavedOrderNumber] = useState<string | null>(null);
   const [savedSourceQuoteNumber, setSavedSourceQuoteNumber] = useState<string | null>(null);
@@ -405,11 +416,16 @@ export default function ConfiguratorPage() {
   // and is selected automatically.
   const [leadPickerKey, setLeadPickerKey] = useState(0);
   const [savingAsLead, setSavingAsLead] = useState(false);
+  const [savingLeadAndOrder, setSavingLeadAndOrder] = useState(false);
   // When the user picks "Opret nyt lead" in LeadLinkPicker, we defer the
   // actual CRM lead creation until the configuration is saved or the
   // quote is sent — at that moment ensurePendingLeadCreated() runs and
   // links the new lead to the row.
   const [pendingNewLead, setPendingNewLead] = useState(false);
+
+  useEffect(() => {
+    savedConfigurationIdRef.current = savedConfigurationId;
+  }, [savedConfigurationId]);
 
   const canSaveConfiguratorAsLead = (() => {
     const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
@@ -640,18 +656,20 @@ export default function ConfiguratorPage() {
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
-  const handleSaveAsLead = useCallback(async () => {
-    if (savingAsLead) return;
+  const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
+    if (savingAsLead) return null;
     // Duplicate protection: configuration already linked to a lead.
     if (linkedLeadId) {
-      toast.info(
-        { da: 'Denne konfiguration er allerede knyttet til et lead.',
-          en: 'This configuration is already linked to a lead.',
-          de: 'Diese Konfiguration ist bereits mit einem Lead verknüpft.',
-          it: 'Questa configurazione è già collegata a un lead.',
-          hu: 'Ez a konfiguráció már egy leadhez van kapcsolva.' }[lang]
-      );
-      return;
+      if (!options?.quiet) {
+        toast.info(
+          { da: 'Denne konfiguration er allerede knyttet til et lead.',
+            en: 'This configuration is already linked to a lead.',
+            de: 'Diese Konfiguration ist bereits mit einem Lead verknüpft.',
+            it: 'Questa configurazione è già collegata a un lead.',
+            hu: 'Ez a konfiguráció már egy leadhez van kapcsolva.' }[lang]
+        );
+      }
+      return linkedLeadId;
     }
     setSavingAsLead(true);
     try {
@@ -748,6 +766,7 @@ export default function ConfiguratorPage() {
             });
             if (saveRes.error) throw new Error(saveRes.error);
             if (saveRes.id) {
+              savedConfigurationIdRef.current = saveRes.id;
               setSavedConfigurationId(saveRes.id);
               setSavedQuoteNumber(saveRes.quote_number);
               setSavedOrderNumber(saveRes.order_number);
@@ -760,21 +779,29 @@ export default function ConfiguratorPage() {
         }
       } catch (e) {
         console.error('[handleSaveAsLead] save configuration failed:', e);
-        toast.error(
-          { da: 'Lead gemt, men konfiguration kunne ikke gemmes',
-            en: 'Lead saved, but configuration could not be saved',
-            de: 'Lead gespeichert, aber Konfiguration konnte nicht gespeichert werden',
-            it: 'Lead salvato, ma impossibile salvare la configurazione',
-            hu: 'Lead mentve, de a konfiguráció mentése sikertelen' }[lang],
-          { description: e instanceof Error ? e.message : String(e) },
-        );
-        return;
+        if (!options?.quiet) {
+          toast.error(
+            { da: 'Lead gemt, men konfiguration kunne ikke gemmes',
+              en: 'Lead saved, but configuration could not be saved',
+              de: 'Lead gespeichert, aber Konfiguration konnte nicht gespeichert werden',
+              it: 'Lead salvato, ma impossibile salvare la configurazione',
+              hu: 'Lead mentve, de a konfiguráció mentése sikertelen' }[lang],
+            { description: e instanceof Error ? e.message : String(e) },
+          );
+        }
+        return null;
       }
 
-      toast.success({ da: 'Lead og konfiguration gemt', en: 'Lead and configuration saved', de: 'Lead und Konfiguration gespeichert', it: 'Lead e configurazione salvati', hu: 'Lead és konfiguráció mentve' }[lang]);
+      if (!options?.quiet) {
+        toast.success({ da: 'Lead og konfiguration gemt', en: 'Lead and configuration saved', de: 'Lead und Konfiguration gespeichert', it: 'Lead e configurazione salvati', hu: 'Lead és konfiguráció mentve' }[lang]);
+      }
+      return created.id;
     } catch (err) {
       console.error('[handleSaveAsLead] failed:', err);
-      toast.error({ da: 'Kunne ikke gemme lead', en: 'Failed to save lead', de: 'Lead konnte nicht gespeichert werden', it: 'Impossibile salvare il lead', hu: 'A lead mentése sikertelen' }[lang]);
+      if (!options?.quiet) {
+        toast.error({ da: 'Kunne ikke gemme lead', en: 'Failed to save lead', de: 'Lead konnte nicht gespeichert werden', it: 'Impossibile salvare il lead', hu: 'A lead mentése sikertelen' }[lang]);
+      }
+      return null;
     } finally {
       setSavingAsLead(false);
     }
@@ -1199,13 +1226,14 @@ export default function ConfiguratorPage() {
   };
 
   // ======== Confirmation modal builder ========
-  const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null }) => {
+  const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null; flowType?: ConfiguratorSubmitFlowType }) => {
     if (!calcResult) return '';
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
     const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
-    const pdfTitle = state.flowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
+    const renderFlowType = overrides?.flowType ?? state.flowType;
+    const pdfTitle = renderFlowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
     const effQuoteNumber = overrides?.quoteNumber ?? savedQuoteNumber;
     const effOrderNumber = overrides?.orderNumber ?? savedOrderNumber;
@@ -1403,28 +1431,32 @@ export default function ConfiguratorPage() {
 
   // PDF download + submit (single async flow). Guarded by `submitting` so the
   // button cannot trigger a second PDF/save/webhook.
-  const downloadPdf = async () => {
-    if (submitting) return;
+  const downloadPdf = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+    if (submitting) return false;
     setSubmitting(true);
     try {
-      await downloadPdfInner();
+      return await downloadPdfInner(flowOverride);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const downloadPdfInner = async () => {
-    const el = confirmContentRef.current;
-    if (!el) return;
+  const downloadPdfInner = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+    const effectiveFlowType = flowOverride ?? state.flowType;
+    let el = confirmContentRef.current;
+    if (!el) {
+      el = document.createElement('div');
+      el.innerHTML = buildConfirmationHtml({ flowType: effectiveFlowType });
+    }
 
     // Persist case before generating PDF so reference numbers exist for filename/preview.
     // This is one of the 3 allowed save triggers (Download PDF / Afsend ordre / + Gem nuværende).
     // IMPORTANT: ensure idempotency — never create a second row if this case is already saved.
-    let activeCaseId: string | null = savedConfigurationId;
+    let activeCaseId: string | null = savedConfigurationId || savedConfigurationIdRef.current;
     let activeQuoteNumber: string | null = savedQuoteNumber;
     let activeOrderNumber: string | null = savedOrderNumber;
     const ownershipPayload = await getRequiredOwnershipPayload();
-    if (!ownershipPayload) return;
+    if (!ownershipPayload) return false;
     // Resolve "Opret nyt lead" picker selection into a real lead now so
     // the save/send flow links the configuration to the new lead.
     const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
@@ -1440,6 +1472,7 @@ export default function ConfiguratorPage() {
           activeCaseId = result.id;
           activeQuoteNumber = result.quote_number;
           activeOrderNumber = result.order_number;
+          savedConfigurationIdRef.current = result.id;
           setSavedConfigurationId(result.id);
           setSavedQuoteNumber(result.quote_number);
           setSavedOrderNumber(result.order_number);
@@ -1449,15 +1482,28 @@ export default function ConfiguratorPage() {
       } catch (saveErr) {
         console.error('Failed to save before PDF download:', saveErr);
         toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
-        return;
+        return false;
       }
     } else if (activeCaseId) {
       try {
-        const refs = await ensureReferenceNumbers(activeCaseId, state.flowType === 'order');
+        const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order');
         if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
         if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
       } catch (err) {
         console.error('Failed to ensure reference numbers before PDF:', err);
+      }
+    }
+
+    if (activeCaseId && effectiveFlowType === 'order') {
+      try {
+        const flowRes = await updateConfigurationFlowType(activeCaseId, 'order', ownershipPayload);
+        if (flowRes.error) throw new Error(flowRes.error);
+        if (flowRes.quote_number) { activeQuoteNumber = flowRes.quote_number; setSavedQuoteNumber(flowRes.quote_number); }
+        if (flowRes.order_number) { activeOrderNumber = flowRes.order_number; setSavedOrderNumber(flowRes.order_number); }
+      } catch (flowErr) {
+        console.error('Failed to switch configuration to order before sending:', flowErr);
+        toast.error(T('saveFailed'), { description: flowErr instanceof Error ? flowErr.message : String(flowErr) });
+        return false;
       }
     }
 
@@ -1491,6 +1537,7 @@ export default function ConfiguratorPage() {
           quoteNumber: activeQuoteNumber,
           orderNumber: activeOrderNumber,
           sourceQuoteNumber: savedSourceQuoteNumber,
+          flowType: effectiveFlowType,
         });
       } catch { /* fallback to original cloned DOM */ }
       renderRoot.appendChild(clone);
@@ -1597,7 +1644,7 @@ export default function ConfiguratorPage() {
 
 
 
-      const pdfTitle = state.flowType === 'quote' ? T('quote') : T('order');
+      const pdfTitle = effectiveFlowType === 'quote' ? T('quote') : T('order');
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const refSuffix = refNum ? `_${refNum}` : '';
       const pdfFilename = `Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -1621,7 +1668,7 @@ export default function ConfiguratorPage() {
       // we stamp quote_sent_at only on successful webhook (see below). So nothing to do here.
 
       // Send webhook for Ordre flow
-      if (state.flowType === 'order') {
+      if (effectiveFlowType === 'order') {
         // ── Duplicate-send protection (server-side) ──
         // Re-read the current row from Supabase by id. If the order is
         // already submitted, abort BEFORE generating PDF / sending email /
@@ -1632,7 +1679,7 @@ export default function ConfiguratorPage() {
             setOrderLocked(true);
             toast.error(T('orderCannotResendTitle'));
             setConfirmModalOpen(false);
-            return;
+            return false;
           }
         }
         // Idempotent save: only create a new row if no case exists yet.
@@ -1657,7 +1704,7 @@ export default function ConfiguratorPage() {
           } catch (saveErr) {
             console.error('Failed to save before webhook:', saveErr);
             toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
-            return;
+            return false;
           }
         } else if (activeCaseId && !activeOrderNumber) {
           // Existing case but no order number yet — ensure one exists
@@ -1705,7 +1752,7 @@ export default function ConfiguratorPage() {
             toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
               description: invalid.join(', '),
             });
-            return;
+            return false;
           }
           const recipients = Array.from(new Set([
             'nb@timan.dk',
@@ -1835,22 +1882,25 @@ export default function ConfiguratorPage() {
               quoteNumber: activeQuoteNumber || '',
               recipients,
             });
+            return true;
           } else {
             toast.error(T('orderSendFailed'), {
               description: failureReason || undefined,
             });
+            return false;
           }
         } catch (webhookErr) {
           console.error('[Order webhook] call failed:', webhookErr);
           toast.error(T('orderSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
+          return false;
         }
       }
 
 
       // Send webhook for Tilbud (Quote) flow — mirrors the order pattern
-      if (state.flowType === 'quote') {
+      if (effectiveFlowType === 'quote') {
         // Idempotent save: only create a new row if no case exists yet
         if (!activeCaseId && appUser) {
           try {
@@ -1872,7 +1922,7 @@ export default function ConfiguratorPage() {
           } catch (saveErr) {
             console.error('Failed to save before quote webhook:', saveErr);
             toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
-            return;
+            return false;
           }
         } else if (activeCaseId && !activeQuoteNumber) {
           try {
@@ -1899,11 +1949,11 @@ export default function ConfiguratorPage() {
           toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
             description: invalid.join(', '),
           });
-          return;
+          return false;
         }
         if (allEmails.length === 0) {
           toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.');
-          return;
+          return false;
         }
         const recipients = Array.from(new Set(allEmails));
         const emailModtager = modtagerList.join(', ');
@@ -2052,31 +2102,81 @@ export default function ConfiguratorPage() {
               quoteNumber: activeQuoteNumber || '',
               recipients,
             });
+            return true;
           } else {
             toast.error(T('quoteSendFailed'), {
               description: failureReason || undefined,
             });
+            return false;
           }
         } catch (webhookErr) {
           console.error('[Quote webhook] call failed:', webhookErr);
           toast.error(T('quoteSendError'), {
             description: webhookErr instanceof Error ? webhookErr.message : String(webhookErr),
           });
+          return false;
         }
       }
 
     } catch (e) {
       // Fallback to browser print
       const printWin = window.open('', '_blank');
-      if (!printWin) return;
+      if (!printWin) return false;
       printWin.document.write(`<!DOCTYPE html><html><head><title>${TC('confirmTitle')}</title>
         <style>body{font-family:Arial,sans-serif;margin:20mm;font-size:14px;color:#333}
         .price-col{font-variant-numeric:tabular-nums}.text-red-600{color:#dc2626}.font-bold{font-weight:700}
         @media print{body{margin:10mm}}</style></head><body>${el.innerHTML}</body></html>`);
       printWin.document.close();
       setTimeout(() => { printWin.print(); }, 500);
+      return false;
     }
+    return false;
   };
+
+  const handleSaveLeadAndSendOrder = useCallback(async () => {
+    if (savingLeadAndOrder || savingAsLead || submitting) return;
+    if (orderLocked) {
+      toast.error(T('orderCannotResendTitle'));
+      return;
+    }
+    if (!ownership.sellerEmail || !state.firmanavn.trim() || !state.kontaktperson.trim() || !state.email.trim()) {
+      toast.error('Udfyld Timan-sælger, firmanavn, kontaktperson og e-mail.');
+      return;
+    }
+
+    setSavingLeadAndOrder(true);
+    try {
+      const leadId = await handleSaveAsLead({ quiet: true });
+      if (!leadId) {
+        toast.error('Lead/konfiguration blev ikke gemt. Ordre-mail blev ikke sendt.');
+        return;
+      }
+
+      const orderSent = await downloadPdf('order');
+      if (!orderSent) {
+        toast.error('Lead blev gemt, men ordre-mail blev ikke sendt.', {
+          description: 'Prøv igen. Det eksisterende lead genbruges, så der ikke oprettes dubletter.',
+        });
+        return;
+      }
+
+      toast.success('Lead gemt og ordre sendt');
+    } finally {
+      setSavingLeadAndOrder(false);
+    }
+  }, [
+    savingLeadAndOrder,
+    savingAsLead,
+    submitting,
+    orderLocked,
+    ownership.sellerEmail,
+    state.firmanavn,
+    state.kontaktperson,
+    state.email,
+    handleSaveAsLead,
+    downloadPdf,
+    T,
+  ]);
 
   // ======== Delivery startup required check ========
   const needsStartup = lang === 'da' && state.deliveryMethod === 'deliver';
@@ -3097,12 +3197,12 @@ export default function ConfiguratorPage() {
                   {isExhibition ? (
                     <button
                       type="button"
-                      onClick={() => void handleSaveAsLead()}
-                      disabled={savingAsLead || !ownership.sellerEmail || !state.firmanavn.trim() || !state.kontaktperson.trim() || !state.email.trim()}
-                      title={!ownership.sellerEmail ? 'Vaelg Timan-saelger foerst.' : ''}
+                      onClick={() => void (isTimanMesseUser ? handleSaveLeadAndSendOrder() : handleSaveAsLead())}
+                      disabled={savingAsLead || savingLeadAndOrder || submitting || !ownership.sellerEmail || !state.firmanavn.trim() || !state.kontaktperson.trim() || !state.email.trim() || (isTimanMesseUser && orderLocked)}
+                      title={!ownership.sellerEmail ? 'Vælg Timan-sælger først.' : isTimanMesseUser && orderLocked ? T('orderCannotResendTitle') : ''}
                       className="px-6 py-3 bg-emerald-600 rounded-lg font-medium text-white shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                      {savingAsLead ? 'Gemmer...' : 'Gem som lead'}
+                      {savingLeadAndOrder ? 'Gemmer og sender...' : savingAsLead ? 'Gemmer...' : isTimanMesseUser ? 'Gem som lead og send ordre' : 'Gem som lead'}
                     </button>
                   ) : false ? (
                     <span className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold uppercase tracking-wide">
@@ -3172,14 +3272,19 @@ export default function ConfiguratorPage() {
             )}
             {state.step === 4 && state.flowType === 'quote' && (isExhibition || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
-              const label = { da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang];
+              const label = isTimanMesseUser
+                ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
+                : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
+              const isActionBlockedByExistingLead = !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
                 ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
                     en: 'Fill in dealer, company, contact and email.',
                     de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
                     it: 'Compila concessionario, azienda, contatto ed email.',
                     hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
-                : linkedLeadId
+                : isTimanMesseUser && orderLocked
+                  ? T('orderCannotResendTitle')
+                : isActionBlockedByExistingLead
                   ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
                       en: 'This configuration is already linked to a lead.',
                       de: 'Bereits mit einem Lead verknüpft.',
@@ -3189,8 +3294,8 @@ export default function ConfiguratorPage() {
               return (
                 <button
                   type="button"
-                  onClick={() => void handleSaveAsLead()}
-                  disabled={!hasRequired || savingAsLead || !!linkedLeadId}
+                  onClick={() => void (isTimanMesseUser ? handleSaveLeadAndSendOrder() : handleSaveAsLead())}
+                  disabled={!hasRequired || savingAsLead || savingLeadAndOrder || submitting || isActionBlockedByExistingLead || (isTimanMesseUser && orderLocked)}
                   title={disabledTitle}
                   className="w-full mb-3 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -3198,7 +3303,7 @@ export default function ConfiguratorPage() {
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
                   </svg>
-                  {savingAsLead ? '…' : label}
+                  {savingLeadAndOrder ? '…' : savingAsLead ? '…' : label}
                 </button>
               );
             })()}
