@@ -206,9 +206,16 @@ export default function CrmDashboardPage() {
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
+  const [leadRefreshToken, setLeadRefreshToken] = useState(0);
 
   // Top dashboard scope filter (admin-only). null = "Alle" (combined view).
   const [topSellerInitials, setTopSellerInitials] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onLeadsChanged = () => setLeadRefreshToken((n) => n + 1);
+    window.addEventListener("timan:crm-leads-changed", onLeadsChanged);
+    return () => window.removeEventListener("timan:crm-leads-changed", onLeadsChanged);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,7 +267,7 @@ export default function CrmDashboardPage() {
       setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials]);
+  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials, leadRefreshToken]);
 
   // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
   // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
@@ -281,7 +288,29 @@ export default function CrmDashboardPage() {
     const pipelineValueEur = openQuotes
       .filter(q => q.currency === 'EUR')
       .reduce((s, q) => s + (q.total_value || 0), 0);
-    return { ...base, pipelineValue, pipelineValueEur, pipelineByStage: byStage };
+    const activeLeadRows = [
+      ...(pipelineRows.lead || []),
+      ...(pipelineRows.demo || []),
+    ];
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const prevWindow = sameTimePrevMonth(now);
+    const leadsThis = activeLeadRows.filter((row) => {
+      const d = new Date(row.date);
+      return !Number.isNaN(d.getTime()) && d >= monthStart;
+    }).length;
+    const leadsPrev = activeLeadRows.filter((row) => {
+      const d = new Date(row.date);
+      return !Number.isNaN(d.getTime()) && d >= prevWindow.from && d <= prevWindow.to;
+    }).length;
+    return {
+      ...base,
+      activeLeads: activeLeadRows.length,
+      leadsPctChange: pctChange(leadsThis, leadsPrev),
+      pipelineValue,
+      pipelineValueEur,
+      pipelineByStage: byStage,
+    };
   }, [activities, orders, isAdmin, pipelineRows, openQuotes]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
@@ -1128,14 +1157,10 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   }).reduce((sum, s) => sum + (s.a.value || 0), 0);
   const pipelinePctChange = pctChange(pipeThis, pipePrev);
 
-  const activeLeads = staged.filter(s => s.stage === 'lead' || s.stage === 'demo').length;
-  const leadsThis = staged.filter(s => (s.stage === 'lead' || s.stage === 'demo') && new Date(s.a.activity_date) >= monthStart).length;
-  const leadsPrev = staged.filter(s => {
-    if (s.stage !== 'lead' && s.stage !== 'demo') return false;
-    const d = new Date(s.a.activity_date);
-    return d >= prevWindow.from && d <= prevWindow.to;
-  }).length;
-  const leadsPctChange = pctChange(leadsThis, leadsPrev);
+  // Activity rows are audit/history and must not count as active leads.
+  // The dashboard overrides these from the current CRM lead/demo sources.
+  const activeLeads = 0;
+  const leadsPctChange = 0;
 
   // Closed/won orders come from the SAME source as CRM → Ordrer
   // (configurations / crm_configurations_view), so any order visible there

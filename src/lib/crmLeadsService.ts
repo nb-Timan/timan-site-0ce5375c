@@ -277,6 +277,8 @@ export interface CrmDemoLead {
 
 const LS_LEADS = "timan.crm.leads.v1";
 const LS_DEMO  = "timan.crm.demoLeads.v1";
+const LS_DELETED_LEADS = "timan.crm.leads.deletedIds.v1";
+const LS_DELETED_DEMO = "timan.crm.demoLeads.deletedIds.v1";
 
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -293,6 +295,32 @@ function readLS<T>(key: string): T[] {
 }
 function writeLS<T>(key: string, rows: T[]): void {
   try { localStorage.setItem(key, JSON.stringify(rows.slice(0, 500))); } catch { /* */ }
+}
+
+function readDeletedIds(key: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markDeletedId(key: string, id: string): void {
+  try {
+    const ids = readDeletedIds(key);
+    ids.add(id);
+    localStorage.setItem(key, JSON.stringify(Array.from(ids).slice(-1000)));
+  } catch { /* */ }
+}
+
+function notifyCrmLeadsChanged(): void {
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("timan:crm-leads-changed"));
+    }
+  } catch { /* */ }
 }
 
 // ---------- Human-readable lead/demo numbers ----------
@@ -476,7 +504,9 @@ export async function deleteLead(id: string, audit: DeleteLeadAudit = {}): Promi
   try {
     const { error } = await supabase.from("crm_leads").delete().eq("id", id);
     if (error) throw error;
+    markDeletedId(LS_DELETED_LEADS, id);
     removeLeadFromLocalCache(id);
+    notifyCrmLeadsChanged();
     try {
       await logActivity({
         activity_type: "lead_deleted",
@@ -631,8 +661,10 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   } catch (err) {
     console.warn("[crm.listLeads] supabase failed → local fallback:", err);
   }
-  const localRows = readLS<CrmLead>(LS_LEADS);
-  const seeded = seedOpenLeads();
+  const deletedIds = readDeletedIds(LS_DELETED_LEADS);
+  supRows = supRows.filter((r) => !deletedIds.has(r.id));
+  const localRows = readLS<CrmLead>(LS_LEADS).filter((r) => !deletedIds.has(r.id));
+  const seeded = seedOpenLeads().filter((r) => !deletedIds.has(r.id));
   let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
   merged.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
@@ -752,7 +784,9 @@ export async function deleteDemoLead(id: string, audit: DeleteLeadAudit = {}): P
   try {
     const { error } = await supabase.from("crm_demo_leads").delete().eq("id", id);
     if (error) throw error;
+    markDeletedId(LS_DELETED_DEMO, id);
     writeLS<CrmDemoLead>(LS_DEMO, readLS<CrmDemoLead>(LS_DEMO).filter(r => r.id !== id));
+    notifyCrmLeadsChanged();
     try {
       await logActivity({
         activity_type: "lead_deleted",
@@ -824,8 +858,10 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
     console.warn("[crm.listDemoLeads] supabase failed → local fallback:", err);
   }
 
-  const localRows = readLS<CrmDemoLead>(LS_DEMO);
-  const seeded = seedDemoRows();
+  const deletedIds = readDeletedIds(LS_DELETED_DEMO);
+  supRows = supRows.filter((r) => !deletedIds.has(r.id));
+  const localRows = readLS<CrmDemoLead>(LS_DEMO).filter((r) => !deletedIds.has(r.id));
+  const seeded = seedDemoRows().filter((r) => !deletedIds.has(r.id));
   // Merge order: user-created (supabase / local) first so they win on dedup.
   let merged = dedupDemoRows([...supRows, ...localRows, ...seeded]);
 

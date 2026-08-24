@@ -17,7 +17,8 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { t as translate } from '@/lib/i18n/translations';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
 import iconStability from '@/assets/rc1000s-icon-15.png.asset.json';
@@ -146,6 +147,13 @@ function text(da: string, en = da, de?: string, it?: string, hu?: string): Local
     it: it ?? auto.it ?? en,
     hu: hu ?? auto.hu ?? en,
   };
+}
+
+function translatedText(key: string): Localized {
+  return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    acc[lang] = translate(key, lang);
+    return acc;
+  }, {} as Localized);
 }
 
 const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
@@ -626,14 +634,75 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
   ],
   'timan-2620': [
     {
+      title: text('Hovedinformation', 'Main information', 'Hauptinformationen', 'Informazioni principali', 'Fő információk'),
+      rows: [
+        { label: text('Maskine', 'Machine', 'Maschine', 'Macchina', 'Gép'), value: text('Timan 2620') },
+        {
+          label: text('Anvendelse', 'Use', 'Einsatz', 'Utilizzo', 'Felhasználás'),
+          value: text(
+            'Kompakt multimaskine til ejendomme, stier, parker og mindre udendørsarealer.',
+            'Compact multi-purpose machine for properties, paths, parks and smaller outdoor areas.',
+            'Kompakte Mehrzweckmaschine für Grundstücke, Wege, Parks und kleinere Außenflächen.',
+            'Macchina compatta multiuso per proprietà, sentieri, parchi e piccole aree esterne.',
+            'Kompakt többcélú gép ingatlanokhoz, utakhoz, parkokhoz és kisebb kültéri területekhez.',
+          ),
+        },
+        {
+          label: text('Sæson', 'Season', 'Saison', 'Stagione', 'Szezon'),
+          value: text('Helårsbrug', 'All-year use', 'Ganzjähriger Einsatz', 'Uso tutto l’anno', 'Egész éves használat'),
+        },
+      ],
+    },
+    {
+      title: text('Nøglefunktioner', 'Key features', 'Schlüsselfunktionen', 'Funzioni chiave', 'Fő funkciók'),
+      rows: [
+        { label: translatedText('m2620_spec_frontaxle'), value: translatedText('m2620_specv_suspended') },
+        { label: translatedText('m2620_spec_articulation'), value: translatedText('m2620_specv_suspended') },
+        { label: translatedText('m2620_spec_comfort'), value: translatedText('m2620_specv_comfort') },
+        { label: translatedText('m2620_spec_surface'), value: translatedText('m2620_specv_surface') },
+      ],
+    },
+    {
       title: text('Motor og drift', 'Engine and operation'),
       rows: [
-        { label: text('Motor', 'Engine'), value: text('Perkins 403J-11') },
-        { label: text('Effekt', 'Power'), value: text('25 hk / 18,4 kW', '25 hp / 18.4 kW') },
-        { label: text('Cylindre', 'Cylinders'), value: text('3') },
-        { label: text('Slagvolumen', 'Displacement'), value: text('1131 cc') },
-        { label: text('Tophastighed', 'Top speed'), value: text('20 km/t', '20 km/h') },
-        { label: text('EU Norm', 'EU standard'), value: text('Stage V') },
+        { label: translatedText('m2620_spec_engine'), value: text('Perkins 403J-11') },
+        { label: translatedText('m2620_spec_power'), value: translatedText('m2620_specv_power') },
+        { label: translatedText('m2620_spec_cylinders'), value: text('3') },
+        { label: translatedText('m2620_spec_displacement'), value: text('1131 cc') },
+        { label: translatedText('m2620_spec_topspeed'), value: translatedText('m2620_specv_topspeed') },
+        { label: translatedText('m2620_spec_fueltank'), value: translatedText('m2620_specv_fueltank') },
+        { label: translatedText('m2620_spec_eustandard'), value: text('Stage V') },
+      ],
+    },
+    {
+      title: text('Transmission og undervogn', 'Transmission and chassis', 'Transmission und Fahrwerk', 'Trasmissione e telaio', 'Hajtás és alváz'),
+      rows: [
+        { label: translatedText('m2620_spec_transmission'), value: translatedText('m2620_specv_transmission') },
+        { label: translatedText('m2620_spec_brakes'), value: translatedText('m2620_specv_brakes') },
+        { label: translatedText('m2620_spec_wheelmotors'), value: translatedText('m2620_specv_wheelmotors') },
+        { label: translatedText('m2620_spec_cooling'), value: translatedText('m2620_specv_cooling') },
+        { label: translatedText('m2620_spec_frontaxle'), value: translatedText('m2620_specv_suspended') },
+        { label: translatedText('m2620_spec_articulation'), value: translatedText('m2620_specv_suspended') },
+      ],
+    },
+    {
+      title: text('Kabine og komfort', 'Cab and comfort', 'Kabine und Komfort', 'Cabina e comfort', 'Fülke és kényelem'),
+      rows: [
+        { label: translatedText('m2620_spec_steering'), value: translatedText('m2620_specv_steering') },
+        { label: translatedText('m2620_spec_roofhatch'), value: translatedText('m2620_specv_standard') },
+        { label: translatedText('m2620_spec_cabheater'), value: translatedText('m2620_specv_cabheater') },
+        { label: translatedText('m2620_spec_rearwindows'), value: translatedText('m2620_specv_rearwindows') },
+        { label: translatedText('m2620_spec_worklights'), value: translatedText('m2620_specv_worklights') },
+        { label: translatedText('m2620_spec_wiper'), value: translatedText('m2620_specv_wiper') },
+      ],
+    },
+    {
+      title: translatedText('m2620_extra_heading'),
+      rows: [
+        { label: translatedText('m2620_extra_sunshade'), value: translatedText('m2620_extrav_sunshade') },
+        { label: translatedText('m2620_extra_radio'), value: translatedText('m2620_extrav_radio') },
+        { label: translatedText('m2620_extra_comfortseat'), value: translatedText('m2620_extrav_comfortseat') },
+        { label: translatedText('m2620_extra_deluxeseat'), value: translatedText('m2620_extrav_deluxeseat') },
       ],
     },
     {
