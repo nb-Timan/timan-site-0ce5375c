@@ -561,7 +561,7 @@ export default function ConfiguratorPage() {
           toast.error(T('orderAlreadySubmittedToast'));
           return;
         }
-        const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+        const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload, pricingMode: isExhibition ? 'messe' : undefined });
         if (res.error) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
             description: res.error,
@@ -595,6 +595,7 @@ export default function ConfiguratorPage() {
         const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
           ownership: ownershipPayload,
           leadId: effectiveLeadId,
+          pricingMode: isExhibition ? 'messe' : undefined,
         });
         if (saveRes.error) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
@@ -727,7 +728,7 @@ export default function ConfiguratorPage() {
         const ownershipPayload = await getRequiredOwnershipPayload();
         if (ownershipPayload && appUser) {
           if (savedConfigurationId) {
-            const updRes = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload });
+            const updRes = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload, pricingMode: isExhibition ? 'messe' : undefined });
             if (updRes.error) throw new Error(updRes.error);
             try {
               await supabase.from('configurations')
@@ -743,6 +744,7 @@ export default function ConfiguratorPage() {
             const saveRes = await saveConfiguration(state, label, appUser.email.toLowerCase(), {
               ownership: ownershipPayload,
               leadId: created.id,
+              pricingMode: isExhibition ? 'messe' : undefined,
             });
             if (saveRes.error) throw new Error(saveRes.error);
             if (saveRes.id) {
@@ -1432,7 +1434,7 @@ export default function ConfiguratorPage() {
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
           : state.machineConfigs.map(m => m.type).join(', ') || 'Konfiguration';
-        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
+        const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId, pricingMode: isExhibition ? 'messe' : undefined });
         if (result.error) throw new Error(result.error);
         if (result.id) {
           activeCaseId = result.id;
@@ -1640,7 +1642,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId, pricingMode: isExhibition ? 'messe' : undefined });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -1820,7 +1822,7 @@ export default function ConfiguratorPage() {
             // must NOT clear the quote sent date.
             if (activeCaseId) {
               try {
-                await markAsOrderSubmitted(activeCaseId);
+                await markAsOrderSubmitted(activeCaseId, { pricingMode: isExhibition ? 'messe' : undefined });
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
               }
@@ -1855,7 +1857,7 @@ export default function ConfiguratorPage() {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
               : state.machineConfigs.map(m => m.type).join(', ') || 'Tilbud';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
+            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId, pricingMode: isExhibition ? 'messe' : undefined });
             if (result.error) throw new Error(result.error);
             if (result.id) {
               activeCaseId = result.id;
@@ -2037,7 +2039,7 @@ export default function ConfiguratorPage() {
             // resending a quote does not overwrite the original sent date.
             if (activeCaseId) {
               try {
-                await markPdfDownloaded(activeCaseId, 'quote');
+                await markPdfDownloaded(activeCaseId, 'quote', { pricingMode: isExhibition ? 'messe' : undefined });
               } catch (markErr) {
                 console.error('Failed to stamp quote_sent_at:', markErr);
               }
@@ -3465,7 +3467,7 @@ export default function ConfiguratorPage() {
                 const ownershipPayload = await getRequiredOwnershipPayload();
                 if (!ownershipPayload) { setSavingBeforeReset(false); return; }
                 const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
-                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId });
+                const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId, pricingMode: isExhibition ? 'messe' : undefined });
                 setSavingBeforeReset(false);
                 setNewConfigModalOpen(false);
                 if (result.error) {

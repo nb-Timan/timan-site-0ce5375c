@@ -870,6 +870,8 @@ export interface SaveOwnership {
   owner_status?: string | null;
 }
 
+type ConfigurationPricingMode = 'default' | 'messe';
+
 /** Save a new configuration */
 export async function saveConfiguration(
   state: ConfiguratorState,
@@ -881,6 +883,7 @@ export async function saveConfiguration(
     ownership?: SaveOwnership;
     /** Phase 33 — optional CRM lead to link this case to. */
     leadId?: string | null;
+    pricingMode?: ConfigurationPricingMode;
   },
 ): Promise<SaveConfigurationResult> {
   console.info('[saveConfiguration] called', {
@@ -930,7 +933,7 @@ export async function saveConfiguration(
   let initialTotal = 0;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state);
+    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
     initialSubtotal = Math.round(totals.subtotal || 0);
     initialTotal = Math.round(totals.finalPrice || 0);
   } catch { /* ignore */ }
@@ -1065,7 +1068,7 @@ export async function saveConfiguration(
 export async function updateConfiguration(
   id: string,
   state: ConfiguratorState,
-  options?: { ownership?: SaveOwnership },
+  options?: { ownership?: SaveOwnership; pricingMode?: ConfigurationPricingMode },
 ): Promise<{ error: string | null; itemsError: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -1076,7 +1079,7 @@ export async function updateConfiguration(
   let totalPrice = 0;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state);
+    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
     subtotal = Math.round(totals.subtotal || 0);
     totalPrice = Math.round(totals.finalPrice || 0);
   } catch { /* ignore */ }
@@ -1315,7 +1318,7 @@ export async function deleteConfiguration(id: string) {
 }
 
 /** Mark configuration as order submitted */
-export async function markAsOrderSubmitted(id: string) {
+export async function markAsOrderSubmitted(id: string, options?: { pricingMode?: ConfigurationPricingMode }) {
   const nowIso = new Date().toISOString();
   // Unscoped row read so backend/CRM users can convert a quote they did
   // NOT originally create (e.g. backend reopens Birger's quote). RLS still
@@ -1347,7 +1350,7 @@ export async function markAsOrderSubmitted(id: string) {
     const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
     const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
     if (state) {
-      const totals = calcConfigurationTotals(state);
+      const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
       subtotal = Math.round(totals.subtotal || 0);
       totalPrice = Math.round(totals.finalPrice || 0);
     }
@@ -1404,7 +1407,7 @@ export async function markAsOrderSubmitted(id: string) {
 }
 
 /** Mark PDF as downloaded. If flowType === 'quote', also stamps quote_sent_at (only first time). */
-export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order') {
+export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order', options?: { pricingMode?: ConfigurationPricingMode }) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError) {
@@ -1436,7 +1439,7 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
   // Unknown columns are stripped by updateConfigurationRow's retry.
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state);
+    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
     patch.subtotal = Math.round(totals.subtotal || 0);
     patch.total_price = Math.round(totals.finalPrice || 0);
   } catch (e) {

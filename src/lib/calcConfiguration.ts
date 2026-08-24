@@ -6,7 +6,7 @@ import { PRODUCTS, getAccessoriesFlat, getPrice, DEMO_FEE_DKK, DEMO_FEE_EUR } fr
  * Mirrors the logic in useConfigurator.calcResult but works on any ConfiguratorState
  * snapshot (used by AccountPanel statistics).
  */
-export function calcConfigurationTotals(state: ConfiguratorState): {
+export function calcConfigurationTotals(state: ConfiguratorState, options?: { grossManualDiscountOnly?: boolean }): {
   subtotal: number;
   totalDiscount: number;
   finalPrice: number;
@@ -89,6 +89,16 @@ export function calcConfigurationTotals(state: ConfiguratorState): {
       startupPrice = state.language === 'da' ? 2500 : 335;
     }
     subtotal += startupPrice;
+  }
+
+  if (options?.grossManualDiscountOnly) {
+    const manualPct = Math.max(0, Math.min(100, state.manualDealerDiscountPct || 0));
+    const manualDiscount = subtotal * (manualPct / 100);
+    return {
+      subtotal,
+      totalDiscount: manualDiscount,
+      finalPrice: Math.max(0, subtotal - manualDiscount),
+    };
   }
 
   const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((s, u) => s + u.total, 0);
