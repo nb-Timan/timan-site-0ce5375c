@@ -957,7 +957,7 @@ export default function ConfiguratorPage() {
       console.info('[flowType] persisting change to saved case', { id: savedConfigurationId, flowType: ft });
       const ownershipPayload = await getRequiredOwnershipPayload();
       if (!ownershipPayload) return;
-      updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload).then(res => {
+      updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined }).then(res => {
         if (res.error) {
           console.error('[flowType] failed to persist:', res.error);
           toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
@@ -967,7 +967,7 @@ export default function ConfiguratorPage() {
         if (res.order_number) setSavedOrderNumber(res.order_number);
       });
     }
-  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload]);
+  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload, isExhibition]);
 
   // Auto-fill delivery date when entering step 2 (15 business days from today, skip weekends)
   useEffect(() => {
@@ -1496,7 +1496,7 @@ export default function ConfiguratorPage() {
 
     if (activeCaseId && effectiveFlowType === 'order') {
       try {
-        const flowRes = await updateConfigurationFlowType(activeCaseId, 'order', ownershipPayload);
+        const flowRes = await updateConfigurationFlowType(activeCaseId, 'order', ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined });
         if (flowRes.error) throw new Error(flowRes.error);
         if (flowRes.quote_number) { activeQuoteNumber = flowRes.quote_number; setSavedQuoteNumber(flowRes.quote_number); }
         if (flowRes.order_number) { activeOrderNumber = flowRes.order_number; setSavedOrderNumber(flowRes.order_number); }

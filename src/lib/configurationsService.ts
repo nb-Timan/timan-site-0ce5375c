@@ -916,7 +916,12 @@ export async function saveConfiguration(
   const sourceQuoteId = options?.sourceQuoteId;
   const sourceQuoteNumber = options?.sourceQuoteNumber;
 
-  if (!options?.ownership?.seller_initials || !options.ownership.seller_email || !options.ownership.assigned_seller_id || !options.ownership.dealer_number || !options.ownership.dealer_account_id) {
+  const ownership = options?.ownership;
+  const allowMissingDealer = options?.pricingMode === 'messe';
+  const missingSellerOwnership = !ownership?.seller_initials || !ownership.seller_email || !ownership.assigned_seller_id;
+  const missingDealerOwnership = !ownership?.dealer_number || !ownership.dealer_account_id;
+
+  if (missingSellerOwnership || (!allowMissingDealer && missingDealerOwnership)) {
     return {
       data: null, id: null, error: OWNERSHIP_REQUIRED_MESSAGE, itemsError: null,
       quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
@@ -1158,6 +1163,7 @@ export async function updateConfigurationFlowType(
   id: string,
   flowType: 'quote' | 'order',
   ownership?: SaveOwnership,
+  options?: { pricingMode?: ConfigurationPricingMode },
 ): Promise<{ quote_number: string | null; order_number: string | null; error: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -1183,7 +1189,11 @@ export async function updateConfigurationFlowType(
   }
 
   const isOrder = flowType === 'order';
-  if (isOrder && (!ownership?.seller_initials || !ownership.seller_email || !ownership.assigned_seller_id || !ownership.dealer_number || !ownership.dealer_account_id)) {
+  const allowMissingDealer = options?.pricingMode === 'messe';
+  const missingSellerOwnership = !ownership?.seller_initials || !ownership.seller_email || !ownership.assigned_seller_id;
+  const missingDealerOwnership = !ownership?.dealer_number || !ownership.dealer_account_id;
+
+  if (isOrder && (missingSellerOwnership || (!allowMissingDealer && missingDealerOwnership))) {
     return { quote_number: null, order_number: null, error: OWNERSHIP_REQUIRED_MESSAGE };
   }
   const storedPayload = parseStoredConfigurationPayload(row.note);
