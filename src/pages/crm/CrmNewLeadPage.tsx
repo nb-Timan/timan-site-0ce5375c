@@ -47,7 +47,7 @@ type TKey =
   | 'lbl_contact_type' | 'lbl_customer_type'
   | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
   | 'lbl_contact_company' | 'lbl_contact_person' | 'lbl_contact_phone' | 'lbl_contact_email'
-  | 'lbl_contact_address' | 'lbl_contact_zip_city'
+  | 'lbl_contact_address' | 'lbl_contact_zip_city' | 'lbl_contact_postal_code' | 'lbl_contact_city'
   | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline' | 'lbl_move_work' | 'hlp_move_work'
   | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
@@ -102,6 +102,8 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_contact_email: { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   lbl_contact_address: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
   lbl_contact_zip_city: { da: 'Postnr. og by', en: 'ZIP code and city', de: 'PLZ und Ort', it: 'CAP e città', hu: 'Irányítószám és város' },
+  lbl_contact_postal_code: { da: 'Postnr.', en: 'ZIP code', de: 'PLZ', it: 'CAP', hu: 'Irányítószám' },
+  lbl_contact_city: { da: 'By', en: 'City', de: 'Ort', it: 'Città', hu: 'Város' },
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
@@ -172,17 +174,28 @@ type StructuredContactInfo = {
   company: string;
   contactPerson: string;
   address: string;
+  postalCode: string;
+  city: string;
   zipCity: string;
   phone: string;
   email: string;
   country: string;
 };
 
+function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
+  if (!match) return { postalCode: '', city: '' };
+  return { postalCode: match[1].trim(), city: match[2].trim() };
+}
+
 function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
   const info: StructuredContactInfo = {
     company: '',
     contactPerson: '',
     address: '',
+    postalCode: '',
+    city: '',
     zipCity: '',
     phone: '',
     email: '',
@@ -199,7 +212,13 @@ function parseStructuredContactInformation(value: string, fallbackCountry: strin
     if (key.startsWith('firma')) info.company = fieldValue;
     else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
     else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip')) info.zipCity = fieldValue;
+    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
+      info.zipCity = fieldValue;
+      const split = splitPostalCodeAndCity(fieldValue);
+      info.postalCode = split.postalCode;
+      info.city = split.city;
+    }
+    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
     else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
     else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
     else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
@@ -212,26 +231,19 @@ function parseStructuredContactInformation(value: string, fallbackCountry: strin
   return info;
 }
 
-function hasStructuredContactInfo(info: StructuredContactInfo): boolean {
-  return Boolean(
-    info.company ||
-    info.contactPerson ||
-    info.address ||
-    info.zipCity ||
-    info.phone ||
-    info.email ||
-    info.country
-  );
-}
-
-function ContactInfoValue({ label, value }: { label: string; value: string }) {
-  if (!value) return null;
-  return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
-      <div className="mt-1 text-sm text-gray-900">{value}</div>
-    </div>
-  );
+function buildStructuredContactInformation(info: StructuredContactInfo): string {
+  const postalCode = info.postalCode.trim();
+  const city = info.city.trim();
+  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
+  return [
+    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
+    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
+    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
+    zipCity ? `Postnr. og by: ${zipCity}` : null,
+    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
+    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
+    info.country.trim() ? `Land: ${info.country.trim()}` : null,
+  ].filter(Boolean).join('\n');
 }
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
@@ -560,7 +572,13 @@ export default function CrmNewLeadPage() {
   const [contactType, setContactType] = useState<string>('');
   const [customerType, setCustomerType] = useState<string>('');
 
-  const [contactInfo, setContactInfo] = useState('');
+  const [contactCompany, setContactCompany] = useState('');
+  const [contactPersonName, setContactPersonName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactAddress, setContactAddress] = useState('');
+  const [contactPostalCode, setContactPostalCode] = useState('');
+  const [contactCity, setContactCity] = useState('');
   const [tradeFairChoice, setTradeFairChoice] = useState('');
   const [tradeFair, setTradeFair] = useState('');
   const [tradeFairYear, setTradeFairYear] = useState(String(CURRENT_YEAR));
@@ -650,7 +668,14 @@ export default function CrmNewLeadPage() {
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
-      setContactInfo(lead.contact_information || '');
+      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
+      setContactCompany(parsedContact.company);
+      setContactPersonName(parsedContact.contactPerson);
+      setContactPhone(parsedContact.phone);
+      setContactEmail(parsedContact.email);
+      setContactAddress(parsedContact.address);
+      setContactPostalCode(parsedContact.postalCode);
+      setContactCity(parsedContact.city || (!parsedContact.postalCode ? parsedContact.zipCity : ''));
       const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
       if (KNOWN_TRADE_FAIRS.includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
@@ -663,7 +688,7 @@ export default function CrmNewLeadPage() {
         setTradeFair('');
       }
       setTradeFairYear(parsedTradeFair.year);
-      const loadedCountry = lead.country || 'Danmark';
+      const loadedCountry = lead.country || parsedContact.country || 'Danmark';
       if (loadedCountry === 'Danmark' || loadedCountry === 'Tyskland') {
         setCountryChoice(loadedCountry);
       } else {
@@ -731,11 +756,21 @@ export default function CrmNewLeadPage() {
       pricedItems: estimate.pricedItems,
     };
   }, [machineTypes]);
-  const structuredContactInfo = useMemo(
-    () => parseStructuredContactInformation(contactInfo, country),
-    [contactInfo, country]
-  );
-  const showStructuredContactInfo = hasStructuredContactInfo(structuredContactInfo);
+  const structuredContactInfo = useMemo<StructuredContactInfo>(() => {
+    const postalCode = contactPostalCode.trim();
+    const city = contactCity.trim();
+    return {
+      company: contactCompany,
+      contactPerson: contactPersonName,
+      address: contactAddress,
+      postalCode: contactPostalCode,
+      city: contactCity,
+      zipCity: [postalCode, city].filter(Boolean).join(' '),
+      phone: contactPhone,
+      email: contactEmail,
+      country,
+    };
+  }, [contactCompany, contactPersonName, contactAddress, contactPostalCode, contactCity, contactPhone, contactEmail, country]);
   const isLeadFormReady = Boolean(
     title.trim()
     && responsibleSellerId
@@ -825,6 +860,7 @@ export default function CrmNewLeadPage() {
       // fall back to the logged-in user if for some reason it's missing.
       const chosen = sellers.find(s => s.id === responsibleSellerId);
       const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
+      const contactInformation = buildStructuredContactInformation(structuredContactInfo);
       const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
@@ -838,7 +874,7 @@ export default function CrmNewLeadPage() {
         demo_has_run: demoHasRun,
         contact_type: contactType,
         customer_type: customerType,
-        contact_information: contactInfo || null,
+        contact_information: contactInformation || null,
         trade_fair: buildTradeFairValue(tradeFair, tradeFairYear),
         country: country || null,
         notes: notes || null,
@@ -1008,17 +1044,44 @@ export default function CrmNewLeadPage() {
             </Field>
           </Section>
 
-          {showStructuredContactInfo && (
-            <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
-              <ContactInfoValue label={tt('lbl_contact_company', lang)} value={structuredContactInfo.company} />
-              <ContactInfoValue label={tt('lbl_contact_person', lang)} value={structuredContactInfo.contactPerson} />
-              <ContactInfoValue label={tt('lbl_contact_phone', lang)} value={structuredContactInfo.phone} />
-              <ContactInfoValue label={tt('lbl_contact_email', lang)} value={structuredContactInfo.email} />
-              <ContactInfoValue label={tt('lbl_contact_address', lang)} value={structuredContactInfo.address} />
-              <ContactInfoValue label={tt('lbl_contact_zip_city', lang)} value={structuredContactInfo.zipCity} />
-              <ContactInfoValue label={tt('lbl_country', lang)} value={structuredContactInfo.country} />
-            </Section>
-          )}
+          <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
+            <Field label={tt('lbl_contact_company', lang)}>
+              <input className={inputCls} value={contactCompany} onChange={e=>setContactCompany(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_person', lang)}>
+              <input className={inputCls} value={contactPersonName} onChange={e=>setContactPersonName(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_phone', lang)}>
+              <input type="tel" className={inputCls} value={contactPhone} onChange={e=>setContactPhone(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_email', lang)}>
+              <input type="email" className={inputCls} value={contactEmail} onChange={e=>setContactEmail(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_address', lang)} full>
+              <input className={inputCls} value={contactAddress} onChange={e=>setContactAddress(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_postal_code', lang)}>
+              <input className={inputCls} value={contactPostalCode} onChange={e=>setContactPostalCode(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_contact_city', lang)}>
+              <input className={inputCls} value={contactCity} onChange={e=>setContactCity(e.target.value)} />
+            </Field>
+            <Field label={tt('lbl_country', lang)} full>
+              <input
+                className={inputCls}
+                value={country}
+                onChange={e=>{
+                  const nextCountry = e.target.value;
+                  setCountry(nextCountry);
+                  if (nextCountry === 'Danmark' || nextCountry === 'Tyskland') {
+                    setCountryChoice(nextCountry);
+                  } else {
+                    setCountryChoice('Other');
+                  }
+                }}
+              />
+            </Field>
+          </Section>
 
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
@@ -1085,9 +1148,6 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <Section title={tt('sec_details', lang)}>
-            <Field label={tt('lbl_contact_info', lang)} full>
-              <textarea className={taCls} value={contactInfo} onChange={e=>setContactInfo(e.target.value)} placeholder={tt('ph_contact_info', lang)} />
-            </Field>
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
               <Field label={tt('lbl_tradefair', lang)}>
                 <select className={inputCls} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
