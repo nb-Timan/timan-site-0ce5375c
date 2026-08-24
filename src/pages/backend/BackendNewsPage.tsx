@@ -7,7 +7,7 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import { Button } from '@/components/ui/button';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { completedNewsLanguages, getLocalizedNewsContent, missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
+import { completedNewsLanguages, missingNewsLanguages, resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
 import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
 import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
 import { getNewsTemplate, NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
@@ -79,13 +79,12 @@ function getMissingRowLanguages(row: NewsCmsPost) {
 }
 
 function getPreviewContent(row: NewsCmsPost, lang: PortalUiLanguage) {
-  const localized = row.localized_content ? getLocalizedNewsContent(row.localized_content, lang) : {};
-  return {
+  const template = getNewsTemplate(row.template_id);
+  return resolveNewsRenderContent(row.localized_content, lang, template.fields, {
     headline: row.title,
     subtitle: row.excerpt || '',
     mainImage: row.image_url || '',
-    ...localized,
-  };
+  });
 }
 
 function getEditablePost(row: NewsCmsPost): NewsCmsPost {

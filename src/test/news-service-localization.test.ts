@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePublicNewsFields, type NewsCmsPost } from '@/lib/newsService';
-import { mergeSharedNewsFields } from '@/features/news-cms/lib/newsContent';
+import { mergeSharedNewsFields, resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
 import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
+import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 
 const basePost = {
   title: 'Mød Timan 2620',
@@ -197,6 +198,44 @@ describe('news service localization', () => {
       secondaryHeading: 'Dansk sekundær overskrift',
       secondaryText: 'Dansk sekundær brødtekst',
     });
+  });
+
+  it('renders Template 04 secondary block from the active locale in preview/public content', () => {
+    const template = getNewsTemplate('template-04-technical-feature');
+    const content = {
+      da: {
+        headline: 'Skivehøster til Timan RC-1000s',
+        body: 'Effektiv høst med et rent og jævnt skær.',
+        secondaryHeading: 'Skånsom høst',
+        secondaryText: 'Skivehøsteren er udviklet til effektiv slåning og opsamling i én arbejdsgang.',
+        productImage: 'shared-skivehoester.png',
+      },
+      de: {
+        headline: 'Scheibenmähwerk für Timan RC-1000s',
+        body: 'Effiziente Ernte mit sauberem und gleichmäßigem Schnitt.',
+        secondaryHeading: 'Schonende Ernte',
+        secondaryText: 'Das Scheibenmähwerk wurde für effizientes Mähen und Sammeln in einem Arbeitsgang entwickelt.',
+      },
+      fr: {
+        headline: 'Faucheuse à disques pour Timan RC-1000s',
+        body: 'Récolte efficace avec une coupe propre et régulière.',
+        secondaryHeading: 'Récolte en douceur',
+        secondaryText: 'La faucheuse à disques est conçue pour faucher et collecter efficacement en un seul passage.',
+      },
+    };
+
+    const dk = resolveNewsRenderContent(content, 'da', template.fields);
+    const de = resolveNewsRenderContent(content, 'de', template.fields);
+    const fr = resolveNewsRenderContent(content, 'fr', template.fields);
+
+    expect(dk.secondaryHeading).toBe('Skånsom høst');
+    expect(dk.secondaryText).toBe('Skivehøsteren er udviklet til effektiv slåning og opsamling i én arbejdsgang.');
+    expect(de.secondaryHeading).toBe('Schonende Ernte');
+    expect(de.secondaryText).toBe('Das Scheibenmähwerk wurde für effizientes Mähen und Sammeln in einem Arbeitsgang entwickelt.');
+    expect(fr.secondaryHeading).toBe('Récolte en douceur');
+    expect(fr.secondaryText).toBe('La faucheuse à disques est conçue pour faucher et collecter efficacement en un seul passage.');
+    expect(de.productImage).toBe('shared-skivehoester.png');
+    expect(fr.productImage).toBe('shared-skivehoester.png');
   });
 
   it('translates missing nested feature box text without overwriting shared styling', () => {

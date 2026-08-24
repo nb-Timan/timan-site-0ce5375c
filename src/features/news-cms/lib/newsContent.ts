@@ -296,6 +296,21 @@ export function mergeSharedNewsFields(
   return active;
 }
 
+export function resolveNewsRenderContent(
+  content: LocalizedNewsContent | null | undefined,
+  lang: PortalUiLanguage,
+  fields: Array<{ key: string; type: string }>,
+  legacyFallback: { headline?: string | null; subtitle?: string | null; mainImage?: string | null } = {},
+): Record<string, unknown> {
+  const localized = content ? mergeSharedNewsFields(content, lang, fields) : {};
+  return {
+    headline: legacyFallback.headline || '',
+    subtitle: legacyFallback.subtitle || '',
+    mainImage: legacyFallback.mainImage || '',
+    ...localized,
+  };
+}
+
 /**
  * Feature blocks: icon, colour and custom icon are shared across languages,
  * while heading/description are stored per language.

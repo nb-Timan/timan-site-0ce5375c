@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { resolvePublicNewsFields, type NewsPost } from '@/lib/newsService';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
-import { mergeSharedNewsFields } from '@/features/news-cms/lib/newsContent';
+import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
 import NewsRenderSurface from '@/features/news-cms/editor/NewsRenderSurface';
 import { NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
 
@@ -38,10 +38,14 @@ export default function PublicNewsPostModal({ post, language, onClose }: Props) 
   const template = post.template_id
     ? NEWS_TEMPLATE_REGISTRY.find((item) => item.id === post.template_id)
     : null;
-  const content = template && post.localized_content
-    ? mergeSharedNewsFields(post.localized_content, language, template.fields)
-    : null;
   const localizedPost = resolvePublicNewsFields(post, language);
+  const content = template
+    ? resolveNewsRenderContent(post.localized_content, language, template.fields, {
+        headline: localizedPost.title,
+        subtitle: localizedPost.excerpt,
+        mainImage: localizedPost.image_url,
+      })
+    : null;
 
   return (
     <div

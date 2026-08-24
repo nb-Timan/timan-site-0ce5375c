@@ -547,6 +547,7 @@ export default function MesseFollowUpPage() {
         zipCity ? `Postnr. og by: ${clean(zipCity)}` : null,
         phone ? `Telefon: ${clean(phone)}` : null,
         email ? `E-mail: ${clean(email)}` : null,
+        selectedLeadCountry ? `Land: ${selectedLeadCountry}` : null,
       ].filter(Boolean).join('\n');
       const dealerText = selectedDealer
         ? `${selectedDealer.company_name} (${selectedDealer.account_number})`
@@ -603,22 +604,44 @@ export default function MesseFollowUpPage() {
         incomplete_from_configurator: false,
       }, { requireRemote: true });
 
-      const leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
-      if (leadAttachments.length > 0) {
-        await updateLead(lead.id, { attachments: leadAttachments });
+      let leadAttachments: CrmLeadAttachment[] = [];
+      let attachmentError: unknown = null;
+      try {
+        leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
+        if (leadAttachments.length > 0) {
+          await updateLead(lead.id, { attachments: leadAttachments });
+        }
+      } catch (error) {
+        attachmentError = error;
+        console.error('[messe lead attachments] failed:', error);
       }
 
       setCreatedLead({ id: lead.id, leadNo: lead.lead_no });
       try {
-        const mailAttachmentFiles: MesseMailAttachment[] = await Promise.all(leadAttachments.map(async (attachment) => ({
-          ...attachment,
-          signed_url: await getLeadAttachmentSignedUrl(attachment, 60 * 60 * 24 * 7),
-        })));
+        let mailAttachmentFiles: MesseMailAttachment[] = [];
+        if (leadAttachments.length > 0) {
+          try {
+            mailAttachmentFiles = await Promise.all(leadAttachments.map(async (attachment) => ({
+              ...attachment,
+              signed_url: await getLeadAttachmentSignedUrl(attachment, 60 * 60 * 24 * 7),
+            })));
+          } catch (error) {
+            attachmentError = attachmentError || error;
+            console.error('[messe lead attachment links] failed:', error);
+          }
+        }
+        const sellerRecipientEmail = clean(responsibleSeller.email);
+        const extraRecipientEmail = clean(email);
+        const recipientEmails = Array.from(new Set([sellerRecipientEmail, extraRecipientEmail].filter(Boolean)));
         await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
           lead_no: lead.lead_no,
           created_at: new Date().toISOString(),
+          recipient_email: sellerRecipientEmail,
+          extra_recipient_email: extraRecipientEmail || null,
+          recipient_emails: recipientEmails,
+          to: recipientEmails,
           responsible_seller: {
             id: ownerId,
             name: responsibleSeller.full_name || responsibleSeller.initials,
@@ -645,14 +668,21 @@ export default function MesseFollowUpPage() {
           wants_demo: wantsDemo,
           responsible_seller_name: responsibleSeller.full_name || responsibleSeller.initials,
           notes,
+          attachment_status: attachmentError ? 'failed' : 'ok',
           attachments: leadAttachments,
           attachment_links: mailAttachmentFiles,
           attachment_files: mailAttachmentFiles,
         });
-        toast.success('Messe lead gemt og mail sendt');
+        if (attachmentError) {
+          toast.warning('Lead gemt og mail sendt, men billede kunne ikke vedhæftes');
+        } else {
+          toast.success('Messe lead gemt og mail sendt');
+        }
       } catch (mailError) {
         console.error('[messe lead webhook] failed:', mailError);
-        toast.warning('Lead gemt i CRM, men mail kunne ikke sendes');
+        toast.warning(attachmentError
+          ? 'Lead gemt i CRM, men billede og mail kunne ikke færdiggøres'
+          : 'Lead gemt i CRM, men mail kunne ikke sendes');
       }
     } catch (error) {
       console.error(error);

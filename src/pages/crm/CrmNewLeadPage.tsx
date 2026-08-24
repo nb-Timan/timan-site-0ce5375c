@@ -37,6 +37,7 @@ import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft'
 type TKey =
   | 'page_title' | 'page_sub' | 'back' | 'cancel' | 'saving' | 'save'
   | 'sec_basic' | 'sec_basic_sub' | 'sec_machines' | 'sec_machines_sub'
+  | 'sec_contact_info_structured' | 'sec_contact_info_structured_sub'
   | 'sec_next_act' | 'sec_demo' | 'sec_contact_cust' | 'sec_details'
   | 'sec_lost' | 'sec_files' | 'sec_files_sub'
   | 'lbl_title' | 'ph_title' | 'lbl_seller' | 'ph_seller'
@@ -45,6 +46,8 @@ type TKey =
   | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
   | 'lbl_contact_type' | 'lbl_customer_type'
   | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
+  | 'lbl_contact_company' | 'lbl_contact_person' | 'lbl_contact_phone' | 'lbl_contact_email'
+  | 'lbl_contact_address' | 'lbl_contact_zip_city'
   | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline' | 'lbl_move_work' | 'hlp_move_work'
   | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
@@ -62,6 +65,8 @@ const T: Record<TKey, Record<Language, string>> = {
   save:          { da: 'Gem lead', en: 'Save lead', de: 'Lead speichern', it: 'Salva lead', hu: 'Lead mentése' },
   sec_basic:     { da: 'Grundinformation', en: 'Basic information', de: 'Grundinformationen', it: 'Informazioni di base', hu: 'Alapadatok' },
   sec_basic_sub: { da: 'Hvem og hvornår', en: 'Who and when', de: 'Wer und wann', it: 'Chi e quando', hu: 'Ki és mikor' },
+  sec_contact_info_structured: { da: 'Kontaktinformation', en: 'Contact information', de: 'Kontaktinformationen', it: 'Informazioni di contatto', hu: 'Elérhetőségek' },
+  sec_contact_info_structured_sub: { da: 'Strukturerede kundeoplysninger fra leadet', en: 'Structured customer details from the lead', de: 'Strukturierte Kundendaten aus dem Lead', it: 'Dati cliente strutturati dal lead', hu: 'Strukturált ügyféladatok a leadből' },
   sec_machines:  { da: 'Maskine-interesse', en: 'Machine interest', de: 'Maschineninteresse', it: 'Interesse macchine', hu: 'Gép-érdeklődés' },
   sec_machines_sub:{ da: 'Vælg en eller flere maskiner kunden er interesseret i', en: 'Pick one or more machines the customer is interested in', de: 'Eine oder mehrere Maschinen wählen, an denen der Kunde interessiert ist', it: 'Selezionare una o più macchine di interesse', hu: 'Válassza ki a vevőt érdeklő gépeket' },
   sec_next_act:  { da: 'Næste aktivitet', en: 'Next activity', de: 'Nächste Aktivität', it: 'Prossima attività', hu: 'Következő tevékenység' },
@@ -91,6 +96,12 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_customer_type:{ da: 'Kundetype', en: 'Customer type', de: 'Kundentyp', it: 'Tipo cliente', hu: 'Ügyféltípus' },
   lbl_contact_info:{ da: 'Kontaktinformation', en: 'Contact information', de: 'Kontaktinformationen', it: 'Informazioni di contatto', hu: 'Elérhetőségek' },
   ph_contact_info:{ da: 'Navn, telefon, email, virksomhed…', en: 'Name, phone, email, company…', de: 'Name, Telefon, E-Mail, Firma…', it: 'Nome, telefono, email, azienda…', hu: 'Név, telefon, email, cég…' },
+  lbl_contact_company: { da: 'Firma/CVR', en: 'Company/CVR', de: 'Firma/CVR', it: 'Azienda/CVR', hu: 'Cég/CVR' },
+  lbl_contact_person: { da: 'Kontaktperson', en: 'Contact person', de: 'Kontaktperson', it: 'Referente', hu: 'Kapcsolattartó' },
+  lbl_contact_phone: { da: 'Telefon', en: 'Phone', de: 'Telefon', it: 'Telefono', hu: 'Telefon' },
+  lbl_contact_email: { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
+  lbl_contact_address: { da: 'Adresse', en: 'Address', de: 'Adresse', it: 'Indirizzo', hu: 'Cím' },
+  lbl_contact_zip_city: { da: 'Postnr. og by', en: 'ZIP code and city', de: 'PLZ und Ort', it: 'CAP e città', hu: 'Irányítószám és város' },
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
@@ -156,6 +167,73 @@ function Field({ label, required, children, full }: { label: string; required?: 
     </label>
   );
 }
+
+type StructuredContactInfo = {
+  company: string;
+  contactPerson: string;
+  address: string;
+  zipCity: string;
+  phone: string;
+  email: string;
+  country: string;
+};
+
+function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
+  const info: StructuredContactInfo = {
+    company: '',
+    contactPerson: '',
+    address: '',
+    zipCity: '',
+    phone: '',
+    email: '',
+    country: '',
+  };
+
+  value.split(/\r?\n/).forEach((line) => {
+    const separatorIndex = line.indexOf(':');
+    if (separatorIndex < 0) return;
+    const key = line.slice(0, separatorIndex).trim().toLowerCase();
+    const fieldValue = line.slice(separatorIndex + 1).trim();
+    if (!fieldValue) return;
+
+    if (key.startsWith('firma')) info.company = fieldValue;
+    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
+    else if (key.startsWith('adresse')) info.address = fieldValue;
+    else if (key.startsWith('postnr') || key.includes('zip')) info.zipCity = fieldValue;
+    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
+    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
+    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
+  });
+
+  if (!info.country && value.trim() && fallbackCountry) {
+    info.country = fallbackCountry;
+  }
+
+  return info;
+}
+
+function hasStructuredContactInfo(info: StructuredContactInfo): boolean {
+  return Boolean(
+    info.company ||
+    info.contactPerson ||
+    info.address ||
+    info.zipCity ||
+    info.phone ||
+    info.email ||
+    info.country
+  );
+}
+
+function ContactInfoValue({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-1 text-sm text-gray-900">{value}</div>
+    </div>
+  );
+}
+
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
 const taCls = inputCls + ' min-h-[90px] resize-y';
 
@@ -653,6 +731,11 @@ export default function CrmNewLeadPage() {
       pricedItems: estimate.pricedItems,
     };
   }, [machineTypes]);
+  const structuredContactInfo = useMemo(
+    () => parseStructuredContactInformation(contactInfo, country),
+    [contactInfo, country]
+  );
+  const showStructuredContactInfo = hasStructuredContactInfo(structuredContactInfo);
   const isLeadFormReady = Boolean(
     title.trim()
     && responsibleSellerId
@@ -924,6 +1007,18 @@ export default function CrmNewLeadPage() {
               <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
             </Field>
           </Section>
+
+          {showStructuredContactInfo && (
+            <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
+              <ContactInfoValue label={tt('lbl_contact_company', lang)} value={structuredContactInfo.company} />
+              <ContactInfoValue label={tt('lbl_contact_person', lang)} value={structuredContactInfo.contactPerson} />
+              <ContactInfoValue label={tt('lbl_contact_phone', lang)} value={structuredContactInfo.phone} />
+              <ContactInfoValue label={tt('lbl_contact_email', lang)} value={structuredContactInfo.email} />
+              <ContactInfoValue label={tt('lbl_contact_address', lang)} value={structuredContactInfo.address} />
+              <ContactInfoValue label={tt('lbl_contact_zip_city', lang)} value={structuredContactInfo.zipCity} />
+              <ContactInfoValue label={tt('lbl_country', lang)} value={structuredContactInfo.country} />
+            </Section>
+          )}
 
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
             <div className="md:col-span-2">
