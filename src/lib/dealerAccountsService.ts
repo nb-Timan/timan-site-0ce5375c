@@ -376,6 +376,9 @@ export interface UpdateDealerAccountPatch {
   latitude?: number | null;
   longitude?: number | null;
   google_place_id?: string | null;
+  geocoded_at?: string | null;
+  geocoding_status?: string | null;
+  geocoding_error?: string | null;
 }
 
 /**

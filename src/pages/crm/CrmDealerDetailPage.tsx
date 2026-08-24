@@ -29,6 +29,12 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
+import {
+  buildPendingGeocodingPatch,
+  buildResolvedGeocodingPatch,
+  hasUsableDealerAddress,
+  requestDealerGeocoding,
+} from "@/lib/dealerGeocodingService";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
 import {
@@ -843,6 +849,10 @@ export default function CrmDealerDetailPage() {
           )}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
+          onGeocoded={async () => {
+            const dRes = await fetchDealerAccounts({ includeDeleted: false });
+            setDealers(dRes.rows);
+          }}
         />
       )}
     </CrmLayout>
@@ -1212,11 +1222,13 @@ function EditDealerModal({
   sellers,
   onCancel,
   onSave,
+  onGeocoded,
 }: {
   dealer: DealerAccount;
   sellers: BackendUser[];
   onCancel: () => void;
   onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
+  onGeocoded?: () => void | Promise<void>;
 }) {
   const initialSeller = sellers.find((s) =>
     (dealer.assigned_seller_email && s.email.toLowerCase() === dealer.assigned_seller_email.toLowerCase()) ||
@@ -1285,6 +1297,10 @@ function EditDealerModal({
     setGeo({ latitude: r.latitude, longitude: r.longitude, google_place_id: r.google_place_id });
   }
 
+  function clearGeo() {
+    setGeo({ latitude: null, longitude: null, google_place_id: null });
+  }
+
   const fields: Array<{ label: string; k: keyof typeof form; type?: string }> = [
     { label: "Firmanavn", k: "company_name" },
     { label: "Kontonummer", k: "account_number" },
@@ -1309,7 +1325,10 @@ function EditDealerModal({
             <span className="block text-xs font-bold text-slate-600 mb-1">Adresse</span>
             <AddressAutocomplete
               value={form.address}
-              onChange={(v) => setForm((f) => ({ ...f, address: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, address: v }));
+                clearGeo();
+              }}
               onResolve={applyResolved}
               onGeocodeResolved={applyResolved}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -1329,7 +1348,10 @@ function EditDealerModal({
               <input
                 type={f.type || "text"}
                 value={form[f.k]}
-                onChange={upd(f.k)}
+                onChange={(e) => {
+                  upd(f.k)(e);
+                  if (f.k === "postal_code" || f.k === "city" || f.k === "country") clearGeo();
+                }}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
             </label>
@@ -1406,19 +1428,27 @@ function EditDealerModal({
                   customer_type: trim(form.customer_type_label),
                   customer_type_label: trim(form.customer_type_label),
                 };
-                // Persist Google geo only when present (selected from suggestion).
-                // If the user typed manually and changed the address, clear stale
-                // coords so the backend manual geocode panel can refresh them.
-                if (geo.google_place_id) {
-                  patch.latitude = geo.latitude;
-                  patch.longitude = geo.longitude;
-                  patch.google_place_id = geo.google_place_id;
+                const addressParts = {
+                  address: form.address,
+                  postal_code: form.postal_code,
+                  city: form.city,
+                  country: form.country,
+                };
+                const resolvedPatch = buildResolvedGeocodingPatch(geo);
+                if (resolvedPatch) {
+                  Object.assign(patch, resolvedPatch);
                 } else if (addressChanged) {
-                  patch.latitude = null;
-                  patch.longitude = null;
-                  patch.google_place_id = null;
+                  Object.assign(patch, buildPendingGeocodingPatch(hasUsableDealerAddress(addressParts)));
                 }
-                await onSave(patch);
+                const saved = await onSave(patch);
+                if (saved.ok && addressChanged && !resolvedPatch && hasUsableDealerAddress(addressParts)) {
+                  const geocoded = await requestDealerGeocoding(dealer.id);
+                  if (!geocoded.ok) {
+                    toast.error(`Forhandleren blev gemt, men geokodning fejlede: ${geocoded.error}`);
+                  } else {
+                    await onGeocoded?.();
+                  }
+                }
               } finally {
                 setSaving(false);
               }

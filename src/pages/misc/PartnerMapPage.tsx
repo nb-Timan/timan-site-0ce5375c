@@ -41,6 +41,8 @@ interface Partner {
   sellerName: string | null;
   sellerEmail: string | null;
   coords: [number, number] | null;
+  geocodingStatus: string | null;
+  geocodingError: string | null;
   users: number;
   quotes: number;
   orders: number;
@@ -1114,6 +1116,8 @@ export default function PartnerMapPage() {
         sellerName: d.assigned_seller_name,
         sellerEmail: d.assigned_seller_email,
         coords: hasCoords ? [d.latitude as number, d.longitude as number] : null,
+        geocodingStatus: d.geocoding_status ?? null,
+        geocodingError: d.geocoding_error ?? null,
         users: st?.user_count ?? 0,
         quotes: st?.quote_count ?? 0,
         orders: st?.order_count ?? 0,
@@ -1803,7 +1807,17 @@ export default function PartnerMapPage() {
               {!selected.coords && (
                 <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <div>Denne forhandler mangler koordinater og kan derfor ikke vises som prik på kortet.</div>
+                  <div>
+                    <div>Denne forhandler mangler koordinater og kan derfor ikke vises som prik på kortet.</div>
+                    <div className="mt-1 text-amber-700">
+                      {selected.geocodingStatus === "pending" && "Adressen afventer geokodning."}
+                      {selected.geocodingStatus === "not_found" && "Geokodning fandt ikke adressen."}
+                      {selected.geocodingStatus === "error" && "Geokodning fejlede."}
+                      {selected.geocodingStatus === "skipped" && "Geokodning blev sprunget over, fordi adressen mangler."}
+                      {!selected.geocodingStatus && "Geokodning er ikke kørt endnu."}
+                      {selected.geocodingError ? ` ${selected.geocodingError}` : ""}
+                    </div>
+                  </div>
                 </div>
               )}
 

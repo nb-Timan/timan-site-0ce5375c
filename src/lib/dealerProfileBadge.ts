@@ -112,6 +112,12 @@ function missingCriticalFields(dealer: DealerAccount): string[] {
   if (!isFilled(dealer.postal_code)) missing.push("Postnummer");
   if (!isFilled(dealer.city)) missing.push("By");
   if (!isFilled(dealer.country)) missing.push("Land");
+  const hasAddressForGeocoding =
+    isFilled(dealer.address_line_1) &&
+    (isFilled(dealer.postal_code) || isFilled(dealer.city)) &&
+    isFilled(dealer.country);
+  const hasCoords = typeof dealer.latitude === "number" && typeof dealer.longitude === "number";
+  if (hasAddressForGeocoding && !hasCoords) missing.push("Koordinater");
   if (!isFilled(dealer.phone) && !isFilled(dealer.email)) {
     missing.push("Telefon eller e-mail");
   }

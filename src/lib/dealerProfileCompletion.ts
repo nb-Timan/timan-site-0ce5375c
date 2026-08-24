@@ -25,6 +25,10 @@ function nonEmpty(v: unknown): boolean {
   return typeof v === "string" && v.trim().length > 0;
 }
 
+function hasCoordinates(d: DealerAccount | null): boolean {
+  return typeof d?.latitude === "number" && typeof d?.longitude === "number";
+}
+
 /** Required field map per section. Optional fields are excluded from required-count. */
 function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
   return {
@@ -38,6 +42,7 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
       d?.director_name ?? "",
       d?.phone ?? "",
       d?.email ?? "",
+      hasCoordinates(d) ? "koordinater" : "",
     ],
     finance: [
       d?.finance_contact_name ?? "",

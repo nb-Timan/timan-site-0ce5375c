@@ -9,7 +9,7 @@
 // - Gemmer latitude/longitude, geocoded_at, geocoding_status, geocoding_error.
 // - Sletter ALDRIG data. Rører ALDRIG CRM/quotes/orders/users.
 //
-// Body (optional): { limit?: number, retryFailed?: boolean }
+// Body (optional): { limit?: number, retryFailed?: boolean, dealerId?: string }
 // Returns: { found, geocoded, skipped, failed, errors: [...] }
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -90,10 +90,13 @@ Deno.serve(async (req) => {
       return json({ error: "Kun Timan Backend må køre geocoding." }, 403);
     }
 
-    let body: { limit?: number; retryFailed?: boolean } = {};
+    let body: { limit?: number; retryFailed?: boolean; dealerId?: string } = {};
     try { body = await req.json(); } catch { /* empty body ok */ }
     const limit = Math.max(1, Math.min(500, Number(body.limit ?? 200)));
     const retryFailed = body.retryFailed === true;
+    const dealerId = typeof body.dealerId === "string" && body.dealerId.trim()
+      ? body.dealerId.trim()
+      : null;
 
     // Find rows that need geocoding.
     let query = admin
@@ -102,7 +105,10 @@ Deno.serve(async (req) => {
       .or("is_deleted.is.null,is_deleted.eq.false")
       .is("latitude", null)
       .limit(limit);
-    if (!retryFailed) {
+    if (dealerId) {
+      query = query.eq("id", dealerId).limit(1);
+    }
+    if (!dealerId && !retryFailed) {
       // Skip rows already attempted and failed unless caller asks for retry.
       query = query.or("geocoding_status.is.null,geocoding_status.eq.pending,geocoding_status.eq.ok");
     }

@@ -217,6 +217,18 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const set = <K extends keyof DealerAccount>(key: K, value: DealerAccount[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
+  const setAddressPart = <K extends "address_line_1" | "postal_code" | "city" | "country">(key: K, value: DealerAccount[K]) =>
+    setDraft((d) => ({
+      ...d,
+      [key]: value,
+      latitude: null,
+      longitude: null,
+      google_place_id: null,
+      geocoded_at: null,
+      geocoding_status: "pending",
+      geocoding_error: null,
+    }));
+
   const saveSection = async (section: SectionKey, patch: UpdateDealerAccountPatch) => {
     if (!canEdit) return;
     setSavingSection(section);
@@ -298,6 +310,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           phone: draft.phone, email: draft.email,
           latitude: draft.latitude, longitude: draft.longitude,
           google_place_id: draft.google_place_id,
+          geocoded_at: draft.geocoded_at,
+          geocoding_status: draft.geocoding_status,
+          geocoding_error: draft.geocoding_error,
         })}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -318,6 +333,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
                 latitude: null,
                 longitude: null,
                 google_place_id: null,
+                geocoded_at: null,
+                geocoding_status: "pending",
+                geocoding_error: null,
               }));
             }}
             onResolve={(r) => {
@@ -330,15 +348,24 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
                 latitude: r.latitude ?? d.latitude,
                 longitude: r.longitude ?? d.longitude,
                 google_place_id: r.google_place_id ?? d.google_place_id,
+                geocoded_at: typeof r.latitude === "number" && typeof r.longitude === "number"
+                  ? new Date().toISOString()
+                  : d.geocoded_at,
+                geocoding_status: typeof r.latitude === "number" && typeof r.longitude === "number"
+                  ? "ok"
+                  : d.geocoding_status,
+                geocoding_error: typeof r.latitude === "number" && typeof r.longitude === "number"
+                  ? null
+                  : d.geocoding_error,
               }));
             }}
           />
           <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
           <div className="grid grid-cols-2 gap-3">
-            <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => set("postal_code", v)} disabled={!canEdit} required />
-            <Field id="city" label={t("city")} value={draft.city} onChange={(v) => set("city", v)} disabled={!canEdit} required />
+            <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => setAddressPart("postal_code", v)} disabled={!canEdit} required />
+            <Field id="city" label={t("city")} value={draft.city} onChange={(v) => setAddressPart("city", v)} disabled={!canEdit} required />
           </div>
-          <Field id="country" label={t("country")} value={draft.country} onChange={(v) => set("country", v)} disabled={!canEdit} required />
+          <Field id="country" label={t("country")} value={draft.country} onChange={(v) => setAddressPart("country", v)} disabled={!canEdit} required />
           <Field id="vat_number" label={t("vatNumber")} value={draft.vat_number} onChange={(v) => set("vat_number", v)} disabled={!canEdit} required />
           <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
           <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
