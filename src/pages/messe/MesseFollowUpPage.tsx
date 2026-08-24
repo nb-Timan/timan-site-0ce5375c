@@ -5,7 +5,7 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { toast } from 'sonner';
-import { createLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { createLead, formatLeadNo, getLeadAttachmentSignedUrl, updateLead, uploadLeadAttachments } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { loadSellerDirectory, type SellerDirectoryEntry } from '@/lib/sellerDirectory';
@@ -14,16 +14,13 @@ import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
-import type { CrmLead } from '@/lib/crmLeadsService';
+import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
-type MesseMailAttachment = {
-  name: string;
-  size: number;
-  type: string;
-  data_base64: string;
+type MesseMailAttachment = CrmLeadAttachment & {
+  signed_url: string | null;
 };
 
 const PRODUCTS = [
@@ -192,31 +189,6 @@ function countryMatches(value: string | null | undefined, selectedCountry: strin
   if (selected === 'germany') return ['germany', 'deutschland', 'tyskland', 'de'].includes(current);
   if (selected === 'denmark') return ['denmark', 'danmark', 'dk'].includes(current);
   return current === selected;
-}
-
-function fileSummary(files: File[]): { name: string; size: number }[] {
-  return files.map((file) => ({ name: file.name, size: file.size }));
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      resolve(result.includes(',') ? result.split(',')[1] : result);
-    };
-    reader.onerror = () => reject(reader.error || new Error(`Kunne ikke læse filen ${file.name}`));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function filesForMail(files: File[]): Promise<MesseMailAttachment[]> {
-  return Promise.all(files.map(async (file) => ({
-    name: file.name,
-    size: file.size,
-    type: file.type || 'application/octet-stream',
-    data_base64: await fileToBase64(file),
-  })));
 }
 
 function RequiredMark() {
@@ -572,15 +544,23 @@ export default function MesseFollowUpPage() {
         lost_competitor: null,
         lost_reason: null,
         lost_comment: null,
-        attachments: fileSummary(businessCardFiles),
+        attachments: [],
         status: 'open',
         move_to_working_qty: 0,
         incomplete_from_configurator: false,
       }, { requireRemote: true });
 
+      const leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
+      if (leadAttachments.length > 0) {
+        await updateLead(lead.id, { attachments: leadAttachments });
+      }
+
       setCreatedLead({ id: lead.id, leadNo: lead.lead_no });
       try {
-        const mailAttachmentFiles = await filesForMail(businessCardFiles);
+        const mailAttachmentFiles: MesseMailAttachment[] = await Promise.all(leadAttachments.map(async (attachment) => ({
+          ...attachment,
+          signed_url: await getLeadAttachmentSignedUrl(attachment, 60 * 60 * 24 * 7),
+        })));
         await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
@@ -612,7 +592,8 @@ export default function MesseFollowUpPage() {
           wants_demo: wantsDemo,
           responsible_seller_name: responsibleSeller.full_name || responsibleSeller.initials,
           notes,
-          attachments: fileSummary(businessCardFiles),
+          attachments: leadAttachments,
+          attachment_links: mailAttachmentFiles,
           attachment_files: mailAttachmentFiles,
         });
         toast.success('Messe lead gemt og mail sendt');

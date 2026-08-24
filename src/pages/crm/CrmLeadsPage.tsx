@@ -10,9 +10,10 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead, deleteLead, deleteDemoLead,
-  CrmLead, CrmDemoLead,
+  CrmLead, CrmDemoLead, type CrmLeadAttachmentPreview,
   formatLeadNo, formatDemoNo,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  getLeadAttachmentSignedUrls, getLeadImageAttachments,
 } from '@/lib/crmLeadsService';
 import {
   effectiveLeadStatus,
@@ -23,7 +24,7 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText } from 'lucide-react';
+import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -135,6 +136,7 @@ interface UnifiedLead {
   probability: number | null;
   value: number | null;
   detail_href: string | null;
+  attachments?: CrmLeadAttachment[];
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
@@ -217,6 +219,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     probability: effectiveLeadProbability(l),
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
+    attachments: l.attachments || [],
     incomplete: l.incomplete_from_configurator === true,
   };
 }
@@ -241,6 +244,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
     probability: null,
     value: d.estimated_value,
     detail_href: `/portal/crm/demo-leads/${d.id}`,
+    attachments: d.attachments || [],
   };
 }
 
@@ -277,6 +281,7 @@ export default function CrmLeadsPage() {
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
 
   useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
@@ -544,6 +549,7 @@ export default function CrmLeadsPage() {
               <tbody className="divide-y divide-gray-100">
                 {visible.map(r => {
                   const clickable = !!r.detail_href;
+                  const imageAttachments = getLeadImageAttachments(r.attachments);
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
@@ -564,6 +570,24 @@ export default function CrmLeadsPage() {
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
                               {({ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead' } as Record<Language, string>)[lang]}
                             </span>
+                          )}
+                          {imageAttachments.length > 0 && (
+                            <button
+                              type="button"
+                              title="Se vedhæftede billeder"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const previews = await getLeadAttachmentSignedUrls(imageAttachments);
+                                if (previews.length === 0) {
+                                  toast.error('Kunne ikke åbne vedhæftede billeder');
+                                  return;
+                                }
+                                setImagePreview({ title: r.title, images: previews });
+                              }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" />
+                            </button>
                           )}
                         </div>
                         {r.customer && r.customer !== r.title && (
@@ -662,6 +686,39 @@ export default function CrmLeadsPage() {
           </div>
         )}
       </div>
+
+      {imagePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setImagePreview(null)}>
+          <div
+            className="w-full max-w-3xl max-h-[88vh] overflow-auto rounded-2xl bg-white p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Vedhæftede billeder</h2>
+                <p className="text-xs text-slate-500 truncate">{imagePreview.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImagePreview(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className={cn('grid gap-3', imagePreview.images.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1')}>
+              {imagePreview.images.map((image, index) => {
+                return (
+                  <a key={`${image.name}-${index}`} href={image.signed_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    <img src={image.signed_url} alt={image.name} className="max-h-[70vh] w-full object-contain" />
+                    <div className="truncate px-3 py-2 text-xs font-medium text-slate-700">{image.name}</div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <WonLostDialog
         lead={closeTarget}

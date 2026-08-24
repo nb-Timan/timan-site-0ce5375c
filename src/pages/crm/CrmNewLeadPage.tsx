@@ -11,6 +11,7 @@ import {
   createLead, updateLead, getLead, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
+  getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment,
 } from '@/lib/crmLeadsService';
 import {
   nextActivityToProbability,
@@ -23,7 +24,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -500,7 +501,9 @@ export default function CrmNewLeadPage() {
   const [lostReason, setLostReason] = useState<string>('');
   const [lostComment, setLostComment] = useState('');
 
-  const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
+  const [files, setFiles] = useState<CrmLeadAttachment[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [attachmentPreviewUrls, setAttachmentPreviewUrls] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   // Phase 33 — configurator quotes linked to this lead (edit mode only).
   const [linkedQuotes, setLinkedQuotes] = useState<CrmLeadQuoteRow[]>([]);
@@ -676,6 +679,21 @@ export default function CrmNewLeadPage() {
     setMachineTypes(next);
   }
 
+  useEffect(() => {
+    let cancelled = false;
+    const images = getLeadImageAttachments(files);
+    if (images.length === 0) {
+      setAttachmentPreviewUrls({});
+      return;
+    }
+    (async () => {
+      const previews = await getLeadAttachmentSignedUrls(images);
+      if (cancelled) return;
+      setAttachmentPreviewUrls(Object.fromEntries(previews.map((attachment) => [attachment.storage_path, attachment.signed_url])));
+    })();
+    return () => { cancelled = true; };
+  }, [files]);
+
   function handleTradeFairChoiceChange(value: string) {
     setTradeFairChoice(value);
     if (value === 'Other') {
@@ -754,12 +772,24 @@ export default function CrmNewLeadPage() {
         // save here means the lead is no longer "incomplete from configurator".
         incomplete_from_configurator: false,
       };
+      let savedLeadId = editId || '';
       if (isEdit && editId) {
         await updateLead(editId, payload);
+        savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {
-        await createLead(payload);
+        const created = await createLead(payload, { requireRemote: pendingFiles.length > 0 });
+        savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
+      }
+      if (pendingFiles.length > 0) {
+        const uploadedAttachments = await uploadLeadAttachments(savedLeadId, pendingFiles);
+        if (uploadedAttachments.length > 0) {
+          const nextAttachments = [...files, ...uploadedAttachments];
+          await updateLead(savedLeadId, { attachments: nextAttachments });
+          setFiles(nextAttachments);
+          setPendingFiles([]);
+        }
       }
       navigate('/portal/crm');
     } catch (err) {
@@ -1117,16 +1147,60 @@ export default function CrmNewLeadPage() {
                 <Upload className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-600">{tt('pick_files', lang)}</span>
                 <input type="file" multiple className="hidden" onChange={e => {
-                  const list = Array.from(e.target.files || []).map(f => ({ name: f.name, size: f.size }));
-                  setFiles(prev => [...prev, ...list]);
+                  const list = Array.from(e.target.files || []);
+                  setPendingFiles(prev => [...prev, ...list]);
+                  e.currentTarget.value = '';
                 }} />
               </label>
-              {files.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {files.map((f, i) => (
-                    <li key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="truncate text-gray-700">{f.name}</span>
-                      <button type="button" onClick={()=>setFiles(files.filter((_,j)=>j!==i))} className="text-gray-400 hover:text-rose-600">
+              {(files.length > 0 || pendingFiles.length > 0) && (
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {files.map((f, i) => {
+                    const viewUrl = attachmentPreviewUrls[f.storage_path];
+                    const isImage = !!viewUrl;
+                    return (
+                      <li key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-3 text-xs bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white flex items-center justify-center">
+                          {isImage ? (
+                            <img src={viewUrl} alt={f.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-gray-700">{f.name}</div>
+                          {viewUrl && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const signedUrl = await getLeadAttachmentSignedUrl(f);
+                                if (!signedUrl) {
+                                  toast.error('Kunne ikke åbne filen');
+                                  return;
+                                }
+                                window.open(signedUrl, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline"
+                            >
+                              Åbn <ExternalLink className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <button type="button" onClick={()=>setFiles(files.filter((_,j)=>j!==i))} className="shrink-0 text-gray-400 hover:text-rose-600">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {pendingFiles.map((f, i) => (
+                    <li key={`pending-${f.name}-${f.size}-${i}`} className="flex items-center gap-3 text-xs bg-amber-50 rounded-lg px-3 py-2">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-white flex items-center justify-center">
+                        <ImageIcon className="h-4 w-4 text-amber-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-gray-700">{f.name}</div>
+                        <div className="mt-1 text-[11px] text-amber-700">Uploades når leadet gemmes</div>
+                      </div>
+                      <button type="button" onClick={()=>setPendingFiles(pendingFiles.filter((_,j)=>j!==i))} className="shrink-0 text-gray-400 hover:text-rose-600">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </li>

@@ -97,6 +97,102 @@ export const DEMO_RESULT_STATUS = [
 
 // ---------- Types ----------
 
+export type CrmLeadAttachment = {
+  name: string;
+  size: number;
+  type?: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  uploaded_at?: string | null;
+};
+
+export type CrmLeadAttachmentPreview = CrmLeadAttachment & {
+  signed_url: string;
+};
+
+export const CRM_LEAD_ATTACHMENTS_BUCKET = "crm-lead-attachments";
+
+function sanitizeAttachmentFilename(name: string): string {
+  const fallback = "attachment";
+  const safe = (name || fallback)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+  return safe || fallback;
+}
+
+function storageFileId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch { /* */ }
+  return uuid();
+}
+
+export function isLeadImageAttachment(attachment: CrmLeadAttachment): boolean {
+  return !!attachment.storage_path && (
+    !!attachment.type?.startsWith("image/")
+    || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i.test(attachment.name)
+  );
+}
+
+export async function uploadLeadAttachments(leadId: string, files: File[]): Promise<CrmLeadAttachment[]> {
+  if (!leadId || files.length === 0) return [];
+  const uploaded: CrmLeadAttachment[] = [];
+
+  for (const file of files) {
+    const path = `${leadId}/${storageFileId()}-${sanitizeAttachmentFilename(file.name)}`;
+    const { error } = await supabase.storage
+      .from(CRM_LEAD_ATTACHMENTS_BUCKET)
+      .upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+    if (error) throw error;
+    uploaded.push({
+      name: file.name,
+      size: file.size,
+      type: file.type || "application/octet-stream",
+      storage_bucket: CRM_LEAD_ATTACHMENTS_BUCKET,
+      storage_path: path,
+      uploaded_at: new Date().toISOString(),
+    });
+  }
+
+  return uploaded;
+}
+
+export async function getLeadAttachmentSignedUrl(
+  attachment: CrmLeadAttachment,
+  expiresInSeconds = 60 * 60,
+): Promise<string | null> {
+  if (!attachment.storage_path) return null;
+  const bucket = attachment.storage_bucket || CRM_LEAD_ATTACHMENTS_BUCKET;
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(attachment.storage_path, expiresInSeconds);
+  if (error) return null;
+  return data?.signedUrl || null;
+}
+
+export async function getLeadAttachmentSignedUrls(
+  attachments: CrmLeadAttachment[] | null | undefined,
+  expiresInSeconds = 60 * 60,
+): Promise<CrmLeadAttachmentPreview[]> {
+  const results = await Promise.all((attachments || []).map(async (attachment) => {
+    const signedUrl = await getLeadAttachmentSignedUrl(attachment, expiresInSeconds);
+    return signedUrl ? { ...attachment, signed_url: signedUrl } : null;
+  }));
+  return results.filter(Boolean) as CrmLeadAttachmentPreview[];
+}
+
+export function getLeadImageAttachments(attachments: CrmLeadAttachment[] | null | undefined): CrmLeadAttachment[] {
+  return (attachments || []).filter(isLeadImageAttachment);
+}
+
 export interface CrmLead {
   id: string;
   /** Stable, human-readable lead number (1000+) → displayed as L-1000.
@@ -125,7 +221,7 @@ export interface CrmLead {
   lost_competitor: string | null;
   lost_reason: string | null;
   lost_comment: string | null;
-  attachments: { name: string; size: number }[];
+  attachments: CrmLeadAttachment[];
   status: string | null;
   /** Quantity (stk.) the user has explicitly moved into Arbejdsbudget for
    *  this lead. Independent from estimated_value — only this field affects
@@ -171,7 +267,7 @@ export interface CrmDemoLead {
   competitor_name: string | null;
   notes_after_demo: string | null;
   result_status: string | null;
-  attachments: { name: string; size: number }[];
+  attachments: CrmLeadAttachment[];
   created_at: string;
   source?: "user" | "seed";
   /** Phase 38 — when this demo lead was converted from a CRM lead, points
@@ -477,6 +573,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       lost_competitor: merged.lost_competitor,
       lost_reason: merged.lost_reason,
       lost_comment: merged.lost_comment,
+      attachments: merged.attachments ?? [],
       status: merged.status,
       move_to_working_qty: merged.move_to_working_qty ?? 0,
       incomplete_from_configurator: merged.incomplete_from_configurator ?? false,
