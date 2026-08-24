@@ -19,7 +19,7 @@ as $$
     select
       au.id::text as app_user_id,
       lower(coalesce(au.email, '')) as email,
-      coalesce(au.portal_role, '') as portal_role,
+      coalesce(au.portal_role::text, '') as portal_role,
       coalesce(au.permissions, '{}'::jsonb) as permissions
     from public.app_users au
     where au.auth_user_id = auth.uid()
