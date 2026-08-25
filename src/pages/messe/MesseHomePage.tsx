@@ -47,6 +47,7 @@ const TILES: Tile[] = [
 const QUICK_ACTIONS = [
   { to: '/messe/resources/driftberegner', icon: Gauge, label: 'mh_drift' },
   { to: '/messe/resources/co2', icon: Leaf, label: 'mh_co2' },
+  { to: '/messe/timan-2620-afproevning', icon: ClipboardList, label: 'Afprøvning af 2620', literalLabel: true },
   { to: '/messe/follow-up', icon: ClipboardList, label: 'Messeformular', literalLabel: true },
 ];
 
@@ -157,7 +158,7 @@ export default function MesseHomePage() {
 
         <section className="mt-10">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">{t('mh_quick_actions', uiLanguage)}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl">
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (

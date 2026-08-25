@@ -19,6 +19,7 @@ import {
   Building2, Link2, Map, MapPin,
   Database, BarChart3, Upload, LineChart,
   Mail, ListChecks, Activity, FileSearch, Sparkles, QrCode, Newspaper, LucideIcon,
+  ClipboardList,
 } from "lucide-react";
 
 import PlaceholderCard from "@/components/portal/PlaceholderCard";
@@ -65,6 +66,7 @@ function buildGroups(): Group[] {
       description: "Import, eksport, SharePoint sync, warranty sync, ERP og geocoding.",
       items: [
         { title: "Data & Integrationer", icon: Database, to: "/portal/backend/data", description: "Samlet kontrolcenter for alle imports, eksports og syncs — med status og historik." },
+        { title: "Afprøvning af 2620", icon: ClipboardList, to: "/portal/backend/timan-2620-afproevning", description: "Se indsendelser fra det selvstændige 2620-afprøvningsflow." },
       ],
     },
     {

@@ -30,6 +30,7 @@ import VideoCategoryPage from "./pages/VideoCategoryPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import DriftberegnerPage from "./pages/DriftberegnerPage";
 import Co2CalculatorPage from "./pages/Co2CalculatorPage";
+import Timan2620TrialPage from "./pages/Timan2620TrialPage";
 import ContractsPage from "./pages/contracts/ContractsPage";
 import ClaimsPage from "./pages/ClaimsPage";
 import ClaimDetailPage from "./pages/ClaimDetailPage";
@@ -161,6 +162,7 @@ import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
 import BackendPartnerRelationsPage from "./pages/backend/BackendPartnerRelationsPage";
 import BackendMesseSettingsPage from "./pages/backend/BackendMesseSettingsPage";
 import BackendNewsPage from "./pages/backend/BackendNewsPage";
+import Backend2620TrialsPage from "./pages/backend/Backend2620TrialsPage";
 
 import MesseHomePage from "./pages/messe/MesseHomePage";
 import MesseVideoPage from "./pages/messe/MesseVideoPage";
@@ -202,6 +204,7 @@ const App = () => (
               <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-3330" title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={17} /></MesseRouteGuard>} />
               <Route path="/messe/resources/driftberegner" element={<MesseRouteGuard><DriftberegnerPage /></MesseRouteGuard>} />
               <Route path="/messe/resources/co2" element={<MesseRouteGuard><Co2CalculatorPage /></MesseRouteGuard>} />
+              <Route path="/messe/timan-2620-afproevning" element={<MesseRouteGuard><Timan2620TrialPage variant="messe" /></MesseRouteGuard>} />
 
 
               {/* Portal is the new landing page after login */}
@@ -240,6 +243,7 @@ const App = () => (
               <Route path="/portal/resources" element={<ResourcesPage />} />
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
+              <Route path="/portal/timan-2620-afproevning" element={<Timan2620TrialPage />} />
               <Route path="/portal/contracts" element={<ContractsPage />} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
               {/* Salg & Marketing > Diverse > Formularer */}
@@ -293,6 +297,7 @@ const App = () => (
               <Route path="/portal/backend/news" element={<BackendNewsPage />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
+              <Route path="/portal/backend/timan-2620-afproevning" element={<Backend2620TrialsPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<PortalLockGuard><ConfiguratorPage /></PortalLockGuard>} />
