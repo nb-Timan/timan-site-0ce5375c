@@ -9,7 +9,7 @@ import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createDemoLead, getLead, formatLeadNo,
-  DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS,
+  DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS, type CrmLeadAttachment,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
