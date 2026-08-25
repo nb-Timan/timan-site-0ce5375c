@@ -993,7 +993,7 @@ export default function PartnerMapPage() {
     return (d.initials || '').toUpperCase() || null;
   }, [sellerDir, effectiveUser?.email, appUser]);
   const [search, setSearch] = useState('');
-  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','demo_location']));
+  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   // Phase 60 — successor filter. Default: kun aktive forhandlere på kortet.
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
