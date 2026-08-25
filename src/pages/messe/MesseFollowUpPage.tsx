@@ -521,9 +521,9 @@ export default function MesseFollowUpPage() {
   );
 
   function validate(): boolean {
-    if (countryQuickChoice === 'other' && !clean(specificCountry)) { toast.error('Vaelg specifikt land'); return false; }
+    if (countryQuickChoice === 'other' && !clean(specificCountry)) { toast.error('Vælg specifikt land'); return false; }
     if (!leadType) { toast.error('Vælg forhandler eller kunde'); return false; }
-    if ((products.includes('Equipment') || products.includes('Loader line / Tractor Equipment')) && equipmentItems.length === 0) { toast.error('Vaelg mindst et redskab'); return false; }
+    if ((products.includes('Equipment') || products.includes('Loader line / Tractor Equipment')) && equipmentItems.length === 0) { toast.error('Vælg mindst et redskab'); return false; }
     if (products.length === 0) { toast.error('Vælg mindst ét produkt'); return false; }
     if (!wantsDemo) { toast.error('Vælg om kunden ønsker demonstration'); return false; }
     if (!responsibleSeller) { toast.error('Vælg Timan sælger'); return false; }

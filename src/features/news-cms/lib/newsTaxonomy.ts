@@ -29,29 +29,29 @@ const label = (da: string, en = da, de = en, it = en, hu = en, sv = en, fr = en,
 export const NEWS_TOPIC_UI_TEXT = {
   panelTitle: label('Nyhedsfilter', 'News filter', 'News filter', 'Filtro notizie', 'Hirszuro', 'Nyhetsfilter', 'Filtre actualites', 'Filtr aktualnosci', 'Filtr novinek'),
   panelDescription: label(
-    'Vaelges til filtrering i Messe og nyhedsoversigten. Gaelder for alle sprog.',
+    'Vælges til filtrering i Messe og nyhedsoversigten. Gælder for alle sprog.',
     'Used for filtering in Exhibition and the news overview. Applies to all languages.',
-    'Wird zum Filtern in Messe und in der News-Uebersicht verwendet. Gilt fuer alle Sprachen.',
+    'Wird zum Filtern in Messe und in der News-Übersicht verwendet. Gilt für alle Sprachen.',
     'Usato per filtrare in Fiera e nella panoramica notizie. Vale per tutte le lingue.',
-    'A kiallitasban es a hirek attekinteseben hasznalt szures. Minden nyelvre ervenyes.',
-    'Anvands for filtrering i Messa och nyhetsoverikten. Galler alla sprak.',
-    'Utilise pour filtrer dans Salon et dans la vue des actualites. Valable pour toutes les langues.',
-    'Uzywane do filtrowania w Targach i przegladzie aktualnosci. Dotyczy wszystkich jezykow.',
-    'Pouziva se k filtrovani ve Vystave a prehledu novinek. Plati pro vsechny jazyky.',
+    'A kiállításban és a hírek áttekintésében használt szűrés. Minden nyelvre érvényes.',
+    'Används för filtrering i Mässa och nyhetsöversikten. Gäller alla språk.',
+    'Utilisé pour filtrer dans Salon et dans la vue des actualités. Valable pour toutes les langues.',
+    'Używane do filtrowania w Targach i przeglądzie aktualności. Dotyczy wszystkich języków.',
+    'Používá se k filtrování ve Výstavě a přehledu novinek. Platí pro všechny jazyky.',
   ),
-  machineLabel: label('Maskine', 'Machine', 'Maschine', 'Macchina', 'Gep', 'Maskin', 'Machine', 'Maszyna', 'Stroj'),
-  attachmentLabel: label('Redskab', 'Attachment', 'Anbaugeraet', 'Attrezzo', 'Eszkoz', 'Redskap', 'Outil', 'Osprzet', 'Prislusenstvi'),
-  noAttachmentLabel: label('Ingen redskab', 'No attachment', 'Kein Anbaugeraet', 'Nessun attrezzo', 'Nincs eszkoz', 'Inget redskap', 'Aucun outil', 'Brak osprzetu', 'Zadne prislusenstvi'),
-  machineFilterPlaceholder: label('Vaelg maskine', 'Select machine', 'Maschine waehlen', 'Scegli macchina', 'Valassz gepet', 'Valj maskin', 'Choisir machine', 'Wybierz maszyne', 'Vyberte stroj'),
-  attachmentFilterPlaceholder: label('Vaelg redskab', 'Select attachment', 'Anbaugeraet waehlen', 'Scegli attrezzo', 'Valassz eszkozt', 'Valj redskap', 'Choisir outil', 'Wybierz osprzet', 'Vyberte prislusenstvi'),
-  resetFilterLabel: label('Nulstil', 'Reset', 'Zuruecksetzen', 'Reimposta', 'Visszaallitas', 'Nollstall', 'Reinitialiser', 'Resetuj', 'Resetovat'),
-  topicColumn: label('Maskine / redskab', 'Machine / attachment', 'Maschine / Anbaugeraet', 'Macchina / attrezzo', 'Gep / eszkoz', 'Maskin / redskap', 'Machine / outil', 'Maszyna / osprzet', 'Stroj / prislusenstvi'),
+  machineLabel: label('Maskine', 'Machine', 'Maschine', 'Macchina', 'Gép', 'Maskin', 'Machine', 'Maszyna', 'Stroj'),
+  attachmentLabel: label('Redskab', 'Attachment', 'Anbaugerät', 'Attrezzo', 'Eszköz', 'Redskap', 'Outil', 'Osprzęt', 'Příslušenství'),
+  noAttachmentLabel: label('Ingen redskab', 'No attachment', 'Kein Anbaugerät', 'Nessun attrezzo', 'Nincs eszköz', 'Inget redskap', 'Aucun outil', 'Brak osprzętu', 'Žádné příslušenství'),
+  machineFilterPlaceholder: label('Vælg maskine', 'Select machine', 'Maschine wählen', 'Scegli macchina', 'Válassz gépet', 'Välj maskin', 'Choisir machine', 'Wybierz maszynę', 'Vyberte stroj'),
+  attachmentFilterPlaceholder: label('Vælg redskab', 'Select attachment', 'Anbaugerät wählen', 'Scegli attrezzo', 'Válassz eszközt', 'Välj redskap', 'Choisir outil', 'Wybierz osprzęt', 'Vyberte příslušenství'),
+  resetFilterLabel: label('Nulstil', 'Reset', 'Zurücksetzen', 'Reimposta', 'Visszaállítás', 'Nollställ', 'Réinitialiser', 'Resetuj', 'Resetovat'),
+  topicColumn: label('Maskine / redskab', 'Machine / attachment', 'Maschine / Anbaugerät', 'Macchina / attrezzo', 'Gép / eszköz', 'Maskin / redskap', 'Machine / outil', 'Maszyna / osprzęt', 'Stroj / příslušenství'),
 };
 
 export const NEWS_TOPIC_TYPE_OPTIONS: Array<{ value: NewsTopicType; labels: Record<PortalUiLanguage, string> }> = [
   { value: 'machine', labels: NEWS_TOPIC_UI_TEXT.machineLabel },
   { value: 'attachment', labels: NEWS_TOPIC_UI_TEXT.attachmentLabel },
-  { value: 'misc', labels: label('Diverse', 'Miscellaneous', 'Verschiedenes', 'Varie', 'Egyeb', 'Diverse', 'Divers', 'Rozne', 'Ruzne') },
+  { value: 'misc', labels: label('Diverse', 'Miscellaneous', 'Verschiedenes', 'Varie', 'Egyéb', 'Diverse', 'Divers', 'Różne', 'Různé') },
 ];
 
 export const NEWS_MACHINE_TARGETS: NewsTopicOption[] = [
@@ -69,12 +69,12 @@ export const NEWS_ATTACHMENT_TARGETS_BY_MACHINE: Record<string, NewsTopicOption[
     attachment('sneslynge', 'Sneslynge'),
     attachment('v-plov', 'V-plov'),
     attachment('centerdrevet-hydraulisk-kost', 'Centerdrevet hydraulisk kost'),
-    attachment('ukrudtsboerste', 'Ukrudtsborste'),
+    attachment('ukrudtsboerste', 'Ukrudtsbørste'),
     attachment('slagleklipper', 'Slagleklipper'),
     attachment('fingerklipper', 'Fingerklipper'),
     attachment('rotorklipper', 'Rotorklipper'),
-    attachment('stubfraeser', 'Stubfraeser'),
-    attachment('skivehoester', 'Skivehoester'),
+    attachment('stubfraeser', 'Stubfræser'),
+    attachment('skivehoester', 'Skivehøster'),
   ],
   'timan-2620': [
     attachment('skovl', 'Skovl'),
@@ -94,7 +94,7 @@ export const NEWS_ATTACHMENT_TARGETS_BY_MACHINE: Record<string, NewsTopicOption[
     attachment('sneslynge', 'Sneslynge'),
     attachment('tornado-t2', 'Tornado T2'),
     attachment('tornado-t3', 'Tornado T3'),
-    attachment('ukrudtsboerste', 'Ukrudtsborste'),
+    attachment('ukrudtsboerste', 'Ukrudtsbørste'),
     attachment('v-plov', 'V-plov'),
   ],
 };
@@ -104,7 +104,7 @@ export const NEWS_ATTACHMENT_TARGETS: NewsTopicOption[] = Object.values(NEWS_ATT
   .filter((option, index, all) => all.findIndex((item) => item.value === option.value) === index);
 
 export const NEWS_MISC_TARGETS: NewsTopicOption[] = [
-  { value: 'diverse', labels: label('Diverse', 'Miscellaneous', 'Verschiedenes', 'Varie', 'Egyeb', 'Diverse', 'Divers', 'Rozne', 'Ruzne') },
+  { value: 'diverse', labels: label('Diverse', 'Miscellaneous', 'Verschiedenes', 'Varie', 'Egyéb', 'Diverse', 'Divers', 'Różne', 'Různé') },
 ];
 
 export const NEWS_MACHINE_FILTER_TARGETS: NewsTopicOption[] = [
@@ -125,17 +125,17 @@ export function getAllNewsTargetsLabel(typeFilter: NewsTopicFilter, lang: Portal
   if (typeFilter === 'machine') return getAllNewsMachinesLabel(lang);
   if (typeFilter === 'attachment') return getAllNewsAttachmentsLabel(lang);
   if (typeFilter === 'misc') {
-    return label('Alle diverse', 'All miscellaneous', 'Alle Verschiedenes', 'Tutte le varie', 'Osszes egyeb', 'Alla diverse', 'Tous divers', 'Wszystkie rozne', 'Vse ruzne')[lang];
+    return label('Alle diverse', 'All miscellaneous', 'Alle Verschiedenes', 'Tutte le varie', 'Összes egyéb', 'Alla diverse', 'Tous divers', 'Wszystkie różne', 'Vše různé')[lang];
   }
-  return label('Alle emner', 'All topics', 'Alle Themen', 'Tutti gli argomenti', 'Osszes tema', 'Alla amnen', 'Tous les sujets', 'Wszystkie tematy', 'Vsechna temata')[lang];
+  return label('Alle emner', 'All topics', 'Alle Themen', 'Tutti gli argomenti', 'Összes téma', 'Alla ämnen', 'Tous les sujets', 'Wszystkie tematy', 'Všechna témata')[lang];
 }
 
 export function getAllNewsMachinesLabel(lang: PortalUiLanguage): string {
-  return label('Alle maskiner', 'All machines', 'Alle Maschinen', 'Tutte le macchine', 'Osszes gep', 'Alla maskiner', 'Toutes les machines', 'Wszystkie maszyny', 'Vsechny stroje')[lang];
+  return label('Alle maskiner', 'All machines', 'Alle Maschinen', 'Tutte le macchine', 'Összes gép', 'Alla maskiner', 'Toutes les machines', 'Wszystkie maszyny', 'Všechny stroje')[lang];
 }
 
 export function getAllNewsAttachmentsLabel(lang: PortalUiLanguage): string {
-  return label('Alle redskaber', 'All attachments', 'Alle Anbaugeraete', 'Tutti gli attrezzi', 'Osszes eszkoz', 'Alla redskap', 'Tous les outils', 'Wszystkie osprzety', 'Vsechna prislusenstvi')[lang];
+  return label('Alle redskaber', 'All attachments', 'Alle Anbaugeräte', 'Tutti gli attrezzi', 'Összes eszköz', 'Alla redskap', 'Tous les outils', 'Wszystkie osprzęty', 'Všechna příslušenství')[lang];
 }
 
 export function getCombinedTargetOptions(): NewsTopicOption[] {
