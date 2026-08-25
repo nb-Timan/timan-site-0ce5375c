@@ -35,6 +35,15 @@ function rowToContact(r: Record<string, unknown>): DealerContact {
   };
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const e = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    return [e.message, e.details, e.hint, e.code].filter(Boolean).map(String).join(" · ") || JSON.stringify(error);
+  }
+  return String(error);
+}
+
 export async function listDealerContacts(dealerAccountId: string): Promise<DealerContact[]> {
   const { data, error } = await supabase
     .from("dealer_contacts")
@@ -97,7 +106,7 @@ export async function upsertDealerContact(
     if (error) throw error;
     return { ok: true, row: data ? rowToContact(data) : undefined };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: describeError(e) };
   }
 }
 

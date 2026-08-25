@@ -81,6 +81,25 @@ const PROFILE_PATCH_KEYS = [
 type ProfilePatchKey = (typeof PROFILE_PATCH_KEYS)[number];
 type SavingSection = SectionKey | "leave";
 
+function createLocalContact(dealerAccountId: string, area: DealerContactArea): DealerContact {
+  return {
+    id: `local-${crypto.randomUUID()}`,
+    dealer_account_id: dealerAccountId,
+    contact_area: area,
+    role_title: null,
+    name: null,
+    email: null,
+    phone: null,
+    is_primary: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function isLocalContact(contact: DealerContact): boolean {
+  return contact.id.startsWith("local-");
+}
+
 // ---------- module-scope helpers (stable component identity) ----------
 
 interface FieldProps {
@@ -352,16 +371,14 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   // -------- contact list helpers --------
   const contactsByArea = (area: DealerContactArea) => contacts.filter((c) => c.contact_area === area);
 
-  const addContact = async (area: DealerContactArea) => {
-    const res = await upsertDealerContact({ dealer_account_id: dealer.id, contact_area: area });
-    if (res.ok && res.row) setContacts((prev) => [...prev, res.row!]);
-    else if (!res.ok) toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+  const addContact = (area: DealerContactArea) => {
+    setContacts((prev) => [...prev, createLocalContact(dealer.id, area)]);
   };
   const patchContact = (id: string, patch: Partial<DealerContact>) =>
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   const persistContact = async (c: DealerContact) => {
     const res = await upsertDealerContact({
-      id: c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
+      id: isLocalContact(c) ? undefined : c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
     });
     return res;
@@ -369,6 +386,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const saveContact = async (c: DealerContact) => {
     const res = await persistContact(c);
     if (!res.ok) toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+    else if (res.row) setContacts((prev) => prev.map((row) => row.id === c.id ? res.row! : row));
   };
   const removeContact = async (id: string) => {
     const res = await deleteDealerContact(id);
