@@ -243,7 +243,7 @@ export function useDealerPortfolioProfileBadge(
     let cancelled = false;
     if (!user) { setBadge(null); return; }
 
-    const role = derivePortalRole(user);
+    const role = derivePortalRole(user as Parameters<typeof derivePortalRole>[0]);
     const isBackend = role === "timan_backend";
     const isSeller = role === "timan_seller";
     if (!isBackend && !isSeller) { setBadge(null); return; }
