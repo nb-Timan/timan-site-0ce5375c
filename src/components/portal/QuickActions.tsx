@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf, ClipboardList } from 'lucide-react';
+import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -17,7 +17,6 @@ interface Action {
 }
 
 const INTERNAL_ACTIONS: Action[] = [
-  { labelKey: 'quickAction2620Trial', to: '/portal/timan-2620-afproevning', icon: ClipboardList },
   { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'timan_crm' },
   { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
   { key: 'calendar', labelKey: 'quickActionCalendar', to: '/portal/crm/calendar', icon: Calendar, requires: 'timan_crm' },
@@ -32,7 +31,6 @@ const SERVICE_ACTIONS: Action[] = [
 const DEALER_ACTIONS: Action[] = [
   { labelKey: 'quickActionDrift', to: '/portal/resources/driftberegner', icon: Gauge, requires: 'resources' },
   { labelKey: 'quickActionCo2', to: '/portal/resources/co2', icon: Leaf, requires: 'resources' },
-  { labelKey: 'quickAction2620Trial', to: '/portal/timan-2620-afproevning', icon: ClipboardList },
 ];
 
 interface Props {
