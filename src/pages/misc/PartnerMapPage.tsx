@@ -115,6 +115,11 @@ const GERMANY_BOUNDS: [number, number, number, number] = [47.3, 5.9, 55.1, 15.0]
 
 type AdministrativeOverlayId = 'none' | 'de_plz2';
 
+const GERMANY_PLZ2_LABEL_OVERRIDES: Record<string, [number, number]> = {
+  '71': [48.91, 9.19],
+  '91': [49.28, 10.75],
+};
+
 type Continent = 'europe' | 'north_america' | 'south_america' | 'asia' | 'africa' | 'oceania' | 'other';
 
 // Country → continent + approximate bounds [south, west, north, east]
@@ -549,7 +554,8 @@ function GermanyPlz2Overlay({
             const plz = String(feature?.properties?.plz ?? '').padStart(2, '0');
             const bounds = (featureLayer as L.Polygon).getBounds?.();
             if (bounds?.isValid()) {
-              const center = bounds.getCenter();
+              const override = GERMANY_PLZ2_LABEL_OVERRIDES[plz];
+              const center = override ? L.latLng(override[0], override[1]) : bounds.getCenter();
               const label = L.marker(center, {
                 interactive: false,
                 keyboard: false,
