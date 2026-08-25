@@ -328,9 +328,9 @@ const FODPEDAL_FRONT: PosEntry = {
 
 const STANDARD_FODPEDAL: PosEntry[] = [FODPEDAL_FRONT, FODPEDAL_REAR];
 
-const CAB_FODPEDAL_FRONT: PosEntry = {
-  anchor: { x: 43, y: 57 },
-  callout: { cx: 30, cy: 22 },
+const CAB_FRONT_MOTOR: PosEntry = {
+  anchor: { x: 67, y: 62 },
+  callout: { cx: 91, cy: 82 },
   frame: 1,
 };
 
@@ -428,14 +428,14 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   cab_v_plow: {
     v_plow:     { anchor: { x: 24, y: 62 }, callout: { cx: 12, cy: 52 }, frame: 1 },
     kabine:     { anchor: { x: 48, y: 30 }, callout: { cx: 72, cy: 12 }, frame: 1 },
-    fodpedal:   CAB_FODPEDAL_FRONT,
+    motor:      CAB_FRONT_MOTOR,
     affjedring: affjedring({ x: 56, y: 72 }, 1),
   },
 
   cab_dozer_blade: {
     dozer_blade: { ...DOZER_BLADE_FRONT, frame: 1 },
     kabine:      { anchor: { x: 48, y: 30 }, callout: { cx: 72, cy: 12 }, frame: 1 },
-    fodpedal:    CAB_FODPEDAL_FRONT,
+    motor:       CAB_FRONT_MOTOR,
     affjedring:  affjedring({ x: 56, y: 72 }, 1),
   },
 
@@ -523,9 +523,8 @@ function buildHotspots(
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
   if (equipment.has('dozer_blade')) visibleParts.add('dozer_blade');
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
-  // Fodpedal is shown on all standard views and on cabin views that provide
-  // an explicit position.
-  if (imageKey.startsWith('standard') || view.fodpedal) {
+  // Fodpedal is only shown on standard/open versions.
+  if (imageKey.startsWith('standard')) {
     visibleParts.add('fodpedal');
   }
 
@@ -814,6 +813,7 @@ function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boo
     <div>
       <ProductImageViewer
         configuration={configuration}
+        stageOverlayClassName="bg-[linear-gradient(115deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0)_38%,rgba(226,232,240,0.16)_72%,rgba(203,213,225,0.28)_100%)] mix-blend-multiply"
         hideControls
         disableZoom={disableZoom}
         largeArrows={largeArrows}

@@ -42,6 +42,8 @@ interface Props {
   configuration: ViewerConfiguration;
   /** Optional className for the outer wrapper. */
   className?: string;
+  /** Optional visual layer shown over the image and below hotspots. */
+  stageOverlayClassName?: string;
   /** Hide zoom / rotate toolbar (kiosk mode). */
   hideControls?: boolean;
   /** Lock zoom at 1 and ignore wheel/pinch zoom (kiosk mode). */
@@ -91,6 +93,7 @@ function computeCalloutPosition(h: ViewerHotspot): { cx: number; cy: number } {
 export default function ProductImageViewer({
   configuration: config,
   className,
+  stageOverlayClassName,
   hideControls = false,
   disableZoom = false,
   largeArrows = false,
@@ -242,6 +245,10 @@ export default function ProductImageViewer({
             <div className="text-sm font-medium text-slate-500">Billede mangler endnu</div>
             <div className="text-xs text-slate-400 mt-1">Denne kombination er ikke fotograferet endnu.</div>
           </div>
+        )}
+
+        {hasImage && stageOverlayClassName && (
+          <div aria-hidden className={`absolute inset-0 pointer-events-none z-[2] ${stageOverlayClassName}`} />
         )}
 
         {/* Hotspot connector lines (single SVG overlay so lines never escape the canvas) */}
