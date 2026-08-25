@@ -20,6 +20,44 @@ const DAWA_URL = "https://api.dataforsyningen.dk/adresser";
 const USER_AGENT = "TimanPortal/1.0 (partner-map geocoder; contact: support@timan.dk)";
 const RATE_LIMIT_MS = 1100; // Nominatim policy: max 1 req/sec.
 
+const COUNTRY_CODES: Record<string, string> = {
+  austria: "at",
+  belgium: "be",
+  bulgaria: "bg",
+  canada: "ca",
+  croatia: "hr",
+  danmark: "dk",
+  denmark: "dk",
+  deutschland: "de",
+  færøerne: "fo",
+  faroe: "fo",
+  "faroe islands": "fo",
+  faeroerne: "fo",
+  france: "fr",
+  germany: "de",
+  grækenland: "gr",
+  greece: "gr",
+  holland: "nl",
+  japan: "jp",
+  kanada: "ca",
+  kroatien: "hr",
+  norway: "no",
+  norge: "no",
+  poland: "pl",
+  polen: "pl",
+  romania: "ro",
+  rumænien: "ro",
+  slovenia: "si",
+  slovakia: "sk",
+  spain: "es",
+  sverige: "se",
+  sweden: "se",
+  switzerland: "ch",
+  schweiz: "ch",
+  tyskland: "de",
+  østrig: "at",
+};
+
 interface DealerRow {
   id: string;
   account_number: string | null;
@@ -65,9 +103,46 @@ function resolveAddressParts(d: DealerRow) {
   return { street, postalCode, city, country: (d.country || "").trim() };
 }
 
+function cleanupStreet(street: string): string {
+  return street
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .trim();
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/ß/g, "ss")
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/Æ/g, "Ae")
+    .replace(/Ø/g, "O")
+    .replace(/Å/g, "A")
+    .replace(/\bstrasse\b/gi, "str")
+    .replace(/\bstr\.\b/gi, "str")
+    .replace(/\bul\.\s*/gi, "ul ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function countryCode(country: string | null | undefined): string | null {
+  const key = normalizeSearchText(country ?? "").toLowerCase();
+  return COUNTRY_CODES[key] ?? null;
+}
+
+function unique(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values
+    .map((value) => value.trim())
+    .filter((value) => value && !seen.has(value.toLowerCase()) && !!seen.add(value.toLowerCase()));
+}
+
 function buildAddress(d: DealerRow): string {
   const parts = resolveAddressParts(d);
-  return [parts.street, d.address_line_2, parts.postalCode, parts.city, parts.country]
+  return [cleanupStreet(parts.street), d.address_line_2, parts.postalCode, parts.city, parts.country]
     .map((p) => (p ?? "").toString().trim())
     .filter(Boolean)
     .join(", ");
@@ -82,8 +157,7 @@ function hasGeocodableAddress(d: DealerRow): boolean {
   );
 }
 
-async function nominatim(address: string): Promise<{ lat: number; lon: number } | null> {
-  const url = `${NOMINATIM_URL}?format=json&limit=1&addressdetails=0&q=${encodeURIComponent(address)}`;
+async function nominatimUrl(url: string): Promise<{ lat: number; lon: number } | null> {
   const r = await fetch(url, { headers: { "User-Agent": USER_AGENT, "Accept": "application/json" } });
   if (!r.ok) throw new Error(`nominatim HTTP ${r.status}`);
   const json = await r.json() as Array<{ lat: string; lon: string }>;
@@ -92,6 +166,35 @@ async function nominatim(address: string): Promise<{ lat: number; lon: number } 
   const lon = parseFloat(json[0].lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   return { lat, lon };
+}
+
+async function nominatim(address: string, country: string | null | undefined): Promise<{ lat: number; lon: number } | null> {
+  const params = new URLSearchParams({
+    format: "json",
+    limit: "1",
+    addressdetails: "0",
+    q: address,
+  });
+  const code = countryCode(country);
+  if (code) params.set("countrycodes", code);
+  return nominatimUrl(`${NOMINATIM_URL}?${params.toString()}`);
+}
+
+async function nominatimStructured(parts: ReturnType<typeof resolveAddressParts>): Promise<{ lat: number; lon: number } | null> {
+  const params = new URLSearchParams({
+    format: "json",
+    limit: "1",
+    addressdetails: "0",
+  });
+  const street = cleanupStreet(parts.street);
+  if (street) params.set("street", street);
+  if (parts.postalCode) params.set("postalcode", parts.postalCode);
+  if (parts.city) params.set("city", parts.city);
+  if (parts.country) params.set("country", parts.country);
+  const code = countryCode(parts.country);
+  if (code) params.set("countrycodes", code);
+  if (!street && !parts.city && !parts.postalCode) return null;
+  return nominatimUrl(`${NOMINATIM_URL}?${params.toString()}`);
 }
 
 function isDenmark(country: string | null | undefined): boolean {
@@ -121,7 +224,45 @@ async function geocode(d: DealerRow): Promise<{ lat: number; lon: number } | nul
   } catch {
     // Fall back to Nominatim if the Danish address API is temporarily unavailable.
   }
-  return nominatim(buildAddress(d));
+
+  const street = cleanupStreet(parts.street);
+  const normalizedStreet = normalizeSearchText(street);
+  const normalizedCity = normalizeSearchText(parts.city);
+  const normalizedCountry = normalizeSearchText(parts.country);
+  const full = buildAddress(d);
+  const fullNormalized = normalizeSearchText(full);
+  const cityPostalCountry = [parts.postalCode, parts.city, parts.country].filter(Boolean).join(", ");
+  const cityCountry = [parts.city, parts.country].filter(Boolean).join(", ");
+
+  const attempts: Array<() => Promise<{ lat: number; lon: number } | null>> = [
+    () => nominatimStructured(parts),
+    () => nominatim(full, parts.country),
+    () => nominatim(fullNormalized, parts.country),
+    ...unique([
+      [street, parts.postalCode, parts.city, parts.country].filter(Boolean).join(", "),
+      [normalizedStreet, parts.postalCode, normalizedCity, normalizedCountry].filter(Boolean).join(", "),
+      [street, parts.city, parts.country].filter(Boolean).join(", "),
+      [normalizedStreet, normalizedCity, normalizedCountry].filter(Boolean).join(", "),
+      [parts.postalCode, parts.city, parts.country].filter(Boolean).join(", "),
+      cityPostalCountry,
+      cityCountry,
+    ]).map((query) => () => nominatim(query, parts.country)),
+  ];
+
+  let lastError: unknown = null;
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const hit = await attempts[i]();
+      if (hit) return hit;
+    } catch (e) {
+      lastError = e;
+    }
+    if (i < attempts.length - 1) await sleep(RATE_LIMIT_MS);
+  }
+
+  if (lastError) throw lastError;
+
+  return null;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
