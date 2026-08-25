@@ -813,7 +813,7 @@ function Stage({ disableZoom = false, largeArrows = false }: { disableZoom?: boo
     <div>
       <ProductImageViewer
         configuration={configuration}
-        stageOverlayClassName="bg-[linear-gradient(115deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0)_38%,rgba(226,232,240,0.16)_72%,rgba(203,213,225,0.28)_100%)] mix-blend-multiply"
+        stageOverlayClassName="bg-[linear-gradient(115deg,rgba(255,255,255,0)_0%,rgba(248,250,252,0.08)_34%,rgba(226,232,240,0.28)_68%,rgba(203,213,225,0.46)_100%)]"
         hideControls
         disableZoom={disableZoom}
         largeArrows={largeArrows}
