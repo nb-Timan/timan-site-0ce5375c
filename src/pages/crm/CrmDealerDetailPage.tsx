@@ -17,7 +17,7 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-r
 import {
   ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
   FileText, ClipboardList, TrendingUp,
-  CheckCircle2, AlertCircle, Plus, Pencil,
+  CheckCircle2, AlertCircle, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,7 +98,7 @@ const T = {
   no_users:    { da: "Ingen brugere tilknyttet endnu." },
   notes:       { da: "Notehistorik (intern)" },
   no_notes:    { da: "Ingen interne noter endnu." },
-  add_note:    { da: "Tilføj note" },
+  add_note:    { da: "Tilføj aktivitet / note" },
   note_type:   { da: "Notetype" },
   note_text:   { da: "Notetekst" },
   followup:    { da: "Opfølgningsdato" },
@@ -672,7 +672,6 @@ export default function CrmDealerDetailPage() {
               budgetTotals={budgetTotals}
               budgetYear={budgetYear}
               users={users}
-              onAddActivity={() => setShowNoteModal(true)}
               onEdit={() => setShowEditDealer(true)}
             />
 
@@ -721,8 +720,11 @@ export default function CrmDealerDetailPage() {
                   <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal">{notes.length}</span>
                 </h3>
                 <button onClick={() => setShowNoteModal(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold">
-                  <Plus className="h-3.5 w-3.5" /> {t("add_note")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <PlusCircle className="h-4 w-4" />
+                  </span>
+                  {t("add_note")}
                 </button>
               </div>
               {notes.length === 0 ? (
@@ -1617,7 +1619,6 @@ function ContactHero({
   branchCount,
   budgetTotals,
   budgetYear,
-  onAddActivity,
   onEdit,
 }: {
   dealer: DealerAccount;
@@ -1633,7 +1634,6 @@ function ContactHero({
   branchCount: number;
   budgetTotals: ReturnType<typeof aggregateDealerBudget> | null;
   budgetYear: number;
-  onAddActivity: () => void;
   onEdit: () => void;
 }) {
   const primaryRow = contacts.find((c) => c.is_primary) || null;
@@ -1688,7 +1688,6 @@ function ContactHero({
     mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
     { key: "dealerdata", label: tl("open_dealer_data", lang), icon: <FileText className="h-5 w-5" />,   href: `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}` },
-    { key: "activity", label: tl("new_activity", lang),     icon: <PlusCircle className="h-5 w-5" />,   onClick: onAddActivity },
   ].filter(Boolean) as HeroAction[];
   const actions = actionsAll;
 
