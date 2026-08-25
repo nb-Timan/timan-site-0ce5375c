@@ -1650,7 +1650,11 @@ export default function PartnerMapPage() {
                 <div className="relative h-9 flex items-center">
                   <select
                     value={administrativeOverlay}
-                    onChange={(e) => setAdministrativeOverlay(e.target.value as AdministrativeOverlayId)}
+                    onChange={(e) => {
+                      const nextOverlay = e.target.value as AdministrativeOverlayId;
+                      setAdministrativeOverlay(nextOverlay);
+                      if (nextOverlay === 'de_plz2') setMapStyle('standard');
+                    }}
                     title="Område"
                     className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer max-w-[240px]"
                   >
