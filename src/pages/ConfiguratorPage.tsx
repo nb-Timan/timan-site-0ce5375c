@@ -128,8 +128,11 @@ export default function ConfiguratorPage() {
   // so the back button + demo guards work even before context resolves.
   const isMessePath = location.pathname.startsWith('/messe');
   const currentAppUser = appUser as MesseProfileAppUser | null;
-  const currentDealerNumber = String(currentAppUser?.dealer_number ?? '').trim();
-  const isTimanMesseUser = isMesseVariantUser(appUser) && currentDealerNumber === '100';
+  const currentDealerNumber = String(currentAppUser?.dealer_number ?? '').trim().replace(/^#/, '');
+  const currentUserEmail = String(currentAppUser?.email ?? '').trim().toLowerCase();
+  const currentDisplayName = String(currentAppUser?.display_name ?? '').trim().toLowerCase();
+  const isKnownTimanMesseLogin = currentUserEmail === 'ordre@timan.dk' || currentDisplayName === 'timan messe';
+  const isTimanMesseUser = isKnownTimanMesseLogin || (isMesseVariantUser(appUser) && currentDealerNumber === '100');
   const isExhibition = isMessePath || isTimanMesseUser || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
@@ -339,8 +342,8 @@ export default function ConfiguratorPage() {
         seller_email: ownership.sellerEmail.toLowerCase(),
         seller_name: ownership.sellerName,
         assigned_seller_id: await resolveSellerId(ownership.sellerEmail),
-        dealer_number: null,
-        dealer_name: null,
+        dealer_number: currentDealerNumber || (isTimanMesseUser ? '100' : null),
+        dealer_name: currentAppUser?.company_dealer ?? (isTimanMesseUser ? 'Timan Messe' : null),
         dealer_account_id: null,
         created_by_email: appUser?.email?.toLowerCase() ?? null,
         created_by_role: activePortalRole ?? null,
@@ -354,7 +357,7 @@ export default function ConfiguratorPage() {
       toast.error(err instanceof Error ? err.message : 'Vælg sælger og forhandler før gem.');
       return null;
     }
-  }, [isExhibition, ownership, appUser?.email, activePortalRole, buildOwnershipPayload]);
+  }, [isExhibition, ownership, appUser?.email, activePortalRole, buildOwnershipPayload, currentDealerNumber, currentAppUser?.company_dealer, isTimanMesseUser]);
 
   const [savingChanges, setSavingChanges] = useState(false);
 
