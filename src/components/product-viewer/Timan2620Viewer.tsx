@@ -27,6 +27,7 @@ import {
   TIMAN_2620_EQUIPMENT_OPTIONS,
   TIMAN_2620_IMAGES,
   deriveTiman2620ImageKey,
+  getTiman2620EquipmentAfterToggle,
   getTiman2620NearestValidEquipment,
   isTiman2620EquipmentSelectable,
   type Timan2620Base,
@@ -584,16 +585,8 @@ function Timan2620Provider({ children }: { children: ReactNode }) {
   }
 
   function toggleEquipment(eq: Timan2620Equipment) {
-    const next = new Set(equipment);
-    if (next.has(eq)) {
-      next.delete(eq);
-      setEquipment(next);
-      return;
-    }
-
-    if (!isTiman2620EquipmentSelectable(base, equipment, eq)) return;
-
-    next.add(eq);
+    const next = getTiman2620EquipmentAfterToggle(base, equipment, eq);
+    if (!next) return;
     setEquipment(next);
   }
 

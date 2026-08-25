@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   TIMAN_2620_IMAGES,
   deriveTiman2620ImageKey,
+  getTiman2620EquipmentAfterToggle,
   isTiman2620EquipmentSelectable,
   type Timan2620Equipment,
 } from '../data/timan2620Viewer';
@@ -48,10 +49,13 @@ describe('Timan 2620 cabin image matrix', () => {
     );
   });
 
-  it('blocks cabin combinations without exact image mappings', () => {
+  it('keeps cabin tools selectable when they can switch to a valid image', () => {
     expect(isTiman2620EquipmentSelectable('cab', equipmentSet('v_plow'), 'dozer_blade')).toBe(
-      false,
+      true,
     );
+    expect([...(getTiman2620EquipmentAfterToggle('cab', equipmentSet('v_plow'), 'dozer_blade') ?? [])]).toEqual([
+      'dozer_blade',
+    ]);
     expect(deriveTiman2620ImageKey('cab', equipmentSet('v_plow', 'dozer_blade'))).toBe(
       'cab_invalid',
     );
@@ -103,9 +107,21 @@ describe('Timan 2620 standard image matrix', () => {
     ]);
   });
 
-  it('blocks standard combinations without exact image mappings', () => {
+  it('keeps standard tools selectable when they can switch or combine to a valid image', () => {
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet('v_plow'), 'bucket')).toBe(
+      true,
+    );
+    expect([...(getTiman2620EquipmentAfterToggle('standard', equipmentSet('v_plow'), 'bucket') ?? [])]).toEqual([
+      'bucket',
+    ]);
+    expect(isTiman2620EquipmentSelectable('standard', equipmentSet('v_plow'), 'dozer_blade')).toBe(
+      true,
+    );
+    expect([...(getTiman2620EquipmentAfterToggle('standard', equipmentSet('v_plow'), 'dozer_blade') ?? [])]).toEqual([
+      'dozer_blade',
+    ]);
     expect(isTiman2620EquipmentSelectable('standard', equipmentSet('bucket'), 'salt_spreader')).toBe(
-      false,
+      true,
     );
     expect(isTiman2620EquipmentSelectable('standard', equipmentSet('dozer_blade'), 'salt_spreader')).toBe(
       true,

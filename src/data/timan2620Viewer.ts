@@ -214,15 +214,32 @@ export function isTiman2620EquipmentSelectable(
   currentEquipment: ReadonlySet<Timan2620Equipment>,
   candidate: Timan2620Equipment,
 ): boolean {
+  return getTiman2620EquipmentAfterToggle(base, currentEquipment, candidate) !== null;
+}
+
+export function getTiman2620EquipmentAfterToggle(
+  base: Timan2620Base,
+  currentEquipment: ReadonlySet<Timan2620Equipment>,
+  candidate: Timan2620Equipment,
+): Set<Timan2620Equipment> | null {
   const next = new Set(currentEquipment);
 
   if (next.has(candidate)) {
     next.delete(candidate);
-  } else {
-    next.add(candidate);
+    return next;
   }
 
-  return hasTiman2620ImageForSelection(base, next);
+  next.add(candidate);
+  if (hasTiman2620ImageForSelection(base, next)) {
+    return next;
+  }
+
+  const replacement = new Set<Timan2620Equipment>([candidate]);
+  if (hasTiman2620ImageForSelection(base, replacement)) {
+    return replacement;
+  }
+
+  return null;
 }
 
 function combinations<T>(items: readonly T[], size: number): T[][] {
