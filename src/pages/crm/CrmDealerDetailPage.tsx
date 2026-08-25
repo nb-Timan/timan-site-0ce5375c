@@ -669,7 +669,7 @@ export default function CrmDealerDetailPage() {
               branchCount={branchNumbers.length}
               budgetTotals={budgetTotals}
               budgetYear={budgetYear}
-              nextFollowup={nextFollowup ? { date: nextFollowup.date, title: nextFollowup.title } : null}
+              users={users}
               onAddActivity={() => setShowNoteModal(true)}
               onEdit={() => setShowEditDealer(true)}
             />
@@ -1603,6 +1603,7 @@ interface HeroAction {
 function ContactHero({
   dealer,
   contacts,
+  users,
   lang,
   admin,
   isBranch,
@@ -1613,12 +1614,12 @@ function ContactHero({
   branchCount,
   budgetTotals,
   budgetYear,
-  nextFollowup,
   onAddActivity,
   onEdit,
 }: {
   dealer: DealerAccount;
   contacts: DealerContact[];
+  users: BackendUser[];
   lang: Language;
   admin: boolean;
   isBranch: boolean;
@@ -1629,7 +1630,6 @@ function ContactHero({
   branchCount: number;
   budgetTotals: ReturnType<typeof aggregateDealerBudget> | null;
   budgetYear: number;
-  nextFollowup: { date: string; title: string } | null;
   onAddActivity: () => void;
   onEdit: () => void;
 }) {
@@ -1656,6 +1656,22 @@ function ContactHero({
   const websiteHref = dealer.website
     ? (dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`)
     : undefined;
+  const assignedSeller = users.find((u) => {
+    const dealerSellerId = (dealer as unknown as { assigned_seller_user_id?: string | null }).assigned_seller_user_id;
+    const dealerSellerEmail = (dealer.assigned_seller_email || "").toLowerCase();
+    return Boolean(
+      (dealerSellerId && u.id === dealerSellerId) ||
+      (dealerSellerEmail && u.email.toLowerCase() === dealerSellerEmail) ||
+      (dealer.assigned_seller_initials && u.initials === dealer.assigned_seller_initials)
+    );
+  });
+  const assignedSellerName = assignedSeller?.name || dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
+  const assignedSellerEmail = assignedSeller?.email || dealer.assigned_seller_email || null;
+  const assignedSellerPhone =
+    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.phone ||
+    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.mobile ||
+    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.telephone ||
+    null;
 
   // Only include actions whose data exists.
   const actionsAll: HeroAction[] = [
@@ -1672,7 +1688,6 @@ function ContactHero({
     .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
 
   const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
-  const langBadge = (dealer as unknown as { preferred_language?: string }).preferred_language || lang;
 
   return (
     <div className="mb-4">
@@ -1765,50 +1780,6 @@ function ContactHero({
                   <div className="text-slate-400 italic">—</div>
                 )}
               </div>
-              {(() => {
-                
-
-                const sellerName = dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
-                const contractStart = dealer.source_created_at || null;
-                const contractUpdated = (dealer as unknown as { source_changed_at?: string; updated_at?: string }).source_changed_at
-                  || (dealer as unknown as { updated_at?: string }).updated_at
-                  || null;
-
-                let followupNode: React.ReactNode = <span className="italic text-slate-400">Ingen opfølgning planlagt</span>;
-                if (nextFollowup) {
-                  const today = new Date(); today.setHours(0,0,0,0);
-                  const tgt = new Date(nextFollowup.date); tgt.setHours(0,0,0,0);
-                  const diff = (tgt.getTime() - today.getTime()) / (1000*60*60*24);
-                  const cls = diff < 0
-                    ? "text-rose-700"
-                    : diff === 0 ? "text-amber-700" : "text-emerald-700";
-                  followupNode = (
-                    <span className={`font-semibold ${cls}`}>
-                      {fmtDate(nextFollowup.date)} · <span className="font-normal">{nextFollowup.title}</span>
-                    </span>
-                  );
-                }
-
-                const rows: Array<{ label: string; value: React.ReactNode }> = [
-                  { label: tl("language", lang), value: String(langBadge).toUpperCase() },
-                ];
-
-                if (sellerName) rows.push({ label: tl("assigned_seller", lang), value: sellerName });
-                if (contractStart) rows.push({ label: "Kontraktstart", value: fmtDate(contractStart) });
-                if (contractUpdated) rows.push({ label: "Senest opdateret", value: fmtDate(contractUpdated) });
-                rows.push({ label: t("next_followup"), value: followupNode });
-
-                return (
-                  <ul className="mt-2 space-y-1 text-xs">
-                    {rows.map((r, i) => (
-                      <li key={i} className="flex items-baseline gap-2">
-                        <span className="text-slate-500 min-w-[140px]">{r.label}:</span>
-                        <span className="text-slate-800">{r.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
               {primaryName && (
                 <div className="mt-2 text-[11px] text-slate-500">
                   {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
@@ -1821,6 +1792,30 @@ function ContactHero({
 
           {/* Action cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {assignedSellerName && (
+              <div className="col-span-2 sm:col-span-3 lg:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/40 px-3 py-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide font-bold text-emerald-800">
+                  <UserCircle2 className="h-4 w-4" /> Tildelt sælger
+                </div>
+                <div className="mt-2 text-sm font-bold text-slate-900">{assignedSellerName}</div>
+                <div className="mt-1 space-y-1 text-xs text-slate-600">
+                  {assignedSellerPhone ? (
+                    <a href={`tel:${assignedSellerPhone}`} className="flex items-center gap-1.5 hover:underline">
+                      <Phone className="h-3.5 w-3.5 text-slate-400" /> {assignedSellerPhone}
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Phone className="h-3.5 w-3.5" /> Telefon ikke angivet
+                    </div>
+                  )}
+                  {assignedSellerEmail && (
+                    <a href={`mailto:${assignedSellerEmail}`} className="flex items-center gap-1.5 hover:underline">
+                      <Mail className="h-3.5 w-3.5 text-slate-400" /> {assignedSellerEmail}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
             {actions.map((a) => {
               const cls = `flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-white px-2 py-3 text-center transition ${
                 a.disabled
