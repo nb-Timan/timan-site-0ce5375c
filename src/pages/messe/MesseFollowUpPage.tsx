@@ -14,9 +14,10 @@ import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { createCrm2620Trial } from '@/lib/crm2620TrialsService';
 import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
-type LeadType = 'dealer' | 'customer' | '';
+type LeadType = 'dealer' | 'customer' | 'trial2620' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
 type MesseMailAttachment = CrmLeadAttachment & {
@@ -142,8 +143,10 @@ const FORM_TEXT = {
   dealerCustomer: { da: '2. Forhandler eller Kunde', en: '2. Dealer or Customer', de: '2. Händler oder Kunde', it: '2. Rivenditore o cliente', hu: '2. Kereskedő vagy ügyfél' },
   dealerLabel: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   customerLabel: { da: 'Kunde', en: 'Customer', de: 'Kunde', it: 'Cliente', hu: 'Ügyfél' },
+  trial2620Label: { da: 'Afprøvning af 2620', en: '2620 trial', de: '2620 Erprobung', it: 'Prova 2620', hu: '2620 próba' },
   dealerDesc: { da: 'Vil gerne repræsentere Timan som forhandler.', en: 'Would like to represent Timan as a dealer.', de: 'Möchte Timan als Händler vertreten.', it: 'Vuole rappresentare Timan come rivenditore.', hu: 'Timan kereskedőként szeretne képviselni.' },
   customerDesc: { da: 'Er interesseret i produkt og ønsker kontakt.', en: 'Interested in a product and wants contact.', de: 'Interessiert sich für ein Produkt und möchte kontaktiert werden.', it: 'Interessato a un prodotto e desidera essere contattato.', hu: 'Érdeklődik egy termék iránt és kapcsolatfelvételt kér.' },
+  trial2620Desc: { da: 'Separat register for personer/virksomheder, der har afprøvet Timan 2620.', en: 'Separate register for people/companies that tried Timan 2620.', de: 'Separates Register für Personen/Firmen, die Timan 2620 getestet haben.', it: 'Registro separato per chi ha provato Timan 2620.', hu: 'Külön nyilvántartás a Timan 2620 próbákról.' },
   product: { da: '4. Produkt', en: '4. Product', de: '4. Produkt', it: '4. Prodotto', hu: '4. Termék' },
   productEquipment: { da: 'Redskaber', en: 'Equipment', de: 'Anbaugeräte', it: 'Attrezzature', hu: 'Eszközök' },
   productLoaderTractor: { da: 'Loader line / traktor-redskaber', en: 'Loader line / Tractor Equipment', de: 'Loader line / Traktor-Anbaugeräte', it: 'Attrezzature Loader line / trattore', hu: 'Loader line / traktor eszközök' },
@@ -339,7 +342,7 @@ export default function MesseFollowUpPage() {
   const [sellers, setSellers] = useState<SellerDirectoryEntry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [createdLead, setCreatedLead] = useState<{ id: string; leadNo: number | null | undefined } | null>(null);
+  const [createdLead, setCreatedLead] = useState<{ id: string; leadNo: number | null | undefined; kind?: 'lead' | 'trial2620' } | null>(null);
 
   const [countryQuickChoice, setCountryQuickChoice] = useState<CountryQuickChoice>('');
   const [specificCountry, setSpecificCountry] = useState('');
@@ -494,6 +497,10 @@ export default function MesseFollowUpPage() {
     () => Boolean(clean(company) && clean(contactPerson) && clean(address) && clean(phone)),
     [address, company, contactPerson, phone],
   );
+  const hasTrial2620Info = useMemo(
+    () => Boolean(clean(company) && clean(contactPerson) && clean(zipCity) && clean(phone) && clean(email)),
+    [company, contactPerson, email, phone, zipCity],
+  );
   const hasBusinessCard = businessCardFiles.length > 0;
   const hasRequiredEquipment = !products.includes('Equipment') && !products.includes('Loader line / Tractor Equipment')
     ? true
@@ -513,17 +520,23 @@ export default function MesseFollowUpPage() {
   const isFormReady = Boolean(
     selectedLeadCountry &&
     leadType &&
-    products.length > 0 &&
-    hasRequiredEquipment &&
-    wantsDemo &&
+    (leadType === 'trial2620' || (products.length > 0 && hasRequiredEquipment && wantsDemo)) &&
     responsibleSeller &&
-    (hasCustomerInfo || hasBusinessCard),
+    (leadType === 'trial2620' ? hasTrial2620Info : (hasCustomerInfo || hasBusinessCard)),
   );
 
   function validate(): boolean {
-    if ((products.includes('Equipment') || products.includes('Loader line / Tractor Equipment')) && equipmentItems.length === 0) { toast.error('Vaelg mindst et redskab'); return false; }
     if (countryQuickChoice === 'other' && !clean(specificCountry)) { toast.error('Vaelg specifikt land'); return false; }
-    if (!leadType) { toast.error('Vælg dealer eller customer'); return false; }
+    if (!leadType) { toast.error('Vælg forhandler, kunde eller afprøvning af 2620'); return false; }
+    if (leadType === 'trial2620') {
+      if (!hasTrial2620Info) {
+        toast.error('Udfyld firma/CVR, kontaktperson, postnr./by, telefon og e-mail');
+        return false;
+      }
+      if (!responsibleSeller) { toast.error('Vælg Timan sælger'); return false; }
+      return true;
+    }
+    if ((products.includes('Equipment') || products.includes('Loader line / Tractor Equipment')) && equipmentItems.length === 0) { toast.error('Vaelg mindst et redskab'); return false; }
     if (products.length === 0) { toast.error('Vælg mindst ét produkt'); return false; }
     if (!wantsDemo) { toast.error('Vælg om kunden ønsker demonstration'); return false; }
     if (!responsibleSeller) { toast.error('Vælg Timan sælger'); return false; }
@@ -540,13 +553,69 @@ export default function MesseFollowUpPage() {
     setSubmitting(true);
     try {
       const ownerId = await resolveSellerId(responsibleSeller.email);
+      if (leadType === 'trial2620') {
+        const trial = await createCrm2620Trial({
+          country: selectedLeadCountry || null,
+          company_cvr: clean(company),
+          contact_person: clean(contactPerson),
+          address: clean(address) || null,
+          zip_city: clean(zipCity),
+          phone: clean(phone),
+          email: clean(email),
+          comment: clean(notes) || null,
+          responsible_seller_id: ownerId,
+          responsible_seller_name: responsibleSeller.full_name || responsibleSeller.initials,
+          responsible_seller_email: responsibleSeller.email,
+          created_by_email: appUser?.email || null,
+        });
+        setCreatedLead({ id: trial.id, leadNo: null, kind: 'trial2620' });
+        try {
+          const sellerRecipientEmail = clean(responsibleSeller.email);
+          await sendLeadMail({
+            source: 'messe_2620_trial_form',
+            trial_id: trial.id,
+            created_at: trial.created_at,
+            recipient_email: sellerRecipientEmail,
+            recipient_emails: [sellerRecipientEmail],
+            to: [sellerRecipientEmail],
+            responsible_seller: {
+              id: ownerId,
+              name: responsibleSeller.full_name || responsibleSeller.initials,
+              initials: responsibleSeller.initials,
+              email: responsibleSeller.email,
+            },
+            customer: {
+              type: 'trial2620',
+              country: selectedLeadCountry,
+              company_cvr: clean(company),
+              contact_person: clean(contactPerson),
+              address: clean(address) || null,
+              zip_city: clean(zipCity),
+              phone: clean(phone),
+              email: clean(email),
+            },
+            notes: clean(notes) || null,
+          });
+          toast.success('Afprøvning af 2620 er gemt');
+        } catch (mailError) {
+          console.error('[messe 2620 trial webhook] failed:', mailError);
+          toast.warning('Afprøvning af 2620 er gemt, men mail kunne ikke sendes');
+        }
+        return;
+      }
+      const cleanCompany = clean(company);
+      const cleanContactPerson = clean(contactPerson);
+      const cleanAddress = clean(address);
+      const cleanZipCity = clean(zipCity);
+      const cleanPhone = clean(phone);
+      const cleanEmail = clean(email);
       const contactInformation = [
-        `Firma/CVR: ${clean(company)}`,
-        `Kontaktperson: ${clean(contactPerson)}`,
-        address ? `Adresse: ${clean(address)}` : null,
-        zipCity ? `Postnr. og by: ${clean(zipCity)}` : null,
-        phone ? `Telefon: ${clean(phone)}` : null,
-        email ? `E-mail: ${clean(email)}` : null,
+        cleanCompany ? `Firma/CVR: ${cleanCompany}` : null,
+        cleanContactPerson ? `Kontaktperson: ${cleanContactPerson}` : null,
+        cleanAddress ? `Adresse: ${cleanAddress}` : null,
+        cleanZipCity ? `Postnr. og by: ${cleanZipCity}` : null,
+        cleanPhone ? `Telefon: ${cleanPhone}` : null,
+        cleanEmail ? `E-mail: ${cleanEmail}` : null,
         selectedLeadCountry ? `Land: ${selectedLeadCountry}` : null,
       ].filter(Boolean).join('\n');
       const dealerText = selectedDealer
@@ -713,7 +782,9 @@ export default function MesseFollowUpPage() {
               <div>
                 <h2 className="text-xl font-bold">Lead er oprettet</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Nummer: {formatLeadNo(createdLead.leadNo)}
+                  {createdLead.kind === 'trial2620'
+                    ? 'Afprøvning af 2620 er gemt uden L-nummer.'
+                    : `Nummer: ${formatLeadNo(createdLead.leadNo)}`}
                 </p>
                 <Link
                   to="/messe"
@@ -765,8 +836,8 @@ export default function MesseFollowUpPage() {
 
             <section className="space-y-3">
               <RequiredHeading>{f('dealerCustomer')}</RequiredHeading>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(['dealer', 'customer'] as Exclude<LeadType, ''>[]).map((type) => (
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(['dealer', 'customer', 'trial2620'] as Exclude<LeadType, ''>[]).map((type) => (
                   <button
                     type="button"
                     key={type}
@@ -777,11 +848,17 @@ export default function MesseFollowUpPage() {
                         : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
                     }`}
                   >
-                    {type === 'dealer' ? f('dealerLabel') : f('customerLabel')}
+                    {type === 'dealer'
+                      ? f('dealerLabel')
+                      : type === 'customer'
+                        ? f('customerLabel')
+                        : f('trial2620Label')}
                     <span className="mt-1 block text-xs font-normal text-slate-500">
                       {type === 'dealer'
                         ? f('dealerDesc')
-                        : f('customerDesc')}
+                        : type === 'customer'
+                          ? f('customerDesc')
+                          : f('trial2620Desc')}
                     </span>
                   </button>
                 ))}
@@ -793,15 +870,15 @@ export default function MesseFollowUpPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={`${f('companyPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                 <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={`${f('contactPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={`${f('addressPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={`${f('addressPlaceholder')}${leadType === 'trial2620' ? '' : ' *'}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={`${f('zipCityPlaceholder')}${leadType === 'trial2620' ? ' *' : ''}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${f('phonePlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={`${f('emailPlaceholder')}${leadType === 'trial2620' ? ' *' : ''}`} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               </div>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             </section>
 
-            <section className="space-y-3">
+            {leadType !== 'trial2620' && <section className="space-y-3">
               <RequiredHeading>{f('product')}</RequiredHeading>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {PRODUCTS.map((product) => (
@@ -903,9 +980,9 @@ export default function MesseFollowUpPage() {
                   </div>
                 </details>
               )}
-            </section>
+            </section>}
 
-            <section className="space-y-3">
+            {leadType !== 'trial2620' && <section className="space-y-3">
               <RequiredHeading>{f('demo')}</RequiredHeading>
               <div className="grid gap-3 sm:grid-cols-2">
                 {(['yes', 'no'] as const).map((value) => (
@@ -923,7 +1000,7 @@ export default function MesseFollowUpPage() {
                   </button>
                 ))}
               </div>
-            </section>
+            </section>}
             <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between gap-3">
                 <RequiredHeading>{f('responsible')}</RequiredHeading>
@@ -967,7 +1044,7 @@ export default function MesseFollowUpPage() {
               </p>
             </section>
 
-            <section className="space-y-2">
+            {leadType !== 'trial2620' && <section className="space-y-2">
               <label className="text-sm font-bold">
                 {f('businessCard')}
                 <RequiredMark />
@@ -1002,7 +1079,7 @@ export default function MesseFollowUpPage() {
                   ))}
                 </div>
               )}
-            </section>
+            </section>}
 
             <div className="flex justify-end border-t border-slate-200 pt-5">
               <button

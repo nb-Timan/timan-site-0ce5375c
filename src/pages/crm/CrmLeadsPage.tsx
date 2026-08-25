@@ -28,6 +28,7 @@ import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
+import { listCrm2620Trials, type Crm2620Trial } from '@/lib/crm2620TrialsService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,7 +47,7 @@ import { toast } from 'sonner';
 type TKey =
   | 'page_title' | 'sub_admin' | 'sub_seller' | 'pcs'
   | 'unassigned' | 'new_demo' | 'new_lead'
-  | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
+  | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo' | 'tab_2620'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
@@ -70,6 +71,7 @@ const T: Record<TKey, Record<Language, string>> = {
   tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek' },
   tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek' },
   tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók' },
+  tab_2620:      { da: '2620', en: '2620', de: '2620', it: '2620', hu: '2620' },
   search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…' },
   all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz' },
   loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
@@ -117,7 +119,7 @@ const T: Record<TKey, Record<Language, string>> = {
 function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
 // ---------- Unified row ----------
-type LeadType = 'open' | 'demo';
+type LeadType = 'open' | 'demo' | 'trial2620';
 interface UnifiedLead {
   id: string;
   /** Human-readable number, e.g. "L-1000" or "D-8000". */
@@ -141,6 +143,7 @@ interface UnifiedLead {
   attachments?: CrmLeadAttachment[];
   has_demo?: boolean;
   quote_id?: string | null;
+  comment?: string | null;
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
@@ -166,6 +169,7 @@ const STAGE_CLR: Record<string, string> = {
   'Cold lead':    'bg-sky-50 text-sky-700 border-sky-200',
   'Offer requested': 'bg-violet-50 text-violet-700 border-violet-200',
   'No fit':       'bg-gray-100 text-gray-700 border-gray-200',
+  '2620':          'bg-teal-50 text-teal-700 border-teal-200',
 };
 
 const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
@@ -252,7 +256,31 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   };
 }
 
-type TabKey = 'all' | 'open' | 'demo' | 'mine' | 'mine_demo';
+function mapTrial2620(t: Crm2620Trial): UnifiedLead {
+  return {
+    id: t.id,
+    display_no: '2620',
+    type: 'trial2620',
+    title: t.company_cvr,
+    customer: t.contact_person,
+    dealer: `${t.phone} · ${t.email}`,
+    owner_user_id: t.responsible_seller_id,
+    owner_name: t.responsible_seller_name,
+    owner_email: t.responsible_seller_email,
+    responsible_name: t.responsible_seller_name,
+    machine: t.zip_city,
+    equipment: null,
+    date: t.created_at,
+    next_followup: null,
+    status: '2620',
+    probability: null,
+    value: null,
+    detail_href: null,
+    comment: t.comment,
+  };
+}
+
+type TabKey = 'all' | 'open' | 'demo' | 'mine' | 'mine_demo' | 'trial2620';
 
 export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
@@ -270,10 +298,12 @@ export default function CrmLeadsPage() {
     { key: 'demo',      label: tt('tab_demo', lang) },
     { key: 'mine',      label: tt('tab_mine', lang) },
     { key: 'mine_demo', label: tt('tab_mine_demo', lang) },
+    { key: 'trial2620', label: tt('tab_2620', lang) },
   ];
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
+  const [trials2620, setTrials2620] = useState<Crm2620Trial[]>([]);
   const [quoteIdByLeadId, setQuoteIdByLeadId] = useState<Map<string, string>>(() => new Map());
   const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
   const [sellerId, setSellerId] = useState<string | null>(null);
@@ -332,9 +362,10 @@ export default function CrmLeadsPage() {
     (async () => {
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
-      const [openAll, demoAll, quoteResult] = await Promise.all([
+      const [openAll, demoAll, trialsAll, quoteResult] = await Promise.all([
         listLeads({}),
         listDemoLeads({}),
+        listCrm2620Trials(),
         listScopedConfigurations({ documentType: 'quote' }),
       ]);
       const [openResolved, demoResolved] = await Promise.all([
@@ -358,12 +389,14 @@ export default function CrmLeadsPage() {
       console.log('[CRM Leads] counts', {
         crm_open_leads: openResolved.length,
         crm_demo_leads: demoResolved.length,
+        crm_2620_trials: trialsAll.length,
         sellerId: sid,
         email: appUser?.email,
       });
       setSellerId(sid);
       setOpenLeads(openResolved);
       setDemoLeads(demoResolved);
+      setTrials2620(trialsAll);
       setQuoteIdByLeadId(new Map(Array.from(nextQuoteIdByLeadId, ([leadId, quote]) => [leadId, quote.id])));
       setLoading(false);
     })();
@@ -404,9 +437,27 @@ export default function CrmLeadsPage() {
                   (sellerId && r.owner_user_id === sellerId) ||
                   (!!appUser?.email && (r.owner_email || '').toLowerCase() === appUser.email.toLowerCase())
                 )).length,
-  }), [allRows, sellerId, appUser?.email]);
+    trial2620: trials2620.length,
+  }), [allRows, sellerId, appUser?.email, trials2620.length]);
+
+  const trialRows = useMemo(() => trials2620.map(mapTrial2620), [trials2620]);
 
   const visible = useMemo(() => {
+    if (tab === 'trial2620') {
+      let r = trialRows;
+      if (q.trim()) {
+        const s = q.toLowerCase();
+        r = r.filter(x =>
+          (x.title || '').toLowerCase().includes(s) ||
+          (x.customer || '').toLowerCase().includes(s) ||
+          (x.dealer || '').toLowerCase().includes(s) ||
+          (x.owner_name || '').toLowerCase().includes(s) ||
+          (x.machine || '').toLowerCase().includes(s) ||
+          (x.comment || '').toLowerCase().includes(s)
+        );
+      }
+      return r;
+    }
     let r = allRows;
     if (tab === 'open') r = r.filter(x => x.type === 'open');
     else if (tab === 'demo') r = r.filter(x => x.type === 'demo');
@@ -433,7 +484,7 @@ export default function CrmLeadsPage() {
       );
     }
     return r;
-  }, [allRows, tab, stage, q, sellerId, appUser?.email]);
+  }, [allRows, tab, stage, q, sellerId, appUser?.email, trialRows]);
 
   const totalValue = useMemo(() => visible.reduce((s, x) => s + (x.value || 0), 0), [visible]);
   const unassignedCount = useMemo(
@@ -584,8 +635,10 @@ export default function CrmLeadsPage() {
                         <span className={cn('inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
                           r.type === 'demo'
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-sky-50 text-sky-700 border-sky-200')}>
-                          {r.type === 'demo' ? tt('demo_lbl', lang) : tt('open_lbl', lang)}
+                            : r.type === 'trial2620'
+                              ? 'bg-teal-50 text-teal-700 border-teal-200'
+                              : 'bg-sky-50 text-sky-700 border-sky-200')}>
+                          {r.type === 'demo' ? tt('demo_lbl', lang) : r.type === 'trial2620' ? '2620' : tt('open_lbl', lang)}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
@@ -618,6 +671,9 @@ export default function CrmLeadsPage() {
                         </div>
                         {r.customer && r.customer !== r.title && (
                           <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>
+                        )}
+                        {r.comment && (
+                          <div className="text-xs text-gray-500 truncate max-w-[260px]">Kommentar: {r.comment}</div>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[180px] truncate">{r.dealer || '—'}</td>

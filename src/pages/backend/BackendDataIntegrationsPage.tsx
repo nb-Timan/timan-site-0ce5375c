@@ -8,14 +8,15 @@
  * "Verificér / Dry-run / Kør sync / Historik"-mønster. Genbruger
  * eksisterende paneler — ingen logik flyttes, ingen routes fjernes.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown } from "lucide-react";
+import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown, RotateCcw, AlertTriangle } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/lib/supabase";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import GeocodeWarrantyCustomersPanel from "@/components/backend/GeocodeWarrantyCustomersPanel";
@@ -26,8 +27,8 @@ import SyncSection from "@/components/backend/SyncSection";
 import { useLatestDealerSyncLog, badgeFromLatest } from "@/lib/syncStatusBadge";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
 
-type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik";
-const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik"];
+type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "crm-reset";
+const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "crm-reset"];
 
 export default function BackendDataIntegrationsPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
@@ -81,6 +82,7 @@ export default function BackendDataIntegrationsPage() {
             <TabsTrigger value="budget" className="data-[state=active]:bg-white"><BarChart3 className="h-4 w-4 mr-2" />Budget</TabsTrigger>
             <TabsTrigger value="brugere" className="data-[state=active]:bg-white"><UsersIcon className="h-4 w-4 mr-2" />Brugere</TabsTrigger>
             <TabsTrigger value="historik" className="data-[state=active]:bg-white"><History className="h-4 w-4 mr-2" />Sync Historik</TabsTrigger>
+            <TabsTrigger value="crm-reset" className="data-[state=active]:bg-white"><RotateCcw className="h-4 w-4 mr-2" />CRM nulstilling</TabsTrigger>
           </TabsList>
 
           <TabsContent value="forhandlere"><DealerTab /></TabsContent>
@@ -89,6 +91,7 @@ export default function BackendDataIntegrationsPage() {
           <TabsContent value="budget"><BudgetTab /></TabsContent>
           <TabsContent value="brugere"><UsersTab /></TabsContent>
           <TabsContent value="historik"><HistoryTab /></TabsContent>
+          <TabsContent value="crm-reset"><CrmResetTab /></TabsContent>
         </Tabs>
       </main>
 
@@ -100,6 +103,184 @@ export default function BackendDataIntegrationsPage() {
 // ──────────────────────────────────────────────────────────────────────────────
 // Tab content
 // ──────────────────────────────────────────────────────────────────────────────
+
+const CRM_RESET_CONFIRMATION = "NULSTIL CRM";
+
+type CrmSalesResetPreview = {
+  counts?: Record<string, number>;
+  next_after_reset?: Partial<Record<"lead" | "quote" | "order", string>>;
+  protected_data?: string[];
+  confirmation_required?: string;
+};
+
+type CrmSalesResetResult = {
+  deleted?: Record<string, number>;
+  next_after_reset?: Partial<Record<"lead" | "quote" | "order", string>>;
+  audit_log_id?: string;
+};
+
+function CrmResetTab() {
+  const [preview, setPreview] = useState<CrmSalesResetPreview | null>(null);
+  const [result, setResult] = useState<CrmSalesResetResult | null>(null);
+  const [confirmation, setConfirmation] = useState("");
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const counts = preview?.counts ?? {};
+  const totalRecords = Object.values(counts).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const requiredConfirmation = preview?.confirmation_required || CRM_RESET_CONFIRMATION;
+  const canReset = confirmation.trim() === requiredConfirmation && !resetting;
+
+  const loadPreview = async () => {
+    setLoadingPreview(true);
+    setError(null);
+    setResult(null);
+
+    const { data, error } = await (supabase as any).rpc("preview_crm_sales_reset");
+    setLoadingPreview(false);
+
+    if (error) {
+      setError(error.message || "Kunne ikke hente reset-preview.");
+      return;
+    }
+
+    setPreview((data ?? {}) as CrmSalesResetPreview);
+    setConfirmation("");
+  };
+
+  const executeReset = async () => {
+    if (!preview || !canReset) return;
+
+    const confirmed = window.confirm("Er du sikker? Dette sletter CRM-transaktionsdata og nulstiller L/T/O-numre.");
+    if (!confirmed) return;
+
+    setResetting(true);
+    setError(null);
+    setResult(null);
+
+    const { data, error } = await (supabase as any).rpc("execute_crm_sales_reset", {
+      p_confirmation: requiredConfirmation,
+    });
+    setResetting(false);
+
+    if (error) {
+      setError(error.message || "CRM-nulstilling fejlede.");
+      return;
+    }
+
+    setResult((data ?? {}) as CrmSalesResetResult);
+    setPreview(null);
+    setConfirmation("");
+  };
+
+  return (
+    <SyncSection
+      title="Kontrolleret CRM-nulstilling"
+      description="Backend/admin-only preview og bekræftet nulstilling af CRM-transaktionsdata. Produktionsreset køres ikke uden eksplicit bekræftelse."
+    >
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-3">
+            <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+              <AlertTriangle className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Meget vigtig nulstilling</h3>
+              <p className="mt-1 text-sm text-slate-700">
+                Sletter kun leads, demo leads, tilbud, ordrer, budget-/pipeline-transaktioner og direkte afhængige CRM-records.
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                Stamdata som brugere, forhandlere, produkter, priser, marketing og indstillinger bevares.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={loadPreview}
+            disabled={loadingPreview || resetting}
+            className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-900 shadow-sm hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingPreview ? "Henter preview..." : "Hent reset-preview"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+          {error}
+        </div>
+      )}
+
+      {preview && (
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Preview</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Der slettes {totalRecords} CRM-transaktionsrecords, hvis reset bekræftes.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {Object.entries(counts).map(([key, value]) => (
+              <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{key}</div>
+                <div className="mt-2 text-2xl font-bold text-slate-900">{Number(value) || 0}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <h4 className="text-sm font-bold text-emerald-900">Næste numre efter reset</h4>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                <div><span className="block text-emerald-700">Lead</span><strong>{preview.next_after_reset?.lead ?? "L-1001"}</strong></div>
+                <div><span className="block text-emerald-700">Tilbud</span><strong>{preview.next_after_reset?.quote ?? "T-4001"}</strong></div>
+                <div><span className="block text-emerald-700">Ordre</span><strong>{preview.next_after_reset?.order ?? "O-7001"}</strong></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h4 className="text-sm font-bold text-slate-900">Beskyttede stamdata</h4>
+              <p className="mt-2 text-sm text-slate-700">
+                {(preview.protected_data ?? ["brugere", "forhandlere", "produkter", "priser", "marketing", "sprog", "indstillinger"]).join(", ")}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <label className="block text-sm font-bold text-red-900" htmlFor="crm-reset-confirmation">
+              Skriv {requiredConfirmation} for at aktivere nulstilling
+            </label>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <input
+                id="crm-reset-confirmation"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                className="min-h-[44px] flex-1 rounded-full border border-red-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-red-400"
+                placeholder={requiredConfirmation}
+              />
+              <button
+                type="button"
+                onClick={executeReset}
+                disabled={!canReset}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-red-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {resetting ? "Nulstiller..." : "Nulstil CRM-transaktionsdata"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+          <strong>Reset gennemført.</strong> Næste numre er {result.next_after_reset?.lead ?? "L-1001"}, {result.next_after_reset?.quote ?? "T-4001"} og {result.next_after_reset?.order ?? "O-7001"}.
+        </div>
+      )}
+    </SyncSection>
+  );
+}
 
 function DealerTab() {
   const { badge } = useLatestDealerSyncLog();

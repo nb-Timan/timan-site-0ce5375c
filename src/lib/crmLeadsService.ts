@@ -331,7 +331,7 @@ function notifyCrmLeadsChanged(): void {
 
 export const LEAD_NO_PREFIX = "L-";
 export const DEMO_NO_PREFIX = "D-";
-const LEAD_NO_START = 1000;
+const LEAD_NO_START = 1001;
 const DEMO_NO_START = 8000;
 
 export function formatLeadNo(n: number | null | undefined): string {

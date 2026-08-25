@@ -5,6 +5,7 @@ import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
+import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 
 
 /**
@@ -215,12 +216,9 @@ export interface SavedConfiguration {
 
 export const SENT_PDF_BUCKET = 'sent-pdfs';
 
-/** Generate a unique reference number with prefix Q- or O- */
-export function generateReferenceNumber(prefix: 'Q' | 'O'): string {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${prefix}-${datePart}-${rand}`;
+/** Generate a local fallback document number for quotes or orders. */
+export function generateReferenceNumber(prefix: 'Q' | 'T' | 'O'): string {
+  return generateLocalCrmDocumentNumber(prefix === 'O' ? 'order' : 'quote');
 }
 
 /** Ensure a saved configuration has its reference numbers, updating in Supabase if needed */
@@ -250,12 +248,12 @@ export async function ensureReferenceNumbers(
   const result = { quote_number: row.quote_number as string | null, order_number: row.order_number as string | null };
 
   if (needsQuote) {
-    const qn = generateReferenceNumber('Q');
+    const qn = await getNextCrmDocumentNumber('quote');
     patch.quote_number = qn;
     result.quote_number = qn;
   }
   if (needsOrder) {
-    const on = generateReferenceNumber('O');
+    const on = await getNextCrmDocumentNumber('order');
     patch.order_number = on;
     result.order_number = on;
   }
@@ -967,8 +965,8 @@ export async function saveConfiguration(
     created_case_at: now,
     quote_sent_at: null,
     order_sent_at: null,
-    quote_number: isOrder ? null : generateReferenceNumber('Q'),
-    order_number: isOrder ? generateReferenceNumber('O') : null,
+      quote_number: isOrder ? null : await getNextCrmDocumentNumber('quote'),
+      order_number: isOrder ? await getNextCrmDocumentNumber('order') : null,
     source_quote_id: sourceQuoteId ?? null,
     source_quote_number: sourceQuoteNumber ?? null,
     // Ownership snapshot (Phase 23). Unknown columns are stripped by
@@ -1203,8 +1201,8 @@ export async function updateConfigurationFlowType(
   let quoteNumber: string | null = row.quote_number ?? null;
   let orderNumber: string | null = row.order_number ?? null;
 
-  if (!isOrder && !quoteNumber) quoteNumber = generateReferenceNumber('Q');
-  if (isOrder && !orderNumber) orderNumber = generateReferenceNumber('O');
+  if (!isOrder && !quoteNumber) quoteNumber = await getNextCrmDocumentNumber('quote');
+  if (isOrder && !orderNumber) orderNumber = await getNextCrmDocumentNumber('order');
 
   const patch: Record<string, unknown> = {
     case_type: flowType,
@@ -1371,7 +1369,7 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
   // Ensure the row has an order_number. Converted quotes may not have one
   // yet — without it CRM → Ordrer would show a blank reference.
   const existingOrderNumber = (rowSnapshot?.order_number as string | null) ?? null;
-  const orderNumber = existingOrderNumber || generateReferenceNumber('O');
+  const orderNumber = existingOrderNumber || await getNextCrmDocumentNumber('order');
 
   const { error } = await updateConfigurationRow(id, {
     // CRITICAL: crm_configurations_view returns

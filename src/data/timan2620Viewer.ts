@@ -49,6 +49,7 @@ const STANDARD_BASE = `${BASE}/standard-config`;
 const CABIN_BASE = `${BASE}/cab-config`;
 const STANDARD_IMG = (name: string) => `${STANDARD_BASE}/${name}`;
 const CABIN_IMG = (name: string) => `${CABIN_BASE}/${name}.png`;
+const CABIN_JPG = (name: string) => `${CABIN_BASE}/${name}.jpg`;
 
 function imageConfig(
   key: string,
@@ -74,6 +75,13 @@ export const TIMAN_2620_STANDARD_IMAGE_CONFIGS = [
     ['bucket'],
     [STANDARD_IMG('i-standard-skovl.png')],
     ['I-standard+skovl.png'],
+  ),
+  imageConfig(
+    'standard_v_plow',
+    'standard',
+    ['v_plow'],
+    [STANDARD_IMG('standard-v-plow.jpg')],
+    ['1.png'],
   ),
   imageConfig(
     'standard_dozer_blade',
@@ -112,6 +120,20 @@ export const TIMAN_2620_CABIN_IMAGE_CONFIGS = [
     ['bucket'],
     [CABIN_IMG('c-kabine-skovl')],
     ['C-Kabine+Skovl.png'],
+  ),
+  imageConfig(
+    'cab_v_plow',
+    'cab',
+    ['v_plow'],
+    [CABIN_JPG('cab-v-plow')],
+    ['2.png'],
+  ),
+  imageConfig(
+    'cab_dozer_blade',
+    'cab',
+    ['dozer_blade'],
+    [CABIN_JPG('cab-dozer-blade')],
+    ['3.png'],
   ),
   imageConfig(
     'cab_salt_spreader',

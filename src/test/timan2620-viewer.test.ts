@@ -95,13 +95,15 @@ describe('Timan 2620 standard image matrix', () => {
     expect(TIMAN_2620_IMAGES[saltDozerKey].imageSequence).toEqual([
       '/images/timan-2620/standard-config/h-standard-dozerblad-saltspreder.jpg',
     ]);
+
+    const vPlowKey = deriveTiman2620ImageKey('standard', equipmentSet('v_plow'));
+    expect(vPlowKey).toBe('standard_v_plow');
+    expect(TIMAN_2620_IMAGES[vPlowKey].imageSequence).toEqual([
+      '/images/timan-2620/standard-config/standard-v-plow.jpg',
+    ]);
   });
 
   it('blocks standard combinations without exact image mappings', () => {
-    expect(isTiman2620EquipmentSelectable('standard', equipmentSet(), 'v_plow')).toBe(false);
-    expect(deriveTiman2620ImageKey('standard', equipmentSet('v_plow'))).toBe(
-      'standard_invalid',
-    );
     expect(isTiman2620EquipmentSelectable('standard', equipmentSet('bucket'), 'salt_spreader')).toBe(
       false,
     );
