@@ -42,6 +42,7 @@ import {
   fetchDealerAccounts, fetchDealerAccountStats,
   updateDealerAccount, type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
+  DEALER_TYPE_OPTIONS,
   dealerTypeFromCustomerType,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
@@ -184,19 +185,6 @@ const L: Record<string, Record<Language, string>> = {
   status_lbl:       { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
 };
 const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
-
-const CUSTOMER_TYPE_OPTIONS = [
-  "Diverse",
-  "Forhandler",
-  "Service Partner",
-  "Importør",
-  "Reservedele",
-  "Forhandlerkunde",
-  "Slutkunde",
-  "Leverandør mv.",
-  "Lukket kunde",
-  "Ansat person enkel",
-] as const;
 
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",
@@ -1375,10 +1363,10 @@ function EditDealerModal({
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
             >
               <option value="">Ingen kundetype</option>
-              {CUSTOMER_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
+              {DEALER_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-              {form.customer_type_label && !CUSTOMER_TYPE_OPTIONS.includes(form.customer_type_label as typeof CUSTOMER_TYPE_OPTIONS[number]) && (
+              {form.customer_type_label && !DEALER_TYPE_OPTIONS.some((option) => option.value === form.customer_type_label) && (
                 <option value={form.customer_type_label}>{form.customer_type_label}</option>
               )}
             </select>
