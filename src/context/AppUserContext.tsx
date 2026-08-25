@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import { syncSelfAppUser } from '@/lib/adminUserActions';
 import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
@@ -156,7 +157,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           linkAuthUserIdIfNeeded();
           setAppUser(rowToSessionUser(row));
         } else {
-          // Session present but not approved -> limited Dealer User access.
+          // Session present but not approved/missing -> make sure Backend can
+          // see the signup/login request as a pending app_users row.
+          const syncResult = await syncSelfAppUser();
+          if (!syncResult.ok) console.error('[app_users sync] pending profile failed:', syncResult.error);
           setAppUser(createLimitedDealerUser(email));
         }
       } finally {

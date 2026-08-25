@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 export type AdminUserAction =
   | "invite"
   | "reset"
+  | "signup"
   | "admin_update_user"
   | "admin_delete_user"
   | "link_self"

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AppUser, SLUTKUNDE_DEFAULTS, lookupAppUser } from '@/data/appUsers';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
+import { syncSelfAppUser } from '@/lib/adminUserActions';
 import GuestVisitorPopup from '@/components/configurator/GuestVisitorPopup';
 import { startAuthenticatedSession } from '@/lib/visitorTracking';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
@@ -149,11 +150,8 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         // Create the missing profile server-side. The browser may no longer
         // insert app_users rows (RLS, phase63) — the Edge Function creates a
         // locked-down pending row for the caller's own email only.
-        import('@/lib/adminUserActions').then(({ syncSelfAppUser }) => {
-          syncSelfAppUser().then((res) => {
-            if (!res.ok) console.error('[app_users sync] insert failed:', res.error);
-          });
-        }).catch(() => { /* ignore */ });
+        const syncResult = await syncSelfAppUser();
+        if (!syncResult.ok) console.error('[app_users sync] insert failed:', syncResult.error);
 
 
         trackLogin(userEmail, 'login');

@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
     }
     // No profile yet → create a locked-down pending row. No privileged fields
     // are accepted from the client; safe defaults only.
-    const { error } = await admin.from("app_users").insert({
+    const insertPayload: Record<string, unknown> = {
       email: callerEmail,
       auth_user_id: callerAuthId,
       full_name: callerEmail,
@@ -262,7 +262,11 @@ Deno.serve(async (req) => {
       is_active: false,
       status: "pending",
       updated_at: new Date().toISOString(),
-    });
+    };
+    let { error } = await admin.from("app_users").insert(insertPayload);
+    if (error && /role_check|violates check constraint.*role/i.test(error.message)) {
+      error = (await admin.from("app_users").insert({ ...insertPayload, role: "partner" })).error;
+    }
     if (error && !/duplicate|unique/i.test(error.message)) {
       return json({ error: `Profil kunne ikke oprettes: ${error.message}` }, 500);
     }
