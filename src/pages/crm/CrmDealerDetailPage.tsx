@@ -1649,6 +1649,9 @@ function ContactHero({
   const mailAddr  = primaryEmail || dealer.email || null;
   const callLabel = primaryName ? tl("contact_call", lang) : tl("call", lang);
   const callSublabel = [primaryName, callPhone].filter(Boolean).join(" · ");
+  const mailSublabel = primaryEmail
+    ? [primaryName, primaryEmail].filter(Boolean).join(" · ")
+    : mailAddr;
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
@@ -1681,7 +1684,7 @@ function ContactHero({
   // Only include actions whose data exists.
   const actionsAll: HeroAction[] = [
     callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
-    mailAddr  ? { key: "mail",   label: tl("send_mail", lang),     icon: <Mail className="h-5 w-5" />,         href: `mailto:${mailAddr}` } : null,
+    mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-5 w-5" />, href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
     { key: "dealerdata", label: tl("open_dealer_data", lang), icon: <FileText className="h-5 w-5" />,   href: `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}` },
