@@ -118,6 +118,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
   const perms = (row.permissions as Record<string, boolean> | null) || {};
   const isBackend = role === "timan_backend";
   const isInternal = isBackend || role === "timan_seller" || role === "timan_service";
+  const isPrivateEndUser = role === "private_end_user";
 
   // Quick actions: NULL in DB = not set yet → fall back to role defaults.
   const rawQa = row.quick_actions;
@@ -156,7 +157,8 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     perms: {
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
       can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
-      can_create_claims: perms.can_create_claims ?? !isBackend,
+      can_create_claims: perms.can_create_claims ?? (!isBackend && !isPrivateEndUser),
+      can_create_warranty: perms.can_create_warranty ?? (!isBackend && !isPrivateEndUser),
       can_approve_claims: perms.can_approve_claims ?? isInternal,
       can_create_tsb: perms.can_create_tsb ?? isBackend,
       can_manage_users: perms.can_manage_users ?? isBackend,
@@ -221,6 +223,7 @@ export const PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES: PortalRole[] = [
   "timan_importer",
   "timan_service_partner",
   "dealer_user",
+  "private_end_user",
   "pending",
 ];
 
@@ -264,7 +267,7 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
  * via the Role dropdown in the editor.
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
-  if (!isDealerSideRole(draft.role)) return draft;
+  if (!isDealerSideRole(draft.role) && draft.role !== "private_end_user") return draft;
   const allowed_areas = draft.allowed_areas.filter(
     (a) => a !== "timan_backend" && a !== "timan_crm",
   );

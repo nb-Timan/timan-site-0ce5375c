@@ -194,7 +194,7 @@ export default function ConfiguratorPage() {
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
+    canSetDiscount: (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user' && activePortalRole !== 'private_end_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 

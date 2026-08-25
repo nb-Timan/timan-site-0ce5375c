@@ -26,7 +26,8 @@ const ROLE_LABEL: Record<string, string> = {
   timan_dealer: 'Timan Forhandler',
   timan_importer: 'Timan Importør',
   timan_service_partner: 'Timan Service Partner',
-  dealer_user: 'Dealer User',
+  dealer_user: 'Forhandlerbruger',
+  private_end_user: 'Privat / Slutbruger',
 };
 
 export default function CrmAccountsPage() {

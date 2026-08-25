@@ -707,7 +707,7 @@ function EditUserModal({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Dealer User.
+              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Privat / Slutbruger eller Forhandlerbruger.
             </p>
           </Section>
 
@@ -884,6 +884,7 @@ function EditUserModal({
                       { value: "can_view_prices", label: "Se priser / Can view prices" },
                       { value: "can_submit_order", label: "Opret ordre / Can submit order" },
                       { value: "can_create_claims", label: "Can create claims" },
+                      { value: "can_create_warranty", label: "Opret garanti / Can create warranty" },
                       { value: "can_approve_claims", label: "Can approve claims" },
                       { value: "can_create_tsb", label: "Can create TSB" },
                       { value: "can_manage_users", label: "Can manage users", disabled: dealerSide },

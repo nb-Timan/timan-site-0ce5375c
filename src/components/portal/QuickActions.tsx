@@ -58,7 +58,8 @@ export default function QuickActions({ language }: Props) {
     effectiveRoleKey === 'timan_dealer' ||
     effectiveRoleKey === 'timan_service_partner' ||
     effectiveRoleKey === 'timan_importer' ||
-    effectiveRoleKey === 'dealer_user'
+    effectiveRoleKey === 'dealer_user' ||
+    effectiveRoleKey === 'private_end_user'
   ) {
     actions = DEALER_ACTIONS;
     contextLabel = t('quickActionsContextDealer', language);

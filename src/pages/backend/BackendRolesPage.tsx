@@ -25,7 +25,8 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
   timan_importer:        "Importør — bestiller, opretter claims og garantiregistreringer for sit marked.",
   timan_dealer:          "Forhandler — bygger maskiner, indsender tilbud, ordrer og claims.",
   timan_service_partner: "Service Partner — opretter og følger op på claims og garantisager.",
-  dealer_user:           "Læseadgang for forhandleransatte uden redigerings-rettigheder.",
+  dealer_user:           "Forhandlerbruger — medarbejder hos forhandler/samarbejdspartner. Adgang styres per bruger.",
+  private_end_user:      "Privat / Slutbruger — messe-lignende produktportal uden CRM/backend som standard.",
   exhibition_user:       "Timan Messe — offentlig demo-adgang via QR-kode på messer. Ingen CRM, ordrer eller dealerdata.",
   pending:               "Ny bruger — afventer godkendelse fra Timan Backend admin.",
 };
@@ -46,7 +47,7 @@ const MODULE_LABEL: Record<string, string> = {
   tilbud: "Tilbud", ordre: "Ordre", resources: "Beregnere & kalkulatorer", sales_tools: "Formularer", contracts: "Kontrakt",
 };
 
-const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "marketing", "timan_backend"];
+const ALL_AREAS: AreaKey[] = ["teknik_service", "salg_marketing", "marketing", "dealer_data", "timan_crm", "timan_backend"];
 
 export default function BackendRolesPage() {
   const { appUser, loading, logout } = useAppUser();
