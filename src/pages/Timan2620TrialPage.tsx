@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { CheckCircle2, ClipboardList, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,8 +8,6 @@ import MesseSubpageHeader from "@/components/messe/MesseSubpageHeader";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { createCrm2620Trial } from "@/lib/crm2620TrialsService";
-import { resolveSellerId } from "@/lib/resolveSellerId";
-import { loadSellerDirectory, type SellerDirectoryEntry } from "@/lib/sellerDirectory";
 
 type Props = {
   variant?: "portal" | "messe";
@@ -40,12 +38,47 @@ function Field({
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 
+const COUNTRY_OPTIONS = [
+  "Danmark",
+  "Tyskland",
+  "Sverige",
+  "Norge",
+  "Finland",
+  "Island",
+  "Færøerne",
+  "Grønland",
+  "Holland",
+  "Belgien",
+  "Luxembourg",
+  "Frankrig",
+  "Italien",
+  "Spanien",
+  "Portugal",
+  "Østrig",
+  "Schweiz",
+  "Polen",
+  "Tjekkiet",
+  "Slovakiet",
+  "Ungarn",
+  "Kroatien",
+  "Slovenien",
+  "Rumænien",
+  "Bulgarien",
+  "Estland",
+  "Letland",
+  "Litauen",
+  "Storbritannien",
+  "Irland",
+  "Canada",
+  "USA",
+  "Japan",
+  "Andet",
+];
+
 export default function Timan2620TrialPage({ variant = "portal" }: Props) {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [sellers, setSellers] = useState<SellerDirectoryEntry[]>([]);
-  const [loadingSellers, setLoadingSellers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
 
@@ -57,39 +90,10 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
-  const [sellerEmail, setSellerEmail] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingSellers(true);
-      try {
-        const rows = await loadSellerDirectory();
-        if (cancelled) return;
-        const active = rows
-          .filter((seller) => seller.email && seller.initials)
-          .sort((a, b) => a.initials.localeCompare(b.initials));
-        setSellers(active);
-        const current = appUser?.email
-          ? active.find((seller) => seller.email.toLowerCase() === appUser.email.toLowerCase())
-          : null;
-        setSellerEmail((current || active[0])?.email || "");
-      } finally {
-        if (!cancelled) setLoadingSellers(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [appUser?.email]);
-
-  const responsibleSeller = useMemo(
-    () => sellers.find((seller) => seller.email === sellerEmail) || null,
-    [sellerEmail, sellers],
-  );
 
   const ready = Boolean(
     clean(company) &&
     clean(contactPerson) &&
-    clean(address) &&
     clean(zipCity) &&
     clean(phone) &&
     clean(email),
@@ -108,19 +112,18 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
     }
     setSubmitting(true);
     try {
-      const ownerId = responsibleSeller ? await resolveSellerId(responsibleSeller.email) : null;
       const trial = await createCrm2620Trial({
         country: clean(country) || null,
         company_cvr: clean(company),
         contact_person: clean(contactPerson),
-        address: clean(address),
+        address: clean(address) || null,
         zip_city: clean(zipCity),
         phone: clean(phone),
         email: clean(email),
         comment: clean(comment) || null,
-        responsible_seller_id: ownerId,
-        responsible_seller_name: responsibleSeller?.full_name || responsibleSeller?.initials || null,
-        responsible_seller_email: responsibleSeller?.email || null,
+        responsible_seller_id: null,
+        responsible_seller_name: null,
+        responsible_seller_email: null,
         created_by_email: appUser.email || null,
       });
       setCreatedId(trial.id);
@@ -188,7 +191,7 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
             <Field label="Navn / kontaktperson" required>
               <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className={inputClass} />
             </Field>
-            <Field label="Adresse" required>
+            <Field label="Adresse">
               <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
             </Field>
             <Field label="Postnummer og by" required>
@@ -201,20 +204,13 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className={inputClass} />
             </Field>
             <Field label="Land">
-              <input value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass} />
-            </Field>
-            <Field label="Timan sælger">
               <select
-                value={sellerEmail}
-                onChange={(e) => setSellerEmail(e.target.value)}
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
                 className={inputClass}
-                disabled={loadingSellers}
               >
-                <option value="">{loadingSellers ? "Indlæser..." : "Ingen valgt"}</option>
-                {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.email}>
-                    {seller.initials} - {seller.full_name || seller.email}
-                  </option>
+                {COUNTRY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             </Field>
