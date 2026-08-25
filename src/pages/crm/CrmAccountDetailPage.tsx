@@ -21,7 +21,7 @@
  * Sellers additionally pass through canSellerSeeAccount before render.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Building2, MapPin, User, Hash, CircleDot, AlertTriangle, Clock, CheckCircle2, MinusCircle, Plus, ListChecks } from "lucide-react";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { useAppUser } from "@/context/AppUserContext";

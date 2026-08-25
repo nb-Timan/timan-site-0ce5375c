@@ -139,7 +139,7 @@ export default function MachineInterestPicker({ value, onChange }: { value: stri
   };
   const toggleMain = (entry: typeof MACHINE_INTEREST_MAIN[number]) => {
     const active = entry.values.some(v => value.includes(v));
-    const without = value.filter(v => !entry.values.includes(v as any));
+    const without = value.filter(v => !(entry.values as readonly string[]).includes(v));
     onChange(active ? without : [...without, entry.values[0]]);
   };
   const knownEquipment = new Set<string>();
@@ -150,7 +150,7 @@ export default function MachineInterestPicker({ value, onChange }: { value: stri
       for (const item of group.items) knownEquipment.add(equipmentValue(group.machine, item));
     }
   }
-  const knownMain = new Set(MACHINE_INTEREST_MAIN.flatMap(m => [...m.values]));
+  const knownMain = new Set<string>(MACHINE_INTEREST_MAIN.flatMap(m => [...m.values]));
   const otherSelected = value.filter(v => !knownMain.has(v) && !knownEquipment.has(v));
   const hasSelectedEquipmentContext = value.some(v => v.startsWith('Equipment:'))
     || value.some(v => ['RC-1000', 'RC-1000s', 'Timan 2620', 'New 2620', 'Timan 3330', 'Loader line / Tractor Equipment'].includes(v));

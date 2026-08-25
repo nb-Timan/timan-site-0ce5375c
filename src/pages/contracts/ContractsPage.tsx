@@ -73,7 +73,7 @@ export default function ContractsPage() {
     dealerCvr: '',
     contactPerson: '',
     contactTitle: '',
-    timanSeller: appUser?.name ?? '',
+    timanSeller: appUser?.display_name ?? '',
     contractDate: todayIso(),
     signatureDataUrl: null,
   }));
