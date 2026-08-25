@@ -56,6 +56,7 @@ const LOCALE_MAP: Record<Language, string> = {
 
 const I18N = {
   area: {
+    director:  { da: "Direktør",    en: "Director",   de: "Geschäftsführer", it: "Amministratore", hu: "Ügyvezető" },
     sales:     { da: "Salg",       en: "Sales",      de: "Vertrieb",   it: "Vendite",   hu: "Értékesítés" },
     workshop:  { da: "Værksted",   en: "Workshop",   de: "Werkstatt",  it: "Officina",  hu: "Szerviz" },
     parts:     { da: "Reservedele",en: "Spare parts",de: "Ersatzteile",it: "Ricambi",   hu: "Alkatrész" },

@@ -11,7 +11,7 @@ export type ProfileI18nKey =
   | "save" | "saving" | "saved" | "saveError" | "required"
   | "sec1" | "sec2" | "sec3" | "sec4" | "sec5" | "sec6"
   | "companyName" | "address" | "addressLine1" | "addressLine2" | "postalCode" | "city" | "country"
-  | "vatNumber" | "directorName" | "phone" | "email"
+  | "vatNumber" | "directorName" | "directorMultiple" | "phone" | "email"
   | "financeContactName" | "financePhone" | "financeEmail" | "invoiceEmail" | "paymentTerms" | "currencyCode"
   | "website" | "facebook" | "linkedin" | "tiktok" | "youtube" | "instagram"
   | "salesContactName" | "salesPhone" | "salesEmail" | "salesMultiple"
@@ -19,6 +19,7 @@ export type ProfileI18nKey =
   | "marketingContactName" | "marketingPhone" | "marketingEmail"
   | "yes" | "no" | "addPerson" | "removePerson"
   | "role" | "name"
+  | "roleDirector" | "roleOwner" | "roleManagingDirector"
   | "roleSalesDirector" | "roleSalesRep" | "roleKeyAccount"
   | "roleWorkshopManager" | "roleMechanic" | "rolePartsManager" | "roleStockManager" | "roleServiceCoord"
   | "roleOther";
@@ -39,7 +40,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     sec1: "Firma information", sec2: "Økonomi afdeling", sec3: "Medier",
     sec4: "Salgsafdeling", sec5: "Værksted og reservedele", sec6: "Marketing",
     companyName: "Firmanavn", address: "Firma adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "Postnummer", city: "By", country: "Land",
-    vatNumber: "CVR/VAT nr.", directorName: "Direktør navn", phone: "Telefon", email: "E-mail",
+    vatNumber: "CVR/VAT nr.", directorName: "Direktør navn", directorMultiple: "Flere direktører?", phone: "Telefon", email: "E-mail",
     financeContactName: "Økonomi kontaktperson", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "E-mail til faktura",
     paymentTerms: "Betalingsbetingelser", currencyCode: "Valuta",
     website: "Hjemmeside", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -48,6 +49,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     marketingContactName: "Marketing kontaktperson", marketingPhone: "Telefon", marketingEmail: "E-mail",
     yes: "Ja", no: "Nej", addPerson: "Tilføj person", removePerson: "Fjern",
     role: "Rolle", name: "Navn",
+    roleDirector: "Direktør", roleOwner: "Ejer", roleManagingDirector: "Daglig leder",
     roleSalesDirector: "Salgsdirektør", roleSalesRep: "Sælger", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Værkstedschef", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig",
     roleStockManager: "Lageransvarlig", roleServiceCoord: "Servicekoordinator", roleOther: "Andet",
@@ -65,7 +67,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     sec1: "Company information", sec2: "Finance department", sec3: "Media",
     sec4: "Sales department", sec5: "Workshop & spare parts", sec6: "Marketing",
     companyName: "Company name", address: "Address", addressLine1: "Address line 1", addressLine2: "Address line 2", postalCode: "Postal code", city: "City", country: "Country",
-    vatNumber: "VAT no.", directorName: "Director name", phone: "Phone", email: "E-mail",
+    vatNumber: "VAT no.", directorName: "Director name", directorMultiple: "More directors?", phone: "Phone", email: "E-mail",
     financeContactName: "Finance contact", financePhone: "Phone", financeEmail: "E-mail", invoiceEmail: "Invoice e-mail",
     paymentTerms: "Payment terms", currencyCode: "Currency",
     website: "Website", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -74,6 +76,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     marketingContactName: "Marketing contact", marketingPhone: "Phone", marketingEmail: "E-mail",
     yes: "Yes", no: "No", addPerson: "Add person", removePerson: "Remove",
     role: "Role", name: "Name",
+    roleDirector: "Director", roleOwner: "Owner", roleManagingDirector: "Managing director",
     roleSalesDirector: "Sales Director", roleSalesRep: "Sales Rep", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Workshop Manager", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager",
     roleStockManager: "Stock Manager", roleServiceCoord: "Service Coordinator", roleOther: "Other",
@@ -88,7 +91,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     sec1: "Firmenangaben", sec2: "Buchhaltung", sec3: "Medien",
     sec4: "Vertrieb", sec5: "Werkstatt & Ersatzteile", sec6: "Marketing",
     companyName: "Firmenname", address: "Adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "PLZ", city: "Stadt", country: "Land",
-    vatNumber: "USt-IdNr.", directorName: "Geschäftsführer", phone: "Telefon", email: "E-Mail",
+    vatNumber: "USt-IdNr.", directorName: "Geschäftsführer", directorMultiple: "Weitere Geschäftsführer?", phone: "Telefon", email: "E-Mail",
     financeContactName: "Buchhaltungskontakt", financePhone: "Telefon", financeEmail: "E-Mail", invoiceEmail: "Rechnungs-E-Mail",
     paymentTerms: "Zahlungsbedingungen", currencyCode: "Währung",
     website: "Website", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -97,6 +100,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     marketingContactName: "Marketingkontakt", marketingPhone: "Telefon", marketingEmail: "E-Mail",
     yes: "Ja", no: "Nein", addPerson: "Person hinzufügen", removePerson: "Entfernen",
     role: "Rolle", name: "Name",
+    roleDirector: "Geschäftsführer", roleOwner: "Inhaber", roleManagingDirector: "Betriebsleiter",
     roleSalesDirector: "Vertriebsleiter", roleSalesRep: "Verkäufer", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Werkstattleiter", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher",
     roleStockManager: "Lagerverantwortlicher", roleServiceCoord: "Servicekoordinator", roleOther: "Sonstiges",
@@ -111,7 +115,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     sec1: "Informazioni azienda", sec2: "Amministrazione", sec3: "Media",
     sec4: "Vendite", sec5: "Officina e ricambi", sec6: "Marketing",
     companyName: "Ragione sociale", address: "Indirizzo", addressLine1: "Indirizzo 1", addressLine2: "Indirizzo 2", postalCode: "CAP", city: "Città", country: "Paese",
-    vatNumber: "Partita IVA", directorName: "Amministratore", phone: "Telefono", email: "E-mail",
+    vatNumber: "Partita IVA", directorName: "Amministratore", directorMultiple: "Più amministratori?", phone: "Telefono", email: "E-mail",
     financeContactName: "Contatto amministrazione", financePhone: "Telefono", financeEmail: "E-mail", invoiceEmail: "E-mail fatture",
     paymentTerms: "Termini di pagamento", currencyCode: "Valuta",
     website: "Sito web", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -120,6 +124,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     marketingContactName: "Contatto marketing", marketingPhone: "Telefono", marketingEmail: "E-mail",
     yes: "Sì", no: "No", addPerson: "Aggiungi persona", removePerson: "Rimuovi",
     role: "Ruolo", name: "Nome",
+    roleDirector: "Amministratore", roleOwner: "Titolare", roleManagingDirector: "Direttore generale",
     roleSalesDirector: "Direttore vendite", roleSalesRep: "Venditore", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Capo officina", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi",
     roleStockManager: "Resp. magazzino", roleServiceCoord: "Coordinatore service", roleOther: "Altro",
@@ -134,7 +139,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     sec1: "Cégadatok", sec2: "Pénzügy", sec3: "Média",
     sec4: "Értékesítés", sec5: "Szerviz és alkatrész", sec6: "Marketing",
     companyName: "Cégnév", address: "Cím", addressLine1: "Cím 1", addressLine2: "Cím 2", postalCode: "Irányítószám", city: "Város", country: "Ország",
-    vatNumber: "Adószám", directorName: "Ügyvezető", phone: "Telefon", email: "E-mail",
+    vatNumber: "Adószám", directorName: "Ügyvezető", directorMultiple: "Több ügyvezető?", phone: "Telefon", email: "E-mail",
     financeContactName: "Pénzügyi kapcsolattartó", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "Számla e-mail",
     paymentTerms: "Fizetési feltételek", currencyCode: "Pénznem",
     website: "Weboldal", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -143,6 +148,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     marketingContactName: "Marketing kapcsolattartó", marketingPhone: "Telefon", marketingEmail: "E-mail",
     yes: "Igen", no: "Nem", addPerson: "Személy hozzáadása", removePerson: "Eltávolítás",
     role: "Szerep", name: "Név",
+    roleDirector: "Ügyvezető", roleOwner: "Tulajdonos", roleManagingDirector: "Cégvezető",
     roleSalesDirector: "Értékesítési igazgató", roleSalesRep: "Értékesítő", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Szervizvezető", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős",
     roleStockManager: "Raktárfelelős", roleServiceCoord: "Szervizkoordinátor", roleOther: "Egyéb",

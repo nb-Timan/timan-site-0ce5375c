@@ -1,11 +1,11 @@
 /**
- * dealer_contacts CRUD — extra people for sales/workshop/parts/marketing/finance.
+ * dealer_contacts CRUD — extra people for director/sales/workshop/parts/marketing/finance.
  * RLS in phase52 allows: backend full access; dealer-side user limited to own
  * dealer_accounts row via current_user_dealer_number().
  */
 import { supabase } from "@/lib/supabase";
 
-export type DealerContactArea = "sales" | "workshop" | "parts" | "marketing" | "finance";
+export type DealerContactArea = "director" | "sales" | "workshop" | "parts" | "marketing" | "finance";
 
 export interface DealerContact {
   id: string;

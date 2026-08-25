@@ -158,6 +158,7 @@ const L: Record<string, Record<Language, string>> = {
   language:         { da: "Sprog", en: "Language", de: "Sprache", it: "Lingua", hu: "Nyelv" },
   status_active:    { da: "Aktiv", en: "Active", de: "Aktiv", it: "Attivo", hu: "Aktív" },
   area_sales:       { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés" },
+  area_director:    { da: "Direktør", en: "Director", de: "Geschäftsführer", it: "Amministratore", hu: "Ügyvezető" },
   area_workshop:    { da: "Værksted", en: "Workshop", de: "Werkstatt", it: "Officina", hu: "Műhely" },
   area_parts:       { da: "Reservedele", en: "Parts", de: "Ersatzteile", it: "Ricambi", hu: "Alkatrész" },
   area_marketing:   { da: "Marketing", en: "Marketing", de: "Marketing", it: "Marketing", hu: "Marketing" },

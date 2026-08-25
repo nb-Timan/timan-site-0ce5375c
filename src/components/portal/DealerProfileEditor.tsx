@@ -47,6 +47,9 @@ const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
   "roleWorkshopManager", "roleMechanic", "rolePartsManager",
   "roleStockManager", "roleServiceCoord", "roleOther",
 ];
+const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
+  "roleDirector", "roleOwner", "roleManagingDirector", "roleOther",
+];
 
 // ---------- module-scope helpers (stable component identity) ----------
 
@@ -195,6 +198,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const [savingSection, setSavingSection] = useState<SectionKey | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
+  const [directorHasMultiple, setDirectorHasMultiple] = useState(false);
 
   // Only re-sync draft when the dealer id changes — not on every prop ref change.
   useEffect(() => {
@@ -207,7 +211,11 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     (async () => {
       setLoadingContacts(true);
       const rows = await listDealerContacts(dealer.id);
-      if (!cancelled) { setContacts(rows); setLoadingContacts(false); }
+      if (!cancelled) {
+        setContacts(rows);
+        setDirectorHasMultiple(rows.some((c) => c.contact_area === "director"));
+        setLoadingContacts(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [dealer.id]);
@@ -317,7 +325,17 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
-          <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
+          <div className="space-y-3">
+            <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
+            <YesNoToggle
+              label={t("directorMultiple")}
+              value={directorHasMultiple}
+              disabled={!canEdit}
+              onChange={setDirectorHasMultiple}
+              yes={t("yes")}
+              no={t("no")}
+            />
+          </div>
           <AddressField
             id="address_line_1"
             label={t("addressLine1")}
@@ -370,6 +388,13 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
           <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
         </div>
+        {directorHasMultiple && (
+          <ContactList
+            area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
+            contacts={contactsByArea("director")} loading={loadingContacts}
+            onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+          />
+        )}
       </SectionShell>
 
       {/* 2) Finance */}
