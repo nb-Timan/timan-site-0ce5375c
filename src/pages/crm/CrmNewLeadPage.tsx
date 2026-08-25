@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
@@ -24,11 +24,12 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
@@ -248,6 +249,133 @@ function buildStructuredContactInformation(info: StructuredContactInfo): string 
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
 const taCls = inputCls + ' min-h-[90px] resize-y';
+
+function toLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalIsoDate(value: string): Date | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function addDaysToIsoDate(baseIso: string, days: number): string {
+  const date = parseLocalIsoDate(baseIso) || new Date();
+  date.setDate(date.getDate() + days);
+  return toLocalIsoDate(date);
+}
+
+function addMonthsToIsoDate(baseIso: string, months: number): string {
+  const date = parseLocalIsoDate(baseIso) || new Date();
+  date.setMonth(date.getMonth() + months);
+  return toLocalIsoDate(date);
+}
+
+type DateQuickOption = {
+  label: string;
+  value: string;
+  manual?: boolean;
+};
+
+function SmartDateField({
+  label,
+  required,
+  value,
+  onChange,
+  options,
+  full,
+}: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  options: DateQuickOption[];
+  full?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectedDate = parseLocalIsoDate(value);
+
+  function openNativePicker() {
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      try {
+        inputRef.current?.showPicker?.();
+      } catch {
+        // Browser fallback: the popover calendar is already open.
+      }
+    });
+  }
+
+  return (
+    <Field label={label} required={required} full={full}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div
+            role="button"
+            tabIndex={0}
+            className="relative"
+            onClick={openNativePicker}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') openNativePicker();
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="date"
+              className={cn(inputCls, 'pr-10 cursor-pointer')}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              onClick={openNativePicker}
+            />
+            <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <div className="grid grid-cols-2 gap-1 border-b border-slate-100 p-2 sm:grid-cols-3">
+            {options.map((option) => (
+              <Button
+                key={option.label}
+                type="button"
+                variant={option.value === value && !option.manual ? 'default' : 'ghost'}
+                size="sm"
+                className={cn('h-8 px-2 text-xs', option.value === value && !option.manual && 'bg-[#0b875b] hover:bg-[#08724e]')}
+                onClick={() => {
+                  if (option.manual) {
+                    openNativePicker();
+                    return;
+                  }
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            defaultMonth={selectedDate}
+            onSelect={(date) => {
+              if (!date) return;
+              onChange(toLocalIsoDate(date));
+              setOpen(false);
+            }}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </Field>
+  );
+}
 
 const TRADE_FAIR_OPTIONS = [
   { value: 'DemoPark', country: 'Tyskland' },
@@ -553,7 +681,7 @@ export default function CrmNewLeadPage() {
   const isInternal = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
   const lockedDealerNumber = !isInternal ? (appUser?.dealer_number ?? null) : null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalIsoDate(new Date());
 
   const [loadingLead, setLoadingLead] = useState(isEdit);
   const [editLeadNo, setEditLeadNo] = useState<number | null>(null);
@@ -563,8 +691,10 @@ export default function CrmNewLeadPage() {
   const [responsibleName, setResponsibleName] = useState(appUser?.display_name || appUser?.email || '');
   const [linkedDealer, setLinkedDealer] = useState<string>(lockedDealerNumber || '');
   const [firstContact, setFirstContact] = useState(today);
-  const [expectedClose, setExpectedClose] = useState('');
-  const [nextFollowup, setNextFollowup] = useState('');
+  const [expectedClose, setExpectedClose] = useState(() => addMonthsToIsoDate(today, 6));
+  const [nextFollowup, setNextFollowup] = useState(() => addDaysToIsoDate(today, 7));
+  const [expectedCloseChanged, setExpectedCloseChanged] = useState(isEdit);
+  const [nextFollowupChanged, setNextFollowupChanged] = useState(isEdit);
 
   const [machineTypes, setMachineTypes] = useState<string[]>([]);
   const [nextActivity, setNextActivity] = useState<string>('');
@@ -663,6 +793,8 @@ export default function CrmNewLeadPage() {
       setFirstContact(lead.first_contact_date || '');
       setExpectedClose(lead.expected_close_date || '');
       setNextFollowup(lead.next_followup_date || '');
+      setExpectedCloseChanged(true);
+      setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
       setNextActivity(lead.next_activity || '');
       setDemoHasRun(lead.demo_has_run || 'no');
@@ -746,6 +878,21 @@ export default function CrmNewLeadPage() {
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
+  const firstContactQuickOptions: DateQuickOption[] = [
+    { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
+    { label: 'I dag', value: today },
+    { label: '+1 dag', value: addDaysToIsoDate(today, 1) },
+    { label: 'Manuel dato', value: firstContact, manual: true },
+  ];
+  const relativeDateBase = firstContact || today;
+  const relativeDateQuickOptions: DateQuickOption[] = [
+    { label: '+1 uge', value: addDaysToIsoDate(relativeDateBase, 7) },
+    { label: '+1 måned', value: addMonthsToIsoDate(relativeDateBase, 1) },
+    { label: '+3 måneder', value: addMonthsToIsoDate(relativeDateBase, 3) },
+    { label: '+6 måneder', value: addMonthsToIsoDate(relativeDateBase, 6) },
+    { label: 'Manuel dato', value: '', manual: true },
+  ];
+
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
 
   const machineEstimate = useMemo(() => {
@@ -791,6 +938,23 @@ export default function CrmNewLeadPage() {
     if (hasMeaningfulSavedEstimate) return;
     setEstimatedValue(machineEstimate.value);
   }, [isEdit, loadedEstimatedValue, machineEstimate.value, machineTypesChanged]);
+
+  function handleFirstContactChange(value: string) {
+    const baseDate = value || today;
+    setFirstContact(value);
+    if (!expectedCloseChanged) setExpectedClose(addMonthsToIsoDate(baseDate, 6));
+    if (!nextFollowupChanged) setNextFollowup(addDaysToIsoDate(baseDate, 7));
+  }
+
+  function handleExpectedCloseChange(value: string) {
+    setExpectedCloseChanged(true);
+    setExpectedClose(value);
+  }
+
+  function handleNextFollowupChange(value: string) {
+    setNextFollowupChanged(true);
+    setNextFollowup(value);
+  }
 
   function handleMachineTypesChange(next: string[]) {
     setMachineTypesChanged(true);
@@ -1033,15 +1197,28 @@ export default function CrmNewLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label={tt('lbl_first_contact', lang)} required>
-              <input type="date" className={inputCls} value={firstContact} onChange={e=>setFirstContact(e.target.value)} />
-            </Field>
-            <Field label={tt('lbl_expected_close', lang)} required>
-              <input type="date" className={inputCls} value={expectedClose} onChange={e=>setExpectedClose(e.target.value)} />
-            </Field>
-            <Field label={tt('lbl_next_followup', lang)} required full>
-              <input type="date" className={inputCls} value={nextFollowup} onChange={e=>setNextFollowup(e.target.value)} />
-            </Field>
+            <SmartDateField
+              label={tt('lbl_first_contact', lang)}
+              required
+              value={firstContact}
+              onChange={handleFirstContactChange}
+              options={firstContactQuickOptions}
+            />
+            <SmartDateField
+              label={tt('lbl_expected_close', lang)}
+              required
+              value={expectedClose}
+              onChange={handleExpectedCloseChange}
+              options={relativeDateQuickOptions}
+            />
+            <SmartDateField
+              label={tt('lbl_next_followup', lang)}
+              required
+              full
+              value={nextFollowup}
+              onChange={handleNextFollowupChange}
+              options={relativeDateQuickOptions}
+            />
           </Section>
 
           <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
