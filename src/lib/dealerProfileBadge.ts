@@ -24,6 +24,7 @@ import {
 import { listDealerContacts } from "@/lib/dealerContactsService";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
 import { derivePortalRole } from "@/lib/portalAccess";
+import type { AppUser } from "@/data/appUsers";
 import {
   getActiveSellerView,
   getEffectiveSellerEmail,
@@ -220,6 +221,9 @@ export function useDealerPortfolioProfileBadge(
     display_name?: string | null;
     portal_role?: string | null;
     dealer_number?: string | null;
+    role?: AppUser["role"];
+    partner_type?: AppUser["partner_type"];
+    module_access?: string[] | null;
   } | null | undefined,
 ): DealerProfileBadge | null {
   const [badge, setBadge] = useState<DealerProfileBadge | null>(null);
@@ -239,7 +243,7 @@ export function useDealerPortfolioProfileBadge(
     let cancelled = false;
     if (!user) { setBadge(null); return; }
 
-    const role = derivePortalRole(user);
+    const role = derivePortalRole(user as Parameters<typeof derivePortalRole>[0]);
     const isBackend = role === "timan_backend";
     const isSeller = role === "timan_seller";
     if (!isBackend && !isSeller) { setBadge(null); return; }

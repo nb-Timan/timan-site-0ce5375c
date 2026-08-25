@@ -545,7 +545,7 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
   };
   const toggleMain = (entry: typeof MACHINE_INTEREST_MAIN[number]) => {
     const active = entry.values.some(v => value.includes(v));
-    const without = value.filter(v => !entry.values.includes(v as any));
+    const without = value.filter(v => !(entry.values as readonly string[]).includes(v));
     onChange(active ? without : [...without, entry.values[0]]);
   };
   const knownEquipment = new Set<string>();
@@ -556,7 +556,7 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
       for (const item of group.items) knownEquipment.add(equipmentValue(group.machine, item));
     }
   }
-  const knownMain = new Set(MACHINE_INTEREST_MAIN.flatMap(m => [...m.values]));
+  const knownMain = new Set<string>(MACHINE_INTEREST_MAIN.flatMap(m => [...m.values]));
   const otherSelected = value.filter(v => !knownMain.has(v) && !knownEquipment.has(v));
   const hasSelectedEquipmentContext = value.some(v => v.startsWith('Equipment:'))
     || value.some(v => ['RC-1000', 'RC-1000s', 'Timan 2620', 'New 2620', 'Timan 3330', 'Loader line / Tractor Equipment'].includes(v));
@@ -809,7 +809,7 @@ export default function CrmNewLeadPage() {
       setContactPostalCode(parsedContact.postalCode);
       setContactCity(parsedContact.city || (!parsedContact.postalCode ? parsedContact.zipCity : ''));
       const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
-      if (KNOWN_TRADE_FAIRS.includes(parsedTradeFair.name)) {
+      if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
         setTradeFair(parsedTradeFair.name);
       } else if (parsedTradeFair.name) {

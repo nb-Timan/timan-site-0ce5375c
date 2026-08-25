@@ -59,6 +59,7 @@ export interface CrmConfigurationRow {
   active_mode: string | null;
   owner_status: string | null;
 
+  lead_id: string | null;
   quote_sent_at: string | null;
   order_sent_at: string | null;
   submitted_at: string | null;
@@ -91,6 +92,7 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     document_type: isOrderLike ? 'order' : 'quote',
     case_type: rawCaseType,
     case_status: caseStatus,
+    lead_id: (row.lead_id as string | null) ?? null,
     status: (row.status as string | null) ?? null,
     created_at: (row.created_at as string) || new Date().toISOString(),
     last_saved_at: (row.last_saved_at as string | null) ?? null,
