@@ -42,6 +42,7 @@ import {
   fetchDealerAccounts, fetchDealerAccountStats,
   updateDealerAccount, type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
+  dealerTypeFromCustomerType,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
@@ -196,15 +197,6 @@ const CUSTOMER_TYPE_OPTIONS = [
   "Lukket kunde",
   "Ansat person enkel",
 ] as const;
-
-function dealerTypeFromCustomerType(label: string | null): string | null {
-  if (label === "Service Partner") return "service_partner";
-  if (label === "Importør") return "importer";
-  if (!label) return null;
-  return "dealer";
-}
-
-
 
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",

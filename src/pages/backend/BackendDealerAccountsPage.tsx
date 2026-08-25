@@ -34,6 +34,7 @@ import {
   upsertDealerAccountsBulk,
   TIMAN_SELLERS,
   DEALER_TYPE_OPTIONS,
+  dealerTypeFromCustomerType,
   type CsvParsedRow,
   type CsvImportResult,
   setDealerParent,
@@ -951,6 +952,7 @@ function EditDealerModal({
       const currentCustomerType = (dealer.customer_type_label ?? dealer.customer_type ?? "").trim();
       if (nextCustomerType !== currentCustomerType) {
         const r = await updateDealerAccount(dealer.id, {
+          dealer_type: dealerTypeFromCustomerType(nextCustomerType),
           customer_type: nextCustomerType || null,
           customer_type_label: nextCustomerType || null,
         });
