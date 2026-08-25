@@ -196,9 +196,10 @@ function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "custo
   });
 }
 
-function collaborationPartnerLabel(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): string {
+function collaborationPartnerLabel(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type" | "parent_account_number">): string {
   if (isDealerCustomerAccount(d)) return "Forhandlerkunde";
   if (isServicePartnerAccount(d)) return "Servicepartner";
+  if (d.parent_account_number) return "Forhandler";
   return "Samarbejdspartner";
 }
 
@@ -497,7 +498,7 @@ export default function CrmDealerDetailPage() {
     .filter((d) => {
       if (d.parent_account_number !== mainAccountNumber) return false;
       if (d.is_deleted || d.is_blocked) return false;
-      return isDealerCustomerAccount(d) || isServicePartnerAccount(d);
+      return Boolean(d.parent_account_number) || isDealerCustomerAccount(d) || isServicePartnerAccount(d);
     })
     .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
 
