@@ -536,12 +536,26 @@ function GermanyPlz2Overlay({
           },
           onEachFeature: (feature, featureLayer) => {
             const plz = String(feature?.properties?.plz ?? '').padStart(2, '0');
-            featureLayer.bindTooltip(plz, {
-              permanent: true,
-              direction: 'center',
-              className: 'pm-plz2-label',
-              opacity: 0.9,
-              pane: 'pm-plz2-label-pane',
+            const bounds = (featureLayer as L.Polygon).getBounds?.();
+            if (bounds?.isValid()) {
+              const center = bounds.getCenter();
+              const label = L.marker(center, {
+                interactive: false,
+                keyboard: false,
+                pane: 'pm-plz2-label-pane',
+                icon: L.divIcon({
+                  className: 'pm-plz2-label-wrap',
+                  html: `<span class="pm-plz2-label">${escapeHtml(plz)}</span>`,
+                  iconSize: [28, 22],
+                  iconAnchor: [14, 11],
+                }),
+              });
+              group.addLayer(label);
+            }
+            featureLayer.bindTooltip(`PLZ2 ${plz}`, {
+              direction: 'top',
+              className: 'pm-plz2-hover-label',
+              opacity: 0.95,
             });
             featureLayer.bindPopup(
               `<div class="pm-plz2-popup"><div>PLZ2: <strong>${escapeHtml(plz)}</strong></div><div>Germany</div></div>`,
@@ -1533,8 +1547,10 @@ export default function PartnerMapPage() {
         .leaflet-popup.pm-timan-popup .leaflet-popup-content { margin:0; width:300px !important; max-width:calc(100vw - 48px); }
         .leaflet-popup.pm-timan-popup .leaflet-popup-tip { box-shadow:0 10px 24px rgba(15,23,42,.2); }
         .leaflet-container.pm-plz2-hovering { cursor:pointer; }
-        .leaflet-tooltip.pm-plz2-label { background:rgba(255,255,255,.82); border:1px solid rgba(45,90,39,.16); border-radius:999px; box-shadow:0 1px 4px rgba(15,23,42,.08); color:#1f4d2d; font-size:11px; font-weight:800; line-height:1; padding:3px 5px; pointer-events:none; }
-        .leaflet-tooltip.pm-plz2-label:before { display:none; }
+        .pm-plz2-label-wrap { background:transparent; border:0; pointer-events:none; }
+        .pm-plz2-label { display:inline-flex; min-width:24px; height:20px; align-items:center; justify-content:center; background:rgba(255,255,255,.84); border:1px solid rgba(45,90,39,.16); border-radius:999px; box-shadow:0 1px 4px rgba(15,23,42,.08); color:#1f4d2d; font-size:11px; font-weight:800; line-height:1; padding:0 5px; pointer-events:none; }
+        .leaflet-tooltip.pm-plz2-hover-label { background:rgba(255,255,255,.92); border:1px solid rgba(45,90,39,.16); border-radius:999px; box-shadow:0 1px 4px rgba(15,23,42,.08); color:#1f4d2d; font-size:11px; font-weight:800; line-height:1; padding:3px 6px; pointer-events:none; }
+        .leaflet-tooltip.pm-plz2-hover-label:before { display:none; }
         .pm-plz2-popup { font-family:inherit; font-size:12px; line-height:1.5; color:#111827; }
         .pm-timan-popup-card { border-top:5px solid ${TIMAN_GOLD}; background:white; font-family:inherit; }
         .pm-timan-popup-head { display:flex; align-items:center; gap:8px; padding:10px 12px 5px; }
