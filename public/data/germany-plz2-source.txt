@@ -1,0 +1,7 @@
+Germany PLZ2 / Postleitzahl-Leitregionen overlay data
+
+Source:
+https://github.com/tdudek/de-plz-geojson/blob/master/plz-2stellig.geojson
+
+The file public/data/germany-plz2.geojson contains the downloaded GeoJSON
+FeatureCollection with 95 two-digit German postal-code regions.

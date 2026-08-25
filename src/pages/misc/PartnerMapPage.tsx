@@ -100,6 +100,9 @@ const T: Record<string, Record<Language, string>> = {
 interface Position { center: [number, number]; zoom: number }
 const EUROPE_VIEW: Position = { center: [50.5, 9.5], zoom: 4 };
 const WORLD_VIEW: Position = { center: [25, 10], zoom: 2 };
+const GERMANY_BOUNDS: [number, number, number, number] = [47.3, 5.9, 55.1, 15.0];
+
+type AdministrativeOverlayId = 'none' | 'de_plz2';
 
 type Continent = 'europe' | 'north_america' | 'south_america' | 'asia' | 'africa' | 'oceania' | 'other';
 
@@ -466,6 +469,118 @@ function CtrlWheelZoom() {
     container.addEventListener('wheel', onWheel, { passive: true });
     return () => container.removeEventListener('wheel', onWheel);
   }, [map]);
+  return null;
+}
+
+function GermanyPlz2Overlay({
+  enabled,
+  onError,
+}: {
+  enabled: boolean;
+  onError: (message: string | null) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!enabled) {
+      onError(null);
+      return;
+    }
+
+    let alive = true;
+    const group = L.layerGroup();
+    const container = map.getContainer();
+
+    if (!map.getPane('pm-plz2-fill-pane')) {
+      map.createPane('pm-plz2-fill-pane');
+    }
+    if (!map.getPane('pm-plz2-label-pane')) {
+      map.createPane('pm-plz2-label-pane');
+    }
+    const fillPane = map.getPane('pm-plz2-fill-pane');
+    const labelPane = map.getPane('pm-plz2-label-pane');
+    if (fillPane) {
+      fillPane.style.zIndex = '360';
+      fillPane.style.pointerEvents = 'auto';
+    }
+    if (labelPane) {
+      labelPane.style.zIndex = '390';
+      labelPane.style.pointerEvents = 'none';
+    }
+
+    group.addTo(map);
+    map.flyToBounds(
+      L.latLngBounds(
+        [GERMANY_BOUNDS[0], GERMANY_BOUNDS[1]],
+        [GERMANY_BOUNDS[2], GERMANY_BOUNDS[3]],
+      ),
+      { padding: [36, 36], maxZoom: 6, duration: 0.7 },
+    );
+
+    fetch('/data/germany-plz2.geojson')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        onError(null);
+        const layer = L.geoJSON(data, {
+          pane: 'pm-plz2-fill-pane',
+          style: {
+            color: '#287a48',
+            weight: 1,
+            opacity: 0.68,
+            fillColor: '#2fb36d',
+            fillOpacity: 0.08,
+          },
+          onEachFeature: (feature, featureLayer) => {
+            const plz = String(feature?.properties?.plz ?? '').padStart(2, '0');
+            featureLayer.bindTooltip(plz, {
+              permanent: true,
+              direction: 'center',
+              className: 'pm-plz2-label',
+              opacity: 0.9,
+              pane: 'pm-plz2-label-pane',
+            });
+            featureLayer.bindPopup(
+              `<div class="pm-plz2-popup"><div>PLZ2: <strong>${escapeHtml(plz)}</strong></div><div>Germany</div></div>`,
+              { closeButton: true, maxWidth: 180 },
+            );
+            featureLayer.on({
+              mouseover: (e) => {
+                container.classList.add('pm-plz2-hovering');
+                (e.target as L.Path).setStyle({
+                  fillOpacity: 0.18,
+                  weight: 2,
+                  opacity: 0.9,
+                });
+              },
+              mouseout: (e) => {
+                container.classList.remove('pm-plz2-hovering');
+                (e.target as L.Path).setStyle({
+                  fillOpacity: 0.08,
+                  weight: 1,
+                  opacity: 0.68,
+                });
+              },
+            });
+          },
+        });
+        group.addLayer(layer);
+      })
+      .catch(() => {
+        if (!alive) return;
+        onError('PLZ2-områder kunne ikke indlæses.');
+      });
+
+    return () => {
+      alive = false;
+      container.classList.remove('pm-plz2-hovering');
+      group.removeFrom(map);
+    };
+  }, [enabled, map, onError]);
+
   return null;
 }
 
@@ -954,6 +1069,8 @@ export default function PartnerMapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [resetTarget, setResetTarget] = useState<Position>(EUROPE_VIEW);
+  const [administrativeOverlay, setAdministrativeOverlay] = useState<AdministrativeOverlayId>('none');
+  const [administrativeOverlayError, setAdministrativeOverlayError] = useState<string | null>(null);
 
   // Map base layer style — persisted per user in localStorage.
   type MapStyleId = 'standard' | 'satellite' | 'terrain' | 'dark';
@@ -1247,6 +1364,7 @@ export default function PartnerMapPage() {
 
   const selected = selectedId ? partners.find((p) => p.id === selectedId) ?? null : null;
   const goToView = (target: Position) => {
+    setAdministrativeOverlay('none');
     setFitTo(null);
     setSelectedId(null);
     setResetTarget(target);
@@ -1414,6 +1532,10 @@ export default function PartnerMapPage() {
         .leaflet-popup.pm-timan-popup .leaflet-popup-content-wrapper { border-radius:12px; box-shadow:0 12px 30px rgba(15,23,42,.24); padding:0; overflow:hidden; }
         .leaflet-popup.pm-timan-popup .leaflet-popup-content { margin:0; width:300px !important; max-width:calc(100vw - 48px); }
         .leaflet-popup.pm-timan-popup .leaflet-popup-tip { box-shadow:0 10px 24px rgba(15,23,42,.2); }
+        .leaflet-container.pm-plz2-hovering { cursor:pointer; }
+        .leaflet-tooltip.pm-plz2-label { background:rgba(255,255,255,.82); border:1px solid rgba(45,90,39,.16); border-radius:999px; box-shadow:0 1px 4px rgba(15,23,42,.08); color:#1f4d2d; font-size:11px; font-weight:800; line-height:1; padding:3px 5px; pointer-events:none; }
+        .leaflet-tooltip.pm-plz2-label:before { display:none; }
+        .pm-plz2-popup { font-family:inherit; font-size:12px; line-height:1.5; color:#111827; }
         .pm-timan-popup-card { border-top:5px solid ${TIMAN_GOLD}; background:white; font-family:inherit; }
         .pm-timan-popup-head { display:flex; align-items:center; gap:8px; padding:10px 12px 5px; }
         .pm-timan-popup-head img { width:70px; height:auto; display:block; }
@@ -1523,6 +1645,17 @@ export default function PartnerMapPage() {
                     <option value="satellite">Korttype: Satellit</option>
                     <option value="terrain">Korttype: Terræn</option>
                     <option value="dark">Korttype: Mørk</option>
+                  </select>
+                </div>
+                <div className="relative h-9 flex items-center">
+                  <select
+                    value={administrativeOverlay}
+                    onChange={(e) => setAdministrativeOverlay(e.target.value as AdministrativeOverlayId)}
+                    title="Område"
+                    className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer max-w-[240px]"
+                  >
+                    <option value="none">Område: Ingen</option>
+                    <option value="de_plz2">Område: Germany - Postleitzahl-Leitregionen (PLZ2)</option>
                   </select>
                 </div>
                 {fullscreenSupported && (
@@ -1690,6 +1823,10 @@ export default function PartnerMapPage() {
                     <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
                     <SelectedVisibilityGuard selected={selected} onHidden={() => setSelectedId(null)} />
+                    <GermanyPlz2Overlay
+                      enabled={administrativeOverlay === 'de_plz2'}
+                      onError={setAdministrativeOverlayError}
+                    />
                     <TimanHeadquartersLayer lang={uiLanguage} partners={partners} />
                     {showPartnerLayer && (
                       <ClusterLayer
@@ -1723,6 +1860,12 @@ export default function PartnerMapPage() {
                       </button>
                     )}
                   </div>
+
+                  {administrativeOverlay === 'de_plz2' && administrativeOverlayError && (
+                    <div className="absolute top-3 left-3 z-[500] max-w-xs rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
+                      {administrativeOverlayError}
+                    </div>
+                  )}
 
                   {loading && (
                     <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/40 text-sm text-gray-700">
