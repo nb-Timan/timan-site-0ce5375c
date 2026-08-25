@@ -88,3 +88,32 @@ export async function listCrm2620Trials(limit = 500): Promise<Crm2620Trial[]> {
     .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
     .slice(0, limit);
 }
+
+export async function deleteCrm2620Trial(id: string): Promise<void> {
+  const localRows = readLocal();
+  const localHadRow = localRows.some((row) => row.id === id);
+
+  try {
+    const { error } = await supabase
+      .from("crm_2620_trials")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    if (localHadRow) {
+      writeLocal(localRows.filter((row) => row.id !== id));
+    }
+    notifyChanged();
+    return;
+  } catch (error) {
+    if (!localHadRow) {
+      console.warn("[crm2620Trials.delete] Supabase delete failed", error);
+      throw error;
+    }
+
+    console.warn("[crm2620Trials.delete] Supabase failed, deleting local fallback row only", error);
+    writeLocal(localRows.filter((row) => row.id !== id));
+    notifyChanged();
+  }
+}

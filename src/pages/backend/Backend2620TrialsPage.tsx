@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { ClipboardList, Eye, RefreshCcw, Search } from "lucide-react";
+import * as XLSX from "xlsx-js-style";
+import { ClipboardList, Download, Eye, RefreshCcw, Search, Trash2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
-import { listCrm2620Trials, type Crm2620Trial } from "@/lib/crm2620TrialsService";
+import { deleteCrm2620Trial, listCrm2620Trials, type Crm2620Trial } from "@/lib/crm2620TrialsService";
 
 function fmtDate(value: string | null | undefined): string {
   if (!value) return "-";
@@ -31,6 +32,34 @@ function InfoLine({ label, value }: { label: string; value: string | null | unde
   );
 }
 
+function exportTrials(rows: Crm2620Trial[]): void {
+  const exportRows = rows.map((row) => ({
+    Dato: fmtDate(row.created_at),
+    Firma: row.company_cvr,
+    Kontaktperson: row.contact_person,
+    Adresse: row.address || "",
+    "Postnummer/by": row.zip_city,
+    Land: row.country || "",
+    Telefon: row.phone,
+    "E-mail": row.email,
+    Kommentar: row.comment || "",
+    "Timan saelger": row.responsible_seller_name || "",
+    "Timan saelger e-mail": row.responsible_seller_email || "",
+    "Oprettet af": row.created_by_email || "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(exportRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Afproevning 2620");
+  const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `afproevning-2620-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Backend2620TrialsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -39,6 +68,7 @@ export default function Backend2620TrialsPage() {
   const [loadingRows, setLoadingRows] = useState(true);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Crm2620Trial | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const portalRole = derivePortalRole(appUser);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
@@ -55,6 +85,23 @@ export default function Backend2620TrialsPage() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  async function handleDelete(row: Crm2620Trial) {
+    const ok = window.confirm(`Vil du slette afprøvningen for ${row.company_cvr}?`);
+    if (!ok) return;
+
+    setDeletingId(row.id);
+    try {
+      await deleteCrm2620Trial(row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+      if (selected?.id === row.id) setSelected(null);
+    } catch (error) {
+      console.error("[Backend2620TrialsPage.delete]", error);
+      window.alert("Kunne ikke slette afprøvningen. Prøv at genindlæse og forsøg igen.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -93,14 +140,25 @@ export default function Backend2620TrialsPage() {
               <p className="mt-1 text-sm text-slate-500">Separat register. Tæller ikke som leads, demo-leads eller pipeline.</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Genindlæs
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => exportTrials(visibleRows)}
+              disabled={visibleRows.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              Eksportér Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Genindlæs
+            </button>
+          </div>
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -132,10 +190,13 @@ export default function Backend2620TrialsPage() {
                     <th className="px-4 py-3 text-left">Dato</th>
                     <th className="px-4 py-3 text-left">Firma</th>
                     <th className="px-4 py-3 text-left">Kontaktperson</th>
+                    <th className="px-4 py-3 text-left">Adresse</th>
                     <th className="px-4 py-3 text-left">Postnr./by</th>
+                    <th className="px-4 py-3 text-left">Land</th>
                     <th className="px-4 py-3 text-left">Telefon</th>
                     <th className="px-4 py-3 text-left">E-mail</th>
                     <th className="px-4 py-3 text-left">Timan sælger</th>
+                    <th className="px-4 py-3 text-left">Kommentar</th>
                     <th className="px-4 py-3 text-right">Handling</th>
                   </tr>
                 </thead>
@@ -145,19 +206,45 @@ export default function Backend2620TrialsPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">{fmtDate(row.created_at)}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{row.company_cvr}</td>
                       <td className="px-4 py-3 text-slate-700">{row.contact_person}</td>
+                      <td className="min-w-48 px-4 py-3 text-slate-600">{row.address || "-"}</td>
                       <td className="px-4 py-3 text-slate-600">{row.zip_city}</td>
+                      <td className="px-4 py-3 text-slate-600">{row.country || "-"}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">{row.phone}</td>
                       <td className="px-4 py-3 text-slate-600">{row.email}</td>
                       <td className="px-4 py-3 text-slate-600">{row.responsible_seller_name || row.responsible_seller_email || "-"}</td>
+                      <td className="max-w-56 px-4 py-3 text-slate-600">
+                        {row.comment ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelected(row)}
+                            className="line-clamp-2 text-left text-xs font-semibold text-emerald-700 underline-offset-2 hover:underline"
+                          >
+                            Kommentar: {row.comment}
+                          </button>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelected(row)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Åbn
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelected(row)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Åbn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(row)}
+                            disabled={deletingId === row.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Slet
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
