@@ -21,6 +21,7 @@ import {
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
 import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
@@ -237,6 +238,7 @@ export default function CrmDealerDetailPage() {
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showEditDealer, setShowEditDealer] = useState(false);
+  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
@@ -489,9 +491,6 @@ export default function CrmDealerDetailPage() {
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
   const hasGroup = branchNumbers.length > 1;
-  const dealerCustomers = dealers
-    .filter((d) => d.parent_account_number === mainAccountNumber && isDealerCustomerAccount(d))
-    .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
   const collaborationPartners = dealers
     .filter((d) => {
       if (d.parent_account_number !== mainAccountNumber) return false;
@@ -695,7 +694,6 @@ export default function CrmDealerDetailPage() {
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
-            ["dealer_customers", `Forhandlerkunder (${dealerCustomers.length})`],
             ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
             ["documents", tl("tab_documents", lang)],
           ] as const).map(([val, label]) => (
@@ -792,7 +790,8 @@ export default function CrmDealerDetailPage() {
 
               <CollaborationPartnersPanel
                 partners={collaborationPartners}
-                onOpen={(d) => navigate(`/portal/crm/my-dealers/${d.account_number}`)}
+                stats={stats}
+                onOpenList={() => setShowCollaborationModal(true)}
               />
             </div>
           </div>
@@ -802,15 +801,6 @@ export default function CrmDealerDetailPage() {
 
 
         {/* USERS — portal users + registered contact persons */}
-        <TabsContent value="dealer_customers" className="mt-0">
-          <DealerCustomersPanel
-            customers={dealerCustomers}
-            stats={stats}
-            onOpen={(d) => navigate(`/portal/crm/my-dealers/${d.account_number}`)}
-            formatCountry={formatCountry}
-          />
-        </TabsContent>
-
         <TabsContent value="users" className="mt-0">
           <UsersAndContactsPanel
             dealer={dealer}
@@ -861,6 +851,18 @@ export default function CrmDealerDetailPage() {
           }}
         />
       )}
+
+      <CollaborationPartnersModal
+        open={showCollaborationModal}
+        partners={collaborationPartners}
+        stats={stats}
+        formatCountry={formatCountry}
+        onClose={() => setShowCollaborationModal(false)}
+        onOpenDealer={(d) => {
+          setShowCollaborationModal(false);
+          navigate(`/portal/crm/my-dealers/${d.account_number}`);
+        }}
+      />
     </CrmLayout>
   );
 }
@@ -879,32 +881,48 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
 
 function CollaborationPartnersPanel({
   partners,
-  onOpen,
+  stats,
+  onOpenList,
 }: {
   partners: DealerAccount[];
-  onOpen: (dealer: DealerAccount) => void;
+  stats: Record<string, DealerAccountStats>;
+  onOpenList: () => void;
 }) {
+  const preview = partners.slice(0, 3);
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Samarbejdspartnere</h3>
-        <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold">
+        <button
+          type="button"
+          onClick={onOpenList}
+          className="text-left text-sm font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-700"
+        >
+          Samarbejdspartnere
+        </button>
+        <button
+          type="button"
+          onClick={onOpenList}
+          className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
+          aria-label={`Vis ${partners.length} samarbejdspartnere`}
+        >
           {partners.length}
-        </span>
+        </button>
       </div>
       {partners.length === 0 ? (
         <p className="text-sm text-slate-500">Ingen samarbejdspartnere tilknyttet endnu.</p>
       ) : (
-        <div className="max-h-64 overflow-y-auto pr-1">
+        <div>
           <ul className="space-y-2">
-            {partners.map((partner) => {
+            {preview.map((partner) => {
               const label = collaborationPartnerLabel(partner);
+              const partnerStats = stats[partner.id];
               const location = [partner.postal_code, partner.city].filter(Boolean).join(" ");
               return (
                 <li key={partner.id}>
                   <button
                     type="button"
-                    onClick={() => onOpen(partner)}
+                    onClick={onOpenList}
                     className="w-full rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -921,6 +939,11 @@ function CollaborationPartnersPanel({
                           )}
                         </div>
                         {location && <div className="mt-1 text-xs text-slate-500 truncate">{location}</div>}
+                        <div className="mt-2 flex gap-3 text-[10px] text-slate-500">
+                          <span><strong className="text-slate-800">{partnerStats?.quote_count ?? 0}</strong> Tilbud</span>
+                          <span><strong className="text-slate-800">{partnerStats?.order_count ?? 0}</strong> Ordrer</span>
+                          <span><strong className="text-slate-800">{partnerStats?.activity_count ?? 0}</strong> Akt.</span>
+                        </div>
                       </div>
                       <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     </div>
@@ -929,80 +952,117 @@ function CollaborationPartnersPanel({
               );
             })}
           </ul>
+          {partners.length > preview.length && (
+            <button
+              type="button"
+              onClick={onOpenList}
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              Vis alle {partners.length} <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function DealerCustomersPanel({
-  customers,
+function CollaborationPartnersModal({
+  open,
+  partners,
   stats,
-  onOpen,
   formatCountry,
+  onClose,
+  onOpenDealer,
 }: {
-  customers: DealerAccount[];
+  open: boolean;
+  partners: DealerAccount[];
   stats: Record<string, DealerAccountStats>;
-  onOpen: (dealer: DealerAccount) => void;
   formatCountry: (country: string | null | undefined) => string;
+  onClose: () => void;
+  onOpenDealer: (dealer: DealerAccount) => void;
 }) {
-  if (customers.length === 0) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
-        <Building2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-        <p className="text-sm text-slate-500">Ingen forhandlerkunder tilknyttet denne konto endnu.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Forhandlerkunder</h3>
-        <p className="text-xs text-slate-500 mt-1">
-          Underkonti koblet til denne hovedkonto. Klik på en kunde for at se deres tilbud, ordrer, aktiviteter og historik.
-        </p>
-      </div>
-      <div className="divide-y divide-slate-100">
-        {customers.map((customer) => {
-          const customerStats = stats[customer.id];
-          const location = [customer.postal_code, customer.city].filter(Boolean).join(" ");
-          return (
-            <button
-              key={customer.id}
-              type="button"
-              onClick={() => onOpen(customer)}
-              className="w-full px-5 py-4 text-left hover:bg-emerald-50/40 transition-colors flex items-center justify-between gap-4"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-900">{customer.branch_name || customer.company_name}</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">Forhandlerkunde</span>
-                  <span className="font-mono text-xs text-slate-400">#{customer.account_number}</span>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Samarbejdspartnere
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">{partners.length}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        {partners.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+            <Building2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Ingen samarbejdspartnere tilknyttet endnu.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {partners.map((partner) => {
+              const partnerStats = stats[partner.id];
+              const label = collaborationPartnerLabel(partner);
+              const location = [partner.postal_code, partner.city].filter(Boolean).join(" ");
+              const query = `?dealer=${encodeURIComponent(partner.account_number)}`;
+
+              return (
+                <div key={partner.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-bold text-slate-900">
+                        {partner.branch_name || partner.company_name}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          {label}
+                        </span>
+                        {partner.account_number && (
+                          <span className="font-mono text-xs text-slate-400">#{partner.account_number}</span>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        {location || "-"}{partner.country ? ` · ${formatCountry(partner.country)}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenDealer(partner)}
+                      className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      Åbn side
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                    <Link to={`/portal/crm/quotes${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
+                      <div className="font-bold text-slate-900">{partnerStats?.quote_count ?? 0}</div>
+                      <div className="text-slate-500">Tilbud</div>
+                    </Link>
+                    <Link to={`/portal/crm/orders${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
+                      <div className="font-bold text-slate-900">{partnerStats?.order_count ?? 0}</div>
+                      <div className="text-slate-500">Ordrer</div>
+                    </Link>
+                    <Link to={`/portal/crm/calendar${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
+                      <div className="font-bold text-slate-900">{partnerStats?.activity_count ?? 0}</div>
+                      <div className="text-slate-500">Akt.</div>
+                    </Link>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold">
+                    <Link to={`/portal/service/claims${query}`} className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+                      <ClipboardList className="h-3.5 w-3.5" /> Servicesager
+                    </Link>
+                    <Link to={`/portal/service/warranty/registrations${query}`} className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+                      <FileText className="h-3.5 w-3.5" /> Garantiregistreringer
+                    </Link>
+                  </div>
                 </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {location || "-"}{customer.country ? ` · ${formatCountry(customer.country)}` : ""}
-                </div>
-              </div>
-              <div className="shrink-0 grid grid-cols-3 gap-3 text-center text-xs">
-                <div>
-                  <div className="font-bold text-slate-900">{customerStats?.quote_count ?? 0}</div>
-                  <div className="text-slate-400">Tilbud</div>
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">{customerStats?.order_count ?? 0}</div>
-                  <div className="text-slate-400">Ordrer</div>
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">{customerStats?.activity_count ?? 0}</div>
-                  <div className="text-slate-400">Akt.</div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
