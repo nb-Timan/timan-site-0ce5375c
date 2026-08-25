@@ -92,6 +92,17 @@ const T: Record<string, Record<Language, string>> = {
   noCoords: { da: '(ingen koordinater)', en: '(no coords)', de: '(keine Koord.)', it: '(no coord.)', hu: '(nincs koord.)' },
   worldView: { da: 'Vis hele verden', en: 'Show world', de: 'Weltweit', it: 'Mondo', hu: 'Világ' },
   europeView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
+  globalView: { da: 'Global visning', en: 'Global view', de: 'Globale Ansicht', it: 'Vista globale', hu: 'Globális nézet' },
+  mapType: { da: 'Korttype', en: 'Map type', de: 'Kartentyp', it: 'Tipo mappa', hu: 'Térképtípus' },
+  mapStandard: { da: 'Standard', en: 'Standard', de: 'Standard', it: 'Standard', hu: 'Standard' },
+  mapSatellite: { da: 'Satellit', en: 'Satellite', de: 'Satellit', it: 'Satellite', hu: 'Műhold' },
+  mapTerrain: { da: 'Terræn', en: 'Terrain', de: 'Gelände', it: 'Terreno', hu: 'Terep' },
+  mapDark: { da: 'Mørk', en: 'Dark', de: 'Dunkel', it: 'Scura', hu: 'Sötét' },
+  area: { da: 'Område', en: 'Area', de: 'Gebiet', it: 'Area', hu: 'Terület' },
+  areaNone: { da: 'Ingen', en: 'None', de: 'Keine', it: 'Nessuna', hu: 'Nincs' },
+  areaGermanyPlz2: { da: 'Germany - Postleitzahl-Leitregionen (PLZ2)', en: 'Germany - Postal-code regions (PLZ2)', de: 'Deutschland - Postleitzahl-Leitregionen (PLZ2)', it: 'Germania - regioni CAP (PLZ2)', hu: 'Németország - irányítószám-régiók (PLZ2)' },
+  fullscreen: { da: 'Fuld skærm', en: 'Fullscreen', de: 'Vollbild', it: 'Schermo intero', hu: 'Teljes képernyő' },
+  exitFullscreen: { da: 'Afslut fuld skærm', en: 'Exit fullscreen', de: 'Vollbild beenden', it: 'Esci da schermo intero', hu: 'Kilépés a teljes képernyőből' },
   countries: { da: 'Lande', en: 'Countries', de: 'Länder', it: 'Paesi', hu: 'Országok' },
   coverage: { da: 'Partnerdækning', en: 'Partner coverage', de: 'Partnerabdeckung', it: 'Copertura', hu: 'Lefedettség' },
   noPartnerIn: { da: 'Lande uden partner', en: 'Countries without partner', de: 'Länder ohne Partner', it: 'Paesi senza partner', hu: 'Partner nélkül' },
@@ -1641,26 +1652,26 @@ export default function PartnerMapPage() {
                   className="h-9 px-2.5 flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
                   title={T.europeView[lang]}
                 >
-                  <span aria-hidden>🌍</span> Vis Europa
+                  <span aria-hidden>🌍</span> {T.europeView[lang]}
                 </button>
                 <button
                   onClick={worldView}
                   className="h-9 px-2.5 flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
                   title={T.worldView[lang]}
                 >
-                  <span aria-hidden>🌐</span> Global visning
+                  <span aria-hidden>🌐</span> {T.globalView[lang]}
                 </button>
                 <div className="relative h-9 flex items-center">
                   <select
                     value={mapStyle}
                     onChange={(e) => setMapStyle(e.target.value as MapStyleId)}
-                    title="Korttype"
+                    title={T.mapType[lang]}
                     className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer"
                   >
-                    <option value="standard">Korttype: Standard</option>
-                    <option value="satellite">Korttype: Satellit</option>
-                    <option value="terrain">Korttype: Terræn</option>
-                    <option value="dark">Korttype: Mørk</option>
+                    <option value="standard">{T.mapType[lang]}: {T.mapStandard[lang]}</option>
+                    <option value="satellite">{T.mapType[lang]}: {T.mapSatellite[lang]}</option>
+                    <option value="terrain">{T.mapType[lang]}: {T.mapTerrain[lang]}</option>
+                    <option value="dark">{T.mapType[lang]}: {T.mapDark[lang]}</option>
                   </select>
                 </div>
                 <div className="relative h-9 flex items-center">
@@ -1671,20 +1682,20 @@ export default function PartnerMapPage() {
                       setAdministrativeOverlay(nextOverlay);
                       if (nextOverlay === 'de_plz2') setMapStyle('standard');
                     }}
-                    title="Område"
+                    title={T.area[lang]}
                     className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer max-w-[240px]"
                   >
-                    <option value="none">Område: Ingen</option>
-                    <option value="de_plz2">Område: Germany - Postleitzahl-Leitregionen (PLZ2)</option>
+                    <option value="none">{T.area[lang]}: {T.areaNone[lang]}</option>
+                    <option value="de_plz2">{T.area[lang]}: {T.areaGermanyPlz2[lang]}</option>
                   </select>
                 </div>
                 {fullscreenSupported && (
                   <button
                     onClick={toggleFullscreen}
                     className="h-9 px-2.5 hidden md:flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
-                    title={isFullscreen ? 'Afslut fuld skærm' : 'Fuld skærm'}
+                    title={isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
                   >
-                    <span aria-hidden>⛶</span> {isFullscreen ? 'Afslut fuld skærm' : 'Fuld skærm'}
+                    <span aria-hidden>⛶</span> {isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
                   </button>
                 )}
               </div>
@@ -1874,9 +1885,9 @@ export default function PartnerMapPage() {
                             || document.webkitExitFullscreen)?.call(document);
                         }}
                         className="bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 text-[11px] font-bold tracking-wider text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1.5"
-                        title="Afslut fuld skærm"
+                        title={T.exitFullscreen[lang]}
                       >
-                        <span aria-hidden>↙</span> Afslut fuld skærm
+                        <span aria-hidden>↙</span> {T.exitFullscreen[lang]}
                       </button>
                     )}
                   </div>
