@@ -169,7 +169,7 @@ const L: Record<string, Record<Language, string>> = {
   recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
   none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
   contact_info:     { da: "Firma information", en: "Company information", de: "Firmeninformationen", it: "Informazioni azienda", hu: "Cégadatok" },
-  contact_call:     { da: "Sælger / kontaktperson", en: "Sales / contact person", de: "Vertrieb / Ansprechpartner", it: "Vendite / referente", hu: "Értékesítő / kapcsolattartó" },
+  contact_call:     { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Referente", hu: "Kapcsolattartó" },
   address_line_1:   { da: "Adresse 1", en: "Address line 1", de: "Adresse 1", it: "Indirizzo 1", hu: "Cím 1" },
   address_line_2:   { da: "Adresse 2", en: "Address line 2", de: "Adresse 2", it: "Indirizzo 2", hu: "Cím 2" },
   postal_code:      { da: "Postnummer", en: "Postal code", de: "PLZ", it: "CAP", hu: "Irányítószám" },
@@ -1648,9 +1648,9 @@ function ContactHero({
   const callPhone = primaryPhone || dealer.phone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
   const callLabel = primaryName ? tl("contact_call", lang) : tl("call", lang);
-  const callSublabel = [primaryName, callPhone].filter(Boolean).join(" · ");
+  const callSublabel = primaryName && callPhone ? `${primaryName}\n${callPhone}` : [primaryName, callPhone].filter(Boolean).join("\n");
   const mailSublabel = primaryEmail
-    ? [primaryName, primaryEmail].filter(Boolean).join(" · ")
+    ? [primaryName, primaryEmail].filter(Boolean).join("\n")
     : mailAddr;
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
@@ -1788,11 +1788,6 @@ function ContactHero({
                   <div className="text-slate-400 italic">—</div>
                 )}
               </div>
-              {primaryName && (
-                <div className="mt-2 text-[11px] text-slate-500">
-                  {tl("contact_person", lang)}: <span className="font-semibold text-slate-700">{primaryName}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1836,7 +1831,7 @@ function ContactHero({
                     {a.icon}
                   </span>
                   <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
-                  {a.sublabel && <span className="max-w-full truncate text-[10px] leading-tight text-slate-500">{a.sublabel}</span>}
+                  {a.sublabel && <span className="max-w-full whitespace-pre-line break-words text-[10px] leading-tight text-slate-500">{a.sublabel}</span>}
                 </>
               );
               if (a.disabled) return <button key={a.key} disabled className={cls}>{inner}</button>;
